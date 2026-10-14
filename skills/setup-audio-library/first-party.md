@@ -8,7 +8,7 @@ Below, `<ライブラリの置き場>` is the existing library-location placehol
 
 [AKARI Sounds](https://github.com/AkariLabs/akari-sounds) is a **first-party audio library** operated by the
 same organization as AKARI Video (all tracks AI-generated; generation records public; commercial use permitted;
-no credit required). It is declared as the default source in `catalog/audio/candidates.json`'s `first_party`.
+no credit required). It is declared as the default source in the candidate file (`akari assets catalog --json` → `audioCandidatesPath`)'s `first_party`.
 
 SKILL.md's user-instruction requirement and prohibition on bulk/parallel acquisition **protect third-party servers
 and licenses**. They do not apply to the organization's own GitHub Releases (owner ruling 2026-08-03:
@@ -28,19 +28,18 @@ from `AkariLabs/akari-sounds`. **Do not mix access to other hosts into this flow
 ## 2. Run
 
 ```sh
-# ユーザー向けの入口（launcher 経由・引数はそのまま下記スクリプトへ渡る）
+# ユーザー向けの入口
 akari sounds
 akari sounds --variant wav --force
 
-# スクリプト直叩き（開発・検証時）
 # 取得内容の確認（ダウンロードなし）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs --dry-run
+akari sounds --dry-run
 
 # 一括取得（mp3・既定）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs
+akari sounds
 
 # WAV が欲しい場合（3 分割 zip・約 3GB 級。通常は mp3 で足りる）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs --variant wav
+akari sounds --variant wav
 ```
 
 ## 3. What happens

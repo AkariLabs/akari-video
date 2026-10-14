@@ -72,8 +72,8 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
 
     protected async sendToPartner(): Promise<void> {
         try {
-            const sent = await this.commands.executeCommand(PARTNER_COMMAND, lintPartnerPrompt(this.state.findings));
-            if (sent !== false) this.close();
+            await this.commands.executeCommand(PARTNER_COMMAND, lintPartnerPrompt(this.state.findings));
+            this.close();
         } catch (error) {
             this.messages.error(t('project.editCheck.resultDialog.couldNotSendPartnerError', { value1: error instanceof Error ? error.message : String(error) }));
         }

@@ -15,6 +15,7 @@ test('legacy output keeps the original CSS bytes', () => {
   const legacy = css(sheet({ scale: 1.25, rotate: 30 }));
   assert.match(legacy, /translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale, 1\)\) rotate\(var\(--rotate, 0deg\)\)/u);
   // origin/main 2589c836 で採った入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
+  // 字幕の丸い SVG 縁をシートへ注入したため、HTML のハッシュを更新した。
   assert.equal(createHash('sha256').update(sheet({ scale: 1.25, rotate: 30 })).digest('hex'),
-    '9a47270dcf7a4929ad02cec5eddecd5eec429e50c134f652625119fee6677882');
+    'c4922deb6ded235b4e08d049c6903e0382367bec262b11d407102ce076dbbdc1');
 });

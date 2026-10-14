@@ -29,11 +29,36 @@ test('preview publishes library fonts in the existing font-face list', async t =
         const assets = await service.getOverlayRuntimeAssetUrls();
         const face = assets.bundledCaptionFontFaces.find(value => value.id === 'probe-hand');
         assert.equal(face?.family, 'Probe Hand');
+        assert.equal(face?.source, 'library');
+        assert.equal(assets.bundledCaptionFontFaces.find(value => value.id === 'noto-sans-jp-direct')?.source, undefined);
         assert.equal((await fetch(face.url)).status, 200);
     } finally {
         service.server?.close();
         if (previous === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = previous;
         if (previousLibrary === undefined) delete process.env.AKARI_LIBRARY_ROOT; else process.env.AKARI_LIBRARY_ROOT = previousLibrary;
+    }
+});
+
+test('one library font file shared by multiple faces is registered once', async () => {
+    const service = new AkariPreviewServiceImpl();
+    const path = fileURLToPath(new URL('../../../../../assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf', import.meta.url));
+    service.loadLibraryCaptionFontFaces = async () => [
+        { id: 'font-regular', family: 'Font Regular', file: 'font.ttf', weight: '400', path },
+        { id: 'font-alt', family: 'Font Alt', file: 'font.ttf', weight: '400', path }
+    ];
+    const register = service.registerStaticAsset.bind(service);
+    let registrations = 0;
+    service.registerStaticAsset = (...args) => {
+        if (args[0].startsWith('caption-library-')) registrations++;
+        return register(...args);
+    };
+    try {
+        const faces = (await service.getOverlayRuntimeAssetUrls()).bundledCaptionFontFaces;
+        assert.equal(faces.find(face => face.id === 'font-regular')?.url,
+            faces.find(face => face.id === 'font-alt')?.url);
+        assert.equal(registrations, 1);
+    } finally {
+        service.server?.close();
     }
 });
 

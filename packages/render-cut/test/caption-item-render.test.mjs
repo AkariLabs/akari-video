@@ -167,9 +167,9 @@ test("detached caption HTML and vars are byte-identical to the shared caption ge
 
   assert.equal(detached.html, direct.html);
   assert.equal(JSON.stringify(detached.vars), JSON.stringify(direct.vars));
-  assert.match(detached.html, /-webkit-text-stroke:0 transparent;text-shadow:var\(--caption-rounded-stroke\);/u);
-  assert.match(detached.vars["--caption-rounded-stroke"], /^2px 0px 0 #000000/u);
-  assert.equal(detached.vars["--caption-rounded-stroke"], direct.vars["--caption-rounded-stroke"]);
+  assert.equal(detached.vars["--caption-rounded-stroke"], undefined);
+  assert.equal(detached.vars["--caption-stroke"], direct.vars["--caption-stroke"]);
+  assert.doesNotMatch(detached.html, /caption-rounded-stroke/u);
 });
 
 test("missing and hidden caption items are skipped without throwing", async () => {

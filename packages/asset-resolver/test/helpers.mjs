@@ -13,6 +13,8 @@ export function setupFixtureEnv(extraEnv = {}) {
   const home = path.join(root, 'home');
   mkdirSync(baseDir, { recursive: true });
   mkdirSync(home, { recursive: true });
+  const bundledCatalog = path.join(root, 'bundled-catalog');
+  mkdirSync(bundledCatalog);
 
   const catalog = buildFixtureCatalog(baseDir);
   const catalogPath = path.join(root, 'catalog.json');
@@ -23,6 +25,7 @@ export function setupFixtureEnv(extraEnv = {}) {
     AKARI_CREATOR_ROOT: path.join(root, 'creator'),
     AKARI_HOME: home,
     AKARI_ASSETS_CATALOG: catalogPath,
+    AKARI_CATALOG_ROOT: bundledCatalog,
     ...extraEnv,
   };
 

@@ -1,5 +1,6 @@
 import { t } from '@akari-video/i18n';
 import type { CaptionTextStyle, CaptionTextStylePatch } from './caption-store';
+import { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
 export { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
 
 export type CaptionPanel = 'font' | 'style';
@@ -58,8 +59,51 @@ export function renderableCaptionFonts<T extends { id: string }>(fonts: readonly
     return fonts.filter(font => faces.has(font.id) || available[font.id]?.status === 'available');
 }
 
-export function captionFontRowDetail(tags: readonly string[]): string {
-    return t('annotationscommon.captionPanelState.font.rowDetail', { fallback: tags.includes('japanese') ? '' : t('annotationscommon.captionPanelState.font.japaneseFallback') });
+export interface CaptionPanelFontRow {
+    id: string; title: string; displayName?: string; family: string;
+    tags: readonly string[]; bundled: boolean; own?: boolean;
+}
+
+export function firstCaptionFontFamilies(faces: readonly ({ id: string; family: string; source?: 'library' } | undefined)[]):
+    Map<string, string> & { libraryIds: Set<string> } {
+    const families = Object.assign(new Map<string, string>(), { libraryIds: new Set<string>() });
+    for (const face of faces) {
+        if (face && !families.has(face.id)) {
+            families.set(face.id, face.family);
+            if (face.source === 'library') families.libraryIds.add(face.id);
+        }
+    }
+    return families;
+}
+
+/** Build one selectable row per id, retaining the first loaded family for user fonts. */
+export function captionPanelFontRows(catalog: readonly CaptionPanelFontRow[], faces: ReadonlyMap<string, string>,
+    availability: Readonly<Record<string, { status: string; family: string }>> = {}): CaptionPanelFontRow[] {
+    const libraryIds = (faces as ReadonlyMap<string, string> & { libraryIds?: ReadonlySet<string> }).libraryIds;
+    const rows: CaptionPanelFontRow[] = catalog.map(font => ({ ...font,
+        family: faces.get(font.id) ?? availability[font.id]?.family ?? font.family,
+        ...(libraryIds?.has(font.id) ? { own: true, bundled: false } : {}) }));
+    const known = new Set(rows.map(font => font.id));
+    for (const [id, family] of faces) {
+        if (known.has(id) || !libraryIds?.has(id)) continue;
+        rows.push({ id, title: family, family, tags: [], bundled: false, own: true });
+        known.add(id);
+    }
+    return rows;
+}
+
+/** An unset or unavailable family must never become a recent-font entry. */
+export function recentCaptionFontId(currentFamily: string | undefined,
+    rows: readonly CaptionPanelFontRow[]): string | undefined {
+    if (!currentFamily) return undefined;
+    return rows.find(font => font.family === currentFamily)?.id
+        ?? (currentFamily === CAPTION_FONT_FAMILY ? 'noto-sans-jp' : undefined);
+}
+
+export function captionFontRowDetail(tags: readonly string[], bundled = true): string {
+    return t(bundled ? 'annotationscommon.captionPanelState.font.rowDetail'
+        : 'annotationscommon.captionPanelState.font.rowDetailUnbundled',
+    { fallback: tags.includes('japanese') ? '' : t('annotationscommon.captionPanelState.font.japaneseFallback') });
 }
 
 /** Only verified, bundled font files get weight choices. Reference fonts have no known local axes. */

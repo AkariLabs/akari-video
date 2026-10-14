@@ -13,11 +13,8 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
+import { resolvePromptRoute } from '../common/prompt-route';
 import { activePartnerTerminals, stopPartnerTerminals } from './partner-terminal-shutdown';
-
-// ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
-// （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
-const PARTNER_NOT_CONNECTED_MESSAGE = t('partner.navigation.commands.noPartnerConnectedConnectAddPartnerPanelRightStatus');
 
 export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
     return currentWidth === undefined || currentWidth > windowWidth * 0.4
@@ -57,10 +54,8 @@ export const AkariPartnerCommands = {
     } as Command,
     /**
      * 輸入リスト④（素材カード「エージェントに頼む」）向けの注入コマンド。
-     * SEND_TO_PARTNER と同じ送信経路（AkariPartnerWidget#sendFromExternal →
-     * PartnerChannel#send）を再利用するが、未接続時に日本語トーストで案内する
-     * 点が異なる。SEND_TO_PARTNER 自体の挙動（home-flow が使う）は変えない
-     * ため、既存コマンドを改造せず別コマンドとして追加する。
+     * CLI は SEND_TO_PARTNER と同じ経路で送り、拡張と web はコピーして入力欄を示す。
+     * SEND_TO_PARTNER 自体の挙動（home-flow が使う）は変えない。
      */
     INJECT_PROMPT: {
         id: 'akari.partner.injectPrompt',
@@ -99,6 +94,16 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     protected liveTerminal() {
         return this.terminals.all.find(terminal => terminal.kind === PartnerTerminal.KIND &&
             !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0);
+    }
+
+    protected extensionTarget(webRunning: boolean) {
+        const visibleWidgetIds = this.shell.widgets.filter(candidate => candidate.isVisible).map(candidate => candidate.id);
+        const visible = resolveDeliveryTarget({ visibleWidgetIds, catalog: PARTNER_CATALOG });
+        if (visible.form === 'extension') return visible;
+        if (webRunning) return undefined;
+        const attachedWidgetIds = this.shell.widgets.filter(candidate => candidate.isAttached).map(candidate => candidate.id);
+        const attached = resolveDeliveryTarget({ visibleWidgetIds: attachedWidgetIds, catalog: PARTNER_CATALOG });
+        return attached.form === 'extension' ? attached : undefined;
     }
 
     registerCommands(registry: CommandRegistry): void {
@@ -181,23 +186,80 @@ export class AkariPartnerCommandContribution implements CommandContribution {
             }
         });
         registry.registerCommand(AkariPartnerCommands.INJECT_PROMPT, {
-            execute: async (text: unknown) => {
+            execute: async (text: unknown): Promise<true | 'copied' | false> => {
                 if (typeof text !== 'string' || !text.trim()) {
                     return false;
                 }
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
-                const sent = widget.sendFromExternal(text);
-                if (!sent) {
-                    this.messages.warn(PARTNER_NOT_CONNECTED_MESSAGE);
+                const terminal = this.liveTerminal();
+                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+                const webRunning = !!web?.isRunning();
+                const extension = this.extensionTarget(webRunning);
+                let route = resolvePromptRoute({
+                    hasChannel: widget.hasDeliveryChannel,
+                    hasLiveTerminal: !!terminal,
+                    visibleExtension: extension?.agent
+                        ? { agent: extension.agent, focusCommandId: extension.focusCommandId } : undefined,
+                    webPartner: webRunning && web?.agentId ? { agent: web.agentId } : undefined
+                });
+                if (route.route === 'pty' && widget.sendFromExternal(text)) return true;
+                if (route.route === 'reattach-pty') {
+                    if (terminal && widget.reattachDeliveryTerminal(terminal) && widget.sendFromExternal(text)) return true;
+                    route = resolvePromptRoute({
+                        hasChannel: false,
+                        hasLiveTerminal: false,
+                        visibleExtension: extension?.agent
+                            ? { agent: extension.agent, focusCommandId: extension.focusCommandId } : undefined,
+                        webPartner: webRunning && web?.agentId ? { agent: web.agentId } : undefined
+                    });
                 }
-                return sent;
+                if (route.route === 'copy') {
+                    try { await this.clipboard.writeText(text); }
+                    catch {
+                        this.messages.warn(t('partner.navigation.commands.couldNotCopyRequestCopyManuallyWarning', { request: text }));
+                        return false;
+                    }
+                    if (route.form === 'extension' && route.focusCommandId) {
+                        try { await registry.executeCommand(route.focusCommandId); }
+                        catch { /* コピーした依頼文はそのまま使える。 */ }
+                    }
+                    if (route.form === 'web' && web) {
+                        try { await this.shell.revealWidget(web.id); }
+                        catch { /* コピーした依頼文はそのまま使える。 */ }
+                    }
+                    const name = PARTNER_CATALOG.find(entry => entry.form === route.form && entry.agent === route.agent)?.name ?? route.agent;
+                    this.messages.info(t('partner.navigation.commands.requestCopiedPastePartnerInputInfo', { name }));
+                    return 'copied';
+                }
+                const open = t('partner.navigation.commands.openPartnerAction');
+                const copy = t('partner.navigation.commands.copyRequestAction');
+                void this.messages.warn(t('partner.navigation.commands.partnerNotOpenWarning'), open, copy)
+                    .then(async choice => {
+                        if (choice === open) {
+                            try {
+                                await this.clipboard.writeText(text);
+                                this.messages.info(t('partner.navigation.commands.requestCopiedOpenPartnerInfo'));
+                            } catch {
+                                await this.messages.warn(t('partner.navigation.commands.couldNotCopyRequestCopyManuallyWarning', { request: text }));
+                            }
+                            try { await registry.executeCommand(AkariPartnerCommands.OPEN.id); }
+                            catch { /* 元の案内は表示済み。 */ }
+                        }
+                        if (choice === copy) {
+                            try { await this.clipboard.writeText(text); }
+                            catch { await this.messages.warn(t('partner.navigation.commands.couldNotCopyRequestCopyManuallyWarning', { request: text })); }
+                        }
+                    }).catch(() => undefined);
+                return false;
             }
         });
         registry.registerCommand(AkariPartnerCommands.DELIVERY_TARGET, {
             execute: async () => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
                 return resolveDeliveryTarget({
                     cliAgent: widget.deliveryChannelAgent,
+                    webAgent: web?.isRunning() ? web.agentId : undefined,
                     visibleWidgetIds: this.shell.widgets.filter(candidate => candidate.isAttached).map(candidate => candidate.id),
                     catalog: PARTNER_CATALOG
                 });

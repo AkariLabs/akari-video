@@ -32,6 +32,7 @@ import {
     CAPTION_RICH_LAYER_CSS,
     captionStyleFitsFrame,
     alignCaptionRichFillPhase,
+    captionOutlineRuntime,
     isAudioItemAudible,
     resolveInternalTrackZ,
     TRANSITION_VOCABULARY
@@ -57,7 +58,6 @@ import {
 } from '../common/caption-edit-geometry';
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { captionAxisPlacement, captionZonePlacement } from '../common/caption-position-preset';
-import { roundedCaptionStrokeShadows } from '../common/caption-rounded-stroke';
 import { captionWrapFitPosition, captionWrapFitWidth } from '../common/caption-wrap-fit';
 import { clearCaptionSideActions } from '../common/caption-action-clearance';
 import {
@@ -4818,6 +4818,12 @@ export function previewBootstrapScript(): string {
                 selection.addRange(range);
                 return true;
             };
+            const syncRunShadowText = element => {
+                for (const run of element.querySelectorAll('.akari-caption__run[data-akari-shadow-text]')) {
+                    // Editing may place the new text inside or beside the positioned ink span.
+                    run.setAttribute('data-akari-shadow-text', run.textContent || '');
+                }
+            };
             const refreshActiveCaptionRuns = () => {
                 const edit = activeCaptionEdit;
                 if (!edit) return;
@@ -4843,11 +4849,18 @@ export function previewBootstrapScript(): string {
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                     const holder = document.createElement('div');
                     holder.innerHTML = renderCaptionRuns('<p class="akari-caption__line">' + escaped + '</p>',
-                        text, caption.runs);
+                        text, caption.runs, false,
+                        caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined);
+                    const runRules = holder.querySelector('style');
+                    if (runRules && !document.getElementById('akari-caption-run-rules')) {
+                        runRules.id = 'akari-caption-run-rules';
+                        document.head.appendChild(runRules);
+                    }
                     const line = holder.querySelector('.akari-caption__line');
                     const content = line?.querySelector('.akari-caption__tok') || line;
                     if (!content) return;
                     element.replaceChildren(...Array.from(content.childNodes));
+                    syncRunShadowText(element);
                 } else if (element.querySelector('.akari-caption__run')) {
                     element.textContent = text;
                 } else return;
@@ -4904,7 +4917,8 @@ export function previewBootstrapScript(): string {
             });
             const captionAxisPlacementFn = (${captionAxisPlacement.toString()});
             const captionZonePlacementFn = (${captionZonePlacement.toString()});
-            const roundedCaptionStrokeShadowsFn = (${roundedCaptionStrokeShadows.toString()});
+            const captionOutline = (${captionOutlineRuntime.toString()})();
+            captionOutline.install(document);
             const captionWrapFitWidthFn = (${captionWrapFitWidth.toString()});
             const captionWrapFitPositionFn = (${captionWrapFitPosition.toString()});
             const clearCaptionSideActionsFn = (${clearCaptionSideActions.toString()});
@@ -5702,10 +5716,9 @@ export function previewBootstrapScript(): string {
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
-                if (layoutPlate && editorWidth && caption?.runs?.some(run =>
-                    Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+                if (layoutPlate && editorWidth && caption?.runs?.length > 0
                     && lineCount(element) > targetLines) {
-                    // offsetWidth rounds away the subpixel width reserved by font-size runs.
+                    // offsetWidth rounds away the subpixel width reserved by styled runs.
                     element.style.width = Math.max(parseFloat(element.style.width) || 0, editorWidth + 1) + 'px';
                 }
                 window.akari.syncRunSelection?.();
@@ -5722,6 +5735,10 @@ export function previewBootstrapScript(): string {
                     void commitCaptionEdit();
                 }
             }, true);
+            captionLayer.addEventListener('input', event => {
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
+                syncRunShadowText(activeCaptionEdit.element);
+            });
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
                 const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));
@@ -7900,8 +7917,6 @@ export function previewBootstrapScript(): string {
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + (caption.timeDomain === 'output' && caption.textStyleVars?.['--caption-stroke']
-                        ? '.akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : '')
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
@@ -7920,7 +7935,7 @@ export function previewBootstrapScript(): string {
                     + (caption.textStyle?.karaoke
                         ? '.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}'
                             + '.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}'
-                            + '.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
+                            + '.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
                         : '')
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
                     + revealWordCss
@@ -7975,7 +7990,7 @@ export function previewBootstrapScript(): string {
                             + resolvedFrameCss
                             + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                             + presetCaptionTokenCss
-                            + (caption.style === 'karaoke' ? '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}' : '')
+                            + (caption.style === 'karaoke' ? '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}' : '')
                             + captionContextCss(caption, false, true)
                             + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
                             + markup
@@ -8024,8 +8039,6 @@ export function previewBootstrapScript(): string {
                     : '';
                 return '<div class="akari-caption' + captionContextClasses(caption) + '"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + (caption.timeDomain === 'output' && caption.textStyleVars?.['--caption-stroke']
-                        ? '.akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : '')
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
@@ -8053,12 +8066,6 @@ export function previewBootstrapScript(): string {
                 const vars = caption.textStyleVars || {};
                 for (const [name, value] of Object.entries(vars)) {
                     captionPlate.style.setProperty(name, String(value));
-                }
-                captionPlate.style.removeProperty('--caption-rounded-stroke');
-                if (caption.timeDomain === 'output') {
-                    const shadows = roundedCaptionStrokeShadowsFn(String(vars['--caption-stroke'] || ''),
-                        String(vars['--caption-text-shadow'] || 'none'));
-                    if (shadows) captionPlate.style.setProperty('--caption-rounded-stroke', shadows);
                 }
                 if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
                     // 明示 size_px が無いときの既定は render-cut と同じ（縦長 = 幅 6% / 横長 = 38px）
@@ -8152,8 +8159,8 @@ export function previewBootstrapScript(): string {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
                     const wrapWidthActive = Boolean(caption?.textStyleVars?.['--caption-wrap-width']);
-                    if (wrapWidthActive
-                        || caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                    if (wrapWidthActive || Boolean(caption?.runs?.some(run =>
+                        Number.isFinite(run?.style?.scale) && run.style.scale !== 1))) {
                         captionPlate.dataset.captionSizedRun = '';
                         const captionPositionX = caption?.textStyle?.position?.x;
                         const captionAnchor = caption?.textStyle?.text_anchor;
@@ -8213,7 +8220,10 @@ export function previewBootstrapScript(): string {
                                     + captionTextAnimationPlateAttrs(captionAnimation) + '>');
                         }
                         captionHtml = caption.runs?.length
-                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs,
+                                Boolean(caption.textStyleVars?.['--plate-ext-bg']),
+                                caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined)
+                            : captionHtml;
                         if (caption.textStyle?.animation?.in?.id === 'typewriter'
                             || caption.textStyle?.animation?.out?.id === 'typewriter') {
                             captionHtml = decorateCaptionTypewriterHtml(captionHtml,

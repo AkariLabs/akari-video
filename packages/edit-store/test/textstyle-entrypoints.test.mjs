@@ -7,12 +7,15 @@ import test from 'node:test';
 const repo = fileURLToPath(new URL('../../..', import.meta.url));
 const entrypoints = [
   ['packages/render-cut/src/caption-resolve.mjs', 'loadTextstyleCatalogSync'],
-  ['packages/gpu-export/src/page-builder.mjs', 'loadTextstyleCatalogSync'],
   ['packages/osr-export/src/page-builder.mjs', 'loadTextstyleCatalogSync'],
   ['packages/preview-server/src/server.mjs', 'loadTextstyleCatalogSync'],
   ['apps/shell/extensions/akari-preview/src/node/akari-preview-service.ts', 'loadTextstyleCatalogSync'],
   ['apps/shell/extensions/akari-preview/src/browser/akari-preview-captions.ts', 'resolveTextstyleCatalog'],
   ['packages/edit-store/src/caption-store.ts', 'resolveTextstyleCatalog'],
+];
+const delegatedEntrypoints = [
+  'packages/gpu-export/src/page-builder.mjs',
+  'packages/render-cut/src/internal-render.mjs',
 ];
 
 function* sources(directory) {
@@ -30,6 +33,11 @@ test('all caption preset entrypoints use the merged catalog', () => {
     assert.match(source, new RegExp(`\\b${resolver}\\b`, 'u'), path);
     assert.match(source, /applyCaptionStylePresets\(/u, path);
     assert.doesNotMatch(source, /applyCaptionStylePresets\([^;]*?,\s*TEXTSTYLE_CATALOG\s*\)/su, path);
+  }
+  for (const path of delegatedEntrypoints) {
+    const source = readFileSync(join(repo, path), 'utf8');
+    assert.match(source, /\bprepareCaptionRenderInput\(/u, path);
+    assert.doesNotMatch(source, /applyCaptionStylePresets\(/u, path);
   }
   for (const scope of ['apps', 'packages']) {
     for (const path of sources(join(repo, scope))) {

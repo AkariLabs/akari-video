@@ -714,7 +714,6 @@
   // SVG foreignObject does not run the phase script in a caption fragment. Resolve
   // the same line coordinates in the measured DOM before serializing the texture.
   function captionRichPhaseHtml(value, config, html, extraCss) {
-    if (!value.richTextStyle) return html;
     const root = captionRoot(value, config, html, extraCss);
     try {
       const caption = root.querySelector('.akari-caption--rich');
@@ -758,6 +757,7 @@
           }
         }
       }
+      window.__akariCaptionOutlineRuntime.bake(root);
       root.querySelector('style')?.remove();
       root.querySelectorAll('script[data-akari-rich-phase]').forEach(script => script.remove());
       return root.innerHTML;
@@ -786,6 +786,26 @@
       right: rect.right - origin.left,
       bottom: rect.bottom - origin.top,
     };
+  }
+
+  function expandedCaptionRunRect(rect, rawOutset, rawRotation) {
+    const outset = Number.isFinite(rawOutset) ? Math.max(0, rawOutset) : 0;
+    const angle = (Number.isFinite(rawRotation) ? rawRotation : 0) * Math.PI / 180;
+    const width = Math.abs((rect.width + 2 * outset) * Math.cos(angle))
+      + Math.abs((rect.height + 2 * outset) * Math.sin(angle));
+    const height = Math.abs((rect.height + 2 * outset) * Math.cos(angle))
+      + Math.abs((rect.width + 2 * outset) * Math.sin(angle));
+    return { x: rect.x + (rect.width - width) / 2,
+      y: rect.y + (rect.height - height) / 2,
+      width, height };
+  }
+
+  function measureCaptionRunEffectRects(unitElement, origin) {
+    return [...unitElement.querySelectorAll('.akari-caption__run-frag')]
+      .flatMap(fragment => [...fragment.getClientRects()].map(rect =>
+        expandedCaptionRunRect(relativeRect(rect, origin),
+          Number(fragment.getAttribute('data-akari-ink-outset')),
+          Number(fragment.getAttribute('data-akari-ink-rotate')))));
   }
 
   function tokenRole(element) {
@@ -879,7 +899,9 @@
     const runRects = [...unitElement.querySelectorAll('.akari-caption__run')]
       .filter(run => typeof run.getBoundingClientRect === 'function')
       .map(run => relativeRect(run.getBoundingClientRect(), origin));
-    const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines), ...runRects];
+    const runEffectRects = measureCaptionRunEffectRects(unitElement, origin);
+    const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines),
+      ...runRects, ...runEffectRects];
     const ink = inkRects.length ? {
       x: Math.min(...inkRects.map(rect => rect.x)),
       y: Math.min(...inkRects.map(rect => rect.y)),
@@ -1188,6 +1210,30 @@
 
   function scopeCaptionCss(css, prefix) {
     if (css.includes("@")) throw new Error("caption variant CSS cannot contain at-rules");
+    const splitSelectors = value => {
+      const result = [];
+      let start = 0;
+      let parens = 0;
+      let brackets = 0;
+      let quote = null;
+      for (let at = 0; at < value.length; at++) {
+        const char = value[at];
+        if (quote) {
+          if (char === "\\") at++;
+          else if (char === quote) quote = null;
+        } else if (char === '"' || char === "'") quote = char;
+        else if (char === '(') parens++;
+        else if (char === ')') parens--;
+        else if (char === '[') brackets++;
+        else if (char === ']') brackets--;
+        else if (char === ',' && parens === 0 && brackets === 0) {
+          result.push(value.slice(start, at));
+          start = at + 1;
+        }
+      }
+      result.push(value.slice(start));
+      return result;
+    };
     let out = "";
     let index = 0;
     for (;;) {
@@ -1199,7 +1245,7 @@
       const close = css.indexOf("}", open);
       const selectors = css.slice(index, open);
       const body = css.slice(open, close < 0 ? css.length : close + 1);
-      out += selectors.split(",").map((one) => one.trim()).filter(Boolean)
+      out += splitSelectors(selectors).map((one) => one.trim()).filter(Boolean)
         .map((one) => `${prefix} ${one}`).join(",") + body;
       if (close < 0) break;
       index = close + 1;

@@ -61,7 +61,7 @@ export interface OverlayRuntimeAssetUrls {
     scrubAudioJavaScriptUrl?: string;
     captionFontUrl: string;
     latinCaptionFontUrl: string;
-    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }>;
+    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string; source?: 'library' }>;
 }
 
 export interface ReadVideoFxLutRequest {
@@ -96,6 +96,8 @@ export interface FragmentAssetPreviewResult {
     html: string;
     streams: (VideoStreamReference & { uri: string })[];
     warnings: string[];
+    /** プロジェクト内を指すが配信できなかった参照（まだ届いていない画像など）の file URI。 */
+    unserved?: string[];
 }
 
 export interface RasterizeTelopPreviewRequest {

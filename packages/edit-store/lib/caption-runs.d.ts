@@ -25,6 +25,22 @@ export interface CaptionRun {
         out?: CaptionRunAnimationSlot;
     };
     look?: Record<string, unknown>;
+    resolved_look?: {
+        plate?: {
+            color: string;
+            opacity: number;
+            padding_px: number;
+            radius_px: number;
+        };
+        outside_effect?: boolean;
+        text_shadow?: string;
+        ink_outset_px?: number;
+        rotate_deg?: number;
+        wrappable?: boolean;
+        gradient?: string;
+        replace_stroke?: boolean;
+        replace_shadow?: boolean;
+    };
     motion?: {
         in?: CaptionRunAnimationSlot;
         loop?: CaptionRunAnimationSlot;
@@ -131,4 +147,4 @@ export declare function moveDeletedCaptionRunsToUnresolved<T extends {
 /** Text-only notice for a caller that can present caption edit results to a user. */
 export declare function captionRunsRemovedNotice(removedRuns: readonly CaptionRun[], oldDisplayText: string): string | undefined;
 /** Self-contained because preview injects this function into its webview with toString(). */
-export declare function applyCaptionRunsToHtml(html: string, displayText: string, runs?: readonly CaptionRun[]): string;
+export declare function applyCaptionRunsToHtml(html: string, displayText: string, runs?: readonly CaptionRun[], preserveLineRoot?: boolean, richLayers?: boolean): string;

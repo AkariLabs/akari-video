@@ -56,9 +56,18 @@ function favoriteEntry(favorite: boolean, separator = false): LibraryMenuEntry {
 function infoEntry(): LibraryMenuEntry { return { id: 'info', label: t('project.library.menu.info'), icon: 'info' }; }
 
 export function libraryCardMenuEntries(target: LibraryMenuTarget, favorite: boolean): LibraryMenuEntry[] {
-    if (target.kind === 'asset') return target.item.category === 'font'
-        ? [{ id: 'apply', label: t('project.library.menu.applySelection'), icon: 'check' }, favoriteEntry(favorite, true), infoEntry()]
-        : assetMenuEntries(target.item, favorite);
+    if (target.kind === 'asset') {
+        if (target.item.category !== 'font') return assetMenuEntries(target.item, favorite);
+        const entries: LibraryMenuEntry[] = [
+            { id: 'apply', label: t('project.library.menu.applySelection'), icon: 'check' },
+            favoriteEntry(favorite, true), infoEntry()
+        ];
+        if (target.item.libraryDir) {
+            entries.push({ id: 'reveal', label: t('project.library.menu.reveal'), icon: 'folder-opened', separator: true });
+            entries.push({ id: 'remove-library', label: t('project.library.menu.remove'), icon: 'trash', danger: true });
+        }
+        return entries;
+    }
     if (target.kind === 'mystyle') {
         return [
             { id: 'apply', label: t('project.library.menu.applyText'), icon: 'check' },

@@ -61,6 +61,13 @@ export function frameEngineWatchdogScript(): string {
                     const first = errors[0];
                     cause = t('preview.frameEngine.watchdog.firstErrorPrefix') + first.message + ' ('
                         + (first.filename || '<inline>') + ':' + first.lineno + ')';
+                    // 初期化が catch で受けた失敗は Uncaught にならず errors に入らない。あとから出た別の
+                    // 例外が「最初のエラー」になっても、画面に出ている engine の失敗を落とさない。
+                    const shownEngineError = document.getElementById('frame-engine-error');
+                    const shownEngineErrorText = shownEngineError && shownEngineError.textContent
+                        ? shownEngineError.textContent.trim()
+                        : '';
+                    if (shownEngineErrorText) cause += t('preview.frameEngine.watchdog.engineErrorPrefix') + shownEngineErrorText;
                 } else if (typeof window.AkariFrameEngine === 'undefined') {
                     cause = t('preview.frameEngine.watchdog.frameEngineBundleDidNotLoadWindowAkariframeengine');
                 } else if (!root) {
