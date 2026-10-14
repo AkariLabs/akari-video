@@ -26,6 +26,7 @@
 //   2026-10-08 時点の CI の media レーンでは decision-cards の direction preset 保存待ちが timeout する。
 //   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
 //   2026-10-08: akari-preview の実 Chrome が要る 3 ファイルを shell から除外し、media で実行する。
+//   2026-10-14: 字幕の強調 × カラオケを実 DOM で見る 1 件を caption-emphasis-karaoke-dom に分け、同じく media へ（4 ファイル）。
 //   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
 // Windows 対応（2026-09-19・Windows 11 / Node 24.20.0 実測）:
@@ -268,14 +269,15 @@ export const LANES = {
       ext('akari-vibe-dock'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
-        // 実 Chrome を起動する 3 ファイルを除外（media レーンで実行）。
-        id: 'apps/shell/extensions/akari-preview (ブラウザ 3 ファイル除外)',
+        // 実 Chrome を起動する 4 ファイルを除外（media レーンで実行）。
+        id: 'apps/shell/extensions/akari-preview (ブラウザ 4 ファイル除外)',
         cwd: 'apps/shell/extensions/akari-preview',
         files: ['test/*.test.mjs'],
         exclude: [
           /caption-entry-animation-hit-region\.test\.mjs$/,
           /preview-element-mixed-branch\.test\.mjs$/,
-          /preview-element-selection-message\.test\.mjs$/
+          /preview-element-selection-message\.test\.mjs$/,
+          /caption-emphasis-karaoke-dom\.test\.mjs$/
         ]
       }
     ]
@@ -308,9 +310,9 @@ export const LANES = {
         // unit-media の build ステップで lib を作る。caption-entry の自前起動は
         // AKARI_TEST_CHROME_PATH を優先し、Linux のみ --no-sandbox を足す。
         // 共有 fixture とは起動引数が違うため、元の 3 引数を維持する。
-        id: 'apps/shell/extensions/akari-preview (実 Chrome が要る 3 ファイル)',
+        id: 'apps/shell/extensions/akari-preview (実 Chrome が要る 4 ファイル)',
         cwd: 'apps/shell/extensions/akari-preview',
-        files: ['test/caption-entry-animation-hit-region.test.mjs', 'test/preview-element-mixed-branch.test.mjs', 'test/preview-element-selection-message.test.mjs']
+        files: ['test/caption-entry-animation-hit-region.test.mjs', 'test/preview-element-mixed-branch.test.mjs', 'test/preview-element-selection-message.test.mjs', 'test/caption-emphasis-karaoke-dom.test.mjs']
       },
       {
         id: 'skills/analyze-footage vision-tracks (ffmpeg・swiftc)',
