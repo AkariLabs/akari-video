@@ -1719,6 +1719,13 @@ var require_caption_runs = __commonJS({
       const Segmenter = Intl.Segmenter;
       const segment = (value) => Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(value), (item) => item.segment);
       const chars = segment(displayText);
+      const decorationHtml = html.includes("data-decoration-text=");
+      if (decorationHtml)
+        runs = runs.filter((run) => Boolean(run?.look));
+      if (!runs.length)
+        return html;
+      const hasV1 = runs.some((run) => Boolean(run?.look));
+      const firstNewline = chars.findIndex((char) => /^\r?\n$/u.test(char));
       const defaultStroke = html.includes("akari-caption--single-line") ? "0 transparent" : "0.14em rgba(0,0,0,.9)";
       if (!runs.some((run) => Number.isInteger(run?.from) && Number.isInteger(run?.to) && run.from >= 0 && run.to <= chars.length && run.from < run.to))
         return html;
@@ -1749,6 +1756,8 @@ var require_caption_runs = __commonJS({
             };
         }
         for (let index = run.from; index < run.to; index++) {
+          if (hasV1 && !run.look && firstNewline >= 0 && index > firstNewline)
+            continue;
           resolved[index] = {
             ...resolved[index],
             role: run.role ?? resolved[index].role,
@@ -1768,11 +1777,15 @@ var require_caption_runs = __commonJS({
       const decode = (value) => value.replace(/&(amp|lt|gt|quot|#0?39);/g, (_3, key) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", "#039": "'" })[key] ?? _3);
       let position = 0;
       let decorationLine = false;
+      let renderedLineCount = 0;
       const decorate = (encoded) => {
         const value = decode(encoded);
         const decorated = segment(value).map((character) => {
           const item = resolved[position++];
-          if (!item || item.text !== character || !item.role && !Object.keys(item.style).length) {
+          const newline = /^\r?\n$/u.test(character);
+          if (decorationLine && /^\s+$/u.test(character))
+            return escape(character);
+          if (hasV1 && newline || !item || item.text !== character || !item.role && !Object.keys(item.style).length) {
             return flow ? `<span class="akari-caption__run-lift" style="position:relative">${escape(character)}</span>` : escape(character);
           }
           const style = decorationLine ? { ...item.style } : item.style;
@@ -1822,7 +1835,7 @@ var require_caption_runs = __commonJS({
           }
           if (flow && item.shadow === void 0)
             css.push("position:relative");
-          if (/^\s$/u.test(character))
+          if (/^\s$/u.test(character) && !newline)
             css.push("white-space:pre");
           const copiedShadow = item.shadow !== void 0 && (flow || !item.plate);
           return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""}${copiedShadow ? ` data-akari-shadow-text="${escape(character)}"${flow ? ' data-akari-shadow-flow="true"' : ""}` : ""} style="${css.join(";")}">${escape(character)}</span>`;
@@ -1830,6 +1843,9 @@ var require_caption_runs = __commonJS({
         return flow ? decorated.replace(/(?:<span class="akari-caption__run-lift" style="position:relative">[^<]*<\/span>){2,}/g, (group) => group.replace(/<\/span><span class="akari-caption__run-lift" style="position:relative">/g, "")) : decorated;
       };
       const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+        if (hasV1 && renderedLineCount > 0 && /^\r?\n$/u.test(chars[position] ?? ""))
+          position++;
+        renderedLineCount++;
         decorationLine = open.includes("data-decoration-text=");
         const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g, (whole, charOpen, charText, charClose, tag, plain) => {
           if (charOpen) {
@@ -1842,7 +1858,11 @@ var require_caption_runs = __commonJS({
       if (!richRuns.length)
         return renderedHtml;
       let lineStart = 0;
+      let layeredLineCount = 0;
       const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+        if (hasV1 && layeredLineCount > 0 && /^\r?\n$/u.test(chars[lineStart] ?? ""))
+          lineStart++;
+        layeredLineCount++;
         decorationLine = open.includes("data-decoration-text=");
         const lineOpen = flow && productLineRoot ? open.replace(/>$/, ' data-akari-flow-preserve-line-root="true">') : flow && decorationLine ? open.replace(/>$/, ' data-akari-flow-decorated-line="true">') : flow && html.includes('<div class="akari-caption__plate"') ? open.replace(/>$/, ' data-akari-flow-plain-line="true">') : open;
         const units = [];
@@ -1891,6 +1911,7 @@ var require_caption_runs = __commonJS({
         const lineEnd = index;
         lineStart = lineEnd;
         const fragments = [];
+        const crossingPlate = (runIndex) => richLayers && Boolean(runs[runIndex].resolved_look?.plate) && runs.slice(0, runIndex).some((prior) => Boolean(prior?.resolved_look?.plate) && prior.from < runs[runIndex].to && prior.to > runs[runIndex].from && !(prior.from <= runs[runIndex].from && prior.to >= runs[runIndex].to) && !(runs[runIndex].from <= prior.from && runs[runIndex].to >= prior.to));
         for (const run of richRuns) {
           const runIndex = runs.indexOf(run);
           const selected = units.filter((unit) => unit.index >= run.from && unit.index < run.to);
@@ -1987,7 +2008,7 @@ var require_caption_runs = __commonJS({
           }
           for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
             const resolvedLook = fragment.run.resolved_look;
-            const plate = resolvedLook?.plate;
+            const plate = crossingPlate(fragment.runIndex) ? void 0 : resolvedLook?.plate;
             const style = decorationLine ? { ...fragment.run.style ?? fragment.run.look ?? {} } : fragment.run.style ?? fragment.run.look ?? {};
             if (decorationLine)
               for (const key of [
@@ -2003,7 +2024,7 @@ var require_caption_runs = __commonJS({
             const shift = finite4(style.baseline_shift_em) ? style.baseline_shift_em : 0;
             const scale = finite4(style.scale) && style.scale > 0 ? style.scale : 1;
             const rgba = plate ? plateRgba(plate) : void 0;
-            const coveringPlates = plate ? runs.slice(fragment.runIndex + 1).filter((later) => Number.isInteger(later?.from) && Number.isInteger(later?.to) && later.from >= 0 && later.to <= chars.length && later.from < later.to && later.resolved_look?.plate && later.from <= fragment.run.from && later.to >= fragment.run.to && (later.from < fragment.run.from || later.to > fragment.run.to) && later.from <= fragment.from && later.to >= fragment.to).reverse().map((later) => {
+            const coveringPlates = plate ? runs.slice(fragment.runIndex + 1).filter((later) => Number.isInteger(later?.from) && Number.isInteger(later?.to) && later.from >= 0 && later.to <= chars.length && later.from < later.to && later.resolved_look?.plate && !crossingPlate(runs.indexOf(later)) && later.from <= fragment.run.from && later.to >= fragment.run.to && (later.from < fragment.run.from || later.to > fragment.run.to) && later.from <= fragment.from && later.to >= fragment.to).reverse().map((later) => {
               const color = plateRgba(later.resolved_look.plate);
               return `linear-gradient(${color},${color})`;
             }) : [];
@@ -2022,7 +2043,7 @@ var require_caption_runs = __commonJS({
                 `margin:-${plate.padding_px}px`,
                 "-webkit-box-decoration-break:clone",
                 "box-decoration-break:clone",
-                ...flow ? ["pointer-events:none"] : []
+                "pointer-events:none"
               ] : []
             ];
             const attrs = [
@@ -9039,8 +9060,15 @@ var require_caption_semantics = __commonJS({
           const defaultStyle = !Array.isArray(root) && root?.default_text_style && typeof root.default_text_style === "object" ? root.default_text_style : {};
           const effective = { ...defaultStyle, ...rowStyle };
           const runStyle = run.look ?? run.style ?? {};
-          if ((effective.underline === true || effective.strikethrough === true) && ["scale", "letter_spacing_em", "baseline_shift_em", "rotate_deg", "font_weight", "italic"].some((key) => Object.prototype.hasOwnProperty.call(runStyle, key))) {
+          if (run.look && (effective.underline === true || effective.strikethrough === true) && ["scale", "letter_spacing_em", "baseline_shift_em", "rotate_deg", "font_weight", "italic"].some((key) => Object.prototype.hasOwnProperty.call(runStyle, key))) {
             add("captions.run.decoration-shape", "warning", path, "\u4E0B\u7DDA\u30FB\u6253\u3061\u6D88\u3057\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u5B57\u5F62\u3092\u5909\u3048\u308B\u6307\u5B9A\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
+          }
+          if ((effective.fill !== void 0 || effective.strokes !== void 0) && background && runs.slice(0, runIndex).some((prior) => {
+            if (!prior || typeof prior !== "object" || !prior.look?.background)
+              return false;
+            return prior.from < run.to && prior.to > run.from && !(prior.from <= run.from && prior.to >= run.to) && !(run.from <= prior.from && run.to >= prior.to);
+          })) {
+            add("captions.run.layer-crossing", "warning", path, "\u5C64\u306E\u884C\u3067\u306F\u4EA4\u5DEE\u3059\u308B\u5F8C\u306E\u7BC4\u56F2\u306E\u53F0\u7D19\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
           }
           const gradientEffects = Boolean(effective.fill_gradient && !effective.fill && (effective.stroke || effective.stroke_inner || effective.extrude || effective.shadow || effective.glow));
           if (fragmentRun && typeof run.look?.rotate_deg === "number" && run.look.rotate_deg !== 0 && (effective.wrap_width_pct || effective.vertical)) {
