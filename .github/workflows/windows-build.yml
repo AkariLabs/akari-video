@@ -90,6 +90,12 @@ jobs:
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
           node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
 
+      # bundle-cli-node-modules.mjs（package の prepackage）は root node_modules から同梱 CLI の入口
+      # （@webav/mp4box.js）を解決する。apps/shell の --no-workspaces install では入らないため、
+      # release.yml の build-win と同じくここで root へ導入する（run 38548363906 の package 失敗より）
+      - name: Install bundled-CLI runtime deps (repo root)
+        run: node scripts/release/install-bundled-cli-deps.mjs
+
       - name: build:ext (tsc -b)
         working-directory: apps/shell
         run: npm run build:ext
