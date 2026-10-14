@@ -9101,8 +9101,7 @@ ${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
 ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
-${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${previewChatReviewScript()}</script><script>${previewBootstrapScript()}</script>
-${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${webviewScriptText(previewBootstrapScript())}</script>
+${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${webviewScriptText(previewChatReviewScript())}</script><script>${webviewScriptText(previewBootstrapScript())}</script>
 ${materialIdentity ? `<script>${materialRangeWebviewScript('video', materialIdentity)}</script>` : ''}
 ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {

@@ -39,6 +39,7 @@ import {
     TRANSITION_VOCABULARY
 } from '@akari-video/edit-store';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
+import { formatPreviewError } from '../common/preview-error-format';
 import { captionEmphasisMatches } from '../common/preview-emphasis-seat';
 import { captionInkClientRect } from '../common/caption-ink-rect';
 import { prioritizeCaptionStyleMarkup } from '../common/caption-style-composition';
@@ -142,6 +143,7 @@ export function previewBootstrapScript(): string {
                 return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
             };
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
+            const formatPreviewErrorFn = (${formatPreviewError.toString()});
             const canvasCaptionZPlanFn = (${canvasCaptionZPlan.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
             const captionEmphasisMatchesFn = (${captionEmphasisMatches.toString()});
@@ -11043,7 +11045,7 @@ export function previewBootstrapScript(): string {
                 if (overlaysAppended) {
                     window.akari.interaction?.clearSelection?.();
                     void window.akari.runtime.mount(summary).catch(error =>
-                        console.warn('[akari-preview] incremental overlay mount failed', error));
+                        console.warn('[akari-preview] incremental overlay mount failed', formatPreviewErrorFn(error)));
                 } else if (rotationChanged) {
                     void window.akari.runtime.mount(summary).then(() => {
                         window.akari.interaction?.restoreRotation3dAfterModel?.();
@@ -12655,7 +12657,7 @@ export function previewBootstrapScript(): string {
                     applyInitialPosition();
                     if (initialPositionApplied) tick(true);
                 }
-            }).catch(error => console.error('[akari-preview] overlay mount failed', error));
+            }).catch(error => console.error('[akari-preview] overlay mount failed', formatPreviewErrorFn(error)));
         })();`;
 }
 /** Embed self-contained range and placement functions in both material webviews. */
