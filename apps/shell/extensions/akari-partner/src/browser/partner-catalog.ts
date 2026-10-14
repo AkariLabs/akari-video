@@ -32,7 +32,7 @@ export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     binaryVerification: Record<string, PlatformBinaryVerification>;
     /**
      * 拡張が「CLI の実体を指す設定」を持つとき、同梱より新しい AKARI 管理の CLI をそこへ入れる。
-     * `platforms` は実機で確かめたプラットフォーム（`process.platform-process.arch`）だけを載せる。
+     * `platforms` は配布物の中身で確かめたプラットフォーム（`process.platform-process.arch`）だけを載せる。
      */
     managedCli?: { preference: string; platforms: string[] };
 }
