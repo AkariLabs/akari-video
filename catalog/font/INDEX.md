@@ -16,9 +16,9 @@
 preview.png の有無は検証対象外（存在してもエラーにならない）。生成スクリプトは `scripts/render-font-specimens.mjs`
 （対象・スキップ理由・DL 元 URL をマニフェストとして保持し再現可能）。
 
-**パックタグ（2026-08-06 追記）**: 無料 23 件（同梱 9 + 参照 OFL 7 + 参照配布のみ 7）の meta.json `tags` に
+**パックタグ（2026-08-06 追記）**: パック対象の無料 23 件（同梱 9 + 参照 OFL 7 + 参照配布のみ 7）の meta.json `tags` に
 `pack:telop-standard`（`pack:<pack-id>` 形式）を付与している。パック台帳の正本は `catalog/packs.json`
-（`akari-catalog-packs/v0`）。有料/サブスク 7 件にはパックタグを付けない（無料前提のパックのため）。
+（`akari-catalog-packs/v0`）。参照 OFL の別の 1 件と有料/サブスク 7 件にはパックタグを付けない。
 
 ## 分類の凡例（2026-08-05 拡充）
 

@@ -3,39 +3,39 @@
 ## 1. When to run
 
 - During first-time setup.
-- After updating `catalog/audio/candidates.json` (new sources/categories).
-- After another lane such as audio-import registers new entries in `catalog/audio/`
+- After updating the candidate file at `audioCandidatesPath` (new sources/categories).
+- After another lane such as audio-import registers new entries in the reference-record location
   (refresh already-owned gray-out state).
 
 ## 2. Run
 
 ```sh
-node packages/audio-library-setup/bin/generate-candidates-html.mjs
+akari assets audio candidates
 ```
 
-Default output: `catalog/audio/candidates.html`. Arguments can override:
+Default output: `<AKARI_HOME>/audio-candidates/candidates.html` (`AKARI_HOME` defaults to `~/.akari`). Arguments can override:
 
 ```sh
-node packages/audio-library-setup/bin/generate-candidates-html.mjs \
-  --candidates catalog/audio/candidates.json \
-  --catalog-dir catalog/audio \
-  --out catalog/audio/candidates.html
+akari assets audio candidates \
+  --candidates <path> \
+  --catalog-dir <path> \
+  --out <path>
 ```
 
-After generation, show the user `open catalog/audio/candidates.html` (or the generated absolute path)
+After generation, use the absolute path printed as `Wrote <path>` and show the user that path
 and ask them to open it in a browser.
 
 ## 3. What happens
 
 - A **default-source AKARI Sounds banner** appears at the top with track count, bulk-acquisition command,
   and Release link. This is the BGM/jingle default ([first-party.md](first-party.md)).
-- Displays the 13 candidate cards from `catalog/audio/candidates.json` (v2, owner ruling 2026-08-03),
+- Displays the 13 candidate cards from the candidate file at `audioCandidatesPath` (v2, owner ruling 2026-08-03),
   in 3 categories: applause / failure sounds / Japanese-style or battle hits and thuds, all missing from AKARI Sounds.
-  v1's 68 cards (including 27 external BGM cards and overlapping SFX cards) are preserved unchanged as legacy
-  `catalog/audio/candidates-legacy.json` and not displayed in HTML.
+  v1's 68 cards (including 27 external BGM cards and overlapping SFX cards) are preserved unchanged in
+  the legacy candidate file (`candidates-legacy.json`, next to the candidate file) and not displayed in HTML.
 - Every card links **only to a download-page URL** (`target="_blank"`). Clicking opens the legitimate source page
   in a new tab; no audio file is acquired.
-- **Ownership is calculated dynamically on every run by reading `catalog/audio/*/meta.json`.** An exact
+- **Ownership is calculated dynamically on every run by reading `*/meta.json` in the reference-record location.** An exact
   `source.url` match marks already-owned and grays out the card; a hostname-only match marks existing registration
   from the same distributor. This reflects other lanes' registrations without hardcoding.
 - Cards display confidence badges (verified in this lane / verified during research / not automatically verifiable,
@@ -48,7 +48,7 @@ and ask them to open it in a browser.
 ## 4. User guidance (template)
 
 ```text
-音源の候補リストを用意しました: catalog/audio/candidates.html
+音源の候補リストを用意しました: <Wrote に表示された絶対パス>
 「ダウンロードページを開く」を押すと配布元の正規ページが開きます。ご自身で保存する場合は
 ~/.akari/audio-drop/（無ければ作成してください）に置くと、次に登録スクリプトを
 実行したときに自動で拾われます。
