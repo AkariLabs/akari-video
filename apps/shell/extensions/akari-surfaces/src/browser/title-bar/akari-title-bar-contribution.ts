@@ -2,6 +2,7 @@ import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, Widget } from '@theia/core/lib/browser';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
 import { CommandRegistry } from '@theia/core/lib/common/command';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -63,6 +64,7 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
     declare protected readonly factory: { setMenuBar(): void; createMenuBar(): Widget };
     declare protected readonly preferenceService: PreferenceService;
     declare protected readonly shell: ApplicationShell;
+    declare protected readonly stateService: FrontendApplicationStateService;
     @inject(WorkspaceService) protected readonly workspace: WorkspaceService;
     @inject(FileService) protected readonly files: FileService;
     @inject(EnvVariablesServer) protected readonly environment: EnvVariablesServer;
@@ -152,16 +154,31 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
         this.controls.className = 'akari-title-controls';
         bar.node.append(left, this.center, this.controls);
         app.shell.addWidget(bar, { area: 'top' });
+        void this.renderCenter();
+        this.renderControls();
         // Mac は OS のメニューバーがある。Windows / Linux は帯を自前で描いたためファイル・編集・ヘルプが
         // どこにも出ず、プロジェクトの作成などに届かなかった（b8b893296 からの回帰）。帯の左へ Theia の
-        // メニューバーを埋め込む（帯がページに付いた後でないと Lumino の attach が失敗する）。
+        // メニューバーを埋め込む。
         if (showsMenuInTitleBar(isOSX ? 'mac' : isWindows ? 'windows' : 'other')) {
+            void this.attachMenuBar(left);
+        }
+    }
+
+    /**
+     * onStart は Theia が画面をページへ付ける前に走る（startContributions → attachShell）。その場で
+     * Lumino の attach を呼ぶと「Host is not attached.」で落ち、プロジェクト名と窓のボタンまで描かれ
+     * なかった（Windows だけ）。画面がページに付いてから埋め込み、失敗しても帯の残りは巻き込まない。
+     */
+    protected async attachMenuBar(left: HTMLElement): Promise<void> {
+        await this.stateService.reachedState('attached_shell');
+        if (!left.isConnected) { return; }
+        try {
             const menuBar = this.factory.createMenuBar();
             menuBar.addClass('akari-title-menubar');
             Widget.attach(menuBar, left);
+        } catch (error) {
+            console.error('[akari-surfaces] failed to attach the menu bar to the title bar:', error);
         }
-        void this.renderCenter();
-        this.renderControls();
     }
 
     protected handleFullScreen(_menuBarVisibility: string): void {
