@@ -218,7 +218,7 @@ const BASELINE_SECTION_FIELDS = {
     ['adjust:lut', 3], ['adjust:wheels', 0], ['appearance', 1], ['audio', 2],
     ['audio-av-link', 3], ['audio-ducking', 2], ['audio-enhancement', 2], ['audio-fades', 2],
     ['audio-pitch-time', 2], ['audio-volume', 2], ['audio:master', 4], ['framing', 5],
-    ['freeze', 2], ['info', 3], ['time', 4], ['timing', 1], ['transform', 4]
+    ['freeze', 2], ['info', 3], ['time', 2], ['timing', 1], ['transform', 4]
   ],
   layer: [
     ['adjust:basic', 11], ['adjust:curves', 0], ['adjust:fx', 1], ['adjust:hue', 0],

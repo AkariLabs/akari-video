@@ -25,13 +25,19 @@ test('applySelection applies the timeline and inspector before a seek that never
     const start = source.indexOf('    applySelection(selection, notifyPreview = true, directSingle = false) {');
     const end = source.indexOf('    publishPrimaryPreviewSelection(selection) {', start);
     assert.ok(start >= 0 && end > start);
+    const releaseStart = source.indexOf('    releaseTransitionBoundaryForOtherSelection() {');
+    const releaseEnd = source.indexOf('\n    }', releaseStart) + 6;
+    assert.ok(releaseStart >= 0 && releaseEnd > releaseStart);
     const applySelection = vm.runInNewContext(`({${source.slice(start, end)}}).applySelection`, {
         preview_selection_seek_1: { previewSelectionSeekTime }
     });
+    const releaseTransitionBoundaryForOtherSelection = vm.runInNewContext(
+        `({${source.slice(releaseStart, releaseEnd)}}).releaseTransitionBoundaryForOtherSelection`);
     const events = [];
     const selection = { kind: 'caption', id: 'caption-a' };
     const widget = {
-        playheadT: 6, visualPlaying: false, multiSelection: [], selection: undefined,
+        playheadT: 6, visualPlaying: false, multiSelection: [], selection: undefined, activeBoundary: undefined,
+        releaseTransitionBoundaryForOtherSelection,
         focusRangeFor: () => [0, 3], selectionKey: value => value?.id ?? '',
         exitTrimmerModeUnlessSelected() {}, claimInspectorOwner() { events.push('owner'); },
         pushSelectionSnapshot() { events.push('snapshot'); },

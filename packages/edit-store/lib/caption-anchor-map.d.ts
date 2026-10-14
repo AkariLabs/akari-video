@@ -24,7 +24,7 @@ export interface AnchorOutput {
         message: string;
     }>;
 }
-export declare function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAnchorRow, timeline: TimelineMapResult | readonly EditCut[], fire?: CaptionRun['fire']): AnchorOutput[];
+export declare function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAnchorRow, timeline: TimelineMapResult | readonly EditCut[], fire?: CaptionRun['fire'], fps?: number): AnchorOutput[];
 export declare function anchorForCaptionRange(caption: CaptionAnchorRow & {
     text: string;
     display_text?: string;

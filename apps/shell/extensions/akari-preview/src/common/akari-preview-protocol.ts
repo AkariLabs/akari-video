@@ -121,7 +121,9 @@ export interface PreviewAudioSidecarRequest {
     inSec: number;
     outSec?: number;
     speed: number;
+    /** Source seconds requested before the source trim. */
     padBeforeSec?: number;
+    /** Source seconds requested after the source trim. */
     padAfterSec?: number;
     heavyWavOnly?: boolean;
     clipFx?: import('./audio-clip-fx').AudioClipFx;

@@ -9,8 +9,8 @@ export interface AnchorOutput { start?: number; end?: number; fire: 'shown' | 's
     placement?: number; diagnostics: Array<{ code: string; severity: 'warning' | 'info'; message: string }> }
 
 export function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAnchorRow,
-    timeline: TimelineMapResult | readonly EditCut[], fire: CaptionRun['fire'] = 'shown'): AnchorOutput[] {
-    const map = Array.isArray(timeline) ? buildTimelineMap(timeline as readonly EditCut[]) : timeline as TimelineMapResult;
+    timeline: TimelineMapResult | readonly EditCut[], fire: CaptionRun['fire'] = 'shown', fps?: number): AnchorOutput[] {
+    const map = Array.isArray(timeline) ? buildTimelineMap(timeline as readonly EditCut[], { fps }) : timeline as TimelineMapResult;
     const warning = (code: string, message: string): AnchorOutput =>
         ({ fire: 'shown', diagnostics: [{ code, severity: 'warning', message }] });
     if (!anchor) return [{ fire: 'shown', diagnostics: [] }];

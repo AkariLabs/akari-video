@@ -29,38 +29,42 @@ var require_transition_vocabulary = __commonJS({
   "../edit-store/lib/transition-vocabulary.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
+    exports.TRANSITION_NAME_WITH_DIRECTION_KEY = exports.TRANSITION_UNKNOWN_LABEL_KEY = exports.TRANSITION_FAMILIES = exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
     exports.isTransitionType = isTransitionType2;
+    exports.transitionFamilyOf = transitionFamilyOf;
+    exports.transitionTypeOf = transitionTypeOf;
+    exports.transitionFamilyLabelKey = transitionFamilyLabelKey;
+    exports.transitionDirectionLabelKey = transitionDirectionLabelKey;
     exports.TRANSITION_VOCABULARY = [
-      { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D" },
-      { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F" },
-      { id: "fade-black", xfadeName: "fadeblack", labelJa: "\u9ED2\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-black", glyph: "B" },
-      { id: "fade-white", xfadeName: "fadewhite", labelJa: "\u767D\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-white", glyph: "W" },
-      { id: "fade-grays", xfadeName: "fadegrays", labelJa: "\u30E2\u30CE\u30AF\u30ED\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-grays", glyph: "G" },
-      { id: "wipe-left", xfadeName: "wipeleft", labelJa: "\u30EF\u30A4\u30D7\uFF08\u5DE6\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-left", glyph: "\u2190" },
-      { id: "wipe-right", xfadeName: "wiperight", labelJa: "\u30EF\u30A4\u30D7\uFF08\u53F3\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-right", glyph: "\u2192" },
-      { id: "wipe-up", xfadeName: "wipeup", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0A\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-up", glyph: "\u2191" },
-      { id: "wipe-down", xfadeName: "wipedown", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0B\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-down", glyph: "\u2193" },
-      { id: "radial", xfadeName: "radial", labelJa: "\u6642\u8A08\u30EF\u30A4\u30D7", category: "\u30EF\u30A4\u30D7", previewKind: "radial", glyph: "\u25F7" },
-      { id: "slide-left", xfadeName: "slideleft", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u5DE6\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-left", glyph: "\u2190" },
-      { id: "slide-right", xfadeName: "slideright", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u53F3\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-right", glyph: "\u2192" },
-      { id: "slide-up", xfadeName: "slideup", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0A\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-up", glyph: "\u2191" },
-      { id: "slide-down", xfadeName: "slidedown", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0B\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-down", glyph: "\u2193" },
-      { id: "cover-left", xfadeName: "coverleft", labelJa: "\u30AB\u30D0\u30FC\uFF08\u5DE6\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-left", glyph: "\u2190" },
-      { id: "cover-right", xfadeName: "coverright", labelJa: "\u30AB\u30D0\u30FC\uFF08\u53F3\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-right", glyph: "\u2192" },
-      { id: "cover-up", xfadeName: "coverup", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0A\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-up", glyph: "\u2191" },
-      { id: "cover-down", xfadeName: "coverdown", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0B\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-down", glyph: "\u2193" },
-      { id: "reveal-left", xfadeName: "revealleft", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u5DE6\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-left", glyph: "\u2190" },
-      { id: "reveal-right", xfadeName: "revealright", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u53F3\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-right", glyph: "\u2192" },
-      { id: "reveal-down", xfadeName: "revealdown", labelJa: "\u4E0A\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-down", glyph: "\u2193" },
-      { id: "reveal-up", xfadeName: "revealup", labelJa: "\u4E0B\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-up", glyph: "\u2191" },
-      { id: "circle-open", xfadeName: "circleopen", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u958B\u304F\uFF09", category: "\u5F62\u72B6", previewKind: "circle-open", glyph: "\u25CB" },
-      { id: "circle-close", xfadeName: "circleclose", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u9589\u3058\u308B\uFF09", category: "\u5F62\u72B6", previewKind: "circle-close", glyph: "\u25CF" },
-      { id: "zoom-in", xfadeName: "zoomin", labelJa: "\u30BA\u30FC\u30E0\u30A4\u30F3", category: "\u5909\u5F62", previewKind: "zoom-in", glyph: "\uFF0B" },
-      { id: "squeeze-h", xfadeName: "squeezeh", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u7E26\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-h", glyph: "\u2195" },
-      { id: "squeeze-v", xfadeName: "squeezev", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u6A2A\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-v", glyph: "\u2194" },
-      { id: "blur", xfadeName: "hblur", labelJa: "\u30D6\u30E9\u30FC", category: "\u8CEA\u611F", previewKind: "blur", glyph: "B" },
-      { id: "pixelize", xfadeName: "pixelize", labelJa: "\u30D4\u30AF\u30BB\u30EC\u30FC\u30C8", category: "\u8CEA\u611F", previewKind: "pixelize", glyph: "P" }
+      { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D", family: "dissolve" },
+      { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F", family: "fade" },
+      { id: "fade-black", xfadeName: "fadeblack", labelJa: "\u9ED2\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-black", glyph: "B", family: "fade-black" },
+      { id: "fade-white", xfadeName: "fadewhite", labelJa: "\u767D\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-white", glyph: "W", family: "fade-white" },
+      { id: "fade-grays", xfadeName: "fadegrays", labelJa: "\u30E2\u30CE\u30AF\u30ED\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-grays", glyph: "G", family: "fade-grays" },
+      { id: "wipe-left", xfadeName: "wipeleft", labelJa: "\u30EF\u30A4\u30D7\uFF08\u5DE6\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-left", glyph: "\u2190", family: "wipe", direction: "left" },
+      { id: "wipe-right", xfadeName: "wiperight", labelJa: "\u30EF\u30A4\u30D7\uFF08\u53F3\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-right", glyph: "\u2192", family: "wipe", direction: "right" },
+      { id: "wipe-up", xfadeName: "wipeup", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0A\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-up", glyph: "\u2191", family: "wipe", direction: "up" },
+      { id: "wipe-down", xfadeName: "wipedown", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0B\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-down", glyph: "\u2193", family: "wipe", direction: "down" },
+      { id: "radial", xfadeName: "radial", labelJa: "\u6642\u8A08\u30EF\u30A4\u30D7", category: "\u30EF\u30A4\u30D7", previewKind: "radial", glyph: "\u25F7", family: "radial" },
+      { id: "slide-left", xfadeName: "slideleft", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u5DE6\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-left", glyph: "\u2190", family: "slide", direction: "left" },
+      { id: "slide-right", xfadeName: "slideright", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u53F3\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-right", glyph: "\u2192", family: "slide", direction: "right" },
+      { id: "slide-up", xfadeName: "slideup", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0A\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-up", glyph: "\u2191", family: "slide", direction: "up" },
+      { id: "slide-down", xfadeName: "slidedown", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0B\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-down", glyph: "\u2193", family: "slide", direction: "down" },
+      { id: "cover-left", xfadeName: "coverleft", labelJa: "\u30AB\u30D0\u30FC\uFF08\u5DE6\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-left", glyph: "\u2190", family: "cover", direction: "left" },
+      { id: "cover-right", xfadeName: "coverright", labelJa: "\u30AB\u30D0\u30FC\uFF08\u53F3\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-right", glyph: "\u2192", family: "cover", direction: "right" },
+      { id: "cover-up", xfadeName: "coverup", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0A\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-up", glyph: "\u2191", family: "cover", direction: "up" },
+      { id: "cover-down", xfadeName: "coverdown", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0B\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-down", glyph: "\u2193", family: "cover", direction: "down" },
+      { id: "reveal-left", xfadeName: "revealleft", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u5DE6\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-left", glyph: "\u2190", family: "reveal", direction: "left" },
+      { id: "reveal-right", xfadeName: "revealright", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u53F3\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-right", glyph: "\u2192", family: "reveal", direction: "right" },
+      { id: "reveal-down", xfadeName: "revealdown", labelJa: "\u4E0A\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-down", glyph: "\u2193", family: "reveal", direction: "down" },
+      { id: "reveal-up", xfadeName: "revealup", labelJa: "\u4E0B\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-up", glyph: "\u2191", family: "reveal", direction: "up" },
+      { id: "circle-open", xfadeName: "circleopen", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u958B\u304F\uFF09", category: "\u5F62\u72B6", previewKind: "circle-open", glyph: "\u25CB", family: "circle", direction: "open" },
+      { id: "circle-close", xfadeName: "circleclose", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u9589\u3058\u308B\uFF09", category: "\u5F62\u72B6", previewKind: "circle-close", glyph: "\u25CF", family: "circle", direction: "close" },
+      { id: "zoom-in", xfadeName: "zoomin", labelJa: "\u30BA\u30FC\u30E0\u30A4\u30F3", category: "\u5909\u5F62", previewKind: "zoom-in", glyph: "\uFF0B", family: "zoom-in" },
+      { id: "squeeze-h", xfadeName: "squeezeh", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u7E26\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-h", glyph: "\u2195", family: "squeeze", direction: "h" },
+      { id: "squeeze-v", xfadeName: "squeezev", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u6A2A\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-v", glyph: "\u2194", family: "squeeze", direction: "v" },
+      { id: "blur", xfadeName: "hblur", labelJa: "\u30D6\u30E9\u30FC", category: "\u8CEA\u611F", previewKind: "blur", glyph: "B", family: "blur" },
+      { id: "pixelize", xfadeName: "pixelize", labelJa: "\u30D4\u30AF\u30BB\u30EC\u30FC\u30C8", category: "\u8CEA\u611F", previewKind: "pixelize", glyph: "P", family: "pixelize" }
     ];
     exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY.map((entry) => entry.id);
     exports.TRANSITION_CATEGORIES = [...new Set(exports.TRANSITION_VOCABULARY.map((entry) => entry.category))];
@@ -68,6 +72,43 @@ var require_transition_vocabulary = __commonJS({
     function isTransitionType2(value) {
       return typeof value === "string" && Object.prototype.hasOwnProperty.call(exports.TRANSITION_BY_ID, value);
     }
+    var TRANSITION_DIRECTION_ORDER = ["left", "right", "up", "down", "open", "close", "h", "v"];
+    function directionOfEntry(entry) {
+      return "direction" in entry ? entry.direction : void 0;
+    }
+    exports.TRANSITION_FAMILIES = (() => {
+      const families = /* @__PURE__ */ new Map();
+      for (const entry of exports.TRANSITION_VOCABULARY) {
+        const directions = families.get(entry.family) ?? [];
+        const direction = directionOfEntry(entry);
+        if (direction)
+          directions.push(direction);
+        families.set(entry.family, directions);
+      }
+      return [...families].map(([family, directions]) => ({
+        family,
+        directions: [...directions].sort((a, b) => TRANSITION_DIRECTION_ORDER.indexOf(a) - TRANSITION_DIRECTION_ORDER.indexOf(b))
+      }));
+    })();
+    function transitionFamilyOf(type) {
+      if (!isTransitionType2(type))
+        return void 0;
+      const entry = exports.TRANSITION_BY_ID[type];
+      const direction = directionOfEntry(entry);
+      return direction ? { family: entry.family, direction } : { family: entry.family };
+    }
+    function transitionTypeOf(family, direction) {
+      return exports.TRANSITION_VOCABULARY.find((entry) => entry.family === family && directionOfEntry(entry) === (direction ?? void 0))?.id;
+    }
+    var camelKeySegment = (value) => value.replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+    function transitionFamilyLabelKey(family) {
+      return `transition.family.label.${camelKeySegment(family)}`;
+    }
+    function transitionDirectionLabelKey(direction) {
+      return `transition.direction.label.${camelKeySegment(direction)}`;
+    }
+    exports.TRANSITION_UNKNOWN_LABEL_KEY = "transition.family.label.unknown";
+    exports.TRANSITION_NAME_WITH_DIRECTION_KEY = "transition.name.format.withDirection";
   }
 });
 
@@ -382,19 +423,40 @@ var require_edit_store = __commonJS({
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
           throw new Error("\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u306E\u5C3A\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
+        if (transitionOut.align !== void 0 && transitionOut.align !== null && transitionOut.align !== "center" && transitionOut.align !== "before-cut" && transitionOut.align !== "after-cut") {
+          throw new Error("\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        if (transitionOut.fill !== void 0 && transitionOut.fill !== null && transitionOut.fill !== "freeze") {
+          throw new Error("\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u306E\u57CB\u3081\u65B9\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
       }
       return updateArrayElementByIndex(source, "cuts", cutIndex, "\u30AF\u30EA\u30C3\u30D7", (element) => {
         const hasTransitionOut = hasTopLevelProperty(element, "transition_out");
         if (transitionOut === null) {
           return hasTransitionOut ? removeObjectProperty(element, "transition_out") : element;
         }
-        const value = { type: transitionOut.type, duration: transitionOut.duration };
+        const value = {
+          type: transitionOut.type,
+          duration: transitionOut.duration,
+          ...transitionOut.align && transitionOut.align !== "center" ? { align: transitionOut.align } : {},
+          ...transitionOut.fill ? { fill: transitionOut.fill } : {}
+        };
         if (!hasTransitionOut) {
           return appendJsonProperty(element, "transition_out", value);
         }
         try {
           const located = locateTopLevelObjectProperty(element, "transition_out");
-          return element.slice(0, located.start) + JSON.stringify(value) + element.slice(located.end);
+          const existing = JSON.parse(element.slice(located.start, located.end));
+          const merged = { ...existing, ...value };
+          if (transitionOut.align !== void 0) {
+            if (transitionOut.align === null || transitionOut.align === "center")
+              delete merged.align;
+            else
+              merged.align = transitionOut.align;
+          }
+          if (transitionOut.fill === null)
+            delete merged.fill;
+          return element.slice(0, located.start) + JSON.stringify(merged) + element.slice(located.end);
         } catch {
           return appendJsonProperty(removeObjectProperty(element, "transition_out"), "transition_out", value);
         }
@@ -3487,6 +3549,330 @@ var require_cut_adjacency = __commonJS({
   }
 });
 
+// ../edit-store/lib/transition-plan.js
+var require_transition_plan = __commonJS({
+  "../edit-store/lib/transition-plan.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.TRANSITION_FILL_IDS = exports.TRANSITION_ALIGN_IDS = void 0;
+    exports.isTransitionAlign = isTransitionAlign;
+    exports.readTransitionAlign = readTransitionAlign;
+    exports.readTransitionFill = readTransitionFill;
+    exports.planTrackTransitions = planTrackTransitions;
+    exports.chooseTransitionAlign = chooseTransitionAlign;
+    exports.transitionPlanClipsFromCuts = transitionPlanClipsFromCuts;
+    var cut_adjacency_1 = require_cut_adjacency();
+    var edit_store_1 = require_edit_store();
+    exports.TRANSITION_ALIGN_IDS = ["center", "before-cut", "after-cut"];
+    exports.TRANSITION_FILL_IDS = ["freeze"];
+    function isTransitionAlign(value) {
+      return typeof value === "string" && exports.TRANSITION_ALIGN_IDS.includes(value);
+    }
+    function readTransitionAlign(value) {
+      return isTransitionAlign(value) ? value : "center";
+    }
+    function readTransitionFill(value) {
+      return value === "freeze" ? "freeze" : void 0;
+    }
+    var EPSILON = 1e-6;
+    var room = (value) => value === void 0 || value === Number.POSITIVE_INFINITY ? Number.POSITIVE_INFINITY : Number.isFinite(value) && value > 0 ? value : 0;
+    var earlierShare = (align, x3) => align === "before-cut" ? x3 : align === "after-cut" ? 0 : x3 / 2;
+    var laterShare = (align, x3) => align === "after-cut" ? x3 : align === "before-cut" ? 0 : x3 / 2;
+    var lengthWithin = (align, a, b) => align === "before-cut" ? a : align === "after-cut" ? b : 2 * Math.min(a, b);
+    function planTrackTransitions(clips, options) {
+      return planTrack(clips, options);
+    }
+    function planTrack(clips, options) {
+      const fps = (0, cut_adjacency_1.effectiveCutFps)(options.fps);
+      const boundaries = [];
+      for (let index = 0; index + 1 < clips.length; index++) {
+        const earlier = clips[index];
+        const later = clips[index + 1];
+        const declared = earlier.transitionOut?.declaredSeconds;
+        if (typeof declared !== "number" || !Number.isFinite(declared) || declared <= 0) {
+          boundaries.push(void 0);
+          continue;
+        }
+        const earlierEnd = earlier.startSeconds + earlier.lengthSeconds;
+        const laterEnd = later.startSeconds + later.lengthSeconds;
+        const overlapFrames = (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: earlierEnd }, { tlStart: later.startSeconds }, fps);
+        if (overlapFrames === 0) {
+          boundaries.push({
+            kind: "new",
+            earlier: index,
+            later: index + 1,
+            cutSeconds: later.startSeconds,
+            align: earlier.transitionOut.align,
+            declaredSeconds: declared,
+            requested: 0,
+            reasons: /* @__PURE__ */ new Set(),
+            blockedByLegacy: false,
+            fillHead: false,
+            reportTail: false,
+            headRoomSeconds: 0,
+            tailRoomSeconds: void 0
+          });
+          continue;
+        }
+        const overlap = earlierEnd - later.startSeconds;
+        if (overlapFrames < 0 || !(overlap > EPSILON) || overlap - declared > EPSILON) {
+          boundaries.push(void 0);
+          continue;
+        }
+        const windowEnd = Math.min(earlierEnd, laterEnd, later.startSeconds + declared);
+        const windowSeconds = windowEnd - later.startSeconds;
+        if (!(windowSeconds > EPSILON)) {
+          boundaries.push(void 0);
+          continue;
+        }
+        boundaries.push({
+          kind: "legacy",
+          earlier: index,
+          later: index + 1,
+          cutSeconds: later.startSeconds,
+          declaredSeconds: declared,
+          overlapSeconds: overlap,
+          windowSeconds,
+          coversLater: windowEnd >= laterEnd - EPSILON
+        });
+      }
+      const ownLength = clips.map((clip, index) => {
+        const tail = boundaries[index];
+        return Math.max(0, tail?.kind === "new" ? tail.cutSeconds - clip.startSeconds : clip.lengthSeconds);
+      });
+      for (const boundary of boundaries) {
+        if (boundary?.kind !== "new")
+          continue;
+        const earlier = clips[boundary.earlier];
+        const later = clips[boundary.later];
+        const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
+        const fill = earlier.transitionOut?.fill === true;
+        const knownTailRoom = earlier.tailRoomSeconds === void 0 ? void 0 : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+        const knownHeadRoom = room(later.headRoomSeconds);
+        boundary.fillHead = fill && later.holdBlocked !== true;
+        boundary.reportTail = fill || options.tailRoom === "ignore" && options.strictTailIndex !== boundary.earlier;
+        boundary.headRoomSeconds = knownHeadRoom;
+        boundary.tailRoomSeconds = knownTailRoom;
+        const tailRoom = knownTailRoom === void 0 || boundary.reportTail ? Number.POSITIVE_INFINITY : knownTailRoom;
+        const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
+        const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
+        const laterCap = Math.min(ownLength[boundary.later], tailRoom);
+        const requested = Math.max(0, Math.min(boundary.declaredSeconds, lengthWithin(boundary.align, earlierCap, laterCap)));
+        if (requested < boundary.declaredSeconds - EPSILON) {
+          const a = earlierShare(boundary.align, requested);
+          const b = laterShare(boundary.align, requested);
+          const uses = (share, cap) => share >= cap - EPSILON;
+          if (boundary.align !== "after-cut") {
+            if (uses(a, ownLength[boundary.earlier]))
+              boundary.reasons.add("outgoing-length");
+            if (uses(a, headRoom))
+              boundary.reasons.add("incoming-room");
+          }
+          if (boundary.align !== "before-cut") {
+            if (uses(b, ownLength[boundary.later]))
+              boundary.reasons.add("incoming-length");
+            if (uses(b, tailRoom))
+              boundary.reasons.add("outgoing-room");
+          }
+        }
+        boundary.requested = requested;
+      }
+      const tailLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+      const headLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+      for (let index = 0; index < clips.length; index++) {
+        const head = index > 0 ? boundaries[index - 1] : void 0;
+        const tail = boundaries[index];
+        if (!head || !tail)
+          continue;
+        if (head.kind === "legacy" && head.coversLater && tail.kind === "new") {
+          tail.blockedByLegacy = true;
+          continue;
+        }
+        const length = ownLength[index];
+        const headUse = head.kind === "legacy" ? head.windowSeconds : laterShare(head.align, head.requested);
+        const tailUse = tail.kind === "legacy" ? tail.overlapSeconds : earlierShare(tail.align, tail.requested);
+        if (!(headUse + tailUse > length + EPSILON))
+          continue;
+        if (head.kind === "legacy" && tail.kind === "legacy")
+          continue;
+        if (head.kind === "legacy")
+          tailLimit[index] = Math.max(0, length - headUse);
+        else if (tail.kind === "legacy")
+          headLimit[index] = Math.max(0, length - tailUse);
+        else {
+          headLimit[index] = Math.max(length / 2, length - tailUse);
+          tailLimit[index] = Math.max(length / 2, length - headUse);
+        }
+      }
+      const minimumSeconds = 1 / fps;
+      const plans = [];
+      for (const boundary of boundaries) {
+        if (!boundary)
+          continue;
+        const earlier = clips[boundary.earlier];
+        const later = clips[boundary.later];
+        if (boundary.kind === "legacy") {
+          plans.push({
+            earlierId: earlier.id,
+            laterId: later.id,
+            cutSeconds: boundary.cutSeconds,
+            legacyOverlap: true,
+            align: "center",
+            declaredSeconds: boundary.declaredSeconds,
+            effectiveSeconds: boundary.windowSeconds,
+            startOffsetSeconds: 0,
+            endOffsetSeconds: boundary.windowSeconds,
+            state: "ok",
+            reasons: [],
+            freezeIncomingSeconds: 0,
+            freezeOutgoingSeconds: 0
+          });
+          continue;
+        }
+        const reasons = new Set(boundary.reasons);
+        let effective = boundary.requested;
+        if (boundary.blockedByLegacy) {
+          effective = 0;
+          reasons.add("neighbor");
+        } else {
+          const limited = lengthWithin(boundary.align, tailLimit[boundary.earlier], headLimit[boundary.later]);
+          if (limited < effective - EPSILON) {
+            effective = Math.max(0, limited);
+            reasons.add("neighbor");
+          }
+        }
+        if (effective > 0 && (effective < minimumSeconds - EPSILON || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: boundary.cutSeconds + laterShare(boundary.align, effective) }, { tlStart: boundary.cutSeconds - earlierShare(boundary.align, effective) }, fps) < 1)) {
+          effective = 0;
+          reasons.add("too-short");
+        }
+        const state = effective <= 0 ? "none" : effective < boundary.declaredSeconds - EPSILON ? "shortened" : "ok";
+        plans.push({
+          earlierId: earlier.id,
+          laterId: later.id,
+          cutSeconds: boundary.cutSeconds,
+          legacyOverlap: false,
+          align: boundary.align,
+          declaredSeconds: boundary.declaredSeconds,
+          effectiveSeconds: effective,
+          startOffsetSeconds: effective > 0 ? -earlierShare(boundary.align, effective) : 0,
+          endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
+          state,
+          reasons: state === "ok" ? [] : [...reasons],
+          ...freezeOf(boundary, effective)
+        });
+      }
+      return plans;
+    }
+    function freezeOf(boundary, effective) {
+      const over = (used, available) => {
+        const excess = used - available;
+        return excess > EPSILON ? excess : 0;
+      };
+      const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+      const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+      const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+      if (!boundary.reportTail)
+        return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+      if (boundary.tailRoomSeconds === void 0) {
+        return after > EPSILON ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true } : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+      }
+      return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
+    }
+    function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
+      const index = clips.findIndex((clip) => clip.id === earlierId);
+      if (index < 0 || index + 1 >= clips.length)
+        return void 0;
+      const laterId = clips[index + 1].id;
+      const boundaryOf = (plans) => plans.find((plan) => plan.earlierId === earlierId && plan.laterId === laterId);
+      const baseline = planTrackTransitions(clips, options);
+      let best;
+      for (const align of exports.TRANSITION_ALIGN_IDS) {
+        const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+          ...clip,
+          tailRoomSeconds: clip.tailRoomSeconds ?? 0,
+          transitionOut: { declaredSeconds, align, fill: false }
+        } : clip);
+        const plans = planTrack(candidateClips, { ...options, strictTailIndex: index });
+        const plan = boundaryOf(plans);
+        if (!plan || plan.legacyOverlap)
+          continue;
+        if (!best || plan.effectiveSeconds > best.plan.effectiveSeconds + EPSILON)
+          best = { align, plan, plans };
+      }
+      if (!best)
+        return void 0;
+      const neighborChangesOf = (plans) => plans.filter((plan) => {
+        if (plan.earlierId === earlierId && plan.laterId === laterId)
+          return false;
+        const before = baseline.find((entry) => entry.earlierId === plan.earlierId && entry.laterId === plan.laterId);
+        return !before || Math.abs(before.effectiveSeconds - plan.effectiveSeconds) > EPSILON;
+      });
+      if (options.allowFill) {
+        const freezeTotal = (plan) => plan.freezeIncomingSeconds + (plan.freezeOutgoingSeconds ?? 0);
+        let filled;
+        for (const align of exports.TRANSITION_ALIGN_IDS) {
+          const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+            ...clip,
+            transitionOut: { declaredSeconds, align, fill: true }
+          } : clip);
+          const plans = planTrack(candidateClips, options);
+          const plan = boundaryOf(plans);
+          if (!plan || plan.legacyOverlap)
+            continue;
+          if (!filled || plan.effectiveSeconds > filled.plan.effectiveSeconds + EPSILON || Math.abs(plan.effectiveSeconds - filled.plan.effectiveSeconds) <= EPSILON && freezeTotal(plan) < freezeTotal(filled.plan) - EPSILON) {
+            filled = { align, plan, plans };
+          }
+        }
+        const frameSeconds = 1 / (0, cut_adjacency_1.effectiveCutFps)(options.fps);
+        if (filled && filled.plan.effectiveSeconds - best.plan.effectiveSeconds >= frameSeconds - EPSILON) {
+          return {
+            align: filled.align,
+            needsFill: true,
+            plan: filled.plan,
+            neighborChanges: neighborChangesOf(filled.plans)
+          };
+        }
+      }
+      return { align: best.align, needsFill: false, plan: best.plan, neighborChanges: neighborChangesOf(best.plans) };
+    }
+    function transitionPlanClipsFromCuts(cuts, options) {
+      const usable = [];
+      cuts.forEach((cut, index) => {
+        if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
+          usable.push({ cut, index });
+        }
+      });
+      const tracks = /* @__PURE__ */ new Map();
+      for (const segment of (0, edit_store_1.computeCutTrackSegments)(usable.map((entry) => entry.cut))) {
+        const { cut, index } = usable[segment.index];
+        const facts = options.resolve(cut, index);
+        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+        const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+        const list = tracks.get(segment.track) ?? [];
+        const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 && list.length > 0 && list[list.length - 1].transitionOut !== void 0 ? facts.holdHeadSeconds : 0;
+        const transition = cut.transitionOut;
+        const clip = {
+          id: String(index),
+          // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+          startSeconds: segment.at - holdHeadSeconds,
+          lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
+          headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
+          tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : typeof facts.materialDurationSeconds === "number" && Number.isFinite(facts.materialDurationSeconds) ? Math.max(0, (facts.materialDurationSeconds - cut.out) / speed) : void 0,
+          ...transition && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? { transitionOut: {
+            declaredSeconds: transition.duration,
+            align: readTransitionAlign(transition.align),
+            fill: readTransitionFill(transition.fill) === "freeze"
+          } } : {},
+          ...facts.holdBlocked ?? freezeSeconds > 0 ? { holdBlocked: true } : {}
+        };
+        list.push(clip);
+        tracks.set(segment.track, list);
+      }
+      return [...tracks.entries()].sort((left, right) => left[0] - right[0]).map(([track, clips]) => ({ track, clips }));
+    }
+  }
+});
+
 // ../edit-store/lib/timeline-map.js
 var require_timeline_map = __commonJS({
   "../edit-store/lib/timeline-map.js"(exports) {
@@ -3499,6 +3885,7 @@ var require_timeline_map = __commonJS({
     exports.sourceToOutput = sourceToOutput;
     var edit_store_1 = require_edit_store();
     var cut_adjacency_1 = require_cut_adjacency();
+    var transition_plan_1 = require_transition_plan();
     function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
       const normalizedCuts2 = cuts.map((cut) => ({
         ...cut,
@@ -3567,37 +3954,58 @@ var require_timeline_map = __commonJS({
         cutIndex: usable[segment.index].index
       }));
       const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
-      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
-          continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
-          continue;
-        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
-        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-          declaredSeconds: transition.duration,
-          outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-          incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-          outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-          incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+      const plannedWindows = /* @__PURE__ */ new Map();
+      const suppressedWindows = /* @__PURE__ */ new Set();
+      const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
+        fps,
+        resolve: (cut) => ({
+          stillImage: false,
+          freezeSeconds: 0,
+          holdHeadSeconds: cut.transitionHold?.headSeconds,
+          // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+          holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
+        })
+      });
+      for (const track of planTracks) {
+        const clips = track.clips.map((clip) => {
+          const originalIndex = usable[Number(clip.id)].index;
+          const handleRoom = options?.handleRoom?.(originalIndex);
+          return {
+            ...clip,
+            headRoomSeconds: handleRoom?.headSeconds ?? clip.headRoomSeconds,
+            tailRoomSeconds: handleRoom?.tailSeconds ?? Number.POSITIVE_INFINITY
+          };
         });
-        if (plan.effectiveSeconds <= 0)
-          continue;
-        const cutPoint = outgoing.end;
-        outgoing.end = cutPoint + plan.halfSeconds;
-        outgoing.cut = {
-          ...outgoing.cut,
-          transitionOut: { ...transition, duration: plan.effectiveSeconds }
-        };
-        incoming.start = cutPoint - plan.halfSeconds;
-        incoming.cut = {
-          ...incoming.cut,
-          in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-        };
+        for (const plan of (0, transition_plan_1.planTrackTransitions)(clips, { fps })) {
+          if (plan.legacyOverlap)
+            continue;
+          if (plan.state === "none") {
+            const originalIndex = usable[Number(plan.earlierId)].index;
+            suppressedWindows.add(originalIndex);
+            const outgoing2 = resolved.find((entry) => entry.cutIndex === originalIndex);
+            if (outgoing2)
+              outgoing2.cut = { ...outgoing2.cut, transitionOut: void 0 };
+            continue;
+          }
+          const outgoing = resolved.find((entry) => entry.cutIndex === usable[Number(plan.earlierId)].index);
+          const incoming = resolved.find((entry) => entry.cutIndex === usable[Number(plan.laterId)].index);
+          if (!outgoing || !incoming || !outgoing.cut.transitionOut)
+            continue;
+          const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
+          outgoing.end = plan.cutSeconds + plan.endOffsetSeconds;
+          outgoing.cut = {
+            ...outgoing.cut,
+            transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
+          };
+          const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+          const early = -plan.startOffsetSeconds - hold;
+          incoming.start = plan.cutSeconds - early;
+          incoming.cut = {
+            ...incoming.cut,
+            in: Math.max(0, incoming.cut.in - early * incomingSpeed)
+          };
+          plannedWindows.set(outgoing.cutIndex, plan);
+        }
       }
       const segmentSlice = (entry, start, end, transitionOut = null) => {
         const cut = entry.cut;
@@ -3618,13 +4026,18 @@ var require_timeline_map = __commonJS({
       const transitionWindows = [];
       for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
         const outgoing = resolved[outgoingIndex];
+        if (suppressedWindows.has(outgoing.cutIndex))
+          continue;
         const transition = outgoing.cut.transitionOut;
         if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
           continue;
         const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
         if (!incoming)
           continue;
-        const start = incoming.start;
+        const plannedHold = plannedWindows.get(outgoing.cutIndex)?.freezeIncomingSeconds ?? 0;
+        const declaredHold = incoming.cut.transitionHold?.headSeconds;
+        const hold = typeof declaredHold === "number" && Number.isFinite(declaredHold) && declaredHold > 0 ? declaredHold : plannedHold;
+        const start = incoming.start - hold;
         const actualOverlap = outgoing.end - start;
         if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
           continue;
@@ -3637,7 +4050,21 @@ var require_timeline_map = __commonJS({
           duration: end - start,
           type: transition.type,
           outgoing: segmentSlice(outgoing, start, end, transition),
-          incoming: segmentSlice(incoming, start, end)
+          incoming: {
+            ...segmentSlice(incoming, start, end),
+            ...hold > 0 ? {
+              holdHeadSeconds: hold,
+              in: incoming.cut.in,
+              out: incoming.cut.in + Math.max(0, end - incoming.start) * (typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1)
+            } : {}
+          },
+          ...plannedWindows.has(outgoing.cutIndex) ? {
+            cutSeconds: plannedWindows.get(outgoing.cutIndex).cutSeconds,
+            effectiveSeconds: plannedWindows.get(outgoing.cutIndex).effectiveSeconds,
+            state: plannedWindows.get(outgoing.cutIndex).state,
+            reasons: plannedWindows.get(outgoing.cutIndex).reasons,
+            ...plannedHold > 0 ? { freezeIncomingSeconds: plannedHold } : {}
+          } : {}
         });
       }
       const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
@@ -3734,7 +4161,7 @@ var require_caption_timeline = __commonJS({
     exports.buildCaptionTimelineSegments = buildCaptionTimelineSegments;
     var timeline_map_1 = require_timeline_map();
     function buildCaptionTimelineSegments(cuts, edit, options = {}) {
-      const visual = (0, timeline_map_1.buildTimelineMap)(cuts, options).segments;
+      const visual = (0, timeline_map_1.buildTimelineMap)(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
       if (!edit)
         return visual;
       const audio = [];
@@ -6944,8 +7371,8 @@ var require_caption_anchor_map = __commonJS({
     exports.fitCaptionMotionWindow = fitCaptionMotionWindow;
     var timeline_map_1 = require_timeline_map();
     var caption_runs_1 = require_caption_runs();
-    function anchorToOutput(anchor, caption, timeline, fire = "shown") {
-      const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline) : timeline;
+    function anchorToOutput(anchor, caption, timeline, fire = "shown", fps) {
+      const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline, { fps }) : timeline;
       const warning = (code, message) => ({ fire: "shown", diagnostics: [{ code, severity: "warning", message }] });
       if (!anchor)
         return [{ fire: "shown", diagnostics: [] }];
@@ -14107,7 +14534,11 @@ var require_tree_ops = __commonJS({
     exports.relativeTransform = relativeTransform;
     exports.ensureChildren = ensureChildren;
     exports.clone = clone;
+    exports.assertKnownTransitionChange = assertKnownTransitionChange;
+    exports.unknownTransitionTypesIn = unknownTransitionTypesIn;
+    exports.assertKnownItemTransitions = assertKnownItemTransitions;
     var transform_1 = require_transform();
+    var transition_vocabulary_1 = require_transition_vocabulary();
     var item_anchor_1 = require_item_anchor();
     var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
       "linear",
@@ -14150,6 +14581,8 @@ var require_tree_ops = __commonJS({
     }
     function updateItem(edit, id, patch) {
       const location2 = requireLocation(edit, id);
+      const nextSource = isRecord2(patch.source) && isRecord2(location2.item.source) ? mergePatch(location2.item.source, patch.source) : patch.source;
+      assertKnownTransitionChange(location2.item.source, nextSource);
       for (const [key, value] of Object.entries(patch)) {
         if (key === "source" && isRecord2(value) && isRecord2(location2.item.source)) {
           location2.item.source = mergePatch(location2.item.source, value);
@@ -14455,6 +14888,7 @@ var require_tree_ops = __commonJS({
       if (locate(edit, item.id))
         throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
       const cloned = clone(item);
+      assertKnownItemTransitions(cloned, unknownTransitionTypesIn(edit));
       const track = tracksOf(edit).find((candidate) => candidate.id === target);
       if (track) {
         let destination = requireTrackItems(track);
@@ -14932,7 +15366,9 @@ var require_tree_ops = __commonJS({
       for (const [key, value] of Object.entries(patch)) {
         if (value === null || value === void 0)
           delete result[key];
-        else
+        else if (key === "transition_out" && isRecord2(result[key]) && isRecord2(value)) {
+          result[key] = { ...result[key], ...clone(value) };
+        } else
           result[key] = clone(value);
       }
       return result;
@@ -14947,6 +15383,38 @@ var require_tree_ops = __commonJS({
     }
     function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+    function assertKnownTransitionChange(previousSource, nextSource) {
+      const previous = isRecord2(previousSource) && isRecord2(previousSource.transition_out) ? previousSource.transition_out.type : void 0;
+      const next = isRecord2(nextSource) && isRecord2(nextSource.transition_out) ? nextSource.transition_out.type : void 0;
+      if (next !== void 0 && next !== previous && !(0, transition_vocabulary_1.isTransitionType)(next)) {
+        throw new Error(`transition_out.type "${String(next)}" \u306F\u4F7F\u3048\u306A\u3044\u7A2E\u985E\u3067\u3059\u3002\u4F7F\u3048\u308B\u7A2E\u985E: ${transition_vocabulary_1.TRANSITION_TYPE_IDS.join(" / ")}`);
+      }
+    }
+    function unknownTransitionTypesIn(edit) {
+      const types = /* @__PURE__ */ new Set();
+      for (const track of edit.tracks) {
+        for (const item of track.items ?? [])
+          collectUnknownTransitionTypes(item, types);
+      }
+      return types;
+    }
+    function collectUnknownTransitionTypes(item, types) {
+      const source = item.source;
+      const transition = isRecord2(source) && isRecord2(source.transition_out) ? source.transition_out : void 0;
+      const type = transition?.type;
+      if (typeof type === "string" && type.length > 0 && !(0, transition_vocabulary_1.isTransitionType)(type))
+        types.add(type);
+      for (const child of item.items ?? [])
+        collectUnknownTransitionTypes(child, types);
+    }
+    function assertKnownItemTransitions(item, existingUnknownTypes = /* @__PURE__ */ new Set()) {
+      const source = item.source;
+      const transition = isRecord2(source) && isRecord2(source.transition_out) ? source.transition_out : void 0;
+      if (!existingUnknownTypes.has(transition?.type))
+        assertKnownTransitionChange(void 0, source);
+      for (const child of item.items ?? [])
+        assertKnownItemTransitions(child, existingUnknownTypes);
     }
   }
 });
@@ -15773,6 +16241,7 @@ var require_internal_model = __commonJS({
     var tree_ops_1 = require_tree_ops();
     var item_anchor_1 = require_item_anchor();
     var cut_adjacency_1 = require_cut_adjacency();
+    var transition_plan_1 = require_transition_plan();
     var error_1 = require_error();
     var audio_ownership_1 = require_audio_ownership();
     var shape_markup_1 = require_shape_markup();
@@ -15958,39 +16427,68 @@ var require_internal_model = __commonJS({
         if (track.lane !== "visual")
           continue;
         const cuts = track.items.filter((item) => item.legacy.collection === "cuts" && item.source.kind === "media");
-        for (let index = 0; index + 1 < cuts.length; index++) {
-          const outgoing = cuts[index];
-          const incoming = cuts[index + 1];
-          if ((0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.at + outgoing.duration }, { tlStart: incoming.at }, fps) !== 0)
+        const clips = cuts.map((item, index) => {
+          const still = (0, cut_adjacency_1.isStillImageSourcePath)(item.source.path);
+          const transition = item.declaration.transition_out;
+          return {
+            id: String(index),
+            startSeconds: item.at,
+            lengthSeconds: item.duration,
+            headRoomSeconds: still ? Number.POSITIVE_INFINITY : Math.max(0, item.source.in / speedOf(item)),
+            tailRoomSeconds: still ? Number.POSITIVE_INFINITY : void 0,
+            ...isRecord2(transition) && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? {
+              transitionOut: {
+                declaredSeconds: transition.duration,
+                align: (0, transition_plan_1.readTransitionAlign)(transition.align),
+                fill: (0, transition_plan_1.readTransitionFill)(transition.fill) === "freeze"
+              }
+            } : {},
+            // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+            ...isRecord2(item.declaration.freeze) ? { holdBlocked: true } : {}
+          };
+        });
+        const plans = (0, transition_plan_1.planTrackTransitions)(clips, { fps });
+        for (const plan of plans) {
+          if (plan.legacyOverlap)
             continue;
+          const outgoing = cuts[Number(plan.earlierId)];
+          const incoming = cuts[Number(plan.laterId)];
+          if (!outgoing || !incoming)
+            continue;
+          if (plan.state === "none") {
+            const { transition_out: unused, ...declaration } = outgoing.declaration;
+            outgoing.declaration = declaration;
+            continue;
+          }
           const transition = outgoing.declaration.transition_out;
-          if (!isRecord2(transition) || typeof transition.duration !== "number" || !Number.isFinite(transition.duration) || transition.duration <= 0)
+          if (!isRecord2(transition))
             continue;
+          const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
+          const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+          const head = -plan.startOffsetSeconds - hold;
+          const tail = plan.endOffsetSeconds;
+          const outgoingSpeed = speedOf(outgoing);
           const incomingSpeed = speedOf(incoming);
           const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
-          const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-            declaredSeconds: transition.duration,
-            outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
-            incomingHeadRoomSeconds: incomingStill ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
-            outgoingDurationSeconds: outgoing.duration,
-            incomingDurationSeconds: incoming.duration
-          });
-          if (plan.effectiveSeconds <= 0)
-            continue;
-          const outgoingSpeed = speedOf(outgoing);
+          const currentEnd = outgoing.at + outgoing.duration;
           outgoing.declaration = {
             ...outgoing.declaration,
-            out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
-            transition_out: { ...transition, duration: plan.effectiveSeconds }
+            out: Number(outgoing.declaration.out) + (plan.cutSeconds + tail - currentEnd) * outgoingSpeed,
+            transition_out: { ...renderTransition, duration: plan.effectiveSeconds }
           };
+          const freeze = incoming.declaration.freeze;
+          const shiftedFreeze = isRecord2(freeze) && typeof freeze.at_sec === "number" ? { freeze: { ...freeze, at_sec: freeze.at_sec + head } } : {};
           incoming.declaration = incomingStill ? {
             ...incoming.declaration,
-            at: Number(incoming.declaration.at) - plan.halfSeconds,
-            out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+            at: Number(incoming.declaration.at) - head,
+            out: Number(incoming.declaration.out) + head * incomingSpeed,
+            ...shiftedFreeze
           } : {
             ...incoming.declaration,
-            at: Number(incoming.declaration.at) - plan.halfSeconds,
-            in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+            at: Number(incoming.declaration.at) - head,
+            in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+            ...shiftedFreeze,
+            ...hold > 0 ? { transitionHold: { headSeconds: hold } } : {}
           };
         }
       }
@@ -17910,6 +18408,7 @@ var require_audio_schedule = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.buildWebAudioSchedule = buildWebAudioSchedule2;
     exports.projectSpeechDeclarations = projectSpeechDeclarations3;
+    exports.projectSpeechDeclarationsFromWindows = projectSpeechDeclarationsFromWindows;
     exports.projectLayerSpeechDeclarations = projectLayerSpeechDeclarations2;
     var audio_ownership_1 = require_audio_ownership();
     var ducking_1 = require_ducking();
@@ -18167,17 +18666,30 @@ var require_audio_schedule = __commonJS({
       const baked = sidecar ?? atempo;
       const crossfadeInSec = finitePositive3(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
       const crossfadeOutSec = finitePositive3(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
-      const effectiveAtSec = spec.atSec - crossfadeInSec;
-      const effectiveDurationSec = spec.durationSec + crossfadeInSec;
-      const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
-      if (elapsedIntoItemSec >= effectiveDurationSec)
-        return null;
-      const delaySec = Math.max(0, effectiveAtSec - startAtSec);
-      const timelineStartSec = startAtSec + delaySec;
+      const incomingLeadSec = spec.fadeInAtStart ? 0 : crossfadeInSec;
+      const effectiveAtSec = spec.atSec - incomingLeadSec;
+      const effectiveDurationSec = spec.durationSec + incomingLeadSec;
       const playbackRate = baked ? 1 : spec.speed;
       const padBeforeSec = sidecar && finiteNonNegative2(sidecar.padBeforeSec) ? sidecar.padBeforeSec : finiteNonNegative2(spec.padBeforeSec) ? spec.padBeforeSec : 0;
-      const bakedContentOffsetSec = sidecar ? padBeforeSec / spec.speed : 0;
-      const sourceOffsetSec = baked ? Math.max(0, bakedContentOffsetSec - crossfadeInSec + elapsedIntoItemSec) : Math.max(0, spec.inSec - crossfadeInSec * spec.speed + elapsedIntoItemSec * spec.speed);
+      const bakedContentOffsetSec = sidecar ? finiteNonNegative2(sidecar.actualStartSeconds) ? (spec.inSec - sidecar.actualStartSeconds) / spec.speed : padBeforeSec / spec.speed : 0;
+      const availableLeadSec = baked ? bakedContentOffsetSec : spec.inSec / spec.speed;
+      const missingLeadSec = incomingLeadSec - availableLeadSec;
+      let elapsedIntoItemSec;
+      let delaySec;
+      let timelineStartSec;
+      if (missingLeadSec <= 1e-9) {
+        elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
+        delaySec = Math.max(0, effectiveAtSec - startAtSec);
+        timelineStartSec = startAtSec + delaySec;
+      } else {
+        const readableAtSec = effectiveAtSec + missingLeadSec;
+        timelineStartSec = Math.max(startAtSec, readableAtSec);
+        delaySec = timelineStartSec - startAtSec;
+        elapsedIntoItemSec = timelineStartSec - effectiveAtSec;
+      }
+      if (elapsedIntoItemSec >= effectiveDurationSec)
+        return null;
+      const sourceOffsetSec = baked ? Math.max(0, bakedContentOffsetSec - incomingLeadSec + elapsedIntoItemSec) : Math.max(0, spec.inSec - incomingLeadSec * spec.speed + elapsedIntoItemSec * spec.speed);
       const sourceEndSec = baked ? Math.min(baked.durationSec, spec.materialDurationSec) : Math.min(spec.outSec, spec.materialDurationSec);
       const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
       if (!(sourceAvailableSec > 0))
@@ -18186,7 +18698,7 @@ var require_audio_schedule = __commonJS({
       if (!(durationSec > 0))
         return null;
       const baseGain = dbToLinear(gainDb);
-      const gainEvents = speechCrossfadeGainEvents(effectiveDurationSec, elapsedIntoItemSec, durationSec, crossfadeInSec, crossfadeOutSec, baseGain);
+      const gainEvents = speechCrossfadeGainEvents(effectiveDurationSec, elapsedIntoItemSec, durationSec, crossfadeInSec, crossfadeOutSec, baseGain, finiteNonNegative2(spec.fadeInWindowStartSec) ? spec.atSec - spec.fadeInWindowStartSec : 0);
       return {
         kind: "speech",
         id,
@@ -18206,6 +18718,19 @@ var require_audio_schedule = __commonJS({
     }
     function projectSpeechDeclarations3(cuts, options) {
       const fps = finitePositive3(options?.fps) ? options.fps : 30;
+      const virtualCuts = cuts.map((cut) => {
+        const speed = finitePositive3(cut?.speed) ? cut.speed : 1;
+        const holdSec = freezeDuration(cut?.freeze);
+        return {
+          ...cut,
+          transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0,
+          out: cut.out + holdSec * speed
+        };
+      });
+      return projectSpeechDeclarationsFromWindows(cuts, options, (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps }).transitionWindows);
+    }
+    function projectSpeechDeclarationsFromWindows(cuts, options, transitionWindows) {
+      const fps = finitePositive3(options?.fps) ? options.fps : 30;
       const normalizedCuts2 = cuts.map((cut) => ({
         ...cut,
         transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
@@ -18215,29 +18740,32 @@ var require_audio_schedule = __commonJS({
         const holdSec = freezeDuration(cut?.freeze);
         return { ...cut, out: cut.out + holdSec * speed };
       });
-      const map = (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps });
       const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
       const clipWindows = new Map((0, edit_store_1.computeCutTrackSegments)(usable.map((entry) => entry.cut)).map((segment) => [
         usable[segment.index].index,
         { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
       ]));
-      for (const window2 of map.transitionWindows) {
+      const outgoingEnds = /* @__PURE__ */ new Map();
+      for (const window2 of transitionWindows) {
         for (const participant of [window2.outgoing, window2.incoming]) {
           const clip = clipWindows.get(participant.cutIndex);
           const cut = normalizedCuts2[participant.cutIndex];
           if (!clip || !cut || typeof participant.in !== "number")
             continue;
           const speed = finitePositive3(cut.speed) ? cut.speed : 1;
-          clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+          clip.cutTimelineStart = finitePositive3(participant.holdHeadSeconds) ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed : participant.outStart - (participant.in - cut.in) / speed;
         }
         const outgoing = clipWindows.get(window2.outgoing.cutIndex);
         const incoming = clipWindows.get(window2.incoming.cutIndex);
-        if (outgoing)
+        if (outgoing) {
           outgoing.end = Math.max(outgoing.end, window2.end);
+          outgoingEnds.set(window2.outgoing.cutIndex, outgoing.end);
+        }
         if (incoming)
           incoming.start = Math.max(incoming.start, window2.end);
       }
       const declarations = [];
+      const declarationsByCut = /* @__PURE__ */ new Map();
       for (const [cutIndex, clip] of clipWindows) {
         const cut = normalizedCuts2[cutIndex];
         if (!cut || typeof cut.src !== "string" || !cut.src)
@@ -18250,6 +18778,7 @@ var require_audio_schedule = __commonJS({
         const gainDb = speechGainDb(cut);
         const baseId = speechBaseId(cut, cutIndex);
         const holdSec = freezeDuration(cut.freeze);
+        const firstDeclaration = declarations.length;
         if (!(holdSec > 0)) {
           appendSpeechIntersection(declarations, {
             id: `${baseId}-speech`,
@@ -18258,11 +18787,12 @@ var require_audio_schedule = __commonJS({
             speed,
             sourceIn: cut.in,
             outputStart: cutTimelineStart,
-            outputEnd: cutTimelineStart + baseDurationSec,
+            outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec,
             clipStart: clip.start,
             clipEnd: clip.end,
             track: cut.track
           });
+          declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
           continue;
         }
         const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
@@ -18286,27 +18816,64 @@ var require_audio_schedule = __commonJS({
           speed,
           sourceIn: freezeSourceIn,
           outputStart: cutTimelineStart + freezeAtSec + holdSec,
-          outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+          outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec + holdSec,
           clipStart: clip.start,
           clipEnd: clip.end,
           track: cut.track
         });
+        declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
       }
-      for (const window2 of map.transitionWindows) {
+      for (const window2 of transitionWindows) {
         if (window2.outgoing.cutIndex === null || window2.incoming.cutIndex === null)
           continue;
-        const outgoingCut = normalizedCuts2[window2.outgoing.cutIndex];
         const incomingCut = normalizedCuts2[window2.incoming.cutIndex];
-        const outgoingBase = speechBaseId(outgoingCut, window2.outgoing.cutIndex);
         const incomingBase = speechBaseId(incomingCut, window2.incoming.cutIndex);
-        const outgoing = [...declarations].reverse().find((item) => item.id.startsWith(`${outgoingBase}-speech`) && item.atSec <= window2.start + 1e-9 && item.atSec + item.durationSec >= window2.end - 1e-9);
-        const incoming = declarations.find((item) => item.id.startsWith(`${incomingBase}-speech`) && item.atSec >= window2.end - 1e-9);
+        const outgoing = [...declarationsByCut.get(window2.outgoing.cutIndex) ?? []].reverse().find((item) => item.atSec <= window2.start + 1e-9 && item.atSec + item.durationSec >= window2.end - 1e-9);
+        let incoming = (declarationsByCut.get(window2.incoming.cutIndex) ?? []).find((item) => item.atSec <= window2.end + 1e-9 && item.atSec + item.durationSec > window2.start + 1e-9);
+        if (!incoming && incomingCut && !(freezeDuration(incomingCut.freeze) > 0) && typeof incomingCut.src === "string" && incomingCut.src && (0, audio_ownership_1.isCutAudioAudible)(incomingCut)) {
+          const clip = clipWindows.get(window2.incoming.cutIndex);
+          const speed = finitePositive3(incomingCut.speed) ? incomingCut.speed : 1;
+          if (clip && clip.end <= window2.end + 1e-9 && window2.end > window2.start) {
+            const rawSourceIn = incomingCut.in + (window2.start - clip.cutTimelineStart) * speed;
+            const sourceIn = rawSourceIn >= -1e-9 ? Math.max(0, rawSourceIn) : 0;
+            const availableStart = rawSourceIn >= -1e-9 ? window2.start : window2.start - rawSourceIn / speed;
+            if (availableStart < window2.end - 1e-9) {
+              const replacement = [];
+              appendSpeechIntersection(replacement, {
+                id: `${incomingBase}-speech`,
+                src: incomingCut.src,
+                gainDb: speechGainDb(incomingCut),
+                speed,
+                sourceIn,
+                outputStart: availableStart,
+                outputEnd: window2.end,
+                clipStart: availableStart,
+                clipEnd: window2.end,
+                track: incomingCut.track
+              });
+              incoming = replacement[0];
+              if (incoming) {
+                incoming.fadeInAtStart = true;
+                if (availableStart > window2.start + 1e-9)
+                  incoming.fadeInWindowStartSec = window2.start;
+                let insertAt = declarations.length;
+                for (const [index, items] of declarationsByCut) {
+                  if (index > window2.incoming.cutIndex && items.length) {
+                    insertAt = Math.min(insertAt, declarations.indexOf(items[0]));
+                  }
+                }
+                declarations.splice(insertAt, 0, incoming);
+                declarationsByCut.set(window2.incoming.cutIndex, [incoming]);
+              }
+            }
+          }
+        }
         if (outgoing) {
           outgoing.padAfterSec = Math.max(outgoing.padAfterSec ?? 0, window2.duration);
           outgoing.crossfadeOutSec = Math.max(outgoing.crossfadeOutSec ?? 0, window2.duration);
         }
         if (incoming) {
-          incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, window2.duration);
+          incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, incoming.fadeInAtStart ? 0 : window2.duration);
           incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window2.duration);
         }
       }
@@ -18366,24 +18933,27 @@ var require_audio_schedule = __commonJS({
     function validSidecar2(value) {
       return value && typeof value.path === "string" && value.path && finitePositive3(value.durationSec) && finiteNonNegative2(value.padBeforeSec) && finiteNonNegative2(value.padAfterSec) ? value : void 0;
     }
-    function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain) {
+    function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain, fadeInClockOffsetSec = 0) {
       if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
         return [{ offsetSec: 0, value: baseGain, method: "set" }];
       }
       const multiplierAt = (localSec) => {
         let value = 1;
-        if (fadeInSec > 0 && localSec < fadeInSec)
-          value = Math.min(value, localSec / fadeInSec);
+        if (fadeInSec > 0 && localSec + fadeInClockOffsetSec < fadeInSec) {
+          value = Math.min(value, (localSec + fadeInClockOffsetSec) / fadeInSec);
+        }
         if (fadeOutSec > 0 && localSec > itemDurationSec - fadeOutSec) {
           value = Math.min(value, (itemDurationSec - localSec) / fadeOutSec);
         }
         return Math.max(0, Math.min(1, value));
       };
       const windowEnd = elapsedIntoItemSec + availableSec;
+      const intersection = fadeInSec > 0 && fadeOutSec > 0 ? (fadeInSec * itemDurationSec - fadeOutSec * fadeInClockOffsetSec) / (fadeInSec + fadeOutSec) : NaN;
       return uniqueSorted([
         elapsedIntoItemSec,
-        fadeInSec,
+        fadeInSec - fadeInClockOffsetSec,
         itemDurationSec - fadeOutSec,
+        ...intersection > itemDurationSec - fadeOutSec && intersection < fadeInSec - fadeInClockOffsetSec ? [intersection] : [],
         windowEnd
       ].filter((point) => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
         offsetSec: point - elapsedIntoItemSec,
@@ -21486,10 +22056,7 @@ var require_legacy_parse = __commonJS({
               const validType = (0, transition_vocabulary_1.isTransitionType)(transition?.type) || typeof transition?.type === "string" && transition.type.trim().length > 0;
               const validDuration = typeof transition?.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0;
               if (transition && typeof transition === "object" && !Array.isArray(transition) && validType && validDuration) {
-                transitionOut = {
-                  type: transition.type,
-                  duration: transition.duration
-                };
+                transitionOut = { ...transition };
               } else {
                 warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transition_out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
@@ -22002,6 +22569,7 @@ var require_lib = __commonJS({
     __exportStar(require_media_planes(), exports);
     __exportStar(require_track_transition_compatibility(), exports);
     __exportStar(require_cut_adjacency(), exports);
+    __exportStar(require_transition_plan(), exports);
     __exportStar(require_transition_vocabulary(), exports);
     __exportStar(require_transition_visual(), exports);
     __exportStar(require_ducking(), exports);
@@ -30035,12 +30603,11 @@ function transitionFragmentBody(type) {
     vec2 q = texelOf(vec2(sx, sy));
     result = A(q) * P + B(q) * (1.0 - P);`;
     default:
-      throw new Error(`unsupported transition type: ${String(type)}`);
+      return transitionFragmentBody("fade");
   }
 }
 function buildBaseFragment(type) {
-  if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type))
-    throw new Error(`unsupported transition type: ${String(type)}`);
+  if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type)) type = "fade";
   const blurHelper = type === "blur" ? `vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
   int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});
   vec3 sum = vec3(0.0);
@@ -32877,6 +33444,7 @@ var KNOWN_CUT_KEY_LIST = [
   "audio",
   "mute"
 ];
+var KNOWN_RENDER_CUT_KEY_LIST = ["transitionHold"];
 var KNOWN_LAYER_KEY_LIST = [
   "id",
   "t",
@@ -32962,7 +33530,7 @@ function warnUnknownFields(value, label, knownKeys, warn) {
     warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
   }
   for (const key of Object.keys(value)) {
-    if (knownKeys.has(key)) continue;
+    if (knownKeys.has(key) || knownKeys === KNOWN_CUT_KEYS && key === KNOWN_RENDER_CUT_KEY_LIST[0]) continue;
     warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
   }
 }
@@ -33481,9 +34049,6 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     const outgoingIndex = window2.outgoing.cutIndex;
     const incomingIndex = window2.incoming.cutIndex;
     if (outgoingIndex == null || incomingIndex == null) throw new Error("transition has no source cuts");
-    if (!(0, import_edit_store3.isTransitionType)(window2.type)) {
-      throw new Error(`unsupported transition type: ${window2.type}`);
-    }
     return {
       timeUs,
       frameIndex,
@@ -33493,7 +34058,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
-        type: window2.type,
+        type: (0, import_edit_store3.isTransitionType)(window2.type) ? window2.type : "fade",
         progress: (0, import_edit_store2.transitionProgressAt)(window2, outputSeconds)
       },
       output
@@ -41174,6 +41739,7 @@ function firstUseRegular(item) {
   return finiteNonNegative(item.spec.t) ? item.spec.t : 0;
 }
 function firstUseSpeech(item) {
+  if (item.fadeInAtStart) return item.atSec;
   const before = finitePositive2(item.crossfadeInSec) ? item.crossfadeInSec : 0;
   return Math.max(0, item.atSec - before);
 }
@@ -41612,13 +42178,15 @@ function normalizedCuts(edit) {
     const cursor = cursorByTrack.get(track) ?? 0;
     const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
     const hasGap = track === 0 && explicitAt !== null && explicitAt > cursor + 1e-6;
-    const at2 = hasGap ? explicitAt : cursor;
+    const hold = cut.transitionHold?.headSeconds;
+    const hasHold = typeof hold === "number" && Number.isFinite(hold) && hold > 0;
+    const at2 = hasGap || hasHold && explicitAt !== null ? explicitAt : cursor;
     const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
     const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0 ? cut.freeze.duration_sec : 0;
     const transition = cut.transition_out ?? cut.transitionOut;
     const overlap = Number.isFinite(transition?.duration) && transition.duration > 0 ? transition.duration : 0;
     cursorByTrack.set(track, at2 + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
-    const placement = track > 0 ? { track, ...explicitAt !== null ? { at: explicitAt } : {} } : hasGap ? { at: explicitAt } : {};
+    const placement = track > 0 ? { track, ...explicitAt !== null ? { at: explicitAt } : {} } : hasGap || hasHold && explicitAt !== null ? { at: explicitAt } : {};
     return resolvedItemAdjust({
       ...sequential,
       ...placement,
@@ -41774,7 +42342,8 @@ function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
     const end = at2 + duration;
     cursors.set(track, end);
     overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
-    if (atSeconds >= at2 && atSeconds < end) {
+    const hold = Math.max(0, finite4(cut.transitionHold?.headSeconds, 0));
+    if (atSeconds >= at2 - hold && atSeconds < end) {
       const id = cut.src ?? edit?.sources?.[0]?.id ?? "default";
       if (typeof id === "string" && id) ids.add(id);
     }
@@ -41790,6 +42359,16 @@ function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
     }
   }
   return ids;
+}
+function noteCutFirstUses(placements, firstUses) {
+  for (const placement of placements) {
+    const hold = placement.cut.transitionHold?.headSeconds;
+    const start = placement.at - (typeof hold === "number" && Number.isFinite(hold) && hold > 0 ? hold : 0);
+    if (placement.cut.src) firstUses.set(
+      placement.cut.src,
+      Math.min(firstUses.get(placement.cut.src) ?? Infinity, start)
+    );
+  }
 }
 async function resolveSourceChoices(candidates, context) {
   const choices = /* @__PURE__ */ new Map();
@@ -42498,7 +43077,7 @@ async function createFrameEnginePreview(options) {
     const noteUse = (id, seconds) => {
       if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
     };
-    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    noteCutFirstUses(timeline.cuts, firstUses);
     for (const layer of layers) {
       noteUse(layer.src, layer.t);
       noteUse(layer.mask, layer.t);

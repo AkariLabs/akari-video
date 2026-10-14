@@ -46,9 +46,11 @@ import {
     TimelineTreeItemSnapshot,
     TimelineWorldSelection,
     TimelineGapSelection,
+    TimelineTransitionSelection,
     captionIdForTreeSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
+import { renderTransitionPanel } from './inspector/transition-panel';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
@@ -717,7 +719,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return false;
         }
         const snapshot = this.model.snapshot;
-        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap') {
+        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap' || snapshot.kind === 'transition') {
             if (clearedSolo) this.render();
             return false;
         }
@@ -891,6 +893,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const snapshot = this.model.snapshot;
         if (!snapshot) return undefined;
         if (snapshot.kind === 'gap') return `gap:${snapshot.trackId}:${snapshot.startSeconds}:${snapshot.endSeconds}`;
+        if (snapshot.kind === 'transition') return `transition:${snapshot.ref.earlierItemId}:${snapshot.ref.laterItemId}`;
         const itemKey = (item: InspectorSnapshot): string => item.kind === 'cut'
             ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`;
         const selectionKey = snapshot.kind === 'multi'
@@ -974,6 +977,12 @@ export class AkariInspectorWidget extends BaseWidget {
             });
         });
         this.body.appendChild(panel);
+    }
+
+    protected renderTransitionSelection(snapshot: TimelineTransitionSelection): void {
+        this.body.append(renderTransitionPanel(snapshot,
+            request => this.commitWrite(request),
+            id => this.commandRegistry.executeCommand(id), this.node));
     }
 
     protected matchesGapAiFrame(selection: TimelineSelectionModel['snapshot'], gap: TimelineGapSelection): boolean {
@@ -1229,6 +1238,14 @@ export class AkariInspectorWidget extends BaseWidget {
             empty.className = 'akari-inspector-empty';
             empty.textContent = t('annotations.inspectorWidget.text.selectAnItemOnTheTimeline');
             this.body.appendChild(empty);
+            return;
+        }
+        if (snapshot.kind === 'transition') {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
+            this.explicitTabId = undefined;
+            this.syncAdjustCompare(undefined, '');
+            this.renderTransitionSelection(snapshot);
             return;
         }
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),

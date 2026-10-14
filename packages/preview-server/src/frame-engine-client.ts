@@ -257,7 +257,9 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     const cursor = cursorByTrack.get(track) ?? 0;
     const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
     const hasGap = track === 0 && explicitAt !== null && explicitAt > cursor + 1e-6;
-    const at = hasGap ? explicitAt : cursor;
+    const hold = cut.transitionHold?.headSeconds;
+    const hasHold = typeof hold === 'number' && Number.isFinite(hold) && hold > 0;
+    const at = hasGap || (hasHold && explicitAt !== null) ? explicitAt : cursor;
     const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
     const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
       ? cut.freeze.duration_sec : 0;
@@ -267,7 +269,7 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     cursorByTrack.set(track, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
     const placement = track > 0
       ? { track, ...(explicitAt !== null ? { at: explicitAt } : {}) }
-      : hasGap ? { at: explicitAt } : {};
+      : hasGap || (hasHold && explicitAt !== null) ? { at: explicitAt } : {};
     return resolvedItemAdjust({
       ...sequential,
       ...placement,
@@ -471,7 +473,8 @@ function initialSourceIds(
     const end = at + duration;
     cursors.set(track, end);
     overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
-    if (atSeconds >= at && atSeconds < end) {
+    const hold = Math.max(0, finite(cut.transitionHold?.headSeconds, 0));
+    if (atSeconds >= at - hold && atSeconds < end) {
       const id = cut.src ?? edit?.sources?.[0]?.id ?? 'default';
       if (typeof id === 'string' && id) ids.add(id);
     }
@@ -488,6 +491,15 @@ function initialSourceIds(
     }
   }
   return ids;
+}
+
+function noteCutFirstUses(placements: readonly { cut: FrameEngineCut; at: number }[], firstUses: Map<string, number>): void {
+  for (const placement of placements) {
+    const hold = placement.cut.transitionHold?.headSeconds;
+    const start = placement.at - (typeof hold === 'number' && Number.isFinite(hold) && hold > 0 ? hold : 0);
+    if (placement.cut.src) firstUses.set(placement.cut.src,
+      Math.min(firstUses.get(placement.cut.src) ?? Infinity, start));
+  }
 }
 
 async function resolveSourceChoices(
@@ -1312,7 +1324,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     const noteUse = (id: string | undefined, seconds: number) => {
       if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
     };
-    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    noteCutFirstUses(timeline.cuts, firstUses);
     for (const layer of layers) {
       noteUse(layer.src, layer.t);
       noteUse(layer.mask, layer.t);

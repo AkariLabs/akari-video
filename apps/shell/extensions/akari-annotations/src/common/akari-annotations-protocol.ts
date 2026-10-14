@@ -7,6 +7,10 @@ import type { ImageAiBinding } from './image-ai-binding';
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
+export interface AkariAnnotationsService {
+    getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>>;
+}
+
 export interface NarrationEngine {
     id: string; label: string; place: 'local' | 'network' | 'cloud'; provider?: string; experimental?: boolean;
     price?: { unit?: string | null; value?: number | null; usd_per_1000_chars?: number; verified: boolean; as_of?: string };

@@ -218,6 +218,23 @@ test('PCM ready resolves an asset stream target and preserves its complete metad
     for (const [field, value] of Object.entries(metadata)) assert.equal(result[field], value);
 });
 
+test('ready request forwards source-second pads and the clamped source start', async t => {
+    const data = await fixture(t);
+    const path = join(data.project, 'clamped.pcm');
+    await writeFile(path, Buffer.alloc(48000));
+    const { service, requests } = nonblockingService(t, data, {
+        state: 'ready', key: 'clamped-key', path, durationSec: 1.625,
+        actualStartSeconds: 0, bytes: 48000
+    });
+    service.createAssetStream = async () => ({ id: 'clamped', url: 'sidecar' });
+    const result = await service.requestPreviewAudioSidecar(requestFor(data, {
+        inSec: 0.25, outSec: 2.25, speed: 2, padBeforeSec: 2, padAfterSec: 1
+    }));
+    assert.equal(result.actualStartSeconds, 0);
+    assert.equal(requests[0].padBeforeSec, 2);
+    assert.equal(requests[0].padAfterSec, 1);
+});
+
 test('request forwards format and decodedBytesThreshold unchanged and omits undefined options', async t => {
     const data = await fixture(t);
     const { service, requests, calls } = nonblockingService(t, data, { state: 'queued', key: 'k' });

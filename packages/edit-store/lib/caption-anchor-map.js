@@ -6,8 +6,8 @@ exports.inferCaptionDisplayToSource = inferCaptionDisplayToSource;
 exports.fitCaptionMotionWindow = fitCaptionMotionWindow;
 const timeline_map_1 = require("./timeline-map");
 const caption_runs_1 = require("./caption-runs");
-function anchorToOutput(anchor, caption, timeline, fire = 'shown') {
-    const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline) : timeline;
+function anchorToOutput(anchor, caption, timeline, fire = 'shown', fps) {
+    const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline, { fps }) : timeline;
     const warning = (code, message) => ({ fire: 'shown', diagnostics: [{ code, severity: 'warning', message }] });
     if (!anchor)
         return [{ fire: 'shown', diagnostics: [] }];

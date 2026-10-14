@@ -4,7 +4,7 @@ import { InspectorWriteRequest, InspectorWriteResult, TimelineCutSelection } fro
 import { composeInspectorSections } from '../section-model';
 import { GENERATION_SECTION_ID, type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, formatDecimal1, withDefaultNumber } from './shared-helpers';
-import { cutTransitionFields, cutFramingFields, cutFreezeFields } from './transform-fields';
+import { cutFramingFields, cutFreezeFields } from './transform-fields';
 import { MOTION_FIELDS, MOTION_SUMMARY_SECTION, MOTION_EMPTY_SECTION } from './motion-sections';
 
 export function CUT_SECTIONS(
@@ -97,7 +97,6 @@ export function CUT_SECTIONS(
                             value: Math.round(parsed * 10) / 10 });
                     }
                 } : { name: 'duration', label: t('inspector.cutSections.label.duration'), getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
-                ...cutTransitionFields(snapshot, requestWrite)
             ]
         },
         { id: 'transform', label: t('inspector.cutSections.label.transform'), fields: transformFields },

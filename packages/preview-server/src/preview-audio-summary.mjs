@@ -58,8 +58,8 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
     if (typeof declaredPath !== 'string' || !declaredPath) continue;
     enqueue(declaration, 'speech', declaration.id, declaration.atSec, {
       sourcePath: sourcePathOf(declaredPath), inSec: declaration.inSec, outSec: declaration.outSec,
-      speed: declaration.speed, padBeforeSec: declaration.padBeforeSec ?? 0,
-      padAfterSec: declaration.padAfterSec ?? 0,
+      speed: declaration.speed, padBeforeSec: (declaration.padBeforeSec ?? 0) * declaration.speed,
+      padAfterSec: (declaration.padAfterSec ?? 0) * declaration.speed,
       format: isHeavy(declaration.outSec - declaration.inSec
         + (declaration.padBeforeSec ?? 0) + (declaration.padAfterSec ?? 0)) ? 'pcm-s16le' : 'flac',
     }, `speech sidecar ${declaration.id} unavailable; using source fallback`);
@@ -130,6 +130,8 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
         path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
         durationSec: result.durationSec, padBeforeSec: options.padBeforeSec,
         padAfterSec: options.padAfterSec, skipped: true, bytes: result.bytes,
+        ...(result.actualStartSeconds !== undefined
+          ? { actualStartSeconds: result.actualStartSeconds } : {}),
         ...Object.fromEntries(['format', 'sampleRate', 'channels', 'frames', 'bytesPerSample']
           .filter(field => result[field] !== undefined).map(field => [field, result[field]])),
       };

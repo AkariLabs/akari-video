@@ -10,6 +10,7 @@ import {
 import { FX_PASS_FRAGMENT } from '../dist/compositor/fx-passes.js';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
+
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
 const goldenRendererSource = await readFile(path.resolve(import.meta.dirname, 'golden/renderer.ts'), 'utf8');
 const goldenElectronMainSource = await readFile(path.resolve(import.meta.dirname, 'golden/main.cjs'), 'utf8');
@@ -20,6 +21,10 @@ const transitionComparisonSource = await readFile(
 const mattePathSource = await Promise.all([
   'src/timeline/plan.ts', 'src/evaluate.ts', 'src/compositor/webgl2.ts'
 ].map(file => readFile(path.resolve(import.meta.dirname, '..', file), 'utf8'))).then(values => values.join('\n'));
+
+test('unknown transition shader is the fade shader', () => {
+  assert.equal(buildBaseFragment('future-kind'), buildBaseFragment('fade'));
+});
 
 test('layer compositor keeps the no-FBO base path and guards projective w', () => {
   assert.match(source, /if \(layers\.length === 0 && !hasLook && baseProgram\)[\s\S]+configureBaseDraw\(plan, null, baseProgram!\)/u);

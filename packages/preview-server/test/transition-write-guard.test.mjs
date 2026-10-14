@@ -8,7 +8,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { chromium } from 'playwright';
-import { editForPut, normalizeLegacyCutTransitions } from '../public/transition-write-guard.js';
+import { editForPut, escapeTransitionOptionAttribute, normalizeLegacyCutTransitions, transitionTypeOptions } from '../public/transition-write-guard.js';
 
 const require = createRequire(import.meta.url);
 const { migrateEditToV2 } = require('../../edit-store/lib/migrate/index.js');
@@ -18,6 +18,24 @@ const SOURCE_PROJECT = path.resolve(PACKAGE_ROOT, '..', '..', 'test-project');
 const SYSTEM_CHROME = process.env.CHROME_PATH
   || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : null);
 const TRANSITION_TYPES = ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up'];
+
+test('unknown transition type remains selectable and write guard keeps extra fields', () => {
+  assert.deepEqual(transitionTypeOptions('future-kind'), [...TRANSITION_TYPES, 'future-kind']);
+  assert.deepEqual(transitionTypeOptions('fade-white'), TRANSITION_TYPES);
+  const edit = pollutedFixture();
+  delete edit.cuts[0].transitionOut;
+  edit.cuts[0].transition_out = { type: 'future-kind', duration: 0.5,
+    align: 'before-cut', x: { retained: true } };
+  assert.equal(editForPut(edit), edit);
+  assert.deepEqual(edit.cuts[0].transition_out, { type: 'future-kind', duration: 0.5,
+    align: 'before-cut', x: { retained: true } });
+});
+
+test('unknown transition option escapes quotes and markup in its attribute', () => {
+  const type = `future"<'kind`;
+  assert.deepEqual(transitionTypeOptions(type), [...TRANSITION_TYPES, type]);
+  assert.equal(escapeTransitionOptionAttribute(type), 'future&quot;&lt;&#39;kind');
+});
 
 async function freePort() {
   return new Promise((resolve, reject) => {

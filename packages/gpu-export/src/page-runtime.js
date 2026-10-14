@@ -393,7 +393,9 @@
       const cursor = cursorByTrack.get(track) ?? 0;
       const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
       const hasGap = explicitAt !== null && explicitAt > cursor + 1e-6;
-      const at = hasGap ? explicitAt : cursor;
+      const hold = cut.transitionHold?.headSeconds;
+      const hasHold = typeof hold === "number" && Number.isFinite(hold) && hold > 0;
+      const at = hasGap || (hasHold && explicitAt !== null) ? explicitAt : cursor;
       const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
       const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
         ? cut.freeze.duration_sec : 0;
@@ -406,7 +408,7 @@
       if (track > 0) {
         copy.track = track;
         if (explicitAt !== null) copy.at = explicitAt;
-      } else if (hasGap) {
+      } else if (hasGap || (hasHold && explicitAt !== null)) {
         copy.at = explicitAt;
       }
       copy.src = cut.src || (Array.isArray(edit.sources) ? edit.sources[0] && edit.sources[0].id : "default") || "default";

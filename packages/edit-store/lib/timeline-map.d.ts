@@ -11,6 +11,7 @@
  *     のインライン注入で共有。v2 の絶対配置を常にマルチトラック平坦化する。
  */
 import { EditCut } from './edit-store';
+import { type TransitionBoundaryPlan } from './transition-plan';
 export interface TimelineTransitionPlate {
     start: number;
     end: number;
@@ -19,6 +20,8 @@ export interface TimelineTransitionPlate {
     type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
+    /** 窓の incoming の区間だけ: 窓の始まりから、最初のコマを出したまま止めている秒数。in は止めが明けた時点の素材の時刻。 */
+    holdHeadSeconds?: number;
     kind: 'src' | 'gap';
     outStart: number;
     outEnd: number;
@@ -45,6 +48,16 @@ export interface TimelineTransitionWindow {
     type: NonNullable<EditCut['transitionOut']>['type'];
     outgoing: TimelineSegment;
     incoming: TimelineSegment;
+    /**
+     * 以下は、投影前の並びから窓を合成したときだけ入る計画の値。
+     * 投影済みの並び（実際の重なり）から作り直した窓には入らない。
+     */
+    cutSeconds?: number;
+    effectiveSeconds?: number;
+    state?: TransitionBoundaryPlan['state'];
+    reasons?: TransitionBoundaryPlan['reasons'];
+    freezeIncomingSeconds?: number;
+    freezeOutgoingSeconds?: number;
 }
 export interface TimelineMapResult {
     segments: TimelineSegment[];

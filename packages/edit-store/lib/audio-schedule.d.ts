@@ -1,4 +1,5 @@
 import { DuckInterval } from './ducking';
+import { buildTimelineMap } from './timeline-map';
 import { type EditCut } from './edit-store';
 export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 export interface WebAudioDecodedItem {
@@ -34,8 +35,11 @@ export interface WebAudioDecodedItem {
 export interface WebAudioSidecar {
     path: string;
     durationSec: number;
+    /** Requested source seconds before and after the trim. */
     padBeforeSec: number;
     padAfterSec: number;
+    /** Actual first source second after clamping at the start of the material. */
+    actualStartSeconds?: number;
     generatedMs?: number;
     skipped?: boolean;
     bytes?: number;
@@ -69,10 +73,15 @@ export interface WebAudioSpeechDeclaration {
         durationSec: number;
         generatedMs?: number;
     };
+    /** Window handles in output seconds; the host converts them to source seconds. */
     padBeforeSec?: number;
     padAfterSec?: number;
     crossfadeInSec?: number;
     crossfadeOutSec?: number;
+    /** A clip wholly inside the window fades from its own start. */
+    fadeInAtStart?: boolean;
+    /** Absolute start of the incoming window when source availability delays this clip. */
+    fadeInWindowStartSec?: number;
 }
 export interface WebAudioSpeechCut extends EditCut {
     id?: string;
@@ -141,6 +150,14 @@ export declare function projectSpeechDeclarations(cuts: readonly WebAudioSpeechC
     fps: number;
     layers?: readonly WebAudioSpeechLayer[];
 }): WebAudioSpeechDeclaration[];
+/**
+ * @internal
+ * 窓の形が決まっているときに、その窓から音の宣言を作る。テストと、窓を別に持つ呼び出し側のための口。
+ */
+export declare function projectSpeechDeclarationsFromWindows(cuts: readonly WebAudioSpeechCut[], options: {
+    fps: number;
+    layers?: readonly WebAudioSpeechLayer[];
+}, transitionWindows: ReturnType<typeof buildTimelineMap>['transitionWindows']): WebAudioSpeechDeclaration[];
 /** Layer timing is output time; only moving source regions supply speech. */
 export interface WebAudioSpeechLayer {
     id?: string;

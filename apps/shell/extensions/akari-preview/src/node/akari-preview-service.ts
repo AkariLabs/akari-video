@@ -99,6 +99,7 @@ interface PrepareSpeechAtempoResult {
     ok: boolean;
     skipped: boolean;
     durationSec: number;
+    actualStartSeconds?: number;
     generatedMs: number;
     eligible?: boolean;
     key?: string;
@@ -118,6 +119,7 @@ interface PreviewAudioSidecarModuleResult {
     frames?: number;
     bytesPerSample?: number;
     durationSec?: number;
+    actualStartSeconds?: number;
     bytes?: number;
     sampleRate?: number;
     channels?: number;
@@ -336,6 +338,7 @@ type SpeechAtempoModule = {
         skipped: boolean;
         path: string | null;
         durationSec: number;
+        actualStartSeconds?: number;
         reason: string | null;
         key: string | null;
         sampleRate: number;
@@ -1030,6 +1033,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 sampleRate: result.sampleRate,
                 channels: result.channels,
                 durationSec: result.durationSec,
+                ...(result.actualStartSeconds !== undefined
+                    ? { actualStartSeconds: result.actualStartSeconds } : {}),
                 generatedMs,
                 stream
             };

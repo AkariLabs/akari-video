@@ -97,6 +97,8 @@ function context() {
         rawKeyframeItem() { return item(this.document); },
         hydratedKeyframes() { return this.rawKeyframeItem().keyframes ?? []; },
         segmentEasingAt() { return 'linear'; },
+        releaseTransitionBoundaryForOtherSelection() {},
+        pushSelectionSnapshot() {}, applySelectionClass() {},
         async setTimelineKeyframe(itemId, property, t, value) {
             this.document = setV2Keyframe(this.document, { itemId, property, t, value });
         },

@@ -42,7 +42,7 @@ test('all six Shift selection orders keep caption, layer and overlay together', 
     const toggle = parsed.statements.find(node => ts.isFunctionDeclaration(node)
         && node.name?.text === 'togglePreviewSelection');
     assert.ok(toggle);
-    const js = ts.transpileModule(`class Widget { ${method('toggleMultiSelection')}\n${method('publishPrimaryPreviewSelection')} }
+    const js = ts.transpileModule(`class Widget { ${method('toggleMultiSelection')}\n${method('releaseTransitionBoundaryForOtherSelection')}\n${method('publishPrimaryPreviewSelection')} }
         ${toggle.getText(parsed).replace(/^export /, '')}\nthis.Widget = Widget;`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     const items = [
@@ -64,7 +64,7 @@ test('all six Shift selection orders keep caption, layer and overlay together', 
         vm.runInContext(js, context);
         const instance = new context.Widget();
         Object.assign(instance, {
-            selection: undefined, multiSelection: [], previewBagSelection: undefined,
+            selection: undefined, multiSelection: [], previewBagSelection: undefined, activeBoundary: undefined,
             selectionModel: { inspectorOwner: null }, location: { editUri: { toString: () => 'file:///edit.json' } },
             layers: [{ id: 'image-2' }], cutItemIds: [],
             selectionKey: item => `${item?.kind}:${item?.id}`,
@@ -91,6 +91,7 @@ test('all 12 preview pair selections reach the timeline and keep two preview fra
         return value.getText(ast);
     };
     const js = ts.transpileModule(`class Widget { ${member('applyPreviewMixedSelection')}
+        ${member('releaseTransitionBoundaryForOtherSelection')}
         ${member('publishPrimaryPreviewSelection')} }
         this.Widget = Widget;`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     const visuals = [
@@ -143,7 +144,7 @@ test('all 12 preview pair selections reach the timeline and keep two preview fra
         vm.runInContext(js, context);
         const instance = new context.Widget();
         Object.assign(instance, {
-            selection: undefined, multiSelection: [], selectionModel: { inspectorOwner: null },
+            selection: undefined, multiSelection: [], activeBoundary: undefined, selectionModel: { inspectorOwner: null },
             location: { editUri: { toString: () => 'file:///edit.json' } },
             layers: [{ id: 'image-2' }], cutItemIds: [], timelineTreeRows: [],
             selectionKey: item => `${item?.kind}:${item?.id}`,

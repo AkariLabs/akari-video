@@ -324,13 +324,26 @@ test("source.chroma_key.color is required", () => {
   assert.match(executed.stderr, /source\.chroma_key\.color は空でない文字列である必要があります/);
 });
 
-test("cuts[].transition_out.type must be one of the canonical transition vocabulary", () => {
-  const executed = run("edit-transition-invalid");
+test("cuts[].transition_out.type accepts an unknown nonempty string", () => {
+  const executed = run("edit-transition-unknown-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].transition_out.type rejects an empty string", () => {
+  const executed = run("edit-transition-empty-type-invalid");
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(
     executed.stderr,
-    /cuts\[0\]\.transition_out\.type は .*pixelize のいずれかである必要があります/,
+    /cuts\[0\]\.transition_out\.type は空でない文字列である必要があります/,
   );
+});
+
+test("cuts[].transition_out.type rejects a non-string value", () => {
+  const executed = runPatchedExample(edit => {
+    edit.cuts[0].transition_out = { type: 123, duration: 0.5 };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.transition_out\.type は空でない文字列である必要があります/);
 });
 
 test("audio.bgm: null is tolerated as equivalent to omitted (contract-2026-07-14 says omission = no BGM; real fieldtest data spells that as explicit null, the same convention as source.proxy)", () => {

@@ -13,10 +13,9 @@
 
 import { EditCut, computeCutTrackSegments } from './edit-store';
 import {
-    cutOverlapFrames,
-    DEFAULT_CUT_ADJACENCY_FPS,
-    planTransitionHandleWindow
+    DEFAULT_CUT_ADJACENCY_FPS
 } from './cut-adjacency';
+import { planTrackTransitions, transitionPlanClipsFromCuts, type TransitionBoundaryPlan } from './transition-plan';
 
 export interface TimelineTransitionPlate {
     start: number;
@@ -26,6 +25,8 @@ export interface TimelineTransitionPlate {
     type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
+    /** 窓の incoming の区間だけ: 窓の始まりから、最初のコマを出したまま止めている秒数。in は止めが明けた時点の素材の時刻。 */
+    holdHeadSeconds?: number;
     kind: 'src' | 'gap';
     outStart: number;
     outEnd: number;
@@ -53,6 +54,16 @@ export interface TimelineTransitionWindow {
     type: NonNullable<EditCut['transitionOut']>['type'];
     outgoing: TimelineSegment;
     incoming: TimelineSegment;
+    /**
+     * 以下は、投影前の並びから窓を合成したときだけ入る計画の値。
+     * 投影済みの並び（実際の重なり）から作り直した窓には入らない。
+     */
+    cutSeconds?: number;
+    effectiveSeconds?: number;
+    state?: TransitionBoundaryPlan['state'];
+    reasons?: TransitionBoundaryPlan['reasons'];
+    freezeIncomingSeconds?: number;
+    freezeOutgoingSeconds?: number;
 }
 
 export interface TimelineMapResult {
@@ -149,40 +160,57 @@ export function buildTimelineMap(
         cutIndex: usable[segment.index].index
     }));
     const fps = options?.fps ?? DEFAULT_CUT_ADJACENCY_FPS;
-    // 隠れのりしろは、フレーム量子化で突き合わせとなる境界にだけ合成する。
-    // 実重なり済みの境界は一切変更せず、従来の窓計算へそのまま流す。
-    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
-            && transition.duration > 0)) continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
-        if (!incoming || cutOverlapFrames(
-            { tlEnd: outgoing.end }, { tlStart: incoming.start }, fps
-        ) !== 0) continue;
-        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-        const incomingSpeed = typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0
-            ? incoming.cut.speed : 1;
-        const plan = planTransitionHandleWindow({
-            declaredSeconds: transition.duration,
-            outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-            incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-            outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-            incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+    // 計画には投影前の並びを渡し、隣の境目との取り合いをまとめて決める。
+    const plannedWindows = new Map<number, TransitionBoundaryPlan>();
+    const suppressedWindows = new Set<number>();
+    const planTracks = transitionPlanClipsFromCuts(usableCuts, {
+        fps, resolve: cut => ({
+            stillImage: false, freezeSeconds: 0,
+            holdHeadSeconds: cut.transitionHold?.headSeconds,
+            // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+            holdBlocked: typeof (cut as { freeze?: unknown }).freeze === 'object'
+                && (cut as { freeze?: unknown }).freeze !== null
+        })
+    });
+    for (const track of planTracks) {
+        const clips = track.clips.map(clip => {
+            const originalIndex = usable[Number(clip.id)].index;
+            const handleRoom = options?.handleRoom?.(originalIndex);
+            return {
+                ...clip,
+                headRoomSeconds: handleRoom?.headSeconds ?? clip.headRoomSeconds,
+                tailRoomSeconds: handleRoom?.tailSeconds ?? Number.POSITIVE_INFINITY
+            };
         });
-        if (plan.effectiveSeconds <= 0) continue;
-        const cutPoint = outgoing.end;
-        outgoing.end = cutPoint + plan.halfSeconds;
-        outgoing.cut = {
-            ...outgoing.cut,
-            transitionOut: { ...transition, duration: plan.effectiveSeconds }
-        };
-        incoming.start = cutPoint - plan.halfSeconds;
-        incoming.cut = {
-            ...incoming.cut,
-            in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-        };
+        for (const plan of planTrackTransitions(clips, { fps })) {
+            if (plan.legacyOverlap) continue;
+            if (plan.state === 'none') {
+                const originalIndex = usable[Number(plan.earlierId)].index;
+                suppressedWindows.add(originalIndex);
+                const outgoing = resolved.find(entry => entry.cutIndex === originalIndex);
+                if (outgoing) outgoing.cut = { ...outgoing.cut, transitionOut: undefined };
+                continue;
+            }
+            const outgoing = resolved.find(entry => entry.cutIndex === usable[Number(plan.earlierId)].index);
+            const incoming = resolved.find(entry => entry.cutIndex === usable[Number(plan.laterId)].index);
+            if (!outgoing || !incoming || !outgoing.cut.transitionOut) continue;
+            const incomingSpeed = typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0
+                ? incoming.cut.speed : 1;
+            outgoing.end = plan.cutSeconds + plan.endOffsetSeconds;
+            outgoing.cut = {
+                ...outgoing.cut,
+                transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
+            };
+            // 頭の余りを越える分（前出し）は、後のクリップの始まりと素材の時計に数えない。
+            const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+            const early = -plan.startOffsetSeconds - hold;
+            incoming.start = plan.cutSeconds - early;
+            incoming.cut = {
+                ...incoming.cut,
+                in: Math.max(0, incoming.cut.in - early * incomingSpeed)
+            };
+            plannedWindows.set(outgoing.cutIndex, plan);
+        }
     }
     const segmentSlice = (
         entry: typeof resolved[number],
@@ -208,12 +236,17 @@ export function buildTimelineMap(
     const transitionWindows: TimelineTransitionWindow[] = [];
     for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
         const outgoing = resolved[outgoingIndex];
+        if (suppressedWindows.has(outgoing.cutIndex)) continue;
         const transition = outgoing.cut.transitionOut;
         if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
             && transition.duration > 0)) continue;
         const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
         if (!incoming) continue;
-        const start = incoming.start;
+        const plannedHold = plannedWindows.get(outgoing.cutIndex)?.freezeIncomingSeconds ?? 0;
+        const declaredHold = incoming.cut.transitionHold?.headSeconds;
+        const hold = typeof declaredHold === 'number' && Number.isFinite(declaredHold) && declaredHold > 0
+            ? declaredHold : plannedHold;
+        const start = incoming.start - hold;
         const actualOverlap = outgoing.end - start;
         if (!(actualOverlap > 0.000001) || actualOverlap - transition.duration > 0.000001) continue;
         const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
@@ -224,7 +257,22 @@ export function buildTimelineMap(
             duration: end - start,
             type: transition.type,
             outgoing: segmentSlice(outgoing, start, end, transition),
-            incoming: segmentSlice(incoming, start, end)
+            incoming: {
+                ...segmentSlice(incoming, start, end),
+                ...(hold > 0 ? {
+                    holdHeadSeconds: hold,
+                    in: incoming.cut.in,
+                    out: incoming.cut.in + Math.max(0, end - incoming.start) *
+                        (typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0 ? incoming.cut.speed : 1)
+                } : {})
+            },
+            ...(plannedWindows.has(outgoing.cutIndex) ? {
+                cutSeconds: plannedWindows.get(outgoing.cutIndex)!.cutSeconds,
+                effectiveSeconds: plannedWindows.get(outgoing.cutIndex)!.effectiveSeconds,
+                state: plannedWindows.get(outgoing.cutIndex)!.state,
+                reasons: plannedWindows.get(outgoing.cutIndex)!.reasons,
+                ...(plannedHold > 0 ? { freezeIncomingSeconds: plannedHold } : {})
+            } : {})
         });
     }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);

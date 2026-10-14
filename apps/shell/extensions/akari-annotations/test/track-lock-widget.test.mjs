@@ -388,7 +388,7 @@ test('transition drop and hover refuse either locked boundary track', () => {
   context.setHoveredTransitionDropTarget = hit => assert.equal(hit, undefined);
   const event = { ...pointerEvent(), dataTransfer: {} };
   context.handleLibraryTransitionDragOver(event);
-  assert.equal(event.dataTransfer.dropEffect, 'none');
+  assert.equal(event.dataTransfer.dropEffect, 'copy');
   context.handleLibraryTransitionDrop(event);
   assert.equal(context.footer.textContent, lockedTrackMessage('本編'));
 });
@@ -421,5 +421,6 @@ test('every timeline edit entry checks isTrackLocked before mutation', () => {
   assert.match(methodText('renderTrackHeaders'), /JSON\.stringify\(\[track, name, visible, audible, locked, treeRows,\s*treeRows\.map\(row =>/);
   assert.match(methodText('renderTrackHeaders'), /this\.timelineRowStride\(track\.id\)/);
   assert.match(methodText('renderTrackHeaders'), /this\.beatsLocked/);
-  assert.match(methodText('renderTransitionBoundaries'), /dropTarget\.style\.visibility = locked \? 'hidden'/);
+  assert.match(methodText('transitionBoundaryInputs'), /locked: this\.isTrackLocked\(/);
+  assert.match(methodText('renderTransitionBoundaries'), /boundaries\.filter\(boundary => boundary\.blocks\.length === 0\)/);
 });

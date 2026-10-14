@@ -108,11 +108,12 @@ test('covered transitions preserve single-track declaration bytes, including hid
           transition_out: { type: 'dissolve', duration: 0.5 }, ...(explicitAt ? { at: 0 } : {}) },
         { id: 'b', src: 'shared', in: 2, out: 2 + 4 * speed, speed, ...(explicitAt ? { at: 4 } : {}) },
       ];
-      // These complete declarations capture the pre-fix single-track output.
+      // Explicit placement must supply A's hidden tail through the window end.
       const expected = [
-        { id: 'a-speech', src: 'shared', atSec: 0, durationSec: 4, inSec: 1, outSec: 1 + 4 * speed,
-          speed, gainDb: 0, track: 0, materialDurationSec: 1 + 4 * speed,
-          ...(!explicitAt ? { padAfterSec: 0.5, crossfadeOutSec: 0.5 } : {}) },
+        { id: 'a-speech', src: 'shared', atSec: 0, durationSec: explicitAt ? 4.25 : 4,
+          inSec: 1, outSec: 1 + (explicitAt ? 4.25 : 4) * speed,
+          speed, gainDb: 0, track: 0, materialDurationSec: 1 + (explicitAt ? 4.25 : 4) * speed,
+          padAfterSec: 0.5, crossfadeOutSec: 0.5 },
         { id: 'b-speech', src: 'shared', atSec: explicitAt ? 4.25 : 4, durationSec: explicitAt ? 3.75 : 3.5,
           inSec: 2 + (explicitAt ? 0.25 : 0.5) * speed, outSec: 2 + 4 * speed,
           speed, gainDb: 0, track: 0, materialDurationSec: 2 + 4 * speed,

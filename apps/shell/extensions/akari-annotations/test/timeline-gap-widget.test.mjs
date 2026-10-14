@@ -178,10 +178,12 @@ test('model duration rounding is available to existing validator without stretch
   assert.equal(f.doc.tracks[0].items.find(i => i.id.startsWith('gap-')).duration, 120);
 });
 const selectStart = source.indexOf('    applySelection('), selectEnd = source.indexOf('    publishPrimaryPreviewSelection(', selectStart);
-const SelectionWidget = new Function(`return class { ${source.slice(selectStart, selectEnd)} }`)();
+const boundaryStart = source.indexOf('    releaseTransitionBoundaryForOtherSelection() {');
+const boundaryEnd = source.indexOf('\n    }', boundaryStart) + 6;
+const SelectionWidget = new Function(`return class { ${source.slice(selectStart, selectEnd)} ${source.slice(boundaryStart, boundaryEnd)} }`)();
 for (const selection of [undefined, { kind: 'cut', index: 0 }]) test(`normal selection clears gap and band: ${selection?.kind ?? 'empty/Esc'}`, () => {
   let removed = 0, pushed = 0;
-  const widget = Object.assign(new SelectionWidget(), { selectedGap: {}, gapBand: { remove() { removed++; } }, multiSelection: [],
+  const widget = Object.assign(new SelectionWidget(), { selectedGap: {}, gapBand: { remove() { removed++; } }, multiSelection: [], activeBoundary: undefined,
     exitTrimmerModeUnlessSelected() {}, selectionKey: x => x ? `${x.kind}:${x.index}` : '',
     pushSelectionSnapshot() { pushed++; }, applySelectionClass() {}, publishPrimaryPreviewSelection() {}, syncRightPane() {}, revealOutputPreview() {} });
   widget.applySelection(selection); assert.equal(widget.selectedGap, undefined); assert.equal(removed, 1); assert.equal(pushed, 1);
