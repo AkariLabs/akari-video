@@ -19,6 +19,7 @@ export * from './audio-schedule';
 export * from './audio-ownership';
 export * from './item-anchor';
 export {
+    captionOutlineRuntime,
     captionAnchorPositionVars,
     mergeCaptionLineTextStyles,
     resolveCaptionLineStyleVars
