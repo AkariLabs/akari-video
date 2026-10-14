@@ -3,7 +3,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { BUNDLED_CAPTION_FONT_FACES, BUNDLED_FONT_ROOT, captionFontFamilies, captionFontFaces, resolveBundledFontRoot } from '../src/caption-font-faces.mjs';
+import { BUNDLED_CAPTION_FONT_FACES, BUNDLED_FONT_ROOT, captionFontFamilies, captionFontFaces, libraryCaptionFontFaces, resolveBundledFontRoot } from '../src/caption-font-faces.mjs';
 import { resolveCaptionPlan } from '../src/caption-resolve.mjs';
 import { renderOverlaySheet } from '../src/rasterize.mjs';
 
@@ -13,6 +13,129 @@ const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-
   locale: 'ja', lines: 1, wrap: 'multi' };
 const cue = (font_family, id = 'c-font') => ({ id, src: 'base', start: 0, end: 1,
   text: '字幕', text_style: { font_family } });
+
+function namedFont(family, japanese) {
+  const records = [{ value: family, language: 0x0409 }, { value: japanese, language: 0x0411 }];
+  const strings = records.map(({ value }) => {
+    const bytes = Buffer.alloc(value.length * 2);
+    for (let i = 0; i < value.length; i++) bytes.writeUInt16BE(value.charCodeAt(i), i * 2);
+    return bytes;
+  });
+  const bytes = Buffer.alloc(28 + 6 + records.length * 12 + strings.reduce((sum, part) => sum + part.length, 0));
+  bytes.writeUInt32BE(0x00010000, 0);
+  bytes.writeUInt16BE(1, 4);
+  bytes.write('name', 12, 'ascii');
+  bytes.writeUInt32BE(28, 20);
+  bytes.writeUInt32BE(bytes.length - 28, 24);
+  bytes.writeUInt16BE(records.length, 30);
+  bytes.writeUInt16BE(6 + records.length * 12, 32);
+  let offset = 0;
+  for (const [index, record] of records.entries()) {
+    const at = 34 + index * 12;
+    bytes.writeUInt16BE(3, at);
+    bytes.writeUInt16BE(1, at + 2);
+    bytes.writeUInt16BE(record.language, at + 4);
+    bytes.writeUInt16BE(1, at + 6);
+    bytes.writeUInt16BE(strings[index].length, at + 8);
+    bytes.writeUInt16BE(offset, at + 10);
+    strings[index].copy(bytes, 34 + records.length * 12 + offset);
+    offset += strings[index].length;
+  }
+  return bytes;
+}
+
+async function fontFixture(t) {
+  const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-font-fixture-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const catalogRoot = join(home, 'catalog');
+  await mkdir(join(catalogRoot, 'font'), { recursive: true });
+  const env = { AKARI_HOME: home, AKARI_LIBRARY_ROOT: join(home, 'assets') };
+  const add = async (id, meta, family, japanese) => {
+    const dir = join(home, 'assets/font', id);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, `${id}.ttf`), namedFont(family, japanese));
+    await writeFile(join(dir, 'meta.json'), JSON.stringify({ id, category: 'font', tags: [], license: {}, ...meta }));
+  };
+  const catalog = async meta => {
+    const dir = join(catalogRoot, 'font', meta.id);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'meta.json'), JSON.stringify(meta));
+  };
+  return { env, catalogRoot, add, catalog };
+}
+
+test('explicit metadata aliases produce only the title and its aliases', async t => {
+  const f = await fontFixture(t);
+  await f.add('one', { title: 'T', aliases: ['A1', 'A2'] }, 'English Family', '日本語書体');
+  const faces = libraryCaptionFontFaces(f.env, { catalogRoot: f.catalogRoot });
+  assert.deepEqual(faces.map(face => face.family), ['T', 'A1', 'A2']);
+  assert.ok(faces.every(face => face.id === 'one' && face.path === faces[0].path && face.key === faces[0].key));
+});
+
+test('old metadata adds internal names and the catalog title without other file aliases', async t => {
+  const f = await fontFixture(t);
+  await f.add('a-first', { title: 'first-file' }, 'Sample Face A', '見本書体-かなA');
+  await f.catalog({ id: 'sample-face', title: '見本書体', aliases: ['見本書体-かなA', '見本書体-かなB'] });
+  const faces = libraryCaptionFontFaces(f.env, { catalogRoot: f.catalogRoot });
+  assert.equal(faces[0].family, 'first-file');
+  for (const family of ['見本書体-かなA', 'Sample Face A', '見本書体']) {
+    const face = faces.find(row => row.family === family);
+    assert.equal(face?.id, 'a-first', family);
+    assert.equal(face?.path, faces[0].path, family);
+    assert.equal(face?.key, faces[0].key, family);
+  }
+  assert.equal(faces.some(face => face.family === '見本書体-かなB'), false);
+});
+
+test('an old font owns its internal family ahead of another font catalog alias', async t => {
+  const f = await fontFixture(t);
+  await f.add('a-first', { title: 'first-file' }, 'Sample Face A', '見本書体-かなA');
+  await f.add('b-second', { title: 'second-file' }, 'Sample Face B', '見本書体-かなB');
+  await f.catalog({ id: 'sample-face', title: '見本書体', aliases: ['見本書体-かなA', '見本書体-かなB'] });
+  const faces = libraryCaptionFontFaces(f.env, { catalogRoot: f.catalogRoot });
+  assert.equal(faces.find(face => face.family === '見本書体-かなB')?.id, 'b-second');
+  assert.equal(faces.find(face => face.family === '見本書体')?.id, 'a-first');
+  assert.equal(faces.filter(face => face.family === '見本書体-かなB').length, 1);
+  assert.equal(faces.filter(face => face.family === '見本書体').length, 1);
+});
+
+test('library faces include aliases and names from old metadata without later family overrides', async t => {
+  const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-names-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const source = join(BUNDLED_FONT_ROOT, 'dela-gothic-one/DelaGothicOne-Regular.ttf');
+  for (const [id, meta] of [
+    ['a-old', { title: 'ImportedFile', tags: [], license: {} }],
+    ['b-other', { title: 'Other Font', aliases: ['Dela Gothic One'], tags: [], license: {} }],
+  ]) {
+    const dir = join(home, 'assets/font', id);
+    await mkdir(dir, { recursive: true });
+    await copyFile(source, join(dir, `${id}.ttf`));
+    await writeFile(join(dir, 'meta.json'), JSON.stringify({ id, category: 'font', ...meta }));
+  }
+  const faces = libraryCaptionFontFaces({ AKARI_HOME: home });
+  assert.equal(faces[0].family, 'ImportedFile');
+  assert.equal(faces.find(face => face.family === 'Dela Gothic One')?.id, 'a-old');
+  assert.equal(faces.filter(face => face.family === 'Dela Gothic One').length, 1);
+  assert.ok(faces.filter(face => face.id === 'a-old').every(face => face.path === faces[0].path && face.key === faces[0].key));
+});
+
+test('catalog aliases do not take a family explicitly owned by a later font', async t => {
+  const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-variants-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const source = join(BUNDLED_FONT_ROOT, 'dela-gothic-one/DelaGothicOne-Regular.ttf');
+  for (const [id, title, aliases] of [
+    ['a-first', 'First', ['Dela Gothic One', 'DelaGothicOne-Regular']],
+    ['b-second', 'DelaGothicOne-Regular', []],
+  ]) {
+    const dir = join(home, 'assets/font', id);
+    await mkdir(dir, { recursive: true });
+    await copyFile(source, join(dir, `${id}.ttf`));
+    await writeFile(join(dir, 'meta.json'), JSON.stringify({ id, category: 'font', title, aliases, tags: [], license: {} }));
+  }
+  const faces = libraryCaptionFontFaces({ AKARI_HOME: home });
+  assert.equal(faces.find(face => face.family === 'Dela Gothic One')?.id, 'a-first');
+  assert.equal(faces.find(face => face.family === 'DelaGothicOne-Regular')?.id, 'b-second');
+});
 
 test('one bundled registry supplies ten families and resolved CSS uses its faces', async t => {
   const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-bundled-home-'));

@@ -1,24 +1,20 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { captionAxisPlacement, captionZonePlacement, parseCaptionInspectorPositionAction } from '../lib/common/caption-position-preset.js';
-import { roundedCaptionStrokeShadows } from '../lib/common/caption-rounded-stroke.js';
 import { CAPTION_FONT_SIZE_MAX, clampCaptionFontSize } from '../lib/common/caption-size-limit.js';
 import { captionWrapFitPosition, captionWrapFitWidth } from '../lib/common/caption-wrap-fit.js';
 import { updateCaptionTransformSource, persistCaptionPlateTransform } from '../lib/common/caption-plate-handles.js';
 import { clearCaptionSideActions } from '../lib/common/caption-action-clearance.js';
 import { placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
-import { roundedCaptionStrokeShadows as exportStroke } from '../../../../../packages/render-cut/src/captions.mjs';
 const require = createRequire(import.meta.url);
 const { isCaptionWriteRequest } = require('../lib/browser/preview-host-message-guards.js');
 
-test('outline shadows have a round radius equal to the old stroke outward half-width', () => {
-    const preview = roundedCaptionStrokeShadows('16px #000000');
-    assert.equal(preview, exportStroke('16px #000000'));
-    const offsets = preview.split(',').map(entry => entry.match(/^(-?[\d.]+)px (-?[\d.]+)px/u).slice(1).map(Number));
-    assert.equal(offsets.length, 32);
-    assert.ok(offsets.every(([x, y]) => Math.abs(Math.hypot(x, y) - 8) < .001));
-    assert.equal(roundedCaptionStrokeShadows('0px #000000'), null);
+test('placed text uses the shared outline runtime', () => {
+    const source = readFileSync(new URL('../src/browser/preview-script-bootstrap.ts', import.meta.url), 'utf8');
+    assert.match(source, /captionOutlineRuntime\.toString\(\)/u);
+    assert.doesNotMatch(source, /caption-rounded-stroke|roundedCaptionStrokeShadows/u);
 });
 
 test('zone, axis, and inspector actions share frame-relative positions', () => {

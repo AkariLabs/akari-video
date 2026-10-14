@@ -36,6 +36,7 @@ exports.captionTextShadowValue = captionTextShadowValue;
 exports.captionRichTextShadowValue = captionRichTextShadowValue;
 exports.colorWithOpacity = colorWithOpacity;
 exports.formatCssNumber = formatCssNumber;
+exports.captionOutlineRuntime = captionOutlineRuntime;
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 const caption_runs_1 = require("./caption-runs");
@@ -51,7 +52,7 @@ const captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split('-
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
 exports.CAPTION_DISPLAY_MODE = 'single_line_sequential';
 exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
-exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
+exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
 /** Place each token's image in the coordinate system of its complete line. */
 function alignCaptionRichFillPhase(root) {
     const fillType = root.getAttribute('data-rich-fill-type');
@@ -2707,4 +2708,352 @@ function rejectUnknown(value, allowed, label) {
 }
 function fail(code, message) {
     throw new CaptionDisplayError(code, message);
+}
+/** Render caption outlines with round SVG joins while preserving the text nodes. */
+function captionOutlineRuntime() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const states = new WeakMap();
+    const installs = new WeakMap();
+    const wraps = new Set(['normal', 'pre-wrap', 'pre-line', 'break-spaces']);
+    const collapses = new Set(['normal', 'nowrap', 'pre-line']);
+    const svgCss = 'float:left;width:1px;height:1px;margin:0 -1px -1px 0;overflow:visible;pointer-events:none;user-select:none;-webkit-user-select:none;';
+    const textCss = 'fill:none;stroke-linejoin:round;stroke-linecap:round;white-space:pre;text-shadow:none;text-decoration:none;text-rendering:geometricPrecision;';
+    function hosts(root) {
+        const doc = root.ownerDocument || root;
+        const found = new Set();
+        const walker = doc.createTreeWalker(root, 4);
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const parent = node.parentElement;
+            if (parent && parent.namespaceURI !== ns && !['STYLE', 'SCRIPT', 'TEMPLATE'].includes(parent.tagName)
+                && node.data.trim())
+                found.add(parent);
+        }
+        if (root.nodeType === 1 && states.has(root))
+            found.add(root);
+        for (const element of root.querySelectorAll?.('*') || [])
+            if (states.has(element))
+                found.add(element);
+        return [...found];
+    }
+    function details(host) {
+        const computed = host.ownerDocument.defaultView.getComputedStyle(host);
+        const style = {};
+        for (const name of ['webkitTextStrokeWidth', 'webkitTextStrokeColor', 'whiteSpace',
+            'writingMode', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
+            'fontStretch', 'fontFeatureSettings', 'fontVariationSettings', 'letterSpacing',
+            'lineHeight', 'textTransform', 'display'])
+            style[name] = computed[name];
+        const children = [...host.childNodes];
+        const texts = children.filter(child => child.nodeType === 3 && child.data.trim());
+        let container = host;
+        while (container.parentElement && host.ownerDocument.defaultView.getComputedStyle(container).display.startsWith('inline')) {
+            container = container.parentElement;
+        }
+        const signature = [style.webkitTextStrokeWidth, style.webkitTextStrokeColor, style.whiteSpace,
+            style.writingMode, style.font, style.fontFamily, style.fontSize, style.fontWeight,
+            style.fontStyle, style.fontStretch, style.fontFeatureSettings, style.fontVariationSettings,
+            style.letterSpacing, style.lineHeight, style.textTransform, style.display,
+            wraps.has(style.whiteSpace) ? container.clientWidth + 'x' + container.clientHeight : '',
+            children.length, texts.map(child => child.data).join('\u0001')].join('\u0002');
+        return { style, children, texts, width: Number.parseFloat(style.webkitTextStrokeWidth) || 0, signature };
+    }
+    function outlineText(node, data, start, end) {
+        const value = node.data.slice(start, end);
+        if (!collapses.has(data.style.whiteSpace))
+            return value;
+        const collapsed = value.replace(/\s+/gu, ' ');
+        return start > 0 || !node.previousSibling ? collapsed.replace(/^ /u, '') : collapsed;
+    }
+    function makeSvg(doc, node, data, inline) {
+        const svg = doc.createElementNS(ns, 'svg');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('width', '1');
+        svg.setAttribute('height', '1');
+        if (inline) {
+            svg.setAttribute('class', 'akari-caption__outline');
+            svg.setAttribute('style', svgCss);
+        }
+        const text = doc.createElementNS(ns, 'text');
+        if (inline)
+            text.setAttribute('style', textCss);
+        text.textContent = outlineText(node, data, 0, node.data.length);
+        text.setAttribute('stroke', data.style.webkitTextStrokeColor);
+        text.setAttribute('stroke-width', String(data.width));
+        text.setAttribute('x', '0');
+        text.setAttribute('y', '0');
+        svg.appendChild(text);
+        return svg;
+    }
+    function split(svg, node, data) {
+        const vertical = data.style.writingMode.startsWith('vertical');
+        const matrix = svg.getScreenCTM();
+        if (!matrix)
+            return false;
+        let inverse;
+        try {
+            inverse = matrix.inverse();
+        }
+        catch {
+            return false;
+        }
+        const doc = node.ownerDocument;
+        const height = Number.parseFloat(data.style.lineHeight) || Number.parseFloat(data.style.fontSize) * 1.2;
+        const range = doc.createRange();
+        const lines = [];
+        const canWrap = wraps.has(data.style.whiteSpace);
+        let offset = 0;
+        let previousEnd = 0;
+        for (const character of node.data) {
+            range.setStart(node, offset);
+            range.setEnd(node, offset + character.length);
+            const rect = range.getClientRects()[0];
+            if (rect && rect.width > 0 && rect.height > 0) {
+                const center = new doc.defaultView.DOMPoint(rect.left + rect.width / 2, rect.top + rect.height / 2).matrixTransform(inverse);
+                const along = vertical ? -center.x : center.y;
+                if (!lines.length || Math.abs(along - lines[lines.length - 1].along) > height / 2) {
+                    lines.push({ start: previousEnd, anchor: offset, length: character.length, center, along });
+                }
+                previousEnd = offset + character.length;
+                if (!canWrap)
+                    break;
+            }
+            offset += character.length;
+        }
+        if (!lines.length)
+            return false;
+        const original = svg.firstChild;
+        for (let index = 0; index < lines.length; index += 1) {
+            const text = index ? original.cloneNode(false) : original;
+            text.textContent = outlineText(node, data, lines[index].start, index + 1 < lines.length ? lines[index + 1].start : node.data.length);
+            if (index)
+                svg.appendChild(text);
+            const anchor = outlineText(node, data, lines[index].start, lines[index].anchor).length;
+            if (anchor >= text.getNumberOfChars())
+                continue;
+            const extent = text.getExtentOfChar(anchor);
+            text.setAttribute('x', String(Number(text.getAttribute('x'))
+                + lines[index].center.x - extent.x - extent.width / 2));
+            text.setAttribute('y', String(Number(text.getAttribute('y'))
+                + lines[index].center.y - extent.y - extent.height / 2));
+        }
+        return { svg, node, offset: lines[0].anchor, length: lines[0].length,
+            center: lines[0].center };
+    }
+    function moved(anchors) {
+        if (!anchors.length)
+            return false;
+        const range = anchors[0].node.ownerDocument.createRange();
+        for (const anchor of anchors) {
+            const matrix = anchor.svg.getScreenCTM();
+            if (!matrix)
+                continue;
+            let inverse;
+            try {
+                inverse = matrix.inverse();
+            }
+            catch {
+                continue;
+            }
+            range.setStart(anchor.node, anchor.offset);
+            range.setEnd(anchor.node, anchor.offset + anchor.length);
+            const rect = range.getClientRects()[0];
+            if (!rect || !(rect.width > 0 && rect.height > 0))
+                return true;
+            const center = new anchor.node.ownerDocument.defaultView.DOMPoint(rect.left + rect.width / 2, rect.top + rect.height / 2).matrixTransform(inverse);
+            if (Math.abs(center.x - anchor.center.x) > .05 || Math.abs(center.y - anchor.center.y) > .05)
+                return true;
+        }
+        return false;
+    }
+    function syncHost(host, remeasureAll = false) {
+        const data = details(host);
+        let state = states.get(host);
+        if (host.isContentEditable || !(data.width > 0) || !data.texts.length || data.style.display === 'none'
+            || ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(data.style.display)) {
+            if (state) {
+                state.slotStyle.textContent = '';
+                state.body.replaceChildren(state.plain);
+                state.plain.assign(...data.children);
+                state.signature = '';
+                state.children = data.children;
+                state.anchors = [];
+            }
+            return false;
+        }
+        if (state && !remeasureAll && state.signature === data.signature
+            && state.children.length === data.children.length
+            && state.children.every((node, index) => node === data.children[index])
+            && !moved(state.anchors))
+            return true;
+        if (!state) {
+            if (host.shadowRoot || typeof host.attachShadow !== 'function')
+                return false;
+            let shadow;
+            try {
+                shadow = host.attachShadow({ mode: 'open', slotAssignment: 'manual' });
+            }
+            catch {
+                return false;
+            }
+            const base = host.ownerDocument.createElement('style');
+            base.textContent = 'svg{' + svgCss + '}text{' + textCss + '}';
+            const slotStyle = host.ownerDocument.createElement('style');
+            const body = host.ownerDocument.createElement('span');
+            body.style.display = 'contents';
+            const plain = host.ownerDocument.createElement('slot');
+            shadow.append(base, slotStyle, body);
+            state = { slotStyle, body, plain, signature: '', children: [], anchors: [] };
+            states.set(host, state);
+        }
+        state.slotStyle.textContent = 'slot.akari-outline-text{-webkit-text-stroke:0 transparent;}';
+        const fragment = host.ownerDocument.createDocumentFragment();
+        const measurements = [];
+        const assignments = [];
+        for (const child of data.children) {
+            const slot = host.ownerDocument.createElement('slot');
+            if (child.nodeType === 3 && child.data.trim()) {
+                slot.className = 'akari-outline-text';
+                const svg = makeSvg(host.ownerDocument, child, data, false);
+                fragment.appendChild(svg);
+                measurements.push([svg, child]);
+            }
+            fragment.appendChild(slot);
+            assignments.push([slot, child]);
+        }
+        state.body.replaceChildren(fragment);
+        for (const [slot, child] of assignments)
+            slot.assign(child);
+        let measured = true;
+        const anchors = [];
+        for (const [svg, child] of measurements) {
+            const anchor = split(svg, child, data);
+            if (anchor)
+                anchors.push(anchor);
+            else
+                measured = false;
+        }
+        state.signature = measured ? data.signature : '';
+        state.children = data.children;
+        state.anchors = anchors;
+        return true;
+    }
+    function sync(root, remeasureAll = false) {
+        let count = 0;
+        for (const host of hosts(root))
+            if (syncHost(host, remeasureAll))
+                count += 1;
+        return count;
+    }
+    function nearby(node, selector) {
+        if (!node || node.nodeType !== 1)
+            return false;
+        if (node.closest?.(selector))
+            return true;
+        for (const child of node.children || []) {
+            if (child.matches?.(selector))
+                return true;
+            for (const grandchild of child.children || [])
+                if (grandchild.matches?.(selector))
+                    return true;
+        }
+        return false;
+    }
+    function affectsMutation(record, selector) {
+        if (nearby(record.target, selector))
+            return true;
+        if (record.type === 'attributes' && record.attributeName === 'contenteditable'
+            && record.target.querySelector?.(selector))
+            return true;
+        if (record.type === 'characterData')
+            return nearby(record.target.parentElement, selector);
+        if (record.type !== 'childList')
+            return false;
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+            if (nearby(node, selector) || node.querySelector?.(selector))
+                return true;
+        }
+        return false;
+    }
+    function install(doc, options = {}) {
+        const previous = installs.get(doc) || doc.__akariCaptionOutlineInstall;
+        if (previous)
+            return previous;
+        const selector = options.selector || '.akari-caption';
+        let scheduled = false;
+        let disposed = false;
+        let remeasureAll = false;
+        const run = () => {
+            scheduled = false;
+            if (disposed)
+                return;
+            const remeasure = remeasureAll;
+            remeasureAll = false;
+            for (const root of doc.querySelectorAll(selector))
+                sync(root, remeasure);
+        };
+        const schedule = (remeasure = false) => {
+            if (remeasure)
+                remeasureAll = true;
+            if (scheduled || disposed)
+                return;
+            scheduled = true;
+            doc.defaultView.queueMicrotask(run);
+        };
+        const scheduleRemeasure = () => schedule(true);
+        const observer = new doc.defaultView.MutationObserver((records) => {
+            if (records.some(record => affectsMutation(record, selector)))
+                schedule();
+        });
+        observer.observe(doc.documentElement, { subtree: true, childList: true, characterData: true,
+            attributes: true, attributeFilter: ['style', 'class', 'contenteditable'] });
+        doc.fonts?.addEventListener?.('loadingdone', scheduleRemeasure);
+        doc.defaultView.addEventListener('resize', scheduleRemeasure);
+        const handle = { observer, run, dispose: () => {
+                disposed = true;
+                observer.disconnect();
+                doc.fonts?.removeEventListener?.('loadingdone', scheduleRemeasure);
+                doc.defaultView.removeEventListener('resize', scheduleRemeasure);
+                installs.delete(doc);
+                if (doc.__akariCaptionOutlineInstall === handle)
+                    delete doc.__akariCaptionOutlineInstall;
+            } };
+        installs.set(doc, handle);
+        doc.__akariCaptionOutlineInstall = handle;
+        run();
+        return handle;
+    }
+    function bake(root) {
+        for (const svg of root.querySelectorAll('.akari-caption__outline'))
+            svg.remove();
+        const bakedHosts = [root, ...root.querySelectorAll('[data-akari-outline-original]')];
+        for (const host of bakedHosts) {
+            if (!host.hasAttribute?.('data-akari-outline-original'))
+                continue;
+            const value = host.getAttribute('data-akari-outline-original');
+            const priority = host.getAttribute('data-akari-outline-priority') || '';
+            if (value)
+                host.style.setProperty('-webkit-text-stroke', value, priority);
+            else
+                host.style.removeProperty('-webkit-text-stroke');
+            host.removeAttribute('data-akari-outline-original');
+            host.removeAttribute('data-akari-outline-priority');
+        }
+        const entries = hosts(root).map(host => ({ host, data: details(host) }))
+            .filter(entry => !entry.host.isContentEditable && entry.data.width > 0
+            && entry.data.texts.length && entry.data.style.display !== 'none'
+            && !['flex', 'inline-flex', 'grid', 'inline-grid'].includes(entry.data.style.display));
+        for (const { host, data } of entries) {
+            for (const child of data.texts) {
+                const svg = makeSvg(host.ownerDocument, child, data, true);
+                child.before(svg);
+                split(svg, child, data);
+            }
+            host.setAttribute('data-akari-outline-original', host.style.getPropertyValue('-webkit-text-stroke'));
+            host.setAttribute('data-akari-outline-priority', host.style.getPropertyPriority('-webkit-text-stroke'));
+            host.style.setProperty('-webkit-text-stroke', '0 transparent');
+        }
+        return entries.length;
+    }
+    return { sync, install, bake, affectsMutation };
 }

@@ -20,6 +20,9 @@
 
 ```sh
 akari-assets list [--category <c>] [--source <lab|site|own>] [--json]          # 合成カタログ一覧（取得状態バッジ込み）
+akari-assets catalog [--json]                       # 同梱カタログの場所と項目数
+akari-assets show <category/id> [--json]            # 取得先とライセンスを確認
+akari-assets validate <dir>                         # 取り込んだ素材を検証
 akari-assets add <path...> --plan [--json]            # ファイル・フォルダの取り込み計画
 akari-assets add --apply <plan.json> [--json]         # 確認済み計画を複製して登録
 akari-assets fetch <id> [--project <dir>] [--force]   # 素材を解決してローカルへ登録
@@ -27,6 +30,10 @@ akari-assets migrate [--dry-run]                      # 旧置き場を再移行
 akari-assets sync                                      # カタログを取得してローカルにキャッシュ
 akari-assets browse [--port <n>]                       # ローカル HTTP サーバでカタログを閲覧・投入
 ```
+
+同梱カタログの場所は `AKARI_CATALOG_ROOT` で上書きできる。`list` の `↗` は外部サイトの参照で、取得済みの素材ではない。
+`同梱済み` の行はアプリに実体も入っており、`list --json` / `show --json` の `bundledAssetDir` がその場所を示す。
+この場合も `state` は `reference` のままで、ライブラリのキャッシュとは区別する。
 
 `list` の状態バッジ: `☁` 未取得 / `✓` 取得済み（ローカルにキャッシュ済み） / `¥<price>` 未購入 /
 `[installed]` `akari store install` で導入済み。
@@ -230,6 +237,9 @@ plan は置き場に書き込まない。隠しファイル・Thumbs.db・シン
   `durationSec: null` / `durationSource: "size"`。ffprobe が動いてエラーを返した音は rejected。
 - 画像 = still、映像 = broll、フォント = font、GLB/glTF = scene3d。これらの kind は category と同じ、
   durationSec / durationSource は null。cube は presets 管轄のため rejected。0 バイト・対応外形式も理由つきで rejected。
+- フォントの plan item には、書体の日本語 family（なければ英語 family、読めなければファイル名）を `title`、
+  内部名とファイル名を `aliases` に入れる。カタログの題・別名と一致すると `proposedId` はカタログ id になり、
+  最初の 1 件だけカタログの題も `aliases` に含む（カタログの別名は含めない）。別ファイルが同じ id に一致すると接尾辞を付ける。
 - `duplicates[]` は元ファイル情報 + `status: "duplicate"` + 既存の `category` / `id` / `libraryDir`。
   同じバイト数の既存ペイロードがある場合だけ、取り込み元とその候補の sha256 を計算・比較する。
   候補がなければ先頭 512 bytes の読み取り確認のみ行い、hash は計算しない。計算した場合だけ `sha256` を plan に含める。`rejected[]` は元ファイル情報 + `reason`。
@@ -243,7 +253,8 @@ plan は置き場に書き込まない。隠しファイル・Thumbs.db・シン
 
 apply の結果は `{added: [{category,id,libraryDir,warnings?}], duplicates, rejected, failures}`。
 failures は `{path?, reason}`。1 件でも失敗した CLI は exit 1 と結果 JSON を返すが、残りの素材は続ける。
-id は proposedId を使い、衝突時だけ `-2` 以降を足す。元ファイルのサイズ・mtime を再確認し（plan に sha256 があればそれも照合）、
+id は proposedId を使い、衝突時だけ `-2` 以降を足す。フォントは apply 時に内部名とカタログを読み直して id と
+カタログ題の継承を最終決定する。元ファイルのサイズ・mtime を再確認し（plan に sha256 があればそれも照合）、
 apply 時に計算した hash と複製後の hash を比較して、
 同じディスクの一時ディレクトリへ CoW 複製 → 検証 → rename する。コピー元は消さない。
 失敗した素材の一時ファイルと配置済みファイルは削除する。並行 apply は `.add-lock` で排他し、
@@ -265,9 +276,10 @@ still には実体画像を相対参照する最小の `fragment.html`、scene3d
 
 | 必須項目 | 既定値 |
 | --- | --- |
-| id | ファイル名由来の proposedId（非 ASCII は短いハッシュ、衝突時は接尾辞） |
+| id | ファイル名由来の proposedId。カタログに一致するフォントはカタログ id（衝突時は接尾辞） |
 | category | 拡張子で決めた audio / still / broll / font / scene3d |
-| title | 元ファイル名（拡張子を除く。例: mid.wav → mid） |
+| title | 元ファイル名（拡張子を除く）。フォントは読み取った family 名を優先 |
+| aliases | フォントのみ。内部名・ファイル名と、カタログ id を使う場合のカタログ題（カタログ別名は含めない） |
 | description | 利用者がローカルから取り込んだ素材 |
 | when_to_use | 利用者のプロジェクトでこの素材を使うとき |
 | tags | origin:own。必要時に folder:* / sfx / pack:*。site 由来は origin:site / site:* / license:subscription |

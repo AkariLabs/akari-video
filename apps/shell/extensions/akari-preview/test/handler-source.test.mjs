@@ -89,6 +89,6 @@ test('moved modules exist and compiled constants match source exports', () => {
   const source = readFileSync(new URL('../src/browser/preview-host-constants.ts', import.meta.url), 'utf8');
   const declared = [...source.matchAll(/^export const ([A-Za-z_$][\w$]*)/gmu)].map(match => match[1]);
   const compiled = require('../lib/browser/preview-host-constants.js');
-  assert.equal(declared.length, 81);
+  assert.equal(declared.length, 82);
   assert.deepEqual(Object.keys(compiled).sort(), declared.sort());
 });

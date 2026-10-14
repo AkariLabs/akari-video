@@ -317,6 +317,7 @@
   "preview.libraryDrop.target.goesInsideLabel": "Goes inside {p1}",
   "preview.materialPreview.controls.placeAction": "Add to timeline",
   "preview.outputPreview.errors.couldNotParseEditJsonJsonError": "Could not parse edit.json as JSON ({p1})",
+  "preview.outputPreview.errors.materialNotFoundYetError": "The file is not there yet ({p1})",
   "preview.outputPreview.errors.unknownErrorOccurredError": "An unknown error occurred.",
   "preview.outputPreview.notification.captionDisplaySettingsCouldNotResolvedSoTheyError": "Caption display settings could not be resolved, so they were ignored: {code}",
   "preview.outputPreview.notification.couldNotLoadThreedContentError": "Could not load 3D content: {reason}",

@@ -27,6 +27,7 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
+  captionOutlineRuntime,
 } = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
@@ -294,6 +295,7 @@ export function buildGpuPage({
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};${interleaved ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>window.__akariTypewriterDurations=(${typewriterDurations.toString()});window.__akariTypewriterStepTiming=(${typewriterStepTiming.toString()});</script>
+  <script>window.__akariCaptionOutlineRuntime=(${captionOutlineRuntime.toString()})();</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
   ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}${hasItemMotion ? `<script>${inlineScript(itemMotionRuntime)}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>

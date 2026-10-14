@@ -2,7 +2,7 @@ import { t } from '@akari-video/i18n';
 import { createCaptionHoverPreview } from '../../common/caption-hover-preview';
 import { CAPTION_PANEL_FONTS } from '../../common/caption-panel-catalog';
 import { filterCaptionPanelFonts } from '../../common/caption-font-label';
-import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
+import { captionFontRowDetail, captionFontWeights, captionPanelFontRows, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
 import { CAPTION_SAMPLE_TEXT, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
@@ -175,6 +175,8 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
     const root = document.createElement('div');
     const catalogAvailability = (document.defaultView as (Window & { akariFontAvailability?: Record<string,
         { status: string; family: string }> }) | null)?.akariFontAvailability ?? {};
+    const fontRows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
+        fontFaces, catalogAvailability);
     root.className = 'akari-caption-panel';
     root.setAttribute('data-akari-caption-panel', panel);
     const head = document.createElement('div');
@@ -217,7 +219,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         if (state.filtersOpen) {
             const chips = document.createElement('div'); chips.className = 'akari-caption-filter-row';
             for (const [tag, label] of Object.entries(TAG_LABELS)) {
-                if (!renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces).some(font => font.tags.includes(tag))) continue;
+                if (!fontRows.some(font => font.tags.includes(tag))) continue;
                 const chip = button(document, label, () => {
                     state.filters.has(tag) ? state.filters.delete(tag) : state.filters.add(tag); actions.rerender();
                 }, ['data-akari-font-filter-chip', tag]);
@@ -227,22 +229,21 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         }
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentFonts) {
-            const font = CAPTION_PANEL_FONTS.find(item => item.id === id);
-            const family = fontFaces.get(id) ?? catalogAvailability[id]?.family;
-            if (!font || !family) continue;
+            const font = fontRows.find(item => item.id === id);
+            if (!font) continue;
+            const family = font.family;
             recent.append(previewable(button(document, font.title, () => {
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
         if (recent.children.length) root.append(heading(document, t('inspector.captionPanels.heading.recentFonts')), recent);
-        const visible = filterCaptionPanelFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
-            state.query, state.filters);
+        const visible = filterCaptionPanelFonts(fontRows, state.query, state.filters);
         const title = heading(document, t('inspector.captionPanels.label.fontList', { count: visible.length }));
         const add = button(document, '＋', actions.openLibrary, ['data-akari-font-add', '']);
         add.setAttribute('aria-label', t('inspector.captionPanels.label.searchLibrary')); title.append(add); root.append(title);
         const list = document.createElement('div'); list.className = 'akari-caption-font-list';
         for (const font of visible) {
-            const family = fontFaces.get(font.id) ?? catalogAvailability[font.id]?.family ?? font.family;
+            const family = font.family;
             const row = document.createElement('div'); row.className = 'akari-caption-font-row';
             row.setAttribute('data-akari-font-row', font.id);
             row.setAttribute('data-akari-font-availability', 'available');
@@ -264,11 +265,13 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
             name.textContent = font.displayName ?? font.title;
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
-            english.textContent = font.title;
+            english.textContent = font.own && font.title === family ? '' : family;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
-            detail.textContent = captionFontRowDetail(font.tags);
+            detail.textContent = font.own ? t('inspector.captionPanels.text.addedByYou')
+                : captionFontRowDetail(font.tags, font.bundled);
             const status = document.createElement('span'); status.className = 'akari-caption-font-status';
-            status.textContent = t('inspector.captionPanels.text.available');
+            status.textContent = font.own ? t('inspector.captionPanels.text.addedByYou')
+                : t('inspector.captionPanels.text.available');
             faceText.append(name, english, detail); face.append(faceText, status);
             row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
