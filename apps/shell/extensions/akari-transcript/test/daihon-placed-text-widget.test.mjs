@@ -775,8 +775,13 @@ test('字幕スタイルは両言語の名前と見本を表示し、同じ pres
   const calls = [];
   const body = fakeNode();
   const instance = widget({ dockBody: body, dockCategory: 'all',
-    async withHistory(_label, operation) { await operation(); },
-    annotationsService: { async setCaptionStylePreset(request) { calls.push(request); return { changed: 1 }; } } });
+    async runCaptionCommand(_label, operation) {
+      return operation({ request: { projectRootUri: '', captionsUri: '', editUri: '', expectedHashes: {} } });
+    },
+    annotationsService: { async applyCaptionStyle(request) {
+      calls.push({ captionIds: request.input.targets.map(target => target.caption_id), presetId: request.input.source.id });
+      return { ok: true, written: ['captions.json'], changed: ['captions[0].text_style'], notices: [] };
+    } } });
   try {
     for (const language of ['ja', 'en']) {
       setLanguage(language);
