@@ -460,7 +460,6 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     if (decorationHtml) runs = runs.filter(run => Boolean(run?.look));
     if (!runs.length) return html;
     const hasV1 = runs.some(run => Boolean(run?.look));
-    const firstNewline = chars.findIndex(char => /^\r?\n$/u.test(char));
     const defaultStroke = html.includes('akari-caption--single-line') ? '0 transparent' : '0.14em rgba(0,0,0,.9)';
     if (!runs.some(run => Number.isInteger(run?.from) && Number.isInteger(run?.to)
         && run.from >= 0 && run.to <= chars.length && run.from < run.to)) return html;
@@ -471,9 +470,8 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     const resolved = chars.map((value, index) => ({ text: value, index, style: {} as Record<string, unknown>,
         role: '', shadow: undefined as string | undefined, plate: false, plateTransform: false,
         replaceStroke: false }));
-    for (const run of runs) {
-        if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
-            || run.from < 0 || run.to > chars.length || run.from >= run.to) continue;
+    const runStyles = runs.map(run => {
+        if (!run || typeof run !== 'object') return undefined;
         const style = run.style ?? (run.look ? { ...run.look } : undefined);
         if (run.look && !run.style && style) {
             const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
@@ -482,17 +480,23 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             if (stroke && typeof stroke.width_px === 'number') style.stroke = {
                 ...stroke, width_px: Math.round(stroke.width_px * scale * 1_000_000) / 1_000_000 };
         }
+        return style;
+    });
+    const applyRun = (item: typeof resolved[number], run: CaptionRun,
+        style: typeof runStyles[number]): typeof resolved[number] => ({ ...item,
+        role: run.role ?? item.role,
+        shadow: run.resolved_look?.text_shadow ?? item.shadow,
+        plate: Boolean(run.resolved_look?.plate) || item.plate,
+        plateTransform: Boolean(run.resolved_look?.plate || run.resolved_look?.text_shadow !== undefined)
+            || item.plateTransform,
+        replaceStroke: Boolean(run.resolved_look?.replace_stroke) || item.replaceStroke,
+        style: { ...item.style, ...style,
+            ...(style?.stroke ? { stroke: { ...(item.style.stroke as object ?? {}), ...(style.stroke as object) } } : {}) } });
+    for (const [runIndex, run] of runs.entries()) {
+        if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
+            || run.from < 0 || run.to > chars.length || run.from >= run.to) continue;
         for (let index = run.from; index < run.to; index++) {
-            if (hasV1 && !run.look && firstNewline >= 0 && index > firstNewline) continue;
-            resolved[index] = { ...resolved[index],
-                role: run.role ?? resolved[index].role,
-                shadow: run.resolved_look?.text_shadow ?? resolved[index].shadow,
-                plate: Boolean(run.resolved_look?.plate) || resolved[index].plate,
-                plateTransform: Boolean(run.resolved_look?.plate || run.resolved_look?.text_shadow !== undefined)
-                    || resolved[index].plateTransform,
-                replaceStroke: Boolean(run.resolved_look?.replace_stroke) || resolved[index].replaceStroke,
-                style: { ...resolved[index].style, ...style,
-                    ...(style?.stroke ? { stroke: { ...(resolved[index].style.stroke as object ?? {}), ...(style.stroke as object) } } : {}) } };
+            resolved[index] = applyRun(resolved[index], run, runStyles[runIndex]);
         }
     }
     const escape = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -500,12 +504,29 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     const decode = (value: string): string => value.replace(/&(amp|lt|gt|quot|#0?39);/g, (_, key: string) =>
         ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#039': "'" })[key] ?? _);
     let position = 0;
+    let legacyPosition = 0;
     let decorationLine = false;
     let renderedLineCount = 0;
+    const omittedNewline = (content: string, index: number): boolean =>
+        /^\r?\n$/u.test(chars[index] ?? '')
+        && !content.replace(/<[^>]+>/g, '').startsWith(chars[index]);
     const decorate = (encoded: string): string => {
         const value = decode(encoded);
         const decorated = segment(value).map(character => {
-            const item = resolved[position++];
+            const correctedIndex = position++;
+            const legacyIndex = legacyPosition++;
+            let item = resolved[correctedIndex];
+            if (correctedIndex !== legacyIndex && item) {
+                item = { text: item.text, index: correctedIndex, style: {}, role: '', shadow: undefined,
+                    plate: false, plateTransform: false, replaceStroke: false };
+                for (const [runIndex, run] of runs.entries()) {
+                    const index = run.look ? correctedIndex : legacyIndex;
+                    if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
+                        || run.from < 0 || run.to > chars.length || run.from >= run.to
+                        || index < run.from || index >= run.to || chars[index] !== character) continue;
+                    item = applyRun(item, run, runStyles[runIndex]);
+                }
+            }
             const newline = /^\r?\n$/u.test(character);
             if (decorationLine && /^\s+$/u.test(character)) return escape(character);
             if ((hasV1 && newline) || !item || item.text !== character
@@ -561,7 +582,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     // Limit parsing to caption line contents, leaving CSS and plate markup untouched.
     const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
-            if (hasV1 && renderedLineCount > 0 && /^\r?\n$/u.test(chars[position] ?? '')) position++;
+            if (hasV1 && renderedLineCount > 0 && omittedNewline(content, position)) position++;
             renderedLineCount++;
             decorationLine = open.includes('data-decoration-text=');
             const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g,
@@ -583,7 +604,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     let layeredLineCount = 0;
     const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
-            if (hasV1 && layeredLineCount > 0 && /^\r?\n$/u.test(chars[lineStart] ?? '')) lineStart++;
+            if (hasV1 && layeredLineCount > 0 && omittedNewline(content, lineStart)) lineStart++;
             layeredLineCount++;
             decorationLine = open.includes('data-decoration-text=');
             const lineOpen = flow && productLineRoot
