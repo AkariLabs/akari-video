@@ -121,6 +121,7 @@ function validateMeta(value) {
       || value.aliases.some(alias => typeof alias !== "string" || !alias.trim()))) {
     fail("aliases は空でない文字列の配列である必要があります");
   }
+  if (hasOwn(value, "aliases")) validateStringArray(value.aliases, "aliases");
   if (!legacyOflFont || hasOwn(value, "requires")) validateStringArray(value.requires, "requires");
   if (!legacyOflFont || hasOwn(value, "knobs")) validateKnobs(value.knobs);
   if (hasOwn(value, "i18n")) validateI18n(value.i18n, value.knobs);
