@@ -1,0 +1,327 @@
+<div class="demo-title" lang="en">
+<style>
+/*
+  タイトル（demo-title・英語版）: 冒頭 "Hi there! Today I'm trying out a video editing tool called Akari Video."
+  talkinghead-desk-en-01 の edit.json では段 demo-stage、at 6 / duration 177（0.200〜6.100 秒）。時刻はすべて
+  クリップ先頭 0 のローカル秒（絶対秒 = ローカル + 0.200）。語頭は強制アラインメントの語の立ち上がり。
+  日本語版と同じ「語頭より約 0.02〜0.09 秒前に発火」の関係を保ったまま、数字だけ英語の語頭に移した。
+    カード      -0.05 → 0.37   右から滑り込む。"Hi"（0.24 秒）の語頭のフレーム 7 で見え始める
+    1 行目       0.083 → 0.43   "Just talk to AI" が下から
+    2 行目       0.163 → 0.53   "Video editing" が下から
+    マイク       0.233 → 0.55   右の丸がポップ
+    声の波紋     0.40 / 1.987   マイクから 2 重の輪（"Hi there" の途中と "Today" の語頭 2.22 秒の 0.033 秒前）
+    下線         3.173 → 3.52   "video editing"（語頭 3.42 秒）の 0.047 秒前から左へ引かれる。
+                                英語では名札より先に下線が来る（日本語版は名札が先）
+    名札         4.598 → 4.92   "Akari"（語頭 4.82 秒）の 0.022 秒前からポップ。✦ は回りながら開く
+    光           4.733 → 5.13   名札の上を白い斜めの光が横切る（既定は名札 + 0.135 秒）
+    抜け         5.65 → 5.90    "Akari Video." の言い終わり（5.90 秒）に合わせて右へ 40px 抜けて消える
+                                （区間の終わり 5.900 = 絶対 6.100 秒で消え切る。次の対話の演出 6.400 秒との間 0.3 秒）
+  base（アニメ無しの見た目）は最終の静止状態。光と波紋は base で隠す。
+
+  英語は日本語より横に長いので、カードを x 726〜1236 に取り、1 行目 40px・2 行目 56px・マイク 70px、
+  名札は 34px のまま。縮小表示（幅 640px）で字の高さ 20px / 28px。字間は通常（0）、palt は使わない。
+  右の舞台（x 720〜1240、y<460）の内側に収まり、人物・字幕帯には触れない。
+
+  書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name
+  'Source'）の wght 900 を、この断片で使う文字（Latin のみ: " AIJKRVadeiklnostu" = 19 グリフ）だけに
+  切り出した改変版（別名で埋め込み、フォント内に著作権表示と許諾を保持）。日本語の字は含まない。
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --title-left / --title-top / --title-width   カードの位置と幅（既定 726px / 60px / 510px）
+    --title-padding / --title-radius             カードの内側余白と角丸（既定 22px 24px / 24px）
+    --title-card-bg / --title-card-line / --title-shadow
+                                                 カードの地・縁・影
+    --title-lead-size / --title-main-size        1 行目と 2 行目の文字サイズ（既定 40px / 56px）
+    --title-mic-size / --title-mic-bg            マイクの丸の直径と地（既定 70px / #FFF3E8）
+    --title-badge-gap                            カードの上端から名札の上端まで（既定 184px）
+    --title-badge-size                           名札の文字サイズ（既定 34px。高さはこの 1.77 倍）
+    --demo-ink / --demo-accent / --demo-accent-soft
+                                                 墨（文字）・橙（下線・名札・マイク）・淡橙（波紋）
+    --title-font                                 書体（既定 AKARI Demo Sans → Helvetica Neue → Arial …）
+    --title-card-delay / --title-mic-delay / --title-listen-1 / --title-listen-2 /
+    --title-badge-delay / --title-shine-delay / --title-underline-delay / --title-exit-delay
+                                                 各段の発火時刻（ローカル秒）
+*/
+@font-face {
+  font-family: "AKARI Demo Sans";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+
+.demo-title,
+.demo-title *,
+.demo-title *::before,
+.demo-title *::after { box-sizing: border-box; }
+
+.demo-title {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--title-font, "AKARI Demo Sans", "Helvetica Neue", Arial, sans-serif);
+  font-weight: 900;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+.demo-title__group {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── カード ─────────────────────────────── */
+.demo-title__card {
+  position: absolute;
+  left: var(--title-left, 726px);
+  top: var(--title-top, 60px);
+  width: var(--title-width, 510px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: var(--title-padding, 22px 24px);
+  border-radius: var(--title-radius, 24px);
+  background: var(--title-card-bg, rgba(255, 255, 255, .97));
+  border: 1px solid var(--title-card-line, rgba(23, 19, 15, .07));
+  box-shadow: var(--title-shadow, 0 18px 44px rgba(58, 38, 20, .22));
+}
+
+.demo-title__text {
+  flex: none;
+}
+
+/* マイクの丸（図解の「話す」と同じ題材）: 地 #FFF3E8・橙の輪 3px・マイクの絵柄は丸の 54% */
+.demo-title__mic {
+  position: relative;
+  flex: none;
+  width: var(--title-mic-size, 70px);
+  height: var(--title-mic-size, 70px);
+}
+
+.demo-title__mic-disc {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--title-mic-bg, #FFF3E8);
+  border: 3px solid var(--demo-accent, #F97316);
+  color: var(--demo-accent, #F97316);
+}
+
+.demo-title__mic-icon {
+  display: block;
+  width: 54%;
+  height: 54%;
+}
+
+/* 声の波紋: 話し始めの瞬間に 2 重の輪が広がって消える（最終状態も不可視の過渡）*/
+.demo-title__ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--demo-accent-soft, #FDBA74);
+  opacity: 0;
+}
+
+.demo-title__lead {
+  display: block;
+  font-size: var(--title-lead-size, 40px);
+  line-height: 1.22;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.demo-title__main {
+  position: relative;
+  display: inline-block;
+  margin-top: 2px;
+  padding-bottom: 16px;
+  font-size: var(--title-main-size, 56px);
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* 下線: 文字幅（最後の字の字間 .02em を除く）いっぱい、高さ 10px */
+.demo-title__underline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--demo-accent, #F97316);
+  transform-origin: left center;
+}
+
+/* ── 名札 ─────────────────────────────── */
+.demo-title__badge {
+  position: absolute;
+  left: var(--title-left, 726px);
+  top: calc(var(--title-top, 60px) + var(--title-badge-gap, 184px));
+  transform-origin: 13% 50%;
+}
+
+.demo-title__badge-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .38em;
+  height: calc(var(--title-badge-size, 34px) * 1.77);
+  padding: 0 .85em 0 .72em;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--demo-accent, #F97316);
+  color: #FFFFFF;
+  font-size: var(--title-badge-size, 34px);
+  line-height: 1;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px rgba(58, 38, 20, .24), 0 2px 0 rgba(255, 255, 255, .28) inset;
+}
+
+.demo-title__star {
+  display: block;
+  flex: none;
+  width: .92em;
+  height: .92em;
+}
+
+.demo-title__name {
+  display: block;
+  padding-top: .04em;
+}
+
+/* 光: 名札の中で左から右へ横切る白い斜めの帯（最終状態も不可視の過渡 FX） */
+.demo-title__shine {
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(115deg,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, .55) 42%,
+    rgba(255, 255, 255, .95) 46%,
+    rgba(255, 255, 255, .55) 50%,
+    rgba(255, 255, 255, 0) 56%,
+    rgba(255, 255, 255, 0) 59%,
+    rgba(255, 255, 255, .7) 61%,
+    rgba(255, 255, 255, 0) 63.5%);
+  opacity: 0;
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────── */
+[data-akari-active] .demo-title__group {
+  animation: demo-title-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--title-exit-delay, 5.65s) forwards;
+}
+[data-akari-active] .demo-title__card {
+  animation: demo-title-card-in .42s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--title-card-delay, -.05s) both;
+}
+[data-akari-active] .demo-title__lead {
+  animation: demo-title-rise-lead .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.05s) + .133s) both;
+}
+[data-akari-active] .demo-title__main {
+  animation: demo-title-rise-main .37s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.05s) + .213s) both;
+}
+[data-akari-active] .demo-title__underline {
+  animation: demo-title-underline .35s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--title-underline-delay, 3.173s) both;
+}
+[data-akari-active] .demo-title__badge {
+  animation: demo-title-badge-pop .32s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--title-badge-delay, 4.598s) both;
+}
+[data-akari-active] .demo-title__star {
+  animation: demo-title-star-open .5s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--title-badge-delay, 4.598s) + .03s) both;
+}
+[data-akari-active] .demo-title__shine {
+  animation:
+    demo-title-shine-move .4s var(--ease-linear, linear) var(--title-shine-delay, calc(var(--title-badge-delay, 4.598s) + .135s)) both,
+    demo-title-shine-fade .4s var(--ease-linear, linear) var(--title-shine-delay, calc(var(--title-badge-delay, 4.598s) + .135s)) both;
+}
+[data-akari-active] .demo-title__mic-disc {
+  animation: demo-title-mic-pop .32s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--title-mic-delay, .233s) both;
+}
+[data-akari-active] .demo-title__ripple--1 {
+  animation: demo-title-ripple .7s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--title-listen-1, .40s) forwards;
+}
+[data-akari-active] .demo-title__ripple--2 {
+  animation: demo-title-ripple .7s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--title-listen-1, .40s) + .16s) forwards;
+}
+[data-akari-active] .demo-title__ripple--3 {
+  animation: demo-title-ripple .7s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--title-listen-2, 1.987s) forwards;
+}
+[data-akari-active] .demo-title__ripple--4 {
+  animation: demo-title-ripple .7s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--title-listen-2, 1.987s) + .16s) forwards;
+}
+
+@keyframes demo-title-card-in {
+  0%   { transform: translateX(48px); opacity: 0; }
+  100% { transform: translateX(0);    opacity: 1; }
+}
+@keyframes demo-title-rise-lead {
+  0%   { transform: translateY(17px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+@keyframes demo-title-rise-main {
+  0%   { transform: translateY(22px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+@keyframes demo-title-underline {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes demo-title-badge-pop {
+  0%   { transform: scale(.55); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+@keyframes demo-title-star-open {
+  0%   { transform: rotate(-90deg) scale(.3); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes demo-title-shine-move {
+  0%   { transform: translateX(-75%); }
+  100% { transform: translateX(75%); }
+}
+@keyframes demo-title-mic-pop {
+  0%   { transform: scale(.6); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+@keyframes demo-title-ripple {
+  0%   { transform: scale(1);    opacity: .9; }
+  100% { transform: scale(1.42); opacity: 0; }
+}
+@keyframes demo-title-shine-fade {
+  0%   { opacity: 0; }
+  30%  { opacity: .8; }
+  70%  { opacity: .8; }
+  100% { opacity: 0; }
+}
+@keyframes demo-title-exit {
+  0%   { transform: translateX(0);    opacity: 1; }
+  100% { transform: translateX(40px); opacity: 0; }
+}
+</style>
+<div class="demo-title__group">
+  <div class="demo-title__card">
+    <div class="demo-title__text">
+      <span class="demo-title__lead">Just talk to AI</span>
+      <span class="demo-title__main">Video editing<i class="demo-title__underline"></i></span>
+    </div>
+    <div class="demo-title__mic">
+      <i class="demo-title__ripple demo-title__ripple--1"></i>
+      <i class="demo-title__ripple demo-title__ripple--2"></i>
+      <i class="demo-title__ripple demo-title__ripple--3"></i>
+      <i class="demo-title__ripple demo-title__ripple--4"></i>
+      <div class="demo-title__mic-disc">
+        <svg class="demo-title__mic-icon" viewBox="0 0 44 44" aria-hidden="true"><rect x="14.5" y="3" width="15" height="24" rx="7.5" fill="currentColor"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="demo-title__badge">
+    <div class="demo-title__badge-body">
+      <svg class="demo-title__star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z" fill="currentColor"/></svg>
+      <span class="demo-title__name">AKARI Video</span>
+      <i class="demo-title__shine"></i>
+    </div>
+  </div>
+</div>
+</div>
