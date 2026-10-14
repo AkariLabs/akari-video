@@ -45,16 +45,20 @@ export class PreviewRendererTracker {
     observe(contentsId: number, routingId: number, pid: number, url: string): void {
         const key = `${contentsId}:${routingId}`;
         const widgetId = previewWidgetIdFromUrl(url);
-        if (!widgetId || pid <= 0) {
+        if (!widgetId) {
             this.frames.delete(key);
             return;
         }
-        const previous = this.frames.get(key);
         for (const [otherKey, other] of this.frames) {
             if (otherKey !== key && other.contentsId === contentsId && other.widgetId === widgetId) {
                 this.frames.delete(otherKey);
             }
         }
+        if (pid <= 0) {
+            this.frames.delete(key);
+            return;
+        }
+        const previous = this.frames.get(key);
         this.frames.set(key, {
             contentsId, routingId, pid, widgetId,
             observedAt: previous?.pid === pid && previous.widgetId === widgetId

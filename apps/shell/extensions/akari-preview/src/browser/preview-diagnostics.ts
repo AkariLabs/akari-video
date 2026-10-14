@@ -229,11 +229,12 @@ export function shouldDeliverPreviewRendererGone(
     widget: {
         isDisposed: boolean;
         isAttached: boolean;
+        isVisible: boolean;
         akariPreviewDiagnostics?: PreviewDiagnosticsSession;
     } | undefined,
     notice: { at: string; observedAt: number }
 ): boolean {
-    return !!widget && !widget.isDisposed && widget.isAttached
+    return !!widget && !widget.isDisposed && widget.isAttached && widget.isVisible
         && !!widget.akariPreviewDiagnostics?.acceptsRendererGoneNotice(notice.at, notice.observedAt);
 }
 
@@ -275,6 +276,8 @@ export class PreviewDiagnosticsSession {
     protected unresponsive = false;
     protected ready = false;
     protected missingHeartbeatMs = 0;
+    protected attachedIframe?: object;
+    protected iframeAttachedAt = 0;
 
     constructor(
         protected readonly io: PreviewDiagnosticsIo,
@@ -490,7 +493,14 @@ export class PreviewDiagnosticsSession {
         const noticeAt = Date.parse(at);
         return !this.disposed && !this.trace.rendererGone
             && Number.isFinite(noticeAt) && noticeAt >= this.createdAt
-            && Number.isFinite(observedAt) && observedAt >= this.createdAt;
+            && Number.isFinite(observedAt) && observedAt >= this.createdAt
+            && observedAt >= this.iframeAttachedAt;
+    }
+
+    observeAttachedIframe(iframe: object | undefined, at: number): void {
+        if (!iframe || iframe === this.attachedIframe) return;
+        this.attachedIframe = iframe;
+        this.iframeAttachedAt = at;
     }
 
     protected entryFor(
