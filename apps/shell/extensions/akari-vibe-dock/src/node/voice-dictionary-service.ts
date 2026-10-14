@@ -1,3 +1,4 @@
+import { t } from '../browser/vibe-text';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -35,7 +36,7 @@ export class AkariVoiceDictionaryServiceImpl implements AkariVoiceDictionaryServ
         const resource = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
         const candidate = resource && join(resource, 'packages/akari-ear/src/index.mjs');
         const file = candidate && existsSync(candidate) ? candidate : upwardFile('packages/akari-ear/src/index.mjs');
-        if (!file) throw new Error('辞書の部品が見つかりません');
+        if (!file) throw new Error(t('vibe.dictionary.service.dictionaryComponentNotFoundError'));
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<DictionaryModule>;
         return importEsm(pathToFileURL(file).href);
     }
@@ -64,17 +65,17 @@ export class AkariVoiceDictionaryServiceImpl implements AkariVoiceDictionaryServ
         try {
             const module = await this.module();
             const listed = await this.list();
-            if (entry.id && listed.builtin.some(item => item.id === entry.id)) return { ok: false, errors: ['同梱の項目は直接編集できません'] };
+            if (entry.id && listed.builtin.some(item => item.id === entry.id)) return { ok: false, errors: [t('vibe.dictionary.service.builtEntriesCannotEditedDirectlyMessage')] };
             const result = entry.id
                 ? await module.updateUserEntry(entry.id, entry, { env: this.env })
                 : await module.addUserEntry(entry, { env: this.env });
             return result;
-        } catch { return { ok: false, errors: ['辞書を保存できません'] }; }
+        } catch { return { ok: false, errors: [t('vibe.dictionary.service.couldNotSaveDictionaryError')] }; }
     }
 
     async remove(id: string): ReturnType<AkariVoiceDictionaryService['remove']> {
         try { return await (await this.module()).removeUserEntry(id, { env: this.env }); }
-        catch { return { ok: false, errors: ['辞書を更新できません'] }; }
+        catch { return { ok: false, errors: [t('vibe.dictionary.service.couldNotUpdateDictionaryError')] }; }
     }
 
     async history(): ReturnType<AkariVoiceDictionaryService['history']> {

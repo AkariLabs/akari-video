@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -62,7 +66,7 @@ test('compiled prepareHtml embeds the shared host adapter independently of frame
     assert.equal(prepareHtmlMethod.split('preview_script_host_adapter_1.hostAdapterScript)()').length - 1, 1);
     const conditionalStart = prepareHtmlMethod.indexOf('const frameEngineScripts =');
     const conditionalEnd = prepareHtmlMethod.indexOf('const frameEngineCsp =', conditionalStart);
-    const hostAdapterPosition = prepareHtmlMethod.indexOf('${(0, preview_script_host_adapter_1.hostAdapterScript)()}');
+    const hostAdapterPosition = prepareHtmlMethod.indexOf('${(0, preview_text_1.webviewScriptText)((0, preview_script_host_adapter_1.hostAdapterScript)())}');
     assert.ok(conditionalStart >= 0 && conditionalEnd > conditionalStart);
     assert.ok(hostAdapterPosition > conditionalEnd);
     assert.ok(!prepareHtmlMethod.slice(conditionalStart, conditionalEnd).includes('hostAdapterScript'));
@@ -92,6 +96,7 @@ test('compiled host turns the context menu hook into the registered annotation m
     assert.ok(branch.includes('x: rect.x + rect.width * message.x'));
     assert.ok(branch.includes('y: rect.y + rect.height * message.y'));
     assert.ok(compiled.includes("id: 'akari.preview.annotateAtPoint'"));
-    assert.ok(compiled.includes("label: 'この位置に注釈'"));
+    assert.ok(compiled.includes("preview.outputPreview.window.addNoteHereAction"));
+    assert.equal(require('../lib/common/preview-text.js').t('preview.outputPreview.window.addNoteHereAction'), 'この位置に注釈');
     assert.ok(compiled.includes("'akari.review.clipAnnotation.request'"));
 });

@@ -1,77 +1,63 @@
 ---
 name: beat-sync-edit
-description: 宣言済み音源（declarations.json の BPM・頭拍・キメ・区間）を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する制作スキル。音に合わせて画面が動く PV・ハイライト・ショーケースを、手打ちの秒数ゼロで作る。「リズムに合わせて動画を作って」「この曲で PV を作って」「拍に合わせて切り替えたい」「音に反応するモーションにして」で発動。宣言づけ自体は declare-audio（別物）、素材ゼロからの企画は edit-plan（別物）。
+description: Generate a beat-synced video timeline and overlays from a track whose BPM, downbeat, accents, and sections have been declared. Use for music-driven promos, highlights, showcases, beat-aligned cuts, or audio-reactive motion. Use declare-audio to mark a track first, and edit-plan to plan from scratch without media.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-次のいずれかに違反する形で進めない。詳細リーフより常に優先する。
+Never proceed in a way that violates any of the following. These rules always take precedence over the detailed leaves.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API とし、本スキルでは後者を生成器から使う。
+Do not read all of `edit.json` or `captions.json`; grep by id and read only the matching lines, as described in [How to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write through the Edit operation or edit-store script API; this skill uses the generator for that work.
 
-1. **時刻を手で打たない。** カット・オーバーレイ・SFX のすべての時刻は、宣言（BPM・頭拍・
-   キメ・区間）から計算した拍位置に置く。「だいたい 12 秒くらい」で置いた瞬間に音とズレる。
-2. **`edit.json` を手で編集しない。** 生成器（`gen-timeline.mjs`）が唯一の組み立て器である。
-   直しは生成器を直して再実行する。手で直すと次の再生成で消える。
-3. **宣言が無い音源で始めない。** `declarations.json` に BPM・`beat_offset_s` が無ければ、
-   まず [declare-audio](../declare-audio/SKILL.md) で人が耳で付ける。自動推定値を実測と偽らない。
-4. **フルレンダーを検証手段にしない。** 絵の確認は**ミニプロジェクト**（数秒）で回す
-   （[verify-loop.md](verify-loop.md)）。1 周 40 秒 と 40 分の差が、品質の差になる。
-5. **レンダー完了を実出力ファイルで確認する。** ログの `PASS` だけで完了を報告しない。
-   `exports/` の実体と `ffprobe` を見る。
-6. **「動いている」を静止画 1 枚で判断しない。** モーションは**連続する 3 点以上**を撮って
-   確かめる（開始・中間・終了）。特に 3D は既定ポーズの意味を推測で決めない。
+1. **Never enter times by hand.** Calculate every cut, overlay, and SFX time from the beat positions derived from the declaration's BPM, downbeat, accent hits, or sections. A hand-entered time such as "about 12 seconds" immediately falls out of sync with the music.
+2. **Never edit `edit.json` by hand.** The generator (`gen-timeline.mjs`) is the sole assembler. Correct the generator and rerun it so the change survives regeneration.
+3. **Start only with declared audio.** If `declarations.json` lacks BPM or `beat_offset_s`, use [declare-audio](../declare-audio/SKILL.md) so a person can verify the values by ear. Do not present automatic estimates as measured values.
+4. **Never use a full render as the verification step.** Check visuals with a mini-project lasting only a few seconds ([verify-loop.md](verify-loop.md)). The difference between a 40-second iteration and a 40-minute iteration is a difference in quality.
+5. **Verify the render artifact.** Never report completion from a log `PASS` alone; inspect the actual file in `exports/` with `ffprobe`.
+6. **Never judge motion from a single still.** Capture at least three consecutive points—start, middle, and end—to verify the movement. Especially for 3D, never guess what the default pose means.
 
-# この型が向いているもの
+# Suitable use cases
 
-| 向いている | 向いていない |
+| Suitable | Less suitable |
 |---|---|
-| 音楽が主・尺が音源で決まる（PV / ショーケース / ハイライト） | 喋りが主（→ [edit-plan](../edit-plan/SKILL.md)） |
-| 切り替えが多い（数十〜数百の演出） | カット数が少なく手で置ける |
-| 同じ構成を音源違いで作り直す | 一点物で再生成しない |
+| Music determines the duration and drives a promo, showcase, or highlight reel | Speech drives the piece; use [edit-plan](../edit-plan/SKILL.md) |
+| Dozens or hundreds of coordinated visual changes | A few cuts can be positioned manually |
+| The same composition may be regenerated for another track | A one-off edit will not be regenerated |
 
-# 実行順
+# Execution order
 
-1. **宣言を読む** — `declarations.json` から BPM / `beat_offset_s` / `hit_points` / `sections`。
-   無ければ [declare-audio](../declare-audio/SKILL.md) へ（人の手番）
-2. **ビートマップを作る** — 拍グリッド + 拍ごとの音量（音反応モーションの材料）。
-   → [generator.md](generator.md) §1
-3. **構成を宣言の区間に割り付ける** — `sections` のラベル（intro/build/drop/bridge/outro）が
-   そのまま構成の骨。ドロップに山場を置く。→ [generator.md](generator.md) §2
-4. **生成器を書く** — オーバーレイ HTML と `edit.json` を機械生成する。
-   → [generator.md](generator.md) §3〜§5
-5. **lint** — `node packages/edit-lint/bin/edit-lint.mjs <project>` が PASS するまで
-6. **ミニ検証** — 疑わしい断片だけを数秒のプロジェクトで焼いて目視 → [verify-loop.md](verify-loop.md)
-7. **本レンダー** — 負荷待ち + タイムアウト延長で焼く → [verify-loop.md](verify-loop.md) §3
-8. **検収** — 見せ場ごとにフレームを抜いて目視 + `ffprobe` + ラウドネス → [verify-loop.md](verify-loop.md) §4
-9. **レビュー反映** — 指摘は生成器の 1 箇所を直して再実行 → [verify-loop.md](verify-loop.md) §5
+1. **Read the declaration.** Inspect BPM, `beat_offset_s`, `hit_points`, and `sections` in `declarations.json`. If any required value is missing, run [declare-audio](../declare-audio/SKILL.md) and wait for the person's declaration.
+2. **Build a beat map.** Calculate the beat grid and per-beat intensity for audio-reactive motion. See [generator.md](generator.md) §1.
+3. **Assign the structure.** Use the declared intro/build/drop/bridge/outro labels in `sections` as the structure, with the strongest passage at the drop. See [generator.md](generator.md) §2.
+4. **Write the generator.** Generate overlay HTML and `edit.json` from the declarations. See [generator.md](generator.md) §3–§5.
+5. **Lint.** Run `node packages/edit-lint/bin/edit-lint.mjs <project>` until it passes.
+6. **Verify a short segment.** Render only the suspect fragment in a project lasting a few seconds, then inspect it visually. See [verify-loop.md](verify-loop.md).
+7. **Render the full piece.** Wait for available machine capacity and use the extended timeout. See [verify-loop.md](verify-loop.md) §3.
+8. **Inspect the export.** Check frames around each highlight, probe with `ffprobe`, and measure loudness. See [verify-loop.md](verify-loop.md) §4.
+9. **Apply review changes.** Fix the generator, regenerate, and repeat the focused checks. See [verify-loop.md](verify-loop.md) §5.
 
-# なぜ生成器から作るのか
+# Why use a generator?
 
-- **音とズレない**: 全時刻が同じ拍グリッドから出るので、1 発でも手打ちがあると
-  そこだけズレる。生成器なら構造的にズレない
-- **直しが速い**: 「文字が小さい」→ 定数 1 つ。「この音がダサい」→ 1 行差し替え。
-  数十箇所に散らばった手打ちを追いかけない
-- **音源を差し替えられる**: 宣言が変われば全体が追従する
-- **記録が残る**: 生成器そのものが「どういう設計か」の説明になる
+- **Timing stays aligned:** Every event is derived from the same beat grid. A hand-entered time makes that event drift; with a generator, drift cannot occur structurally.
+- **Changes stay local:** Adjust a constant for text size or replace a sound reference in one place, then regenerate.
+- **Tracks can be replaced:** New declarations rebuild the same design around a new beat grid.
+- **The design is recorded:** The generator shows how the piece was assembled.
 
-# リーフ目次
+# Further instructions
 
-- 生成器の書き方（ビートマップ・区間割り付け・オーバーレイ・音反応）: [generator.md](generator.md)
-- 検証ループ（ミニ検証・レンダー運用・検収・レビュー反映）: [verify-loop.md](verify-loop.md)
-- 落とし穴集（実測で踏んだもの一覧）: [pitfalls.md](pitfalls.md)
+- [generator.md](generator.md): beat map, section assignment, overlays, and audio-reactive motion.
+- [verify-loop.md](verify-loop.md): short verification, render operation, acceptance, and review changes.
+- [pitfalls.md](pitfalls.md): observed implementation and render pitfalls.
 
-# 道具
+# Tools
 
-| 道具 | 用途 |
+| Tool | Purpose |
 |---|---|
-| [`templates/gen-timeline.mjs`](templates/gen-timeline.mjs) | 生成器のひな形（そのままコピーして書き換える） |
-| `akari internal beat-sync-beatmap` | 宣言 + 音源 → 拍グリッド + 拍別音量 + 波形エンベロープ |
-| `akari internal beat-sync-probe-frame` | 本番と同じシートから任意時刻を 1 枚だけ撮る |
-| `akari internal beat-sync-render-when-idle` | マシンが空くのを待ってからレンダーする |
+| [`templates/gen-timeline.mjs`](templates/gen-timeline.mjs) | Generator template to copy and adapt |
+| `akari internal beat-sync-beatmap` | Convert declarations and audio into a beat grid, per-beat volume, and waveform envelope |
+| `akari internal beat-sync-probe-frame` | Capture one frame from the render path at a chosen time |
+| `akari internal beat-sync-render-when-idle` | Wait for the machine to become available before rendering |
 
-関連: [overlay-authoring](../overlay-authoring/SKILL.md)（断片の書き方）/
-[declare-audio](../declare-audio/SKILL.md)（宣言づけ）/ [render-cut](../render-cut/SKILL.md)（書き出し）
+Related skills: [overlay-authoring](../overlay-authoring/SKILL.md) for fragment authoring, [declare-audio](../declare-audio/SKILL.md) for declarations, and [render-cut](../render-cut/SKILL.md) for export.

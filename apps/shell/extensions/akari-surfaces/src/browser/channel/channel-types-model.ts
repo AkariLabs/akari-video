@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { ChannelAnswers } from './channel-design-model';
 import { PRESET_CHANNEL_SKILLS } from './channel-skills-model';
 import { FREE_BASE_IDS, TYPE_BASES, TYPE_FIELDS, TYPE_VARIANTS, TYPE_WORDS } from './channel-types-data';
@@ -11,7 +12,7 @@ const entries: readonly ChannelTypeEntry[] = TYPE_BASES.flatMap(base => {
     const fieldId = TYPE_FIELDS.find(field => field.baseIds.includes(base.id))?.id ?? 'other';
     return TYPE_VARIANTS.filter(variant => base.id !== 'free' || variant.id === 'basic').map((variant, variantIndex) => ({
         id: `${base.id}-${variant.id}`, baseId: base.id, variantId: variant.id, fieldId,
-        name: variant.id === 'basic' ? base.name : `${base.name}・${variant.suffix}`,
+        name: variant.id === 'basic' ? base.name : t('surfaces.channel.message.message', { baseName: base.name, suffix: variant.suffix }),
         note: variant.id === 'basic' ? base.tone : variant.note, author: variant.author, baseName: base.name,
         ...(variant.id === 'basic' ? {} : { derivedFrom: `${base.name}（Akari）` }),
         tier: FREE_BASE_IDS.some(id => id === base.id) && variant.id === 'basic' ? 'free' as const : 'pro' as const,
@@ -22,7 +23,14 @@ const entries: readonly ChannelTypeEntry[] = TYPE_BASES.flatMap(base => {
 
 export function allChannelTypes(): readonly ChannelTypeEntry[] { return entries; }
 export function findChannelType(id: string): ChannelTypeEntry | undefined { return entries.find(type => type.id === id); }
-export function findChannelTypeByName(name: string): ChannelTypeEntry | undefined { return entries.find(type => type.name === name); }
+export function findChannelTypeByName(name: string): ChannelTypeEntry | undefined {
+    return entries.find(type => {
+        if (type.name === name) return true;
+        const baseName = t(`surfaces.channelTypes.base.${type.baseId}`, {}, 'ja');
+        const variant = TYPE_VARIANTS.find(item => item.id === type.variantId);
+        return (variant?.id === 'basic' ? baseName : `${baseName}・${variant?.suffix ?? ''}`) === name;
+    });
+}
 
 export function filterChannelTypes(options: {
     fieldId: string; query: string; author: 'all' | 'akari' | 'community' | 'free'; sort: 'uses' | 'new';
@@ -51,11 +59,12 @@ export function typeContents(type: ChannelTypeEntry): TypeContents {
     const variant = TYPE_VARIANTS.find(item => item.id === type.variantId);
     if (!base || !variant) throw new Error('型が見つかりません');
     const isFree = base.id === 'free';
+    const baseName = t(`surfaces.channelTypes.base.${base.id}`, {}, 'ja');
     const isShort = base.length === 'short' || variant.id === 'shorts';
     const isLong = base.length === 'long' || variant.id === 'deep';
-    const genreLine = `ジャンル: ${base.name}${variant.id === 'basic' ? '' : `（${variant.suffix}）`}`;
+    const genreLine = `ジャンル: ${baseName}${variant.id === 'basic' ? '' : `（${variant.suffix}）`}`;
     const answers: ChannelAnswers = {
-        genre: isFree ? [] : [base.name],
+        genre: isFree ? [] : [baseName],
         who: variant.id === 'beginner' ? ['はじめての人'] : variant.id === 'global' ? ['日本の文化に興味がある海外の人'] : [],
         plat: isFree ? [] : isShort ? ['YouTube ショート', 'TikTok'] : [...base.platforms],
         len: isFree ? [] : isShort ? ['縦ショート 60 秒まで'] : isLong ? ['横 20 分以上'] : base.length === 'mid' ? ['横 5〜10 分'] : [],
@@ -78,7 +87,7 @@ export function typeContents(type: ChannelTypeEntry): TypeContents {
 }
 
 export function channelTypeSummary(type: ChannelTypeEntry): string { return type.note; }
-export function tierLabel(type: ChannelTypeEntry): '無料' | '☆Pro' { return type.tier === 'free' ? '無料' : '☆Pro'; }
+export function tierLabel(type: ChannelTypeEntry): string { return type.tier === 'free' ? t('surfaces.channel.tierLabelFree.label') : '☆Pro'; }
 
 export function buildMyTypeJson(input: { channelName: string; channelMd?: string; designMd?: string; skillSlugs: string[]; now: string }): string {
     return JSON.stringify({ version: 0, name: input.channelName, saved_at: input.now, channel_md: input.channelMd ?? '',

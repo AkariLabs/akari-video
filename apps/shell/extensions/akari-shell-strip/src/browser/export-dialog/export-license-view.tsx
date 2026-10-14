@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { QuickExportLicenseFinding } from '../../common/quick-export-protocol';
 import { buildLicenseRows, LicenseRowKind } from './export-license-rows';
@@ -34,7 +35,7 @@ function LicenseLine(props: {
             {props.kind === 'attribution' && props.credits.length > 0 &&
                 <button type='button' className='license-copy' data-akari-license-copy-credit
                     onClick={() => void copyCredits()}>
-                    {copied ? 'コピーしました' : 'クレジットをコピー'}
+                    {copied ? t('shell.exportDialog.credits.copiedStatus') : t('shell.exportDialog.credits.copyCreditsAction')}
                 </button>}
         </div>
         {open && <ul data-akari-license-names>{props.names.map((name, index) => <li key={`${name}-${index}`}>{name}</li>)}</ul>}

@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 /**
  * 出力プレビュー初期化の診断集約（シェル側）。
  *
@@ -153,44 +154,44 @@ export function buildPreviewDiagnosticsOverlayModel(
 ): PreviewDiagnosticsOverlayModel {
     const blocked = summary.failedStage ?? summary.stalledStage;
     const title = summary.rendererGone
-        ? 'プレビューの表示処理が停止しました'
+        ? t('preview.diagnostics.overlay.previewRenderingStoppedLabel')
             + (summary.rendererGone.reason === 'unknown' ? ''
-                : '（理由: ' + describePreviewRendererGoneReason(summary.rendererGone.reason) + '）')
+                : t('preview.diagnostics.overlay.reasonPrefix') + describePreviewRendererGoneReason(summary.rendererGone.reason) + t('preview.diagnostics.overlay.closeParen'))
         : unresponsive
-            ? 'プレビューが応答していません'
-                + (summary.complete ? '' : ' — 止まった段: ' + (blocked ? blocked.label : '不明'))
+            ? t('preview.diagnostics.overlay.previewNotRespondingLabel')
+                + (summary.complete ? '' : t('preview.diagnostics.overlay.stalledPrefix') + (blocked ? blocked.label : t('preview.diagnostics.overlay.unknownLabel')))
         : summary.complete
-        ? 'プレビュー初期化は完了しています'
-        : 'プレビューの初期化が完了しません — 止まった段: '
-            + (blocked ? blocked.label : '不明');
+        ? t('preview.diagnostics.overlay.previewInitializationCompleteLabel')
+        : t('preview.diagnostics.overlay.previewInitializationDidNotCompleteStalledPrefix')
+            + (blocked ? blocked.label : t('preview.diagnostics.overlay.unknownLabel'));
     const stageLines = summary.stages.map(stage =>
         (stage.status === 'ok' ? '✓ ' : stage.status === 'failed' ? '✕ ' : '… ')
         + stage.label
         + (stage.detail ? ' — ' + stage.detail : '')
     );
     const firstErrorLine = summary.rendererGone
-        ? '最初の例外: 例外ではなくプロセスの停止を検知しました'
+        ? t('preview.diagnostics.overlay.firstErrorProcessStoppedWithoutExceptionError')
         : summary.firstError
-        ? '最初の例外: [' + summary.firstError.kind + '] ' + summary.firstError.message
-        : '最初の例外: 記録なし（例外なしで止まっています）';
+        ? t('preview.diagnostics.overlay.firstError') + summary.firstError.kind + '] ' + summary.firstError.message
+        : t('preview.diagnostics.overlay.firstErrorNoneRecordedStalledWithoutExceptionError');
     const footerLines: string[] = [];
-    footerLines.push('入口: ' + context.entry + (context.webviewRole ? ' / ' + context.webviewRole : ''));
+    footerLines.push(t('preview.diagnostics.overlay.entryPrefix') + context.entry + (context.webviewRole ? ' / ' + context.webviewRole : ''));
     if (context.webviewId) footerLines.push('Webview ID: ' + context.webviewId);
-    if (logPath) footerLines.push('診断ログ: ' + logPath);
+    if (logPath) footerLines.push(t('preview.diagnostics.overlay.diagnosticLogPrefix') + logPath);
     if (summary.rendererGone) {
         if (summary.rendererGone.reason === 'unknown') {
-            footerLines.push('停止の理由は取得できませんでした');
+            footerLines.push(t('preview.diagnostics.overlay.couldNotDetermineWhyProcessStoppedError'));
         }
-        footerLines.push('停止: reason=' + summary.rendererGone.reason
-            + ' exitCode=' + (summary.rendererGone.exitCode ?? '不明')
-            + ' 時刻=' + summary.rendererGone.at);
-        footerLines.push('停止の時点で ok だった段: '
+        footerLines.push(t('preview.diagnostics.overlay.stoppedReasonLabel') + summary.rendererGone.reason
+            + ' exitCode=' + (summary.rendererGone.exitCode ?? t('preview.diagnostics.overlay.unknownLabel'))
+            + t('preview.diagnostics.overlay.timeSuffix') + summary.rendererGone.at);
+        footerLines.push(t('preview.diagnostics.overlay.stagesCompleteStoppedPrefix')
             + summary.stages.filter(stage => stage.status === 'ok').map(stage => stage.label).join('、'));
         if (!summary.complete && blocked) {
-            footerLines.push('停止の時点で未完了だった段: ' + blocked.label);
+            footerLines.push(t('preview.diagnostics.overlay.stageIncompleteStoppedPrefix') + blocked.label);
         }
     } else {
-        footerLines.push('これは失敗段の記録です（原因の断定ではありません）。');
+        footerLines.push(t('preview.diagnostics.overlay.recordsStageFailedDoesNotIdentifyCauseError'));
     }
     return {
         title,
@@ -355,7 +356,7 @@ export class PreviewDiagnosticsSession {
         if (typeof report.pressureObserver === 'string') {
             recordPreviewDiagnosticEvent(this.trace, {
                 kind: 'note',
-                message: 'compute-pressure ガード: ' + report.pressureObserver,
+                message: t('preview.diagnostics.overlay.computePressureGuardPrefix') + report.pressureObserver,
                 at: this.io.now()
             });
         }
@@ -410,8 +411,8 @@ export class PreviewDiagnosticsSession {
                 recordPreviewDiagnosticEvent(this.trace, {
                     kind: 'note',
                     at: this.io.now(),
-                    message: 'ページ側から診断の報告が届いていません'
-                        + '（ページのスクリプトが実行されていない可能性。断定はできません）'
+                    message: t('preview.diagnostics.overlay.noDiagnosticReportReceivedPreviewPageEmptyState')
+                        + t('preview.diagnostics.overlay.pageScriptNotRunNotConfirmedSuffix')
                 });
             }
             this.surface('watchdog');
@@ -625,7 +626,7 @@ export class PreviewDiagnosticsCenter {
     /** keydown / keyup の「疑わしい形」を捕まえるだけの観測リスナー（本筋を妨げない）。 */
     observeKeyEvent(event: unknown): boolean {
         if (!isSuspiciousKeyEventShape(event)) return false;
-        this.recordKeyConversionFailure(event, 'KeyCode 変換が落ちうる形のキーイベント（観測のみ）');
+        this.recordKeyConversionFailure(event, t('preview.diagnostics.webviewCard.keyEventFailKeycodeConversionObservationOnly'));
         return true;
     }
 
@@ -676,15 +677,15 @@ export function createDomPreviewDiagnosticsOverlay(
         title.style.whiteSpace = 'nowrap';
         const detailsButton = document.createElement('button');
         detailsButton.type = 'button';
-        detailsButton.textContent = expanded ? '詳細を隠す' : '詳細';
+        detailsButton.textContent = expanded ? t('preview.diagnostics.overlay.hideDetailsAction') : t('preview.diagnostics.overlay.detailsLabel');
         detailsButton.dataset.akariPreviewDiagnostics = 'toggle';
         const copyButton = document.createElement('button');
         copyButton.type = 'button';
-        copyButton.textContent = '診断をコピー';
+        copyButton.textContent = t('preview.diagnostics.overlay.copyDiagnosticsAction');
         copyButton.dataset.akariPreviewDiagnostics = 'copy';
         const reopenButton = document.createElement('button');
         reopenButton.type = 'button';
-        reopenButton.textContent = '開き直す';
+        reopenButton.textContent = t('preview.diagnostics.overlay.reopenAction');
         reopenButton.dataset.akariPreviewDiagnostics = 'reopen';
         for (const button of [detailsButton, copyButton, reopenButton]) {
             button.style.border = '1px solid rgba(255,255,255,0.45)';

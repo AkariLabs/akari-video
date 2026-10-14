@@ -1,4 +1,8 @@
+import { scriptDictionary, t, webviewScriptText } from '../common/preview-text';
+import { getLanguage, t as renderT } from '@akari-video/i18n';
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { selectedCaptionRangesMessage, type SelectedCaptionRange } from '../common/caption-word-selection-message';
+import { clearSelectedCaptionRanges } from '../common/caption-word-selection-state';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
@@ -81,6 +85,7 @@ import {
 } from '@akari-video/edit-store';
 import type { EditV2, GenerationMetaV1, InternalEdit } from '@akari-video/edit-store';
 import type { PreviewItemWriteCommand } from '@akari-video/edit-store';
+import { normalizePreviewEmphasisWords } from './preview-emphasis-words';
 import {
     describePreviewWebviewRole,
     guardedKeyHandler,
@@ -113,6 +118,7 @@ import {
     THREE_SCENE_KEYS,
     hasThreeDimensionalTextOverlay,
     resolveThreeSceneDescriptorAssets,
+    ThreeSceneAssetOrigin,
     threeSceneDeclarations
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder, resolvePreviewItemStackOrder } from '../common/caption-track-order';
@@ -142,7 +148,7 @@ import {
     CAPTION_FONT_LOAD_DESCRIPTOR,
     captionFontFaceCss
 } from '../common/caption-visual-contract';
-import { bundledCaptionFontFaceCss } from '../common/bundled-caption-fonts';
+import { bundledCaptionFontFaceCss, latinCaptionFontFaceCss } from '../common/bundled-caption-fonts';
 import { dispatchPhotoAnalysis } from '../common/photo-analysis-dispatch';
 import { isNestedPreviewLayer } from '../common/preview-nested-layer';
 import {
@@ -170,6 +176,9 @@ import {
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
+    markServedPreviewMedia, previewWatchedMediaChange, previewWatchedMediaSets, watchUnservedPreviewMedia
+} from '../common/preview-watched-media';
+import {
     capturePreviewPlaybackTick,
     shouldCapturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
@@ -183,7 +192,6 @@ import {
     scopeSelectorOutsideOverlays
 } from '../common/webview-default-style-scope';
 import {
-    normalizePreviewEmphasisWords,
     readCaptionsEmphasisWords,
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
@@ -201,6 +209,7 @@ import {
     parsePreviewCaptions,
     parseResolvedPreviewCaptions
 } from './akari-preview-captions';
+import { applyCaptionStylePresets, captionRenderInputFromV1, resolveTextstyleCatalog } from '@akari-video/edit-store';
 import { listen } from './akari-preview-listen';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } from './review-session-recorder';
@@ -239,6 +248,7 @@ import type {
     EditSummaryTimelineTrack,
     PreviewSelectionNode,
     EditSummary,
+    PreviewMediaWatch,
     PreviewModel,
     PreviewSetZoomMessage,
     PreviewSetRateMessage,
@@ -302,6 +312,7 @@ import {
     TIMELINE_LAYER_SELECTED_EVENT,
     EDIT_STORE_DID_WRITE_EVENT,
     RECENT_WRITE_WINDOW_MS,
+    WATCHED_MEDIA_SETTLE_MS,
     TIMELINE_SET_MUTED_EVENT,
     TIMELINE_SET_TRACK_VISIBILITY_EVENT,
     TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT,
@@ -511,6 +522,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly timelineLayerSelections = new Map<string, string | null>();
     protected readonly primaryTimelineSelections = new Map<string, { kind: 'cut' | 'caption'; id: string } | null>();
     protected readonly timelineCaptionSelections = new Map<string, { captionIds: string[]; primaryCaptionId: string | null }>();
+    protected readonly daihonWordSelections = new Map<string, SelectedCaptionRange[]>();
+    protected clearDaihonWordSelections(keep?: string): void {
+        clearSelectedCaptionRanges(this.daihonWordSelections, this.openOutputPreviews, keep);
+    }
     protected readonly timelineGroupSelections = new Map<string, Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>>();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
@@ -757,6 +772,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         this.lifecycleDisposables.push(this.shell.onDidChangeActiveWidget(refreshReviewPartner));
         this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(refreshReviewPartner));
+        this.lifecycleDisposables.push(this.workspaceService.onWorkspaceChanged(() =>
+            this.clearDaihonWordSelections()));
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
         const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
             if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
@@ -783,11 +800,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }));
         this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
             commandId: ANNOTATE_PREVIEW_AT_POINT_COMMAND.id,
-            label: 'この位置に注釈'
+            label: t('preview.outputPreview.window.addNoteHereAction')
         }));
         for (const [command, label, kind] of [
-            [GROUP_PREVIEW_COMMAND, 'キャンバスにする', 'group'],
-            [UNGROUP_PREVIEW_COMMAND, 'キャンバスをほどく', 'ungroup']
+            [GROUP_PREVIEW_COMMAND, t('preview.outputPreview.window.createCanvasAction'), 'group'],
+            [UNGROUP_PREVIEW_COMMAND, t('preview.outputPreview.window.ungroupCanvasLabel'), 'ungroup']
         ] as const) {
             this.lifecycleDisposables.push(this.commandRegistry.registerCommand(command, {
                 isVisible: (context?: typeof this.previewGroupMenuContext) =>
@@ -838,8 +855,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 第12項: Console に出た Webview ID の所有者が特定できなかったため、生成された
             // 全 webview の id と用途（akari-preview 以外を含む）を診断ログへ残す。
             this.previewDiagnostics?.note(
-                'webview 生成: id=' + id
-                + ' 用途=' + describePreviewWebviewRole(id).label
+                t('preview.diagnostics.event.webviewCreatedStatus', { id, role: describePreviewWebviewRole(id).label })
                 + (viewId ? ' viewId=' + viewId : '')
             );
             if (kind && viewId) {
@@ -894,10 +910,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerOutputSeekCommand();
         this.lifecycleDisposables.push(this.commandRegistry.registerCommand(CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND, {
             execute: async (request?: PreviewFrameCommandRequest): Promise<PreviewFrameCommandResult> => {
-                if (!request?.editUri) throw new Error('出力プレビューを開いてください');
+                if (!request?.editUri) throw new Error(t('preview.outputPreview.window.openOutputPreviewAction'));
                 const widget = this.openOutputPreviews.get(new URI(request.editUri).normalizePath().toString());
                 const pageId = widget?.akariPreviewPlaybackPageId;
-                if (!widget || widget.isDisposed || !pageId) throw new Error('出力プレビューを開いてください');
+                if (!widget || widget.isDisposed || !pageId) throw new Error(t('preview.outputPreview.window.openOutputPreviewAction'));
                 const token = globalThis.crypto.randomUUID();
                 if (request.purpose === 'memo') this.pendingFrameCapturePurposes.set(token, 'memo');
                 const pending = this.pendingFrameCaptures.begin(token, widget, pageId);
@@ -1008,7 +1024,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.captionWriteTail = this.captionWriteTail.then(async () => {
                     const captionsUri = widget.akariPreviewCaptionsUri;
                     if (!captionsUri) return;
-                    const parsed = JSON.parse(await this.readText(captionsUri)) as {
+                    const source = JSON.parse(await this.readText(captionsUri));
+                    const edit = JSON.parse(await this.readText(new URI(detail.editUri)));
+                    const presetRoot = applyCaptionStylePresets(source, resolveTextstyleCatalog().catalog).root;
+                    const parsed = captionRenderInputFromV1(presetRoot, { output: edit.output }) as {
                         captions?: Array<{ id: string; time_domain?: string }>;
                     } | Array<{ id: string; time_domain?: string }>;
                     const entries = Array.isArray(parsed) ? parsed : parsed.captions;
@@ -1135,6 +1154,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         };
         this.lifecycleDisposables.push(listen(window, 'akari.daihon.selectionChanged', onDaihonSelectionChanged));
+        const onDaihonWordSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: unknown; ranges?: unknown }>).detail;
+            if (typeof detail?.editUri !== 'string') return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            const message = selectedCaptionRangesMessage({ ...detail, editUri: key }, key);
+            if (!message) return;
+            if (message.ranges.length) {
+                this.clearDaihonWordSelections(key);
+                this.daihonWordSelections.set(key, message.ranges);
+            } else this.daihonWordSelections.delete(key);
+            this.openOutputPreviews.get(key)?.sendMessage(message);
+        };
+        this.lifecycleDisposables.push(listen(window, 'akari.daihon.wordSelectionChanged', onDaihonWordSelectionChanged));
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -1543,7 +1575,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             void open(this.openerService, sessionsUri, { mode: 'activate' }).catch(error => {
                 const detail = error instanceof Error ? error.message : String(error);
-                this.messages.warn(`録音セッションの保存先を開けません: ${detail}`);
+                this.messages.warn(t('preview.outputPreview.notification.couldNotOpenRecordingSessionLocationError', { detail }));
             });
         });
         register(REVIEW_SESSION_VIEWER_SYNC_EVENT, event => {
@@ -1613,13 +1645,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const recorder = this.reviewSessionRecorder;
         const editUri = normalizeReviewEditUri(requestedEditUri);
         if (!recorder || !editUri) {
-            recorder?.reportError(projectRootUri, requestedEditUri, 'edit.json の場所を特定できません。');
+            recorder?.reportError(projectRootUri, requestedEditUri, t('preview.outputPreview.window.couldNotLocateEditJsonError'));
             return;
         }
         const visibility = await this.ensureVisible(editUri);
         const widget = this.openOutputPreviews.get(editUri);
         if (visibility === 'unavailable' || !widget?.isAttached) {
-            recorder.reportError(projectRootUri, editUri, '出力プレビューを開けませんでした。');
+            recorder.reportError(projectRootUri, editUri, t('preview.outputPreview.window.couldNotOpenOutputPreviewError'));
             return;
         }
         const transport = this.reviewTransportByEdit.get(editUri) ?? {
@@ -1668,9 +1700,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
             const input = document.createElement('input');
             input.type = 'checkbox';
-            input.setAttribute('aria-label', '注釈描線を表示');
+            input.setAttribute('aria-label', t('preview.outputPreview.window.showReviewStrokesAction'));
             const text = document.createElement('span');
-            text.textContent = '描線を表示';
+            text.textContent = t('preview.outputPreview.window.showStrokesAction');
             label.append(input, text);
             const sessionList = section.querySelector('[data-review-session]')?.parentElement;
             section.insertBefore(label, sessionList ?? null);
@@ -1685,8 +1717,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'theia-button secondary';
-            button.textContent = '描線';
-            button.title = `${sessionId} の保存済み描線を再表示`;
+            button.textContent = t('preview.outputPreview.window.strokesLabel');
+            button.title = t('preview.outputPreview.notification.showSavedStrokesAction', { sessionId });
             button.setAttribute('data-review-session-strokes', sessionId);
             button.addEventListener('click', () => void this.showReviewSessionStrokes(state, sessionId));
             row.style.gridTemplateColumns = 'auto minmax(0, 1fr) auto auto';
@@ -1712,7 +1744,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         const strokes = normalizePersistentStrokeItems(replay.strokes);
         if (strokes.length === 0) {
-            this.messages.info(`${sessionId} に再表示できる描線はありません。`);
+            this.messages.info(t('preview.outputPreview.notification.noStrokesShowEmptyState', { sessionId }));
             return;
         }
         const visibility = await this.ensureVisible(editUri);
@@ -2035,7 +2067,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.overlayMeasureCache.set(cacheKey, box);
                     if (this.overlayMeasureCache.size > 128) this.overlayMeasureCache.delete(this.overlayMeasureCache.keys().next().value!);
                 }
-                this.previewDiagnostics?.note(`素材の枠測定 ${Date.now() - started}ms ${box ? '成功' : '打ち切り'} ${request.relativePath ?? ''}`);
+                this.previewDiagnostics?.note(t('preview.diagnostics.event.assetBoundsMeasuredStatus', { elapsed: Date.now() - started, status: box ? t('preview.diagnostics.event.successStatus') : t('preview.diagnostics.event.timedOutStatus'), path: request.relativePath ?? '' }));
                 resolve(box);
             };
             const listener = widget.onMessage(message => {
@@ -2103,7 +2135,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 id: `akari-output-preview-${this.hash(key)}`, viewId: key
             });
             this.openOutputPreviews.set(key, widget);
-            widget.title.label = '出力プレビュー';
+            widget.title.label = t('preview.outputPreview.window.outputPreviewLabel');
         }
         if (request.title) {
             if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
@@ -2116,13 +2148,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // Theia の mousedown 用透明面は z-index:999。実マウスの mouseup/click も帯へ届ける。
         bar.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:1001;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px;background:var(--theia-editorWidget-background);color:var(--theia-foreground);border-bottom:1px solid var(--theia-focusBorder)';
         const text = document.createElement('span');
-        text.textContent = `お試し中: ${request.originalTitle ?? ''} → ${request.title}`;
+        text.textContent = t('preview.outputPreview.notification.tryingLabel', { originalTitle: request.originalTitle ?? '', title: request.title });
         text.style.flex = '1';
         bar.appendChild(text);
         for (const [label, command, argument] of [
-            ['▶ もう一度', 'akari.timeline.replayMaterialSwap', undefined],
-            ['差し替える', 'akari.timeline.finishMaterialSwap', true],
-            ['やめる', 'akari.timeline.finishMaterialSwap', false]
+            [t('preview.outputPreview.window.tryAgainAction'), 'akari.timeline.replayMaterialSwap', undefined],
+            [t('preview.outputPreview.window.replaceLabel'), 'akari.timeline.finishMaterialSwap', true],
+            [t('preview.outputPreview.window.cancelAction'), 'akari.timeline.finishMaterialSwap', false]
         ] as const) {
             const button = document.createElement('button');
             button.className = 'theia-button secondary';
@@ -2421,7 +2453,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             candidateText
         });
         if (!lintResult.pass) {
-            throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+            throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
         }
         this.markRecentWrite(editUri);
         await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
@@ -2434,7 +2466,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         afterTrackCount: number
     ): Promise<void> {
         const choice = await this.messages.info(
-            `トラックを ${beforeTrackCount} 本 → ${afterTrackCount} 本に整理できます。整理しますか？`,
+            t('preview.outputPreview.notification.organizeTracksPrompt', { beforeTrackCount, afterTrackCount }),
             COMPACT_TRACKS_ACTION,
             KEEP_TRACKS_ACTION
         );
@@ -2444,7 +2476,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         try {
             await this.compactTracks({ editUri: editUri.toString() });
         } catch (error) {
-            this.messages.error(`トラックを整理できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('preview.outputPreview.notification.couldNotOrganizeTracksError', { reason: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -2539,7 +2571,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             id: `akari-output-preview-${this.hash(uri.toString())}`, viewId: uri.toString()
         });
         if (widget.isDisposed) throw new Error('Preview widget was disposed while opening.');
-        widget.title.label = '出力プレビュー';
+        widget.title.label = t('preview.outputPreview.window.outputPreviewLabel');
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-preview';
         if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
@@ -2743,6 +2775,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const marker = widget as PreviewWidgetMarker;
         const seekKey = uri.normalizePath().toString();
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
+        if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
         if (previews.get(seekKey) === marker) {
             previews.delete(seekKey);
         }
@@ -2768,10 +2801,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const newerVersion = newerSavedByVersion(stampText, currentVersion);
             if (newerVersion && currentVersion) {
                 const choice = await this.messages.error(
-                    `${uri.path.base}: 動画プレビューを開けませんでした — ${newerVersionOpenNotice(newerVersion, currentVersion)}`,
-                    'アップデートを確認'
+                    t('preview.outputPreview.notification.newerVersionOpenFailedError', { name: uri.path.base, reason: newerVersionOpenNotice(newerVersion, currentVersion) }),
+                    t('preview.outputPreview.window.checkUpdatesAction')
                 );
-                if (choice === 'アップデートを確認') {
+                // MessageService offers exactly one action and returns undefined on dismissal.
+                if (choice !== undefined) {
                     await this.commandService.executeCommand('akari.settings.open', { section: 'about' });
                 }
                 return;
@@ -2782,7 +2816,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const reason = error instanceof Error && error.message ? error.message : undefined;
         void this.messages.error(
             reason
-                ? `${uri.path.base}: 動画プレビューを開けませんでした — ${reason}`
+                ? t('preview.outputPreview.notification.videoPreviewOpenFailedError', { name: uri.path.base, reason })
                 : `${uri.path.base}: ${PREVIEW_OPEN_ERROR_MESSAGE}`
         );
     }
@@ -3102,7 +3136,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (!systemVolumeDismissed) widget.sendMessage({ type: 'akari-preview-system-volume', state });
                     if ((state !== 'ok' || (previous && previous !== 'ok'))
                         && state !== lastSystemVolumeDiagnostic) {
-                        this.previewDiagnostics?.note('OS の出力音量: ' + state);
+                        this.previewDiagnostics?.note(t('preview.outputPreview.window.osOutputVolumePrefix') + state);
                         lastSystemVolumeDiagnostic = state;
                     }
                 } else if (state === 'ok') {
@@ -3220,7 +3254,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (message?.type === 'akari-preview-capture-busy' && typeof message.token === 'string'
                     && typeof message.pageId === 'string') {
                     this.pendingFrameCaptures.reject(message.token, widget, message.pageId,
-                        new Error('前のコマを保存中です'));
+                        new Error(t('preview.outputPreview.window.previousFrameStillBeingSaved')));
                     return true;
                 }
                 return false;
@@ -3407,6 +3441,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         type: 'akari-preview-set-selected-captions', ...this.timelineCaptionSelections.get(key)
                     });
                 }
+                if (key && this.daihonWordSelections.has(key)) widget.sendMessage({
+                    type: 'akari-preview-set-selected-caption-ranges', ranges: this.daihonWordSelections.get(key)
+                });
                 if (key && this.timelineGroupSelections.has(key)) widget.sendMessage({
                     type: 'akari-preview-set-selected-group', selection: this.timelineGroupSelections.get(key)
                 });
@@ -3532,7 +3569,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!isCaptionWriteRequest(message)) {
                     if (typeof message.requestId === 'string') widget.sendMessage({
                         type: 'akari-preview-caption-write-response', requestId: message.requestId,
-                        ok: false, error: '字幕の書き込み要求が不正です'
+                        ok: false, error: t('preview.outputPreview.window.invalidCaptionWriteRequestError')
                     });
                 } else {
                     this.captionWriteTail = this.captionWriteTail.catch(error => {
@@ -3612,7 +3649,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const onPlacementDiagnostic = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; key?: string; stage?: string; elapsedMs?: number }>).detail;
             if (detail?.editUri !== widget.akariPreviewEditUri?.toString()) return;
-            this.previewDiagnostics?.note(`素材配置 ${detail.key ?? ''} ${detail.stage ?? ''} ${detail.elapsedMs ?? 0}ms`);
+            this.previewDiagnostics?.note(t('preview.diagnostics.event.assetPlacementStatus', { key: detail.key ?? '', stage: detail.stage ?? '', elapsed: detail.elapsedMs ?? 0 }));
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
@@ -3644,6 +3681,35 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             })();
         };
+        // あとから届いた素材は、書き込みの間に通知が何度も来る。少し待ってから読み直し、
+        // 読み直しの間に来た通知は次の 1 回にまとめる（再構築を積み上げない）。
+        let watchedMediaSettle: number | undefined;
+        let watchedMediaRefreshing = false;
+        let watchedMediaAgain = false;
+        const refreshWatchedMedia = (): void => {
+            watchedMediaSettle = undefined;
+            if (widget.isDisposed) return;
+            if (watchedMediaRefreshing) {
+                watchedMediaAgain = true;
+                return;
+            }
+            watchedMediaRefreshing = true;
+            // 素材だけが変わってもモデルの差分には出ない。届いた素材を配信し直すため再構築する。
+            this.queueRefresh(widget, identityUri, kind, undefined, true);
+            void (widget.akariPreviewRefresh ?? Promise.resolve()).then(() => {
+                watchedMediaRefreshing = false;
+                if (watchedMediaAgain) {
+                    watchedMediaAgain = false;
+                    scheduleWatchedMediaRefresh();
+                }
+            });
+        };
+        const scheduleWatchedMediaRefresh = (): void => {
+            if (watchedMediaSettle === undefined && !widget.isDisposed) {
+                watchedMediaSettle = window.setTimeout(refreshWatchedMedia, WATCHED_MEDIA_SETTLE_MS);
+            }
+        };
+        disposables.push({ dispose: () => window.clearTimeout(watchedMediaSettle) });
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3656,6 +3722,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             let generationChanged = false;
             let previewChanged = false;
             let nonModelResourceChanged = false;
+            let watchedMediaChanged = false;
+            let watchedEditChanged = false;
             const editKey = widget.akariPreviewEditUri?.toString();
             const editSuffix = widget.akariPreviewEditUri
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
@@ -3708,21 +3776,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (editKey && (key === editKey || suffix === editSuffix)) {
-                    queueWatchedEdit();
+                    watchedEditChanged = true;
                     continue;
                 }
-                if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                // 配信できなかった素材（あとから届く生成画像など）と静止画の cut ソース。
+                // 追跡対象に無くても、届いた・書き換わった合図で読み直す。
+                const watchedMedia = previewWatchedMediaChange(widget, key, suffix);
+                if (watchedMedia || tracked.has(key) || trackedSuffixes.has(suffix)) {
                     const writtenAt = this.recentWriteAt(change.resource);
                     const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                         akariPreviewJustAddedSuffixes?: Map<string, number> };
                     const added = recent.akariPreviewJustAddedUris?.get(key)
                         ?? recent.akariPreviewJustAddedSuffixes?.get(suffix);
                     // A generated frame can arrive just after edit.json. Its stream was
-                    // already supplied by the incremental model update.
-                    if (added && Date.now() - added < RECENT_WRITE_WINDOW_MS
-                        && change.resource.path.toString().includes('/assets/generated/')
-                        && change.resource.path.base.endsWith('.png')) continue;
+                    // already supplied by the incremental model update. A still cut source
+                    // that was just served gets the same grace. Media that could not be
+                    // served is never skipped: its arrival is the only chance to show it.
+                    if (watchedMedia !== 'unserved' && added && Date.now() - added < RECENT_WRITE_WINDOW_MS
+                        && (watchedMedia === 'served'
+                            || (change.resource.path.toString().includes('/assets/generated/')
+                                && change.resource.path.base.endsWith('.png')))) continue;
                     const externalChange = Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
+                    if (watchedMedia) {
+                        watchedMediaChanged ||= externalChange;
+                        continue;
+                    }
                     previewChanged ||= externalChange;
                     if (externalChange && !isPreviewModelResourceChange(
                         key, suffix, editKey, editSuffix, motionBagResources, motionBagSuffixes
@@ -3733,6 +3811,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 previewChanged ||= !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
             }
+            if (watchedEditChanged && watchedMediaChanged) previewChanged = true;
+            else if (watchedEditChanged) queueWatchedEdit();
             if (captionsChanged) {
                 this.queueCaptionsUpdate(widget);
             }
@@ -3740,7 +3820,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueGenerationUpdate(widget);
             }
             if (previewChanged) {
-                this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged);
+                // 同じ通知に edit.json などの変更も入っていれば、待たずにまとめて読み直す。
+                this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged || watchedMediaChanged);
+            } else if (watchedMediaChanged) {
+                scheduleWatchedMediaRefresh();
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
@@ -3820,6 +3903,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.disposed.connect(() => {
             disposables.dispose();
             this.previewGestureGuards?.delete(widget);
+            if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
             if (previews.get(seekKey) === widget) {
                 previews.delete(seekKey);
             }
@@ -4146,6 +4230,70 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         state.drain();
     }
 
+    /**
+     * 届いたら読み直す素材（配信できなかった素材・静止画の cut ソース）を、読み込んだモデルから作り直す。
+     * 返す控えは、この読み直しの間に分かった配信の成否を反映するための手がかり。
+     */
+    protected beginPreviewMediaWatch(
+        widget: PreviewWidgetMarker,
+        model: PreviewModel,
+        identityUri: URI,
+        kind: 'raw' | 'output',
+        ownWrite: boolean
+    ): PreviewMediaWatch {
+        const watch: PreviewMediaWatch = {
+            widget, identityUri, kind, ownWrite,
+            watchedBefore: new Set(widget.akariPreviewWatchedMediaResources ?? []),
+            unservedBefore: new Set(widget.akariPreviewUnservedMediaResources ?? [])
+        };
+        const cutSourceUris = [...(model.sourcesById ?? [])]
+            .filter(([sourceId]) => model.summary.cuts.some(cut => cut.src === sourceId))
+            .map(([, source]) => source.uri);
+        if (model.sourceUri && !cutSourceUris.some(uri => uri.toString() === model.sourceUri!.toString())) {
+            cutSourceUris.push(model.sourceUri);
+        }
+        Object.assign(widget, previewWatchedMediaSets(widget, { unservedUris: model.unservedUris, cutSourceUris },
+            uri => this.resourceSuffix(uri), uri => isImageLayerSrc(uri.path.base)));
+        this.recheckUnservedPreviewMedia(watch, model.unservedUris ?? []);
+        return watch;
+    }
+
+    /** 再構築で配信に失敗した cut ソースを控える。 */
+    protected noteUnservedPreviewMedia(watch: PreviewMediaWatch | undefined, uri: URI): void {
+        if (!watch) return;
+        Object.assign(watch.widget, watchUnservedPreviewMedia(watch.widget, uri, value => this.resourceSuffix(value)));
+        this.recheckUnservedPreviewMedia(watch, [uri]);
+    }
+
+    /** 再構築で配信できた cut ソースを「配信できている」へ移す。 */
+    protected noteServedPreviewMedia(watch: PreviewMediaWatch | undefined, uri: URI): void {
+        if (!watch) return;
+        const key = uri.toString();
+        Object.assign(watch.widget, markServedPreviewMedia(watch.widget, uri, value => this.resourceSuffix(value)));
+        // アプリ自身の取り込み（ファイルを置いてから edit.json を書く）では、置いたファイルの通知が
+        // 読み直しのあとに届く。配信できたと分かった時点で、見張り始めた直後の通知だけ読み直しにしない。
+        // 外からの書き込み（エージェント・CLI）には猶予を付けない（書き込み途中の続きを落とさない）。
+        if (!watch.ownWrite || watch.watchedBefore.has(key)
+            || !watch.widget.akariPreviewWatchedMediaResources?.has(key)) return;
+        const recent = watch.widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
+            akariPreviewJustAddedSuffixes?: Map<string, number> };
+        const now = Date.now();
+        (recent.akariPreviewJustAddedUris ??= new Map()).set(key, now);
+        (recent.akariPreviewJustAddedSuffixes ??= new Map()).set(this.resourceSuffix(uri), now);
+    }
+
+    /**
+     * 確かめてから見張り始めるまでの間に届いた素材は、通知がどの控えにも当たらず落ちている。
+     * 新しく待ち始めた素材だけ、もう一度確かめる（待ち続けている素材は確かめ直さない = 繰り返さない）。
+     */
+    protected recheckUnservedPreviewMedia(watch: PreviewMediaWatch, uris: readonly URI[]): void {
+        const fresh = uris.filter(uri => !watch.unservedBefore.has(uri.toString()));
+        if (fresh.length === 0) return;
+        void Promise.all(fresh.map(uri => this.fileService.exists(uri).catch(() => false))).then(found => {
+            if (found.some(Boolean)) this.queueRefresh(watch.widget, watch.identityUri, watch.kind, undefined, true);
+        });
+    }
+
     protected handleRefreshFailure(widget: PreviewWidgetMarker, error: unknown): void {
         if (widget.isDisposed) {
             return;
@@ -4446,6 +4594,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         diagnostics?.describeFace({ assetOrigin: assets?.origin });
         diagnostics?.markStage('model-loaded', 'ok');
+        // この先のどの経路（差分なし・差分更新・再構築・失敗）でも、届いたら読み直せるようにする。
+        const mediaWatch = kind === 'output'
+            ? this.beginPreviewMediaWatch?.(widget, model, identityUri, kind, editSource !== undefined) : undefined;
         if (this.previewGestureGuards?.get(widget)?.active) {
             this.queueRefresh(widget, identityUri, kind, initialSeekTime, forceRebuild);
             await this.disposeAssetStreams(model.assetStreamIds);
@@ -4602,12 +4753,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!videoUri) {
             await this.disposeAssetStreams(model.assetStreamIds);
             if (model.emptyProject) {
-                diagnostics?.note('空プロジェクトの案内カードを表示（初期化は行わない）');
+                diagnostics?.note(t('preview.diagnostics.event.emptyProjectCardShownStatus'));
                 this.showMessageCard(widget, identityUri, EMPTY_PROJECT_MESSAGE, identityUri, kind);
                 return;
             }
-            diagnostics?.markStage('model-loaded', 'failed', 'source.path を解決できませんでした');
-            throw new Error(`${identityUri.toString()} の source.path を解決できませんでした。`);
+            diagnostics?.markStage('model-loaded', 'failed', t('preview.outputPreview.window.couldNotResolveSourcePathError'));
+            throw new Error(t('preview.outputPreview.validation.couldNotResolveSourcePathError', { p1: (identityUri.toString()) }));
         }
         const extension = videoUri.path.ext.toLowerCase();
         const mimeType = PLAYABLE_VIDEO_MIME_TYPES.get(extension);
@@ -4618,7 +4769,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const primaryIsStillImage = kind === 'output' && isImageLayerSrc(videoUri.path.base);
         if (!compositionOnly && !mimeType && !primaryIsStillImage) {
             await this.disposeAssetStreams(model.assetStreamIds);
-            diagnostics?.note('プレビュー非対応の形式カードを表示: ' + videoUri.path.base);
+            diagnostics?.note(t('preview.diagnostics.event.unsupportedFormatCardShownStatus', { name: videoUri.path.base }));
             this.showMessageCard(widget, videoUri, UNSUPPORTED_FORMAT_MESSAGE, identityUri, kind);
             return;
         }
@@ -4626,7 +4777,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // validates each exact file; keep the local-only guard for raw views and edit.json.
         if ((kind === 'raw' || compositionOnly) && !(await this.isInsideWorkspace(videoUri))) {
             await this.disposeAssetStreams(model.assetStreamIds);
-            diagnostics?.note('ワークスペース外の素材カードを表示: ' + videoUri.toString());
+            diagnostics?.note(t('preview.diagnostics.event.outsideWorkspaceCardShownStatus', { uri: videoUri.toString() }));
             this.showMessageCard(widget, videoUri, OUTSIDE_WORKSPACE_MESSAGE, identityUri, kind);
             return;
         }
@@ -4654,6 +4805,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ? this.createAssetStream({ assetUri: streamVideoUri.toString() })
                 : this.createVideoStream({ videoUri: streamVideoUri.toString() })
             ).catch(async (error: unknown) => {
+                // 代表ソースがまだ届いていない（生成中の画像など）。届いた合図で読み直す。
+                this.noteUnservedPreviewMedia?.(mediaWatch, videoUri);
+                if (streamVideoUri.toString() !== videoUri.toString()) {
+                    this.noteUnservedPreviewMedia?.(mediaWatch, streamVideoUri);
+                }
                 await this.disposeAssetStreams(model.assetStreamIds);
                 throw error;
             }),
@@ -4663,6 +4819,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     .then(result => result.hasAudio)
                     .catch(() => undefined)
         ]);
+        if (videoStream) this.noteServedPreviewMedia?.(mediaWatch, videoUri);
         // v1 マルチソース: 代表ソース以外の cuts[].src 先も webview から再生できるよう
         // それぞれストリームを開く（代表ソースは上の videoStream を再利用）。
         // 全ストリームは同一のローカルサーバ由来なので CSP の media-src は据え置きでよい。
@@ -4705,12 +4862,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             imageAssetStreams.set(key, stream);
                         }
                         imageSourceUrlById[sourceId] = stream.url;
+                        this.noteServedPreviewMedia?.(mediaWatch, entry.uri);
                         continue;
                     }
                     const streamUri = await this.resolveStreamVideoUri(entry.uri, model);
                     const stream = await this.createVideoStream({ videoUri: streamUri.toString() });
                     extraVideoStreams.set(sourceId, stream);
                     sourceUrlById[sourceId] = stream.url;
+                    this.noteServedPreviewMedia?.(mediaWatch, entry.uri);
                     if (streamUri.toString() !== entry.uri.toString()) {
                         // スクラブ音はプロキシの形式や音声 track に依存せず、原本の音声 trak を読む。
                         const originalStream = await this.createVideoStream({ videoUri: entry.uri.toString() });
@@ -4719,6 +4878,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                 } catch (error) {
                     console.warn('[akari-preview] sources[] のストリームを開けませんでした', entry.uri.toString(), error);
+                    this.noteUnservedPreviewMedia?.(mediaWatch, entry.uri);
                 }
             }
         }
@@ -4781,7 +4941,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             (model.motionBagUris ?? []).map(uri => this.resourceSuffix(uri))
         );
         widget.viewType = 'akari.preview';
-        widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
+        widget.title.label = kind === 'output' ? t('preview.outputPreview.window.outputPreviewLabel') : t('preview.audioPreview.window.assetPreviewLabel');
         widget.node.setAttribute('data-akari-onboarding-target', kind === 'output' ? 'output' : 'material-preview');
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
@@ -4859,7 +5019,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             });
         }
-        const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
+        // 組み直しのたびに出していた「再読込しました」の通知は出さない。文字を置く・打つなど
+        // 自分の保存でも組み直しが起き、毎回出て邪魔だった（オーナー指摘 2026-10-12）。
+        // 読み込み失敗のカード（reloadFailedError）は別経路で残る。
+        const reloadNotice = false;
         const onboardingReplayWrite = typeof document !== 'undefined'
             && document.body?.classList?.contains('akari-onboarding-chat-active')
             && !!document.querySelector('#akari-onboarding-v1[data-akari-onboarding-step="work"]');
@@ -4982,6 +5145,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 sidecar: {
                     path: result.stream.url,
                     durationSec: result.durationSec ?? 0,
+                    ...(result.actualStartSeconds !== undefined
+                        ? { actualStartSeconds: result.actualStartSeconds } : {}),
                     padBeforeSec: item.request.padBeforeSec ?? 0,
                     padAfterSec: item.request.padAfterSec ?? 0,
                     skipped: true,
@@ -5214,7 +5379,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewTrackedResources = new Set(kind === 'output' ? [identityUri.toString()] : []);
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
         widget.viewType = 'akari.preview';
-        widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
+        widget.title.label = kind === 'output' ? t('preview.outputPreview.window.outputPreviewLabel') : t('preview.audioPreview.window.assetPreviewLabel');
         widget.node.setAttribute('data-akari-onboarding-target', kind === 'output' ? 'output' : 'material-preview');
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
@@ -5272,6 +5437,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previewAudioPendingRequests: PreviewAudioPendingRequest[] = [];
         const sidecarRequests: PreviewAudioSidecarEntry[] = [];
         const assetUris: URI[] = [];
+        // 配信できなかった素材（まだ届いていない生成画像など）。届いた合図で読み直すために控える。
+        const unservedUris: URI[] = [];
+        const noteUnserved = (uri: URI): void => {
+            if (!unservedUris.some(value => value.toString() === uri.toString())) unservedUris.push(uri);
+        };
         const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
             const known = assetStreams.get(key);
             if (known) return Promise.resolve(known);
@@ -5282,7 +5452,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreams.set(key, stream);
                     return stream;
                 });
-                task.catch(() => assetStreamTasks.delete(key));
+                task.catch(() => {
+                    assetStreamTasks.delete(key);
+                    if (assetUri) noteUnserved(assetUri);
+                });
                 assetStreamTasks.set(key, task);
             }
             return task;
@@ -5349,14 +5522,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString(),
                     workspaceRoots: await this.currentWorkspaceRoots() });
                 if ('blockers' in prepared) {
-                    throw new TypeError(`このプロジェクトは変換できません: ${prepared.blockers.join(' / ')}`);
+                    throw new TypeError(t('preview.outputPreview.notification.projectCannotConvertedError', { reason: prepared.blockers.join(' / ') }));
                 }
                 editText = prepared.nextText;
                 if (!(rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
                     && Object.keys(rawEdit).length === 0)) {
                     this.messages.warn(
-                        `edit.json version ${prepared.version} を読み取り専用でプレビュしています。`
-                        + '元ファイルは変更されていません。タイムラインか `akari migrate` で変換できます。'
+                        t('preview.outputPreview.notification.previewingEditJsonVersionReadOnly', { version: prepared.version })
+                        + t('preview.outputPreview.window.originalFileNotChangedConvertTimelineAkariMigrate')
                     );
                 }
             }
@@ -5374,7 +5547,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
-            ));
+            ), {
+                width: this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width),
+                height: this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height)
+            });
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
             const trackIdByItemId = new Map<string, string>();
@@ -5410,10 +5586,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const declaredPath = declared.declaredPath;
                 if (typeof declaredPath !== 'string' || !declaredPath.trim()) {
                     // 宣言位置（`sources[hero]` / `source`）は読み込み層が付ける。版名は出さない。
-                    throw new TypeError(`edit.json の ${declared.declarationPath}.path が不正です。`);
+                    throw new TypeError(t('preview.outputPreview.notification.invalidPathEditJsonError', { path: declared.declarationPath }));
                 }
                 if (!declared.id) {
-                    throw new TypeError('edit.json の sources[].id が不正です。');
+                    throw new TypeError(t('preview.outputPreview.window.invalidSourcesIdEditJsonError'));
                 }
                 const uri = await this.resolveEditAssetUri(declaredPath, editUri);
                 let proxyUri: URI | undefined;
@@ -5488,8 +5664,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 const reason = this.layerDimensionFailureReasons.get(key);
                                 const detail = reason ? ` (${reason})` : '';
                                 this.previewDiagnostics?.note(fallbackSize
-                                    ? `原本の寸法が取得できずプロキシ寸法を使用: ${key}${detail}`
-                                    : `原本とプロキシの寸法を取得できません: ${key}${detail}`);
+                                    ? t('preview.outputPreview.validation.couldNotGetOriginalDimensionsUsingProxyDimensionsError', { p1: (key), p2: (detail) })
+                                    : t('preview.outputPreview.validation.couldNotGetOriginalProxyDimensionsError', { p1: (key), p2: (detail) }));
                             }
                             if (!fallbackSize) return undefined;
                             const result = { width: fallbackSize.width, height: fallbackSize.height,
@@ -5500,7 +5676,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     return undefined;
                 } catch (error) {
-                    this.previewDiagnostics?.note(`寸法の取得を開始できません: ${String(error)}`);
+                    this.previewDiagnostics?.note(t('preview.diagnostics.event.dimensionProbeStartFailedError', { reason: String(error) }));
                     return undefined;
                 }
             };
@@ -5527,7 +5703,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         lutRef
                     });
                 } catch (error) {
-                    videoFxFailures.add('LUT');
+                    videoFxFailures.add('lut');
                     console.warn(`[akari-preview] item adjust LUT could not be resolved for ${item.id}`, error);
                 }
             };
@@ -5547,7 +5723,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const stream = await ensureAssetStream(backgroundUri.toString(), backgroundUri);
                             background = { type: 'image', url: stream.url };
                         } catch (error) {
-                            videoFxFailures.add('クロマキー');
+                            videoFxFailures.add('chromaKey');
                             console.warn('[akari-preview] chroma background could not be resolved', error);
                             return undefined;
                         }
@@ -5574,7 +5750,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ? Math.max(0, Math.min(1, (rawLook as { intensity: number }).intensity)) : 1
                     };
                 } catch (error) {
-                    videoFxFailures.add('LUT');
+                    videoFxFailures.add('lut');
                     console.warn('[akari-preview] LUT could not be resolved; keeping the honest-preview badge', error);
                 }
             }
@@ -5658,8 +5834,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     outSec: declaration.outSec,
                     speed: declaration.speed,
                     format: resolveSpeechSidecarFormat(declaration),
-                    padBeforeSec: declaration.padBeforeSec ?? 0,
-                    padAfterSec: declaration.padAfterSec ?? 0
+                    padBeforeSec: (declaration.padBeforeSec ?? 0) * declaration.speed,
+                    padAfterSec: (declaration.padAfterSec ?? 0) * declaration.speed
                 };
                 const item: PreviewAudioPendingRequest = {
                     at: declaration.atSec,
@@ -5739,6 +5915,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                         const uri = new URI(stream.uri);
                                         if (!assetUris.some(value => value.toString() === uri.toString())) assetUris.push(uri);
                                     }
+                                    for (const uri of result.unserved ?? []) noteUnserved(new URI(uri));
                                     unsupportedGltfWarnings.push(...result.warnings);
                                     for (const warning of result.warnings) console.warn(`[akari-preview] ${warning}`);
                                 }
@@ -5782,7 +5959,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const children = item.children.flatMap(child => visit(child, item.id, world));
                         return [{ id: item.id, parentId, kind: 'group',
                             label: typeof item.declaration.name === 'string' && item.declaration.name.trim()
-                                ? item.declaration.name : 'キャンバス', transform: world,
+                                ? item.declaration.name : t('preview.previewWindow.placeholder.defaultCanvasNameEmptyState'), transform: world,
                             at: item.at, duration: item.duration,
                             localTransform: item.declaration.transform as OverlayTransform | undefined,
                             motion: item.declaration.motion, keyframes: item.declaration.keyframes as any[],
@@ -5838,7 +6015,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ? overlayHtml.get(rawHtml) ?? ''
                     : rawHtml;
                 return this.resolveThreeSceneAssets(
-                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream, this.stringRecord(value?.vars)
+                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream, this.stringRecord(value?.vars),
+                    rawHtml && !rawHtml.trimStart().startsWith('<') ? rawHtml : undefined
                 );
             }));
             projectedOverlays.forEach((value, index) => {
@@ -6242,17 +6420,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
             if (missingProxyCount > 0) {
-                indicators.push(`テロップ ${missingProxyCount}枚（プレビュー用プロキシ未生成）`);
+                indicators.push(t('preview.outputPreview.notification.textOverlaysPreviewProxiesNotGenerated', { n: missingProxyCount }));
             }
             if (unsupportedBlendCount > 0) {
-                indicators.push(`素材合成モードが未対応（${unsupportedBlendCount}件、normal で近似）`);
+                indicators.push(t('preview.outputPreview.notification.unsupportedAssetBlendModesApproximatedNormalError', { n: unsupportedBlendCount }));
             }
             if (isTruthyObject((internal.declaration.audio as { master?: unknown } | undefined)?.master)) {
-                indicators.push('音声マスター処理');
+                indicators.push('masterAudio');
             }
             if (cutItems.some(item =>
                 (item.declaration as { transition_out?: { type?: unknown } }).transition_out?.type === 'dissolve')) {
-                indicators.push('ディゾルブ切り替え');
+                indicators.push('dissolve');
             }
             indicators.push(...unsupportedGltfWarnings);
             const outputCaptions = buildCaptionAnimatorSummaryFields(normalizePreviewCaptionClock(
@@ -6279,6 +6457,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 overlayUris,
                 motionBagUris,
                 assetUris,
+                unservedUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 previewAudioKeepKeys,
@@ -6336,6 +6515,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
                 assetUris: [],
+                // 合成の読み込みが途中で落ちても、それまでに配信できなかった素材は待ち続ける。
+                unservedUris,
                 assetStreamIds: [],
                 compositeError: summarizePreviewError(error),
                 captionsUri,
@@ -6343,7 +6524,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 emphasisWords: this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                     loadedCaptions.emphasisWords,
                     legacyEmphasisWords
-                ))
+                ), EMPTY_SUMMARY.output)
             };
         }
     }
@@ -6760,7 +6941,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assetUris: URI[],
         unsupportedGltfWarnings: string[],
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>,
-        overlayVars: Record<string, string> = {}
+        overlayVars: Record<string, string> = {},
+        fragmentPath?: string
     ): Promise<string> {
         if (threeSceneDeclarations(html).length === 0) {
             return html;
@@ -6779,13 +6961,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             console.warn('[akari-preview] 3D overlay には data-akari-3d-scene 宣言が 1 個必要です');
             return document.body.innerHTML;
         }
+        // 断片に書かれたパスは断片のフォルダ基準で探し、無ければ従来どおりプロジェクト基準（後方互換）。
+        // source.vars から来たパスはプロジェクト基準（内部契約 2026-10-11-3d-place §4）
+        const fragmentDir = (fragmentPath ?? '').replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+        const locateAsset = async (relativePath: string, origin: ThreeSceneAssetOrigin): Promise<URI> => {
+            const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+            if (origin === 'fragment' && fragmentDir) {
+                const local = await this.resolveEditAssetUri(`${fragmentDir}/${normalized}`, editUri);
+                if (await this.fileService.exists(local).catch(() => false)) return local;
+            }
+            return this.resolveEditAssetUri(normalized, editUri);
+        };
         for (const declaration of Array.from(declarations)) {
             try {
-                const resolveAsset = async (relativePath: string, field: string): Promise<string> => {
+                let modelUri: URI | undefined;
+                const resolveAsset = async (relativePath: string, field: string, origin: ThreeSceneAssetOrigin): Promise<string> => {
                     if (relativePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(relativePath)) {
-                        throw new TypeError(`${field} に絶対パスや URL は指定できません`);
+                        throw new TypeError(t('preview.outputPreview.validation.absolutePathsUrlsNotAllowedError', { p1: (field) }));
                     }
-                    const assetUri = await this.resolveEditAssetUri(relativePath, editUri);
+                    const assetUri = await locateAsset(relativePath, origin);
+                    if (field === 'data-akari-3d-scene.model') modelUri = assetUri;
                     const key = assetUri.toString();
                     if (ensureAssetStream) {
                         return (await ensureAssetStream(key, assetUri)).url;
@@ -6800,22 +6995,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
                 const parsedDescriptor: unknown = JSON.parse(declaration.textContent || '{}');
                 if (!parsedDescriptor || typeof parsedDescriptor !== 'object' || Array.isArray(parsedDescriptor)) {
-                    throw new TypeError('data-akari-3d-scene は JSON object である必要があります');
+                    throw new TypeError(t('preview.outputPreview.window.dataAkari3DSceneMustJsonObjectError'));
                 }
                 if (Object.keys(parsedDescriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
-                    throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
+                    throw new TypeError(t('preview.outputPreview.window.dataAkari3DSceneUnsupportedTopLevelError'));
                 }
                 const resolved = await resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset, overlayVars);
                 const descriptor = resolved.descriptor;
                 if (resolved.modelPath) {
                     try {
                         const unsupported = detectUnsupportedGltfExtensions(
-                            await this.readGltfHeaderBytes(await this.resolveEditAssetUri(resolved.modelPath, editUri))
+                            await this.readGltfHeaderBytes(modelUri ?? await this.resolveEditAssetUri(resolved.modelPath, editUri))
                         );
                         if (unsupported.length > 0) {
                             unsupportedGltfWarnings.push(
-                                `3D モデル ${resolved.modelPath} が ${unsupported.join('/')} 圧縮のため読み込めません` +
-                                `（書き出しも同様に失敗します。非圧縮で書き出し直してください）`
+                                t('preview.outputPreview.validation.couldNotLoadThreedModelBecauseCompressionUnsupportedError', { p1: (resolved.modelPath), p2: (unsupported.join('/')) }) +
+                                t('preview.threeScene.warning.compressionExportSuffix')
                             );
                         }
                     } catch (error) {
@@ -6829,7 +7024,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 declaration.textContent = JSON.stringify(descriptor).replace(/</g, '\\u003c');
             } catch (error) {
                 declaration.textContent = JSON.stringify({ model: '' });
-                unsupportedGltfWarnings.push(`3D の読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+                unsupportedGltfWarnings.push(t('preview.outputPreview.notification.couldNotLoadThreedContentError', { reason: error instanceof Error ? error.message : String(error) }));
                 console.warn('[akari-preview] failed to resolve declarative 3D scene asset', error);
             }
         }
@@ -6909,7 +7104,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }),
                     legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri, source),
                     warn: code => this.messages.warn(
-                        `字幕の表示設定を解決できないため、設定を無視して表示しています: ${code}`
+                        t('preview.outputPreview.notification.captionDisplaySettingsCouldNotResolvedSoTheyError', { code })
                     ),
                     state: this.captionDisplayFallbackState
                 });
@@ -6944,8 +7139,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // Legacy caption loading remains fail-open when edit output is unavailable.
             }
         }
-        const parsed = parsePreviewCaptions(source, output);
-        const root: unknown = JSON.parse(source);
+        const presetRoot = applyCaptionStylePresets(JSON.parse(source), resolveTextstyleCatalog().catalog).root;
+        const renderSource = JSON.stringify(captionRenderInputFromV1(presetRoot, { output }));
+        const parsed = parsePreviewCaptions(renderSource, output);
+        const root: unknown = JSON.parse(renderSource);
         const emphasisWords = readCaptionsEmphasisWords(root);
         const rawCaptions = Array.isArray(root)
             ? root
@@ -7041,7 +7238,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 type: 'akari-preview-overlay-write-response',
                 requestId: request.requestId,
                 ok: false,
-                error: '編集中の edit.json がありません'
+                error: t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState')
             });
             return;
         }
@@ -7049,11 +7246,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let editTextToRestore: string | undefined;
         try {
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
-                throw new Error('部品の text は文字列である必要があります');
+                throw new Error(t('preview.outputPreview.window.elementTextMustStringError'));
             }
             if (request.patch.element) assertNoElementWriteConflict(request.patch);
             if (request.patch.duplicate) {
-                if (!request.patch.transform) throw new Error('複製を書き込めません');
+                if (!request.patch.transform) throw new Error(t('preview.outputPreview.window.couldNotSaveDuplicateError'));
                 const handled = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
                     ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                         editUri.toString(), { kind: 'duplicate', itemId: request.overlayId,
@@ -7064,7 +7261,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const lintResult = await this.previewService.lintEditCandidate({
                         editUri: editUri.toString(), candidateText
                     });
-                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                     this.recentWrites.set(editUri.toString(), Date.now());
                     await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
                     this.queueRefresh(widget, editUri, 'output', undefined, false, candidateText);
@@ -7093,11 +7290,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     items.concat('items' in track ? track.items : []), [])
                     .map(candidate => find([candidate])).find(Boolean);
                 if (!item || item.source.kind !== 'html' || item.source.part) {
-                    throw new Error('要素の書き戻し対象ではありません');
+                    throw new Error(t('preview.outputPreview.window.elementCannotSavedHereError'));
                 }
                 const sourceUri = await this.resolveEditAssetUri(item.source.path, editUri);
                 const html = await this.readText(sourceUri);
-                if (scanHtmlParts(html).length) throw new Error('袋の中の要素は移動できません');
+                if (scanHtmlParts(html).length) throw new Error(t('preview.outputPreview.window.elementsInsideGroupCannotMovedError'));
                 assertPreviewElementAddress(html, request.patch.element.ref, request.patch.element.tag);
             }
             const resolved = resolvePreviewItemWrite(originalText, write);
@@ -7108,20 +7305,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // lint「html does not resolve to a regular file」で弾かれる — 契約上ファイル参照）
             if (typeof request.patch.html === 'string') {
                 if (!request.patch.html.trim()) {
-                    throw new Error('html が空です');
+                    throw new Error(t('preview.outputPreview.window.htmlEmptyLabel'));
                 }
                 const projectRoot = editUri.parent;
                 const htmlPath = resolved.htmlPath;
                 if (typeof htmlPath !== 'string' || !htmlPath) {
-                    throw new Error(`HTML 断片の参照先を特定できません: ${request.overlayId}`);
+                    throw new Error(t('preview.outputPreview.notification.couldNotLocateHtmlFragmentReferenceError', { overlayId: request.overlayId }));
                 }
                 // URI.resolve は '..' を正規化しない可能性があるため、セグメント検査で先に弾く
                 if (htmlPath.startsWith('/') || htmlPath.split(/[\\/]/).some(segment => segment === '..')) {
-                    throw new Error('プロジェクト外への書き込みは拒否しました');
+                    throw new Error(t('preview.outputPreview.window.cannotWriteOutsideProjectError'));
                 }
                 let target = projectRoot.resolve(htmlPath);
                 if (!`${target.toString()}/`.startsWith(`${projectRoot.toString()}/`)) {
-                    throw new Error('プロジェクト外への書き込みは拒否しました');
+                    throw new Error(t('preview.outputPreview.window.cannotWriteOutsideProjectError'));
                 }
                 const needsMaterialization = !(await this.fileService.exists(target));
                 let sourceUri = target;
@@ -7129,8 +7326,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     sourceUri = await this.resolveEditAssetUri(htmlPath, editUri);
                     if (sourceUri.toString() === target.toString() || !(await this.fileService.exists(sourceUri))) {
                         throw new Error(htmlPath.replace(/\\/g, '/').startsWith('assets/overlay/')
-                            ? `ライブラリに断片の実体がありません: ${htmlPath}`
-                            : `断片ファイルがありません: ${htmlPath}`);
+                            ? t('preview.outputPreview.notification.fragmentMissingLibraryLabel', { htmlPath })
+                            : t('preview.outputPreview.notification.fragmentFileMissingLabel', { htmlPath }));
                     }
                 }
                 const source = await this.readText(sourceUri);
@@ -7139,7 +7336,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (candidate !== source && needsMaterialization) {
                     const plan = materializedFragmentPlan(htmlPath, request.overlayId, crypto.randomUUID().replace(/-/g, ''));
                     const destination = projectRoot.resolve(plan.targetDirectory);
-                    if (await this.fileService.exists(destination)) throw new Error('断片の実体化先が既にあります');
+                    if (await this.fileService.exists(destination)) throw new Error(t('preview.outputPreview.window.fragmentDestinationAlreadyExists'));
                     materializedDir = destination;
                     let sourceDir = sourceUri.parent;
                     for (let depth = 1; depth < htmlPath.split(/[\\/]/).length - 3; depth++) sourceDir = sourceDir.parent;
@@ -7161,10 +7358,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     candidateText
                 });
                 if (!lintResult.pass) {
-                    throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
-                if ((request.patch.transform || request.patch.xyKeyframes || request.patch.element) && request.patch.html === undefined) {
+                if ((request.patch.transform || request.patch.xyKeyframes || request.patch.element || request.patch.varsAt) && request.patch.html === undefined) {
                     await this.persistPreviewTransform(editUri, candidateText, write);
                 } else {
                     if (materializedDir) editTextToRestore = originalText;
@@ -7203,7 +7400,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected async handleOverlayWriteBatch(widget: PreviewWidgetMarker, request: OverlayWriteBatchRequest): Promise<void> {
         try {
             const editUri = widget.akariPreviewEditUri;
-            if (!editUri) throw new Error('編集中の edit.json がありません');
+            if (!editUri) throw new Error(t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState'));
             const originalText = await this.readText(editUri);
             const writes: PreviewItemWriteCommand[] = request.writes.map(write => ({
                 kind: 'overlay' as const, itemId: write.overlayId, patch: write.patch,
@@ -7211,9 +7408,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }));
             const resolved = resolvePreviewItemWriteBatch(originalText, writes);
             const candidateText = resolved.candidateText;
-            if (candidateText === undefined) throw new Error('バッチの結果文書がありません');
+            if (candidateText === undefined) throw new Error(t('preview.outputPreview.window.batchResultDocumentMissing'));
             const lintResult = await this.previewService.lintEditCandidate({ editUri: editUri.toString(), candidateText });
-            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
             this.recentWrites.set(editUri.toString(), Date.now());
             if (request.writes.some(write => Boolean(write.patch.transform))) {
                 await this.persistPreviewTransform(editUri, candidateText, writes);
@@ -7238,7 +7435,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         const editUri = widget.akariPreviewEditUri;
         if (!editUri) {
-            respond(false, '編集中の edit.json がありません');
+            respond(false, t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState'));
             return;
         }
         const validationError = validateLayerTransformPatch(request.patch.transform)
@@ -7260,21 +7457,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
                     ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                         editUri.toString(), write) : false;
-                if (committed !== true) throw new Error('キャンバス内の写真を書き戻せませんでした');
+                if (committed !== true) throw new Error(t('preview.outputPreview.window.couldNotSavePhotoCanvasError'));
                 respond(true);
                 return;
             }
             const resolved = resolvePreviewItemWrite(originalText, write);
             const candidateText = resolved.candidateText;
             if (!candidateText) {
-                throw new Error('edit.json へ書き込む変更がありません');
+                throw new Error(t('preview.outputPreview.window.thereNoChangesWriteEditJson'));
             }
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
             });
             if (!lintResult.pass) {
-                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                respond(false, lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                 return;
             }
             this.markRecentWrite(editUri);
@@ -7300,7 +7497,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         const editUri = widget.akariPreviewEditUri;
         if (!editUri) {
-            respond(false, '編集中の edit.json がありません');
+            respond(false, t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState'));
             return;
         }
         const validationError = validateLayerTransformPatch(request.patch.transform)
@@ -7321,14 +7518,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const resolved = resolvePreviewItemWrite(originalText, write);
             const candidateText = resolved.candidateText;
             if (!candidateText) {
-                throw new Error('edit.json へ書き込む変更がありません');
+                throw new Error(t('preview.outputPreview.window.thereNoChangesWriteEditJson'));
             }
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
             });
             if (!lintResult.pass) {
-                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                respond(false, lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                 return;
             }
             this.markRecentWrite(editUri);
@@ -7373,7 +7570,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         const captionsUri = widget.akariPreviewCaptionsUri;
         if (!captionsUri) {
-            respond(false, '字幕ファイル（captions.json）がありません');
+            respond(false, t('preview.outputPreview.window.captionFileCaptionsJsonMissing'));
             return;
         }
         if ('text' in request.patch && request.phase) {
@@ -7416,7 +7613,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if ('duplicate' in request.patch) {
             const editUri = widget.akariPreviewEditUri;
             try {
-                if (!editUri) throw new Error('編集中の edit.json がありません');
+                if (!editUri) throw new Error(t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState'));
                 const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
                     ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                         editUri.toString(), { kind: 'caption-duplicate', captionId: request.captionId,
@@ -7427,10 +7624,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const lintResult = await this.previewService.lintEditCandidate({
                         editUri: captionsUri.toString(), candidateText
                     });
-                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                     this.markRecentWrite(captionsUri);
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
-                    this.notifyCaptionWrite(widget, captionsUri, source, candidateText, '文字を複製');
+                    this.notifyCaptionWrite(widget, captionsUri, source, candidateText, t('preview.outputPreview.window.duplicateTextAction'));
                 }
                 this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
                 respond(true);
@@ -7446,7 +7643,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!editUri || !position || patch.cuePosition?.captionId !== request.captionId
                 || !Number.isFinite(patch.wrapWidthPct) || patch.wrapWidthPct <= 0 || patch.wrapWidthPct > 100
                 || !Number.isFinite(position.position.x) || !Number.isFinite(position.position.y)) {
-                respond(false, '文字の幅または位置が不正です');
+                respond(false, t('preview.outputPreview.window.invalidTextWidthPositionError'));
                 return;
             }
             try {
@@ -7473,9 +7670,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             writtenText = candidateText;
                         }
                     });
-                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                     if (writtenText !== undefined) {
-                        this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, '文字の折り返し幅を変更');
+                        this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, t('preview.outputPreview.window.changeTextWrapWidthAction'));
                     }
                 }
                 this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
@@ -7489,7 +7686,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             : 'groupZone' in request.patch ? request.patch.groupZone : undefined;
         if (typeof requestedZone === 'string'
             && !(CAPTION_ZONES as readonly string[]).includes(requestedZone)) {
-            respond(false, `不正な zone です: ${requestedZone}`);
+            respond(false, t('preview.outputPreview.notification.invalidZoneError', { zone: requestedZone }));
             return;
         }
         try {
@@ -7584,7 +7781,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                     zone: 'zone' in request.patch ? request.patch.zone : 'bottom'
                                 });
             if (!lintResult.pass) {
-                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                respond(false, lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
                 return;
             }
             this.queueCaptionsUpdate(widget);
@@ -7625,18 +7822,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(entry.value?.anchor)
                     && Number.isFinite(entry.value?.position?.y)
                     && (entry.value?.position?.x === undefined || Number.isFinite(entry.value.position.x)))) {
-                throw new Error('混在移動の書き込み要求が不正です');
+                throw new Error(t('preview.outputPreview.window.invalidMixedMoveRequestError'));
             }
             const editUri = widget.akariPreviewEditUri;
-            if (!editUri) throw new Error('編集中の edit.json がありません');
+            if (!editUri) throw new Error(t('preview.outputPreview.window.noEditJsonOpenEditingEmptyState'));
             const captionsUri = widget.akariPreviewCaptionsUri;
-            if (message.cuePositions.length && !captionsUri) throw new Error('captions.json がありません');
+            if (message.cuePositions.length && !captionsUri) throw new Error(t('preview.outputPreview.window.captionsJsonMissingLabel'));
             const writes = message.writes as PreviewItemWriteCommand[];
             const editBefore = await this.readText(editUri);
             const editAfter = writes.length ? resolvePreviewItemWriteBatch(editBefore, writes).candidateText : editBefore;
-            if (!editAfter) throw new Error('移動結果の edit.json がありません');
+            if (!editAfter) throw new Error(t('preview.outputPreview.window.movedEditJsonMissing'));
             const editLint = await this.previewService.lintEditCandidate({ editUri: editUri.toString(), candidateText: editAfter });
-            if (!editLint.pass) throw new Error(editLint.errors[0] ?? 'edit-lint が変更を拒否しました');
+            if (!editLint.pass) throw new Error(editLint.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
             const captionsBefore = captionsUri ? await this.readText(captionsUri) : undefined;
             const captionsAfter = message.cuePositions.length && captionsBefore
                 ? updateCaptionCuePositionsSource(captionsBefore, message.cuePositions) : undefined;
@@ -7644,14 +7841,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const captionsLint = await this.previewService.lintEditCandidate({
                     editUri: captionsUri.toString(), candidateText: captionsAfter
                 });
-                if (!captionsLint.pass) throw new Error(captionsLint.errors[0] ?? 'edit-lint が変更を拒否しました');
+                if (!captionsLint.pass) throw new Error(captionsLint.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
             }
             const command = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform');
-            if (!command) throw new Error('まとめて移動する編集コマンドがありません');
+            if (!command) throw new Error(t('preview.outputPreview.window.noCommandAvailableMoveItemsTogetherEmptyState'));
             const handled = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                 editUri.toString(), { kind: 'mixed-move', writes,
                     ...(captionsBefore && captionsAfter ? { captions: { before: captionsBefore, after: captionsAfter } } : {}) });
-            if (handled !== true) throw new Error('まとめて移動を保存できませんでした');
+            if (handled !== true) throw new Error(t('preview.outputPreview.window.couldNotSaveCombinedMoveError'));
             this.markRecentWrite(editUri);
             this.queueRefresh(widget, editUri, 'output', undefined, false, await this.readText(editUri));
             if (captionsUri && captionsAfter) {
@@ -7686,10 +7883,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     writtenText = candidateText;
                 }
             });
-            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? t('preview.outputPreview.window.editLintRejectedChange'));
             this.queueCaptionsUpdate(widget);
             if (writtenText !== undefined) {
-                this.notifyCaptionWrite(widget, captionsUri, source, writtenText, '字幕の配置を変更');
+                this.notifyCaptionWrite(widget, captionsUri, source, writtenText, t('preview.outputPreview.window.changeCaptionPlacementAction'));
             }
         } catch (error) {
             this.messages.error(error instanceof Error ? error.message : String(error));
@@ -7719,24 +7916,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let videoUri = widget.akariPreviewVideoUri;
         if (request.videoUri) {
             if (!widget.akariPreviewFallbackSourceUris?.has(request.videoUri)) {
-                respond(false, '動画ソースがプレビューの宣言と一致しません');
+                respond(false, t('preview.outputPreview.window.videoSourceDoesNotMatchPreviewDeclaration'));
                 return;
             }
             videoUri = new URI(request.videoUri);
         }
         if (!videoUri) {
-            respond(false, '動画ソースが特定できません');
+            respond(false, t('preview.outputPreview.window.couldNotIdentifyVideoSourceError'));
             return;
         }
         const key = videoUri.toString();
         if (this.hevcFallbackAttempted.has(key)) {
-            respond(false, 'このソースは既にフォールバックを試行済みです');
+            respond(false, t('preview.outputPreview.window.fallbackAlreadyBeenTriedSource'));
             return;
         }
         this.hevcFallbackAttempted.add(key);
         const [workspaceRoot] = await this.workspaceService.roots;
         if (!workspaceRoot) {
-            respond(false, 'ワークスペースが開かれていません');
+            respond(false, t('preview.outputPreview.window.noWorkspaceOpenEmptyState'));
             return;
         }
         try {
@@ -7745,7 +7942,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 projectRootUri: workspaceRoot.resource.toString()
             });
             if (result.status !== 'ready') {
-                respond(false, result.status === 'unavailable' ? result.reason : '変換対象ではありませんでした');
+                respond(false, result.status === 'unavailable' ? result.reason : t('preview.outputPreview.window.sourceDoesNotNeedConversion'));
                 return;
             }
             this.hevcFallbackProxyUris.set(key, result.proxyUri);
@@ -7921,7 +8118,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             ? `${this.externalScriptTag(assets.threeTextJavaScriptUrl)}\n`
             : '';
         const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScriptUrl
-            ? `<script>${frameEngineWatchdogScript()}</script>\n${this.externalScriptTag(assets.frameEngineJavaScriptUrl)}\n<script>${frameEngineBootstrapScript()}</script>\n`
+            ? `<script>${webviewScriptText(frameEngineWatchdogScript())}</script>\n${this.externalScriptTag(assets.frameEngineJavaScriptUrl)}\n<script>${webviewScriptText(frameEngineBootstrapScript())}</script>\n`
             : '';
         // 資産（three / runtime / kernel / frame-engine / 字幕フォント）は素材配信サーバーと同じ
         // 127.0.0.1 オリジンから URL で読む。script-src / font-src にそのオリジンを足す。
@@ -8001,19 +8198,230 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 kind
             }
         });
+        const scriptKeys = [
+            'preview.diagnostics.event.durationProbeTimeoutStatus',
+            'preview.captionEditor.validation.plateCaptionNotFoundError',
+            'preview.captionEditor.validation.zoneCaptionNotFoundError',
+            'preview.captionEditor.validation.duplicateCaptionIdError',
+            'preview.elementEditor.validation.couldNotFindItemDuplicateError',
+            'preview.elementEditor.validation.textNotFoundError',
+            'preview.generationOverlay.status.orphanLabel',
+            'preview.generationOverlay.status.failedRetryRightPanelError',
+            'preview.generationOverlay.status.generatingPercentEtaStatus',
+            'preview.generationOverlay.status.generatingPercentStatus',
+            'preview.generationOverlay.status.generatingEtaStatus',
+            'preview.generationOverlay.status.generatingSecondsLabel',
+            'preview.generationOverlay.status.generatingBeatStatus',
+            'preview.generationOverlay.status.plannedVideoLabel',
+            'preview.generationOverlay.status.flipbookLabel',
+            'preview.generationOverlay.status.flipbookFrameStatus',
+            'preview.generationOverlay.status.flipbookFrameTotalStatus',
+            'preview.generationOverlay.status.candidatesLabel',
+            'preview.frameEngine.status.waitSecondsSuffix',
+            'preview.previewWindow.indicators.chromaKeyLabel',
+            'preview.previewWindow.indicators.masterAudioProcessingLabel',
+            'preview.previewWindow.indicators.dissolveTransitionLabel',
+            'preview.previewWindow.indicators.colorAdjustmentsApproximatePreview',
+            'preview.previewWindow.indicators.clipLutReplacesGlobalLut',
+            'preview.previewWindow.canvas.colorFilterLabel',
+            'preview.previewWindow.canvas.noiseReductionLoudnessNormalization',
+            'preview.previewWindow.canvas.dissolveBetweenCutsLabel',
+            'preview.previewWindow.canvas.adjustmentsCssCannotShowDifferFinalOutputError',
+            'preview.previewWindow.canvas.viewBothEffectsTogetherFrameEngine',
+            'preview.previewWindow.canvas.previewApproximateCheckFinalAudioExport',
+            'preview.previewWindow.canvas.unavailablePrefix',
+            'preview.previewWindow.canvas.unavailablePreviewPrefix',
+            'preview.previewWindow.canvas.textOverlaysAtfRetired',
+            'preview.previewWindow.canvas.textOverlaysAtfRetiredReplaceThemHtmlAssets',
+            'preview.previewWindow.canvas.couldNotSaveCutoutSelectItemAgainError',
+            'preview.previewWindow.canvas.erasingPressEscFinish',
+            'preview.previewWindow.canvas.clickWhatWantKeepPressEscFinish',
+            'preview.previewWindow.canvas.moveAction',
+            'preview.previewWindow.canvas.couldNotSaveChangeSelectItemAgainError',
+            'preview.previewWindow.canvas.couldNotFindItemDuplicateError',
+            'preview.previewWindow.canvas.couldNotSaveCropSelectItemAgainError',
+            'preview.previewWindow.canvas.checkingHorizonLabel',
+            'preview.previewWindow.canvas.couldNotDetectHorizonError',
+            'preview.previewWindow.canvas.analyzingPhotoLabel',
+            'preview.previewWindow.canvas.couldNotFindSubjectError',
+            'preview.previewWindow.canvas.couldNotStartCroppingBecauseAssetDimensionsUnknownError',
+            'preview.previewWindow.canvas.cannotCropAssetCheckIdFramingSettingsError',
+            'preview.previewWindow.canvas.moveOnlyCaptionClickMoveAllCaptionsOptionAction',
+            'preview.previewWindow.canvas.snapPrefix',
+            'preview.previewWindow.canvas.snapsCentersEdgesOptionDragDisableTemporarilySuffix',
+            'preview.previewWindow.canvas.keepFramePrefix',
+            'preview.previewWindow.canvas.keepsItemsInsideFrameSuffix',
+            'preview.previewWindow.canvas.backgroundPlatePrefix',
+            'preview.previewWindow.canvas.setShapePaddingCornersInspectorSuffix',
+            'preview.previewWindow.canvas.captionPositionMustFiniteNumberError',
+            'preview.previewWindow.canvas.outputFrameWidthHeightMustPositiveNumbersError',
+            'preview.previewWindow.canvas.backgroundPlateColorCannotAppliedTextRangeError',
+            'preview.previewWindow.canvas.chooseTextRangeColorPalette',
+            'preview.previewWindow.canvas.emphasisLabel',
+            'preview.previewWindow.canvas.keywordLabel',
+            'preview.previewWindow.canvas.asideLabel',
+            'preview.previewWindow.canvas.loadingStylesLabel',
+            'preview.previewWindow.canvas.partCaptionCutOffFixScript',
+            'preview.previewWindow.canvas.confirmEscCancelSuffix',
+            'preview.previewWindow.canvas.plannedVideoLabel',
+            'preview.previewWindow.canvas.couldNotGetSelectedAssetPositionError',
+            'preview.previewWindow.canvas.noStylesAvailableEmptyState',
+            'preview.previewWindow.canvas.pointsPrefix',
+            'preview.previewWindow.canvas.existingPointsPrefix',
+            'preview.previewWindow.canvas.drawPathPreviewEscCancel',
+            'preview.previewWindow.canvas.drawPathPressEscFinish',
+            'preview.previewWindow.canvas.drawSlightlyLongerPath',
+            'preview.diagnostics.webviewCard.unknownError',
+            'preview.diagnostics.webviewCard.couldNotReadMessageError',
+            'preview.diagnostics.webviewCard.keyEventFailKeycodeConversionObservationOnly',
+            'preview.diagnostics.webviewCard.hostAdapterWindowAkariUpdatelayerlayout',
+            'preview.diagnostics.webviewCard.sharedKernelAkarieditkernelLabel',
+            'preview.diagnostics.webviewCard.frameEngineBundleAkariframeengine',
+            'preview.diagnostics.webviewCard.notLoadedPrefix',
+            'preview.frameEngine.status.softwareDecodingUnsupportedPrefix',
+            'preview.frameEngine.status.generatingProxyPrefix',
+            'preview.frameEngine.status.couldNotGenerateProxyPrefix',
+            'preview.frameEngine.status.someAudioCouldNotPlayedPrefix',
+            'preview.frameEngine.status.waitingAudioPrefix',
+            'preview.frameEngine.status.preparingAudioPrefix',
+            'preview.frameEngine.watchdog.couldNotInitializeFrameEnginePreviewPrefix',
+            'preview.frameEngine.watchdog.reopenLegacyPreviewAction',
+            'preview.frameEngine.watchdog.firstErrorPrefix',
+            'preview.frameEngine.watchdog.frameEngineBundleDidNotLoadWindowAkariframeengine',
+            'preview.frameEngine.watchdog.initializationScriptDidNotRunFrameEnginePreview',
+            'preview.frameEngine.watchdog.initializationDidNotCompleteWithinPrefix',
+            'preview.frameEngine.watchdog.msPrefix',
+            'preview.frameEngine.watchdog.engineErrorPrefix',
+            'preview.frameEngine.watchdog.unhandledPromiseRejectionPrefix',
+            'preview.previewWindow.status.computerAudioMutedLabel',
+            'preview.previewWindow.status.couldNotSaveError',
+            'preview.previewWindow.status.couldNotWriteEditJsonError',
+            'preview.previewWindow.canvas.brushEditPressEscFinish',
+            'preview.previewWindow.canvas.cropLabel',
+            'preview.previewWindow.canvas.straightenedHorizonLabel',
+            'preview.previewWindow.canvas.usedAreaInterestCheckComposition',
+            'preview.previewWindow.canvas.alignedSubjectRuleThirds',
+            'preview.previewWindow.canvas.croppingUnavailableEditDataV1MigrateVError',
+            'preview.previewWindow.canvas.moveAllCaptionsClickAgainMoveOnlyCaptionAction',
+            'preview.previewWindow.canvas.wrapWidthGestureLabel',
+            'preview.previewWindow.canvas.exitFullScreenLabel',
+            'preview.previewWindow.canvas.secondsReplacedEscCancelSuffix',
+            'preview.previewWindow.canvas.secondsDrawingReplaceThemEscCancelSuffix',
+            'preview.previewWindow.canvas.videoLayersLayersSrcPrefix',
+            'preview.previewWindow.canvas.computerVolumeZeroLabel',
+            'preview.previewWindow.canvas.couldNotWriteCaptionsJsonError',
+            'preview.previewWindow.canvas.couldNotConvertVideoCompatibilityError',
+            'preview.audioPreview.window.assetPreviewLabel',
+            'preview.outputPreview.window.outputPreviewLabel',
+            'preview.captionEditor.validation.invalidCaptionsJsonFormatExpectedArrayObjectCaptionsError',
+            'preview.captionEditor.validation.invalidCaptionPositionDimensionsError',
+            'preview.captionEditor.validation.captionPositionMustFiniteNumberZeroHundredError',
+            'preview.captionStyle.warning.sizeLabel',
+            'preview.captionEditor.validation.invalidWrapWidthDimensionsError',
+            'preview.captionEditor.validation.invalidTextPositionOutputSizeError',
+            'preview.captionEditor.validation.textPositionOutsideFrameError',
+            'preview.contextBar.fields.backgroundRemovalLabel',
+            'preview.generationOverlay.status.generatingStatus',
+            'preview.generationOverlay.status.noResponseRetryRightPanelEmptyState',
+            'preview.generationOverlay.status.noResponseEmptyState',
+            'preview.generationOverlay.status.promptOnlyLabel',
+            'preview.generationOverlay.status.imageLabel',
+            'preview.generationOverlay.status.firstLastLabel',
+            'preview.generationOverlay.status.referenceLabel',
+            'preview.generationOverlay.status.aiPlaceholderLabel',
+            'preview.contextBar.toolbar.bringFrontAction',
+            'preview.contextBar.toolbar.bringForwardAction',
+            'preview.contextBar.toolbar.sendBackwardAction',
+            'preview.contextBar.toolbar.sendBackAction',
+            'preview.contextBar.toolbar.rotateLabel',
+            'preview.diagnostics.overlay.reasonPrefix',
+            'preview.diagnostics.overlay.unknownLabel',
+            'preview.diagnostics.overlay.previewInitializationDidNotCompleteStalledPrefix',
+            'preview.diagnostics.overlay.firstErrorProcessStoppedWithoutExceptionError',
+            'preview.diagnostics.overlay.firstError',
+            'preview.diagnostics.overlay.entryPrefix',
+            'preview.diagnostics.overlay.couldNotDetermineWhyProcessStoppedError',
+            'preview.diagnostics.overlay.stoppedReasonLabel',
+            'preview.diagnostics.overlay.timeSuffix',
+            'preview.diagnostics.overlay.stagesCompleteStoppedPrefix',
+            'preview.diagnostics.overlay.stageIncompleteStoppedPrefix',
+            'preview.diagnostics.overlay.copyDiagnosticsAction',
+            'preview.diagnostics.overlay.closeParen',
+            'preview.diagnostics.overlay.computePressureGuardPrefix',
+            'preview.elementEditor.validation.invalidDuplicatePositionError',
+            'preview.elementEditor.validation.invalidCaptionFileFormatError',
+            'preview.outputPreview.errors.unknownErrorOccurredError',
+            'preview.frameCapture.status.frameCaptureStartTimedOutError',
+            'preview.frameCapture.status.couldNotSaveFrameError',
+            'preview.frameCapture.status.showEntirePreviewSavingAction',
+            'preview.diagnostics.report.webviewCreatedLabel',
+            'preview.diagnostics.report.editModelLoadedLabel',
+            'preview.diagnostics.report.pageHtmlSetLabel',
+            'preview.diagnostics.report.scriptsLoadedLabel',
+            'preview.diagnostics.report.engineInitializedLabel',
+            'preview.diagnostics.report.mediaSuppliedLabel',
+            'preview.diagnostics.report.firstFrameRenderedLabel',
+            'preview.diagnostics.report.outMemoryLabel',
+            'preview.diagnostics.report.abnormalExitLabel',
+            'preview.diagnostics.report.terminatedLabel',
+            'preview.diagnostics.report.launchFailedError',
+            'preview.diagnostics.report.stageFailedNoDetailsError',
+            'preview.diagnostics.report.noMessageLabel',
+            'preview.diagnostics.report.akariVideoPreviewInitializationDiagnostics',
+            'preview.diagnostics.report.timePrefix',
+            'preview.diagnostics.report.appVersionPrefix',
+            'preview.diagnostics.report.targetPrefix',
+            'preview.diagnostics.report.renderSurfacePrefix',
+            'preview.diagnostics.report.legacyPathDomLabel',
+            'preview.diagnostics.report.assetOriginPrefix',
+            'preview.diagnostics.report.resultPreviewRenderingStopped',
+            'preview.diagnostics.report.resultPreviewNotRespondingProcessStatusUnknown',
+            'preview.diagnostics.report.resultAllInitializationStagesCompleted',
+            'preview.diagnostics.report.stalledStagePrefix',
+            'preview.diagnostics.report.stageStatusPrefix',
+            'preview.diagnostics.report.firstErrorNoneRecordedError',
+            'preview.diagnostics.report.diagnosticEventsPrefix',
+            'preview.diagnostics.report.noteRecordsFailedStageNotCauseError',
+            'preview.diagnostics.report.assetPreviewPaneLabel',
+            'preview.diagnostics.report.outsideAkariPreviewOwnedAnotherExtension',
+            'preview.diagnostics.report.noneLabel',
+            'preview.diagnostics.report.couldNotStringifyReasonError',
+            'preview.diagnostics.report.keyConversionFailedKeyError',
+            'preview.diagnostics.report.imeCompositionSuffix',
+            'preview.diagnostics.report.yesLabel',
+            'preview.diagnostics.report.noLabel',
+            'preview.diagnostics.report.repeatSuffix',
+            'preview.outputPreview.playback.outputPreviewClosedLabel',
+            'preview.outputPreview.playback.outputPreviewCouldNotGetReadyPlayError',
+            'preview.previewWindow.status.couldNotSaveRangeError',
+            'preview.previewWindow.status.couldNotPlaceAssetTimelineError',
+            'preview.previewWindow.punctuation.openParen',
+            'preview.previewWindow.punctuation.rangeSeparator',
+            'preview.previewWindow.transport.fullscreenLabel',
+        ];
+        const previewText = scriptDictionary({
+            play: t('preview.previewWindow.transport.playAction'),
+            pause: t('preview.previewWindow.status.pauseAction'),
+            videoError: t('preview.previewWindow.status.videoError'),
+            transcoding: t('preview.previewWindow.status.transcodingError'),
+            ...Object.fromEntries(scriptKeys.map(key => [key, t(key)])),
+            'render.frameEngine.warning.longGop': renderT('render.frameEngine.warning.longGop')
+        });
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${streamOrigin}; connect-src ${streamOrigin} blob:; img-src ${streamOrigin} blob: data:; script-src 'unsafe-inline' ${assetOrigin}; style-src 'unsafe-inline'; font-src ${assetOrigin} data:${frameEngineCsp}">
 <!-- 第13項の compute-pressure ガードと初期化段の診断は、どのバンドルよりも先に走らせる。 -->
-<script>${previewDiagnosticsGuardScript()}</script>
+<script type="application/json" id="akari-preview-text">${previewText}</script>
+<script>${webviewScriptText(previewDiagnosticsGuardScript())}</script>
 <script>(${neutralizeWebviewDefaultStylesForOverlays.toString()})(document, ${scopeSelectorOutsideOverlays.toString()});</script>
 <style>
 ${this.inlineStyle(assets.motionVocabCss)}
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
+${latinCaptionFontFaceCss(assets.latinCaptionFontUrl)}
 ${bundledCaptionFontFaceCss(assets.bundledCaptionFontFaces ?? [])}
 ${materialRangeEnabled ? materialRangeWebviewStyle() : ''}
 :root {
@@ -8210,6 +8618,8 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #cut-select-box .akari-cut-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
 :root { --akari-caption-select-color: #4da3ff; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+#caption-word-selection-boxes { position:absolute; inset:0; z-index:1899; pointer-events:none; }
+.caption-word-selection-box { position:absolute; box-sizing:border-box; border:2px dashed var(--akari-caption-word-select-color,#ffcf57); box-shadow:0 0 0 1px #111, 0 0 5px #fff; pointer-events:none; }
 #caption-select-box.is-active { display: block; }
 #caption-multi-select-boxes { position: absolute; inset: 0; z-index: 1899; pointer-events: none; }
 .caption-multi-select-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
@@ -8485,6 +8895,7 @@ html.akari-gen-capturing #layer-select-box,
 html.akari-gen-capturing #layer-crop-box,
 html.akari-gen-capturing #cut-select-box,
 html.akari-gen-capturing #caption-select-box,
+html.akari-gen-capturing #caption-word-selection-boxes,
 html.akari-gen-capturing #caption-multi-select-boxes,
 html.akari-gen-capturing [data-akari-handle],
 html.akari-gen-capturing [data-akari-crop-handle],
@@ -8524,12 +8935,12 @@ ${previewSelectionHandlesStyle}
 </head>
 <body>
 <main class="workspace">
-  <section class="preview-pane" aria-label="動画プレビュー">
-    <nav data-akari-ui="preview-scope-breadcrumb" aria-label="プレビューの階層" hidden></nav>
+  <section class="preview-pane" aria-label="${t('preview.previewWindow.pane.videoPreviewLabel')}">
+    <nav data-akari-ui="preview-scope-breadcrumb" aria-label="${t('preview.previewWindow.breadcrumb.previewHierarchyLabel')}" hidden></nav>
     <div id="preview-wrapper">${kind === 'raw' ? `<div class="akari-material-chip" id="material-chip"><span id="material-chip-name">${this.escapeHtml(videoUri.path.base)}</span><span id="material-chip-duration" hidden></span></div>` : ''}
-      ${materialRangeEnabled ? `<button id="material-range-place" type="button" title="タイムラインに置く" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>タイムラインに置く</button>` : ''}
+      ${materialRangeEnabled ? `<button id="material-range-place" type="button" title="${t('preview.materialPreview.controls.placeAction')}" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>${t('preview.materialPreview.controls.placeAction')}</button>` : ''}
       <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
-      <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
+      <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="${t('preview.previewWindow.indicators.itemsUnavailablePreviewError')}" title="${t('preview.previewWindow.indicators.itemsUnavailablePreviewError')}" aria-expanded="false" hidden>ⓘ</button>
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
@@ -8543,83 +8954,83 @@ ${previewSelectionHandlesStyle}
               <div id="akari-gen-blur" hidden><img id="akari-gen-blur-image" alt=""></div>
               <div id="akari-gen-shimmer" hidden></div>
               <div id="akari-gen-icon" hidden>✦</div>
-              <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">編集領域</span></div>
+              <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">${t('preview.previewWindow.canvas.editAreaLabel')}</span></div>
               <div id="akari-gen-tag" hidden></div>
-              <div id="akari-gen-pip" hidden><span id="akari-gen-pip-label">最後の絵</span><img id="akari-gen-pip-image" alt=""></div>
+              <div id="akari-gen-pip" hidden><span id="akari-gen-pip-label">${t('preview.previewWindow.canvas.finalImageLabel')}</span><img id="akari-gen-pip-image" alt=""></div>
               <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
             </div>
           </div>
-          <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n" data-akari-crop-edge="n" role="button" aria-label="上を切り取る" title="上を切り取る"></div><div class="akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e" data-akari-crop-edge="e" role="button" aria-label="右を切り取る" title="右を切り取る"></div><div class="akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s" data-akari-crop-edge="s" role="button" aria-label="下を切り取る" title="下を切り取る"></div><div class="akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w" data-akari-crop-edge="w" role="button" aria-label="左を切り取る" title="左を切り取る"></div></div>
+          <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="${t('preview.contextBar.toolbar.rotateLabel')}" title="${t('preview.contextBar.toolbar.rotateLabel')}"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="${t('preview.previewWindow.canvas.moveAction')}" title="${t('preview.previewWindow.canvas.moveAction')}"></button><div class="akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n" data-akari-crop-edge="n" role="button" aria-label="${t('preview.previewWindow.canvas.cropTopLabel')}" title="${t('preview.previewWindow.canvas.cropTopLabel')}"></div><div class="akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e" data-akari-crop-edge="e" role="button" aria-label="${t('preview.previewWindow.canvas.cropRightLabel')}" title="${t('preview.previewWindow.canvas.cropRightLabel')}"></div><div class="akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s" data-akari-crop-edge="s" role="button" aria-label="${t('preview.previewWindow.canvas.cropBottomLabel')}" title="${t('preview.previewWindow.canvas.cropBottomLabel')}"></div><div class="akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w" data-akari-crop-edge="w" role="button" aria-label="${t('preview.previewWindow.canvas.cropLeftLabel')}" title="${t('preview.previewWindow.canvas.cropLeftLabel')}"></div></div>
           <div id="layer-crop-box"><img id="photo-crop-ghost" alt=""><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
-          <div id="photo-crop-controls"><label>縦横比 <select data-photo-crop-ratio><option value="free">自由</option><option value="original">元の比</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="5:4">5:4</option><option value="3:4">3:4</option><option value="4:3">4:3</option><option value="9:16">9:16</option><option value="16:9">16:9</option></select></label><label>回転 <input data-photo-crop-rotate type="number" min="-45" max="45" step="0.1" value="0">°</label><button type="button" data-photo-crop-auto>自動水平</button><button type="button" data-photo-crop-smart>スマート切り抜き</button><button type="button" disabled title="近日対応">拡張（近日）</button><span data-photo-crop-status aria-live="polite"></span><button type="button" data-photo-crop-done>確定</button><button type="button" data-photo-crop-cancel>取り消し</button></div>
-          <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
-          <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
+          <div id="photo-crop-controls"><label>${t('preview.previewWindow.controls.aspectRatioLabel')} <select data-photo-crop-ratio><option value="free">${t('preview.previewWindow.canvas.freeLabel')}</option><option value="original">${t('preview.previewWindow.canvas.originalRatioLabel')}</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="5:4">5:4</option><option value="3:4">3:4</option><option value="4:3">4:3</option><option value="9:16">9:16</option><option value="16:9">16:9</option></select></label><label>${t('preview.contextBar.toolbar.rotateLabel')} <input data-photo-crop-rotate type="number" min="-45" max="45" step="0.1" value="0">°</label><button type="button" data-photo-crop-auto>${t('preview.previewWindow.canvas.autoStraightenLabel')}</button><button type="button" data-photo-crop-smart>${t('preview.previewWindow.canvas.smartCropLabel')}</button><button type="button" disabled title="${t('preview.previewWindow.canvas.comingSoonLabel')}">${t('preview.previewWindow.canvas.extendComingSoonLabel')}</button><span data-photo-crop-status aria-live="polite"></span><button type="button" data-photo-crop-done>${t('preview.previewWindow.canvas.applyAction')}</button><button type="button" data-photo-crop-cancel>${t('preview.previewWindow.canvas.cancelAction')}</button></div>
+          <div id="layer-crop-toggle" title="${t('preview.previewWindow.canvas.toggleCropModeEscExitAction')}">⛶</div>
+          <div id="layer-perspective-toggle" title="${t('preview.previewWindow.canvas.perspectivePanelLabel')}">◈</div>
           <div id="layer-perspective-panel">
             <div class="akari-perspective-presets">
-              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="right">右奥</button>
-              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="left">左奥</button>
-              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="top">上奥</button>
-              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="bottom">下奥</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="right">${t('preview.previewWindow.canvas.backRightLabel')}</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="left">${t('preview.previewWindow.canvas.backLeftLabel')}</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="top">${t('preview.previewWindow.canvas.backTopLabel')}</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="bottom">${t('preview.previewWindow.canvas.backBottomLabel')}</button>
             </div>
             <div class="akari-perspective-angle-row">
-              <span>角度</span>
+              <span>${t('preview.previewWindow.canvas.angleLabel')}</span>
               <input type="range" min="0" max="75" step="1" value="30" data-akari-perspective-angle />
               <span data-akari-perspective-angle-value>30°</span>
             </div>
-            <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
+            <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>${t('preview.previewWindow.canvas.removePerspectiveAction')}</button>
           </div>
-          <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><button type="button" class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-cut-handle akari-cut-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
+          <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><button type="button" class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate" aria-label="${t('preview.contextBar.toolbar.rotateLabel')}" title="${t('preview.contextBar.toolbar.rotateLabel')}"></button><button type="button" class="akari-cut-handle akari-cut-handle-move" data-akari-handle="move" aria-label="${t('preview.previewWindow.canvas.moveAction')}" title="${t('preview.previewWindow.canvas.moveAction')}"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="caption-zone-highlight"></div>
           <div id="zone-hint-layer"></div>
-          <div id="caption-row-box"><span>折り返しの幅</span></div>
+          <div id="caption-row-box"><span>${t('preview.previewWindow.canvas.wrapWidthControlLabel')}</span></div>
           <div id="caption-select-box"><div class="akari-caption-select-tools">
-            <button type="button" data-caption-tool="group" aria-label="全字幕モード"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="10" width="12" height="3" rx="1" opacity=".45"/></svg><span class="akari-caption-tool-tip">全字幕モード（Alt ドラッグでも操作）</span></button>
+            <button type="button" data-caption-tool="group" aria-label="${t('preview.previewWindow.canvas.allCaptionsModeLabel')}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="10" width="12" height="3" rx="1" opacity=".45"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.allCaptionsModeAlsoAltDrag')}</span></button>
             <span class="akari-caption-tool-separator"></span>
-            <button type="button" data-caption-tool="snap" class="on" aria-label="吸着" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">吸着のオン・オフ</span></button>
-            <button type="button" data-caption-tool="clamp" aria-label="はみ出し防止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9V7h2M17 9V7h-2M7 15v2h2M17 15v2h-2"/></svg><span class="akari-caption-tool-tip">はみ出し防止のオン・オフ</span></button>
+            <button type="button" data-caption-tool="snap" class="on" aria-label="${t('preview.previewWindow.canvas.snapLabel')}" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.toggleSnappingAction')}</span></button>
+            <button type="button" data-caption-tool="clamp" aria-label="${t('preview.previewWindow.canvas.keepFrameLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9V7h2M17 9V7h-2M7 15v2h2M17 15v2h-2"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.toggleKeepFrameAction')}</span></button>
             <span class="akari-caption-tool-separator" data-caption-optional-separator></span>
-            <button type="button" data-caption-tool="bold" hidden aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
-            <button type="button" data-caption-tool="color" hidden aria-label="色"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1 2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">文字・縁取り・座布団の色</span></button>
-            <button type="button" data-caption-tool="bigger" data-akari-run-tool="bigger" hidden aria-label="大きく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M20 5v8m-4-4h8"/></svg><span class="akari-caption-tool-tip">選択文字を大きく</span></button>
-            <button type="button" data-caption-tool="smaller" data-akari-run-tool="smaller" hidden aria-label="小さく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M17 9h7"/></svg><span class="akari-caption-tool-tip">選択文字を小さく</span></button>
-            <button type="button" data-caption-tool="up" data-akari-run-tool="up" hidden aria-label="上へ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4m-6 6 6-6 6 6M4 21h16"/></svg><span class="akari-caption-tool-tip">選択文字を上へ</span></button>
-            <button type="button" data-caption-tool="down" data-akari-run-tool="down" hidden aria-label="下へ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m-6-6 6 6 6-6M4 3h16"/></svg><span class="akari-caption-tool-tip">選択文字を下へ</span></button>
-            <button type="button" data-caption-tool="rotate-run" data-akari-run-tool="rotate" hidden aria-label="回転"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 1-3-6M20 3v6h-6"/></svg><span class="akari-caption-tool-tip">選択文字を 8° 回転</span></button>
-            <button type="button" data-caption-tool="spacing-run" data-akari-run-tool="spacing" hidden aria-label="字間"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5v14m16-14v14M7 12h10m-7-3-3 3 3 3m4-6 3 3-3 3"/></svg><span class="akari-caption-tool-tip">選択文字の字間を広げる</span></button>
-            <button type="button" data-caption-tool="run-style" data-akari-run-tool="style" hidden aria-label="スタイル"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/></svg><span class="akari-caption-tool-tip">選択文字にスタイルを当てる</span></button>
-            <button type="button" data-caption-tool="run-role" data-akari-run-tool="role" hidden aria-label="役割"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5zM8 9h8m-8 4h6"/></svg><span class="akari-caption-tool-tip">選択文字の役割</span></button>
-            <button type="button" data-caption-tool="cushion" hidden aria-label="座布団"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">座布団を敷く・外す</span></button>
-            <button type="button" data-caption-tool="reset" aria-label="既定に戻す" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">位置と大きさを既定に戻す</span></button>
-            <button type="button" data-caption-tool="inspector" hidden aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
-            <button type="button" data-caption-tool="my-style-save" hidden data-akari-my-style-preview-save aria-label="マイスタイルに保存"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">マイスタイルに保存</span></button>
-          </div><div data-akari-run-menu hidden></div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
+            <button type="button" data-caption-tool="bold" hidden aria-label="${t('preview.contextBar.toolbar.boldLabel')}">B<span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.toggleBoldAction')}</span></button>
+            <button type="button" data-caption-tool="color" hidden aria-label="${t('preview.previewWindow.canvas.colorLabel')}"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1 2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.textOutlineBackgroundPlateColors')}</span></button>
+            <button type="button" data-caption-tool="bigger" data-akari-run-tool="bigger" hidden aria-label="${t('preview.previewWindow.canvas.increaseSizeAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M20 5v8m-4-4h8"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.increaseSelectedTextSizeAction')}</span></button>
+            <button type="button" data-caption-tool="smaller" data-akari-run-tool="smaller" hidden aria-label="${t('preview.previewWindow.canvas.decreaseSizeAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M17 9h7"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.decreaseSelectedTextSizeAction')}</span></button>
+            <button type="button" data-caption-tool="up" data-akari-run-tool="up" hidden aria-label="${t('preview.previewWindow.canvas.moveUpAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4m-6 6 6-6 6 6M4 21h16"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.moveSelectedTextUpAction')}</span></button>
+            <button type="button" data-caption-tool="down" data-akari-run-tool="down" hidden aria-label="${t('preview.previewWindow.canvas.moveDownAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m-6-6 6 6 6-6M4 3h16"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.moveSelectedTextDownAction')}</span></button>
+            <button type="button" data-caption-tool="rotate-run" data-akari-run-tool="rotate" hidden aria-label="${t('preview.contextBar.toolbar.rotateLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 1-3-6M20 3v6h-6"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.rotateSelectedTextEightDegreesAction')}</span></button>
+            <button type="button" data-caption-tool="spacing-run" data-akari-run-tool="spacing" hidden aria-label="${t('preview.previewWindow.canvas.letterSpacingLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5v14m16-14v14M7 12h10m-7-3-3 3 3 3m4-6 3 3-3 3"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.increaseSpacingSelectedTextAction')}</span></button>
+            <button type="button" data-caption-tool="run-style" data-akari-run-tool="style" hidden aria-label="${t('preview.contextBar.toolbar.styleLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.applyStyleSelectedTextAction')}</span></button>
+            <button type="button" data-caption-tool="run-role" data-akari-run-tool="role" hidden aria-label="${t('preview.previewWindow.canvas.roleLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5zM8 9h8m-8 4h6"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.roleSelectedTextLabel')}</span></button>
+            <button type="button" data-caption-tool="cushion" hidden aria-label="${t('preview.captionStyle.warning.backgroundPlateLabel')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.toggleBackgroundPlateAction')}</span></button>
+            <button type="button" data-caption-tool="reset" aria-label="${t('preview.previewWindow.canvas.resetDefaultAction')}" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.resetPositionSizeAction')}</span></button>
+            <button type="button" data-caption-tool="inspector" hidden aria-label="${t('preview.previewWindow.canvas.openInspectorAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.openInspectorAction')}</span></button>
+            <button type="button" data-caption-tool="my-style-save" hidden data-akari-my-style-preview-save aria-label="${t('preview.previewWindow.canvas.saveMyStylesAction')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">${t('preview.previewWindow.canvas.saveMyStylesAction')}</span></button>
+          </div><div data-akari-run-menu hidden></div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">${t('preview.previewWindow.canvas.textLabel')}</button><button type="button" data-palette-tab="stroke">${t('preview.previewWindow.canvas.outlineLabel')}</button><button type="button" data-palette-tab="background">${t('preview.captionStyle.warning.backgroundPlateLabel')}</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">${t('preview.previewWindow.canvas.recentColorsLabel')}</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>${t('preview.previewWindow.canvas.moreColorsLabel')}</button></div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
       </div>
-      <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
+      <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>${t('preview.previewWindow.notice.openOutput')}</button>
       <div id="reload-surface" class="reload-surface">
-        <div id="reload-toast" class="reload-toast" hidden role="status">edit.json を再読込しました（一時停止中）</div>
+        <div id="reload-toast" class="reload-toast" hidden role="status">${t('preview.previewWindow.notice.reload')}</div>
         <div id="composite-error-banner" class="composite-error-banner" hidden role="status">
-          <strong>edit.json の合成情報を読めません — 素材のみ表示中</strong>
+          <strong>${t('preview.previewWindow.notice.readFailedError')}</strong>
           <span id="composite-error-detail"></span>
         </div>
         <div id="reload-error-card" class="reload-error-card" hidden role="alert" aria-live="assertive">
-          <strong>edit.json の再読込に失敗しました。プレビューは変更前の内容です。</strong>
+          <strong>${t('preview.previewWindow.notice.reloadFailedError')}</strong>
           <span id="reload-error-detail"></span>
-          <button id="reload-error-retry" type="button">再試行</button>
+          <button id="reload-error-retry" type="button">${t('preview.previewWindow.transport.retryAction')}</button>
         </div>
       </div>
       <div id="audio-notice" class="audio-notice" hidden role="status">
-        <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
-        <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+        <span>${t('preview.previewWindow.notice.noAudioError')}</span>
+        <button id="audio-notice-dismiss" type="button" aria-label="${t('preview.previewWindow.transport.closeAction')}" title="${t('preview.previewWindow.transport.closeAction')}">×</button>
       </div>
       <div id="write-error-banner" class="write-error-banner" hidden role="alert" aria-live="assertive">
         <span id="write-error-message"></span>
-        <button id="write-error-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+        <button id="write-error-dismiss" type="button" aria-label="${t('preview.previewWindow.transport.closeAction')}" title="${t('preview.previewWindow.transport.closeAction')}">×</button>
       </div>
       <div id="preview-message" class="message-card" hidden role="status">
         <p id="preview-message-text">${UNSUPPORTED_FORMAT_MESSAGE}</p>
-        <button id="preview-message-reload" class="message-card-reload" type="button" hidden>再読み込み</button>
+        <button id="preview-message-reload" class="message-card-reload" type="button" hidden>${t('preview.previewWindow.transport.reloadLabel')}</button>
       </div>
     </div>
     <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
@@ -8627,31 +9038,31 @@ ${previewSelectionHandlesStyle}
 </main>
 <div class="transport">
   <div class="transport-seek">
-    ${materialRangeEnabled ? '<div class="material-seek-wrap">' : ''}<input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
-    ${materialRangeEnabled ? `<div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="in をここに（I）">I</button><button id="material-range-button-out" title="out をここに（O）">O</button><button id="material-range-button-clear" title="範囲をなしに">×</button></div>` : ''}
+    ${materialRangeEnabled ? '<div class="material-seek-wrap">' : ''}<input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="${t('preview.previewWindow.transport.seekLabel')}">
+    ${materialRangeEnabled ? `<div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="${t('preview.previewWindow.transport.setInAction')}">I</button><button id="material-range-button-out" title="${t('preview.previewWindow.transport.setOutAction')}">O</button><button id="material-range-button-clear" title="${t('preview.previewWindow.transport.clearRangeAction')}">×</button></div>` : ''}
   </div>
   <div class="transport-controls">
     <div class="transport-left">
-      <button id="audio-meter-open" class="icon-button" type="button" aria-label="音声メーター" title="音声メーター"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="audio-meter-open" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.audioMeterLabel')}" title="${t('preview.previewWindow.transport.audioMeterLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <span id="time-label">0:00 / 0:00</span>
       <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
     <div class="transport-center">
-      <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
-      <button id="frame-back" class="icon-button" type="button" aria-label="1コマ戻る" title="1コマ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM18 5v14l-9-7z"/></svg></button>
-      <button id="play-toggle" class="icon-button" type="button" aria-label="再生" title="再生" data-akari-onboarding-target="play-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
-      <button id="frame-forward" class="icon-button" type="button" aria-label="1コマ進む" title="1コマ進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM6 5v14l9-7z"/></svg></button>
-      <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
+      <button id="skip-back" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.skipBackLabel')}" title="${t('preview.previewWindow.transport.skipBackLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
+      <button id="frame-back" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.frameBackLabel')}" title="${t('preview.previewWindow.transport.frameBackLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM18 5v14l-9-7z"/></svg></button>
+      <button id="play-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.playAction')}" title="${t('preview.previewWindow.transport.playAction')}" data-akari-onboarding-target="play-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="frame-forward" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.frameForwardLabel')}" title="${t('preview.previewWindow.transport.frameForwardLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM6 5v14l9-7z"/></svg></button>
+      <button id="skip-forward" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.skipForwardLabel')}" title="${t('preview.previewWindow.transport.skipForwardLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
     <div class="transport-right">
-      <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="今のコマを保存" title="今のコマを保存"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
-      <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
-      <button id="caption-row-box-toggle" class="icon-button" type="button" aria-label="折り返しの幅を表示" title="折り返しの幅を表示" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></button>
-      <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="再生速度" title="再生速度" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
-      <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
+      <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.captureAction')}" title="${t('preview.previewWindow.transport.captureAction')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
+      <button id="pen-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.penLabel')}" title="${t('preview.previewWindow.transport.penLabel')}" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
+      <button id="caption-row-box-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.rowBoxAction')}" title="${t('preview.previewWindow.transport.rowBoxAction')}" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></button>
+      <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="${t('preview.previewWindow.transport.rateLabel')}" title="${t('preview.previewWindow.transport.rateLabel')}" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
+      <button id="zoom-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.zoomAction')}" title="${t('preview.previewWindow.transport.zoomAction')}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.fullscreenLabel')}" title="${t('preview.previewWindow.transport.fullscreenLabel')}" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
       <div id="rate-popup" class="zoom-popup" hidden>
-        <div class="zoom-popup-header"><span>再生速度</span><span id="rate-value">1×</span></div>
+        <div class="zoom-popup-header"><span>${t('preview.previewWindow.transport.rateLabel')}</span><span id="rate-value">1×</span></div>
         <div class="rate-presets">
           <button class="rate-preset" type="button" data-rate="0.5" data-akari-ui="preview:rate:0.5" aria-pressed="false">0.5×</button>
           <button class="rate-preset" type="button" data-rate="0.75" data-akari-ui="preview:rate:0.75" aria-pressed="false">0.75×</button>
@@ -8663,13 +9074,13 @@ ${previewSelectionHandlesStyle}
         </div>
       </div>
       <div id="zoom-popup" class="zoom-popup" hidden>
-        <div class="zoom-popup-header"><span>ズーム</span><span id="zoom-value">100%</span></div>
-        <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="ズーム倍率" title="ダブルクリックで100%">
+        <div class="zoom-popup-header"><span>${t('preview.previewWindow.transport.zoomAction')}</span><span id="zoom-value">100%</span></div>
+        <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="${t('preview.previewWindow.transport.zoomLevelAction')}" title="${t('preview.previewWindow.transport.zoomResetLabel')}">
         <div class="zoom-presets">
-          <button class="zoom-preset" type="button" data-zoom="0.5" aria-label="50%にズーム" title="50%にズーム">50%</button>
-          <button class="zoom-preset" type="button" data-zoom="1" aria-label="100%にズーム" title="100%にズーム">100%</button>
-          <button class="zoom-preset" type="button" data-zoom="2" aria-label="200%にズーム" title="200%にズーム">200%</button>
-          <button class="zoom-preset" type="button" data-zoom="4" aria-label="400%にズーム" title="400%にズーム">400%</button>
+          <button class="zoom-preset" type="button" data-zoom="0.5" aria-label="${t('preview.previewWindow.canvas.zoom50PercentAction')}" title="${t('preview.previewWindow.canvas.zoom50PercentAction')}">50%</button>
+          <button class="zoom-preset" type="button" data-zoom="1" aria-label="${t('preview.previewWindow.canvas.zoom100PercentAction')}" title="${t('preview.previewWindow.canvas.zoom100PercentAction')}">100%</button>
+          <button class="zoom-preset" type="button" data-zoom="2" aria-label="${t('preview.previewWindow.canvas.zoom200PercentAction')}" title="${t('preview.previewWindow.canvas.zoom200PercentAction')}">200%</button>
+          <button class="zoom-preset" type="button" data-zoom="4" aria-label="${t('preview.previewWindow.canvas.zoom400PercentAction')}" title="${t('preview.previewWindow.canvas.zoom400PercentAction')}">400%</button>
         </div>
       </div>
     </div>
@@ -8677,13 +9088,13 @@ ${previewSelectionHandlesStyle}
   <div id="system-volume-notice" class="system-volume-row" role="status" aria-live="polite" hidden>
     <div class="system-volume-notice">
       <span id="system-volume-notice-text" class="system-volume-notice-text"></span>
-      <button id="system-volume-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+      <button id="system-volume-notice-dismiss" type="button" aria-label="${t('preview.previewWindow.transport.closeAction')}" title="${t('preview.previewWindow.transport.closeAction')}">×</button>
     </div>
   </div>
 </div>
 <script>window.__akariPreview = ${initialState};</script>
-<script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
-<script>${hostAdapterScript()}</script>
+<script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.load('600 82px "AKARI Noto Sans"', 'English captions'); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); if (!document.fonts.check('600 82px "AKARI Noto Sans"', 'English captions')) throw new Error('AKARI English caption font did not load'); return true; })();</script>
+<script>${webviewScriptText(hostAdapterScript())}</script>
 ${this.externalScriptTag(assets.threeJavaScriptUrl)}
 ${threeTextRuntimeScript}${this.externalScriptTag(assets.threeRuntimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
@@ -8691,6 +9102,7 @@ ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 ${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${previewChatReviewScript()}</script><script>${previewBootstrapScript()}</script>
+${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${webviewScriptText(previewBootstrapScript())}</script>
 ${materialIdentity ? `<script>${materialRangeWebviewScript('video', materialIdentity)}</script>` : ''}
 ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {
@@ -8724,14 +9136,14 @@ ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}$
         }, 250);
     } catch { /* The filename chip remains usable without duration metadata. */ }
 })();
-</script>` : ''}${frameEngineScripts}<script>${previewDiagnosticsTailScript()}</script>
+</script>` : ''}${frameEngineScripts}<script>${webviewScriptText(previewDiagnosticsTailScript())}</script>
 </body>
 </html>`;
     }
 
     protected prepareMessageHtml(message: string): string {
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8760,7 +9172,7 @@ body { display: grid; place-items: center; padding: 32px; }
         };
         if (widget.akariPreviewFrameCaptureRequest) {
             send('akari-preview-capture-restore');
-            void this.messages.error('コマを保存できませんでした: 前のコマを保存中です');
+            void this.messages.error(t('preview.outputPreview.window.couldNotSaveFramePreviousFrameStillBeingError'));
             return;
         }
         widget.akariPreviewFrameCaptureRequest = request.requestId;
@@ -8771,8 +9183,8 @@ body { display: grid; place-items: center; padding: 32px; }
         let savedPath: string | undefined;
         try {
             const editUri = widget.akariPreviewEditUri;
-            if (!editUri || !widget.akariPreviewSummary) throw new Error('出力プレビューでコマを保存してください');
-            if (!window.electronAkariPreview?.capturePreviewFrame) throw new Error('Electron の撮影機能が利用できません');
+            if (!editUri || !widget.akariPreviewSummary) throw new Error(t('preview.outputPreview.window.saveFramesOutputPreviewAction'));
+            if (!window.electronAkariPreview?.capturePreviewFrame) throw new Error(t('preview.outputPreview.window.electronFrameCaptureUnavailableError'));
             const output = { ...widget.akariPreviewSummary.output };
             success = await runPreviewFrameCaptureAttempts({
                 max: 3,
@@ -8783,19 +9195,19 @@ body { display: grid; place-items: center; padding: 32px; }
                             if (message?.type === 'akari-preview-capture-ready' && message.requestId === request.requestId
                                 && message.pageId === pageId) resolve(message);
                         });
-                        timer = setTimeout(() => reject(new Error('撮影準備がタイムアウトしました')), 5000);
+                        timer = setTimeout(() => reject(new Error(t('preview.outputPreview.window.frameCapturePreparationTimedOutError'))), 5000);
                         send('akari-preview-capture-prepare');
                     });
                     clearTimeout(timer);
                     subscription.dispose();
                     if (ready.error) throw new Error(ready.error);
-                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error(t('preview.outputPreview.window.previewChangedLabel'));
                     const frame = widget.node.querySelector('iframe.webview') as HTMLIFrameElement;
-                    if (!frame || !ready.rect || !ready.viewport || !ready.expectations || !Number.isFinite(ready.time)) throw new Error('撮影矩形を取得できません');
+                    if (!frame || !ready.rect || !ready.viewport || !ready.expectations || !Number.isFinite(ready.time)) throw new Error(t('preview.outputPreview.window.couldNotObtainCaptureAreaError'));
                     const outer = frame.getBoundingClientRect();
                     const sx = outer.width / frame.offsetWidth, sy = outer.height / frame.offsetHeight;
                     if (!(sx > 0 && sy > 0) || Math.abs(frame.clientWidth - ready.viewport.width) > 1
-                        || Math.abs(frame.clientHeight - ready.viewport.height) > 1) throw new Error('プレビューのサイズが変わりました。もう一度お試しください');
+                        || Math.abs(frame.clientHeight - ready.viewport.height) > 1) throw new Error(t('preview.outputPreview.window.previewSizeChangedTryAgain'));
                     // Inner viewport -> outer iframe content -> main renderer CSS viewport.
                     const rect = { x: outer.x + (frame.clientLeft + ready.rect.x) * sx,
                         y: outer.y + (frame.clientTop + ready.rect.y) * sy,
@@ -8804,17 +9216,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         y: outer.y + (frame.clientTop + ready.sentinel.y) * sy,
                         width: ready.sentinel.width * sx, height: ready.sentinel.height * sy } : undefined;
                     if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > window.innerWidth
-                        || rect.y + rect.height > window.innerHeight) throw new Error('プレビューがウィンドウから切れています');
+                        || rect.y + rect.height > window.innerHeight) throw new Error(t('preview.outputPreview.window.previewClippedWindowLabel'));
                     try {
                         const snapshot = await Promise.race([
                             window.electronAkariPreview.capturePreviewFrame({ rect, sentinel, output, expectations: ready.expectations }).then(value => {
                                 if (!acceptingCapture) {
                                     void window.electronAkariPreview.finishPreviewFrame(value.captureId, true).catch(() => undefined);
-                                    throw new Error('撮影がタイムアウトしました');
+                                    throw new Error(t('preview.outputPreview.window.frameCaptureTimedOutError'));
                                 }
                                 return value;
                             }),
-                            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('撮影がタイムアウトしました')), 3000); })
+                            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(t('preview.outputPreview.window.frameCaptureTimedOutError'))), 3000); })
                         ]);
                         captureId = snapshot.captureId;
                     } finally {
@@ -8831,15 +9243,15 @@ body { display: grid; place-items: center; padding: 32px; }
                             });
                             timer = setTimeout(() => {
                                 restored.dispose();
-                                reject(new Error('撮影後の表示復元を確認できませんでした'));
+                                reject(new Error(t('preview.outputPreview.window.couldNotConfirmDisplayRestoredCaptureError')));
                             }, 1000);
                             send('akari-preview-capture-restore', { keepFrozen: true });
                         });
                     }
-                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error(t('preview.outputPreview.window.previewChangedLabel'));
                     const captured = await window.electronAkariPreview.finishPreviewFrame(captureId);
                     captureId = undefined;
-                    if (!captured) throw new Error('撮影画像を取得できません');
+                    if (!captured) throw new Error(t('preview.outputPreview.window.couldNotObtainCapturedImageError'));
                     return { captured, time: ready.time! };
                 },
                 inspect: frame => {
@@ -8855,15 +9267,15 @@ body { display: grid; place-items: center; padding: 32px; }
                         savedPath = JSON.stringify(result);
                     } else {
                         savedPath = result.path;
-                        void this.messages.info('コマを保存しました: ' + result.path, { timeout: 3000 });
+                        void this.messages.info(t('preview.outputPreview.window.frameSavedPrefix') + result.path, { timeout: 3000 });
                         if (captured.reduced) void this.messages.info(
-                            '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                            t('preview.outputPreview.window.displaySmallerOutputSoFrameSavedWithoutUpscalingPrefix') + captured.width + '×' + captured.height + t('preview.outputPreview.window.pxSuffix'), { timeout: 3000 });
                     }
                 },
                 notify: message => { void this.messages.error(message); }
             });
         } catch (error) {
-            void this.messages.error('コマを保存できませんでした: ' + (error instanceof Error ? error.message : String(error)));
+            void this.messages.error(t('preview.outputPreview.window.couldNotSaveFramePrefix') + (error instanceof Error ? error.message : String(error)));
         } finally {
             clearTimeout(timer);
             subscription?.dispose();
@@ -9073,11 +9485,8 @@ body { display: grid; place-items: center; padding: 32px; }
         return Object.fromEntries(Object.entries(objectRecord(value)).map(([key, item]) => [key, String(item)]));
     }
 
-    protected normalizeEmphasisWords(value: unknown): EditSummaryEmphasisWord[] {
-        if (value !== undefined && !Array.isArray(value)) {
-            console.warn('[akari-preview] emphasis_words を無視しました（配列ではありません）');
-        }
-        return normalizePreviewEmphasisWords(value);
+    protected normalizeEmphasisWords(value: unknown, output?: { width: number; height: number }): EditSummaryEmphasisWord[] {
+        return normalizePreviewEmphasisWords(value, output);
     }
 
     protected finiteNumber(value: unknown, fallback: number): number {
@@ -9228,7 +9637,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
                                 meta: entry.meta as GenerationMetaV1 | null, binding: entry.binding })), Date.now());
                         if (generation?.meta?.kind !== 'audio') continue;
-                        audioFrames.push({ id: item.id ?? sourcePath, name: item.name ?? item.id ?? '音の空の枠',
+                        audioFrames.push({ id: item.id ?? sourcePath, name: item.name ?? item.id ?? t('preview.outputPreview.window.emptyAudioPlaceholderLabel'),
                             start: item.at! / fps, end: (item.at! + item.duration!) / fps,
                             sourcePath, meta: generation.meta, binding: generation.binding ?? null,
                             transform: null, crop: null, kind: 'audio' });

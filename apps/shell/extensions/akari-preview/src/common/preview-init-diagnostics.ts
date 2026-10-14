@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 /**
  * 出力プレビュー初期化の「どの段で止まったか」を記録・整形する純粋ロジック。
  *
@@ -37,13 +38,13 @@ export interface PreviewInitStageDeclaration {
  * 段名は画面・ログ・報告のすべてで同じ語を使う（利用者が読み上げられるようにする）。
  */
 export const PREVIEW_INIT_STAGES: readonly PreviewInitStageDeclaration[] = [
-    { id: 'webview-created', label: 'Webview 生成', side: 'host' },
-    { id: 'model-loaded', label: '編集モデル読込', side: 'host' },
-    { id: 'page-html-set', label: 'ページ HTML 設定', side: 'host' },
-    { id: 'scripts-loaded', label: 'スクリプト読込', side: 'webview' },
-    { id: 'engine-initialized', label: 'エンジン初期化', side: 'webview' },
-    { id: 'media-supplied', label: 'メディア供給', side: 'webview' },
-    { id: 'first-frame', label: '初回描画', side: 'webview' }
+    { id: 'webview-created', get label() { return t('preview.diagnostics.report.webviewCreatedLabel'); }, side: 'host' },
+    { id: 'model-loaded', get label() { return t('preview.diagnostics.report.editModelLoadedLabel'); }, side: 'host' },
+    { id: 'page-html-set', get label() { return t('preview.diagnostics.report.pageHtmlSetLabel'); }, side: 'host' },
+    { id: 'scripts-loaded', get label() { return t('preview.diagnostics.report.scriptsLoadedLabel'); }, side: 'webview' },
+    { id: 'engine-initialized', get label() { return t('preview.diagnostics.report.engineInitializedLabel'); }, side: 'webview' },
+    { id: 'media-supplied', get label() { return t('preview.diagnostics.report.mediaSuppliedLabel'); }, side: 'webview' },
+    { id: 'first-frame', get label() { return t('preview.diagnostics.report.firstFrameRenderedLabel'); }, side: 'webview' }
 ];
 
 export type PreviewInitStageStatus = 'pending' | 'ok' | 'failed';
@@ -98,12 +99,12 @@ export function previewDiagnosticsKindFromWidgetId(id: string): 'output' | 'raw'
 
 export function describePreviewRendererGoneReason(reason: string): string {
     switch (reason) {
-        case 'oom': return 'メモリ不足';
+        case 'oom': return t('preview.diagnostics.report.outMemoryLabel');
         case 'crashed':
-        case 'abnormal-exit': return '異常終了';
-        case 'killed': return '強制終了';
-        case 'launch-failed': return '起動失敗';
-        case 'unknown': return '不明';
+        case 'abnormal-exit': return t('preview.diagnostics.report.abnormalExitLabel');
+        case 'killed': return t('preview.diagnostics.report.terminatedLabel');
+        case 'launch-failed': return t('preview.diagnostics.report.launchFailedError');
+        case 'unknown': return t('preview.diagnostics.overlay.unknownLabel');
         default: return reason;
     }
 }
@@ -189,7 +190,7 @@ export function markPreviewInitStage(
         const event: PreviewDiagnosticEvent = {
             kind: 'stage-failure',
             stage: id,
-            message: detail === undefined || detail === '' ? '段の失敗（詳細なし）' : detail
+            message: detail === undefined || detail === '' ? t('preview.diagnostics.report.stageFailedNoDetailsError') : detail
         };
         if (at !== undefined) event.at = at;
         recordPreviewDiagnosticEvent(trace, event);
@@ -207,7 +208,7 @@ export function recordPreviewDiagnosticEvent(
 ): PreviewInitTrace {
     const limit = 12; // PREVIEW_DIAGNOSTIC_EVENT_LIMIT — toString() 注入のため値を内に置く
     const message = String(event && event.message !== undefined ? event.message : '')
-        .slice(0, 400) || '（メッセージなし）';
+        .slice(0, 400) || t('preview.diagnostics.report.noMessageLabel');
     const normalized: PreviewDiagnosticEvent = {
         kind: event && event.kind ? event.kind : 'note',
         message
@@ -274,46 +275,46 @@ export function formatPreviewInitReport(
 ): string {
     const stageMark = (status: string) => (status === 'ok' ? '[ok]' : status === 'failed' ? '[NG]' : '[--]');
     const lines: string[] = [];
-    lines.push('AKARI Video プレビュー初期化診断');
-    lines.push('入口: ' + String(context.entry));
-    if (context.at) lines.push('時刻: ' + String(context.at));
-    if (context.appVersion) lines.push('アプリ版: ' + String(context.appVersion));
+    lines.push(t('preview.diagnostics.report.akariVideoPreviewInitializationDiagnostics'));
+    lines.push(t('preview.diagnostics.overlay.entryPrefix') + String(context.entry));
+    if (context.at) lines.push(t('preview.diagnostics.report.timePrefix') + String(context.at));
+    if (context.appVersion) lines.push(t('preview.diagnostics.report.appVersionPrefix') + String(context.appVersion));
     if (context.webviewId) {
         lines.push(
             'Webview: ' + String(context.webviewId)
-            + (context.webviewRole ? '（' + String(context.webviewRole) + '）' : '')
+            + (context.webviewRole ? '（' + String(context.webviewRole) + t('preview.diagnostics.overlay.closeParen') : '')
         );
     }
-    if (context.editUri) lines.push('対象: ' + String(context.editUri));
+    if (context.editUri) lines.push(t('preview.diagnostics.report.targetPrefix') + String(context.editUri));
     if (context.frameEngine !== undefined) {
-        lines.push('描画面: ' + (context.frameEngine ? 'frame-engine' : '旧経路（DOM）'));
+        lines.push(t('preview.diagnostics.report.renderSurfacePrefix') + (context.frameEngine ? 'frame-engine' : t('preview.diagnostics.report.legacyPathDomLabel')));
     }
-    if (context.assetOrigin) lines.push('配信オリジン: ' + String(context.assetOrigin));
+    if (context.assetOrigin) lines.push(t('preview.diagnostics.report.assetOriginPrefix') + String(context.assetOrigin));
     if (context.userAgent) lines.push('UA: ' + String(context.userAgent));
     const blocked = summary.failedStage || summary.stalledStage;
     if (summary.rendererGone) {
         const gone = summary.rendererGone;
-        lines.push('結果: プレビューの表示処理が停止しました'
+        lines.push(t('preview.diagnostics.report.resultPreviewRenderingStopped')
             + (gone.reason === 'unknown' ? ''
-                : '（理由: ' + describePreviewRendererGoneReason(gone.reason) + '）'));
-        if (gone.reason === 'unknown') lines.push('停止の理由は取得できませんでした');
-        lines.push('停止: reason=' + gone.reason
-            + ' exitCode=' + (gone.exitCode === null ? '不明' : String(gone.exitCode))
-            + ' 時刻=' + gone.at);
-        lines.push('停止の時点で ok だった段: '
+                : t('preview.diagnostics.overlay.reasonPrefix') + describePreviewRendererGoneReason(gone.reason) + t('preview.diagnostics.overlay.closeParen')));
+        if (gone.reason === 'unknown') lines.push(t('preview.diagnostics.overlay.couldNotDetermineWhyProcessStoppedError'));
+        lines.push(t('preview.diagnostics.overlay.stoppedReasonLabel') + gone.reason
+            + ' exitCode=' + (gone.exitCode === null ? t('preview.diagnostics.overlay.unknownLabel') : String(gone.exitCode))
+            + t('preview.diagnostics.overlay.timeSuffix') + gone.at);
+        lines.push(t('preview.diagnostics.overlay.stagesCompleteStoppedPrefix')
             + summary.stages.filter(stage => stage.status === 'ok').map(stage => stage.label).join('、'));
         if (!summary.complete && blocked) {
-            lines.push('停止の時点で未完了だった段: ' + blocked.label);
+            lines.push(t('preview.diagnostics.overlay.stageIncompleteStoppedPrefix') + blocked.label);
         }
     } else if (context.unresponsive) {
-        lines.push('結果: プレビューが応答していません（プロセスの停止は未確認）');
+        lines.push(t('preview.diagnostics.report.resultPreviewNotRespondingProcessStatusUnknown'));
     }
     if (!summary.rendererGone) {
         lines.push(summary.complete
-            ? '結果: 初期化は全段 ok'
-            : '止まった段: ' + (blocked ? blocked.label + '（' + blocked.id + '）' : '不明'));
+            ? t('preview.diagnostics.report.resultAllInitializationStagesCompleted')
+            : t('preview.diagnostics.report.stalledStagePrefix') + (blocked ? blocked.label + t('preview.previewWindow.punctuation.openParen') + blocked.id + t('preview.diagnostics.overlay.closeParen') : t('preview.diagnostics.overlay.unknownLabel')));
     }
-    lines.push('段の状態:');
+    lines.push(t('preview.diagnostics.report.stageStatusPrefix'));
     for (const stage of summary.stages) {
         lines.push(
             '  ' + stageMark(stage.status) + ' ' + stage.label + ' (' + stage.id + '/' + stage.side + ')'
@@ -321,18 +322,18 @@ export function formatPreviewInitReport(
         );
     }
     if (summary.rendererGone) {
-        lines.push('最初の例外: 例外ではなくプロセスの停止を検知しました');
+        lines.push(t('preview.diagnostics.overlay.firstErrorProcessStoppedWithoutExceptionError'));
     } else if (summary.firstError) {
         const error = summary.firstError;
         lines.push(
-            '最初の例外: [' + error.kind + '] ' + error.message
+            t('preview.diagnostics.overlay.firstError') + error.kind + '] ' + error.message
             + (error.filename ? ' @' + error.filename + (error.lineno ? ':' + error.lineno : '') : '')
         );
     } else {
-        lines.push('最初の例外: 記録なし');
+        lines.push(t('preview.diagnostics.report.firstErrorNoneRecordedError'));
     }
     if (summary.events.length > 0) {
-        lines.push('診断イベント:');
+        lines.push(t('preview.diagnostics.report.diagnosticEventsPrefix'));
         for (const event of summary.events) {
             lines.push(
                 '  [' + event.kind + ']'
@@ -342,7 +343,7 @@ export function formatPreviewInitReport(
             );
         }
     }
-    if (!summary.rendererGone) lines.push('※ これは失敗段の記録であり、原因の断定ではない。');
+    if (!summary.rendererGone) lines.push(t('preview.diagnostics.report.noteRecordsFailedStageNotCauseError'));
     return lines.join('\n');
 }
 
@@ -355,10 +356,10 @@ export function describePreviewWebviewRole(widgetId: string): {
     label: string;
 } {
     const id = typeof widgetId === 'string' ? widgetId : '';
-    if (id.indexOf('akari-output-preview-') === 0) return { role: 'output', label: '出力プレビュー' };
-    if (id.indexOf('akari-material-preview') === 0) return { role: 'material', label: '素材プレビュー枠' };
-    if (id.indexOf('akari-preview-') === 0) return { role: 'raw', label: '素材プレビュー' };
-    return { role: 'unknown', label: 'akari-preview 以外（この拡張の所有ではない）' };
+    if (id.indexOf('akari-output-preview-') === 0) return { role: 'output', label: t('preview.outputPreview.window.outputPreviewLabel') };
+    if (id.indexOf('akari-material-preview') === 0) return { role: 'material', label: t('preview.diagnostics.report.assetPreviewPaneLabel') };
+    if (id.indexOf('akari-preview-') === 0) return { role: 'raw', label: t('preview.audioPreview.window.assetPreviewLabel') };
+    return { role: 'unknown', label: t('preview.diagnostics.report.outsideAkariPreviewOwnedAnotherExtension') };
 }
 
 /**
@@ -378,7 +379,7 @@ export function describeKeyEventConversionFailure(
         }
     };
     const asString = (value: unknown): string =>
-        typeof value === 'string' && value !== '' ? value : '(なし)';
+        typeof value === 'string' && value !== '' ? value : t('preview.diagnostics.report.noneLabel');
     const asNumber = (value: unknown): number | null =>
         typeof value === 'number' && Number.isFinite(value) ? value : null;
     const asBoolean = (value: unknown): boolean | null =>
@@ -393,13 +394,13 @@ export function describeKeyEventConversionFailure(
         try {
             because = reason instanceof Error ? reason.message : String(reason);
         } catch {
-            because = '(理由の文字列化に失敗)';
+            because = t('preview.diagnostics.report.couldNotStringifyReasonError');
         }
     }
-    const message = 'キー変換失敗: key=' + key + ' code=' + code
-        + ' keyCode=' + (keyCode === null ? '(なし)' : String(keyCode))
-        + ' IME合成=' + (composing === null ? '不明' : composing ? 'はい' : 'いいえ')
-        + ' 長押し=' + (repeat === null ? '不明' : repeat ? 'はい' : 'いいえ')
+    const message = t('preview.diagnostics.report.keyConversionFailedKeyError') + key + ' code=' + code
+        + ' keyCode=' + (keyCode === null ? t('preview.diagnostics.report.noneLabel') : String(keyCode))
+        + t('preview.diagnostics.report.imeCompositionSuffix') + (composing === null ? t('preview.diagnostics.overlay.unknownLabel') : composing ? t('preview.diagnostics.report.yesLabel') : t('preview.diagnostics.report.noLabel'))
+        + t('preview.diagnostics.report.repeatSuffix') + (repeat === null ? t('preview.diagnostics.overlay.unknownLabel') : repeat ? t('preview.diagnostics.report.yesLabel') : t('preview.diagnostics.report.noLabel'))
         + (because ? ' / ' + because.slice(0, 200) : '');
     return { message, key, code, keyCode, composing, repeat };
 }

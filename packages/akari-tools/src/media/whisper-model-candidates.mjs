@@ -21,8 +21,8 @@ export function isWhisperModelFilename(candidate) {
   return /^ggml-.*\.bin$/i.test(path.basename(candidate));
 }
 
-export function isWhisperModelExcluded(candidate) {
-  return path.basename(candidate).startsWith("for-tests-") || path.basename(candidate).includes(".en.");
+export function isWhisperModelExcluded(candidate, lang = "auto") {
+  return path.basename(candidate).startsWith("for-tests-") || (lang !== "en" && path.basename(candidate).includes(".en."));
 }
 
 function findModels(root) {

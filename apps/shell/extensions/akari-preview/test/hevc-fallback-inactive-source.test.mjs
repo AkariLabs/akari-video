@@ -155,7 +155,7 @@ test('ten simultaneous failures stay single-flight and drain in FIFO order after
     assert.match(processBody, /hevcFallbackInFlight \|\| hevcFallbackQueue\.length === 0/u);
     assert.match(processBody, /hevcFallbackQueue\.shift\(\)/u);
     assert.match(processBody, /hevcFallbackInFlight = true/u);
-    assert.match(processBody, /if \(playbackErrored\) \{[\s\S]*?互換用に変換しています…[\s\S]*?previewMessageReload\.hidden = true;/u);
+    assert.match(processBody, /if \(playbackErrored\) \{[\s\S]*?uiText\.transcoding[\s\S]*?previewMessageReload\.hidden = true;/u);
     assert.match(processBody, /\.then\(\(\) => \{[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);[\s\S]*?\}, \(\) => \{/u);
     assert.match(processBody, /\}, \(\) => \{[\s\S]*?if \(playbackErrored\) \{[\s\S]*?previewMessageReload\.hidden = false;[\s\S]*?\}[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\)/u);
 

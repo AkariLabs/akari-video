@@ -1,11 +1,21 @@
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import {
     isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, libraryPresetInfoCard, premiumPromptText
 } from '../lib/common/library-card-menu.js';
 
 const asset = (extra = {}) => ({ origin: 'resolver', key: 'still/photo', id: 'photo', category: 'still', title: '夕暮れの海岸',
     tags: ['風景', '夕方', '海', '空', '旅行', '夏'], sourceKind: 'own', state: 'cached', price: 0, ...extra });
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
+
+test('library info card keeps the price row in English', () => {
+    setLanguage('en');
+    const info = libraryAssetInfoCard(asset({ state: 'locked', tier: 'pro' }), 'Still', false);
+    assert.equal(info.price.label, 'Pro · Locked');
+    assert.equal(info.actions[0].label, 'View Pro in Lab');
+});
 const ids = entries => entries.map(entry => entry.id);
 
 test('置ける素材: プレイヘッドに置く / 取り込むだけ / ★ / 情報を見る / Finder / ライブラリから消す', () => {
@@ -28,18 +38,23 @@ test('★ の文言は状態で入れ替わる', () => {
     assert.equal(on.icon, 'star-full');
 });
 
-test('オーバーレイは置ける、3D は取り込みのみ', () => {
+test('オーバーレイと 3D のカードには配置の入口がある', () => {
     for (const category of ['overlay', 'scene3d']) {
         const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category, key: `${category}/x`, sourceKind: 'lab', state: 'available' }) }, false);
-        assert.deepEqual(ids(entries), category === 'overlay'
-            ? ['place', 'import', 'favorite', 'info'] : ['import', 'favorite', 'info']);
+        assert.deepEqual(ids(entries), ['place', 'import', 'favorite', 'info']);
     }
 });
 
 test('フォントは選択中の文字へ当てる', () => {
     const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category: 'font', key: 'font/noto-sans-jp' }) }, false);
     assert.deepEqual(ids(entries), ['apply', 'favorite', 'info']);
+    assert.equal(entries.some(entry => entry.id === 'reveal' || entry.id === 'remove-library'), false);
     assert.equal(entries[0].label, '選択中に当てる');
+    const imported = libraryCardMenuEntries({ kind: 'asset', item: asset({ category: 'font',
+        key: 'font/my-font', id: 'my-font', libraryDir: '/library/font/my-font' }) }, false);
+    assert.deepEqual(ids(imported), ['apply', 'favorite', 'info', 'reveal', 'remove-library']);
+    assert.equal(imported.find(entry => entry.id === 'reveal').label, '場所を見る');
+    assert.equal(imported.find(entry => entry.id === 'remove-library').danger, true);
 });
 
 test('Pro 未契約: Lab で見る / プレイヘッドに置く（押すと促しのシート）/ ★ / 情報を見る', () => {

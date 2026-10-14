@@ -1,10 +1,12 @@
+import { t } from '../../common/shell-text';
+
 export const SKILLS_PANEL_TEXT = {
-    heading: 'スキル',
-    subtitle: 'パートナーに頼める決まった仕事。/呼び名 でも呼べます',
-    empty: 'このプロジェクトにはまだスキルがありません。',
-    ask: 'パートナーに頼む',
-    add: 'スキルを作る・足す…',
-    addHint: 'スキルの追加はこの版ではパートナーに頼んでください（例: /create-skill）'
+    get heading() { return t('shell.skills.panel.skillsLabel'); },
+    get subtitle() { return t('shell.skills.panel.readyMadeTasksAskPartnerDoAlsoUseSkillNameStatus'); },
+    get empty() { return t('shell.skills.panel.projectNoSkillsYetMessage'); },
+    get ask() { return t('shell.skills.panel.askPartnerAction'); },
+    get add() { return t('shell.skills.panel.createAddSkillAction'); },
+    get addHint() { return t('shell.skills.panel.askPartnerAddSkillVersionExampleCreateSkillMessage'); }
 } as const;
 
 export type SkillCategory = 'plan' | 'analysis' | 'material' | 'edit' | 'review' | 'export' | 'setup' | 'other';
@@ -22,11 +24,6 @@ const CATEGORY_WORDS: ReadonlyArray<readonly [SkillCategory, readonly string[]]>
     ['setup', ['setup', 'connect', 'install', 'manage']]
 ];
 
-const CATEGORY_LABELS: Record<SkillCategory, string> = {
-    plan: '企画', analysis: '分析', material: '素材', edit: '編集', review: '確認',
-    export: '書き出し', setup: 'セットアップ', other: 'その他'
-};
-
 export function skillCategory(name: string, _description: string): SkillCategory {
     const words = new Set(name.toLowerCase().split('-'));
     if (words.has('lint')) return 'review';
@@ -39,7 +36,7 @@ export function skillCategory(name: string, _description: string): SkillCategory
 }
 
 export function skillCategoryLabel(category: SkillCategory): string {
-    return CATEGORY_LABELS[category];
+    return t(`shell.skills.category.${category}Label`);
 }
 
 export function groupSkillsByCategory<T extends { name: string; description: string }>(skills: readonly T[]): Array<{ category: SkillCategory; label: string; skills: T[] }> {
@@ -57,12 +54,12 @@ export function skillPromptText(name: string): string {
 export function skillAskOutcomeMessage(result: unknown, name: string): { kind: 'info' | 'warn' | 'none'; text: string } {
     if (result === 'typed') return { kind: 'none', text: '' };
     if (result === 'unsupported') {
-        return { kind: 'info', text: `「/${name}」をコピーしました。チャットに貼り付けてください` };
+        return { kind: 'info', text: t('shell.skills.panel.copiedPasteChatStatus', { name }) };
     }
-    return { kind: 'warn', text: 'パートナーを開いてから頼んでください' };
+    return { kind: 'warn', text: t('shell.skills.panel.openPartnerAskingAction') };
 }
 
 export function skillsPanelNote(projectName: string | undefined): string {
-    const intro = 'パートナーの中で `/呼び名` でも呼べます。';
-    return projectName ? `${intro}いま開いている「${projectName}」に使います。` : intro;
+    const intro = t('shell.skills.panel.alsoUseSkillNamePartnerMessage');
+    return projectName ? `${intro}${t('shell.skills.panel.usedOpenProjectMessage', { name: projectName })}` : intro;
 }

@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { QuickExportCodec, QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
 
 const REFERENCE_PIXELS = 1920 * 1080;
@@ -127,16 +128,16 @@ export function formatEstimate(seconds: number, bytes: number): FormattedExportE
     const roundedSeconds = Math.max(10, Math.round(Math.max(0, seconds) / 10) * 10);
     let time: string;
     if (roundedSeconds < 60) {
-        time = `約 ${roundedSeconds} 秒`;
+        time = t('shell.export.estimate.aboutSecLabel', { value1: roundedSeconds });
     } else {
         const minutes = Math.floor(roundedSeconds / 60);
         const rest = roundedSeconds % 60;
-        time = rest === 0 ? `約 ${minutes} 分` : `約 ${minutes} 分 ${rest} 秒`;
+        time = rest === 0 ? t('shell.export.estimate.aboutMinLabel', { value1: minutes }) : t('shell.export.estimate.aboutMinSecText', { value1: minutes, value2: rest });
     }
 
     const megabytes = Math.max(0, bytes) / 1_000_000;
     const size = megabytes >= 1000
-        ? `約 ${(megabytes / 1000).toFixed(1)} GB`
-        : `約 ${Math.max(1, Math.round(megabytes))} MB`;
+        ? t('shell.export.estimate.aboutGbLabel', { value1: (megabytes / 1000).toFixed(1) })
+        : t('shell.export.estimate.aboutMbLabel', { value1: Math.max(1, Math.round(megabytes)) });
     return { time, size };
 }

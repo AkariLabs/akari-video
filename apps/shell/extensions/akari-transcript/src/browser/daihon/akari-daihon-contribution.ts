@@ -1,3 +1,4 @@
+import { t } from '../transcript-text';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import {
@@ -22,8 +23,8 @@ import { DaihonOpenTarget } from '../../common/daihon-focus-target';
 import { setDaihonHistoryService } from '../../common/captions-button';
 
 const DAIHON_PANEL_RANK = 190;
-export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: 'カットを整える' };
-export const AKARI_TRANSCRIBE_OPEN_DIALOG: Command = { id: 'akari.transcribe.openDialog', label: '文字起こしのポップアップを開く' };
+export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: t('transcript.daihon.command.refineCutsLabel') };
+export const AKARI_TRANSCRIBE_OPEN_DIALOG: Command = { id: 'akari.transcribe.openDialog', label: t('transcript.daihon.command.openTranscriptionPopupLabel') };
 
 @injectable()
 export class AkariDaihonContribution implements CommandContribution, FrontendApplicationContribution {
@@ -48,33 +49,33 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                     type: 'string',
                     enum: ['word', 'token'],
                     default: 'word',
-                    description: '台本で選択・操作する単位（単語または認識トークン）'
+                    description: t('transcript.daihon.command.unitUsedSelectEditScriptWordRecognitionTokenDescription')
                 },
                 'akari.daihon.showBreaks': {
                     type: 'boolean',
                     default: true,
-                    description: '台本の本文に自動・手置きの表示区切りを表示する'
+                    description: t('transcript.daihon.command.showAutomaticManualDisplayBreaksScriptTextDescription')
                 },
                 'akari.daihon.showCutMarks': {
-                    type: 'boolean', default: true, description: '台本の本文にカット候補の印を表示する'
+                    type: 'boolean', default: true, description: t('transcript.daihon.command.showCutCandidateMarksScriptTextDescription')
                 },
                 'akari.daihon.silenceMin': {
-                    type: 'number', default: 0.45, minimum: 0, description: 'カット候補にする無音の長さ（秒）'
+                    type: 'number', default: 0.45, minimum: 0, description: t('transcript.daihon.command.minimumSilenceLengthCutCandidatesSecondsDescription')
                 },
                 'akari.daihon.silenceKeep': {
-                    type: 'number', default: 0.15, minimum: 0, description: '無音カットで残す長さ（秒）'
+                    type: 'number', default: 0.15, minimum: 0, description: t('transcript.daihon.command.silenceKeepWhenCuttingSecondsDescription')
                 },
                 'akari.daihon.attachmentMode': {
                     type: 'string',
                     enum: ['all', 'text', 'none'],
                     default: 'all',
-                    description: '台本に表示する添付の種類'
+                    description: t('transcript.daihon.command.attachmentTypesShownScriptDescription')
                 },
                 'akari.daihon.hiddenSources': {
                     type: 'array',
                     items: { type: 'string' },
                     default: [],
-                    description: '台本で表示しない素材の id'
+                    description: t('transcript.daihon.command.assetIdsHiddenScriptDescription')
                 }
             }
         });
@@ -91,7 +92,7 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
 
     protected async openTranscribeDialog(commands: CommandRegistry,
         request: { projectRoot: string; relativePath: string }): Promise<'opened' | 'running' | 'cancelled'> {
-        if (!request?.projectRoot || !request.relativePath) throw new Error('文字起こし対象が指定されていません');
+        if (!request?.projectRoot || !request.relativePath) throw new Error(t('transcript.daihon.command.noTranscriptionTargetSpecifiedError'));
         const states = await this.projectService.transcriptStates({
             projectRoot: request.projectRoot, relativePaths: [request.relativePath]
         });

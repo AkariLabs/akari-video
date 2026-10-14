@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentStripIndex } from '../lib/common/export-thumbnail-protocol.js';

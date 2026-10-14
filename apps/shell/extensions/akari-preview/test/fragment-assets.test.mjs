@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
@@ -33,6 +37,8 @@ test('shell fragment assets use shared resolution and registered stream URLs', a
         .replace('../../../outside.png', 'about:invalid#..%2Foutside.png'));
     assert.equal(result.warnings.length, 2);
     assert.ok(result.warnings[0].includes('overlay:logo fragment overlays/lower-third/fragment.html の参照 "../assets/logo.png"'));
+    // 届いていない参照は、プロジェクト内を指すものだけ場所を返す（届いた合図で読み直すため）。
+    assert.deepEqual(result.unserved.map(fileURLToPath), [join(realpathSync(projectRoot), 'overlays/assets/logo.png')]);
     const again = await rewritePreviewFragmentAssets(result.html, {
         projectRoot, htmlPath: 'overlays/lower-third/fragment.html', overlayId: 'logo'
     }, async () => { throw new Error('already rewritten'); });

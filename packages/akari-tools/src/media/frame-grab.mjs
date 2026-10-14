@@ -40,6 +40,7 @@
 // 抱えるので無制限にはしない）。
 
 import { runChecked } from "./common.mjs";
+import { toolsText } from '../i18n.mjs';
 
 // 入力側シークで目的時刻の手前に取る余裕（秒）。索引のずれと open-GOP の参照を跨ぐため。
 export const GRAB_PREROLL_SECONDS = 1;
@@ -54,7 +55,7 @@ const VERIFY_EPSILON_SECONDS = 1e-6;
 
 export function toMicros(seconds) {
   const value = Number(seconds);
-  if (!Number.isFinite(value)) throw new Error(`時刻が不正です: ${seconds}`);
+  if (!Number.isFinite(value)) throw new Error(toolsText('tools.media.error.invalidTime', { value: seconds }));
   return Math.max(0, Math.round(value * MICROS_PER_SECOND));
 }
 
@@ -74,7 +75,7 @@ export function buildFrameGrabPlan(requests, options = {}) {
   const prerollMicros = toMicros(options.preroll ?? GRAB_PREROLL_SECONDS);
   const gapMicros = toMicros(options.gap ?? GRAB_BATCH_GAP_SECONDS);
   const maxFrames = options.maxFrames ?? GRAB_BATCH_MAX_FRAMES;
-  if (!Number.isInteger(maxFrames) || maxFrames < 1) throw new Error("maxFrames は 1 以上の整数で指定してください");
+  if (!Number.isInteger(maxFrames) || maxFrames < 1) throw new Error(toolsText('tools.grab.error.maxFrames'));
 
   // 同じ出力ファイルを指す指定は 1 回の抽出にまとめる。1 プロセスから同じパスを
   // 二重に開かせないため。従来（1 枚ずつ順に上書き）と同じ「後の指定が残る」形にする。
@@ -174,11 +175,7 @@ export function grabFrames({ ffmpeg, inputPath, requests, filter, options = {}, 
     const result = runPass({ ffmpeg, inputPath, pass, filter, options, onWarning });
     const firstDecoded = firstDecodedSeconds(result?.stderr);
     for (const frame of staleFrames(pass, firstDecoded)) {
-      onWarning?.(
-        `grab: 入力側シークが t=${secondsArgument(frame.micros)}s を越えました`
-        + `（デコード開始 ${secondsArgument(pass.inputSeekMicros)}s + ${firstDecoded}s）。`
-        + "素材の索引が信頼できないため、この 1 枚は先頭からデコードしてやり直します（時間がかかります）。",
-      );
+      onWarning?.(toolsText('tools.grab.warning.seekOvershot', { time: secondsArgument(frame.micros), inputSeek: secondsArgument(pass.inputSeekMicros), firstDecoded }));
       runChecked(ffmpeg, legacyFrameGrabArguments({ inputPath, frame, filter }), options);
     }
   }
@@ -192,7 +189,7 @@ function runPass({ ffmpeg, inputPath, pass, filter, options, onWarning }) {
     return runChecked(ffmpeg, frameGrabArguments({ inputPath, pass, filter }), options);
   } catch (error) {
     if (!String(error?.message ?? "").includes("showinfo")) throw error;
-    onWarning?.("grab: この ffmpeg は showinfo filter を持たないため、シーク位置の検査を省略します。");
+    onWarning?.(toolsText('tools.grab.warning.showinfoMissing'));
     return runChecked(ffmpeg, frameGrabArguments({ inputPath, pass, filter, verify: false }), options);
   }
 }

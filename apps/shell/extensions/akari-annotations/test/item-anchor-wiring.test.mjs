@@ -1,3 +1,5 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +8,18 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { lintProject } from '../../../../../packages/edit-lint/src/edit-lint.mjs';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const text = value => `${JSON.stringify(value, null, 2)}\n`;
 const uri = path => pathToFileURL(path).toString();
@@ -208,7 +221,7 @@ test('insertCaption は cache を更新し lint v2.item-anchor-stale を 0 に�
         });
         const refreshed = JSON.parse(await readFile(fixture.editPath, 'utf8'));
         assert.deepEqual({ at: item(refreshed).at, duration: item(refreshed).duration }, { at: 60, duration: 30 });
-        const lint = await lintProject(fixture.root);
+        const lint = await lintProject(fixture.root, { writeReports: false });
         assert.equal(lint.findings.filter(finding => finding.check === 'v2.item-anchor-stale').length, 0);
     } finally {
         await cleanup(fixture.root);

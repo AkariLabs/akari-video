@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { DisposableCollection } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -157,14 +158,14 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
             marginTop: '2px'
         });
 
-        const cancelButton = this.createButton('中止', '書き出しを中止');
+        const cancelButton = this.createButton(t('shell.export.backgroundChip.cancelAction'), t('shell.export.backgroundChip.cancelExportAction'));
         cancelButton.addEventListener('click', () => void this.session.cancel());
-        const dismissButton = this.createButton('×', '書き出し通知を閉じる');
+        const dismissButton = this.createButton('×', t('shell.export.backgroundChip.dismissExportNotificationAction'));
         dismissButton.addEventListener('click', () => {
             this.dismissed = true;
             this.render();
         });
-        const openButton = this.createButton('開く', '書き出しダイアログを開く', true);
+        const openButton = this.createButton(t('shell.export.backgroundChip.openAction'), t('shell.export.backgroundChip.openExportDialogAction'), true);
         openButton.addEventListener('click', () => void this.dialog.open(false));
 
         heading.append(label, progressText);
@@ -240,7 +241,7 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
         const running = state.kind === 'running';
         this.label.textContent = running ? state.stageLabel : state.line;
         this.progressText.textContent = running
-            ? `${state.percent}%${state.remainingMs === undefined ? '' : ` · 残り約 ${formatClock(state.remainingMs)}`}`
+            ? `${state.percent}%${state.remainingMs === undefined ? '' : t('shell.export.backgroundChip.aboutRemainingStatus', { value1: formatClock(state.remainingMs) })}`
             : '';
         this.progressText.hidden = !running;
         this.progressTrack.hidden = !running;

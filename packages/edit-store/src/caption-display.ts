@@ -4,6 +4,11 @@ import { sliceCaptionRuns, type CaptionRun } from './caption-runs';
 import { buildCaptionTimelineSegments } from './caption-timeline';
 import type { EditCut } from './edit-store';
 import { captionEmphasisMatches, type CaptionEmphasisMatchWord } from './caption-emphasis-match';
+const CAPTION_LANGUAGE_DEFAULTS = require('../../content-language/src/caption-defaults.json') as Record<string, {
+    landscapeCharacters: number; portraitCharacters: number; charactersPerSecond: number | null;
+    minimumSeconds: number; fontStack: string;
+}>;
+const captionDefaultsFor = (locale: string) => CAPTION_LANGUAGE_DEFAULTS[locale.split('-')[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
 
 /**
  * Caption display policy v1.  This is the single pure implementation used by
@@ -19,7 +24,7 @@ export function captionDefaultSizePx(output?: { width?: number; height?: number 
     return output && finitePositive(output.width) && finitePositive(output.height) && output.height > output.width
         ? Math.round(output.width * 0.06) : 38;
 }
-export const CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
+export const CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
 
 type RichRect = { left: number; top: number; width: number; height: number };
 type RichFillNode = { getBoundingClientRect(): RichRect; style: { setProperty(name: string, value: string): void } };
@@ -560,12 +565,29 @@ export function resolveCaptionDisplay(
                 karaokeEligible
             );
             const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some(word => !word.untimed));
-            const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            let cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            if (policy.locale.split('-')[0].toLowerCase() !== 'ja'
+                && !cueStyleVars?.['--caption-font-family']) {
+                (cueStyleVars ??= {})['--caption-font-family'] = captionDefaultsFor(policy.locale).fontStack;
+            }
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns)
                 ? sliceCaptionRuns(projectedCaptions[occurrence.caption_input_index].displayText,
                     sourceRuns as CaptionRun[], group.charStart, group.charEnd)
                 : undefined;
+            const karaokeOffset = karaoke
+                ? captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                : undefined;
+            const display = resolved.manual && !resolved.overflow
+                ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset)
+                : {
+                    text,
+                    lines: group.lines,
+                    runs: cueRuns,
+                    words: wordDisplay?.words,
+                    wordStyles: wordDisplay?.wordStyles,
+                    karaokeOffset
+                };
             displayCues.push({
                 id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
                 source_cue_id: occurrence.source_cue_id,
@@ -576,22 +598,21 @@ export function resolveCaptionDisplay(
                 fragment_count: groups.length,
                 start: group.start,
                 end: group.end,
-                text,
-                ...(cueRuns ? { runs: cueRuns } : {}),
-                ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
-                units: measureCaptionUnits(text),
+                text: display.text,
+                ...(display.runs ? { runs: display.runs } : {}),
+                ...(display.lines.length >= 2 ? { display_lines: display.lines } : {}),
+                units: measureCaptionUnits(display.text),
                 line_override: resolved.manual,
                 ...(resolved.overflow ? { overflow: resolved.overflow } : {}),
                 ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
                 ...(cueStyleVars ? { style_vars: cueStyleVars } : {}),
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
-                ...(wordDisplay ? { words: wordDisplay.words } : {}),
-                ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
+                ...(display.words ? { words: display.words } : {}),
+                ...(display.wordStyles?.length ? { word_styles: display.wordStyles } : {}),
                 ...(untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {}),
                 ...(karaoke ? {
                     style: 'karaoke' as const,
-                    karaoke_offset: captionDisplayGraphemes(
-                        projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                    karaoke_offset: display.karaokeOffset
                 } : {})
             });
         });
@@ -917,6 +938,65 @@ function buildCueWordDisplay(
             start, end, text, line, ...(untimed ? { untimed } : {})
         })),
         wordStyles
+    };
+}
+
+function trimManualCueDisplay(
+    lines: string[],
+    locale: string,
+    runs: CaptionRun[] | undefined,
+    wordDisplay: { words: CaptionDisplayWord[]; wordStyles: CaptionDisplayWordStyle[] } | undefined,
+    karaokeOffset: number | undefined
+): { text: string; lines: string[]; runs?: CaptionRun[]; words?: CaptionDisplayWord[];
+    wordStyles?: CaptionDisplayWordStyle[]; karaokeOffset?: number } {
+    const kept = lines.map((line, index) => ({
+        start: index > 0 ? 0 : line.length - line.trimStart().length,
+        end: index < lines.length - 1 ? line.length : line.trimEnd().length
+    }));
+    const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
+    if (lines.every((line, index) => line === trimmedLines[index])) {
+        return { text: joinCaptionLines(lines, locale), lines, runs,
+            words: wordDisplay?.words, wordStyles: wordDisplay?.wordStyles, karaokeOffset };
+    }
+    const graphemeBoundaries = [0];
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        let position = 0;
+        for (const grapheme of captionDisplayGraphemes(lines[lineIndex])) {
+            const visible = position >= kept[lineIndex].start
+                && position + grapheme.length <= kept[lineIndex].end;
+            graphemeBoundaries.push(graphemeBoundaries[graphemeBoundaries.length - 1] + (visible ? 1 : 0));
+            position += grapheme.length;
+        }
+    }
+    const trimmedRuns = runs?.flatMap(run => {
+        const from = graphemeBoundaries[run.from];
+        const to = graphemeBoundaries[run.to];
+        return from < to ? [{ ...run, from, to }] : [];
+    });
+    const wordPositions = lines.map(() => 0);
+    const retainedWords: CaptionDisplayWord[] = [];
+    const wordBoundaries = [0];
+    for (const word of wordDisplay?.words ?? []) {
+        const position = wordPositions[word.line];
+        wordPositions[word.line] += word.text.length;
+        const start = Math.max(0, kept[word.line].start - position);
+        const end = Math.min(word.text.length, kept[word.line].end - position);
+        if (start < end) retainedWords.push({ ...word, text: word.text.slice(start, end) });
+        wordBoundaries.push(retainedWords.length);
+    }
+    const wordStyles = wordDisplay?.wordStyles.flatMap(style => {
+        const from = wordBoundaries[style.from];
+        const to = wordBoundaries[style.to];
+        return from < to ? [{ ...style, from, to }] : [];
+    });
+    return {
+        text: joinCaptionLines(trimmedLines, locale),
+        lines: trimmedLines,
+        runs: trimmedRuns?.length ? trimmedRuns : undefined,
+        words: wordDisplay ? retainedWords : undefined,
+        wordStyles,
+        karaokeOffset: karaokeOffset === undefined ? undefined
+            : karaokeOffset + captionDisplayGraphemes(lines[0].slice(0, kept[0].start)).length
     };
 }
 
@@ -1627,14 +1707,14 @@ function validateManualFragments(
     if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
         return overflow();
     }
-    if (caption.display_fragments.some((fragment: unknown) => !strictText(fragment))) {
+    if (caption.display_fragments.some((fragment: unknown) => !manualFragmentText(fragment))) {
         return overflow();
     }
     if (caption.display_fragments.join('') !== text) {
         return overflow();
     }
     for (const fragment of caption.display_fragments) {
-        if (measureCaptionUnits(fragment) > policy.max_line_units) {
+        if (measureCaptionUnits(fragment.trim()) > policy.max_line_units) {
             return overflow();
         }
     }
@@ -1679,7 +1759,7 @@ export function splitCaptionFragments(
         }
         candidates.push({
             fragments: [first, second],
-            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
+            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints, policy.locale),
             boundary
         });
     }
@@ -1738,7 +1818,14 @@ function splitCaptionFragmentsAtBoundaries(
         if (memo.has(key)) return memo.get(key);
         const candidates = ends.filter(end => end > start
             && units[end] - units[start] <= policy.max_line_units
-            && allowed.has(end)).reverse();
+            && allowed.has(end)).sort((left, right) => {
+                if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
+                    const penalty = (end: number) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu
+                        .test(text.slice(start, end)) ? 1 : 0;
+                    if (penalty(left) !== penalty(right)) return penalty(left) - penalty(right);
+                }
+                return right - left;
+            });
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);
             if (rest) {
@@ -1770,8 +1857,11 @@ export function foldCaptionLines(
     const Segmenter = (Intl as any).Segmenter;
     const segments: string[] = typeof Segmenter === 'function'
         ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(segment => segment.segment)
-        : Array.from(text);
-    const tokens = segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits));
+        : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja
+            ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
+    const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja || maxLineUnits < 2
+        ? segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits))
+        : segments;
     const result: string[] = [];
     let current = '';
     for (let index = 0; index < tokens.length; index++) {
@@ -1806,7 +1896,7 @@ function splitCaptionUnitChunks(text: string, maxLineUnits: number): string[] {
     return chunks;
 }
 
-function captionBreakScore(first: string, second: string, firstUnits: number, secondUnits: number, hints?: CaptionBreakHints): number {
+function captionBreakScore(first: string, second: string, firstUnits: number, secondUnits: number, hints?: CaptionBreakHints, locale = 'ja'): number {
     let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
     if ((hints?.preferred_second_starts ?? []).some(value => second.startsWith(value))) score += 34;
     if ((hints?.preferred_first_ends ?? []).some(value => first.endsWith(value))) score += 28;
@@ -1814,6 +1904,8 @@ function captionBreakScore(first: string, second: string, firstUnits: number, se
     if (/^[、。！？!?）」』】]/u.test(second)) score -= 100;
     if (/[（「『【]$/u.test(first)) score -= 100;
     if (/^[はがをにでとのもへや]/u.test(second)) score -= 28;
+    if (captionDefaultsFor(locale) !== CAPTION_LANGUAGE_DEFAULTS.ja
+        && /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(first)) score -= 100;
     // .at() は ES2022。tsconfig の lib は ES2021 なので slice で等価に書く
     // （クリーンな checkout で tsc -b が落ち、preview-server の pretest ごと止まっていた。
     //  既存ツリーでは .tsbuildinfo に隠れて再現しなかった）
@@ -2578,7 +2670,7 @@ export function captionTextShadowValue(shadow: unknown, glow: unknown, scale = 1
     return parts.length > 0 ? parts.join(', ') : null;
 }
 
-function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null {
+export function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null {
     const parts: string[] = [];
     if (!Array.isArray(style.strokes) && isRecord(style.stroke_inner) && finiteNonNegative(style.stroke_inner.width_px)
         && style.stroke_inner.width_px > 0) {
@@ -2742,6 +2834,10 @@ function strictText(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0 && value.trim() === value && value.normalize('NFC') === value;
 }
 
+function manualFragmentText(value: unknown): value is string {
+    return typeof value === 'string' && /\S/u.test(value) && value.normalize('NFC') === value;
+}
+
 function finiteNumber(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value);
 }
@@ -2768,4 +2864,311 @@ function rejectUnknown(value: UnknownRecord, allowed: Set<string>, label: string
 
 function fail(code: string, message: string): never {
     throw new CaptionDisplayError(code, message);
+}
+
+/** Render caption outlines with round SVG joins while preserving the text nodes. */
+export function captionOutlineRuntime() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const states = new WeakMap<any, any>();
+    const installs = new WeakMap<any, any>();
+    const wraps = new Set(['normal', 'pre-wrap', 'pre-line', 'break-spaces']);
+    const collapses = new Set(['normal', 'nowrap', 'pre-line']);
+    const svgCss = 'float:left;width:1px;height:1px;margin:0 -1px -1px 0;overflow:visible;pointer-events:none;user-select:none;-webkit-user-select:none;';
+    const textCss = 'fill:none;stroke-linejoin:round;stroke-linecap:round;white-space:pre;text-shadow:none;text-decoration:none;text-rendering:geometricPrecision;';
+
+    function hosts(root: any): any[] {
+        const doc = root.ownerDocument || root;
+        const found = new Set<any>();
+        const walker = doc.createTreeWalker(root, 4);
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const parent = node.parentElement;
+            if (parent && parent.namespaceURI !== ns && !['STYLE', 'SCRIPT', 'TEMPLATE'].includes(parent.tagName)
+                && node.data.trim()) found.add(parent);
+        }
+        if (root.nodeType === 1 && states.has(root)) found.add(root);
+        for (const element of root.querySelectorAll?.('*') || []) if (states.has(element)) found.add(element);
+        return [...found];
+    }
+
+    function details(host: any): any {
+        const computed = host.ownerDocument.defaultView.getComputedStyle(host);
+        const style: any = {};
+        for (const name of ['webkitTextStrokeWidth', 'webkitTextStrokeColor', 'whiteSpace',
+            'writingMode', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
+            'fontStretch', 'fontFeatureSettings', 'fontVariationSettings', 'letterSpacing',
+            'lineHeight', 'textTransform', 'display']) style[name] = computed[name];
+        const children = [...host.childNodes];
+        const texts = children.filter(child => child.nodeType === 3 && child.data.trim());
+        let container = host;
+        while (container.parentElement && host.ownerDocument.defaultView.getComputedStyle(container).display.startsWith('inline')) {
+            container = container.parentElement;
+        }
+        const signature = [style.webkitTextStrokeWidth, style.webkitTextStrokeColor, style.whiteSpace,
+            style.writingMode, style.font, style.fontFamily, style.fontSize, style.fontWeight,
+            style.fontStyle, style.fontStretch, style.fontFeatureSettings, style.fontVariationSettings,
+            style.letterSpacing, style.lineHeight, style.textTransform, style.display,
+            wraps.has(style.whiteSpace) ? container.clientWidth + 'x' + container.clientHeight : '',
+            children.length, texts.map(child => child.data).join('\u0001')].join('\u0002');
+        return { style, children, texts, width: Number.parseFloat(style.webkitTextStrokeWidth) || 0, signature };
+    }
+
+    function outlineText(node: any, data: any, start: number, end: number): string {
+        const value = node.data.slice(start, end);
+        if (!collapses.has(data.style.whiteSpace)) return value;
+        const collapsed = value.replace(/\s+/gu, ' ');
+        return start > 0 || !node.previousSibling ? collapsed.replace(/^ /u, '') : collapsed;
+    }
+
+    function makeSvg(doc: any, node: any, data: any, inline: boolean): any {
+        const svg = doc.createElementNS(ns, 'svg');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('width', '1');
+        svg.setAttribute('height', '1');
+        if (inline) {
+            svg.setAttribute('class', 'akari-caption__outline');
+            svg.setAttribute('style', svgCss);
+        }
+        const text = doc.createElementNS(ns, 'text');
+        if (inline) text.setAttribute('style', textCss);
+        text.textContent = outlineText(node, data, 0, node.data.length);
+        text.setAttribute('stroke', data.style.webkitTextStrokeColor);
+        text.setAttribute('stroke-width', String(data.width));
+        text.setAttribute('x', '0');
+        text.setAttribute('y', '0');
+        svg.appendChild(text);
+        return svg;
+    }
+
+    function split(svg: any, node: any, data: any): any {
+        const vertical = data.style.writingMode.startsWith('vertical');
+        const matrix = svg.getScreenCTM();
+        if (!matrix) return false;
+        let inverse: any;
+        try { inverse = matrix.inverse(); } catch { return false; }
+        const doc = node.ownerDocument;
+        const height = Number.parseFloat(data.style.lineHeight) || Number.parseFloat(data.style.fontSize) * 1.2;
+        const range = doc.createRange();
+        const lines: any[] = [];
+        const canWrap = wraps.has(data.style.whiteSpace);
+        let offset = 0;
+        let previousEnd = 0;
+        for (const character of node.data) {
+            range.setStart(node, offset);
+            range.setEnd(node, offset + character.length);
+            const rect = range.getClientRects()[0];
+            if (rect && rect.width > 0 && rect.height > 0) {
+                const center = new doc.defaultView.DOMPoint(rect.left + rect.width / 2,
+                    rect.top + rect.height / 2).matrixTransform(inverse);
+                const along = vertical ? -center.x : center.y;
+                if (!lines.length || Math.abs(along - lines[lines.length - 1].along) > height / 2) {
+                    lines.push({ start: previousEnd, anchor: offset, length: character.length, center, along });
+                }
+                previousEnd = offset + character.length;
+                if (!canWrap) break;
+            }
+            offset += character.length;
+        }
+        if (!lines.length) return false;
+        const original = svg.firstChild;
+        for (let index = 0; index < lines.length; index += 1) {
+            const text = index ? original.cloneNode(false) : original;
+            text.textContent = outlineText(node, data, lines[index].start,
+                index + 1 < lines.length ? lines[index + 1].start : node.data.length);
+            if (index) svg.appendChild(text);
+            const anchor = outlineText(node, data, lines[index].start, lines[index].anchor).length;
+            if (anchor >= text.getNumberOfChars()) continue;
+            const extent = text.getExtentOfChar(anchor);
+            text.setAttribute('x', String(Number(text.getAttribute('x'))
+                + lines[index].center.x - extent.x - extent.width / 2));
+            text.setAttribute('y', String(Number(text.getAttribute('y'))
+                + lines[index].center.y - extent.y - extent.height / 2));
+        }
+        return { svg, node, offset: lines[0].anchor, length: lines[0].length,
+            center: lines[0].center };
+    }
+
+    function moved(anchors: any[]): boolean {
+        if (!anchors.length) return false;
+        const range = anchors[0].node.ownerDocument.createRange();
+        for (const anchor of anchors) {
+            const matrix = anchor.svg.getScreenCTM();
+            if (!matrix) continue;
+            let inverse: any;
+            try { inverse = matrix.inverse(); } catch { continue; }
+            range.setStart(anchor.node, anchor.offset);
+            range.setEnd(anchor.node, anchor.offset + anchor.length);
+            const rect = range.getClientRects()[0];
+            if (!rect || !(rect.width > 0 && rect.height > 0)) return true;
+            const center = new anchor.node.ownerDocument.defaultView.DOMPoint(
+                rect.left + rect.width / 2, rect.top + rect.height / 2).matrixTransform(inverse);
+            if (Math.abs(center.x - anchor.center.x) > .05 || Math.abs(center.y - anchor.center.y) > .05) return true;
+        }
+        return false;
+    }
+
+    function syncHost(host: any, remeasureAll = false): boolean {
+        const data = details(host);
+        let state = states.get(host);
+        if (host.isContentEditable || !(data.width > 0) || !data.texts.length || data.style.display === 'none'
+            || ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(data.style.display)) {
+            if (state) {
+                state.slotStyle.textContent = '';
+                state.body.replaceChildren(state.plain);
+                state.plain.assign(...data.children);
+                state.signature = '';
+                state.children = data.children;
+                state.anchors = [];
+            }
+            return false;
+        }
+        if (state && !remeasureAll && state.signature === data.signature
+            && state.children.length === data.children.length
+            && state.children.every((node: any, index: number) => node === data.children[index])
+            && !moved(state.anchors)) return true;
+        if (!state) {
+            if (host.shadowRoot || typeof host.attachShadow !== 'function') return false;
+            let shadow: any;
+            try { shadow = host.attachShadow({ mode: 'open', slotAssignment: 'manual' }); }
+            catch { return false; }
+            const base = host.ownerDocument.createElement('style');
+            base.textContent = 'svg{' + svgCss + '}text{' + textCss + '}';
+            const slotStyle = host.ownerDocument.createElement('style');
+            const body = host.ownerDocument.createElement('span');
+            body.style.display = 'contents';
+            const plain = host.ownerDocument.createElement('slot');
+            shadow.append(base, slotStyle, body);
+            state = { slotStyle, body, plain, signature: '', children: [], anchors: [] };
+            states.set(host, state);
+        }
+        state.slotStyle.textContent = 'slot.akari-outline-text{-webkit-text-stroke:0 transparent;}';
+        const fragment = host.ownerDocument.createDocumentFragment();
+        const measurements: any[] = [];
+        const assignments: any[] = [];
+        for (const child of data.children) {
+            const slot = host.ownerDocument.createElement('slot');
+            if (child.nodeType === 3 && child.data.trim()) {
+                slot.className = 'akari-outline-text';
+                const svg = makeSvg(host.ownerDocument, child, data, false);
+                fragment.appendChild(svg);
+                measurements.push([svg, child]);
+            }
+            fragment.appendChild(slot);
+            assignments.push([slot, child]);
+        }
+        state.body.replaceChildren(fragment);
+        for (const [slot, child] of assignments) slot.assign(child);
+        let measured = true;
+        const anchors: any[] = [];
+        for (const [svg, child] of measurements) {
+            const anchor = split(svg, child, data);
+            if (anchor) anchors.push(anchor);
+            else measured = false;
+        }
+        state.signature = measured ? data.signature : '';
+        state.children = data.children;
+        state.anchors = anchors;
+        return true;
+    }
+
+    function sync(root: any, remeasureAll = false): number {
+        let count = 0;
+        for (const host of hosts(root)) if (syncHost(host, remeasureAll)) count += 1;
+        return count;
+    }
+
+    function nearby(node: any, selector: string): boolean {
+        if (!node || node.nodeType !== 1) return false;
+        if (node.closest?.(selector)) return true;
+        for (const child of node.children || []) {
+            if (child.matches?.(selector)) return true;
+            for (const grandchild of child.children || []) if (grandchild.matches?.(selector)) return true;
+        }
+        return false;
+    }
+
+    function affectsMutation(record: any, selector: string): boolean {
+        if (nearby(record.target, selector)) return true;
+        if (record.type === 'attributes' && record.attributeName === 'contenteditable'
+            && record.target.querySelector?.(selector)) return true;
+        if (record.type === 'characterData') return nearby(record.target.parentElement, selector);
+        if (record.type !== 'childList') return false;
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+            if (nearby(node, selector) || node.querySelector?.(selector)) return true;
+        }
+        return false;
+    }
+
+    function install(doc: any, options: { selector?: string } = {}): any {
+        const previous = installs.get(doc) || doc.__akariCaptionOutlineInstall;
+        if (previous) return previous;
+        const selector = options.selector || '.akari-caption';
+        let scheduled = false;
+        let disposed = false;
+        let remeasureAll = false;
+        const run = () => {
+            scheduled = false;
+            if (disposed) return;
+            const remeasure = remeasureAll;
+            remeasureAll = false;
+            for (const root of doc.querySelectorAll(selector)) sync(root, remeasure);
+        };
+        const schedule = (remeasure = false) => {
+            if (remeasure) remeasureAll = true;
+            if (scheduled || disposed) return;
+            scheduled = true;
+            doc.defaultView.queueMicrotask(run);
+        };
+        const scheduleRemeasure = () => schedule(true);
+        const observer = new doc.defaultView.MutationObserver((records: any[]) => {
+            if (records.some(record => affectsMutation(record, selector))) schedule();
+        });
+        observer.observe(doc.documentElement, { subtree: true, childList: true, characterData: true,
+            attributes: true, attributeFilter: ['style', 'class', 'contenteditable'] });
+        doc.fonts?.addEventListener?.('loadingdone', scheduleRemeasure);
+        doc.defaultView.addEventListener('resize', scheduleRemeasure);
+        const handle = { observer, run, dispose: () => {
+            disposed = true;
+            observer.disconnect();
+            doc.fonts?.removeEventListener?.('loadingdone', scheduleRemeasure);
+            doc.defaultView.removeEventListener('resize', scheduleRemeasure);
+            installs.delete(doc);
+            if (doc.__akariCaptionOutlineInstall === handle) delete doc.__akariCaptionOutlineInstall;
+        } };
+        installs.set(doc, handle);
+        doc.__akariCaptionOutlineInstall = handle;
+        run();
+        return handle;
+    }
+
+    function bake(root: any): number {
+        for (const svg of root.querySelectorAll('.akari-caption__outline')) svg.remove();
+        const bakedHosts = [root, ...root.querySelectorAll('[data-akari-outline-original]')];
+        for (const host of bakedHosts) {
+            if (!host.hasAttribute?.('data-akari-outline-original')) continue;
+            const value = host.getAttribute('data-akari-outline-original');
+            const priority = host.getAttribute('data-akari-outline-priority') || '';
+            if (value) host.style.setProperty('-webkit-text-stroke', value, priority);
+            else host.style.removeProperty('-webkit-text-stroke');
+            host.removeAttribute('data-akari-outline-original');
+            host.removeAttribute('data-akari-outline-priority');
+        }
+        const entries = hosts(root).map(host => ({ host, data: details(host) }))
+            .filter(entry => !entry.host.isContentEditable && entry.data.width > 0
+                && entry.data.texts.length && entry.data.style.display !== 'none'
+                && !['flex', 'inline-flex', 'grid', 'inline-grid'].includes(entry.data.style.display));
+        for (const { host, data } of entries) {
+            for (const child of data.texts) {
+                const svg = makeSvg(host.ownerDocument, child, data, true);
+                child.before(svg);
+                split(svg, child, data);
+            }
+            host.setAttribute('data-akari-outline-original', host.style.getPropertyValue('-webkit-text-stroke'));
+            host.setAttribute('data-akari-outline-priority', host.style.getPropertyPriority('-webkit-text-stroke'));
+            host.style.setProperty('-webkit-text-stroke', '0 transparent');
+        }
+        return entries.length;
+    }
+
+    return { sync, install, bake, affectsMutation };
 }

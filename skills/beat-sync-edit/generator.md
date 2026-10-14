@@ -1,66 +1,62 @@
-# 生成器の書き方
 
-生成器（既定名 `<project>/.akari/work/gen-timeline.mjs`）は、**宣言 → オーバーレイ HTML + edit.json**
-を一方向に変換する純関数的なスクリプト。プロジェクトルートには置かない（生成物は `.akari/work/`）。
 
-## 1. ビートマップ（時刻の唯一のソース）
+# Write the timeline generator
 
-`akari internal beat-sync-beatmap` が `declarations.json` + 音源から作る:
+The generator, normally `<project>/.akari/work/gen-timeline.mjs`, transforms declarations into overlay HTML and edit.json in one direction. Keep the script and its outputs under `.akari/work/`, not at the project root.
 
+## 1. Build the beat map as the sole timing source
+
+Generate a beat map from `declarations.json` and the audio file with `akari internal beat-sync-beatmap`:
 ```sh
 akari internal beat-sync-beatmap <project> <track-id> [--out .akari/work/beatmap.json]
 ```
-
-| キー | 中身 | 使い道 |
+| Key | Contents | How to use |
 |---|---|---|
-| `beats[]` | 頭拍から BPM 刻みの全拍時刻 | すべての配置の基準 |
-| `beat_intensity[]` | 拍ごとの音量ピーク（0〜1） | **音反応モーション**の強度 |
-| `env30[]` | 30fps の RMS エンベロープ | 波形の描画・プレイヘッド |
-| `sections[]` / `hits[]` | 宣言そのまま | 構成の割り付け・キメの演出 |
+| `beats[]` | Time of every beat from the first downbeat, spaced by BPM | Basis for every placement |
+| `beat_intensity[]` | Peak level of each beat, from 0 to 1 | Strength of **audio-reactive motion** |
+| `env30[]` | RMS envelope at 30 fps | Waveform display and playhead |
+| `sections[]` / `hits[]` | Declared sections and accent hits | Assign composition sections and accent timing |
 
-生成時に**区間境界と拍グリッドの一致を照合**する（ズレが大きいなら宣言か BPM が疑わしい）。
+During generation, the generator checks whether section boundaries align with the beat grid. A large discrepancy calls the declaration or BPM into question.
 
-生成器の中では拍番号だけで書く:
-
+In the generator, refer to beat numbers rather than entering times:
 ```js
 const B = (n) => beats[n];        // 拍番号 → 秒
 OV('hook', 'ov-hook.html', B(32), r3(B(64) - B(32)));   // 8 小節ぶん
 S('impact-boom-big', B(32), -2);                         // ドロップ頭に一発
 ```
 
-## 2. 区間の割り付け
 
-`sections` のラベルがそのまま構成の骨になる。**ドロップに山場を、ブリッジに静けさを**置く。
+## 2. Assign the sections
 
-| ラベル | 置くもの |
+The `sections` labels form the composition. **Make the drop the climax and give the bridge a quieter passage.**
+
+| Label | Suggested treatment |
 |---|---|
-| `intro` / `build` | 引き（無音気味・ティック・ライザー）。最後にライザーで期待を作る |
-| `drop` | 山場。ロゴスラム・大判タイポ・図解の一斉表示・ヒットフラッシュ |
-| `bridge` | 静けさ。主張の一文・メタ情報など「読ませる」もの |
-| `outro` | CTA・ロゴ・締め |
+| `intro` / `build` | Hold back with near-silence or ticks, then build anticipation at the end with a riser. |
+| `drop` | Climax: logo slam, large typography, simultaneous display of diagrams, accent flash |
+| `bridge` | Give viewers room to read a key sentence or supporting information. |
+| `outro` | Call to action, logo, and close. |
 
-`hit_points` は**そのままフラッシュ・スイープの位置**に使う（人が耳で「ここ」と決めた点なので、
-自動検出より確実に気持ちがいい）。
+Use `hit_points` directly for flash or sweep timing: a person chose these points by ear, so they produce a pleasing result more reliably than automatic detection.
 
-## 3. オーバーレイの生成
+## 3. Generate overlays
 
-断片の書き方は [overlay-authoring](../overlay-authoring/SKILL.md) に従う。生成器側の要点:
+Follow [overlay-authoring](../overlay-authoring/SKILL.md) for fragment authoring. In the generator:
 
-- 断片ごとに**関数 1 つ**にして、拍番号から `animation-delay` を計算する
-- ウィンドウ開始が拍上なら、断片内の遅延はそのまま拍位置になる（`B(n) - start`）
-- **繰り返し要素は配列 + map** で書く（チップ 12 個・カード 16 枚・テロップ 39 種などは
-  手で並べない）
-
+- Use one function per fragment to calculate `animation-delay` from beat numbers.
+- When a window starts on a beat, compute the fragment's delay as `B(n) - start` so its motion stays aligned.
+- Build repeated elements with an array and map, whether there are 12 chips, 16 cards, or 39 caption variants. Do not write each one by hand.
 ```js
 const chipCss = feats.map((_, i) =>
   `${ACT(`.rcp__c${i}`)} { animation: rcp__pop 0.36s ... ${r3(B(210 + i) - r0)}s both; }`
 ).join('\n    ');   // 1 拍 1 個で点灯
 ```
 
-## 4. 音反応モーション（焼き込み方式）
 
-**実行時に音を解析しない。** ビートマップの実測値を CSS keyframes に焼き込む。決定的でシーク安全。
+## 4. Bake audio-reactive motion
 
+**Do not analyze audio at runtime.** Bake measured beat-map values into CSS keyframes so rendering is deterministic and safe to seek.
 ```js
 // 全 267 拍の実測強度を 1 本の keyframes に
 const stops = ['0% { opacity: 0.08; }'];
@@ -71,28 +67,22 @@ for (let n = 0; n < beats.length; n++) {
   stops.push(`${p(t)}% { opacity: ${r3(hi)}; }`);                   // 拍で光る
 }
 ```
+- This method can drive background light, an equalizer, and a waveform playhead.
+- For periodic elements such as an equalizer, set `animation-duration` to the beat length (`60/BPM`) and use `infinite alternate` to keep the phase aligned.
 
-- **背景の光**・**イコライザ**・**波形のプレイヘッド**がこの方式で作れる
-- イコライザのような周期物は `animation-duration` を拍長（`60/BPM`）にして
-  `infinite alternate` にすれば位相が合う
+## 5. Assemble edit.json
 
-## 5. edit.json の組み立て
-
-生成器の末尾で 1 回だけ書き出す。**必ず入れる検査**:
-
+Write the assembled file once, at the end of the generator. Include these required checks:
 ```js
 const missing = sfx.filter((s) => !fs.existsSync(path.join(ROOT, s.path)));
 if (missing.length) throw new Error('missing sfx: ' + ...);        // 存在しない音を参照しない
 overlays.sort((a, b) => rank(a) - rank(b) || a.start - b.start);   // 重なり順を明示的に
 ```
+**Array order determines z-order.** Sort background, B-roll, 3D, diagrams and typography, then sweeps and flashes with `rank()`.
 
-**重なり順（z 順）は配列順**。背景 → B ロール → 3D → 図解/タイポ → スイープ/フラッシュ の
-順に並べる（`rank()` で機械的に）。
+## 6. Keep the generator easy to revise
 
-## 6. 生成器を書くときの心得
-
-- **定数を上に集める**（色・フォント・尺）。レビュー指摘の多くはここ 1 箇所で直る
-- **同じ演出は関数化**（スイープ・フラッシュ・Ken Burns）。窓の数だけ呼ぶ
-- ファイル名が衝突しうる生成物（同じ画像を 2 窓で使う等）は**連番を付ける**。
-  同名だと後勝ちで前の設定が消える
-- 実行するたび**全オーバーレイを作り直す**前提にする（部分更新を作らない）
+- Put color, font, and duration constants at the top; many review changes can then be made in one place.
+- Make reusable functions for effects such as sweeps, flashes, and Ken Burns moves; call them for each window.
+- Number outputs whose filenames could collide, such as two windows using the same image. Otherwise, the later file overwrites the earlier settings.
+- Recreate **all overlays on every run**. Do not build a partial-update path.

@@ -1,23 +1,23 @@
-# 表・グラフ設計
+# Table and chart design
 
-## 原則
+## Principles
 
-- 正確な値の照合・比較が主目的なら semantic な `<table>` を使う。傾向、順位、構成比を一目で示すなら DOM のラベルと値に CSS Grid / Flex を組み合わせる。
-- データを HTML テキストとして残す。canvas のピクセルだけに値やラベルを閉じ込めない。
-- 表示する値、順序、単位、丸めは authoring 前に確定する。同じ画面で並べる値は同じ基準と単位にそろえる。
-- 色だけで系列を区別せず、ラベル、形、位置も併用する。軸、凡例、基準線を装飾より先に読める状態にする。
-- `--accent-*`、`--label-color`、`--value-color`、`--row-gap`、`--bar-scale` などを CSS 変数で公開する。
-- セレクタと `@keyframes` 名を断片固有のルート配下へ閉じる。
+- Use a semantic `<table>` when precise value lookup and comparison are primary. To show trends, rank, or proportions at a glance, combine DOM labels and values with CSS Grid / Flex.
+- Keep data as HTML text; never trap values or labels solely in canvas pixels.
+- Set displayed values, order, units, and rounding before authoring. Values shown together must use the same basis and units.
+- Do not distinguish series by color alone; also use labels, shapes, and positions. Make axes, legends, and baselines readable before decoration.
+- Expose `--accent-*`, `--label-color`, `--value-color`, `--row-gap`, `--bar-scale`, and similar controls as CSS variables.
+- Scope selectors and `@keyframes` names under the fragment-specific root.
 
-## HTML/CSS の構成
+## HTML/CSS structure
 
-- 表は `<caption>`、`<thead>`、`<tbody>`、`<th scope>` を使い、見た目のためだけに div 表へ崩さない。
-- 棒グラフは「ラベル」「静的な数値」「track」「fill」を DOM に持つ。値を定義域から **0〜1** に正規化し、fill を `transform: scaleX(var(--ratio))` または `scaleY()` で表す。
-- 数字の桁が動く場合は `font-variant-numeric: tabular-nums` を使う。wall-clock の count-up ではなく、最終値を静的に置いて reveal する。
-- 円弧や連続曲線が本当に必要な場合も、値を読める DOM の要約を残す。外部 chart library を安易に追加しない。
-- 行数、文字サイズ、余白の一律閾値はリポ契約にない。収まらない場合は縮小せず、画面を分割する。具体値は出力プロファイルで **要検証** とする。
+- Use `<caption>`, `<thead>`, `<tbody>`, and `<th scope>` for tables. Do not replace them with div tables just for appearance.
+- Give a bar chart DOM elements for label, static numeric value, track, and fill. Normalize each value to **0–1** over its domain; express fill as `transform: scaleX(var(--ratio))` or `scaleY()`.
+- Use `font-variant-numeric: tabular-nums` when digits move. Put the final value in static text and reveal it; never count up on wall-clock time.
+- Even if arcs or continuous curves are truly needed, retain a readable DOM summary of the values. Do not casually add an external chart library.
+- The repository contract has no universal thresholds for row count, type size, or spacing. If content does not fit, split the screen rather than shrink it. Mark specific values **needs verification** for the output profile.
 
-グラフ全体が 1 つとして動けば足りるなら、上記の track + fill を `--ratio` の scale で表す構成でよい。プレビューで棒を 1 本ずつ触れる対象にするなら、div の列を flex / grid で並べ、各棒の先頭 class を `bar`、値を `value-label`、軸ラベルを `axis-label` とし、仕上がりの長さを `height`（横棒なら `width`）の px で決める。scale は `0` → `1`（終わりが等倍）の出現演出だけに使い、`width` / `height` は毎フレーム動かさない。表は semantic な `<table>` を保ち、個別に触れそうなセル内の値やラベルに class を付ける。SVG の棒は 1 本ずつ選ぶ対象にならないため、個別に触れる想定なら div で組む。
+If the whole chart only needs to move as a unit, the track + fill design using `--ratio` scale above is sufficient. If every bar must be directly editable in preview, arrange div columns with flex / grid, give each bar the first class `bar`, each value `value-label`, and each axis label `axis-label`. Set finished length with pixel `height` (or `width` for horizontal bars). Use scale only for an entrance from `0` → `1` (ending at natural size); never animate `width` / `height` every frame. Keep tables as semantic `<table>` elements and give likely editable values or labels in cells classes. SVG bars are not individually selectable, so use divs when direct editing is expected.
 
 ```html
 <div class="sales-chart" style="display: flex; align-items: flex-end; gap: var(--bar-gap, 16px)">
@@ -34,25 +34,25 @@
 </div>
 ```
 
-## アニメーション
+## Animation
 
-- 棒は `transform-origin` を基点側へ置き、scale で伸ばす。`width` / `height` を毎フレーム変えない。
-- 行やカードは translate + opacity で段階表示する。DOM の挿入・削除でレイアウトを揺らさない。
-- 並べ替えは最終順を先に DOM へ置き、必要なら子要素の transform で見せる。再生中に table row を入れ替えない。
-- CSS animation / WAAPI を使い、可視区間 `start <= t < start + duration` のローカル時刻に決定的に対応させる。
-- 静的 Chrome fallback では animation が無効になる。静止状態だけでも値、単位、結論が伝わる構図にする。
+- Put a bar's `transform-origin` at its baseline and grow it with scale. Never change `width` / `height` every frame.
+- Stage rows or cards with translate + opacity. Do not shake layout by inserting or removing DOM nodes.
+- Put final sort order in the DOM first, then show movement with child transforms if necessary. Never reorder table rows during playback.
+- Use CSS animation / WAAPI and map motion deterministically to local time in the visible interval `start <= t < start + duration`.
+- Static Chrome fallback disables animation. Values, units, and conclusion must remain clear in a still frame.
 
-## よくある間違い
+## Common mistakes
 
-- 精密な比較を 3D 円グラフや装飾だけで表す。
-- canvas/chart library を導入し、live preview で script が動くと仮定する。
-- 棒の `width`、行の `top`、grid track をアニメーションする。
-- `setInterval` で数値を加算する。
-- 系列色だけで意味を区別する。
-- 情報量が多いまま任意の「最大行数」を発明する、または文字を極端に縮める。
-- グローバルな `table` セレクタや一般名の `@keyframes grow` を使い、他断片と衝突する。
+- Representing precise comparisons only with a 3D pie chart or decoration.
+- Adding a canvas/chart library and assuming scripts run in live preview.
+- Animating bar `width`, row `top`, or grid tracks.
+- Incrementing a value with `setInterval`.
+- Distinguishing meaning only by series color.
+- Inventing an arbitrary "maximum row count" for dense information or shrinking text excessively.
+- Using a global `table` selector or generic `@keyframes grow`, causing collisions with other fragments.
 
-## 根拠
+## Basis
 
-- 時刻、単一ルート、CSS 変数、compositor の契約: `CLAUDE.md` と `docs/contract-2026-07-13-m1-m4.md`
-- 静的 fallback の制約: `scripts/render-overlays.mjs`
+- Timing, single root, CSS variables, and compositor contracts: `CLAUDE.md` and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md`
+- Static fallback limitation: `scripts/render-overlays.mjs`

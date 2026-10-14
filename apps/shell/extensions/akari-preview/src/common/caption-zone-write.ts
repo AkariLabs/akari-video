@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import { applyCaptionTextEdit, captionStyleFitsFrame, TEXTSTYLE_CATALOG,
     type CaptionTextEditRecord } from '@akari-video/edit-store';
 
@@ -102,7 +103,7 @@ function captionList(root: unknown): unknown[] {
             ? (root as { captions: unknown[] }).captions
             : undefined;
     if (!list) {
-        throw new Error('captions.json の形式が不正です（配列、または captions[] を持つオブジェクトである必要があります）');
+        throw new Error(t('preview.captionEditor.validation.invalidCaptionsJsonFormatExpectedArrayObjectCaptionsError'));
     }
     return list;
 }
@@ -113,7 +114,7 @@ function captionIndex(list: readonly unknown[], captionId: string): number {
         && (value as { id?: unknown }).id === captionId
     );
     if (index < 0) {
-        throw new Error(`字幕が見つかりません: ${captionId}`);
+        throw new Error(t('preview.captionEditor.validation.zoneCaptionNotFoundError', { p1: (captionId) }));
     }
     return index;
 }
@@ -124,7 +125,7 @@ function captionObjectRoot(source: string): Record<string, unknown> {
         return { captions: parsed };
     }
     if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { captions?: unknown }).captions)) {
-        throw new Error('captions.json の形式が不正です（配列、または captions[] を持つオブジェクトである必要があります）');
+        throw new Error(t('preview.captionEditor.validation.invalidCaptionsJsonFormatExpectedArrayObjectCaptionsError'));
     }
     return parsed as Record<string, unknown>;
 }
@@ -156,7 +157,7 @@ export function captionPositionFromVisualRect(
     }
 ): CaptionCuePosition {
     if (!(frame.width > 0) || !(frame.height > 0)) {
-        throw new Error('出力フレームの幅と高さは正数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.outputFrameWidthHeightMustPositiveNumbersError'));
     }
     // Exact legacy arithmetic and rounding for an untransformed caption.
     if ((options.scale ?? 1) === 1 && (options.rotate ?? 0) === 0) {
@@ -166,7 +167,7 @@ export function captionPositionFromVisualRect(
             let x = (visual.left - frame.x) / frame.width;
             let top = (visual.top - frame.y) / frame.height;
             if (![x, top, width, height].every(Number.isFinite)) {
-                throw new Error('字幕位置は有限数である必要があります');
+                throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
             }
             if (options.clamp) {
                 x = Math.min(Math.max(0, 1 - width), Math.max(0, x));
@@ -186,7 +187,7 @@ export function captionPositionFromVisualRect(
         let y = topRatio + (anchor[0] === 'b' ? plateH / frame.height
             : anchor[0] === 'm' ? plateH / frame.height / 2 : 0);
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            throw new Error('字幕位置は有限数である必要があります');
+            throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
         }
         if (options.clamp) {
             const plateW = visual.right - visual.left;
@@ -220,7 +221,7 @@ export function captionPositionFromVisualRect(
     let top = visual.top;
     if (![width, height, visualWidth, visualHeight, left, top].every(Number.isFinite)
         || width < 0 || height < 0 || visualWidth < 0 || visualHeight < 0) {
-        throw new Error('字幕位置は有限数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
     }
     if (options.clamp) {
         // Clamp the transformed bounds by their top-left edge. Oversized ink
@@ -258,7 +259,7 @@ export function captionCuePositionFromRects(
     options: { clamp: boolean; anchor?: CaptionPositionAnchor }
 ): CaptionCuePosition {
     if (!(frame.width > 0) || !(frame.height > 0)) {
-        throw new Error('出力フレームの幅と高さは正数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.outputFrameWidthHeightMustPositiveNumbersError'));
     }
     const topRatio = (plate.top - frame.y) / frame.height;
     const anchor = options.anchor ?? (topRatio < 1 / 3 ? 'tc' : 'bc');
@@ -266,7 +267,7 @@ export function captionCuePositionFromRects(
     const height = (plate.bottom - plate.top) / frame.height;
     let y = topRatio + (anchor[0] === 'b' ? height : anchor[0] === 'm' ? height / 2 : 0);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        throw new Error('字幕位置は有限数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
     }
     if (options.clamp) {
         const plateW = plate.right - plate.left;
@@ -299,14 +300,14 @@ export function placedCaptionPositionFromRects(
     options: { anchor: CaptionPositionAnchor; clamp: boolean }
 ): CaptionCuePosition {
     if (!(frame.width > 0) || !(frame.height > 0)) {
-        throw new Error('出力フレームの幅と高さは正数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.outputFrameWidthHeightMustPositiveNumbersError'));
     }
     const width = (plate.right - plate.left) / frame.width;
     const height = (plate.bottom - plate.top) / frame.height;
     let x = (plate.left - frame.x) / frame.width;
     let top = (plate.top - frame.y) / frame.height;
     if (![x, top, width, height].every(Number.isFinite)) {
-        throw new Error('字幕位置は有限数である必要があります');
+        throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
     }
     if (options.clamp) {
         x = Math.min(Math.max(0, 1 - width), Math.max(0, x));
@@ -363,7 +364,7 @@ export function updateCaptionCuePositionsSource(
     const list = captionList(root);
     const seen = new Set<string>();
     for (const { captionId, value } of positions) {
-        if (seen.has(captionId)) throw new Error(`字幕 ID が重複しています: ${captionId}`);
+        if (seen.has(captionId)) throw new Error(t('preview.captionEditor.validation.duplicateCaptionIdError', { p1: (captionId) }));
         seen.add(captionId);
         const caption = list[captionIndex(list, captionId)] as Record<string, unknown>;
         const current = caption.text_style;

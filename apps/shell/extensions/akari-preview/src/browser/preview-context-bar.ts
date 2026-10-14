@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { captionToolbarFontLabel } from '../common/caption-font-label';
 import { CommandRegistry, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
 import { captionDefaultSizePx, shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
@@ -32,6 +34,9 @@ export const PREVIEW_CONTEXT_LOCK_MESSAGE = 'akari-preview-context-lock';
 export const PREVIEW_TELOP_INNER_SELECTION_MESSAGE = 'akari-preview-telop-inner-selection';
 
 interface Rect { left: number; top: number; width: number; height: number }
+type KeyframeContextState = ContextBarState & {
+    pendingKeyframeGroups: Array<'position' | 'size' | 'rotation' | 'rotation3d'>;
+};
 
 export interface PreviewContextBoxReport {
     box: Rect | null;
@@ -100,7 +105,7 @@ ICON.captionEffect = svg(`<path d="M10 2.5 11.6 7l4.5 1.6-4.5 1.6L10 14.7l-1.6-4
 ICON.captionAnimation = svg(`<path d="M3 10h10m-4-4 4 4-4 4M15 5l2-2m-2 12 2 2" ${stroke}/>`);
 
 const ALIGN_LABEL: Record<AlignMode, string> = {
-    left: '左に揃える', center: '左右の中央', right: '右に揃える', top: '上に揃える', middle: '上下の中央', bottom: '下に揃える'
+    get left() { return t('preview.contextBar.toolbar.alignLeftAction'); }, get center() { return t('preview.contextBar.toolbar.centerHorizontallyAction'); }, get right() { return t('preview.contextBar.toolbar.alignRightAction'); }, get top() { return t('preview.contextBar.toolbar.alignTopAction'); }, get middle() { return t('preview.contextBar.toolbar.centerVerticallyAction'); }, get bottom() { return t('preview.contextBar.toolbar.alignBottomAction'); }
 };
 
 const escapeHtml = (text: string): string => text.replace(/[&<>"']/gu, char =>
@@ -120,7 +125,7 @@ export class PreviewContextBar implements Disposable {
     protected readonly menu = document.createElement('div');
     protected readonly more = document.createElement('div');
     protected readonly hint = document.createElement('div');
-    protected state: ContextBarState | undefined;
+    protected state: KeyframeContextState | undefined;
     protected report: PreviewContextBoxReport = { box: null, busy: false, stage: null };
     protected openWindow: string | null = null;
     protected moreOpen = false;
@@ -155,9 +160,9 @@ export class PreviewContextBar implements Disposable {
         this.more.dataset.akariUi = 'preview-element-more';
         this.hint.dataset.akariUi = 'preview-style-copy-hint';
         this.bar.setAttribute('role', 'toolbar');
-        this.bar.setAttribute('aria-label', '選んだものの見た目');
+        this.bar.setAttribute('aria-label', t('preview.contextBar.toolbar.selectedItemAppearanceLabel'));
         this.menu.setAttribute('role', 'toolbar');
-        this.menu.setAttribute('aria-label', '選んだものの操作');
+        this.menu.setAttribute('aria-label', t('preview.contextBar.toolbar.selectedItemActionsLabel'));
         this.more.setAttribute('role', 'menu');
         this.root.append(this.bar, this.hint, this.pop, this.menu, this.more);
         this.root.appendChild(styleElement());
@@ -273,7 +278,9 @@ export class PreviewContextBar implements Disposable {
         }
         if (typeof message.user === 'string') {
             // 選択を自分で外したのか（akari-annotations の選び直しの安全網が見る）
-            window.dispatchEvent(new CustomEvent(USER_INPUT_EVENT));
+            window.dispatchEvent(new CustomEvent(USER_INPUT_EVENT, {
+                detail: { blankPreview: message.blankPreview === true }
+            }));
             // プレビューを押したら窓と ⋯ を閉じる（配置の窓はレイヤー一覧を見ながら選べるよう開いたまま）
             if (message.user === 'pointer' && ((this.openWindow && this.openWindow !== 'arrange') || this.moreOpen || this.barOverflowOpen)) {
                 if (this.openWindow !== 'arrange') this.openWindow = null;
@@ -302,7 +309,7 @@ export class PreviewContextBar implements Disposable {
         if (busy !== wasBusy) this.root.toggleAttribute('data-busy', busy);
         if (wasTelop !== this.report.telop || wasTelopId !== this.report.telopId
             || wasTelopInner !== this.report.telopInner) this.renderMenu(!!this.state?.selectedId && this.state.multi === 0
-                && !this.openWindow && this.state.kind !== 'caption');
+                && !this.openWindow && (this.state.kind !== 'caption' || this.state.pendingKeyframeGroups.length > 0));
         this.position();
         if (wasHeld && !this.report.pointerHeld && busy) this.scheduleBusyRelease();
     }
@@ -318,7 +325,15 @@ export class PreviewContextBar implements Disposable {
     }
 
     protected setState(value: unknown): void {
-        const state = parseContextBarState(value);
+        const parsed = parseContextBarState(value);
+        const groups = value && typeof value === 'object'
+            ? (value as { pendingKeyframeGroups?: unknown }).pendingKeyframeGroups : undefined;
+        const state: KeyframeContextState | undefined = parsed ? {
+            ...parsed,
+            pendingKeyframeGroups: Array.isArray(groups) ? groups.filter((group): group is
+                'position' | 'size' | 'rotation' | 'rotation3d' =>
+                ['position', 'size', 'rotation', 'rotation3d'].includes(group)) : []
+        } : undefined;
         const editUri = this.host.editUri();
         if (state && editUri && state.editUri !== editUri) return;
         const previous = this.state?.selectedId;
@@ -425,7 +440,8 @@ export class PreviewContextBar implements Disposable {
         this.renderHint();
         this.renderPop();
         // 窓を開いている間は、要素の上の小さなメニューを出さない（窓と重ならないように）
-        this.renderMenu(selected && !this.openWindow && state?.kind !== 'caption');
+        this.renderMenu(selected && !this.openWindow
+            && (state?.kind !== 'caption' || (state.pendingKeyframeGroups?.length ?? 0) > 0));
         this.renderMore();
         this.position();
         if (this.lockMessageSignature() !== this.lockSignature) this.sendLock();
@@ -442,7 +458,7 @@ export class PreviewContextBar implements Disposable {
         this.bar.hidden = items.length === 0;
         this.barOverflow = [];
         this.bar.innerHTML = items.map((item, index) => this.barItemHtml(item, index)).join('')
-            + (items.length ? `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="もっと見る" aria-expanded="${this.barOverflowOpen}" hidden>…</button>` : '');
+            + (items.length ? `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="${t('preview.previewWindow.controls.moreLabel')}" aria-expanded="${this.barOverflowOpen}" hidden>…</button>` : '');
         if (!items.length) return;
         const outerWidth = (element: HTMLElement | null): number => {
             if (!element) return 0;
@@ -497,10 +513,10 @@ export class PreviewContextBar implements Disposable {
         const open = this.openWindow === key;
         const glyph: Record<string, string> = { captionBold: '<b>B</b>', captionItalic: '<i>I</i>',
             captionUnderline: '<u>U</u>', captionStrike: '<s>S</s>', captionCase: 'aA',
-            captionBullet: '•☰', captionSpacing: '↔', captionVertical: '縦書', captionOpacity: ICON.opacity };
+            captionBullet: '•☰', captionSpacing: '↔', captionVertical: t('preview.contextBar.toolbar.verticalLabel'), captionOpacity: ICON.opacity };
         const align = style.align === 'left' || style.align === 'right' ? style.align : 'center';
         const content = key === 'captionFont'
-            ? `<span class="akari-ctx-font-name">${escapeHtml(style.fontFamily || 'Noto Sans JP')}</span><span>⌄</span>`
+            ? `<span class="akari-ctx-font-name">${escapeHtml(captionToolbarFontLabel(this.state?.item?.captionLocale, style.fontFamily))}</span><span>⌄</span>`
             : key === 'captionTextColor' ? `<span class="akari-ctx-color-a">A<span style="background:${escapeHtml(style.color ?? '#ffffff')}"></span></span>`
                 : key === 'captionAlign' ? ICON[`align-${align}`] : glyph[key] ?? escapeHtml(label[key]);
         const overflowIcon = key === 'captionEffect' || key === 'captionAnimation' ? ICON[key] : content;
@@ -522,11 +538,11 @@ export class PreviewContextBar implements Disposable {
         const style = { ...(state.item?.textStyle ?? {}), ...Object.fromEntries(this.captionPending ?? []) } as Record<string, any>;
         const size = Math.round(Number(this.captionPending?.get('sizePx')) || captionSizeForState(this.state));
         this.bar.innerHTML = CAPTION_BAR_ORDER.map(key => key === 'captionSize'
-            ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button>`
-                + `<input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${size}" aria-label="サイズ">`
-                + `<button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
+            ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="${t('preview.previewWindow.controls.decreaseAction')}">−</button>`
+                + `<input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${size}" aria-label="${t('preview.captionPopup.toolbar.sizeLabel')}">`
+                + `<button type="button" data-akari-bar-item="captionSizeInc" aria-label="${t('preview.previewWindow.controls.increaseAction')}">＋</button></span>`
             : this.captionButton(key)).join('')
-            + `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="もっと見る" aria-expanded="${this.moreOpen}" aria-pressed="${captionOverflowPressed(this.captionOverflow, style, this.captionPanel)}">…</button>`;
+            + `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="${t('preview.previewWindow.controls.moreLabel')}" aria-expanded="${this.moreOpen}" aria-pressed="${captionOverflowPressed(this.captionOverflow, style, this.captionPanel)}">…</button>`;
         const widths: Record<string, number> = {};
         for (const key of CAPTION_BAR_ORDER) widths[key] = (this.bar.querySelector<HTMLElement>(`[data-akari-bar-item="${key}"]`)?.offsetWidth ?? 34) + 2;
         const area = this.host.node.querySelector('iframe')?.getBoundingClientRect().width ?? this.host.node.getBoundingClientRect().width;
@@ -551,8 +567,8 @@ export class PreviewContextBar implements Disposable {
         this.hint.hidden = !kind;
         if (!kind || this.hint.dataset.kind === kind) return;
         this.hint.dataset.kind = kind;
-        this.hint.innerHTML = `${ICON.style}<span>スタイルをコピーしました。当てたいものを押してください</span>`
-            + '<button type="button" data-akari-hint-cancel>やめる（Esc）</button>';
+        this.hint.innerHTML = `${ICON.style}<span>${t('preview.previewWindow.controls.styleCopiedClickItemApply')}</span>`
+            + `<button type="button" data-akari-hint-cancel>${t('preview.contextBar.menu.cancelEscAction')}</button>`;
     }
 
     protected renderMenu(selected: boolean): void {
@@ -561,20 +577,34 @@ export class PreviewContextBar implements Disposable {
         if (!selected || !state) return;
         const telop = this.report.telop === true && this.report.telopId === state.selectedId;
         const telopInner = telop && this.report.telopInner === true;
-        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen, telop, telopInner]);
+        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen, telop, telopInner,
+            state.pendingKeyframeGroups]);
         if (signature === this.menuSignature) return;
         this.menuSignature = signature;
         const button = (key: string, label: string, icon: string, extra = ''): string =>
             `<button type="button" class="akari-ctx-mini" data-akari-menu-item="${key}" aria-label="${label}" title="${label}" ${extra}>${ICON[icon]}</button>`;
+        const keyframeGroups = state.pendingKeyframeGroups ?? [];
+        const groupNames: Record<string, string> = {
+            position: t('preview.contextBar.keyframe.groupPosition'), size: t('preview.contextBar.keyframe.groupSize'),
+            rotation: t('preview.contextBar.keyframe.groupRotation'), rotation3d: t('preview.contextBar.keyframe.groupRotation3d')
+        };
+        const keyframeLabel = t('preview.contextBar.keyframe.addAction');
+        const keyframeTitle = t('preview.contextBar.keyframe.addTitle', {
+            groups: keyframeGroups.map(group => groupNames[group]).join(t('preview.contextBar.keyframe.groupSeparator'))
+        });
         this.menu.innerHTML = [
-            button('annotate', '注釈を付ける（この要素に紐づくメモ）', 'note'),
-            button('lock', state.locked ? 'ロックを外す' : 'ロック（動かない・変形しない・消えない）', state.locked ? 'lock' : 'unlock',
-                `aria-pressed="${state.locked}"`),
-            ...(telop ? [button('telopInner', telopInner ? '外側を選ぶ' : '中の部品を選ぶ', 'telopInner',
-                `aria-pressed="${telopInner}"`)] : []),
-            button('duplicate', `複製（${shortcutLabel('D', { mac: this.mac })}）`, 'dup'),
-            button('delete', state.locked ? 'ロック中は削除できません' : '削除', 'trash', state.locked ? 'disabled aria-disabled="true"' : ''),
-            button('more', 'その他', 'more', `aria-haspopup="menu" aria-expanded="${this.moreOpen}"`)
+            ...(keyframeGroups.length ? [`<button type="button" class="akari-ctx-mini" data-akari-menu-item="addKeyframes"`
+                + ` aria-label="${keyframeLabel}" title="${keyframeTitle}">${keyframeLabel}</button>`] : []),
+            ...(state.kind === 'caption' ? [] : [
+                button('annotate', t('preview.contextBar.toolbar.addNoteItemAction'), 'note'),
+                button('lock', state.locked ? t('preview.contextBar.toolbar.unlockAction') : t('preview.contextBar.toolbar.lockPreventMovingTransformingDeletingAction'), state.locked ? 'lock' : 'unlock',
+                    `aria-pressed="${state.locked}"`),
+                ...(telop ? [button('telopInner', telopInner ? t('preview.contextBar.toolbar.selectOuterItemAction') : t('preview.contextBar.toolbar.selectInnerItemAction'), 'telopInner',
+                    `aria-pressed="${telopInner}"`)] : []),
+                button('duplicate', `${t('preview.previewWindow.controls.duplicatePrefix')}${shortcutLabel('D', { mac: this.mac })}${t('preview.diagnostics.overlay.closeParen')}`, 'dup'),
+                button('delete', state.locked ? t('preview.contextBar.toolbar.unlockDeleteAction') : t('preview.contextBar.toolbar.deleteAction'), 'trash', state.locked ? 'disabled aria-disabled="true"' : ''),
+                button('more', t('preview.contextBar.toolbar.otherLabel'), 'more', `aria-haspopup="menu" aria-expanded="${this.moreOpen}"`)
+            ])
         ].join('');
     }
 
@@ -598,11 +628,11 @@ export class PreviewContextBar implements Disposable {
             return;
         }
         this.more.innerHTML = [
-            row('copy', 'コピー', 'dup', shortcutLabel('C', { mac: this.mac })),
-            row('copyStyle', 'スタイルをコピー', 'style', shortcutLabel('C', { mac: this.mac, alt: true })),
-            row('paste', '貼り付け', 'paste', shortcutLabel('V', { mac: this.mac }), !this.canPaste),
-            row('duplicate', '複製', 'dup', shortcutLabel('D', { mac: this.mac })),
-            row('delete', '削除', 'trash', shortcutLabel('Delete', { mac: this.mac }), state.locked)
+            row('copy', t('preview.contextBar.toolbar.copyAction'), 'dup', shortcutLabel('C', { mac: this.mac })),
+            row('copyStyle', t('preview.contextBar.toolbar.copyStyleAction'), 'style', shortcutLabel('C', { mac: this.mac, alt: true })),
+            row('paste', t('preview.contextBar.toolbar.pasteAction'), 'paste', shortcutLabel('V', { mac: this.mac }), !this.canPaste),
+            row('duplicate', t('preview.contextBar.toolbar.duplicateAction'), 'dup', shortcutLabel('D', { mac: this.mac })),
+            row('delete', t('preview.contextBar.toolbar.deleteAction'), 'trash', shortcutLabel('Delete', { mac: this.mac }), state.locked)
         ].join('');
     }
 
@@ -632,37 +662,37 @@ export class PreviewContextBar implements Disposable {
         const slider = (name: string, label: string, min: number, max: number, value: number, unit = ''): string =>
             `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span>`
             + `<input type="range" data-field="${name}" min="${min}" max="${max}" value="${value}" aria-label="${label}">`
-            + `<input type="number" class="akari-ctx-num" data-field="${name}" min="${min}" max="${max}" value="${value}" aria-label="${label}（数値）">`
+            + `<input type="number" class="akari-ctx-num" data-field="${name}" min="${min}" max="${max}" value="${value}" aria-label="${label}${t('preview.previewWindow.controls.numberSuffix')}">`
             + (unit ? `<span class="akari-ctx-unit">${unit}</span>` : '') + '</label>';
         const choice = (name: string, value: string, label: string, on: boolean): string =>
             `<button type="button" class="akari-ctx-choice" data-choice="${name}" data-value="${value}" aria-pressed="${on}">${label}</button>`;
         switch (key) {
-            case 'opacity': return slider('opacity', '不透明度', 0, 100, values.opacity, '%');
-            case 'weight': return slider('weight', state.kind === 'line' ? '太さ' : '枠線の太さ', values.weightMin, 60, values.weight, 'px');
-            case 'radius': return slider('radius', '角の丸み', 0, 100, values.radius);
-            case 'border': return slider('photoWeight', '枠線の太さ', 0, 100, values.weight, 'px')
-                + `<label class="akari-ctx-row"><span class="akari-ctx-label">枠線の色</span>`
-                + `<input type="color" data-photo-frame-color value="${escapeHtml(state.item?.frame?.stroke?.color ?? '#ffffff')}" aria-label="枠線の色"></label>`;
-            case 'photoRadius': return slider('photoRadius', '角の丸み', 0, 100, values.radius, '%');
+            case 'opacity': return slider('opacity', t('preview.contextBar.toolbar.itemOpacityLabel'), 0, 100, values.opacity, '%');
+            case 'weight': return slider('weight', state.kind === 'line' ? t('preview.contextBar.toolbar.weightLabel') : t('preview.contextBar.toolbar.borderWidthLabel'), values.weightMin, 60, values.weight, 'px');
+            case 'radius': return slider('radius', t('preview.contextBar.toolbar.cornerRadiusLabel'), 0, 100, values.radius);
+            case 'border': return slider('photoWeight', t('preview.contextBar.toolbar.borderWidthLabel'), 0, 100, values.weight, 'px')
+                + `<label class="akari-ctx-row"><span class="akari-ctx-label">${t('preview.previewWindow.controls.borderColorLabel')}</span>`
+                + `<input type="color" data-photo-frame-color value="${escapeHtml(state.item?.frame?.stroke?.color ?? '#ffffff')}" aria-label="${t('preview.previewWindow.controls.borderColorLabel')}"></label>`;
+            case 'photoRadius': return slider('photoRadius', t('preview.contextBar.toolbar.cornerRadiusLabel'), 0, 100, values.radius, '%');
             case 'dash':
                 return `<div class="akari-ctx-choices">${DASH_OPTIONS.map(option => choice('dash', option.value, option.label, values.dash === option.value)).join('')}</div>`
-                    + `<div class="akari-ctx-choices">${choice('round', values.round ? 'off' : 'on', '端を丸く', values.round)}</div>`;
+                    + `<div class="akari-ctx-choices">${choice('round', values.round ? 'off' : 'on', t('preview.contextBar.menu.roundEndsLabel'), values.round)}</div>`;
             case 'ends': {
                 const select = (name: 'startCap' | 'endCap', label: string): string =>
                     `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span><select data-field="${name}" aria-label="${label}">`
                     + CAP_OPTIONS.map(option => `<option value="${option.value}"${values[name] === option.value ? ' selected' : ''}>${option.label}</option>`).join('')
                     + '</select></label>';
                 const capScale = (name: 'startCapScale' | 'endCapScale', label: string): string =>
-                    `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}倍率</span>`
-                    + `<input type="range" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率">`
-                    + `<input type="number" class="akari-ctx-num" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率の数値"></label>`;
-                return select('startCap', '始点') + capScale('startCapScale', '始点')
-                    + select('endCap', '終点') + capScale('endCapScale', '終点')
-                    + '<button type="button" class="akari-ctx-wide" data-action="swapEnds">始点と終点を入れ替える</button>';
+                    `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}${t('preview.previewWindow.controls.scaleSuffix')}</span>`
+                    + `<input type="range" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}${t('preview.previewWindow.controls.scaleSuffix')}">`
+                    + `<input type="number" class="akari-ctx-num" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}${t('preview.previewWindow.controls.scaleNumberSuffix')}"></label>`;
+                return select('startCap', t('preview.contextBar.toolbar.startLabel')) + capScale('startCapScale', t('preview.contextBar.toolbar.startLabel'))
+                    + select('endCap', t('preview.contextBar.toolbar.endLabel')) + capScale('endCapScale', t('preview.contextBar.toolbar.endLabel'))
+                    + `<button type="button" class="akari-ctx-wide" data-action="swapEnds">${t('preview.contextBar.menu.swapStartEndAction')}</button>`;
             }
             case 'flip':
-                return `<div class="akari-ctx-choices">${choice('flip.h', values.flipH ? 'off' : 'on', '左右に反転', values.flipH)}`
-                    + `${choice('flip.v', values.flipV ? 'off' : 'on', '上下に反転', values.flipV)}</div>`;
+                return `<div class="akari-ctx-choices">${choice('flip.h', values.flipH ? 'off' : 'on', t('preview.contextBar.menu.flipHorizontallyAction'), values.flipH)}`
+                    + `${choice('flip.v', values.flipV ? 'off' : 'on', t('preview.contextBar.menu.flipVerticallyAction'), values.flipV)}</div>`;
             case 'arrange': return this.arrangeHtml(state);
             default: return '';
         }
@@ -673,7 +703,7 @@ export class PreviewContextBar implements Disposable {
         const number = (field: string, label: string, value: number, min: number, max: number, step: number, unit = ''): string =>
             `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span>`
             + `<input type="range" data-caption-field="${field}" ${field === 'sizePx' ? 'data-akari-onboarding-target="caption-size-slider"' : ''} min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}">`
-            + `<input type="number" class="akari-ctx-num" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}（数値）">`
+            + `<input type="number" class="akari-ctx-num" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}${t('preview.previewWindow.controls.numberSuffix')}">`
             + (unit ? `<span class="akari-ctx-unit">${unit}</span>` : '') + '</label>';
         const colors = (field: string, current: string): string =>
             `<div class="akari-ctx-choices is-row">${CAPTION_COLORS.map(color =>
@@ -681,15 +711,15 @@ export class PreviewContextBar implements Disposable {
                 + ` aria-label="${color}" aria-pressed="${current.toLowerCase() === color}"><span style="background:${color}"></span></button>`).join('')}</div>`;
         switch (key) {
             case 'captionTextColor': return colors('color', style.color ?? '#ffffff')
-                + `<label class="akari-ctx-row"><span class="akari-ctx-label">好きな色</span>`
-                + `<input type="color" data-caption-field="color" value="${escapeHtml((style.color ?? '#ffffff').slice(0, 7))}" aria-label="好きな色"></label>`;
-            case 'captionSpacing': return number('letterSpacingEm', '文字間隔', Number(style.letterSpacingEm) || 0, -.1, .5, .01, 'em')
-                + number('lineHeight', '行の間隔', Number(style.lineHeight) || 1.2, .9, 2.2, .05)
-                + `<div class="akari-ctx-section"><div>テキストボックスを固定</div><div class="akari-ctx-choices">`
-                + (style.vertical ? [['top', '右'], ['middle', '中'], ['bottom', '左']] : [['top', '上'], ['middle', '中'], ['bottom', '下']])
+                + `<label class="akari-ctx-row"><span class="akari-ctx-label">${t('preview.previewWindow.controls.customColorLabel')}</span>`
+                + `<input type="color" data-caption-field="color" value="${escapeHtml((style.color ?? '#ffffff').slice(0, 7))}" aria-label="${t('preview.previewWindow.controls.customColorLabel')}"></label>`;
+            case 'captionSpacing': return number('letterSpacingEm', t('preview.contextBar.toolbar.letterSpacingLabel'), Number(style.letterSpacingEm) || 0, -.1, .5, .01, 'em')
+                + number('lineHeight', t('preview.contextBar.toolbar.lineSpacingLabel'), Number(style.lineHeight) || 1.2, .9, 2.2, .05)
+                + `<div class="akari-ctx-section"><div>${t('preview.previewWindow.controls.lockTextBoxAction')}</div><div class="akari-ctx-choices">`
+                + (style.vertical ? [['top', t('preview.contextBar.toolbar.rightLabel')], ['middle', t('preview.contextBar.toolbar.middleLabel')], ['bottom', t('preview.contextBar.toolbar.leftLabel')]] : [['top', t('preview.contextBar.toolbar.topLabel')], ['middle', t('preview.contextBar.toolbar.middleLabel')], ['bottom', t('preview.contextBar.toolbar.bottomLabel')]])
                     .map(([value, label]) => `<button type="button" class="akari-ctx-choice" data-caption-anchor="${value}" aria-pressed="${(style.verticalAlign ?? 'bottom') === value}">${label}</button>`).join('')
-                + `</div></div><button type="button" class="akari-ctx-wide" data-caption-inspector>設定をもっと見る</button>`;
-            case 'captionOpacity': return number('opacity', '透明度', Math.round((typeof style.opacity === 'number' ? style.opacity : 1) * 100), 0, 100, 1, '%');
+                + `</div></div><button type="button" class="akari-ctx-wide" data-caption-inspector>${t('preview.previewWindow.controls.moreSettingsLabel')}</button>`;
+            case 'captionOpacity': return number('opacity', t('preview.contextBar.toolbar.captionOpacityLabel'), Math.round((typeof style.opacity === 'number' ? style.opacity : 1) * 100), 0, 100, 1, '%');
             default: return '';
         }
     }
@@ -698,7 +728,7 @@ export class PreviewContextBar implements Disposable {
         const locked = state.locked;
         const geometry = geometryValues(state);
         const disabled = locked ? ' disabled aria-disabled="true"' : '';
-        const z = [['front', '最前面へ'], ['forward', '前面へ'], ['backward', '背面へ'], ['back', '最背面へ']]
+        const z = [['front', t('preview.contextBar.toolbar.bringFrontAction')], ['forward', t('preview.contextBar.toolbar.bringForwardAction')], ['backward', t('preview.contextBar.toolbar.sendBackwardAction')], ['back', t('preview.contextBar.toolbar.sendBackAction')]]
             .map(([op, label]) => `<button type="button" class="akari-ctx-choice" data-z="${op}">${label}</button>`).join('');
         const number = (name: string, label: string, value: number | undefined, unit: string): string => value === undefined ? ''
             : `<label class="akari-ctx-field"><span>${label}</span><input type="number" class="akari-ctx-num" data-geo="${name}" value="${value}" step="1"${disabled}`
@@ -708,20 +738,20 @@ export class PreviewContextBar implements Disposable {
         const layers = this.layers;
         const rows = (layers?.rows ?? []).map(row =>
             `<div class="akari-ctx-layer${row.selected ? ' is-selected' : ''}${this.layerDrag?.over === row.id ? ' is-drop' : ''}" data-layer="${escapeHtml(row.id)}" role="option" aria-selected="${row.selected}">`
-            + `<span class="akari-ctx-grip" data-grip="${escapeHtml(row.id)}" title="ドラッグで重なり順を変える">${ICON.grip}</span>`
+            + `<span class="akari-ctx-grip" data-grip="${escapeHtml(row.id)}" title="${t('preview.previewWindow.controls.dragChangeLayerOrder')}">${ICON.grip}</span>`
             + `<button type="button" class="akari-ctx-layer-name" data-select-layer="${escapeHtml(row.id)}">${escapeHtml(row.name)}</button>`
             + `<span class="akari-ctx-layer-time">${formatRange(row.start, row.end)}</span>`
-            + (row.locked ? `<span class="akari-ctx-layer-lock" title="ロック中">${ICON.lock}</span>` : '')
+            + (row.locked ? `<span class="akari-ctx-layer-lock" title="${t('preview.previewWindow.controls.lockedLabel')}">${ICON.lock}</span>` : '')
             + '</div>').join('');
-        return `<div class="akari-ctx-section"><div class="akari-ctx-heading">重なり順</div><div class="akari-ctx-choices is-row">${z}</div></div>`
-            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">レイヤー<span class="akari-ctx-parent">${escapeHtml(layers?.parent ? `キャンバス「${layers.parent.name}」の中` : '画面')}・前面が上</span></div>`
-            + `<div class="akari-ctx-layers" role="listbox" aria-label="レイヤー一覧">${rows || '<div class="akari-ctx-empty">この時刻に出ているものはありません</div>'}</div></div>`
-            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">画面に揃える</div><div class="akari-ctx-aligns">${align}`
-            + `<button type="button" class="akari-ctx-choice" data-action="fit"${disabled}>${ICON.fit}<span>画面に合わせる</span></button></div></div>`
-            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">位置と大きさ${locked ? '（ロック中）' : ''}</div><div class="akari-ctx-fields">`
-            + number('width', '幅', geometry.width, 'px') + number('height', '高さ', geometry.height, 'px')
-            + (geometry.width === undefined ? '' : `<button type="button" class="akari-ctx-choice is-ratio" data-ratio aria-pressed="${this.keepRatio}"${disabled}>比率を保つ</button>`)
-            + number('x', 'X', geometry.x, 'px') + number('y', 'Y', geometry.y, 'px') + number('rotate', '回転', geometry.rotate, '°')
+        return `<div class="akari-ctx-section"><div class="akari-ctx-heading">${t('preview.previewWindow.controls.layerOrderLabel')}</div><div class="akari-ctx-choices is-row">${z}</div></div>`
+            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">${t('preview.previewWindow.controls.layersLabel')}<span class="akari-ctx-parent">${escapeHtml(layers?.parent ? t('preview.contextBar.menu.insideCanvasLabel', { name: layers.parent.name }) : t('preview.contextBar.menu.frameLabel'))}${t('preview.contextBar.menu.frontmostOnTopSuffix')}</span></div>`
+            + `<div class="akari-ctx-layers" role="listbox" aria-label="${t('preview.previewWindow.controls.layerListLabel')}">${rows || `<div class="akari-ctx-empty">${t('preview.contextBar.menu.nothingAppearsTimeEmptyState')}</div>`}</div></div>`
+            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">${t('preview.previewWindow.controls.alignFrameAction')}</div><div class="akari-ctx-aligns">${align}`
+            + `<button type="button" class="akari-ctx-choice" data-action="fit"${disabled}>${ICON.fit}<span>${t('preview.previewWindow.controls.fitFrameAction')}</span></button></div></div>`
+            + `<div class="akari-ctx-section"><div class="akari-ctx-heading">${t('preview.previewWindow.controls.positionSizeLabel')}${locked ? t('preview.contextBar.menu.lockedSuffix') : ''}</div><div class="akari-ctx-fields">`
+            + number('width', t('preview.contextBar.toolbar.widthLabel'), geometry.width, 'px') + number('height', t('preview.contextBar.toolbar.heightLabel'), geometry.height, 'px')
+            + (geometry.width === undefined ? '' : `<button type="button" class="akari-ctx-choice is-ratio" data-ratio aria-pressed="${this.keepRatio}"${disabled}>${t('preview.previewWindow.controls.keepAspectRatioLabel')}</button>`)
+            + number('x', 'X', geometry.x, 'px') + number('y', 'Y', geometry.y, 'px') + number('rotate', t('preview.contextBar.toolbar.rotateLabel'), geometry.rotate, '°')
             + '</div></div>';
     }
 
@@ -1256,6 +1286,7 @@ const PREVIEW_CONTEXT_BAR_STYLE = `
 [data-akari-ui="preview-element-menu"] { display: flex; gap: 2px; padding: 3px; border-radius: 10px; visibility: hidden; }
 [data-akari-ui="preview-element-menu"].is-placed { visibility: visible; }
 .akari-ctx-mini { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.akari-ctx-mini[data-akari-menu-item="addKeyframes"] { width: auto; padding: 0 8px; white-space: nowrap; }
 .akari-ctx-mini:hover:not(:disabled) { background: var(--theia-toolbar-hoverBackground); }
 .akari-ctx-mini[aria-pressed="true"], .akari-ctx-mini[aria-expanded="true"] { color: var(--theia-focusBorder); }
 .akari-ctx-mini:disabled { opacity: .35; cursor: not-allowed; }

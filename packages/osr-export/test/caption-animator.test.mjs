@@ -42,8 +42,9 @@ test("OSR は宣言なし・空宣言で余計な config キーや字幕 markup 
 test("宣言なしの HTML は基底のバイト列を保ち、overlay sheet は現行の時刻同期を保つ", () => {
   const page = build({ captions: [{ ...cue, text: "Caption ABC" }] });
   const digest = value => createHash("sha256").update(value).digest("hex");
-  assert.equal(digest(page.html), "fbd423496883180bb711931de726461c6728d725fa35ddba8ccfc450cb820236");
-  assert.equal(digest(page.overlaySheetHtml), "cff8192aeeca511036d6deee3f2c7d50cda02e612fdec2f450a8800eccd11733");
+  const withoutWarningMessages = page.html.replace(/,"messages":\{"longGop":"(?:\\.|[^"\\])*"\}/u, "");
+  assert.equal(digest(withoutWarningMessages), "966ffb8bd3711d62bac06b0c450610b8a6ff523a2a5dcba8b101d8a906b56c96");
+  assert.equal(digest(page.overlaySheetHtml), "d2ad7449ee596c62ac25652725f8799851fb80a9bc1fa4c0062766dafcd947cb");
 });
 
 test("分割された source-domain cue の全 overlay に宣言と item 時計が届く", () => {

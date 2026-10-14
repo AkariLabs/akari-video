@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { Emitter, Event } from '@theia/core/lib/common/event';
@@ -29,9 +30,9 @@ export function withSkillAdapterHidden(hidden: string[]): string[] {
 const DEFAULT_WORKFLOW: AkariWorkflow = {
     version: 1,
     roles: [
-        { path: 'assets', label: '素材', kind: 'assets' },
-        { path: 'planning', label: '企画', kind: 'planning' },
-        { path: 'exports', label: '書き出し', kind: 'exports' }
+        { path: 'assets', label: t('project.catalog.purchase.asset'), kind: 'assets' },
+        { path: 'planning', label: t('project.workspace.folders.planningLabel'), kind: 'planning' },
+        { path: 'exports', label: t('project.workspace.outputs.exportsLabel'), kind: 'exports' }
     ],
     tree: {
         hidden: ['.claude', '.agents', '.codex', '.cursor', '.opencode', '.devin', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],

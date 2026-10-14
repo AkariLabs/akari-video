@@ -413,9 +413,11 @@ function keyFor(sourcePath, stat, values) {
     formatNumber(values.padBeforeSec),
     formatNumber(values.padAfterSec),
     ...(values.filters ?? []),
-    // Keep the complete FLAC v2 hash input unchanged, including its final recipe token.
+    // Speed-adjusted source-second pads must not reuse an older output-second cache.
     ...(values.format === 'pcm-s16le'
       ? [PREVIEW_AUDIO_PCM_RECIPE, 'pcm-s16le', 24000, 1, 2] : [PREVIEW_AUDIO_RECIPE]),
+    ...(values.speed !== 1 && (values.padBeforeSec > 0 || values.padAfterSec > 0)
+      ? ['source-pad-seconds-v1'] : []),
   ].join('|')).digest('hex');
 }
 
@@ -580,6 +582,7 @@ async function generate(prepared, options) {
       format: prepared.format,
       ...(prepared.format === 'pcm-s16le' ? { frames: metadata.frames, bytesPerSample: 2 } : {}),
       durationSec: metadata.durationSec,
+      actualStartSeconds: prepared.startSec,
       sampleRate: metadata.sampleRate,
       channels: metadata.channels,
       reason: null,
@@ -638,6 +641,7 @@ async function generate(prepared, options) {
         format: prepared.format,
         ...(prepared.format === 'pcm-s16le' ? { frames: metadata.frames, bytesPerSample: 2 } : {}),
         durationSec: metadata.durationSec,
+        actualStartSeconds: prepared.startSec,
         sampleRate: metadata.sampleRate,
         channels: metadata.channels,
         reason: null,
@@ -822,7 +826,8 @@ export function previewAudioSidecarStatus(options) {
     const metadata = readMetadata(prepared);
     if (metadata && fs.existsSync(outputPath)) {
       const { durationSec, sampleRate, channels, bytes, format, frames, bytesPerSample } = metadata;
-      return { state: 'ready', key, path: outputPath, durationSec, sampleRate, channels, bytes, format,
+      return { state: 'ready', key, path: outputPath, durationSec, actualStartSeconds: prepared.startSec,
+        sampleRate, channels, bytes, format,
         ...(format === 'pcm-s16le' ? { frames, bytesPerSample } : {}) };
     }
     const noAudio = readCacheJson(path.join(outputDirectory, `${key}.no-audio.json`));

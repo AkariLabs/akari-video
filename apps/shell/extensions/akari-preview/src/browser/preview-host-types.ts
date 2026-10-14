@@ -186,6 +186,7 @@ export interface EditSummaryCut {
         type: ReadableTransitionType;
         duration: number;
     };
+    transitionHold?: { headSeconds: number };
     at?: number;
     track: number;
     trackId: string;
@@ -218,6 +219,7 @@ export interface PreviewAudioSidecarRequestResult {
     probe?: { fingerprint: string };
     bytes?: number;
     durationSec?: number;
+    actualStartSeconds?: number;
     reason?: string;
     stream?: VideoStreamReference;
 }
@@ -269,6 +271,8 @@ export interface EditSummarySpeech {
     padAfterSec?: number;
     crossfadeInSec?: number;
     crossfadeOutSec?: number;
+    fadeInAtStart?: boolean;
+    fadeInWindowStartSec?: number;
     sidecarWarningEmitted?: boolean;
 }
 
@@ -280,6 +284,9 @@ export interface PreviewAudioSidecarSummary {
     bytesPerSample?: number;
     path: string;
     durationSec: number;
+    /** Actual first source second after clamping. */
+    actualStartSeconds?: number;
+    /** Requested source seconds. */
     padBeforeSec: number;
     padAfterSec: number;
     generatedMs?: number;
@@ -375,6 +382,7 @@ export interface EditSummaryEmphasisWord {
     style_hint?: string;
     style_preset?: string;
     inherit_caption_size?: boolean;
+    _presetStyleVars?: Record<string, string>;
 }
 
 export interface EditSummaryTrackState {
@@ -450,6 +458,8 @@ export interface PreviewModel {
     overlayUris: URI[];
     motionBagUris?: URI[];
     assetUris: URI[];
+    /** この読み込みで配信できなかった素材（まだ届いていない画像など）。届いたら読み直す。 */
+    unservedUris?: URI[];
     assetStreamIds: string[];
     compositeError?: string;
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
@@ -475,6 +485,19 @@ export interface PreviewModel {
         allTracksHiddenScopes: string[];
         allTracksMutedScopes: string[];
     };
+}
+
+/** 1 回の読み直しの間に分かった配信の成否を、「届いたら読み直す素材」の控えへ反映するための手がかり。 */
+export interface PreviewMediaWatch {
+    widget: PreviewWidgetMarker;
+    identityUri: URI;
+    kind: 'raw' | 'output';
+    /** アプリ自身の保存による読み直し（置いたファイルの通知が読み直しのあとに届く）。 */
+    ownWrite: boolean;
+    /** この読み直しの前から見張っていた素材。 */
+    watchedBefore: Set<string>;
+    /** この読み直しの前から配信できていなかった素材。 */
+    unservedBefore: Set<string>;
 }
 
 export interface PreviewSystemVolumeMessage {
@@ -524,6 +547,9 @@ export interface OverlayWriteRequest {
     overlayId: string;
     patch: {
         vars?: Record<string, unknown>;
+        // 3D の向き（--akari-3d-rot-x/y/z・度）。回転にキーがあれば playheadSeconds の時刻に自動キー
+        // （edit-store writeItemVarsAt。内部契約 2026-10-11-3d-place §2.3）
+        varsAt?: Record<string, number>;
         transform?: OverlayTransform;
         duplicate?: boolean;
         // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照
@@ -726,6 +752,12 @@ export interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewMotionBagResources?: Set<string>;
     akariPreviewMotionBagSuffixes?: Set<string>;
+    /** 配信できなかった素材と静止画の cut ソース。届いた・書き換わった合図で読み直す。 */
+    akariPreviewWatchedMediaResources?: Set<string>;
+    akariPreviewWatchedMediaSuffixes?: Set<string>;
+    /** そのうち、まだ配信できていない素材。 */
+    akariPreviewUnservedMediaResources?: Set<string>;
+    akariPreviewUnservedMediaSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];

@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 import {
@@ -76,11 +77,11 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         if (!packaged) {
             const repoMjs = await findRepoAkariLauncherMjs(options.repoSearchStartDirs ?? [__dirname, process.cwd()]);
             if (!repoMjs) {
-                push(`dev 実行: ${LAUNCHER_ENTRY_RELATIVE} が見つかりませんでした。CLI シムは未配備のままです。`);
+                push(t('partner.partnerSetup.cliProvisioner.developmentModeNotFoundCliShimRemainsUnprovisionedMessage', { value1: LAUNCHER_ENTRY_RELATIVE }));
                 return { status: 'skipped', log };
             }
             writeShimFile(shimDir, platform, buildShimScript({ platform, targetMjsPath: repoMjs }));
-            push(`dev 実行: ${repoMjs} を直接シムへ焼き込みました`);
+            push(t('partner.partnerSetup.cliProvisioner.developmentModeEmbeddedDirectlyShimText', { value1: repoMjs }));
             return { status: 'ready', shimDir, log };
         }
 
@@ -89,7 +90,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             startDirs: options.shellPackageJsonStartDirs ?? [__dirname, process.cwd()]
         });
         if (!shellVersion) {
-            push(`シェル自身の版（${SHELL_PACKAGE_NAME} の package.json）を特定できませんでした。CLI 配備をスキップしました。`);
+            push(t('partner.partnerSetup.cliProvisioner.shellVersionUnknownSkipProvisioning', { value1: SHELL_PACKAGE_NAME }));
             return { status: 'skipped', log };
         }
 
@@ -101,9 +102,9 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             ? { appVersion, appVersionRelation }
             : {};
         if (appVersionRelation === 'older') {
-            push(`版のずれ: CLI v${shellVersion} / 本体 v${appVersion} → 本体が古い。akari update で本体を更新してください。`);
+            push(t('partner.partnerSetup.cliProvisioner.versionMismatchCliVAppVAppOlderUpdateAkariMessage', { value1: shellVersion, value2: appVersion }));
         } else if (appVersionRelation === 'newer') {
-            push(`版のずれ: CLI v${shellVersion} / 本体 v${appVersion} → CLI と本体の版が不一致です。`);
+            push(t('partner.partnerSetup.cliProvisioner.versionMismatchCliVAppVCliAppVersionsDifferMessage', { value1: shellVersion, value2: appVersion }));
         }
 
         // extraResources が同梱する `Contents/Resources/packages/akari-launcher/bin/akari.mjs`
@@ -113,13 +114,13 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             ? join(options.resourcesPath, 'packages', 'akari-launcher', 'bin', 'akari.mjs')
             : undefined;
         if (bundledMjsPath && existsSync(bundledMjsPath)) {
-            push(`同梱 CLI を使用します（アプリ更新をまたいでシムは不変）: ${bundledMjsPath}`);
+            push(t('partner.partnerSetup.cliProvisioner.usingBundledCliShimStaysUnchangedAcrossAppUpdatesText', { value1: bundledMjsPath }));
             const shimPath = writeShimFile(
                 shimDir,
                 platform,
                 buildShimScript({ platform, targetMjsPath: bundledMjsPath, bakedNodeExecPath: execPath })
             );
-            push(`シム生成: ${shimPath}`);
+            push(t('partner.partnerSetup.cliProvisioner.createdShimLabel', { value1: shimPath }));
             pruneBundledCliArtifacts(cliRoot, push);
             return { status: 'ready', version: shellVersion, ...versionDetails, shimDir, log };
         }
@@ -128,7 +129,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
         let targetMjsPath: string;
         if (existsSync(mjsPath)) {
-            push(`v${shellVersion} は配備済みです（${versionDir}）`);
+            push(t('partner.partnerSetup.cliProvisioner.vAlreadyProvisionedStatus', { value1: shellVersion, value2: versionDir }));
             targetMjsPath = mjsPath;
         } else {
             const outcome = await fetchAndExtractVersion({
@@ -144,7 +145,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             if (outcome === 'fetched') {
                 targetMjsPath = mjsPath;
             } else {
-                push('CLI は未配備のままです。');
+                push(t('partner.partnerSetup.cliProvisioner.cliRemainsUnprovisionedStatus'));
                 return { status: 'failed', version: shellVersion, ...versionDetails, log };
             }
         }
@@ -154,12 +155,12 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             platform,
             buildShimScript({ platform, targetMjsPath, bakedNodeExecPath: execPath })
         );
-        push(`シム生成: ${shimPath}`);
+        push(t('partner.partnerSetup.cliProvisioner.createdShimLabel', { value1: shimPath }));
         pruneOldVersionDirs(cliRoot, shellVersion);
 
         return { status: 'ready', version: shellVersion, ...versionDetails, shimDir, log };
     } catch (error) {
-        push(`CLI 配備で予期しないエラーが発生しました（接続は続行します）: ${errorMessage(error)}`);
+        push(t('partner.partnerSetup.cliProvisioner.unexpectedCliProvisioningErrorConnectionContinuesText', { value1: errorMessage(error) }));
         return { status: 'failed', log };
     }
 }
@@ -417,7 +418,7 @@ type FetchAndExtractOutcome = 'fetched' | 'unavailable' | 'integrity-mismatch';
 async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<FetchAndExtractOutcome> {
     const { version, cliRoot, versionDir, platform, fetchImpl, registryBaseUrl, spawnTar, push } = options;
     const metadataUrl = `${registryBaseUrl}/${version}`;
-    push(`registry から取得しています: ${metadataUrl}`);
+    push(t('partner.partnerSetup.cliProvisioner.fetchingRegistryLabel', { value1: metadataUrl }));
 
     let metadata: RegistryVersionMetadata | undefined;
     try {
@@ -425,16 +426,16 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
             headers: { Accept: 'application/json', 'User-Agent': 'AKARI-Video-Partner-CLI-Provisioner' }
         });
         if (!response.ok) {
-            push(`registry が ${response.status} を返しました（未公開の版の可能性があります）。`);
+            push(t('partner.partnerSetup.cliProvisioner.registryReturnedVersionMayNotPublishedYetMessage', { value1: response.status }));
             return 'unavailable';
         }
         metadata = parseRegistryVersionMetadata(await response.json());
     } catch (error) {
-        push(`registry への接続に失敗しました: ${errorMessage(error)}`);
+        push(t('partner.partnerSetup.cliProvisioner.couldNotConnectRegistryError', { value1: errorMessage(error) }));
         return 'unavailable';
     }
     if (!metadata) {
-        push('registry の応答に dist.tarball / dist.integrity がありません。');
+        push(t('partner.partnerSetup.cliProvisioner.registryResponseLacksDistTarballDistIntegrityMessage'));
         return 'unavailable';
     }
 
@@ -442,17 +443,17 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
     try {
         const response = await fetchImpl(metadata.tarballUrl);
         if (!response.ok) {
-            push(`tarball の取得に失敗しました（HTTP ${response.status}）。`);
+            push(t('partner.partnerSetup.cliProvisioner.couldNotFetchTarballHttpError', { value1: response.status }));
             return 'unavailable';
         }
         tarballBuffer = Buffer.from(await response.arrayBuffer());
     } catch (error) {
-        push(`tarball の取得に失敗しました: ${errorMessage(error)}`);
+        push(t('partner.partnerSetup.cliProvisioner.couldNotFetchTarballError', { value1: errorMessage(error) }));
         return 'unavailable';
     }
 
     if (!verifyTarballIntegrity(tarballBuffer, metadata.integrity)) {
-        push('tarball の integrity 検証に失敗しました（改ざんの疑い）。');
+        push(t('partner.partnerSetup.cliProvisioner.tarballIntegrityVerificationFailedPossibleTamperingError'));
         return 'integrity-mismatch';
     }
 
@@ -469,7 +470,7 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
     } catch (error) {
         rmSync(stagingDir, { recursive: true, force: true });
         rmSync(downloadPath, { force: true });
-        push(`tarball の展開に失敗しました: ${errorMessage(error)}`);
+        push(t('partner.partnerSetup.cliProvisioner.couldNotUnpackTarballError', { value1: errorMessage(error) }));
         return 'unavailable';
     }
     rmSync(downloadPath, { force: true });
@@ -477,7 +478,7 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
     // バージョンディレクトリを残さない — self-update.mjs の stageSelfUpdate と同じ意味論）。
     rmSync(versionDir, { recursive: true, force: true });
     renameSync(stagingDir, versionDir);
-    push(`v${version} を配備しました: ${versionDir}`);
+    push(t('partner.partnerSetup.cliProvisioner.provisionedVLabel', { value1: version, value2: versionDir }));
     return 'fetched';
 }
 
@@ -495,7 +496,7 @@ function extractTarball(options: {
         throw result.error;
     }
     if (result.status !== 0) {
-        throw new Error(`tar が失敗しました（code ${result.status}）: ${result.stderr?.toString().trim() ?? ''}`);
+        throw new Error(t('partner.partnerSetup.cliProvisioner.tarFailedCodeError', { value1: result.status, value2: result.stderr?.toString().trim() ?? '' }));
     }
 }
 
@@ -582,7 +583,7 @@ function pruneBundledCliArtifacts(cliRoot: string, push: (line: string) => void)
     try {
         entries = readdirSync(cliRoot, { withFileTypes: true });
     } catch (error) {
-        push(`同梱 CLI 切り替え後の遺物確認に失敗しました: ${errorMessage(error)}`);
+        push(t('partner.partnerSetup.cliProvisioner.couldNotCheckArtifactsSwitchingBundledCliError', { value1: errorMessage(error) }));
         return;
     }
 
@@ -597,7 +598,7 @@ function pruneBundledCliArtifacts(cliRoot: string, push: (line: string) => void)
         try {
             rmSync(target, { recursive: true, force: true });
         } catch (error) {
-            push(`同梱 CLI 切り替え後の遺物削除に失敗しました（${target}）: ${errorMessage(error)}`);
+            push(t('partner.partnerSetup.cliProvisioner.couldNotRemoveArtifactsSwitchingBundledCliError', { value1: target, value2: errorMessage(error) }));
         }
     }
 }

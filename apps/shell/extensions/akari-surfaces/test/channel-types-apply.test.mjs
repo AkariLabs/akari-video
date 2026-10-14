@@ -1,12 +1,15 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChannelMarkdown, parseChannelMarkdown } from '../lib/browser/channel/channel-design-model.js';
-import { parseDesignMd } from '../lib/browser/channel/design-md-model.js';
-import { findChannelType, typeContents } from '../lib/browser/channel/channel-types-model.js';
-import {
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const { buildChannelMarkdown, parseChannelMarkdown } = await import('../lib/browser/channel/channel-design-model.js');
+const { parseDesignMd } = await import('../lib/browser/channel/design-md-model.js');
+const { findChannelType, typeContents } = await import('../lib/browser/channel/channel-types-model.js');
+const {
     applyChannelMd, applyDesignMd, defaultChoices, mergeTypeRules, mergeTypeWords, parseNotes, parseTypeUndo,
     parseWordBook, planTypeApply
-} from '../lib/browser/channel/channel-types-apply.js';
+} = await import('../lib/browser/channel/channel-types-apply.js');
 
 const type = findChannelType('tech-shorts');
 assert.ok(type);

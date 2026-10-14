@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { createRequire } from 'node:module';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 const require = createRequire(import.meta.url);
 const { WorldCliRunner } = require('../lib/node/world-cli.js');
 

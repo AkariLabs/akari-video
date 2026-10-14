@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type PersonKind = 'person' | 'avatar' | 'org';
 
 export type PersonProfile = { birthday?: string; personality?: string; background?: string; notes?: string; links?: string[]; [key: string]: unknown };
@@ -40,18 +41,18 @@ export type WordBookEntry = {
 export type WordBookFile = { version: 0; entries: WordBookEntry[]; [key: string]: unknown };
 
 export const PERSON_KIND_LABELS: Record<PersonKind, string> = {
-    person: '人物', avatar: 'キャラクター', org: '会社・製品'
+    person: t('surfaces.channel.person.label'), avatar: t('surfaces.channel.character.label'), org: t('surfaces.channel.companyProduct.label')
 };
 
 export const VOICE_CONSENT_LABELS: Record<VoiceSampleConsent, string> = {
-    self: '本人の声です', subject: '本人の同意を得た声です'
+    self: t('surfaces.channel.ownVoice.label'), subject: t('surfaces.channel.voicePersonsConsent.label')
 };
 
 export const AVATAR_CAPS: Array<{ id: string; label: string }> = [
-    { id: '2d', label: '2D 立ち絵' },
-    { id: 'lip-sync', label: '口パク' },
-    { id: 'expression', label: '表情' },
-    { id: 'voice', label: '声' }
+    { id: '2d', label: t('surfaces.channel.avatarIllustration.label') },
+    { id: 'lip-sync', label: t('surfaces.channel.lipSync.label') },
+    { id: 'expression', label: t('surfaces.channel.facialExpression.label') },
+    { id: 'voice', label: t('surfaces.channel.voice.label') }
 ];
 
 export function emptyPeopleFile(): PeopleFile { return { version: 0, entries: [] }; }
@@ -154,7 +155,7 @@ export function normalizePeopleFile(value: unknown): PeopleFile {
 }
 
 export function defaultScene(kind: PersonKind): string {
-    return kind === 'person' ? '名前が出たら右下に顔と肩書き' : kind === 'org' ? 'ロゴは白の単色' : '';
+    return kind === 'person' ? t('surfaces.channel.defaultSceneNameAppearsPutFaceTitleBottomRight.label') : kind === 'org' ? t('surfaces.channel.defaultSceneLogoSingleColorWhite.label') : '';
 }
 
 export function splitAliases(text: string): string[] {
@@ -208,7 +209,7 @@ export function peopleCounts(file: PeopleFile): { all: number; byKind: Record<Pe
     for (const entry of file.entries) {
         byKind[entry.kind]++;
         const key = entry.pack || 'manual';
-        const source = sources.get(key) || { key, label: entry.pack ? `☆${entry.pack}` : '自分で足した', count: 0 };
+        const source = sources.get(key) || { key, label: entry.pack ? `☆${entry.pack}` : t('surfaces.channel.peopleCountsAddedManually.label'), count: 0 };
         source.count++;
         sources.set(key, source);
     }
@@ -224,7 +225,7 @@ export function initialOf(name: string): string { return Array.from(name.trim())
 
 export function summarizeNames(names: string[], max = 6): string {
     const shown = names.slice(0, max).join('、');
-    return names.length > max ? `${shown} ほか ${names.length - max} 件` : shown;
+    return names.length > max ? t('surfaces.channel.summarizeNamesMore.message', { shown: shown, namesCount: names.length - max }) : shown;
 }
 
 function comparisonKey(text: string): string { return text.normalize('NFKC').toLowerCase().replace(/\s/g, ''); }

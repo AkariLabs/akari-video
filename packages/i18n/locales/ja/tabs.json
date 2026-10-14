@@ -1,0 +1,5 @@
+{
+  "tabs.tabs.decorateEditingDecision.tooltip": "決定を編集中",
+  "tabs.tabs.decorateUnansweredDecisions.tooltip": "未回答の決定 {stateCount} 件",
+  "tabs.tabs.decorateAllDecisionsAnswered.tooltip": "すべての決定に回答済み"
+}

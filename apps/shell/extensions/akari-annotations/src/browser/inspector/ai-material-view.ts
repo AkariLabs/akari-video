@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { CommandService } from '@theia/core/lib/common';
 import type { TranscriptSummary } from '../../common/akari-annotations-protocol';
 import type { AkariMaterialSelection } from '../../common/material-selected-event';
@@ -6,7 +7,12 @@ import { appendAiBack, appendAiTiles, type AiTabView } from './ai-tiles';
 import { viewAfterHomeTabClick } from './home-tab';
 import { appendAiTranscribePanel } from './ai-transcribe-panel';
 
-const kindLabels = { audio: '音声の素材', video: '動画の素材', image: '画像の素材', other: '素材' };
+const kindLabels = {
+    get audio() { return t('inspector.aiMaterialView.kind.audio'); },
+    get video() { return t('inspector.aiMaterialView.kind.video'); },
+    get image() { return t('inspector.aiMaterialView.kind.image'); },
+    get other() { return t('inspector.aiMaterialView.kind.asset'); }
+};
 
 export function appendAiMaterialView(parent: HTMLElement, options: {
     selection: AkariMaterialSelection;
@@ -41,8 +47,8 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     const strip = document.createElement('div');
     strip.className = 'akari-inspector-tab-strip';
     strip.setAttribute('role', 'tablist');
-    strip.setAttribute('aria-label', '素材の編集パネル');
-    for (const tab of [{ id: 'generation', label: 'ホーム' }, { id: 'info', label: '情報' }] as const) {
+    strip.setAttribute('aria-label', t('inspector.aiMaterialView.label.editingPanel'));
+    for (const tab of [{ id: 'generation', label: t('inspector.aiMaterialView.label.home') }, { id: 'info', label: t('inspector.aiMaterialView.label.info') }] as const) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'akari-inspector-tab';
@@ -65,16 +71,16 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         const info = document.createElement('div');
         info.className = 'akari-inspector-ai-material-info';
         const path = document.createElement('p');
-        path.textContent = `パス: ${selection.relativePath}`;
+        path.textContent = t('inspector.aiMaterialView.text.path', { path: selection.relativePath });
         const type = document.createElement('p');
-        type.textContent = `種類: ${kindLabels[selection.mediaKind]}`;
+        type.textContent = t('inspector.aiMaterialView.text.type', { kind: kindLabels[selection.mediaKind] });
         info.append(path, type);
         parent.appendChild(info);
         return;
     }
 
     if (options.view === 'transcribe' && (selection.mediaKind === 'audio' || selection.mediaKind === 'video')) {
-        appendAiBack(parent, '文字起こし', () => options.onView('tiles'));
+        appendAiBack(parent, t('inspector.aiMaterialView.label.transcription'), () => options.onView('tiles'));
         appendAiTranscribePanel(parent, {
             projectRoot: selection.projectRoot,
             target: { relativePath: selection.relativePath, name: selection.name, duration: 0, atSeconds: 0 },
@@ -84,12 +90,12 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         return;
     }
     if (options.view === 'video' && selection.mediaKind === 'image') {
-        appendAiBack(parent, '動画にする', () => options.onView('tiles'));
+        appendAiBack(parent, t('inspector.aiMaterialView.label.videos'), () => options.onView('tiles'));
         options.onVideoForm(parent);
         if (options.createdPath) {
             const message = document.createElement('p');
             message.className = 'akari-inspector-ai-material-created';
-            message.textContent = `新しい素材 ${options.createdPath.split('/').pop()} を作りました（${options.createdPath}）`;
+            message.textContent = t('inspector.aiMaterialView.text.createdNew', { filename: options.createdPath.split('/').pop(), path: options.createdPath });
             parent.appendChild(message);
         }
         return;
@@ -97,7 +103,7 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     if (!groups.length) {
         const empty = document.createElement('p');
         empty.className = 'akari-inspector-ai-material-empty';
-        empty.textContent = 'この素材で使える編集はまだありません';
+        empty.textContent = t('inspector.aiMaterialView.text.noEditsAvailableAssetYet');
         parent.appendChild(empty);
         return;
     }

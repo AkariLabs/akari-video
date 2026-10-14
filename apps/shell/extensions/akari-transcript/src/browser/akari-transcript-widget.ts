@@ -20,6 +20,7 @@ import {
     regenerateCaptions
 } from './caption-store';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from './akari-transcript-commands';
+import { t } from './transcript-text';
 
 // ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
 // スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
@@ -85,8 +86,8 @@ export class AkariTranscriptWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = `${AkariTranscriptWidget.FACTORY_ID}-unconfigured`;
-        this.title.label = '文字起こし';
-        this.title.caption = '文字起こしを編集';
+        this.title.label = t('transcript.editor.title.label');
+        this.title.caption = t('transcript.editor.title.caption');
         this.title.iconClass = 'codicon codicon-comment-discussion';
         this.title.closable = true;
         this.node.classList.add('akari-transcript-widget');
@@ -109,11 +110,11 @@ export class AkariTranscriptWidget extends BaseWidget {
             boxSizing: 'border-box'
         });
         const heading = document.createElement('strong');
-        heading.textContent = '文字起こし';
+        heading.textContent = t('transcript.editor.title.label');
         heading.style.marginRight = 'auto';
         this.generateButton.type = 'button';
         this.generateButton.className = 'theia-button secondary';
-        this.generateButton.textContent = '文字起こしから字幕を作成';
+        this.generateButton.textContent = t('transcript.editor.generate.button');
         this.generateButton.addEventListener('click', () => void this.generate());
         this.toolbar.append(heading, this.generateButton);
 
@@ -144,7 +145,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             textAlign: 'center',
             zIndex: '2'
         });
-        this.emptyGuide.textContent = '「文字起こしから字幕を作成」を押すと編集を始められます';
+        this.emptyGuide.textContent = t('transcript.editor.generate.empty');
         this.editorContainer.append(this.editorHost, this.emptyGuide);
         Object.assign(this.footer.style, {
             gridRow: '4',
@@ -160,7 +161,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             overflow: 'hidden',
             textOverflow: 'ellipsis'
         });
-        this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
+        this.footer.textContent = t('transcript.editor.seek.hint');
         this.toDispose.push(this.notice);
         this.node.append(this.toolbar, this.notice.node, this.editorContainer, this.footer);
 
@@ -206,7 +207,7 @@ export class AkariTranscriptWidget extends BaseWidget {
 
         const root = await this.workspaceRootFor(analysisUri);
         if (!root) {
-            this.showNotice('先にプロジェクトを開いてください。');
+            this.showNotice(t('transcript.editor.project.required'));
             return;
         }
         await this.configureCaptionStorage(root);
@@ -217,7 +218,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                 ? analysisUri.parent.resolve(analysis.source).normalizePath().toString()
                 : '';
         } catch (error) {
-            this.showNotice(`文字起こしを読み取れません: ${this.errorMessage(error)}`);
+            this.showNotice(t('transcript.editor.read.error', { detail: this.errorMessage(error) }));
             return;
         }
 
@@ -333,7 +334,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             this.baselineLines = this.captions.map(
                 caption => this.displayText(this.captionLineSource(caption))
             );
-            this.generateButton.textContent = '文字起こしから更新';
+            this.generateButton.textContent = t('transcript.editor.generate.update');
             this.setEditorValue(this.baselineLines.join('\n'), false);
             this.showWarnings(parsed.warnings);
         } catch (error) {
@@ -342,14 +343,14 @@ export class AkariTranscriptWidget extends BaseWidget {
                 this.baselineLines = [];
                 this.showingDisplayText.clear();
                 this.setEditorValue('', true);
-                this.showNotice(`字幕を読み取れません: ${this.errorMessage(error)}`);
+                this.showNotice(t('transcript.editor.captions.readError', { detail: this.errorMessage(error) }));
             } else {
                 this.captions = [];
                 this.baselineLines = [];
                 this.showingDisplayText.clear();
-                this.generateButton.textContent = '文字起こしから字幕を作成';
+                this.generateButton.textContent = t('transcript.editor.generate.button');
                 this.setEditorValue('', true);
-                this.showNotice('字幕はまだありません。「文字起こしから字幕を作成」を押すと編集を始められます。');
+                this.showNotice(t('transcript.editor.captions.empty'));
             }
         }
         this.updateEmptyGuide();
@@ -396,11 +397,11 @@ export class AkariTranscriptWidget extends BaseWidget {
             await this.writeCaptionsGuarded(generated.source);
             await this.reloadCaptions();
             this.showWarnings(generated.warnings);
-            this.footer.textContent = '字幕を更新しました。編集済みの行は保持されています。';
+            this.footer.textContent = t('transcript.editor.captions.updated');
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`字幕を作成できません: ${detail}`);
-            this.messages.error(`字幕を作成できません: ${detail}`);
+            this.showNotice(t('transcript.editor.captions.createError', { detail }));
+            this.messages.error(t('transcript.editor.captions.createError', { detail }));
         } finally {
             this.generateButton.disabled = false;
         }
@@ -423,7 +424,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             // 2026-09-08 以前はここで行数の一致を早期 return していたため保存が止まっていた（issue #66）。
             ops = diffCaptionLines(this.baselineLines, this.editorLines(), this.captions);
         } catch (error) {
-            this.showNotice(`変更を保存できません: ${this.errorMessage(error)}`);
+            this.showNotice(t('transcript.editor.save.error', { detail: this.errorMessage(error) }));
             return;
         }
         this.hideNotice();
@@ -453,8 +454,8 @@ export class AkariTranscriptWidget extends BaseWidget {
             this.showWarnings(result.notices);
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更を保存できません: ${detail}`);
-            this.messages.error(`変更を保存できません: ${detail}`);
+            this.showNotice(t('transcript.editor.save.error', { detail }));
+            this.messages.error(t('transcript.editor.save.error', { detail }));
         }
     }
 
@@ -483,12 +484,12 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected savedFooterText(result: CaptionLineOpsResult): string {
         if (!result.lineCountChanged) {
             return result.applied === 1
-                ? 'この行の変更を保存しました。'
-                : `${result.applied} 行の変更を保存しました。`;
+                ? t('transcript.editor.save.single')
+                : t('transcript.editor.save.multiple', { n: result.applied });
         }
         const { counts } = result;
-        return `${result.applied} 行を保存しました`
-            + `（分割 ${counts.split} / 結合 ${counts.merge} / 削除 ${counts.remove} / 追加 ${counts.insert}）。`;
+        return t('transcript.editor.save.count', { n: result.applied })
+            + t('transcript.editor.save.breakdown', { ...counts });
     }
 
     protected applyDecorations(): void {
@@ -514,11 +515,11 @@ export class AkariTranscriptWidget extends BaseWidget {
                         : undefined,
                     glyphMarginHoverMessage: hasDisplayText ? {
                         value: showingDisplay
-                            ? '整文を表示中です。クリックすると原文表示に戻ります。'
-                            : '原文を表示中です。クリックすると整文（読みやすく整えたテキスト）表示に切り替わります。'
+                            ? t('transcript.editor.display.showing')
+                            : t('transcript.editor.display.original')
                     } : undefined,
                     hoverMessage: {
-                        value: `**開始:** ${this.formatTimestamp(caption.start)}  \n**終了:** ${this.formatTimestamp(caption.end)}`
+                        value: `**${t('transcript.editor.caption.start')}** ${this.formatTimestamp(caption.start)}  \n**${t('transcript.editor.caption.end')}** ${this.formatTimestamp(caption.end)}`
                     },
                     overviewRuler: isCut ? {
                         color: 'rgba(128, 128, 128, 0.7)',
@@ -541,10 +542,10 @@ export class AkariTranscriptWidget extends BaseWidget {
         );
         const timestamp = this.formatTimestamp(caption.start);
         this.footer.textContent = result === 'seeked'
-            ? `${timestamp} にプレビューをシークしました。`
+            ? t('transcript.editor.seek.done', { time: timestamp })
             : result === 'mismatched-asset'
-                ? `${timestamp} を選択しました。別の素材のプレビューが開いています。`
-                : `${timestamp} を選択しました。プレビューを開くとここからジャンプできます。`;
+                ? t('transcript.editor.seek.otherAsset', { time: timestamp })
+                : t('transcript.editor.seek.noPreview', { time: timestamp });
     }
 
     protected async checkOverlayCoverage(): Promise<void> {
@@ -558,7 +559,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                 .filter(Boolean));
             const missing = this.captions.filter(caption => !overlayIds.has(caption.id));
             if (missing.length > 0) {
-                this.showNotice(`${missing.length} 件の字幕は映像上の表示とまだ対応していません。字幕の編集は続けられます。`);
+                this.showNotice(t('transcript.editor.overlay.missing', { n: missing.length }));
             }
         } catch {
             // Overlay coverage is advisory and never blocks transcript editing.

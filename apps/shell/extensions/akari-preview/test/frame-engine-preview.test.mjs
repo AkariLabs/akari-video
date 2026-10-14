@@ -76,7 +76,7 @@ test('フラグ off の注入は空文字で既存 HTML 末尾を変えない', 
     );
     assert.match(
         compiledHandler,
-        /\$\{frameEngineScripts\}<script>\$\{\(0, preview_script_diagnostics_1\.previewDiagnosticsTailScript\)\(\)\}<\/script>\s*<\/body>/
+        /\$\{frameEngineScripts\}<script>\$\{\(0, preview_text_1\.webviewScriptText\)\(\(0, preview_script_diagnostics_1\.previewDiagnosticsTailScript\)\(\)\)\}<\/script>\s*<\/body>/
     );
 });
 

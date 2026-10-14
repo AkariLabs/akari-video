@@ -1,26 +1,27 @@
 ---
 name: verify
-description: "AKARI Video（現行 Theia スタック）のタスク契約が要求する検証はしご（L0 / L1 / L2）を実行するときに発動する。タスクの受け入れ条件が「verify 層: L0」「L0+L1」等を指定しているとき、各層で実際に何を・どう叩くかを確認するために読む。"
+description: "Use to execute the L0 / L1 / L2 verification ladder required by an AKARI Video task contract on the current Theia stack. Read when acceptance criteria specify levels such as L0 or L0+L1, to determine exactly what to run and how at each level."
 ---
 
-# verify — 検証はしご（L0 / L1 / L2）
+# verify — Verification ladder (L0 / L1 / L2)
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-タスク契約テンプレート（内部リポ `tasks/_template/task.md`）が参照する対応表の実体。
-**発明した定義ではなく、直近タスクの `report.md` / `task.md` の実運用から帰納したもの**（帰納元は末尾「根拠」節）。
+The mapping referenced by the task-contract template (internal `tasks/_template/task.md`).
+**These definitions are inferred from actual recent `report.md` / `task.md` usage, not invented**;
+see Sources at the end.
 
-## 対応表
+## Mapping
 
-| 層 | 定義 | 判定者 | 現行スタックでの実例 |
+| Level | Definition | Judge | Examples on the current stack |
 |---|---|---|---|
-| L0 | 静的・機械的検証。exit code だけで合否が決まる。実機起動・人間の目を要さない | エージェント単独 | ほぼ全タスクで必須の最下層 |
-| L1 | 実機観測（自動化）。Electron を実際に起動し、CDP/Playwright で操作・スクショ・性能実測を行う。人間の主観判断を要さず、スクリプトで再現可能 | エージェント単独（スクリプト） | 2026-07-15/16 の shell 系タスクはほぼ全て L0+L1 |
-| L2 | 自動化・スクリプトでは判定し切れない層（主観的な視覚品質判断・実配布物でのオーナー最終確認） | 人間（オーナー） | **現行 Theia スタックでは実例なし**（下記「L2 について」参照） |
+| L0 | Static/mechanical verification. Exit codes alone decide pass/fail; no real app launch or human viewing. | Agent alone | Minimum required by nearly every task |
+| L1 | Automated real-app observation. Launch Electron, operate via CDP/Playwright, capture screenshots, measure performance. Script-reproducible without subjective human judgment. | Agent alone (scripts) | Nearly all shell tasks of 2026-07-15/16 require L0+L1 |
+| L2 | Judgments automation/scripts cannot fully make (subjective visual quality, owner's final check of actual distribution). | Human (owner) | **No examples on the current Theia stack**; see About L2 below |
 
-## L0 — 静的・機械的
+## L0 — Static and mechanical
 
-現行 Theia スタックでの実体は `apps/shell` の npm scripts:
+On the current Theia stack, use `apps/shell` npm scripts:
 
 ```sh
 cd apps/shell
@@ -29,136 +30,204 @@ npm run build:ext                                 # tsc -b（11 拡張の型検�
 npm run lint                                       # eslint "extensions/*/src/**/*.{ts,tsx}"
 ```
 
-- **`npm install` ではなく `npm ci`**。`apps/shell/package-lock.json` は 2026-08-19 から**追跡されている**（旧方針は `.gitignore`）。`npm install` は lock をその日のレジストリで書き換える＝ドリフトの入り口なので、検証では使わない。依存を意図的に上げたときだけ `npm install` して lock の差分をコミットする
-- **`--no-workspaces`** は apps/shell を単体プロジェクトとして扱わせる指定（`apps/shell/package-lock.json` + `apps/shell/node_modules` を使う）。付けないとリポ root の workspace 側（root の `package-lock.json`）へ寄り、`packages/*` まで巻き込んで実行時間が約 2 倍になる
-- install の postinstall で **`npm run preflight`** が走る（`scripts/ensure-no-nested-extension-deps.mjs` → `scripts/ensure-electron-dist.mjs`）。`npm run build` の prebuild と `npm start` の prestart も同じ preflight を通る。おかげで **electron の展開も入れ子 `node_modules` の掃除も手作業では要らない**（どちらも下の「地雷」の自動修復）
-- `build:ext` と `lint` が exit 0 = L0 合格の最低ライン。CI（`.github/workflows/ci.yml`）の L0 ジョブはこの 2 つに続けて apps/shell 本体 + 拡張のユニットテスト（`npm run test:shell`）を push/PR で自動実行する（2026-09-02〜。install は lock 追跡に合わせて `npm ci --no-workspaces --ignore-scripts`）
-- **`packages/*`・`scripts/test`・`skills/*` のユニットテストも CI に載っている**（2026-09-02〜）。レーン定義の正本は `scripts/ci/run-unit-tests.mjs`: `npm run test:unit`（pure = 外部ツール不要・required）/ `npm run test:quarantine`（main で既に赤・参考）/ `npm run test:media`（ffmpeg / Chrome が要る・参考）/ `npm run test:lanes`（一覧と、CI に載せていないものの理由）。ローカルでは触ったパッケージの `npm test` で足りる。CI と同じ集合を手元で回したいときだけ `npm run test:unit`
-- `npm run build`（= `build:ext && theia build --mode production`）は、フロントエンド/バックエンド/electron のバンドル生成まで含むより厳密な L0 として個々のタスク契約が課すことがある（例: `shell-sb-surfaces` / `shell-sc-project` / `shell-sd-partner` / `governance-sanitize`）。ただし **CI には載せていない**（後述「地雷」参照）。バンドラは webpack ではなく **esbuild**（Theia 1.73 の既定。`apps/shell/webpack.config.js` が無いので `theia build` は必ず esbuild 経路を通る）
-- `packages/*` 配下に触るタスクは各 package.json の build/test スクリプトが L0 の実体になる（`waveplan-2026-07-15-sbcd-e5.md` §検収ゲート）
+- **Use `npm ci`, not `npm install`.** `apps/shell/package-lock.json` has been **tracked** since 2026-08-19
+  (previously in `.gitignore`). Verification must not use `npm install`, which rewrites the lock against that day's
+  registry and introduces drift. Use `npm install` only for deliberate dependency upgrades, and commit the lock diff.
+- **`--no-workspaces`** treats apps/shell as standalone, using `apps/shell/package-lock.json` + `apps/shell/node_modules`.
+  Without it, execution shifts to root workspace/root `package-lock.json`, involving `packages/*` and roughly doubling runtime.
+- Install postinstall runs **`npm run preflight`** (`scripts/ensure-no-nested-extension-deps.mjs` →
+  `scripts/ensure-electron-dist.mjs`). `npm run build` prebuild and `npm start` prestart use the same preflight.
+  **No manual Electron extraction or nested `node_modules` cleanup is required**; both pitfalls below are repaired automatically.
+- Exit 0 from `build:ext` and `lint` is the minimum L0 pass. CI (`.github/workflows/ci.yml`) then runs apps/shell
+  and extension unit tests (`npm run test:shell`) on push/PR, since 2026-09-02.
+  Installation uses `npm ci --no-workspaces --ignore-scripts` for the tracked lock.
+- **`packages/*`, `scripts/test`, and `skills/*` unit tests are also in CI**, since 2026-09-02.
+  Canonical lane definitions: `scripts/ci/run-unit-tests.mjs`.
+  `npm run test:unit` (pure, no external tools, required) / `npm run test:quarantine` (already failing on main,
+  informational) / `npm run test:media` (requires ffmpeg / Chrome, informational) / `npm run test:lanes`
+  (list and reasons for exclusions from CI). Locally, changed-package `npm test` suffices;
+  use `npm run test:unit` only to run the same set as CI.
+- Individual contracts may require stricter L0 `npm run build` (= `build:ext && theia build --mode production`),
+  including frontend/backend/Electron bundles (e.g., `shell-sb-surfaces` / `shell-sc-project` / `shell-sd-partner` /
+  `governance-sanitize`). **Not run in CI**; see pitfalls below. Bundler is **esbuild**, not webpack
+  (Theia 1.73 default; absent `apps/shell/webpack.config.js` means `theia build` always takes the esbuild route).
+- Tasks changing `packages/*` use each package.json's build/test scripts for L0
+  (`waveplan-2026-07-15-sbcd-e5.md`, acceptance-gate section).
 
-### 既知の地雷（L0）
+### Known pitfalls (L0)
 
-1. **npm 11 の allow-scripts ゲートは `apps/shell/package.json` の `allowScripts` で開けてある**（許可リストであって拒否リストではない）。2026-08-19 実測: `npm ci --no-workspaces` 後のツリーで install 系スクリプト（preinstall / install / postinstall + `binding.gyp` による暗黙の `node-gyp rebuild`）を持つ依存は **11 個ちょうどで、その全部が `allowScripts` に列挙済み＝実行される**（`npm rebuild electron --foreground-scripts` で electron の postinstall が実際に走ることを確認）。**旧記述「11 パッケージの install script を既定でスキップする」は誤り**。ただし列挙は `名前@完全一致バージョン` なので、**版が 1 つずれるとその行はマッチせず、その依存の install script が黙って走らなくなる** — lock 追跡でこのずれは止まる。依存を上げるときは `allowScripts` も一緒に直すこと。`build:ext` / `lint` はネイティブモジュールを要さないので、走っても走らなくても通る。CI の L0 レーンは `--ignore-scripts` で全部止めている
-2. **Homebrew Python 3.14 と node-gyp**: macOS で `PYTHON=` を指定せず install すると、`drivelist` の `node-gyp rebuild` が Homebrew Python 3.14 の `pyexpat` ABI 不整合（`Symbol not found: _XML_SetAllocTrackerActivationThreshold`）で失敗し、install 自体が止まる。`PYTHON=/usr/bin/python3`（Apple 純正 Python）を必ず指定すること
-3. **electron の postinstall は Node 26 で黙って途中終了する**（2026-08-19 実測）。`node_modules/electron/install.js` は zip 展開に extract-zip 2.0.1 → yauzl 2.10 → fd-slicer 1.1 を使うが、**Node v26.3.0 ではこの pipe 経路が 1,900,544 B（64KiB × 29 チャンク）で停止し、`end` も `error` も出ないままイベントループが空になって exit 0 で終わる**。結果 `dist/` には `LICENSE` と切り詰められた `LICENSES.chromium.html` だけが残り、`Electron.app` も `dist/version` も `path.txt` も無い状態が「install 成功」として通る（Node 22.23.1 では同じ zip が完走。zlib 単体も fd-slicer 単体も Node 26 で正常なので、バックプレッシャー解除後に読み出しが再開されないのが実体）。**`scripts/ensure-electron-dist.mjs`（preflight）が結果だけを見て検出し、`ditto` / `tar` / `unzip` で展開し直して `path.txt` まで書く**ので、以前ここに書いていた「`ditto -x -k` で手展開し `echo <version> > dist/version` する」手順はもう不要
-4. **`apps/shell/package-lock.json` は追跡対象**（2026-08-19 に方針転換、`apps/shell/.gitignore` から除外）。旧記述「`npm ci` は使えない／再現性は Node 固定 + `--no-workspaces` だけで担保する」は**無効**。実測: 追跡前は 1 か月で 1400 パッケージ中 63 パッケージが動いていた（`@babel/*` / acorn / postcss / react / terser / webpack 5.108.4→5.109.2 等）
-5. **grep マッチ 0 件は exit 1**。検証スクリプト内で grep を使うときは `|| true` を付ける
+1. **npm 11's allow-scripts gate is opened through `allowScripts` in `apps/shell/package.json`**, an allowlist,
+   not a denylist. Measured 2026-08-19: after `npm ci --no-workspaces`, exactly **11 dependencies** have
+   install scripts (preinstall/install/postinstall + implicit `node-gyp rebuild` from `binding.gyp`), and **all 11
+   are listed in `allowScripts`, so they run**. Confirmed Electron postinstall via `npm rebuild electron --foreground-scripts`.
+   **The former statement that 11 packages' install scripts are skipped by default was wrong.** Entries use
+   `名前@完全一致バージョン` (existing machine format: name@exact-version), so **a single version mismatch silently
+   prevents that dependency's install script from running**. Tracked locks prevent drift; update `allowScripts`
+   with dependencies. `build:ext` / `lint` need no native modules and pass either way.
+   CI L0 suppresses all scripts with `--ignore-scripts`.
+2. **Homebrew Python 3.14 and node-gyp**: On macOS, installation without `PYTHON=` can stop when
+   `drivelist`'s `node-gyp rebuild` hits Homebrew Python 3.14 `pyexpat` ABI mismatch
+   (`Symbol not found: _XML_SetAllocTrackerActivationThreshold`). Always set `PYTHON=/usr/bin/python3` (Apple Python).
+3. **Electron postinstall silently exits partway on Node 26** (measured 2026-08-19).
+   `node_modules/electron/install.js` extracts zips via extract-zip 2.0.1 → yauzl 2.10 → fd-slicer 1.1.
+   **Node v26.3.0 stops this pipe at 1,900,544 B (64KiB × 29 chunks); the event loop empties without `end`
+   or `error`, ending with exit 0.** `dist/` contains only `LICENSE` and truncated `LICENSES.chromium.html`;
+   no `Electron.app`, `dist/version`, or `path.txt`, yet installation appears successful.
+   Node 22.23.1 completes the same zip; standalone zlib/fd-slicer work on Node 26, indicating failure to resume reads
+   after backpressure clears. **`scripts/ensure-electron-dist.mjs` preflight detects the incomplete result,
+   reextracts with `ditto` / `tar` / `unzip`, and writes `path.txt`.** Former manual `ditto -x -k` extraction
+   and `echo <version> > dist/version` workaround are no longer needed.
+4. **`apps/shell/package-lock.json` is tracked** (policy changed 2026-08-19; removed from `apps/shell/.gitignore`).
+   Former claims that `npm ci` is unavailable or only Node pinning + `--no-workspaces` ensure reproducibility are **invalid**.
+   Before tracking, 63 of 1400 packages changed in 1 month (`@babel/*`, acorn, postcss, react, terser,
+   webpack 5.108.4→5.109.2, etc.).
+5. **Zero grep matches means exit 1**. Add `|| true` when using grep in verification scripts.
 
-## L1 — 実機観測（Electron を CDP/Playwright で観測する）
+## L1 — Real-app observation (Electron via CDP/Playwright)
 
-現行スタックの L1 は「GUI スクショ必須」という形でほぼ全タスクに課されている
-（`preview-streaming` / `shell-s4-tabs` / `preview-open-repair` / `project-diff-repair` /
-`shell-s12-preview-tab` / `shell-sc-repair` / `shell-strip-menu-repair` 等）。
-以下は `shell-s4-tabs`（report.md §6-2）と `preview-streaming`（report.md §2）で確立・実証済みの再現手順。
+Nearly all current-stack tasks require L1 as mandatory GUI screenshots (`preview-streaming` / `shell-s4-tabs` /
+`preview-open-repair` / `project-diff-repair` / `shell-s12-preview-tab` / `shell-sc-repair` /
+`shell-strip-menu-repair`, etc.). Below is the reproducible procedure established by `shell-s4-tabs` report.md §6-2
+and `preview-streaming` report.md §2.
 
-**フレーム視認は境界時刻だけで判定しない**。拍ちょうど・カット境界ちょうどのフレームは区間の境界値
-（0% / 100% = 画面外・opacity 0）に必ず当たるため、正常な動きを事故と誤診する。区間の中間時刻
-（1/4・1/2・3/4）も必ず撮る（`akari capture --auto` は各オーバーレイ / 字幕区間の中点を含む代表時刻を
-決定論で導出する）。
+**Never judge frames only at boundaries.** Exact beats/cut boundaries hit interval extremes (0% / 100% = off-screen /
+opacity 0), causing normal motion to be misdiagnosed. Always capture intermediate 1/4, 1/2, 3/4 times too.
+`akari capture --auto` deterministically derives representative times including overlay/caption midpoints.
 
-### 手順
+### Procedure
 
-1. **ビルド**（L0 に加え electron 実体が要る）:
+1. **Build** (requires actual Electron in addition to L0):
    ```sh
    cd apps/shell
    PYTHON=/usr/bin/python3 npm ci --no-workspaces
    npm run build
    ```
-   electron の実体（`node_modules/electron/dist` + `path.txt`）は postinstall / prebuild の
-   `npm run preflight` が用意する（キャッシュに zip が無ければ `@electron/get` で取りに行く）。
-   **手で `ditto` する手順・`echo <version> > dist/version` する回避策はもう要らない**
-   — 要る状況になったら preflight が exit 1 で止まって理由を出す（L0 §地雷 3）
-2. **隔離ワークスペースを用意**: `templates/project-default/` を作業用一時ディレクトリへコピー（元ファイルは無改変）。検証対象の素材（動画等）が要るタスクは、この中に `ffmpeg` 等で実素材を生成する（例: `preview-streaming` は 4K/120 秒/836MB の MP4 を `ffmpeg -f lavfi ...` で生成し実測に使用。検証後は `rm -rf` で完全削除しコミットしない）
-3. **Electron を直接起動**（`theia start` CLI や Playwright の `_electron.launch()` は不使用 — 後者は argv 解釈に既知不具合があるため）:
+   Postinstall/prebuild `npm run preflight` supplies Electron (`node_modules/electron/dist` + `path.txt`),
+   fetching via `@electron/get` if no cached zip exists. **Manual `ditto` or `echo <version> > dist/version`
+   workarounds are no longer needed**. If necessary, preflight stops with exit 1 and a reason (L0 pitfall 3).
+2. **Prepare an isolated workspace**: Copy `templates/project-default/` to a temporary working directory,
+   leaving originals unchanged. For tasks needing media, generate actual files there with `ffmpeg` or similar.
+   Example: `preview-streaming` generated a 4K / 120-second / 836MB MP4 via `ffmpeg -f lavfi ...` for measurement.
+   Completely remove with `rm -rf` after checking; never commit it.
+3. **Launch Electron directly**, not `theia start` CLI or Playwright `_electron.launch()` (known argv bug in the latter):
    ```sh
    node_modules/electron/dist/Electron.app/Contents/MacOS/Electron \
      <apps/shell 絶対パス> <隔離ワークスペース絶対パス> \
      --remote-debugging-port=<port> --user-data-dir=<隔離ディレクトリ> --no-sandbox
    ```
-   `THEIA_CONFIG_DIR=<隔離ディレクトリ>` を環境変数で渡し、通常の開発設定と衝突させない
-4. **`playwright-core` を検証用スクラッチディレクトリにのみ `npm install`**（リポジトリ本体には追加しない）し、
-   `chromium.connectOverCDP('http://127.0.0.1:<port>')` でアタッチする
-5. **入れ子 webview フレームへの到達**: Theia の `WebviewWidget` は外側 `webview.localhost` オリジンの iframe → 内側 `active-frame` という二重入れ子構成を取り、素朴な `page.frames()` 探索では実コンテンツに届かないことがある。CDP の `Page.getFrameTree` と `Runtime.executionContextCreated` イベントの `auxData.frameId` を突き合わせ、実際の内側 execution context を特定してから `Runtime.evaluate` で DOM 状態（`readyState` / `currentTime` / `data-*` 属性等）を直接読む自作クライアントが必要になる場合がある（`preview-streaming` report.md §2 参照）
-6. **観測・記録**:
-   - スクリーンショット: CDP `Page.captureScreenshot` または Playwright の screenshot API
-   - **記録物はリポにコミットしない**（2026-10-02〜）: スクショ・動画・音声・ログ・計測 JSON などの検証記録は、リポの外（作業場所の一時ディレクトリやタスクの記録側）に置き、報告には要約と数値を書く。`evidence/<機能名>/` にコミットしてよいのは、再現に使うスクリプト（`.mjs` / `.cjs` / `.js` / `.sh`）と `README.md` だけ。Governance の `evidence-growth` ジョブが、`evidence/` 配下に新しく足された記録物（画像・動画・音声・`.txt` / `.log` / `.json` など）を拒否する。既にコミット済みの証跡はそのまま残す
-   - 性能: `ps -o %cpu -p <pid>` を 1 秒間隔でサンプリングし GPU/renderer/main プロセスを分離して記録。タイミングは操作前後の CDP イベント/DOM 状態変化で実測（例: `readyState>=3` 到達までのミリ秒）
-   - API 境界: `window.theia.container` 経由で Inversify DI コンテナから直接サービスを呼び出し、フロントエンドのガードをバイパスしてもバックエンドが独立して拒否する（多重防御）ことを確認するのも有効（`preview-streaming` report.md の配信境界検証を参照）
-7. **後片付け**: 起動した Electron プロセスは `ps aux` で確認した実 PID を指定して `kill`（`pkill -f` のような広いパターンマッチは使わない）。隔離ワークスペース・巨大な生成素材は検証後に完全削除しコミットしない
+   Pass environment `THEIA_CONFIG_DIR=<隔離ディレクトリ>` (existing isolated-directory placeholder)
+   to avoid conflicts with normal development settings.
+4. **`npm install` `playwright-core` only in a verification scratch directory**, never in the repository;
+   attach with `chromium.connectOverCDP('http://127.0.0.1:<port>')`.
+5. **Reach nested webview frames**: Theia `WebviewWidget` nests an outer `webview.localhost` iframe around
+   inner `active-frame`. Simple `page.frames()` may not reach actual content. A custom client may need to correlate
+   CDP `Page.getFrameTree` with `Runtime.executionContextCreated` `auxData.frameId`, identify the actual inner
+   execution context, then read DOM state (`readyState` / `currentTime` / `data-*` attributes) via `Runtime.evaluate`.
+   See `preview-streaming` report.md §2.
+6. **Observe and record**:
+   - Screenshots: CDP `Page.captureScreenshot` or Playwright screenshot API.
+   - **Do not commit observation records**, since 2026-10-02. Screenshots, video, audio, logs, measurement JSON,
+     etc., belong outside the repository (temporary working directories or task-record storage); reports contain
+     summaries/numbers. Only reproduction scripts (`.mjs` / `.cjs` / `.js` / `.sh`) and `README.md` may be committed
+     beneath `evidence/<機能名>/` (existing feature-name placeholder). Governance `evidence-growth` rejects new
+     records under `evidence/` (images/video/audio/`.txt`/`.log`/`.json`, etc.). Keep already committed evidence unchanged.
+   - Performance: Sample `ps -o %cpu -p <pid>` every 1 second, recording GPU/renderer/main separately.
+     Measure timing through CDP events/DOM changes before/after operations, e.g., milliseconds to `readyState>=3`.
+   - API boundaries: Directly call services through Inversify DI via `window.theia.container` to verify backend
+     rejection even when frontend guards are bypassed (defense in depth). See `preview-streaming` report's serving-boundary checks.
+7. **Cleanup**: Identify actual launched Electron PIDs with `ps aux` and `kill` those PIDs;
+   never use broad matching such as `pkill -f`. Completely delete isolated workspaces/large generated media afterward;
+   never commit them.
 
-### 既知の地雷（L1）
+### Known pitfalls (L1)
 
-0. **`ELECTRON_RUN_AS_NODE=1` が環境に残っていると Electron が即死する**（2026-09-27 実測・
-   `library-tile-cards` レーン）。この変数が立っていると Electron は GUI ではなく Node として
-   起動するため、`app` が未定義のまま
+0. **Residual `ELECTRON_RUN_AS_NODE=1` immediately crashes Electron** (measured 2026-09-27,
+   `library-tile-cards` lane). Electron starts as Node rather than GUI, leaving `app` undefined and failing with:
    ```
    Cannot read properties of undefined (reading 'requestSingleInstanceLock')
    ```
-   で落ちる。L0 §地雷 3 の「パッケージ版でのパス解決」検証（`ELECTRON_RUN_AS_NODE=1` +
-   `cwd=/`）を先に回した同じシェルで L1 に入ると踏む。起動時に
-   `env -u ELECTRON_RUN_AS_NODE <electron のパス> …` で必ず外すこと。
+   This occurs if L1 follows packaged-path verification (`ELECTRON_RUN_AS_NODE=1` + `cwd=/`, L0 pitfall 3)
+   in the same shell. Always remove it at launch with `env -u ELECTRON_RUN_AS_NODE <electron のパス> …`
+   (existing Electron-path placeholder).
 
-1. **拡張ディレクトリ内のネスト `node_modules`（この層で最も踏まれている地雷）**: `apps/shell/extensions/<ext>/node_modules/` に `@theia/core` の 2 つ目の実体が入ると、esbuild は realpath 単位でモジュールを束ねるため 1 つの `bundle.js` に `frontend-application-config-provider` が 2 本入る。`src-gen/frontend/index.js` は片方に `set()` し、拡張側はもう片方から `get()` するので、フロントエンドが
+1. **Nested extension `node_modules` (the most frequent L1 pitfall)**: A second `@theia/core` inside
+   `apps/shell/extensions/<ext>/node_modules/` causes esbuild's realpath-based bundling to include 2
+   `frontend-application-config-provider` copies in one `bundle.js`. `src-gen/frontend/index.js` calls `set()`
+   on one, while extensions call `get()` on the other, leaving the frontend at its preload spinner with:
    ```
    Failed to start the frontend application.
    Error: The configuration is not set. Did you call FrontendApplicationConfigProvider#set?
    ```
-   でプリロードのスピナーのまま止まる（dual-package hazard）。**2026-08-19 に実機で再現・確定**: 同一ツリーで `extensions/akari-preview/node_modules/@theia/core` を作った状態だけがこのエラーを出し、消せば起動する。原因は拡張ディレクトリ単体での `npm install`（1 回打つと 643 パッケージが入る）。
-   **拡張ディレクトリで `npm install` を打たないこと**。打ってしまっても preflight（postinstall / prebuild / prestart）が入れ子を削除して直すが、`bundle.js` は作り直しが要るので `npm run build` からやり直す。
-   なお **この症状を「webpack の版のせい」と読み違えた前例がある**（2026-08-18 timeline-z-order-unification §申し送り 2）。`theia build` は esbuild 経路であって webpack を一切呼ばない — webpack 5.109.2 が入ったままでも起動することを実測済みなので、この症状を見たらまず入れ子 `node_modules` を疑う
-2. **Electron の起動エントリ**: `package.json` の `main` フィールドどおり `lib/backend/electron-main.js` を使う。`lib/backend/main.js` を直接指定すると `BrowserWindow` が生成されず `/json/list` が空のままになる
-3. **パッケージ版でのパス解決**: バンドル後の `__dirname` は開発時と異なる（`app.asar/lib/backend` 等）。`apps/shell` 外への相対パス探索を持つ機能は、`electron-builder --dir` 出力を `ELECTRON_RUN_AS_NODE=1` + `cwd=/` で実行して検証すること（`package-runtime-assets` task.md 参照）。開発時 (`npm start`) だけでの確認は不十分
+   This dual-package hazard was **reproduced and confirmed on a real app 2026-08-19**: the same tree errors only
+   when `extensions/akari-preview/node_modules/@theia/core` exists; deleting it restores launch.
+   Cause: standalone extension-directory `npm install` (one run installs 643 packages).
+   **Never run `npm install` inside extension directories.** Preflight (postinstall/prebuild/prestart) removes
+   accidental nesting, but `bundle.js` needs rebuilding; rerun from `npm run build`.
+   A prior case blamed webpack versions (2026-08-18 timeline-z-order-unification handoff §2).
+   `theia build` uses esbuild and never calls webpack; launch was measured with webpack 5.109.2 still installed.
+   Suspect nested `node_modules` first.
+2. **Electron entry point**: Use `lib/backend/electron-main.js` as specified by `package.json`'s `main`.
+   Directly specifying `lib/backend/main.js` creates no `BrowserWindow`, leaving `/json/list` empty.
+3. **Packaged path resolution**: Bundled `__dirname` differs from development (e.g., `app.asar/lib/backend`).
+   Features searching relative paths outside `apps/shell` must be checked against `electron-builder --dir` output
+   with `ELECTRON_RUN_AS_NODE=1` + `cwd=/` (see `package-runtime-assets` task.md).
+   Checking only development `npm start` is insufficient.
 
-## L2 について
+## About L2
 
-**現行 Theia スタックへ移行した直近タスク群（2026-07-15/16、S-A〜S-D・S4/S6/S12・
-preview-streaming・preview-open-repair・project-diff-repair・package-runtime-assets・
-shell-sc-repair・shell-strip-menu-repair 等）で、L2 が受け入れ条件として課された実例は
-一件もない。** いずれも「verify 層: L0 + L1（実機 GUI スクショ必須）」の範囲で完結しており、
-自動化された実機観測（L1）が実質的な最高層として運用されている。
+**No recent tasks after migration to the current Theia stack** (2026-07-15/16, S-A–S-D, S4/S6/S12,
+preview-streaming, preview-open-repair, project-diff-repair, package-runtime-assets, shell-sc-repair,
+shell-strip-menu-repair, etc.) **have required L2 as an acceptance criterion**.
+All finish within L0 + L1 (mandatory real-app GUI screenshots); automated real-app observation (L1)
+is the practical highest level.
 
-L2 は旧 Tauri 実装期の verify スキルで使われていた概念で、当時の実例（帰納元）:
+L2 was used by verify during the old Tauri era. Examples informing the definition:
 
-- `2026-07-15-preview-band-artifact`: L2 = 実機での不具合再現・修正確認。加えて「オーナーが実機で帯の消失を確認」という**オーナー自身の目視**が最終ゲートに使われた
-- `2026-07-15-vlog-mvp-edit`: 「L2（実機アプリ）未実施」— L1（実書き出し・ffprobe 検証）は完了したが、実機アプリでの目視（プレビュー側の合成が理屈どおりに見えるか）は L2 として区別され、範囲外とされた
-- `2026-07-15-decision-cards-runtime`: 「実機（Tauri / companion 拡張 webview）での目視は本タスク範囲外（L2 非対象）」— headless Chrome での自動 DOM 検証（L1 相当）と、実アプリ webview での体感確認（L2）を明確に分けている
-- 非公開の内部タスク記録の契約書（dev-harness、2026-07-14 付）は「本表 L3 実機 ≒ verify L2（実機）」と明記し、本表 L3 は「オーナーによるフィールドテスト → handoff 記録」と定義される（同じく非公開の wave 計画書、2026-07-15 付、§6）
+- `2026-07-15-preview-band-artifact`: L2 reproduced and verified the fix on a real app, with **the owner's own
+  visual confirmation** that the band disappeared as the final gate.
+- `2026-07-15-vlog-mvp-edit`: L2 real-app check unperformed. L1 actual export/ffprobe verification was complete,
+  but real-app visual verification of preview compositing was separately classified L2 and outside scope.
+- `2026-07-15-decision-cards-runtime`: Real Tauri/companion-extension webview visual inspection was outside scope
+  (L2 excluded); automated headless Chrome DOM checks (L1 equivalent) were distinct from actual webview experience (L2).
+- Private dev-harness contract (2026-07-14) explicitly equates its L3 real-device layer with verify L2;
+  L3 means owner field test → handoff record (private wave plan, 2026-07-15, §6).
 
-これらに共通するのは、**L2 = 自動化・スクリプトでは判定し切れない層**という一線であり、
-「実素材を使うかどうか」では区別されない（L1 でも `preview-streaming` の 836MB 4K 実撮素材のように
-実素材を使うことが普通にある）。したがって現行スタックでの L2 は次のように定義する
-（現行スタックでの実例が無いため外挿であることを明記する）:
+The shared distinction is **L2 means judgments automation/scripts cannot fully make**, not whether real media is used.
+L1 commonly uses real media too, such as `preview-streaming`'s 836MB 4K footage.
+Thus define current-stack L2 as follows, explicitly noting this is extrapolation without current-stack examples:
 
-> L2 = パッケージ配布物（`electron-builder` 出力）での実運用シナリオを、視覚的な質感・
-> 使用感など自動化スクリプトでは判定不能な観点についてオーナー自身が確認し、handoff に記録する層。
+> L2: The owner personally checks real-use scenarios on packaged distribution (`electron-builder` output),
+> assessing visual feel/usability and other aspects automation cannot judge, and records the result in handoff.
 
-### L2 を課すかどうかの判断基準
+### Criteria for requiring L2
 
-- 受け入れ条件が **主観的な品質判断**（「違和感がない」「忠実に見える」等、数値化できない観測項目）を含む場合
-- L1 の自動観測（CDP/Playwright）では原理的に再現できない体験（実際の配布物でのインストール〜起動〜操作の一気通貫、実タッチ操作・実マウス操作の感触等）を確認する必要がある場合
-- 司令塔・オーナーが明示的に実機フィールドテストを求めた場合
+- Acceptance includes **subjective quality judgments** (e.g., “feels natural”, “looks faithful”), not numerically measurable.
+- A needed experience cannot in principle be reproduced by L1 CDP/Playwright observation
+  (actual distribution install → launch → operation, real touch/mouse feel, etc.).
+- The coordinator/owner explicitly requests a real-device field test.
 
-上記に当てはまらない限り、現行スタックのタスクは L0+L1 で完結させる（実際の運用がそうなっている）。
+Otherwise finish current-stack tasks at L0+L1, matching actual practice.
 
-## どの層を課すか（タスク側の判断基準）
+## Which levels to require (task-side criteria)
 
-- **L0 のみ**: コードに実行時の観測可能な挙動変化が無いタスク（ドキュメント・CI 設定・型定義のみの変更等）。本タスク（`ci-and-verify-skill`）自身がこの例
-- **L0+L1**: `apps/shell/extensions/**` や `packages/preview-engine` 等、GUI・実行時挙動に影響するコード変更を含むタスクの既定。2026-07-15/16 の shell 系タスクはほぼ全てここに属する
-- **L0+L1+L2**: 上記「L2 を課すかどうかの判断基準」に該当する場合のみ。現行スタックでは前例なし
+- **L0 only**: No observable runtime behavior change (documentation, CI configuration, type definitions, etc.).
+  This task itself (`ci-and-verify-skill`) is an example.
+- **L0+L1**: Default for code changes affecting GUI/runtime, such as `apps/shell/extensions/**` or
+  `packages/preview-engine`. Nearly all 2026-07-15/16 shell tasks belong here.
+- **L0+L1+L2**: Only when the L2 criteria above apply. No current-stack precedent.
 
-## 根拠（帰納元）
+## Sources (basis for inference)
 
-対応表・手順は非公開の内部タスク記録（`akari-video-internal`）の report.md / task.md から帰納したもの
-である。内部タスク記録そのものは本リポには置かない方針（`docs/design-2026-07-13-agent-native-architecture.md`
-§3 と同様の扱い）。検証手順そのもの（コマンド・観測対象・既知の地雷）は上記「L0」「L1」節に実行可能な形で
-記載済みであり、以下は帰納元タスクの識別のみを示す（すべて非公開）:
+Mapping/procedures are inferred from private internal task records (`akari-video-internal`) report.md/task.md.
+Those internal records do not belong in this repository, consistent with
+`https://github.com/AkariLabs/akari-video/blob/main/docs/design-2026-07-13-agent-native-architecture.md` §3. Executable verification procedures (commands, observation
+subjects, pitfalls) are already provided in L0/L1 above. Below only identifies source tasks, all private:
 
-- preview-streaming（2026-07-16）: L1 再現手順・836MB 実素材・入れ子 webview フレーム到達法
-- shell-s4-tabs（2026-07-16）: L1 再現手順・dual-package hazard・Electron 起動エントリの地雷（§6-2 に手順まとめ）
-- package-runtime-assets（2026-07-16）: パッケージ版 L1 の実施方法
-- 内部タスク記録の README: 検収フロー 4-c の CI 前提
-- 内部タスク記録のタスクテンプレート: verify 層の対応表という語彙そのものの出典
-- dev-harness 契約書（2026-07-14）・wave 計画書（2026-07-15）§6: 検証レイヤ表・L0/L1/L2/L3 の定義
-- preview-band-artifact・vlog-mvp-edit・decision-cards-runtime（いずれも 2026-07-15、旧 Tauri 期）:
-  L2 実例。現行スタックに L2 実例が無いため、L2 の定義根拠としてはこれらのみ
+- preview-streaming (2026-07-16): L1 reproduction, 836MB real media, nested-webview access.
+- shell-s4-tabs (2026-07-16): L1 reproduction, dual-package hazard, Electron entry-point pitfalls; procedures in §6-2.
+- package-runtime-assets (2026-07-16): Packaged L1 execution.
+- Internal task-record README: CI prerequisites for acceptance flow 4-c.
+- Internal task template: Source of the verification-level mapping terminology.
+- dev-harness contract (2026-07-14), wave plan (2026-07-15) §6: Verification layer table, L0/L1/L2/L3 definitions.
+- preview-band-artifact, vlog-mvp-edit, decision-cards-runtime (all 2026-07-15, old Tauri era):
+  L2 examples; these alone support the L2 definition because no current-stack examples exist.

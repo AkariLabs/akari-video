@@ -1,5 +1,6 @@
+import { t, formatCurrency } from '@akari-video/i18n';
 import type { NarrationEngine, NarrationVoice, VoiceProfileSummary, VoiceEngine } from './akari-annotations-protocol';
-import { GEMINI_WATERMARK_NOTICE } from './voice-clone-model';
+import { geminiWatermarkNotice } from './voice-clone-model';
 
 export function voiceProfileConsent(profile: VoiceProfileSummary): boolean {
     return typeof profile.consent === 'string' ? profile.consent.trim().length > 0 : profile.consent?.self_voice === true;
@@ -26,7 +27,7 @@ export function readAloudProvenanceLabel(provenance: Record<string, unknown> | u
     if (voice.startsWith('profile:')) {
         const id = voice.slice('profile:'.length);
         const profile = profiles.find(item => item.id === id);
-        return profile ? `自分の声（${profile.label}）` : voice;
+        return profile ? t('annotationscommon.readAloudModel.label.myVoice', { profileName: profile.label }) : voice;
     }
     return voice || '—';
 }
@@ -76,13 +77,13 @@ export function readAloudEngineGroups(engines: readonly NarrationEngine[], previ
 }
 
 export function readAloudPrice(engine: NarrationEngine): string {
-    if (engine.place !== 'cloud') return '無料';
+    if (engine.place !== 'cloud') return t('annotationscommon.readAloudModel.estimate.free');
     const price = engine.price;
     const unit = price?.unit ?? (price?.usd_per_1000_chars !== undefined ? 'usd_per_1000_chars' : null);
     const value = price?.value ?? price?.usd_per_1000_chars;
-    if (unit === null || value === undefined || value === null) return '見積不可';
-    const suffix = unit === 'usd_per_second' ? '秒' : unit === 'usd_per_request' ? '回' : '1000 字';
-    return `$${value} / ${suffix}${price?.verified === false ? '（暫定）' : ''}`;
+    if (unit === null || value === undefined || value === null) return t('annotationscommon.readAloudModel.estimate.estimateUnavailable');
+    const suffix = unit === 'usd_per_second' ? t('annotationscommon.readAloudModel.estimate.second') : unit === 'usd_per_request' ? t('annotationscommon.readAloudModel.estimate.request') : t('annotationscommon.readAloudModel.estimate.thousandCharacters');
+    return `$${value} / ${suffix}${price?.verified === false ? t('annotationscommon.readAloudModel.estimate.provisional') : ''}`;
 }
 
 export function readAloudCopyEngines(profile: VoiceProfileSummary, engines: readonly NarrationEngine[], last?: string): {
@@ -91,9 +92,9 @@ export function readAloudCopyEngines(profile: VoiceProfileSummary, engines: read
     const usable = new Set(profile.usable_engines ?? profile.engines);
     const options = READ_ALOUD_COPY_IDS.flatMap(id => engines.filter(engine => engine.id === id)).map(engine => {
         const stale = profile.copies?.[engine.id]?.stale === true;
-        const reason = engine.id === 'irodori' && engine.availability.state !== 'available' ? 'つながりません'
-            : engine.availability.state === 'unconfigured' ? '鍵なし'
-            : !usable.has(engine.id) || engine.availability.state !== 'available' ? '写しなし' : undefined;
+        const reason = engine.id === 'irodori' && engine.availability.state !== 'available' ? t('annotationscommon.readAloudModel.error.unavailable')
+            : engine.availability.state === 'unconfigured' ? t('annotationscommon.readAloudModel.label.noApiKey')
+            : !usable.has(engine.id) || engine.availability.state !== 'available' ? t('annotationscommon.readAloudModel.label.noVoiceCopy') : undefined;
         return { engine, usable: reason === undefined, stale, reason };
     });
     const selected = (options.find(row => row.engine.id === 'irodori' && row.usable)
@@ -103,13 +104,13 @@ export function readAloudCopyEngines(profile: VoiceProfileSummary, engines: read
 }
 
 export function readAloudCopyOptionLabel(row: { engine: NarrationEngine; stale: boolean; reason?: string }): string {
-    const name = row.engine.id === 'irodori' ? '彩（無料・自分の PC）' : row.engine.label;
-    return `${name}${row.stale ? '（写しが古い）' : ''}${row.reason ? `（${row.reason}）` : ''}`;
+    const name = row.engine.id === 'irodori' ? t('annotationscommon.readAloudModel.label.irodoriFreePc') : row.engine.label;
+    return `${name}${row.stale ? t('annotationscommon.readAloudModel.label.outdatedCopy') : ''}${row.reason ? `（${row.reason}）` : ''}`;
 }
 
 export function readAloudCopyNote(row: { engine: NarrationEngine; stale: boolean }): string {
-    return `${row.engine.supports?.clone === 'per-request' ? '録音を毎回送ります' : '写しを使います'}${row.stale ? ' · 写しが古いです' : ''}`
-        + (row.engine.id === 'gemini-3.8-flash-tts' ? ` · ${GEMINI_WATERMARK_NOTICE}` : '');
+    return `${row.engine.supports?.clone === 'per-request' ? t('annotationscommon.readAloudModel.action.sendRecordingEachTime') : t('annotationscommon.readAloudModel.action.useVoiceCopy')}${row.stale ? t('annotationscommon.readAloudModel.label.voiceCopyOutdated') : ''}`
+        + (row.engine.id === 'gemini-3.8-flash-tts' ? ` · ${geminiWatermarkNotice()}` : '');
 }
 
 export function selectReadAloudEngine(engines: readonly NarrationEngine[], preferred?: string): NarrationEngine | undefined {
@@ -130,7 +131,7 @@ export async function prepareReadAloudEngine(engine: NarrationEngine,
     await start();
     const engines = await refresh();
     if (!engines.some(item => item.id === 'voicevox' && item.availability.state === 'available')) {
-        throw new Error('VOICEVOX の起動を確認できませんでした。');
+        throw new Error(t('annotationscommon.readAloudModel.error.couldNotConfirmVoicevoxStarted'));
     }
 }
 
@@ -156,8 +157,8 @@ export function narrationEstimate(engine: NarrationEngine, reading: string): {
     const usd = engine.place !== 'cloud' ? 0 : value == null ? null : unit === 'usd_per_second'
         ? chars / 5 * value : unit === 'usd_per_request' ? value : chars / 1000 * value;
     return { chars, usd, yen: usd === null ? null : Math.round(usd * 150), provisional: engine.price?.verified === false,
-        label: engine.place !== 'cloud' ? '費用 ¥0' : usd === null ? '見積不可（従量）' :
-            `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
+        label: engine.place !== 'cloud' ? t('common.currency.price.narrationFree') : usd === null ? t('annotationscommon.readAloudModel.estimate.estimateUnavailableUsageBased') :
+            t('annotationscommon.readAloudModel.estimate.estimateOneApproval', { amount: formatCurrency(usd) }) };
 }
 
 export interface ReadAloudRow { id: string; text: string; start: number; end: number;
@@ -205,20 +206,20 @@ export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): 
     confirm?: { title: string; msg: string; ok: string; cancel: string };
 } {
     if (engine.place !== 'cloud') return {
-        buttonLabel: '▶ 試聴',
-        footnote: engine.id === 'irodori' ? '彩は時間がかかります（お試し）。作った音声を試聴してから置きます。' : 'ローカルなので費用承認なし。作った音声はまず試聴、置くのはその後。',
+        buttonLabel: t('annotationscommon.readAloudModel.action.preview'),
+        footnote: engine.id === 'irodori' ? t('annotationscommon.readAloudModel.message.irodoriTakesTimeTrialPreviewGeneratedAudio') : t('annotationscommon.readAloudModel.message.localGenerationNeedsNoCostApprovalPreview'),
         needsApproval: false
     };
     const quote = narrationEstimate(engine, reading);
     return {
-        buttonLabel: '費用を見て試聴…',
-        footnote: 'クラウド。試聴の前に費用承認を 1 回。送るのは読み原稿の文字だけ。',
+        buttonLabel: t('annotationscommon.readAloudModel.action.reviewCostPreview'),
+        footnote: t('annotationscommon.readAloudModel.message.cloudGenerationApproveCostOnceBeforePreviewing'),
         needsApproval: true,
         confirm: {
-            title: '費用承認',
-            msg: quote.usd === null ? `見積を出せません。送ると ${readAloudProvider(engine)} の従量で課金されます。送りますか` :
-                `$${quote.usd.toFixed(3)}（as_of ${engine.price?.as_of ?? '未確認'}）で ${readAloudProvider(engine)} に 読み原稿 ${quote.chars} 字 を送ります。費用承認しますか`,
-            ok: '費用承認する', cancel: 'キャンセル'
+            title: t('annotationscommon.readAloudModel.title.costApproval'),
+            msg: quote.usd === null ? t('annotationscommon.readAloudModel.error.estimateUnavailableSendingWillIncurUsageCharges', { provider: readAloudProvider(engine) }) :
+                t('annotationscommon.readAloudModel.message.sendScriptCharactersAsApproveCost', { amount: quote.usd.toFixed(3), asOf: engine.price?.as_of ?? t('annotationscommon.readAloudModel.label.unverified'), provider: readAloudProvider(engine), characters: quote.chars, n: quote.chars }),
+            ok: t('annotationscommon.readAloudModel.action.approveCost'), cancel: t('annotationscommon.readAloudModel.action.cancel')
         }
     };
 }

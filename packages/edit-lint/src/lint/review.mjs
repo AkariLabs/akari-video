@@ -1,4 +1,5 @@
 import { EPSILON, addFinding, addSkipped, isFiniteNumber, isNonEmptyString, isRecord, isRegularFile, relativePath, resolveReferenceBinding, unfetchedLibraryNote } from "./shared.mjs";
+import { lintText } from '../i18n.mjs';
 
 const REVIEW_TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);
 
@@ -47,7 +48,7 @@ export async function validateReview(review, edit, findings, paths, skipped) {
     reviewFinding(
       findings,
       "review.version",
-      `review.json version ${review.version} は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください`,
+      lintText('lint-messages.review.version.future', { version: review.version }),
       `${reviewRelative}#version`,
     );
     addSkipped(

@@ -1,3 +1,4 @@
+import { t } from '../transcript-text';
 export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'cut-video' }
     | { kind: 'caption-only' } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
     | { kind: 'merge-prev' } | { kind: 'merge-next' } | { kind: 'insert-word' } | { kind: 'mark'; color: string };
@@ -11,26 +12,26 @@ export function wordContextMenuGroups(input: {
     wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
     cutDisabledReason?: string;
 }): WordMenuGroup[] {
-    const subject = input.rangeCount > 1 ? `${input.rangeCount} 範囲を一括`
-        : input.wordCount > 1 ? 'この範囲' : 'この語';
+    const subject = input.rangeCount > 1 ? t('transcript.daihon.wordMenu.applyRangesWithCountLabel', { value1: input.rangeCount })
+        : input.wordCount > 1 ? t('transcript.daihon.wordMenu.rangeLabel') : t('transcript.daihon.wordMenu.wordLabel');
     const groups: WordMenuGroup[] = [
         { title: `${subject}「${input.text}」`, items: [
-            { label: '▶ ここから再生', action: { kind: 'play' } }, { label: '✎ 直す', action: { kind: 'edit' } },
-            { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true,
+            { label: t('transcript.daihon.wordMenu.playPlayFromHereLabel'), action: { kind: 'play' } }, { label: t('transcript.daihon.wordMenu.editLabel'), action: { kind: 'edit' } },
+            { label: t('transcript.daihon.wordMenu.cutCutVideoLabel'), action: { kind: 'cut-video' }, danger: true,
                 disabled: !!input.cutDisabledReason, title: input.cutDisabledReason },
-            { label: '字幕からだけ消す（音声はそのまま）', action: { kind: 'caption-only' } },
-            { label: '⏸ 間を入れる', accel: '⌘;', action: { kind: 'pause' } }
+            { label: t('transcript.daihon.wordMenu.removeOnlyFromCaptionsKeepAudioLabel'), action: { kind: 'caption-only' } },
+            { label: t('transcript.daihon.wordMenu.addPauseLabel'), accel: '⌘;', action: { kind: 'pause' } }
         ] },
-        { title: '挿入', note: `「${input.nextWordText}」の前に`, items: [
-            ...(input.wordInsertAvailable ? [{ label: '＋ 語', action: { kind: 'insert-word' } as WordMenuAction }] : [])
+        { title: t('transcript.daihon.wordMenu.insertTooltip'), note: t('transcript.daihon.wordMenu.beforeWithValueTooltip', { value1: input.nextWordText }), items: [
+            ...(input.wordInsertAvailable ? [{ label: t('transcript.daihon.wordMenu.addWordLabel'), action: { kind: 'insert-word' } as WordMenuAction }] : [])
         ] },
-        { title: '行', items: [
-            { label: '／ ここで改行（表示だけ・行は 1 つのまま）', accel: '⇧⏎', action: { kind: 'break' } },
-            ...(input.splitAvailable ? [{ label: '⏎ ここで分割（行が 2 つになる）', accel: '⏎', action: { kind: 'split' } as WordMenuAction }] : []),
-            ...(input.mergeAvailable ? [{ label: '前の行と結合', accel: '⌫', action: { kind: 'merge-prev' } as WordMenuAction }] : []),
-            ...(input.mergeNextAvailable ? [{ label: '次の行と結合', action: { kind: 'merge-next' } as WordMenuAction }] : [])
+        { title: t('transcript.daihon.wordMenu.lineTooltip'), items: [
+            { label: t('transcript.daihon.wordMenu.breakHereDisplayOnlyStillOneLineLabel'), accel: '⇧⏎', action: { kind: 'break' } },
+            ...(input.splitAvailable ? [{ label: t('transcript.daihon.wordMenu.splitHereCreatesTwoLinesLabel'), accel: '⏎', action: { kind: 'split' } as WordMenuAction }] : []),
+            ...(input.mergeAvailable ? [{ label: t('transcript.daihon.wordMenu.mergePreviousLineLabel'), accel: '⌫', action: { kind: 'merge-prev' } as WordMenuAction }] : []),
+            ...(input.mergeNextAvailable ? [{ label: t('transcript.daihon.wordMenu.mergeNextLineLabel'), action: { kind: 'merge-next' } as WordMenuAction }] : [])
         ] },
-        { title: 'マーク', colors: COLORS, items: COLORS.map(color => ({ label: color, action: { kind: 'mark' as const, color } })) }
+        { title: t('transcript.daihon.wordMenu.markTooltip'), colors: COLORS, items: COLORS.map(color => ({ label: color, action: { kind: 'mark' as const, color } })) }
     ];
     return groups.filter(group => group.items.length > 0);
 }

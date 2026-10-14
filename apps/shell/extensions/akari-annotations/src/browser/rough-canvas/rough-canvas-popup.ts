@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { Disposable } from '@theia/core/lib/common';
 import { Message } from '@theia/core/shared/@lumino/messaging';
@@ -28,9 +29,9 @@ const STORAGE = 'akari.rough-canvas.bounds.v2';
 let draftNumber = 0;
 const emptyInk = (aspect: InkAspect): InkDocument => ({ schema: 'akari.ink.v0', space: 'canvas-rect', aspect, objects: [] });
 export function taskBackdropPresentation(backdrop: RoughCanvasBackdrop | undefined, included: boolean):
-    { disabled: boolean; checked: boolean; label: '今の画面を含む' | '線だけ' } {
+    { disabled: boolean; checked: boolean; label: string } {
     const checked = !!backdrop && included;
-    return { disabled: !backdrop, checked, label: checked ? '今の画面を含む' : '線だけ' };
+    return { disabled: !backdrop, checked, label: checked ? t('annotationscommon.roughCanvasPopup.label.includesScreenNow') : t('annotationscommon.roughCanvasPopup.label.lineOnly') };
 }
 function savedBounds(): { left: number; top: number; width: number } | undefined {
     try {
@@ -75,7 +76,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     };
 
     constructor(private readonly options: RoughCanvasPopupOptions) {
-        super({ title: 'ざっくりキャンバス' });
+        super({ title: t('annotationscommon.roughCanvasPopup.title.canvas') });
         this.addClass('akari-rough-canvas-host');
         ensureRoughCanvasStyle();
         this.pages = [{ key: `draft-${++draftNumber}`, ink: emptyInk(options.aspect), memo: '',
@@ -106,22 +107,22 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.header.className = 'akari-rough-canvas-header';
         this.mark.className = 'akari-rough-canvas-mark';
         this.mark.setAttribute('aria-hidden', 'true');
-        const title = document.createElement('strong'); title.textContent = 'ざっくりキャンバス';
+        const title = document.createElement('strong'); title.textContent = t('annotationscommon.roughCanvasPopup.title.canvas');
         this.tools.className = 'akari-rough-canvas-tools';
         const spacer = document.createElement('span'); spacer.className = 'grow';
         const backdropLabel = document.createElement('label'); backdropLabel.className = 'akari-rough-canvas-underlay-label';
-        this.backdropToggle.type = 'checkbox'; this.backdropToggle.setAttribute('aria-label', '今の画面を敷く');
+        this.backdropToggle.type = 'checkbox'; this.backdropToggle.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.label.layingScreenNow'));
         this.backdropToggle.addEventListener('change', () => {
             if (this.backdropToggle.checked) void this.setBackdrop(); else this.removeBackdrop();
         });
-        backdropLabel.append(this.backdropToggle, document.createTextNode('今の画面を敷く'));
+        backdropLabel.append(this.backdropToggle, document.createTextNode(t('annotationscommon.roughCanvasPopup.label.layingScreenNow')));
         this.deleteButton.type = 'button'; this.deleteButton.className = 'theia-button quiet small';
-        this.deleteButton.textContent = '消す'; this.deleteButton.title = '選んだものを消す（Delete）';
-        this.deleteButton.setAttribute('aria-label', '選んだものを消す');
+        this.deleteButton.textContent = t('annotationscommon.roughCanvasPopup.text.erase'); this.deleteButton.title = t('annotationscommon.roughCanvasPopup.title.cancelSelectedOne');
+        this.deleteButton.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.action.cancelSelectedItems'));
         this.deleteButton.disabled = true;
         this.deleteButton.addEventListener('click', () => this.deleteSelected());
         this.header.append(this.mark, title, this.tools, spacer, backdropLabel, this.deleteButton,
-            this.button('白紙に', 'quiet small', () => this.clearPaper()),
+            this.button(t('annotationscommon.roughCanvasPopup.button.paper'), 'quiet small', () => this.clearPaper()),
             this.button('×', 'quiet small icon', () => void this.closeSafely()));
         this.header.addEventListener('pointerdown', event => this.beginPointer(event, false));
         this.paper.className = 'akari-rough-canvas-paper';
@@ -132,37 +133,37 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.hint.className = 'akari-rough-canvas-hint';
         this.paper.append(this.backdropImage, this.inkHost, this.hint);
         this.memo.className = 'akari-rough-canvas-memo'; this.memo.type = 'text';
-        this.memo.placeholder = '紙に添える一言（任意）'; this.memo.setAttribute('aria-label', '紙に添える一言（任意）');
+        this.memo.placeholder = t('annotationscommon.roughCanvasPopup.placeholder.oneWordBeServedPaperOptional'); this.memo.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.placeholder.oneWordBeServedPaperOptional'));
         this.memo.addEventListener('input', () => { this.page.memo = this.memo.value; this.sendingArmed = false; this.closeTaskConfirmation(); this.confirm.hidden = true; });
         this.error.className = 'akari-rough-canvas-error'; this.error.hidden = true;
-        this.confirm.className = 'akari-rough-canvas-confirm'; this.confirm.textContent = 'AI に送りますか？ もう一度押してください。'; this.confirm.hidden = true;
+        this.confirm.className = 'akari-rough-canvas-confirm'; this.confirm.textContent = t('annotationscommon.roughCanvasPopup.text.sendAiPressAgain'); this.confirm.hidden = true;
         this.footer.className = 'akari-rough-canvas-footer';
-        const task = this.button('タスクにする', 'secondary small', () => void this.submit('task'));
+        const task = this.button(t('annotationscommon.roughCanvasPopup.button.makeTask'), 'secondary small', () => void this.submit('task'));
         const taskHint = document.createElement('span'); taskHint.appendChild(task);
         const taskPacket = document.createElement('div'); taskPacket.className = 'akari-rough-canvas-task-packet';
-        taskPacket.title = '音声は送られません';
+        taskPacket.title = t('annotationscommon.roughCanvasPopup.title.audioNotSent');
         const taskDescription = document.createElement('span');
         const includeLabel = document.createElement('label');
         const includeBackdrop = document.createElement('input'); includeBackdrop.type = 'checkbox';
         let includeBackdropPreferred = true;
-        includeBackdrop.setAttribute('aria-label', '今の画面を含める');
-        includeLabel.append(includeBackdrop, document.createTextNode('今の画面を含める'));
+        includeBackdrop.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.label.includeScreenNow'));
+        includeLabel.append(includeBackdrop, document.createTextNode(t('annotationscommon.roughCanvasPopup.label.includeScreenNow')));
         taskPacket.append(taskDescription, includeLabel);
         const updateTask = async (): Promise<void> => {
             const backdropState = taskBackdropPresentation(this.page.backdrop, includeBackdropPreferred);
             includeBackdrop.disabled = backdropState.disabled;
             includeBackdrop.checked = backdropState.checked;
-            includeBackdrop.title = includeLabel.title = includeBackdrop.disabled ? '画面を敷いたときだけ選べます' : '';
+            includeBackdrop.title = includeLabel.title = includeBackdrop.disabled ? t('annotationscommon.roughCanvasPopup.action.selectOnlyWhenLayScreen') : '';
             const lines = this.layer?.getDocument().objects.length ?? this.page.ink.objects.length;
             const text = this.memo.value.trim().length;
             taskPacket.hidden = !lines && !text;
             const preview = await taskifyService()?.preview(this.options.projectRootUri, this.page.id);
             const available = !!preview?.available && !this.page.sealed && !!(lines || text);
             task.disabled = !available;
-            task.title = !preview?.available ? preview?.reason === 'disabled' ? 'このプロジェクトでは使えません' : `${preview?.agent === 'codex' ? 'Codex' : 'Claude'} が見つかりません` : '';
+            task.title = !preview?.available ? preview?.reason === 'disabled' ? t('annotationscommon.roughCanvasPopup.error.unavailableProjectLabel') : t('annotationscommon.roughCanvasPopup.error.agentNotFoundLabel', { agent: preview?.agent === 'codex' ? 'Codex' : 'Claude' }) : '';
             taskHint.title = task.title;
             taskDescription.textContent = !preview?.available ? task.title :
-                `紙 1 枚（${taskBackdropPresentation(this.page.backdrop, includeBackdropPreferred).label}）・線 ${lines} 本・一言 ${text} 字 → あなたの ${preview.agent === 'claude' ? 'Claude（Anthropic）' : 'Codex（OpenAI）'}`;
+                t('annotationscommon.roughCanvasPopup.hint.canvasSummary', { backdrop: taskBackdropPresentation(this.page.backdrop, includeBackdropPreferred).label, strokes: lines, characters: text, agent: preview.agent === 'claude' ? 'Claude（Anthropic）' : 'Codex（OpenAI）' });
         };
         this.updateTask = () => { void updateTask(); };
         this.memo.addEventListener('input', () => { void updateTask(); });
@@ -176,13 +177,13 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         void updateTask();
         const pageControls = document.createElement('span'); pageControls.className = 'akari-rough-canvas-page-controls';
         const previous = this.button('‹', 'quiet small icon', () => void this.move(-1));
-        previous.setAttribute('aria-label', '前の紙');
+        previous.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.label.previousPaper'));
         const next = this.button('›', 'quiet small icon', () => void this.move(1));
-        next.setAttribute('aria-label', '次の紙');
-        pageControls.append(this.button('もう 1 枚', 'quiet small', () => void this.next()), previous, this.number, next);
-        this.footer.append(this.memo, pageControls, taskHint, this.button('AI に送る', 'small', () => void this.submit('send')));
+        next.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.label.next'));
+        pageControls.append(this.button(t('annotationscommon.roughCanvasPopup.button.addAnotherPage'), 'quiet small', () => void this.next()), previous, this.number, next);
+        this.footer.append(this.memo, pageControls, taskHint, this.button(t('annotationscommon.roughCanvasPopup.button.sendAi'), 'small', () => void this.submit('send')));
         const resize = document.createElement('div'); resize.className = 'akari-rough-canvas-resize';
-        resize.setAttribute('aria-label', '大きさを変える');
+        resize.setAttribute('aria-label', t('annotationscommon.roughCanvasPopup.action.changeSize'));
         resize.addEventListener('pointerdown', event => this.beginPointer(event, true));
         this.body.append(this.header, this.paper, this.error, this.confirm, taskPacket, this.footer, resize);
         this.contentNode.appendChild(this.body);
@@ -274,9 +275,9 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.tools.querySelector('[role="toolbar"]')?.remove();
         this.tools.prepend(createInkToolbar(this.layer));
         this.tools.querySelectorAll('button').forEach(button => { button.disabled = !!this.page.sealed; });
-        const clearButton = this.header.querySelector<HTMLButtonElement>('[aria-label="白紙に"]');
+        const clearButton = this.header.querySelector<HTMLButtonElement>(`[aria-label="${t('annotationscommon.roughCanvasPopup.button.paper')}"]`);
         if (clearButton) clearButton.disabled = !!this.page.sealed;
-        const sendButton = this.footer.querySelector<HTMLButtonElement>('[aria-label="AI に送る"]');
+        const sendButton = this.footer.querySelector<HTMLButtonElement>(`[aria-label="${t('annotationscommon.roughCanvasPopup.button.sendAi')}"]`);
         if (sendButton) sendButton.disabled = !!this.page.sealed;
         this.memo.value = this.page.memo; this.memo.disabled = !!this.page.sealed;
         this.refreshBackdrop();
@@ -300,7 +301,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
             if (result.id) this.page.id = result.id;
             return true;
         } catch (error) {
-            this.error.textContent = `保存できませんでした: ${error instanceof Error ? error.message : String(error)}`;
+            this.error.textContent = t('annotationscommon.roughCanvasPopup.error.couldNotSave', { error: error instanceof Error ? error.message : String(error) });
             this.error.hidden = false; return false;
         }
     }
@@ -321,7 +322,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
                     timelineId: read.canvas.backdrop.timelineId, editSha256: read.canvas.backdrop.editSha256
                 } : undefined;
                 if (read.warnings?.length) this.options.notify(read.warnings.join(' '));
-            } catch (error) { this.options.notify(`メモを読み込めませんでした: ${String(error)}`); }
+            } catch (error) { this.options.notify(t('annotationscommon.roughCanvasPopup.error.noteLoadFailed', { error: String(error) })); }
         }
         this.backdropFailed = false;
         page.openedAt = performance.now(); this.showPage(); this.emit('opened', page.key); this.emitState();
@@ -354,7 +355,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.backdropToggle.checked = !!this.page.backdrop;
         this.backdropToggle.disabled = !!this.page.sealed;
         this.hint.hidden = !this.backdropFailed || !!this.page.backdrop;
-        this.hint.textContent = '画面を敷けませんでした。プレビューに映像が出ているときに使えます';
+        this.hint.textContent = t('annotationscommon.roughCanvasPopup.message.useCurrentFrameWorksWhenVideo');
         this.updateTask?.();
     }
     removeBackdrop(): void {
@@ -372,7 +373,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         if (!this.taskConfirmationOpen) return;
         this.taskConfirmationOpen = false;
         this.confirm.hidden = true;
-        this.confirm.textContent = 'AI に送りますか？ もう一度押してください。';
+        this.confirm.textContent = t('annotationscommon.roughCanvasPopup.text.sendAiPressAgain');
     }
     async submit(mode: 'task' | 'send'): Promise<void> {
         if (mode === 'task') {
@@ -381,36 +382,36 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
             if (!await this.savePage() || !this.page.id) return;
             const service = taskifyService();
             const preview = await service?.preview(this.options.projectRootUri, this.page.id);
-            if (!service || !preview?.available) { this.options.notify(preview?.reason === 'disabled' ? 'このプロジェクトでは使えません。' : `${preview?.agent === 'codex' ? 'Codex' : 'Claude'} が見つかりません。`); return; }
+            if (!service || !preview?.available) { this.options.notify(preview?.reason === 'disabled' ? t('annotationscommon.roughCanvasPopup.error.unavailableProjectSentence') : t('annotationscommon.roughCanvasPopup.error.agentNotFoundSentence', { agent: preview?.agent === 'codex' ? 'Codex' : 'Claude' })); return; }
             let explained = false;
             try { explained = window.localStorage.getItem('akari.taskify.explained') === '1'; } catch { /* Continue with explanation. */ }
             if (!explained && !this.taskExplanationAccepted) {
                 this.taskConfirmationOpen = true;
                 this.confirm.replaceChildren();
                 const message = document.createElement('span');
-                message.textContent = `紙の画像・線・一言・対象を、押した今だけ ${preview.agent === 'claude' ? 'Anthropic' : 'OpenAI'} に渡して案を作ります。画面に映る人や未公開の映像が含まれることがあります。音声は送りません。`;
+                message.textContent = t('annotationscommon.roughCanvasPopup.consent.sendPaperContext', { provider: preview.agent === 'claude' ? 'Anthropic' : 'OpenAI' });
                 const actions = document.createElement('span'); actions.className = 'akari-rough-canvas-confirm-actions';
-                actions.append(this.button('続ける', 'secondary small', () => {
+                actions.append(this.button(t('annotationscommon.roughCanvasPopup.button.contactUs'), 'secondary small', () => {
                     this.taskExplanationAccepted = true;
                     try { window.localStorage.setItem('akari.taskify.explained', '1'); } catch { /* This popup remembers consent. */ }
                     this.closeTaskConfirmation();
                     void this.submit('task');
-                }), this.button('やめる', 'quiet small', () => this.closeTaskConfirmation()));
+                }), this.button(t('annotationscommon.roughCanvasPopup.button.cancel'), 'quiet small', () => this.closeTaskConfirmation()));
                 this.confirm.append(message, actions);
                 this.confirm.hidden = false;
                 return;
             }
             try {
                 const includeBackdrop = !!this.page.backdrop
-                    && this.body.querySelector<HTMLInputElement>('[aria-label="今の画面を含める"]')?.checked !== false;
+                    && this.body.querySelector<HTMLInputElement>(`[aria-label="${t('annotationscommon.roughCanvasPopup.label.includeScreenNow')}"]`)?.checked !== false;
                 const scale = Math.min(1, 1280 / Math.max(this.options.aspect.w, this.options.aspect.h));
                 const paperPng = includeBackdrop ? undefined : await inkToPngDataUrl(this.page.ink, {
                     width: Math.round(this.options.aspect.w * scale), height: Math.round(this.options.aspect.h * scale),
                     background: getComputedStyle(this.paper).backgroundColor });
                 await this.options.service.sealMemo(this.options.projectRootUri, this.page.id, 'task');
                 await enqueueTaskify({ projectRootUri: this.options.projectRootUri, memoId: this.page.id, includeBackdrop, paperPng }, preview.agent);
-                this.page.sealed = true; this.showPage(); this.options.notify(`メモ ${this.page.id} をタスクにしています`);
-            } catch (error) { this.error.textContent = `タスクにできませんでした: ${String(error)}`; this.error.hidden = false; }
+                this.page.sealed = true; this.showPage(); this.options.notify(t('annotationscommon.roughCanvasPopup.action.makeNoteTask', { id: this.page.id }));
+            } catch (error) { this.error.textContent = t('annotationscommon.roughCanvasPopup.error.couldNotCreateTask', { error: String(error) }); this.error.hidden = false; }
             return;
         }
         this.closeTaskConfirmation();
@@ -425,10 +426,10 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
             this.showPage();
             const packet = formatRoughCanvasPacket(this.page.id, this.page.subject, this.page.memo);
             if (!await this.options.send(packet)) {
-                await navigator.clipboard.writeText(packet); this.options.notify('メモの文面をコピーしました。');
+                await navigator.clipboard.writeText(packet); this.options.notify(t('annotationscommon.roughCanvasPopup.action.copyTextNote'));
             }
         } catch (error) {
-            this.error.textContent = `送れませんでした: ${error instanceof Error ? error.message : String(error)}`;
+            this.error.textContent = t('annotationscommon.roughCanvasPopup.error.couldNotSend', { error: error instanceof Error ? error.message : String(error) });
             this.error.hidden = false;
         }
     }

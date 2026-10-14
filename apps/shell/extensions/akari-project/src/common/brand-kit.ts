@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * ブランドキット（ブランドカラー）。利用者ごとに `AKARI_HOME/brand-kit.json` へ保存する
  * （★ お気に入りと同じ置き場。どのプロジェクトからも同じ 1 つが見える。edit.json には入れない）。
@@ -58,10 +59,10 @@ export function serializeBrandKit(colors: readonly string[]): string {
 /** 足す = 末尾へ（既にあれば何もしない）。 */
 export function addBrandColor(colors: readonly string[], color: string): string[] {
     const normalized = normalizeBrandColor(color);
-    if (!normalized) throw new Error('ブランドカラーは #RRGGBB で指定してください');
+    if (!normalized) throw new Error(t('project.library.brandKit.enterBrandColorRRGGBBFormatAction'));
     const current = uniqueColors(colors);
     if (current.includes(normalized)) return current;
-    if (current.length >= BRAND_KIT_MAX_COLORS) throw new Error(`ブランドカラーは ${BRAND_KIT_MAX_COLORS} 色までです`);
+    if (current.length >= BRAND_KIT_MAX_COLORS) throw new Error(t('project.library.brandKit.youCanSetUpBrandColorsMessage', { value1: BRAND_KIT_MAX_COLORS }));
     return [...current, normalized];
 }
 

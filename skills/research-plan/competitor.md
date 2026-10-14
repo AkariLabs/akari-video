@@ -1,50 +1,45 @@
-# ターゲット・競合調査
+# Research the audience and competitors
 
-[SKILL.md](SKILL.md) の実行順 2. からだけ読む。成果物は `target`（`audience` / `competitors[]` / `japan_sns`）。[ideate.md](ideate.md) の候補出しと相互に参照してよい（競合調査で見つけた隙間が新しい候補の根拠になり、候補の方向性がここで見る競合の絞り込みに使われる）。
+Read this file only at step 2 of [SKILL.md](SKILL.md). Produce `target`, including `audience`, `competitors[]`, and `japan_sns`. You may revisit candidates in [ideate.md](ideate.md): a gap found here may support a new topic, while a topic may guide which competitors to examine.
 
-## 1. ターゲットを絞る
+## 1. Define the audience
 
-依頼文脈から次を埋め、`target.audience` に 1〜2 文でまとめる。情報が薄い場合は無理に確定させず、`null` のまま次工程へ進み理由をレポートに残してよい。
+Use the request to summarize the following in one or two sentences in `target.audience`. If evidence is too thin, leave it `null`, proceed, and explain the uncertainty in the report.
 
-- 年齢層・属性
-- 抱えている悩み・欲求
-- 主にどのプラットフォームで動画を見るか
+- Age range and relevant audience characteristics.
+- Problems they face or outcomes they want.
+- Platforms on which they primarily watch videos.
 
-## 2. 競合を収集する
+## 2. Gather competitors
 
-対象ジャンルの競合を 3〜5 件程度、無償で確認できる範囲（公開チャンネル・公開動画・検索結果）で集める。各競合について `target.competitors[]` に次を記録する。
+Find about three to five competitors in the target genre using free public evidence: channels, videos, and search results. For each entry in `target.competitors[]`, record:
 
-- `name`: チャンネル名・発信者名
-- `url`: 公開ページの URL。オフライン観察のみで URL が特定できない場合は `null` にし、`notes` に出所を書く
-- `notes`: 観察できた事実（更新頻度・尺・演出の傾向など）
-- `gap`: 次節の 4 軸ギャップ分析の所見
+- `name`: Channel or creator name.
+- `url`: Public page URL. If observation was offline and no URL can be identified, use `null` and explain the source in `notes`.
+- `notes`: Observable facts such as posting frequency, video length, and presentation style.
+- `gap`: Findings from the four-axis comparison below.
 
-外部調査で使った出典は `sources[]` に URL・取得日時・`cost`（`free` / `paid`）を記録する。有償の調査ツール・API を使う前に [manage-connections](../manage-connections/SKILL.md) の承認ゲートを通す。
+Record each external source in `sources[]` with its URL, retrieval time, and `cost` (`free` or `paid`). Before using a paid research tool or API, pass the approval gate in [manage-connections](../manage-connections/SKILL.md).
 
-## 3. 4 並列ギャップ分析
+## 3. Compare four gap axes
 
-競合を並べて次の 4 軸で同時に見比べ、自分たちが取れる隙間を `gap` に書く。軸ごとの厳密な enum は持たず自由記述にする（表現の幅を残す）。
+Compare the competitors side by side on all four axes. Describe gaps you can realistically address in `gap`. Use free text rather than a strict enum so the analysis can capture the actual differences.
 
-1. **コンテンツテーマ**: 競合が扱っていない切り口・悩みがあるか
-2. **フォーマット・尺**: 競合の尺・構成に対して短尺/長尺どちらの隙間があるか
-3. **投稿頻度**: 競合の更新間隔に対して自分たちが優位を取れるか
-4. **訴求軸**: 競合のサムネ・タイトルの打ち出し方に対する差別化点はあるか
+1. **Topic:** Is there a perspective or audience problem competitors have not covered?
+2. **Format and length:** Is there an opening for a shorter or longer format than theirs?
+3. **Posting frequency:** Could your publishing cadence offer an advantage?
+4. **Positioning:** Can your title or thumbnail make a different promise?
 
-ヒットしない軸があっても空欄にせず「差分なし」と明記する。捏造した優位性を書かない。
+For an axis with no meaningful gap, write "no difference" rather than leaving it blank. Do not invent an advantage.
 
-## 4. 日本語 SNS 事情（必須調査軸）
+## 4. Market-specific platform context (required research axis)
 
-`target.japan_sns` は空にできない必須フィールドである（ハードルール）。次を埋める。
+See lang/<content-language>.md. Populate the required `target.japan_sns` field with `platforms` and `notes`; if free sources yield no evidence, explain why in `notes`. Empty or omitted notes fail validate-research-plan.mjs. Paid tools remain subject to [manage-connections](../manage-connections/SKILL.md).
 
-- `platforms`: ターゲット層が実際に使っているプラットフォーム（例: X、Instagram、TikTok、YouTube Shorts、LINE VOOM 等）
-- `notes`: 日本語圏特有の傾向（プラットフォームごとの温度感、季節性、短尺再編集の需要など）。**無償手段で確認できる範囲**（公開トレンドページ、プラットフォーム公式の急上昇一覧、既存の一般知識）で埋め、有償のソーシャルリスニングツールは [manage-connections](../manage-connections/SKILL.md) の承認ゲートを経てオプトインで使う。
+## Common mistakes
 
-無償手段でも一切確認できなかった場合は、`notes` に「無償手段で確認できず、理由は〜」と正直に書く。空文字・省略は validate-research-plan.mjs でエラーになる。
-
-## よくある間違い
-
-- 競合を 1 件しか見ず「ギャップ分析」と称する。
-- 4 軸のうち都合の良い軸だけ書き、残りを省略する。
-- `japan_sns.notes` を「調査中」で済ませて先へ進む。
-- 有償ソーシャルリスニング API を承認前に叩く。
-- 見つからなかった競合の URL を推測で埋める。
+- Calling a comparison with one competitor a gap analysis.
+- Covering only convenient axes and omitting the rest.
+- Leaving `japan_sns.notes` as "under investigation" and moving on.
+- Calling a paid social-listening API before approval.
+- Guessing the URL of a competitor that could not be found.

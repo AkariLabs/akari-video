@@ -1,112 +1,127 @@
-# 取得・配置・検証・INDEX 更新
+# Acquire, place, validate, and update INDEX
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-[starter-pack.md](starter-pack.md) で明示承認を得た catalog エントリだけを対象にする。承認されていない id を一緒に取得しない。
+Target only catalog entries explicitly approved in [starter-pack.md](starter-pack.md). Do not acquire unapproved IDs alongside them.
 
-この取得手順は `source.url` を持つ **external** の catalog エントリ用。`source.image` を持つ **akari-r2** には `acquisition` や `license_at_source` が無いので、この手順に当てはめず AKARI の素材取得経路を使う。`source` の判別は [素材 tier 契約 v1](../../docs/contract-2026-10-04-asset-tier-v1.md) に従う。
+This acquisition procedure is for **external** catalog entries with `source.url`. **akari-r2** entries with
+`source.image` lack `acquisition` and `license_at_source`; use AKARI's asset acquisition route instead.
+Determine `source` type under the [asset tier contract v1](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md) (Japanese).
 
-## resolver で取得する際の参照（2026-10-05）
+## Resolver acquisition references (2026-10-05)
 
-`akari-assets fetch` など resolver を使う取得では `category/id` を渡す。bare id はカタログ内で一意なときだけ解決できる。複数の category に同じ id があれば、候補を示す `ambiguous_id` エラーで止まる。
+Pass `category/id` when acquiring through a resolver such as `akari-assets fetch`. A bare ID resolves only when
+unique in the catalog. If multiple categories have the same ID, stop with an `ambiguous_id` error showing candidates.
 
-## 1. 取得する（acquisition ごとに分岐）
+## 1. Acquire (branch by acquisition)
 
 ### acquisition: direct
 
-エージェントが `curl` 等で取得してよい。
+The agent may acquire with `curl` or similar.
 
 ```sh
 curl -fsSL "<source.url または直接ファイル URL>" -o "<作業ディレクトリ>/<file>"
 ```
 
-- 取得直後にファイル種別・サイズを確認する（`file`, `ls -la`）。想定外の HTML エラーページ等を実体と誤認しない。
-- `source.license_at_source` を出発点にしつつ、取得元ページで実際に確認できる範囲のライセンス表記と突き合わせる。矛盾したら取得を止めて報告する。
+- Immediately check file type and size (`file`, `ls -la`). Do not mistake an unexpected HTML error page for the asset.
+- Start from `source.license_at_source`, but compare it with license statements actually verifiable on the source page. Stop acquisition and report any contradiction.
 
 ### acquisition: login / purchase
 
-エージェントは取得しない。次をユーザーへ提示する。
+The agent must not acquire these. Present:
 
-- `source.url`（取得先ページ）
-- 必要な手続き（会員登録・購入）の概要（catalog 側に書かれている範囲で。無い情報を推測で補わない）
-- 「取得したら、どこに置きましたか？」を聞き、ユーザーが答えたローカルパスを次工程の入力にする
+- `source.url` (source page)
+- Overview of required registration/purchase (only what the catalog states; do not fill missing information with guesses)
+- Ask “Where did you put the acquired file?” and use the user's local path as the next stage's input
 
-## 2. 選ばれたスコープの assets/<category>/<id>/ へ配置する
+## 2. Place in assets/<category>/<id>/ in the selected scope
 
-配置前に**登録先スコープ**をユーザーに確認する（契約「アセットのスコープ階層」参照）: `user`（`<ライブラリの置き場>/`、全プロジェクト共通 — スターターパックの既定候補）/ `local`（プロジェクト内 `assets/`）/ `shared`（上位ディレクトリの `.akari/assets/`）/ `builtin`（製品リポの `assets/` — 開発者がライブラリ自体を育てる場合のみ）。以降の `assets/...` 表記は選ばれた層のルートを指す。
+Before placement, confirm the **registration scope** with the user (see the contract's asset scope hierarchy):
+`user` (`<ライブラリの置き場>/`, all projects — default starter-pack candidate; existing library-location placeholder) /
+`local` (project `assets/`) / `shared` (ancestor directory's `.akari/assets/`) /
+`builtin` (product repository `assets/`, only for developers building the library itself).
+Below, `assets/...` denotes the selected layer's root.
 
-既存の同名ディレクトリがあれば上書きしない。内容を比較し、更新か新 id かの明示判断を人間から得る（[harvest-asset](../harvest-asset/SKILL.md) と同じ規律）。
+Do not overwrite an existing same-name directory. Compare contents and obtain an explicit human decision to update
+or use a new ID (same discipline as [harvest-asset](../harvest-asset/SKILL.md)).
 
-取得した実体の性質によって以降の作業量が異なる。
+Subsequent work depends on the acquired file's nature.
 
-- **authoring 不要な素材**（audio・broll など、取得した実体そのものが完成品）: meta.json をほぼそのまま複製し、下記の変更点だけ反映する。
-- **authoring が必要な素材**（3d モデル単体、書体ファイル単体など、`fragment.html` や `@font-face` 定義がまだ無いもの）: [harvest-asset](../harvest-asset/SKILL.md) 2 節と同じ手順（CSS 変数 → knobs、依存 → requires の自動抽出）を踏んでから配置する。catalog の meta.json はあくまで下書きの出発点として扱う。
+- **Assets needing no authoring** (audio/broll, where the acquired file is the finished asset): Copy meta.json nearly unchanged and apply only the changes below.
+- **Assets requiring authoring** (standalone 3d models/fonts lacking `fragment.html` or `@font-face` definitions): Follow [harvest-asset](../harvest-asset/SKILL.md) §2 first (CSS variables → knobs, automatic dependency → requires extraction), then place. Treat catalog meta.json only as the starting draft.
 
-最低限そろえる: 実体ファイル + `meta.json` + `preview.png`。`preview.png` はカテゴリに応じて [harvest-asset](../harvest-asset/SKILL.md) 4 節の手順（HTML は headless Chrome、3D は代表 pose、B-roll は `ffmpeg` の代表フレーム、audio は waveform）で作る。生成できなければ理由を残し、実体と違う mock を preview として作らない。
+Minimum set: actual file + `meta.json` + `preview.png`. Make `preview.png` according to category using
+[harvest-asset](../harvest-asset/SKILL.md) §4 (headless Chrome for HTML, representative pose for 3D,
+representative `ffmpeg` frame for B-roll, waveform for audio). If generation fails, retain the reason;
+do not create a mock differing from the actual asset as its preview.
 
-### meta.json の書き方
+### Writing meta.json
 
-catalog 側の `meta.json` をベースに、次を変更する。
+Start from the `meta` returned by `akari assets show <category/id> --json` and change:
 
-1. **`remote` キーを外す（削除する）。** 実体が揃った素材はカタログ専用フラグを持たない。既存の `assets/` 内の他素材も `remote` フィールドを持たない。
-2. **`provenance.origin` にカタログ由来である旨と取得元を記録する（必須）。** 例:
-   `"catalog/<category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
-   分からない値を埋めない。取得日は実行日で確定する。
-3. external の `source` ブロックは残してもよい（schema 上、`remote` が無くても `source` object は valid）。機械可読な取得記録として残す場合は保持し、`source.url` は実際に取得したファイル/ページの URL に合わせて更新する。不要なら削除してよい。必須なのは 1・2 のみ。
-4. `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `tier` は catalog 側の値を土台にする。authoring が必要な素材では、実際に作った `fragment.html` の CSS 変数・依存と食い違っていないか確認してから確定する。license が確定しない場合は `assets/` へ入れない。
+1. **Remove (delete) the `remote` key.** Assets with complete files do not carry catalog-only flags; other assets already in `assets/` also lack `remote`.
+2. **Record catalog origin and acquisition source in `provenance.origin` (required).** Example:
+   `"同梱カタログの参照 <category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
+   (Existing Japanese example: catalog origin / source / acquisition / license / acquisition date.)
+   Do not fill unknown values. The acquisition date is the execution date.
+3. You may retain the external `source` block (a `source` object is schema-valid without `remote`). Keep it if retaining machine-readable acquisition records; update `source.url` to the actual acquired file/page URL. Remove it if unnecessary. Only 1 and 2 are mandatory.
+4. Base `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `tier` on catalog values. For assets requiring authoring, verify consistency with the actual `fragment.html` CSS variables and dependencies before finalizing. Do not put assets with undetermined licenses into `assets/`.
 
-### font カテゴリの特例
+### Font category exception
 
-フォントは再配布ライセンスが同梱を許さないことが多い。
+Font redistribution licenses often prohibit bundling.
 
-- ライセンスが redistribution / embedding を明示的に許可する場合（OFL 系の多くの Google Fonts 等）だけ、バイナリを `assets/font/<id>/` へ実体として配置し、`remote` を外す。
-- 許可が確認できない場合、バイナリを `assets/` へコピーしない。external + `remote: true` の catalog エントリは catalog に残し、`assets/` へ配置済みとは扱わない。ユーザー環境のフォント名を前提にする設計が必要なら、実際のインストール先と利用条件を別途確認する。
+- Place binaries in `assets/font/<id>/` and remove `remote` only when redistribution / embedding is explicitly permitted (such as many OFL Google Fonts).
+- If permission cannot be verified, do not copy binaries into `assets/`. Leave external + `remote: true` entries in the catalog; do not treat them as placed in `assets/`. If the design depends on a font installed in the user's environment, separately verify its actual installation and terms of use.
 
-## 3. attribution_required を記録する
+## 3. Record attribution_required
 
-`source.attribution_required` または `license.attribution_required` が true の場合、次の両方を行う。
+If `source.attribution_required` or `license.attribution_required` is true, do both:
 
-- `assets/<category>/INDEX.md` の該当行に「要クレジット」等、attribution が必要である旨を明記する。
-- ユーザーへ「この素材を書き出しに使う際は、プロジェクト側（エンドロール等）にクレジット表記が必要」と明示的に伝える。自動挿入は将来仕様であり、今は記録と告知のみ行う。
+- Explicitly mark attribution as required in the corresponding `assets/<category>/INDEX.md` row.
+- Tell the user explicitly that exports using this asset require project-side credit (e.g., end credits).
+  Automatic insertion is a future specification; currently only record and notify.
 
-## 4. validator で検証する
+## 4. Validate
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs "assets/<category>/<id>"
+akari assets validate "<配置したフォルダ>"
 ```
 
-失敗したら `meta.json`、最小 3 点セット、category 一致、相対参照、INDEX を直し、成功するまで再実行する。`packages/schemas/bin/validate-asset.mjs` または `packages/schemas/asset-meta.schema.json` が無い場合は成功扱いにせず、成果報告に次をそのまま残す。
+If validation fails, fix `meta.json`, the minimum 3-file set, category match, relative references, and INDEX;
+rerun until successful. If the validator is unavailable, do not treat it as success; include the following unchanged in the result report.
 
 ```text
-後で実行: node packages/schemas/bin/validate-asset.mjs（validator / schema 作成後）
+後で実行: akari assets validate "<配置したフォルダ>"（検証器が利用可能になった後）
 ```
 
-## 5. assets/<category>/INDEX.md を更新する
+## 5. Update assets/<category>/INDEX.md
 
-harvest-asset と同じ書式で 1 行追加する。
+Add 1 row in the same format as harvest-asset.
 
 ```text
 <id> — <何で、どんな場面向けかを一文で>（要クレジットなど注記があれば併記）
 ```
 
-重複行を作らない。新 category（font 等、`assets/` 側にまだ存在しないディレクトリ）を初めて作るときだけ `assets/INDEX.md` にもカテゴリ説明を追加する。
+Do not create duplicate rows. Add a category description to `assets/INDEX.md` only when first creating a new
+category (such as font) whose directory does not yet exist under `assets/`.
 
-## よくある間違い
+## Common mistakes
 
-- ライセンスが未確認・不明確なまま取得を実行する（catalog の `license_at_source` を鵜呑みにし、取得元での実際の表記を確認しない）。
-- attribution_required の記録漏れ（INDEX にもユーザーにも伝えない）。
-- catalog の meta.json をそのまま `assets/<category>/<id>/meta.json` としてコピーし、`remote: true` が残る。
-- `login` / `purchase` のカタログエントリをエージェントが代理で取得しようとする。
-- フォントの再配布可否を確認せず、`assets/font/<id>/` へバイナリを無条件コピーする。
-- validator を通さず「配置完了」と報告する。
-- 承認されていない catalog エントリまで一緒に取得する。
-- 既存 `assets/` の同名ディレクトリを黙って上書きする。
-- 3d / font など authoring が必要な素材を、catalog の meta.json をそのまま流用して「完成」と扱う（knobs・requires が実体と食い違ったまま残る）。
+- Acquiring with an unverified/unclear license (blindly trusting catalog `license_at_source` without checking source statements).
+- Omitting attribution_required records (neither INDEX nor user notified).
+- Copying catalog meta.json directly to `assets/<category>/<id>/meta.json`, leaving `remote: true`.
+- Agent acquisition of `login` / `purchase` catalog entries.
+- Unconditionally copying binaries to `assets/font/<id>/` without checking redistribution permission.
+- Reporting placement complete without validation.
+- Acquiring unapproved catalog entries alongside approved ones.
+- Silently overwriting existing same-name directories in `assets/`.
+- Treating assets requiring authoring (3d / font) as finished with unchanged catalog meta.json, leaving knobs/requires inconsistent with actual files.
 
-## 根拠
+## Sources
 
-- 契約: [`docs/contract-2026-07-13-asset-library.md`](../../docs/contract-2026-07-13-asset-library.md)「カタログと取得スキル」§
-- 素材化・meta.json v0 の詳細規律: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
-- authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- Contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
+- Asset harvesting and meta.json v0 discipline: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
+- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)

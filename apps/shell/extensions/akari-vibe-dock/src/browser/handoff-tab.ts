@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandService, Disposable, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -20,7 +21,7 @@ const THEIA_URI_MIME = 'application/vnd.code.uri-list';
 @injectable()
 export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendApplicationContribution {
     readonly id = 'handoff';
-    readonly label = '渡す';
+    readonly label = t('vibe.dock.handoffTab.handOffLabel');
     readonly icon = 'handoff' as VibeDockIconName;
     readonly order = 30;
     @inject(CommandService) protected readonly commands!: CommandService;
@@ -98,7 +99,7 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
             if (!this.items.length) {
                 const empty = document.createElement('div');
                 empty.className = 'akari-vibe-empty';
-                empty.textContent = '渡せるファイルはありません';
+                empty.textContent = t('vibe.dock.handoffTab.noFilesHandOffText');
                 list.append(empty);
             }
             for (const item of this.items) {
@@ -121,14 +122,14 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
                     }
                     const copy = document.createElement('span'); copy.className = 'akari-vibe-handoff-external-copy';
                     const license = document.createElement('small'); license.className = 'akari-vibe-handoff-license';
-                    license.textContent = item.status === 'url_only' ? '本体なし（渡せません）・利用条件: 不明' : '利用条件: 不明';
+                    license.textContent = item.status === 'url_only' ? t('vibe.dock.handoffTab.fileUnavailableCannotHandOffLicenseUnknownText') : t('vibe.dock.handoffTab.licenseUnknownText');
                     copy.append(name, license); row.append(copy);
                     const external = document.createElement('small'); external.className = 'akari-vibe-handoff-external-badge';
-                    external.textContent = '外'; row.append(external);
+                    external.textContent = t('vibe.dock.handoffTab.externalText'); row.append(external);
                 } else {
                     const badge = document.createElement('small');
                     badge.className = 'akari-vibe-handoff-badge';
-                    badge.textContent = item.fresh ? '新着' : item.badge;
+                    badge.textContent = item.fresh ? t('vibe.dock.handoffTab.newText') : item.badge;
                     row.append(name, badge);
                 }
                 row.addEventListener('dragstart', event => {
@@ -145,14 +146,14 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
                 });
                 row.addEventListener('click', () => {
                     if (item.origin === 'scratch' && item.status !== 'ready') {
-                        const notice = ctx.status.set('本体が取れていないため渡せません', 'info');
+                        const notice = ctx.status.set(t('vibe.dock.handoffTab.cannotHandOffBecauseFileUnavailableError'), 'info');
                         setTimeout(() => notice.dispose(), 4000); return;
                     }
                     void navigator.clipboard.writeText(item.path).then(() => {
-                        const notice = ctx.status.set('パスを写しました', 'info');
+                        const notice = ctx.status.set(t('vibe.dock.handoffTab.pathCopiedMessage'), 'info');
                         setTimeout(() => notice.dispose(), 4000);
                     }).catch(() => {
-                        const notice = ctx.status.set('パスを写せませんでした', 'error');
+                        const notice = ctx.status.set(t('vibe.dock.handoffTab.couldNotCopyPathError'), 'error');
                         setTimeout(() => notice.dispose(), 4000);
                     });
                 });
@@ -161,7 +162,7 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
             host.append(list);
             const hint = document.createElement('div');
             hint.className = 'akari-vibe-handoff-hint';
-            hint.textContent = '行をエージェントのパネルへドラッグするか、押してパスを写します';
+            hint.textContent = t('vibe.dock.handoffTab.dragRowAgentPanelSelectCopyPathText');
             host.append(hint);
         };
         const subscription = this.onChanged(paint);

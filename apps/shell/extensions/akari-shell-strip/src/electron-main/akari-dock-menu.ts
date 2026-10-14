@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import {
     ElectronMainApplication,
     ElectronMainApplicationContribution
@@ -23,7 +24,7 @@ export class AkariDockMenu implements ElectronMainApplicationContribution {
         }
         app.dock.setMenu(Menu.buildFromTemplate([
             {
-                label: '新しいウィンドウ',
+                label: t('shell.dock.menu.newWindowLabel'),
                 click: () => {
                     application.openDefaultWindow().catch(error =>
                         console.error('[akari-shell-strip] dock「新しいウィンドウ」でウィンドウを開けませんでした:', error)

@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { itemSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
-import { writeNestedPreviewLayer } from '../lib/browser/inspector/nested-preview-layer.js';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { itemSections, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { writeNestedPreviewLayer } = await import('../lib/browser/inspector/nested-preview-layer.js');
+
+
 
 const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 

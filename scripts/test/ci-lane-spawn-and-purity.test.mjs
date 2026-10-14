@@ -155,12 +155,14 @@ test('childEnv は PATH の末尾に node のディレクトリを足し、既�
   const nodeDirectory = path.dirname(process.execPath);
   const augmented = childEnv({ PATH: `/first${path.delimiter}/second` });
   assert.equal(augmented.PATH, `/first${path.delimiter}/second${path.delimiter}${nodeDirectory}`);
-  // すでに入っているなら触らない（同じ env オブジェクトをそのまま返す）
+  // PATH と言語の両方が入っているなら同じ env オブジェクトを返す
   const already = { PATH: `/first${path.delimiter}${nodeDirectory}` };
-  assert.equal(childEnv(already), already);
+  assert.equal(childEnv(already).AKARI_LANG, 'ja');
+  const explicit = { ...already, AKARI_LANG: 'en' };
+  assert.equal(childEnv(explicit), explicit);
   // Windows の 'Path' のような別綴りでも、キーを増やさず同じキーを書き換える
   const windowsStyle = childEnv({ Path: '/first', OTHER: 'x' });
-  assert.deepEqual(Object.keys(windowsStyle).sort(), ['OTHER', 'Path']);
+  assert.deepEqual(Object.keys(windowsStyle).sort(), ['AKARI_LANG', 'OTHER', 'Path']);
   assert.equal(windowsStyle.Path, `/first${path.delimiter}${nodeDirectory}`);
 });
 

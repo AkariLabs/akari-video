@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -9,11 +11,26 @@ import ts from 'typescript';
 import postcss from 'postcss';
 import { readAllSourceText, readSourceFile, findMember, findTopLevelFunction } from './helpers/widget-source.mjs';
 
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { describeGenerationChip, generationChipLabel, resolveGenerationState } from '../lib/common/generation-sidecar.js';
-import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from '../lib/browser/inspector/ai-video-candidates-panel.js';
+
+
+
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter, beforeEach } from 'node:test';
+setLanguage('ja');
+beforeEach(() => setLanguage('ja'));
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { describeGenerationChip, generationChipLabel, resolveGenerationState } = await import('../lib/common/generation-sidecar.js');
+const { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } = await import('../lib/browser/inspector/ai-video-candidates-panel.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = readAllSourceText();
@@ -34,7 +51,7 @@ function widgetMethod(name, dependencies) {
   const code = ts.transpileModule(`class Widget { ${method.getText(ast)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
   }).outputText;
-  return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
+  return new Function('t', ...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(annotationT, ...Object.values(dependencies));
 }
 
 function widgetFunction(name) {
@@ -115,6 +132,7 @@ const reloadGenerationSidecars = widgetMethod('reloadGenerationSidecars', {});
 const refreshCompareSidecar = widgetMethod('refreshCompareSidecar', {});
 
 test('生成尺の点線は表示だけで、次の item に重なる幅と実尺へ更新できる', () => {
+  assert.equal(annotationI18n.getLanguage(), 'ja');
   const element = new DummyElement();
   const cut = { in: 0, out: 0.8 };
   const segment = { index: 0, track: 0, tlStart: 3, tlEnd: 3.8 };
@@ -496,7 +514,7 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);/);
   // 取り寄せ中の「ダウンロード中」も同じ位置で当て直す（generation chip と同居する）。
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && transitionWarning\)/);
-  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration, clipWidth\);\s*this\.applyGenerationOverhang\(element, cut, segment, clipWidth, cutGeneration, cutItemId\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
+  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration, clipWidth\);\s*this\.applyGenerationOverhang\(element, cut, segment, clipWidth, cutGeneration, cutItemId\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(deadBoundaryIndexes\.has\(segment\.index\) \|\| !unsupportedDeclaredTransitions\.has\(segment\.index\)\)/);
   const ordinaryLayer = new DummyElement();
   ordinaryLayer.className = 'akari-annotations-strip-layer akari-annotations-strip-layer-still';
   const noGeneration = { state: 'none' };

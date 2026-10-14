@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { CommandContribution, CommandService, MenuContribution, MessageService } from '@theia/core/lib/common';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
@@ -99,13 +100,13 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                 'akari.developerMode': {
                     type: 'boolean',
                     default: false,
-                    description: 'すべてのプロジェクトファイルと詳細情報を表示します。'
+                    description: t('project.workspace.preference.showAllProjectFilesDetailsAction')
                 },
                 'akari.catalog.root': {
                     type: 'string',
                     default: '',
-                    description: 'カタログタブが読むディレクトリ（catalog/ 相当）。' +
-                        '未設定のときはリポ開発配置の catalog/ を自動検出します。'
+                    description: t('project.workspace.preference.directoryReadCatalogTabEquivalentCatalogMessage') +
+                        t('project.workspace.preference.ifUnsetCatalogDevelopmentRepositoryIsMessage')
                 }
             }
         }

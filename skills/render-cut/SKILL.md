@@ -1,125 +1,99 @@
 ---
 name: render-cut
-description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4 の計画、明示承認、ローカル書き出し、ffprobe 検証、キーフレーム視認を完了する。編集が承認済みで、納品用動画の書き出しや最終レンダーを求められたときに使う。
+description: Take an approved edit.json and an edit-lint PASS through final MP4 planning, explicit approval, local export, ffprobe verification, and visual keyframe inspection. Use when the edit is approved and the user requests a delivery video or final render.
 ---
 
-# 承認済み編集を書き出す
+# Export an approved edit
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-## ハードルール
+## Hard rules
 
-1. **edit.json を正本に決定的コマンド生成。自然言語からの即興 ffmpeg 禁止**
-   （エージェントが ffmpeg コマンドを手書きして「これで書き出しました」は契約違反）
-2. **plan なしの render 禁止**（validate→plan→承認→render の順を飛ばさない）
-3. **edit-lint FAIL のままの render 禁止**（override は承認ゲート + render.json 記録）
-4. **レンダー後の ffprobe 機械検証必須**。verify fail の成果物を納品可能と報告しない
-5. **既定はローカル ffmpeg のみ**。クラウド有償 API（Rendi 等）は v0 不採用
-   （将来はオプトイン + manage-connections の承認ゲート経由でのみ検討）
-6. **原本 source からレンダ**（proxy を最終レンダに使わない）
-7. **状態は render.json・HTML は可視化のみ**（新規サーフェス機構を輸入しない）
-8. **外部候補のコード転写禁止**（Kinocut / json-to-ffmpeg は構造参考のみ）
-9. **既存成果物の silent 上書き禁止**
-10. カット連結・合成・verify の ffmpeg / ffprobe は**本体直叩き**（ラッパーライブラリ
-    禁止。分析・書き出し・検証の各工程で共通の方針）。
-    映像は GPU / OSR のいずれかで描画する。
-11. **3D overlay も GPU / OSR 経路で描画される**
+1. **Generate commands deterministically from edit.json as the SSOT. Improvised ffmpeg from natural language is forbidden** (handwriting an ffmpeg command and saying "I exported it" violates the contract).
+2. **Rendering without a plan is forbidden** (never skip validate → plan → approval → render).
+3. **Rendering while edit-lint is FAIL is forbidden** (an override requires an approval gate and a render.json record).
+4. **Machine verification with ffprobe after rendering is required.** Do not call an output deliverable if verification failed.
+5. **Default to local ffmpeg only.** Paid cloud APIs (such as Rendi) are not adopted in v0 (future use may be considered only through opt-in and the manage-connections approval gate).
+6. **Render from original sources** (never use proxies for the final render).
+7. **State belongs in render.json; HTML is for visualization only** (do not import a new surface mechanism).
+8. **Do not copy code from external candidates** (Kinocut / json-to-ffmpeg are structural references only).
+9. **Never silently overwrite an existing deliverable.**
+10. Call the ffmpeg / ffprobe **binaries directly** for cut concatenation, compositing, and verification (wrapper libraries are forbidden; the same policy applies across analysis, export, and verification). Draw video through either GPU or OSR.
+11. **Draw 3D overlays through the GPU / OSR path too.**
 
-## 実行手順
+## Procedure
 
-### 実行体の解決
+### Resolve the executable
 
-第一手として `akari doctor --json` を実行し、`render_cut.path` を `<render-cut>`、
-`cli.node.exec_path` を node の実行体として使う。
-`cli.node.runtime` が `electron` のときは、`cli.node.required_env`（`ELECTRON_RUN_AS_NODE=1`）を付けて呼ぶ
-（書き方は `cli.node.invocation.sh` / `.cmd`。付けずに呼ぶと GUI のアプリが起動する）。
-`cli.node.electron_run_as_node` は診断時の環境を映すだけなので、使えるかどうかの判断に使わない。
-`runtime` を出力しない旧版で、`exec_path` のファイル名が `node` / `node.exe` 以外なら Electron とみなして同じく `ELECTRON_RUN_AS_NODE=1` を付ける。
-まだこれらのフィールドを出力しない版なら、次の探索へ進む。
+First run `akari doctor --json`. Use `render_cut.path` as `<render-cut>` and `cli.node.exec_path` as the node executable.
+When `cli.node.runtime` is `electron`, invoke it with `cli.node.required_env` (`ELECTRON_RUN_AS_NODE=1`) as shown in `cli.node.invocation.sh` / `.cmd`; without this, the GUI application opens.
+`cli.node.electron_run_as_node` only reflects the diagnostic environment; do not use it to decide whether the executable works.
+For older versions without `runtime`, treat an `exec_path` basename other than `node` or `node.exe` as Electron and likewise set `ELECTRON_RUN_AS_NODE=1`.
+If the version does not yet output these fields, use the discovery sequence below.
 
-次の 3 形態を表の上から `ls` し、最初に存在した `<render-cut>` を使う。
+`ls` these three locations in table order; use the first existing `<render-cut>`.
 
-| 形態 | macOS | Windows |
+| Form | macOS | Windows |
 |---|---|---|
-| (a) デスクトップアプリ同梱 | `<App>/Contents/Resources/packages/render-cut/bin/render-cut.mjs`（`<App>` の既定は `/Applications/AKARI Video.app`） | `<install dir>\resources\packages\render-cut\bin\render-cut.mjs` |
-| (b) `install.sh` 経路 | `~/.akari/app/packages/render-cut/bin/render-cut.mjs` | `%USERPROFILE%\.akari\app\packages\render-cut\bin\render-cut.mjs` |
-| (c) モノレポ | `<repo>/packages/render-cut/bin/render-cut.mjs` | `<repo>\packages\render-cut\bin\render-cut.mjs` |
+| (a) Bundled desktop application | `<App>/Contents/Resources/packages/render-cut/bin/render-cut.mjs` (default `<App>` is `/Applications/AKARI Video.app`) | `<install dir>\resources\packages\render-cut\bin\render-cut.mjs` |
+| (b) `install.sh` path | `~/.akari/app/packages/render-cut/bin/render-cut.mjs` | `%USERPROFILE%\.akari\app\packages\render-cut\bin\render-cut.mjs` |
+| (c) Monorepo | `<repo>/packages/render-cut/bin/render-cut.mjs` | `<repo>\packages\render-cut\bin\render-cut.mjs` |
 
-(a) のデスクトップアプリだけを使う利用者には `~/.akari/app` は存在しない。
+Users who only use desktop form (a) do not have `~/.akari/app`.
 
-node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱 Electron を
-`ELECTRON_RUN_AS_NODE=1` で node として使う、の順とする。以下の `node` はこの手順で解決した
-実行体、`<render-cut>` は上で解決した実行体パスを表す。
+Resolve node in this order: `AKARI_NODE_BIN` → node on PATH (20 or later) → bundled Electron run as node with `ELECTRON_RUN_AS_NODE=1`. Below, `node` means the executable resolved this way, and `<render-cut>` means the executable path resolved above.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-本スキルは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). This skill does not write them. If another stage must write them, use Edit on the matching lines or the edit-store script API.
 
-1. 対象プロジェクトの `edit.json` が承認済みで、`.akari/lint.json` の `verdict` が `pass` であることを確認する。PASS でなければ `edit-lint` を実行して修正する。`--force` は lint 結果を上書きする明示承認を得た場合だけ使う。
-2. plan だけを生成する。
+1. Confirm that the target project's `edit.json` is approved and `.akari/lint.json` has `verdict` `pass`. Otherwise run `edit-lint` and fix it. Use `--force` only with explicit approval to override the lint result.
+2. Generate only the plan.
 
    ```sh
    node <render-cut> <project-root> --plan-only
    ```
 
-3. `<project>/.akari/render.json` と `<project>/.akari/reports/render-report.html` を読み、予測尺、出力先、ffmpeg コマンド列、中間物、ラスタライズ候補、入力ハッシュを提示する。
-4. **今回の書き出し実行に対する人間の明示承認を得て停止を解除する。** 無応答、過去の包括承認、plan 以前の承認を今回の承認に読み替えない。
-5. 承認後だけ書き出しを実行する。
+3. Read `<project>/.akari/render.json` and `<project>/.akari/reports/render-report.html`; present predicted duration, output location, ffmpeg command sequence, intermediates, rasterizer candidates, and input hashes.
+4. **Obtain explicit human approval for this specific export and wait for it.** Do not construe silence, earlier blanket approval, or approval given before the plan as approval for this run.
+5. Run the export only after approval.
 
    ```sh
    node <render-cut> <project-root>
    ```
 
-   出力を明示する場合だけ `--out <path>` を加える。CLI の validate → plan → render → verify を分解して手作業で代替しない。
-   GPU 直結を明示する場合は `--engine gpu` を加える。CSS animation / transition / `@keyframes` /
-   Web Animations / `@property` だけで動く HTML は DOM 層として適格。`words[]` の karaoke / pop /
-   reveal / reveal-word と対応済み `emphasis_words` は GPU-native 適格。宣言型 3D のルート 1 要素だけにある
-   opacity + 2D translate / scale の 2 点登場 animation も GPU-native 適格。不適格な字幕・HTML があれば
-   理由付きで fail-closed になる。Windows / Linux は `--engine gpu` 明示時だけ GPU を評価し、
-   `--engine auto` は全 platform で適格時は GPU、不適格時は OSR。
-6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
-   尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。
-7. verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` へ自動生成したコンタクトシート（plan から決定論導出した代表時刻 — 冒頭・各カット境界の直後・各オーバーレイ/字幕区間の中点・終盤 — をタイル結合した静止画。`render.json` の `contact_sheet.timestamps_seconds` に時刻列を記録）をキーフレーム視認の起点にする。これで足りない区間（コンタクトシートの上限枚数を超えて間引かれた箇所など）だけ追加でフレーム抽出して視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。
+   Add `--out <path>` only to specify the output explicitly. Do not manually replace the CLI's validate → plan → render → verify sequence.
+   Add `--engine gpu` to request direct GPU rendering explicitly. HTML animated only with CSS animation / transition / `@keyframes` / Web Animations / `@property` qualifies as a DOM layer. Karaoke / pop / reveal / reveal-word in `words[]` and supported `emphasis_words` qualify for GPU-native rendering. A two-point entrance animation using opacity plus 2D translate / scale only on the single root element of declarative 3D also qualifies. Ineligible captions or HTML fail closed with a reason. On Windows / Linux, evaluate GPU only when `--engine gpu` is explicit; `--engine auto` chooses GPU for eligible work and OSR otherwise on every platform.
+6. Check the exit code and `.akari/render.json`. `0` means completion with verify PASS; `1` means refusal or verify FAIL; `2` means execution error. In `provenance.rasterizer`, check the selected method and why higher-ranked candidates were rejected. `verify.findings` includes exact duration and frame-count matches (`verify.frame-count`), successful decoding of every frame (`verify.decode`), resolution, fps, codec, and more.
+7. After verify PASS, start visual keyframe inspection with the contact sheet the CLI generates at `<project>/.akari/reports/contact-sheet.png`. It tiles stills at representative times deterministically derived from the plan: start, immediately after each cut boundary, midpoint of each overlay/caption interval, and ending. Times are recorded in `render.json` at `contact_sheet.timestamps_seconds`. Extract additional frames only for intervals this misses (including those thinned to respect the contact-sheet tile limit). Check source-cut times, text, position, omissions, and alpha compositing.
 
-   **サンプリングの罠 — 境界時刻のフレームだけで判定しない。** 拍ちょうど・カット境界ちょうどのフレームは、区間の境界値（0% / 100% = 画面外・opacity 0）に必ず当たる。duration がちょうど 1 拍の要素はこの位置で消えて見えるため、**正常な動きを「アニメが死んでいる」と誤診する**。
+   **Sampling trap: do not judge from boundary frames alone.** A frame exactly on a beat or cut boundary always hits an interval boundary value (0% / 100% = offscreen or opacity 0). An element whose duration is exactly one beat therefore looks absent there; **do not misdiagnose normal motion as a dead animation**.
 
-   - **中間時刻（各区間の 1/4・1/2・3/4）を必ず見る**。時刻列（`render.json` の `contact_sheet.timestamps_seconds`）に各オーバーレイ / 字幕区間の**中点**が含まれていることを確認し、間引かれて中点が無い区間は [`akari capture --auto`](../../docs/contract-2026-08-29-capture-v0.md)（同じ代表時刻を決定論で導出。`-t <時刻>` との和集合も可）で撮り足す。
-   - **空フレーム走査 warning の読み方**（既定 ON・`--no-verify-blank` で OFF）: `verify.findings` の `verify.blank-frames` は、輝度が背景レベルに張り付いた**連続 0.3 秒以上**の区間を挙げたもの。severity は、その区間に宣言上活性な overlay / cut が **1 件以上あれば `warning`**（カットの尺に対して中身のアニメが先に終わった疑い＝要調査）、**活性 0 件なら `info`**（意図した黒区間の可能性が高く、そのまま無視してよい）。区間表と活性 id は `render.json` の `verify.declared.blank_frames` と HTML レポートで読む。これらの finding は verify の verdict を変えない。
-8. 機械検証値、成果物 SHA-256、採用したラスタライズ手段、フォールバック理由、コンタクトシート起点のキーフレーム視認結果を報告する。verify FAIL の場合は納品可能と表現せず、`.akari/render-tmp/` を保持して原因を報告する。
+   - **Always inspect intermediate times (1/4, 1/2, and 3/4 of each interval).** Confirm that the timestamp list (`render.json` `contact_sheet.timestamps_seconds`) includes the **midpoint** of each overlay / caption interval. For thinned intervals without a midpoint, capture more with [`akari capture --auto`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-capture-v0.md), which derives the same representative times deterministically and can be unioned with `-t <時刻>` (a specific time).
+   - **Interpret blank-frame scan warnings correctly** (ON by default; OFF with `--no-verify-blank`): `verify.blank-frames` in `verify.findings` lists stretches of **at least 0.3 consecutive seconds** whose brightness remains at background level. Severity is `warning` if **at least one** overlay / cut is declared active there (the animation may have ended before its cut; investigate), or `info` if **zero** are active (likely an intended black interval; it may be ignored). Read the interval table and active IDs in `render.json` `verify.declared.blank_frames` and the HTML report. These findings do not change the verify verdict.
+8. Report machine verification values, deliverable SHA-256, selected rasterizer, fallback reasons, and the contact-sheet-based keyframe inspection result. On verify FAIL, do not describe the output as deliverable; retain `.akari/render-tmp/` and report the cause.
 
-## 絵コンテ（印刷）
+## Storyboard (print)
 
-タイムラインの初回確認にだけ、次のコマンドで L1 通しマップを作る。
+Use the following command to make an L1 overview map **only for the initial timeline review**.
 
 ```sh
 akari storyboard <project-root>
 ```
 
-置き場は `<project>/.akari/reports/storyboard/`。絵コンテは初回だけ作り、タイムライン変更に合わせて
-更新しない。AI は後から読まず、画像生成・動画生成の入力にも使わない。描き直す必要がある場合は
-先に `edit.json` / `captions.json` を直し、人が明示的に再生成する。
+Store it in `<project>/.akari/reports/storyboard/`. Make the storyboard only once; do not update it on timeline changes. AI must not read it later or use it as input to image or video generation. If it needs redrawing, first fix `edit.json` / `captions.json` and have a human explicitly regenerate it.
 
-## 出力契約
+## Output contract
 
-- 成果物は既定で `<project>/exports/<source-name>.mp4` に置く。既存名があれば連番を使う。
-- 状態の正本は `<project>/.akari/render.json` とする。HTML レポートは可視化専用とする。
-- CLI は書き出し成功後に帳面の結果行を追記する（`akari decision-log settle`）。`--no-settle` で抑止できる。
-- 成功時だけ `<project>/.akari/render-tmp/` を削除する。失敗時は診断用に保持する。
-- 字幕は `captions.json` から決定的な HTML へ生成し、他のオーバーレイと同じ経路で焼き込む。
-- 字幕スタイルの preset は `presets/textstyle/` にあり、`akari-apply-textstyle.mjs` で `captions.json` へ適用できる。この実行体も同じ解決の対象で、`<render-cut>` と同じ `bin/` 配下にある。通常は edit-plan 段階で適用を済ませ、render-cut はその結果をそのまま描画する。
-- verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` を自動生成する（判定材料の
-  生成のみで合否判定はしない）。時刻列は plan（`predicted_duration_seconds` / `preset.fps` /
-  cuts / overlays）だけから決定論で導出し、同一 edit.json + 同一素材なら時刻列・タイル画像とも
-  バイト同一になる。時刻列は `render.json` の `contact_sheet.timestamps_seconds` に記録し、
-  `render-report.html` から参照する。
-- コンタクトシートで足りない区間を追加で視認するときの静止画も `<project>/.akari/reports/` へ置く。
-  CLI 自身が使う `.akari/render-tmp/` とは別に、確認用の一時スクリプトや実験的な中間生成物を
-  人が作る場合は `<project>/.akari/work/` へ置く
-  （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
-  `.akari/work/` では、使い捨てを `tmp/`、作り直せないものを `keep/` に分ける。
-  いずれもプロジェクトルート直下には置かない。
+- By default, place the result at `<project>/exports/<source-name>.mp4`. If that name exists, use a numbered name.
+- The state SSOT is `<project>/.akari/render.json`; the HTML report is only a visualization.
+- After successful export, the CLI appends a result row to the ledger (`akari decision-log settle`). `--no-settle` suppresses this.
+- Delete `<project>/.akari/render-tmp/` only on success; retain it for diagnosis on failure.
+- Generate captions deterministically from `captions.json` into HTML and burn them in through the same path as other overlays.
+- Caption style presets live in `presets/textstyle/` and `akari-apply-textstyle.mjs` can apply them to `captions.json`. Resolve this executable by the same procedure; it lives under the same `bin/` as `<render-cut>`. Usually edit-plan already applies the preset and render-cut draws that result directly.
+- After verify PASS, the CLI automatically generates `<project>/.akari/reports/contact-sheet.png` as evidence, **not as a pass/fail verdict**. The timestamp list is derived deterministically only from the plan (`predicted_duration_seconds` / `preset.fps` / cuts / overlays). With the same edit.json and media, both timestamps and tiled image are byte-identical. Record timestamps in `render.json` `contact_sheet.timestamps_seconds` and link the sheet from `render-report.html`.
+- Put extra stills needed to inspect intervals missed by the contact sheet in `<project>/.akari/reports/`. If a person creates temporary verification scripts or experimental intermediates separately from the CLI's `.akari/render-tmp/`, place them in `<project>/.akari/work/` (the `.akari/work/` directory; [project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) §1). Separate disposable items in `tmp/` from irreplaceable items in `keep/`; put neither at the project root.
 
-## 公開契約
+## Public contracts
 
-- [edit.json v0 と書き出し段構成](../../docs/contract-2026-07-13-m1-m4.md)
-- [edit.json v1 拡張メモ](../../docs/notes-2026-07-13-edit-json-v1.md)
-- [字幕とカット編集](../../docs/notes-2026-07-14-captions-and-cut-editing.md)
+- [edit.json v0 and export stages](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md)
+- [edit.json v1 extension notes](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-13-edit-json-v1.md)
+- [Captions and cut editing](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md)

@@ -1,6 +1,13 @@
-import test from 'node:test';
+import test, { beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudPrice, readAloudPreviewPlan, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } from '../lib/common/read-aloud-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+const { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudPrice, readAloudPreviewPlan, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } = await import('../lib/common/read-aloud-model.js');
+
+
+
+beforeEach(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 
 test('クラウドは鍵ありを先にし、初期 3 行と前回選択を表示する', () => {
     const ids = ['chatterbox', 'gemini-tts', 'fish-s2.1-pro', 'elevenlabs-v3', 'gemini-3.8-flash-tts'];
@@ -125,12 +132,15 @@ const engines = [
 ];
 
 test('ローカル見積はゼロ、クラウド見積は文字数と暫定価格に従う', () => {
-    assert.equal(narrationEstimate(engines[0], '読み').label, '費用 ¥0');
-    const quote = narrationEstimate(engines[1], 'あ'.repeat(100));
-    assert.equal(quote.chars, 100);
-    assert.ok(Math.abs(quote.usd - .005) < 1e-9);
-    assert.equal(quote.provisional, true);
-    assert.match(quote.label, /\$0\.005.*≈ ¥1/);
+    setLanguage('ja');
+    try {
+        assert.equal(narrationEstimate(engines[0], '読み').label, '費用 ¥0');
+        const quote = narrationEstimate(engines[1], 'あ'.repeat(100));
+        assert.equal(quote.chars, 100);
+        assert.ok(Math.abs(quote.usd - .005) < 1e-9);
+        assert.equal(quote.provisional, true);
+        assert.match(quote.label, /\$0\.005.*≈ ¥1/);
+    } finally { setLanguage(undefined); }
 });
 
 test('枠内、置いた文字の超過、話した言葉の超過を分ける', () => {
@@ -186,15 +196,18 @@ test('VOICEVOX の試聴計画は費用承認を要求しない', () => {
 });
 
 test('彩は接続状態に従って選べ、別 PC でも無料・自由入力の声指示が必須', () => {
-    const irodori = { id: 'irodori', label: '彩', place: 'network', experimental: true,
-        availability: { state: 'available', label: 'お試し · 接続済み' }, price: { usd_per_1000_chars: 0, verified: true } };
-    assert.equal(selectReadAloudEngine([irodori])?.id, 'irodori');
-    assert.equal(selectReadAloudEngine([{ ...irodori, availability: { state: 'unconfigured', label: 'つながりません' } }]), undefined);
-    assert.equal(narrationEstimate(irodori, 'こんにちは').label, '費用 ¥0');
-    assert.equal(readAloudPreviewPlan(irodori, 'こんにちは').needsApproval, false);
-    assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', ' '), true);
-    assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', '低い声'), false);
-    assert.equal(irodoriCustomVoiceMissing('irodori', 'bright-female', ''), false);
+    setLanguage('ja');
+    try {
+        const irodori = { id: 'irodori', label: '彩', place: 'network', experimental: true,
+            availability: { state: 'available', label: 'お試し · 接続済み' }, price: { usd_per_1000_chars: 0, verified: true } };
+        assert.equal(selectReadAloudEngine([irodori])?.id, 'irodori');
+        assert.equal(selectReadAloudEngine([{ ...irodori, availability: { state: 'unconfigured', label: 'つながりません' } }]), undefined);
+        assert.equal(narrationEstimate(irodori, 'こんにちは').label, '費用 ¥0');
+        assert.equal(readAloudPreviewPlan(irodori, 'こんにちは').needsApproval, false);
+        assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', ' '), true);
+        assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', '低い声'), false);
+        assert.equal(irodoriCustomVoiceMissing('irodori', 'bright-female', ''), false);
+    } finally { setLanguage(undefined); }
 });
 
 test('対象行は空文字とカット済みを除き、出力時間の順に並べる', () => {

@@ -18,7 +18,7 @@ test('bin/akari.mjs: --version は1行目の CLI 版を維持し、本体版と�
     await writeFile(join(akariHome, 'app', '.akari-install-ref'), 'v0.1.11\n', 'utf8');
     const result = spawnSync(process.execPath, [bin, '--version'], {
       encoding: 'utf8',
-      env: { ...process.env, AKARI_HOME: akariHome }
+      env: { ...process.env, AKARI_LANG: "ja", AKARI_HOME: akariHome }
     });
     assert.equal(result.status, 0, result.stderr);
     const lines = result.stdout.trim().split('\n');
@@ -34,6 +34,7 @@ test('bin/akari.mjs: --version は1行目の CLI 版を維持し、本体版と�
 for (const [name, args, expected] of [
   ['decision-log', ['decision-log', '--help'], 'akari decision-log <subcommand>'],
   ['captions', ['captions', '--help'], 'akari captions <project-dir>'],
+  ['migrate-look', ['captions', '--help'], 'akari captions migrate-look <project>'],
   ['new', ['new', '--help'], 'akari new <target-dir>'],
   ['narration', ['narration', '--help'], 'akari narration generate'],
   ['voice', ['voice', '--help'], 'akari voice <scripts'],
@@ -45,7 +46,7 @@ for (const [name, args, expected] of [
   ['storyboard', ['storyboard', '--help'], 'akari storyboard'],
 ]) {
   test(`bin/akari.mjs: ${name} 分岐が help を表示する`, () => {
-    const result = spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'ja' } });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, new RegExp(expected));
   });
@@ -56,7 +57,7 @@ for (const [name, args, expected] of [
 // コマンド一覧が一度も出ない行き止まりだった。トップレベルの一覧表示を新設したことを確認する。
 for (const flag of ['--help', '-h']) {
   test(`bin/akari.mjs: ${flag} は claude/opencode へ転送せず、初心者目線で並べ替えた一覧を表示する`, () => {
-    const result = spawnSync(process.execPath, [bin, flag], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [bin, flag], { encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'ja' } });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /使い方: akari \[command\] \[options\.\.\.\]/);
 

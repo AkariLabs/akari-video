@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { childRow, parentRow, TimelineTreeRow } from '../timeline/timeline-tree-model';
 
 export interface FocusScopeState {
@@ -9,7 +10,7 @@ export interface FocusScopeState {
 export type TimelineDoubleClickAction = 'focus' | 'trimmer';
 
 export function initialFocusScope(rows: readonly TimelineTreeRow[]): FocusScopeState {
-    return { rootId: null, breadcrumbs: ['全体'], span: spanOfRows(rows) };
+    return { rootId: null, breadcrumbs: [t('annotationscommon.focusScope.label.overall')], span: spanOfRows(rows) };
 }
 
 export function enterFocusScope(
@@ -17,7 +18,7 @@ export function enterFocusScope(
     targetId: string
 ): FocusScopeState {
     const target = rows.find(row => row.id === targetId);
-    if (!target) throw new Error(`フォーカス対象が見つかりません: ${targetId}`);
+    if (!target) throw new Error(t('annotationscommon.focusScope.error.focusedTargetsNotFound', { targetId: targetId }));
     const lineage: TimelineTreeRow[] = [];
     let cursor: TimelineTreeRow | undefined = target;
     while (cursor) {
@@ -26,7 +27,7 @@ export function enterFocusScope(
     }
     return {
         rootId: target.id,
-        breadcrumbs: ['全体', ...lineage.map(row => row.label)],
+        breadcrumbs: [t('annotationscommon.focusScope.label.overall'), ...lineage.map(row => row.label)],
         span: { at: target.at, duration: target.duration }
     };
 }
@@ -73,11 +74,36 @@ export function rowsInFocusScope(
     return result.map(row => ({ ...row, depth: Math.max(0, row.depth - rootDepth) }));
 }
 
+export function selectionLeavesFocus(
+    rows: readonly TimelineTreeRow[], rootId: string | null, selectedId: string | null
+): boolean {
+    if (rootId === null) return false;
+    if (selectedId === null) return true;
+    const visited = new Set<string>();
+    let cursor = rows.find(row => row.id === selectedId);
+    while (cursor && !visited.has(cursor.id)) {
+        if (cursor.id === rootId) return false;
+        visited.add(cursor.id);
+        cursor = cursor.parentId ? rows.find(row => row.id === cursor!.parentId) : undefined;
+    }
+    return true;
+}
+
 export function timelineDoubleClickAction(
     itemKind: TimelineTreeRow['itemKind'],
-    sourceKind?: string
+    sourceKind?: string,
+    isMainCut = false
 ): TimelineDoubleClickAction {
-    return itemKind === 'media' || sourceKind === 'media' ? 'trimmer' : 'focus';
+    return isMainCut && (itemKind === 'media' || sourceKind === 'media') ? 'trimmer' : 'focus';
+}
+
+/** プレビューの合成 Escape は keyCode=0。実際の打鍵（27）は短い窓の中でも通す。 */
+export function isPreviewSelectionEscapeEcho(
+    key: string, isWebviewKeydown: boolean, focusedRootId: string | null,
+    now: number, lastPublishedAt: number, keyCode = 0, windowMs = 500
+): boolean {
+    return key === 'Escape' && keyCode === 0 && isWebviewKeydown && focusedRootId !== null
+        && lastPublishedAt > 0 && now >= lastPublishedAt && now - lastPublishedAt < windowMs;
 }
 
 function nextSibling(rows: readonly TimelineTreeRow[], row: TimelineTreeRow): TimelineTreeRow | undefined {

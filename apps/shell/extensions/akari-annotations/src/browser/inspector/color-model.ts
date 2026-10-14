@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * 色パネルの値と計算（DOM を持たない純関数）。
  *
@@ -174,9 +175,9 @@ export function paintToCss(paint: Paint | undefined): string {
 export function paintLabel(paint: Paint | undefined): string {
     const parsed = parsePaint(paint);
     if (parsed === undefined) return '';
-    if (parsed === TRANSPARENT_PAINT) return '透明';
+    if (parsed === TRANSPARENT_PAINT) return t('inspector.colorModel.paint.transparent');
     if (typeof parsed === 'string') return parsed;
-    return `グラデーション（${parsed.stops.map(stop => stop.color).join(' → ')}）`;
+    return t('inspector.colorModel.label.gradation', { colors: parsed.stops.map(stop => stop.color).join(' → ') });
 }
 
 // ---- 既定の色 ----
@@ -233,11 +234,11 @@ export interface GradientStyle {
 
 /** 色を作る窓のスタイル 5 種（linear の角度 4 つ + radial）。 */
 export const GRADIENT_STYLES: readonly GradientStyle[] = [
-    { id: 'horizontal', label: '横', type: 'linear', angle: 90 },
-    { id: 'vertical', label: '縦', type: 'linear', angle: 180 },
-    { id: 'diagonal-down', label: '斜め ↘', type: 'linear', angle: 135 },
-    { id: 'radial', label: '放射', type: 'radial' },
-    { id: 'diagonal-up', label: '斜め ↗', type: 'linear', angle: 45 }
+    { id: 'horizontal', label: t('inspector.colorModel.gradient.horizontal'), type: 'linear', angle: 90 },
+    { id: 'vertical', label: t('inspector.colorModel.gradient.vertical'), type: 'linear', angle: 180 },
+    { id: 'diagonal-down', label: t('inspector.colorModel.gradient.diagonalDown'), type: 'linear', angle: 135 },
+    { id: 'radial', label: t('inspector.colorModel.gradient.radial'), type: 'radial' },
+    { id: 'diagonal-up', label: t('inspector.colorModel.gradient.diagonalUp'), type: 'linear', angle: 45 }
 ];
 
 /** 今の値がどのスタイルか（無ければ -1）。 */

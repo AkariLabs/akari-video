@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface ClipKindBadgeItem {
     source?: { kind?: string; path?: string; src?: string };
 }
@@ -24,17 +25,17 @@ export function clipKindBadge(
         case 'media': {
             const path = context.path ?? item?.source?.src ?? '';
             const extension = /\.([^./\\]+)$/.exec(path)?.[1].toLowerCase() ?? '';
-            text = context.lane === 'audio' ? '音声'
-                : MEDIA_EXTENSIONS.image.has(extension) ? '画像'
-                    : MEDIA_EXTENSIONS.audio.has(extension) ? '音声' : '動画';
+            text = context.lane === 'audio' ? t('annotationscommon.clipKindBadge.label.voice')
+                : MEDIA_EXTENSIONS.image.has(extension) ? t('annotationscommon.clipKindBadge.label.image')
+                    : MEDIA_EXTENSIONS.audio.has(extension) ? t('annotationscommon.clipKindBadge.label.voice') : t('annotationscommon.clipKindBadge.label.video');
             break;
         }
         case 'scene3d': text = '3D'; break;
-        case 'video': text = '動画'; break;
-        case 'image': text = '画像'; break;
-        case 'audio': text = '音声'; break;
-        case 'caption': text = '字幕'; break;
+        case 'video': text = t('annotationscommon.clipKindBadge.label.video'); break;
+        case 'image': text = t('annotationscommon.clipKindBadge.label.image'); break;
+        case 'audio': text = t('annotationscommon.clipKindBadge.label.voice'); break;
+        case 'caption': text = t('annotationscommon.clipKindBadge.label.captions'); break;
         default: return undefined;
     }
-    return { text, title: `種別: ${text}` };
+    return { text, title: t('annotationscommon.clipKindBadge.title.kind', { kind: text }) };
 }

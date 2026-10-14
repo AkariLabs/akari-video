@@ -49,8 +49,11 @@ export const previewContextBarPageScript = `(() => {
   });
   // プレビューの中の押下・キーはホストの document へ届かない（ポインターの既定動作を止めているため）ので知らせる。
   // スタイルをコピー中・窓を開いている間の Esc は、選択の Esc（interaction.js が止める）より先に拾ってそちらを閉じる
-  window.addEventListener('pointerdown', () => {
-    if (typeof akari.reportContextBox === 'function') akari.reportContextBox({ user: 'pointer' });
+  window.addEventListener('pointerdown', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const blankPreview = !!target?.closest('#preview-wrapper')
+      && !target.closest('[data-overlay-id], [data-akari-interaction]');
+    if (typeof akari.reportContextBox === 'function') akari.reportContextBox({ user: 'pointer', blankPreview });
   }, true);
   window.addEventListener('keydown', event => {
     if (typeof akari.reportContextBox !== 'function') return;

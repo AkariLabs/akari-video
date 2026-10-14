@@ -1,28 +1,29 @@
+import { t } from '@akari-video/i18n';
 import { buildExportEncoderChoices, ExportEncoder, ExportPlatform } from 'akari-shell-strip/lib/common/export-encoder-choices';
 
 // 節の定義。左のナビは SETTINGS_PILLARS の六つにまとめる。
 // icon は browser/settings/settings-icons.ts の線画 SVG の名前（絵文字・記号文字は使わない）。
 export const SETTINGS_SECTIONS = [
-    { id: 'account', label: 'AKARI アカウント', group: 'main', icon: 'user' },
-    { id: 'start', label: 'はじめかた', group: 'main', icon: 'play' },
-    { id: 'export', label: '書き出し', group: 'main', icon: 'download' },
-    { id: 'appearance', label: '外観', group: 'main', icon: 'contrast' },
-    { id: 'connections', label: '接続と API キー', group: 'main', icon: 'key' },
-    { id: 'ai-models', label: 'AI モデル', group: 'main', icon: 'spark' },
-    { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot' },
-    { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
-    { id: 'listening', label: '聞き取り', group: 'main', icon: 'mic' },
-    { id: 'narration', label: '読み上げ', group: 'main', icon: 'mic' },
-    { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
-    { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
-    { id: 'tools', label: '道具', group: 'main', icon: 'wrench' },
-    { id: 'shortcuts', label: 'ショートカット', group: 'main', icon: 'keyboard' },
-    { id: 'storage', label: 'ストレージ', group: 'data', icon: 'disk' },
-    { id: 'privacy', label: 'プライバシーとアクセス許可', group: 'data', icon: 'shield' },
-    { id: 'statistics', label: '統計と利用状況', group: 'data', icon: 'chart', badge: '準備中' },
-    { id: 'help', label: '困ったとき', group: 'support', icon: 'help' },
-    { id: 'about', label: 'このアプリについて', group: 'support', icon: 'info' },
-    { id: 'developer', label: '開発者モード', group: 'developer', icon: 'code' }
+    { id: 'account', label: t('surfaces.settings.akariAccount.label'), group: 'main', icon: 'user' },
+    { id: 'start', label: t('surfaces.settings.getStarted.label'), group: 'main', icon: 'play' },
+    { id: 'export', label: t('surfaces.settings.export.label'), group: 'main', icon: 'download' },
+    { id: 'appearance', label: t('surfaces.settings.appearance.label'), group: 'main', icon: 'contrast' },
+    { id: 'connections', label: t('surfaces.settings.connectionApiKey.label'), group: 'main', icon: 'key' },
+    { id: 'ai-models', label: t('surfaces.settings.aiModel.label'), group: 'main', icon: 'spark' },
+    { id: 'partner', label: t('surfaces.settings.sectionPartner.label'), group: 'main', icon: 'bot' },
+    { id: 'transcribe', label: t('surfaces.settings.transcription.label'), group: 'main', icon: 'mic' },
+    { id: 'listening', label: t('surfaces.settings.hearing.label'), group: 'main', icon: 'mic' },
+    { id: 'narration', label: t('surfaces.settings.narration.label'), group: 'main', icon: 'mic' },
+    { id: 'quality', label: t('surfaces.settings.previewQuality.label'), group: 'main', icon: 'gauge' },
+    { id: 'notifications', label: t('surfaces.settings.notification.label'), group: 'main', icon: 'bell' },
+    { id: 'tools', label: t('surfaces.settings.tools.label'), group: 'main', icon: 'wrench' },
+    { id: 'shortcuts', label: t('surfaces.settings.shortcut.label'), group: 'main', icon: 'keyboard' },
+    { id: 'storage', label: t('surfaces.settings.storage.label'), group: 'data', icon: 'disk' },
+    { id: 'privacy', label: t('surfaces.settings.privacyPermissions.label'), group: 'data', icon: 'shield' },
+    { id: 'statistics', label: t('surfaces.settings.statisticsUsage.label'), group: 'data', icon: 'chart', badge: t('surfaces.settings.navigationComingSoon.label') },
+    { id: 'help', label: t('surfaces.settings.trouble.label'), group: 'support', icon: 'help' },
+    { id: 'about', label: t('surfaces.settings.app.label'), group: 'support', icon: 'info' },
+    { id: 'developer', label: t('surfaces.settings.developerMode.label'), group: 'developer', icon: 'code' }
 ] as const;
 
 export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
@@ -61,30 +62,30 @@ export function activeSettingsSection(ids: readonly SettingsSectionId[], heading
 }
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
-    account: 'AKARI アカウントの接続と、AKARI Video Lab で購入した素材の受け取りをここで管理します。',
-    start: 'はじめてのガイドと、道具・作業場の準備をここから開けます。',
-    export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
-    appearance: '色・言語・大きさと、下のバーに出すもの。',
-    partner: '一緒に作業する AI（CLI・公式拡張）。左の縦バーの「パートナー / 拡張」はここへ移りました。',
-    storage: 'AKARI が使っているディスクの量。行を開くと、場所と中身、消して大丈夫かが分かります。',
-    privacy: 'macOS の許可と、外へ送るもの。ターミナルから起動したパートナーも、この許可を引き継ぎます。',
-    statistics: 'つないだサービスで、どれだけ使ったか。',
-    help: 'うまく動かないときの道具。不具合を報告するときは診断情報を添えると早く直せます。',
-    about: 'バージョンとアップデート。',
-    connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
-    'ai-models': 'モデルを探して、お気に入りといつものモデルを選び、できることを比べます。',
-    transcribe: '文字起こしのエンジンを選びます。',
-    listening: 'マイクで話しかける側の設定。試し聞き・聞き取りエンジン・Jev のモードを選びます。',
-    narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
-    quality: 'プレビューの描き方を選びます。',
-    notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
-    tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',
-    shortcuts: 'キーを押すと変えられます。右端のメニューから無効にする・既定に戻す。',
-    developer: '開発者向けの表示を設定します。'
+    account: t('surfaces.settings.manageAkariAccountConnectionReceiptPurchasedAssets.message'),
+    start: t('surfaces.settings.startFirstGuidePrepareToolsWorkspace.message'),
+    export: t('surfaces.settings.selectExportQualityFormatFrameRateDefault.message'),
+    appearance: t('surfaces.settings.colorLanguageSizeDisplayBarBelow.message'),
+    partner: t('surfaces.settings.aiWorkCliOfficialExtensionPartnersExtensions.message'),
+    storage: t('surfaces.settings.amountDiskAkariOpenRowSeeLocation.message'),
+    privacy: t('surfaces.settings.macosPermissionsSendOutPartnersLaunchedTerminal.message'),
+    statistics: t('surfaces.settings.muchConnectedServices.message'),
+    help: t('surfaces.settings.toolThingsDontWorkProperlyReportingProblem.message'),
+    about: t('surfaces.settings.versionsUpdates.message'),
+    connections: t('surfaces.settings.manageConnectionsApiKeysExternalServicesAlso.message'),
+    'ai-models': t('surfaces.settings.searchModelsChooseFavoriteUsualModelsCompare.message'),
+    transcribe: t('surfaces.settings.selectTranscriptionEngine.message'),
+    listening: t('surfaces.settings.settingsPersonSpeakingMicrophoneSelectTrialListening.message'),
+    narration: t('surfaces.settings.installStartNarrationEnginesSetDefaultEngine.message'),
+    quality: t('surfaces.settings.selectDrawPreview.message'),
+    notifications: t('surfaces.settings.setUpNotificationsAiPartnerFinishedProcessing.message'),
+    tools: t('surfaces.settings.checkConditionToolsNecessaryMakingVideosSet.message'),
+    shortcuts: t('surfaces.settings.changePressingKeyDisableRestoreDefaultMenu.message'),
+    developer: t('surfaces.settings.setDisplayDevelopers.message')
 };
 
 /** プレビュー品質の節に小さく出す注記（値を読む機能がまだ無いことを隠さない）。 */
-export const QUALITY_TIER_RESERVED_NOTE = '今はこの値を読む機能がありません（AI 生成の品質段階として予約）';
+export const QUALITY_TIER_RESERVED_NOTE = t('surfaces.settings.currentlyNoAbilityReadValueReservedQuality.label');
 
 export const SETTINGS_LAST_SECTION_KEY = 'akari.settings.lastSection';
 
@@ -201,10 +202,10 @@ export function settingsSectionElementId(id: SettingsSectionId): string {
 
 // 選択肢の並びは画面の並び（カード・セグメントの左から）。description は選択カード・ドロップダウンの一言。
 export const QUALITY_TIER_CHOICES = [
-    { value: 'draft', label: 'Draft', description: '速い確認用', icon: 'bolt' },
-    { value: 'final', label: 'Final', description: '最終品質', icon: 'gem' }
+    { value: 'draft', label: 'Draft', description: t('surfaces.settings.quickConfirmation.description'), icon: 'bolt' },
+    { value: 'final', label: 'Final', description: t('surfaces.settings.finalQuality.description'), icon: 'gem' }
 ] as const;
-export const THEME_CHOICES = [{ value: 'dark', label: 'ダーク' }, { value: 'light', label: 'ライト' }, { value: 'system', label: 'システムに合わせる' }] as const;
+export const THEME_CHOICES = [{ value: 'dark', label: t('surfaces.settings.dark.label') }, { value: 'light', label: t('surfaces.settings.light.label') }, { value: 'system', label: t('surfaces.settings.fitSystem.label') }] as const;
 export function clampZoom(value: number): number { return Math.min(200, Math.max(60, Math.round(value / 10) * 10)); }
 export function matchesSettingsSearch(query: string, label: string, description: string, rows: readonly string[]): boolean {
     const needle = query.trim().toLocaleLowerCase();
@@ -219,19 +220,19 @@ export function formatShortReleaseDate(value: unknown): string {
     return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${month}/${day}` : '';
 }
 export const EXPORT_QUALITY_CHOICES = [
-    { value: 'light', label: '軽量', description: '共有・確認向け' },
-    { value: 'standard', label: '標準', description: 'ふだんの投稿' },
-    { value: 'high', label: '高画質', description: '大きい画面向け' },
-    { value: 'master', label: 'マスター', description: '再編集・保管用' }
+    { value: 'light', label: t('surfaces.settings.lightweight.label'), description: t('surfaces.settings.sharingConfirmation.description') },
+    { value: 'standard', label: t('surfaces.settings.standard.label'), description: t('surfaces.settings.usualPosts.description') },
+    { value: 'high', label: t('surfaces.settings.highQuality.label'), description: t('surfaces.settings.largeScreens.description') },
+    { value: 'master', label: t('surfaces.settings.master.label'), description: t('surfaces.settings.reEditingStoring.description') }
 ] as const;
 export const EXPORT_CODEC_CHOICES = [
-    { value: 'h264', label: 'MP4 · H.264', description: 'どこでも再生できる' },
-    { value: 'hevc', label: 'MP4 · H.265（HEVC）', description: '同じ画質で軽い' },
-    { value: 'prores422', label: 'MOV · ProRes 422 HQ', description: '編集ソフトへ渡す' },
-    { value: 'png', label: '連番 PNG', description: '1 コマずつ画像で' }
+    { value: 'h264', label: 'MP4 · H.264', description: t('surfaces.settings.playedAnywhere.description') },
+    { value: 'hevc', label: 'MP4 · H.265（HEVC）', description: t('surfaces.settings.sameImageQualityLighterWeight.description') },
+    { value: 'prores422', label: 'MOV · ProRes 422 HQ', description: t('surfaces.settings.passEditingSoftware.description') },
+    { value: 'png', label: t('surfaces.settings.serialNumberPng.label'), description: t('surfaces.settings.oneImageTime.description') }
 ] as const;
 export const EXPORT_FPS_CHOICES = [
-    { value: '', label: '編集データ' },
+    { value: '', label: t('surfaces.settings.editData.label') },
     { value: '24', label: '24' }, { value: '30', label: '30' }, { value: '60', label: '60' }
 ] as const;
 export function normalizeExportCodec(value: unknown): typeof EXPORT_CODEC_CHOICES[number]['value'] {

@@ -1,3 +1,4 @@
+import { formatDate, t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
@@ -42,7 +43,7 @@ interface SessionRequest {
 }
 
 const CHANGE_LABELS: Record<ReviewSessionEditChangeKind, string> = {
-    added: '追加', removed: '削除', moved: '移動', resized: '尺変更', trimmed: '素材区間'
+    get added() { return t('annotations.sessionViewerWidget.text.add'); }, get removed() { return t('annotations.sessionViewerWidget.text.delete'); }, get moved() { return t('annotations.sessionViewerWidget.text.move'); }, get resized() { return t('annotations.sessionViewerWidget.text.changeOfLength'); }, get trimmed() { return t('annotations.sessionViewerWidget.text.materialSection'); }
 };
 
 @injectable()
@@ -75,8 +76,8 @@ export class AkariSessionViewerWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariSessionViewerWidget.FACTORY_ID;
-        this.title.label = 'セッション';
-        this.title.caption = '録音セッションを見返す';
+        this.title.label = t('annotations.sessionViewerWidget.text.session');
+        this.title.caption = t('annotations.sessionViewerWidget.text.reviewTheRecordingSession');
         this.title.closable = true;
         this.title.iconClass = 'codicon codicon-history';
         this.node.classList.add('akari-session-viewer-widget');
@@ -87,7 +88,7 @@ export class AkariSessionViewerWidget extends BaseWidget {
     async showSession(request: SessionRequest): Promise<void> {
         this.detachSession();
         this.request = request;
-        this.node.replaceChildren(this.notice('読み込み中です。'));
+        this.node.replaceChildren(this.notice(t('annotations.sessionViewerWidget.text.loadingNow')));
         try {
             const [bundle, sessions] = await Promise.all([
                 this.previewService.readReviewSessionBundle({
@@ -108,7 +109,7 @@ export class AkariSessionViewerWidget extends BaseWidget {
                 sessions.find(session => session.id === request.sessionId)?.startedAt);
             this.dispatchSync('attach');
         } catch (error) {
-            this.node.replaceChildren(this.notice(`セッションを読み込めません: ${this.errorMessage(error)}`));
+            this.node.replaceChildren(this.notice(t('annotations.sessionViewerWidget.text.unableToLoadSession', { reason: this.errorMessage(error) })));
         }
     }
 
@@ -119,8 +120,8 @@ export class AkariSessionViewerWidget extends BaseWidget {
         const header = document.createElement('h3');
         header.setAttribute('data-viewer-header', '');
         const date = startedAt && Number.isFinite(Date.parse(startedAt))
-            ? new Date(startedAt).toLocaleString('ja-JP') : '記録情報なし';
-        header.textContent = `${bundle.sessionId} ・ 開始日時: ${date} ・ 録音長 ${this.clock(bundle.audioDurationSec)}`;
+            ? formatDate(new Date(startedAt)) : t('annotations.sessionViewerWidget.text.noRecordInformation');
+        header.textContent = t('annotations.sessionViewerWidget.text.startDateAndTimeRecordingLength', { sessionId: bundle.sessionId, date: date, duration: this.clock(bundle.audioDurationSec) });
         this.node.append(header, await this.renderTransport(bundle), this.renderTranscript(bundle), this.renderDiff(diff));
         const warnings = document.createElement('section');
         warnings.setAttribute('data-viewer-warnings', '');
@@ -144,7 +145,7 @@ export class AkariSessionViewerWidget extends BaseWidget {
         section.setAttribute('data-viewer-transport', '');
         Object.assign(section.style, { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' });
         const play = document.createElement('button');
-        play.type = 'button'; play.textContent = '再生'; play.setAttribute('data-viewer-play', '');
+        play.type = 'button'; play.textContent = t('annotations.sessionViewerWidget.text.play'); play.setAttribute('data-viewer-play', '');
         play.setAttribute('aria-pressed', 'false');
         const seek = document.createElement('input');
         seek.type = 'range'; seek.min = '0';
@@ -170,14 +171,14 @@ export class AkariSessionViewerWidget extends BaseWidget {
             play.disabled = seek.disabled = rate.disabled = true;
             const missing = document.createElement('span');
             missing.setAttribute('data-viewer-audio-missing', '');
-            missing.textContent = '録音音声（audio.wav）が見つかりません。';
+            missing.textContent = t('annotations.sessionViewerWidget.text.recordedAudioAudioWavCannotBeFound');
             section.appendChild(missing);
         }
         play.addEventListener('click', () => {
             if (audio.paused) void audio.play(); else audio.pause();
         });
-        audio.addEventListener('play', () => { play.textContent = '停止'; play.setAttribute('aria-pressed', 'true'); this.animate(); });
-        audio.addEventListener('pause', () => { play.textContent = '再生'; play.setAttribute('aria-pressed', 'false'); this.stopAnimation(); });
+        audio.addEventListener('play', () => { play.textContent = t('annotations.sessionViewerWidget.text.stop'); play.setAttribute('aria-pressed', 'true'); this.animate(); });
+        audio.addEventListener('pause', () => { play.textContent = t('annotations.sessionViewerWidget.text.play'); play.setAttribute('aria-pressed', 'false'); this.stopAnimation(); });
         audio.addEventListener('timeupdate', () => this.updateAt(audio.currentTime, true));
         audio.addEventListener('ended', () => this.stopAnimation());
         seek.addEventListener('input', () => {
@@ -192,12 +193,12 @@ export class AkariSessionViewerWidget extends BaseWidget {
     protected renderTranscript(bundle: ReadReviewSessionBundleResult): HTMLElement {
         const section = document.createElement('section');
         section.setAttribute('data-viewer-transcript', '');
-        const heading = document.createElement('h4'); heading.textContent = '文字起こし'; section.appendChild(heading);
+        const heading = document.createElement('h4'); heading.textContent = t('annotations.sessionViewerWidget.text.transcription'); section.appendChild(heading);
         this.utteranceRows = [];
         if (bundle.transcript === null) {
             const empty = document.createElement('div'); empty.setAttribute('data-viewer-transcript-empty', '');
-            empty.append('コンパイル（文字起こし）がまだです。');
-            const compile = document.createElement('button'); compile.type = 'button'; compile.textContent = 'コンパイル';
+            empty.append(t('annotations.sessionViewerWidget.text.compilationTranscriptionIsStillInProgress'));
+            const compile = document.createElement('button'); compile.type = 'button'; compile.textContent = t('annotations.sessionViewerWidget.text.compilation');
             compile.setAttribute('data-viewer-compile', ''); compile.addEventListener('click', () => void this.copyCompilePrompt());
             empty.appendChild(compile); section.appendChild(empty); return section;
         }
@@ -223,9 +224,9 @@ export class AkariSessionViewerWidget extends BaseWidget {
 
     protected renderDiff(diff: ReviewSessionEditDiff): HTMLElement {
         const section = document.createElement('section'); section.setAttribute('data-viewer-diff', '');
-        const heading = document.createElement('h4'); heading.textContent = '録音時点からの差分'; section.appendChild(heading);
+        const heading = document.createElement('h4'); heading.textContent = t('annotations.sessionViewerWidget.text.differencesFromTheTimeOfRecording'); section.appendChild(heading);
         if (diff.status === 'legacy-snapshot') {
-            const row = this.notice(`旧形式（version ${diff.version}）のスナップショットのため差分は出せません。`);
+            const row = this.notice(t('annotations.sessionViewerWidget.text.differencesCannotBeGeneratedBecauseTheSnapshot', { version: diff.version }));
             row.setAttribute('data-viewer-diff-legacy', ''); section.appendChild(row); return section;
         }
         if (diff.status === 'unreadable') {
@@ -234,11 +235,11 @@ export class AkariSessionViewerWidget extends BaseWidget {
         const counts = Object.fromEntries(Object.keys(CHANGE_LABELS).map(kind => [kind, 0])) as Record<ReviewSessionEditChangeKind, number>;
         diff.changes.forEach(change => { counts[change.kind] += 1; });
         const summary = document.createElement('div'); summary.setAttribute('data-viewer-diff-summary', '');
-        summary.textContent = `追加 ${counts.added} / 削除 ${counts.removed} / 移動 ${counts.moved} / `
-            + `尺変更 ${counts.resized} / 素材区間 ${counts.trimmed}`;
+        summary.textContent = t('annotations.sessionViewerWidget.text.addDeleteMove', { added: counts.added, removed: counts.removed, moved: counts.moved })
+            + t('annotations.sessionViewerWidget.text.lengthChangeMaterialSection', { resized: counts.resized, trimmed: counts.trimmed });
         section.appendChild(summary);
         if (!diff.changes.length) {
-            const empty = this.notice('録音時点から変わっていません。'); empty.setAttribute('data-viewer-diff-empty', '');
+            const empty = this.notice(t('annotations.sessionViewerWidget.text.itHasNotChangedSinceTheTime')); empty.setAttribute('data-viewer-diff-empty', '');
             section.appendChild(empty);
         }
         diff.changes.forEach(change => {
@@ -254,7 +255,7 @@ export class AkariSessionViewerWidget extends BaseWidget {
         if (!this.bundle) return;
         const timelineT = resolveSessionTimelineT(this.bundle.events as ReviewSessionTimelineEvent[], recT);
         if (this.seek) this.seek.value = String(recT);
-        if (this.time) this.time.textContent = `録音 ${this.clock(recT, true)} / 出力 ${timelineT === null ? '--' : seconds(timelineT)}`;
+        if (this.time) this.time.textContent = t('annotations.sessionViewerWidget.text.recordingOutput', { recordingTime: this.clock(recT, true), outputTime: timelineT === null ? '--' : seconds(timelineT) });
         const active = activeUtteranceIndex(this.bundle.transcript ?? [], recT);
         this.utteranceRows.forEach((row, index) => {
             if (index === active) {
@@ -317,10 +318,10 @@ export class AkariSessionViewerWidget extends BaseWidget {
     }
 
     protected proposalLabel(proposal: ReviewSessionProposalSummary | undefined): string {
-        if (!proposal) return '対象未解決';
-        const target = proposal.target ?? '対象未解決';
-        const source = proposal.sourceT === null ? '' : ` / 素材 ${seconds(proposal.sourceT)}`;
-        return `${target}${source}${proposal.confidence === 'low' ? '（要確認）' : ''}`;
+        if (!proposal) return t('annotations.sessionViewerWidget.text.targetUnresolved');
+        const target = proposal.target ?? t('annotations.sessionViewerWidget.text.targetUnresolved');
+        const source = proposal.sourceT === null ? '' : t('annotations.sessionViewerWidget.text.material', { sourceTime: seconds(proposal.sourceT) });
+        return `${target}${source}${proposal.confidence === 'low' ? t('annotations.sessionViewerWidget.text.confirmationRequired') : ''}`;
     }
 
     protected clock(value: number, decimal = false): string {

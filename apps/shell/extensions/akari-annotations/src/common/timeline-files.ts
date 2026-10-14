@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { createEmptyEditV2 } from '@akari-video/edit-store';
 
 /** File naming and creation rules shared by timeline discovery and dialogs. */
@@ -44,7 +45,7 @@ export function estimateAspectFromOrientation(width?: number, height?: number): 
 }
 
 export function timelineDisplayName(slug: string | undefined, metaTitle?: string): string {
-    return metaTitle?.trim() || slug || 'タイムライン';
+    return metaTitle?.trim() || slug || t('annotationscommon.timelineFiles.label.timeline');
 }
 
 export function timelineWidgetId(slug?: string): string {

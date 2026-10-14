@@ -1,53 +1,47 @@
-# 試聴ギャラリー（keep / drop）
+# Listening gallery (keep / drop)
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-[drop-folder.md](drop-folder.md) で登録された音源を、実際に聴きながら keep/drop を
-決めるためのローカルギャラリー。decision-cards / intake-form と同じ流儀（`127.0.0.1`
-のみ・外部 npm 依存ゼロ・状態は JSON サイドカーへ atomic 書き込み）。
+A local gallery for listening to audio registered through [drop-folder.md](drop-folder.md) and deciding keep/drop.
+Same pattern as decision-cards / intake-form: `127.0.0.1` only, zero external npm dependencies, atomic state writes to JSON sidecars.
 
-## 1. 起動する
+## 1. Start
 
 ```sh
-node packages/audio-library-setup/bin/gallery-helper.mjs
+akari assets audio gallery
 ```
 
-起動すると `HELPER: http://localhost:<port>/` を標準出力に出す。ユーザーへそのまま
-提示し、ブラウザで開いてもらう。
+Prints `HELPER: http://localhost:<port>/` to stdout on launch. Present it unchanged and ask the user to open it in a browser.
 
-## 2. 画面で分かること
+## 2. What the screen shows
 
-- `<ライブラリの置き場>/audio/<id>/meta.json` を持つ登録済みエントリを一覧表示する
-  （`meta.json` はあるが再生可能な音声実体が無いエントリは表示しない）
-- 各エントリの音声ファイルを `<audio controls>` でその場再生できる
-  （`/media/<id>/<filename>` 経由でのみ配信。ライブラリ外のファイルは配信しない）
-- ライセンスバッジ（要クレジット／クレジット不要／AI学習禁止）に加え、`meta.json` に
-  `mood[]` / `tempo` があればそれもバッジ表示する（2026-07-22 tasks/audio-fetch-gallery で追加）
-- 画面上部の入力欄で id / タイトルを絞り込み検索できる
-- 「keep 一覧をコピー」ボタンで、現在 keep 判定済みの id を JSON 配列としてクリップボードへ
-  コピーできる（オーナーがフィードバックとして他ツールへ貼り付ける用途）
-- keep / drop ボタンで決定を記録する。決定は `<ライブラリの置き場>/audio/_gallery-state.json`
-  へ即時保存される（ページを閉じても消えない）。もう一度同じボタンを押すと決定を解除する
+- Registered entries with `<ライブラリの置き場>/audio/<id>/meta.json` (existing library-location placeholder).
+  Entries with `meta.json` but no playable audio files are omitted.
+- Each entry's audio files play inline via `<audio controls>`.
+  Served only through `/media/<id>/<filename>`; never serve files outside the library.
+- License badges (credit required / no credit required / AI training prohibited), plus `mood[]` / `tempo`
+  badges if present in `meta.json` (added in 2026-07-22 tasks/audio-fetch-gallery).
+- Top input filters by ID / title.
+- The copy-keep-list button copies currently kept IDs to the clipboard as a JSON array
+  (for owner feedback pasted into other tools).
+- Keep/drop buttons record decisions immediately in `<ライブラリの置き場>/audio/_gallery-state.json`
+  (existing library-location placeholder; survives closing the page). Press the same button again to clear the decision.
 
-## 3. keep したあとの一歩（宣言づけ）
+## 3. After keeping a track (declarations)
 
-keep した曲に「サビはどこか・キメはどこか・拍はどこか」を付けると、編集時の BGM 自動提案が
-その曲を優先し、**サビ頭から敷ける**ようになる。付け方は姉妹スキル
-[declare-audio](../declare-audio/SKILL.md)（ブラウザのタイムライン画面で人が耳で付ける）。
-本スキルの守備範囲は入庫と keep/drop までで、宣言づけはそちらに委ねる。
+Mark a kept track's chorus, hit points, and beats so automatic BGM suggestions prioritize it and can **start at the chorus**.
+Use the sibling [declare-audio](../declare-audio/SKILL.md) skill (human listening and marking in a browser timeline).
+This skill covers intake and keep/drop only; delegate declarations there.
 
-## 4. keep / drop の扱い
+## 4. Handling keep / drop
 
-このスキルは keep/drop の**記録**までを行う。`drop` にした素材の実ファイル削除や、
-`assets/audio/INDEX.md` への反映は別途人間の判断で行う（自動削除しない。取り違えた
-決定を戻せなくする操作を勝手に実行しない）。
+This skill only **records** keep/drop. Deleting actual `drop` files or updating `assets/audio/INDEX.md`
+requires a separate human decision. Do not delete automatically or perform irreversible actions on possibly mistaken decisions.
 
-## よくある間違い
+## Common mistakes
 
-- ギャラリーサーバを `0.0.0.0` 等、ローカル以外にバインドする。
-- `_gallery-state.json` を手で編集して整合性を崩す（サーバ経由の atomic 書き込みに
-  一本化する）。
-- keep/drop の記録だけで「ライブラリ整理が完了した」と報告する（実ファイルの削除・
-  INDEX 反映は別工程）。
+- Binding the gallery server to a nonlocal address such as `0.0.0.0`.
+- Manually editing `_gallery-state.json` and breaking consistency; use only atomic writes through the server.
+- Claiming library organization complete from keep/drop records alone (file deletion and INDEX updates are separate stages).

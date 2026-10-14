@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { MessageService } from '@theia/core/lib/common';
@@ -15,27 +16,27 @@ type Column = 'unsent' | 'sent' | 'review' | 'done';
 type SourceFilter = 'all' | 'annotation' | 'lint' | 'proposal' | 'export';
 
 const columns: ReadonlyArray<{ state: Column; title: string }> = [
-    { state: 'unsent', title: '未送信' },
-    { state: 'sent', title: '送った' },
-    { state: 'review', title: '確認する' },
-    { state: 'done', title: '済み' }
+    { state: 'unsent', title: t('annotationscommon.taskBoardWidget.title.notSent') },
+    { state: 'sent', title: t('annotationscommon.taskBoardWidget.title.send') },
+    { state: 'review', title: t('annotationscommon.taskBoardWidget.title.check') },
+    { state: 'done', title: t('annotationscommon.taskBoardWidget.title.done') }
 ];
 const filters: ReadonlyArray<{ source: SourceFilter; title: string }> = [
-    { source: 'all', title: 'すべて' },
-    { source: 'annotation', title: '注釈' },
-    { source: 'lint', title: 'リント' },
-    { source: 'proposal', title: '提案' },
-    { source: 'export', title: '書き出し' }
+    { source: 'all', title: t('annotationscommon.taskBoardWidget.title.all') },
+    { source: 'annotation', title: t('annotationscommon.taskBoardWidget.title.annotation') },
+    { source: 'lint', title: t('annotationscommon.taskBoardWidget.title.lint') },
+    { source: 'proposal', title: t('annotationscommon.taskBoardWidget.title.suggestion') },
+    { source: 'export', title: t('annotationscommon.taskBoardWidget.title.export') }
 ];
-const sourceLabels: Record<string, string> = { annotation: '注釈', lint: 'リント', proposal: '提案', export: '書き出し' };
-const outcomeLabels: Record<string, string> = { edited: '編集', declined: '見送り', failed: '失敗', dismissed: '無視' };
+const sourceLabels: Record<string, string> = { annotation: t('annotationscommon.taskBoardWidget.title.annotation'), lint: t('annotationscommon.taskBoardWidget.title.lint'), proposal: t('annotationscommon.taskBoardWidget.title.suggestion'), export: t('annotationscommon.taskBoardWidget.title.export') };
+const outcomeLabels: Record<string, string> = { edited: t('annotationscommon.taskBoardWidget.action.edit'), declined: t('annotationscommon.taskBoardWidget.label.skip'), failed: t('annotationscommon.taskBoardWidget.error.failure'), dismissed: t('annotationscommon.taskBoardWidget.label.ignore') };
 const oneLine = (value: unknown): string => String(value ?? '').replace(/\s+/gu, ' ').trim();
 const timeLabel = (seconds: number): string => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const elapsedLabel = (value: unknown): string => {
     const then = typeof value === 'string' ? Date.parse(value) : NaN;
     if (!Number.isFinite(then)) return '';
     const minutes = Math.max(0, Math.floor((Date.now() - then) / 60_000));
-    return minutes < 1 ? 'たった今' : minutes < 60 ? `${minutes} 分前` : minutes < 1440 ? `${Math.floor(minutes / 60)} 時間前` : `${Math.floor(minutes / 1440)} 日前`;
+    return minutes < 1 ? t('annotationscommon.taskBoardWidget.label.justNow') : minutes < 60 ? t('annotationscommon.taskBoardWidget.label.minutesAgo', { minutes: minutes, n: minutes }) : minutes < 1440 ? t('annotationscommon.taskBoardWidget.label.hoursAgo', { hours: Math.floor(minutes / 60), n: Math.floor(minutes / 60) }) : t('annotationscommon.taskBoardWidget.label.daysAgo', { days: Math.floor(minutes / 1440) });
 };
 
 @injectable()
@@ -53,8 +54,8 @@ export class AkariTaskBoardWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariTaskBoardWidget.FACTORY_ID;
-        this.title.label = 'タスクボード';
-        this.title.caption = 'タスクボード';
+        this.title.label = t('annotationscommon.taskBoardWidget.label.taskBoard');
+        this.title.caption = t('annotationscommon.taskBoardWidget.label.taskBoard');
         this.title.iconClass = 'codicon codicon-checklist';
         this.title.closable = true;
         this.node.setAttribute('data-akari-ui', 'panel:task-board');
@@ -83,14 +84,14 @@ export class AkariTaskBoardWidget extends BaseWidget {
 
     protected async send(ids: string[], confirmation = false): Promise<void> {
         if (!ids.length) return;
-        if (confirmation && !window.confirm('選んだタスクをパートナーに頼みますか？')) return;
+        if (confirmation && !window.confirm(t('annotationscommon.taskBoardWidget.message.doAskPartnerChooseTaskHaveChosen'))) return;
         try {
             for (let index = 0; index < ids.length; index += 20) {
                 const result = await this.tasks.send(ids.slice(index, index + 20));
                 if (!result.sent.length) break;
             }
             this.renderBoard();
-        } catch (error) { this.messages.error(`タスクを頼めませんでした: ${String(error)}`); }
+        } catch (error) { this.messages.error(t('annotationscommon.taskBoardWidget.error.couldNotSendTask', { error: String(error) })); }
     }
 
     protected async act(task: Task, action: TaskAction): Promise<void> {
@@ -103,7 +104,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             else if (action.id === 'approve') await this.tasks.update(task.id,
                 { needsConfirm: false, confirmedAt: new Date().toISOString() }, 'human');
             this.renderBoard();
-        } catch (error) { this.messages.error(`タスクを変更できませんでした: ${String(error)}`); }
+        } catch (error) { this.messages.error(t('annotationscommon.taskBoardWidget.error.couldNotUpdateTask', { error: String(error) })); }
     }
 
     protected renderCard(task: Task): HTMLElement {
@@ -117,7 +118,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
         const source = document.createElement('small');
         source.className = 'akari-task-source';
         source.textContent = [sourceLabels[task.source] ?? task.source,
-            task.source === 'lint' && severity ? severity === 'error' ? 'エラー' : severity === 'warning' ? '注意' : severity
+            task.source === 'lint' && severity ? severity === 'error' ? t('annotationscommon.taskBoardWidget.label.error') : severity === 'warning' ? t('annotationscommon.taskBoardWidget.label.warning') : severity
                 : sourceT === undefined ? '' : timeLabel(sourceT)].filter(Boolean).join(' · ');
         if (task.source === 'lint') source.style.color = severity === 'error' ? 'var(--akari-danger)' : 'var(--akari-warning)';
         else if (task.source === 'proposal') source.style.color = 'var(--akari-accent-light)';
@@ -125,7 +126,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
 
         const body = document.createElement('div');
         body.className = 'akari-task-body';
-        body.textContent = oneLine(task.body) || oneLine(task.title) || '内容なし';
+        body.textContent = oneLine(task.body) || oneLine(task.title) || t('annotationscommon.taskBoardWidget.label.noContent');
         card.append(body);
 
         if (task.source === 'proposal' && task.needsConfirm === true) {
@@ -133,7 +134,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             const evidence = task.evidence as { quote?: string } | undefined;
             const detail = task.targetDetail as { region?: { box?: number[] } } | undefined;
             const badge = document.createElement('small'); badge.className = 'akari-task-source';
-            badge.textContent = '案'; badge.style.color = 'var(--akari-accent-light)';
+            badge.textContent = t('annotationscommon.taskBoardWidget.text.option'); badge.style.color = 'var(--akari-accent-light)';
             const sourceRow = document.createElement('span');
             Object.assign(sourceRow.style, { display: 'inline-flex', alignItems: 'center', gap: '4px' });
             source.replaceWith(sourceRow); sourceRow.append(badge, source);
@@ -145,7 +146,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             const box = detail?.region?.box;
             const showRegion = (): void => {
                 if (!Array.isArray(box) || box.length !== 4) return;
-                const diagram = document.createElement('span'); diagram.title = '画面のここ';
+                const diagram = document.createElement('span'); diagram.title = t('annotationscommon.taskBoardWidget.title.clickHereScreen');
                 diagram.style.cssText = 'display:block;position:relative;width:72px;height:40px;border:1px solid var(--akari-line);';
                 const region = document.createElement('span');
                 Object.assign(region.style, { position: 'absolute', left: `${box[0] * 100}%`, top: `${box[1] * 100}%`,
@@ -159,11 +160,11 @@ export class AkariTaskBoardWidget extends BaseWidget {
                     return prior?.memo === origin.memo && prior?.job !== origin.job
                         && String(prior?.job ?? '') < String(origin.job ?? '');
                 });
-                if (older) { const newer = document.createElement('small'); newer.textContent = '新しい案'; card.append(newer); }
+                if (older) { const newer = document.createElement('small'); newer.textContent = t('annotationscommon.taskBoardWidget.text.newIdeas'); card.append(newer); }
                 const root = this.review.location?.root.toString();
                 if (root) void this.canvas.readMemo(root, origin.memo).then(memo => {
                     if (memo.paperDataUrl) {
-                        const image = document.createElement('img'); image.alt = '紙のメモ';
+                        const image = document.createElement('img'); image.alt = t('annotationscommon.taskBoardWidget.label.paperMemo');
                         image.style.maxWidth = '72px'; image.style.maxHeight = '42px'; image.style.objectFit = 'contain';
                         image.onerror = () => image.remove();
                         image.src = memo.paperDataUrl; paperSlot.append(image);
@@ -171,12 +172,12 @@ export class AkariTaskBoardWidget extends BaseWidget {
                 }).catch(() => undefined);
             }
             const proof = document.createElement('small'); proof.className = 'akari-task-meta';
-            proof.textContent = [evidence?.quote ? `根拠: ${evidence.quote}` : '',
-                task.confidence === 'low' ? '位置は自信がありません' : ''].filter(Boolean).join(' · ');
+            proof.textContent = [evidence?.quote ? t('annotationscommon.taskBoardWidget.label.evidence', { quote: evidence.quote }) : '',
+                task.confidence === 'low' ? t('annotationscommon.taskBoardWidget.label.noConfidencePosition') : ''].filter(Boolean).join(' · ');
             if (proof.textContent) card.append(proof);
             if (typeof task.question === 'string' && task.question.trim()) {
                 const question = document.createElement('small'); question.className = 'akari-task-meta';
-                question.textContent = `確かめたいこと: ${task.question}`; card.append(question);
+                question.textContent = t('annotationscommon.taskBoardWidget.label.questionToConfirm', { question: task.question }); card.append(question);
             }
         }
 
@@ -185,7 +186,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             const meta = document.createElement('small');
             meta.className = 'akari-task-meta';
             meta.textContent = [sentTo?.agent, elapsedLabel(task.sentAt ?? task.updatedAt),
-                sentTo?.route === 'clipboard' && sentTo.pasted !== true ? '貼り付け待ち' : ''].filter(Boolean).join(' · ');
+                sentTo?.route === 'clipboard' && sentTo.pasted !== true ? t('annotationscommon.taskBoardWidget.label.wait') : ''].filter(Boolean).join(' · ');
             if (meta.textContent) card.append(meta);
         }
         if (task.state === 'review' && typeof task.outcome === 'string') {
@@ -203,11 +204,11 @@ export class AkariTaskBoardWidget extends BaseWidget {
             action.id === 'send' || action.id === 'markPasted' ? 'secondary' : 'quiet'));
         const ui = parseUiTarget(typeof task.target === 'string' ? task.target : null);
         if (task.state !== 'done' && ui && buildUiTargetRow(ui.id).revealable && this.review.location?.editUri) {
-            footer.append(this.makeButton('要素へ', () => window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
+            footer.append(this.makeButton(t('annotationscommon.taskBoardWidget.action.goToItem'), () => window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
                 detail: { editUri: this.review.location?.editUri?.normalizePath().toString(), target: ui.id }
             }))));
         } else if (task.state !== 'done' && sourceT !== undefined) {
-            footer.append(this.makeButton('時刻へ', () => this.review.requestSeek(sourceT)));
+            footer.append(this.makeButton(t('annotationscommon.taskBoardWidget.label.time'), () => this.review.requestSeek(sourceT)));
         }
         if (footer.childElementCount) card.append(footer);
         return card;
@@ -254,11 +255,11 @@ export class AkariTaskBoardWidget extends BaseWidget {
         header.className = 'akari-task-header';
         const heading = document.createElement('span');
         heading.className = 'akari-task-heading';
-        heading.textContent = 'タスクボード';
+        heading.textContent = t('annotationscommon.taskBoardWidget.label.taskBoard');
         const filterBar = document.createElement('nav');
         filterBar.className = 'akari-seg akari-task-filters';
         filterBar.setAttribute('role', 'group');
-        filterBar.setAttribute('aria-label', '出どころ');
+        filterBar.setAttribute('aria-label', t('annotationscommon.taskBoardWidget.label.source'));
         for (const filter of filters) {
             const count = filter.source === 'all' ? allTasks.length : allTasks.filter(task => task.source === filter.source).length;
             const button = document.createElement('button');
@@ -269,7 +270,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             button.addEventListener('click', () => { this.filter = filter.source; this.doneLimit = 50; this.renderBoard(); });
             filterBar.append(button);
         }
-        const bulk = this.makeButton('未送信をまとめて頼む', () => {
+        const bulk = this.makeButton(t('annotationscommon.taskBoardWidget.action.sendUnsentTasksTogether'), () => {
             void this.send(sendable.map(task => task.id), sendable.some(task => availableActions(task).find(action => action.id === 'send')?.confirm));
         }, 'secondary');
         bulk.classList.add('akari-task-bulk');
@@ -298,14 +299,14 @@ export class AkariTaskBoardWidget extends BaseWidget {
             if (!rows.length && all.length) {
                 const empty = document.createElement('div');
                 empty.className = 'akari-task-column-empty';
-                empty.textContent = 'タスクはありません';
+                empty.textContent = t('annotationscommon.taskBoardWidget.text.noTasks');
                 section.append(empty);
             }
             for (const task of column.state === 'done' ? rows.slice(0, this.doneLimit) : rows) {
                 section.append(this.renderCard(task));
             }
             if (column.state === 'done' && rows.length > this.doneLimit) {
-                section.append(this.makeButton('もっと見る', () => { this.doneLimit += 50; this.renderBoard(); }, 'secondary'));
+                section.append(this.makeButton(t('annotationscommon.taskBoardWidget.action.viewMore'), () => { this.doneLimit += 50; this.renderBoard(); }, 'secondary'));
             }
             board.append(section);
         }
@@ -313,7 +314,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
             board.classList.add('is-empty');
             const empty = document.createElement('div');
             empty.className = 'akari-task-all-empty';
-            empty.textContent = 'タスクはありません';
+            empty.textContent = t('annotationscommon.taskBoardWidget.text.noTasks');
             board.append(empty);
         }
         this.node.append(board);

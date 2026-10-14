@@ -1,0 +1,5 @@
+{
+  "tabs.tabs.decorateEditingDecision.tooltip": "Editing a decision",
+  "tabs.tabs.decorateUnansweredDecisions.tooltip": "{stateCount} unanswered decisions",
+  "tabs.tabs.decorateAllDecisionsAnswered.tooltip": "All decisions answered"
+}

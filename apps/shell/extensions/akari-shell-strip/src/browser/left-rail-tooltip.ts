@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import type { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
 
 export function shouldDismissExpandedRail(expanded: string | null, insideRail: boolean, button: number): boolean {
@@ -5,8 +6,8 @@ export function shouldDismissExpandedRail(expanded: string | null, insideRail: b
 }
 
 export function railViewLabel(id: string, explorerId: string): string | undefined {
-    if (id === explorerId) return 'エクスプローラー';
-    if (id === 'search-view-container') return '検索';
+    if (id === explorerId) return t('shell.leftRail.explorer.explorerLabel');
+    if (id === 'search-view-container') return t('shell.leftRail.search.searchLabel');
     return undefined;
 }
 

@@ -1,9 +1,8 @@
-# Canvas 2D ワールド
+# Canvas 2D world
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-`kind: "flat"` の世界は、断片内の Canvas 背景と DOM 素材を同じ純粋な `camera(t)` で動かす。
-断片は単一ルートを守り、その中に宣言を 1 個置く。
+A `kind: "flat"` world moves its Canvas background and DOM assets inside the fragment with the same pure `camera(t)`. Keep a single fragment root and put exactly 1 declaration inside it.
 
 ```html
 <div class="world-fragment">
@@ -22,39 +21,21 @@
 </div>
 ```
 
-`worlds` / `zones` / `cameraStops` / `edges` / `retainedNodes` は `planning/world-map.json`
-から `inventory` を除いて写す。`worlds[].flat` は `bounds`、`pattern`（`dots` / `grid` /
-`none`）、任意の遠景 `far: [{ z, color }]` を持ち、`palette` は `background` / `dots` /
-`accent` と任意の `haze` を持つ。
+Copy `worlds` / `zones` / `cameraStops` / `edges` / `retainedNodes` from `planning/world-map.json`, excluding `inventory`. Each `worlds[].flat` has `bounds`, `pattern` (`dots` / `grid` / `none`), and optionally distant layers `far: [{ z, color }]`; `palette` has `background` / `dots` / `accent` and optional `haze`.
 
-各 world に対応する `.akari-world-sheet[data-world]` を断片直下へ置く。zone は world の
-`bounds` 原点基準の px で配置し、`.akari-world-zone[data-zone]` を付ける。ランタイムが毎 tick
-書くのは sheet の `transform` / `transform-origin` と zone の画面外カリング用 `display` だけで、
-素材やテロップの中身には触れない。
+Put the corresponding `.akari-world-sheet[data-world]` directly below the fragment root for each world. Place zones in px relative to the world's `bounds` origin and mark them `.akari-world-zone[data-zone]`. Each tick the runtime writes only the sheet's `transform` / `transform-origin` and a zone's `display` for offscreen culling; it never touches asset or telop content.
 
-時刻は `render(container, seconds)` からだけ受け取り、乱数・壁時計・delta 積算を使わない。
-同じ宣言と seconds は Canvas、DOM transform、カリングの同じ結果を返す。cut / portal の
-`switchTime ± transition.cover / 2` は一様な haze で覆う。
+Take time only from `render(container, seconds)`; do not use randomness, wall-clock time, or accumulated deltas. The same declaration and seconds must produce identical Canvas, DOM transform, and culling results. Cover `switchTime ± transition.cover / 2` for cuts / portals with uniform haze.
 
-俯瞰は `window.akari.worldRuntime.drawOverview(ctx, descriptor, view, seconds, options)` を使う。
-`view` はカメラ位置に依存しない world → screen の affine `{ scale, ox, oy }`
-（`screen = ox + p * scale`）。`options.frame === true` なら現在の撮影枠を `#EE82DF` で重ねる。
-独自の地図描画を複製しない。
+Use `window.akari.worldRuntime.drawOverview(ctx, descriptor, view, seconds, options)` for a bird's-eye overview. `view` is a camera-independent world → screen affine `{ scale, ox, oy }` (`screen = ox + p * scale`). If `options.frame === true`, overlay the current camera frame in `#EE82DF`. Do not duplicate custom map rendering.
 
-## 地図タブからの書き戻し
+## Write-back from the map tab
 
-flat の停留所は地図タブで ⌥ ドラッグして移動できる。書き戻しは
-`akari world move-stop <project-root> --stop <id> --c x,y[,scale]` だけが行い、spatial には対応しない。
-`world-map.json` は edit.json の履歴の外にあるため、undo / redo はない。
+In the map tab, a flat stop can be moved by Option-drag. Only `akari world move-stop <project-root> --stop <id> --c x,y[,scale]` writes it back; spatial is unsupported. `world-map.json` is outside edit.json history, so there is no undo / redo.
 
-## spatial world の build / preview
+## Build / preview a spatial world
 
-`kind: "spatial"` も flat と同じ `planning/world-map.json` と `camera(t)` を使う。
-`akari world build <project-root>` は世界の床・遠景板・霧板・zone の目印を
-`assets/world/world.glb` に焼き、eye / target を別々に補間した `TourCamera` と `Tour` clip を加える。
-床には `palette.dots` 由来の決定論的な格子を焼き、背景色と同色の world でも観察できる構造を保つ。
-同時に `overlays/world.html` へ、three-runtime が受理する次の宣言を生成し、edit.json の
-visual lane へ id `world` で upsert する。
+`kind: "spatial"` uses the same `planning/world-map.json` and `camera(t)` as flat. `akari world build <project-root>` bakes floors, distant panels, haze panels, and zone markers into `assets/world/world.glb`. It adds `TourCamera`, whose eye and target are interpolated separately, and a `Tour` clip. Bake a deterministic grid derived from `palette.dots` into the floor so even a world matching the background color retains a visible structure. At the same time, generate in `overlays/world.html` the declaration below, accepted by three-runtime, and upsert it with ID `world` into the edit.json visual lane.
 
 ```json
 {
@@ -68,14 +49,8 @@ visual lane へ id `world` で upsert する。
 }
 ```
 
-`fog` は先頭 world の `palette.haze`、`background` は `palette.background` がある場合だけ
-生成される。値が無いときにキーを補わない。テロップと 2D 素材はこの three 断片へ入れず、
-別 overlay item として重ねる。
+Generate `fog` from the first world's `palette.haze` only when present, and `background` from that same first world's `palette.background` only when present. Do not add keys when values are absent. Keep telops and 2D assets out of this three fragment; layer them as separate overlay items.
 
-`akari world preview <project-root>` は flat と同じ rasterize 経路で stop と edge の代表 PNG を撮る。
-`--measure` を付けると非 move edge を 30 Hz で走査し、全画素 RGB の標準偏差が 2 以下の
-一様な霧となった連続時間を `transition.cover` へ書き戻す。3D の cut は霧または遮蔽物を通し、
-平面ワイプにしない。
+`akari world preview <project-root>` captures representative stop and edge PNGs through the same rasterization path as flat. With `--measure`, it scans non-move edges at 30 Hz and writes to `transition.cover` the continuous period of uniform haze where whole-image RGB standard deviation is at most 2. A 3D cut must pass through haze or an occluding object, not become a planar wipe.
 
-edit.json は version 2 が必要である。古い形式では build がファイルを書き換えずに停止するため、
-先に `akari migrate <project-root>` を実行して、専用コマンドの確認と退避バックアップを通す。
+edit.json version 2 is required. With an older format, build stops without modifying files. First run `akari migrate <project-root>`, including that dedicated command's confirmation and backup.

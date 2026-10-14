@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
 const { BALANCE_REQUESTS, OPENROUTER_KEY_URL, balanceRequestUrl, describeBalanceResponse } =

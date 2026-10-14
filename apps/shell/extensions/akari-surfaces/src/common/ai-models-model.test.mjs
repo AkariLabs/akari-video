@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import test from 'node:test';
-import { capabilityState, capabilityText, comparisonKeys, filterAiModels, groupRepresentative,
-    otherVariantCount, applyAiModelSet, radarAxes, aiModelPriceValue, formatAiModelPrice,
-    formatAiModelOtherPrices, aiModelResolutionText } from '../../lib/common/ai-models-model.js';
+import { assertCatalogCopy } from '../../test/i18n-source-copy.mjs';
+import test, { after, after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { capabilityState, capabilityText, comparisonKeys, filterAiModels, groupRepresentative, otherVariantCount, applyAiModelSet, radarAxes, aiModelPriceValue, formatAiModelPrice, formatAiModelOtherPrices, aiModelResolutionText } = await import("../../lib/common/ai-models-model.js");
+
 const model = (id, overrides = {}) => ({ id, kind: 'image', name: id, family: id, maker: 'openai', group: 'g', main: false,
     callable: true, via: 'api', inputs: { reference_images: { max: 2 }, first_frame: 'none' }, outputs: { aspects: ['16:9'], resolutions: null }, price: null, ...overrides });
 const rows = [model('main', { main: true, name: 'GPT Image' }), model('variant', { name: 'GPT Image Sunburst' }),
     model('google', { maker: 'google', group: 'other', main: true, name: 'Nano Banana', via: 'subscription', inputs: { reference_images: { max: 0 } } }),
     model('unavailable', { group: 'new', main: true, callable: false })];
+after(() => setLanguage(undefined));
 test('代表、種類の開閉、検索と会社の絞り込み', () => {
     assert.deepEqual(filterAiModels(rows, { kind: 'image' }).map(row => row.id), ['main', 'google']);
     assert.equal(otherVariantCount(rows, rows[0]), 1);
@@ -53,24 +57,28 @@ test('レーダーの未確認は null、表は未確認。数値は測定値か
     assert.equal(voice.find(axis => axis.key === 'local').value, 1);
 });
 test('料金の3形式と4単位をカード・表・レーダーで共通に使う', () => {
-    const cases = [
-        [{ unit: 'usd_per_image', value: 0.2 }, '$0.2 / 枚', 0.2],
-        [{ unit: 'usd_per_second', by_resolution: { '720P': 0.1, '1080P': 0.2 } }, '$0.1 / 秒', 0.1],
-        [{ unit: 'usd_per_1000_chars', by_quality_1024: { low: 0.03, high: 0.08 } }, '$0.03 / 1000 文字', 0.03],
-        [{ unit: 'usd_per_hour', value: 0.4 }, '$0.4 / 時間', 0.4]
-    ];
-    for (const [price, label, value] of cases) {
-        const current = model('priced', { price });
-        assert.equal(aiModelPriceValue(current), value);
-        assert.equal(formatAiModelPrice(current), label);
-        assert.equal(radarAxes(current)[0].display, label);
-        assert.equal(radarAxes(current)[0].value, 1 / (1 + value * 10));
-    }
-    assert.equal(aiModelPriceValue(model('unknown')), null);
-    assert.equal(formatAiModelPrice(model('unknown')), '料金 未確認');
-    assert.equal(formatAiModelPrice(model('local', { via: 'local' })), '追加料金 ¥0');
+    setLanguage('ja');
+    try {
+        const cases = [
+            [{ unit: 'usd_per_image', value: 0.2 }, '$0.2 / 枚', 0.2],
+            [{ unit: 'usd_per_second', by_resolution: { '720P': 0.1, '1080P': 0.2 } }, '$0.1 / 秒', 0.1],
+            [{ unit: 'usd_per_1000_chars', by_quality_1024: { low: 0.03, high: 0.08 } }, '$0.03 / 1000 文字', 0.03],
+            [{ unit: 'usd_per_hour', value: 0.4 }, '$0.4 / 時間', 0.4]
+        ];
+        for (const [price, label, value] of cases) {
+            const current = model('priced', { price });
+            assert.equal(aiModelPriceValue(current), value);
+            assert.equal(formatAiModelPrice(current), label);
+            assert.equal(radarAxes(current)[0].display, label);
+            assert.equal(radarAxes(current)[0].value, 1 / (1 + value * 10));
+        }
+        assert.equal(aiModelPriceValue(model('unknown')), null);
+        assert.equal(formatAiModelPrice(model('unknown')), '料金 未確認');
+        assert.equal(formatAiModelPrice(model('local', { via: 'local' })), '追加料金 ¥0');
+    } finally { setLanguage(undefined); }
 });
 test('GPT Image 2.5 は既定の高品質と AKARI の画角別寸法をカード・比較表・レーダーで共有する', () => {
+    setLanguage('ja');
     const catalog = JSON.parse(readFileSync(new URL('../../../../../../packages/schemas/ai-models.json', import.meta.url)));
     for (const id of ['fal:gpt-image-2.5-flare', 'fal:gpt-image-2.5-sunburst']) {
         const current = catalog.models.find(row => row.id === id);
@@ -126,5 +134,6 @@ test('比べるの指示文は画像・動画・声で可、文字起こしで�
         assert.equal(capabilityText('prompt', item.inputs.prompt), '可');
     }
     const view = readFileSync(new URL('../browser/ai-models/ai-models-view.ts', import.meta.url), 'utf8');
-    assert.match(view, /if \(this\.kind === 'transcribe'\) row\('入力: 指示文', \(\) => '—'\)/u);
+    assert.match(view, /if \(this\.kind === 'transcribe'\) row\(t\('[^']+'\), \(\) => '—'\)/u);
+    assertCatalogCopy(view, '入力: 指示文');
 });

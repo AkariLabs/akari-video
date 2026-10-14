@@ -1,55 +1,50 @@
-# 落とし穴集（実測で踏んだもの）
+# Pitfalls found in production
 
-出典: 2026-08-03〜04 のビート PV 制作（6 版・オーナーレビュー 3 ラウンド）。
-どれも「動くはずなのに動かない / 見えるはずなのに見えない」型で、原因が直感と違うもの。
+Source: beat-driven promo production on August 3–4, 2026 (six versions and three owner-review rounds). These are cases where something expected to move or appear did not, and the cause was easy to misjudge.
 
-## オーバーレイ
+## Overlays
 
-| 症状 | 原因 | 対処 |
+| Symptom | Cause | Remedy |
 |---|---|---|
-| 画像が出ない（枠だけ / パスの文字列が出る） | シートは `<project>/.akari/render-tmp/` に置かれるため、断片内の相対パスがそこ基準になる | 画像は **JPEG(q3) の data URI で焼き込む**。3D の model/texture は例外（ランタイムが base64 埋め込みする） |
-| 要素がウィンドウ全体で不可視 | 「入場アニメ + カンマ区切りの 2 本目 fade(forwards)」を持つ要素が消える | **1 本のアニメに 0%→出現→保持→100% 退場を焼き込む** |
-| 固定ラベルが本文と重なる | 中央寄せラッパー内の `bottom: 60px` は「画面の下」ではなく「ラッパーの下」＝画面中央帯 | 固定ラベルは**ステージ直下**に置き、コンテンツと帯を分ける |
-| 可変長の文字がボタンに潜り込む | 入力欄の右端にボタンを絶対配置した | ボタン帯ぶんの `padding-right` を親に確保して**幅を先取り**する |
-| 同じ画像を 2 窓で使うと片方の設定が消える | 生成ファイル名が衝突して後勝ち | 生成器で**連番を付ける** |
-| レンダーが極端に遅い | 全画面の `filter: blur()` は CPU ラスタライザで支配的コスト | ブラーを使わずラジアルグラデーションで代替する |
+| The image is missing; only its frame or path text appears | Render sheets live under `<project>/.akari/render-tmp/`, so relative paths in a fragment resolve from there. | Embed the image as a **JPEG(q3) data URI**. 3D models and textures are an exception because the runtime embeds them as base64. |
+| An element is invisible throughout its window | A second comma-separated fade(forwards) animation makes an element with an entrance animation disappear. | Put entrance, hold, and exit into **one animation: 0% → visible → held → 100% exit**. |
+| A fixed label overlaps the main text | In a centered wrapper, `bottom: 60px` is measured from the wrapper's bottom, so the label occupies the central band of the screen rather than the screen bottom. | Position the label immediately below the stage so it has its own band. |
+| Variable-length text runs underneath a button | The button is absolutely positioned at the input's right edge. | Reserve the button's width on the parent with `padding-right`. |
+| Settings disappear when the same image is used in two windows | Generated filenames collide, and the later file wins. | Add sequence numbers in the generator. |
+| Rendering is extremely slow | Full-screen `filter: blur()` dominates CPU rasterization time. | Use a radial gradient instead of blur. |
 
 ## 3D
 
-**詳細は [overlay-authoring/3d.md](../overlay-authoring/3d.md) に収録**。要点だけ:
+See [overlay-authoring/3d.md](../overlay-authoring/3d.md) for details. In brief:
 
-- **窓尺 > クリップ長でループして破綻する**（既定 LoopRepeat）→ クリップを窓尺に作り直す
-- **既定ポーズ = 中立とは限らない**（回転 0° が「閉じ」ではなく「180° フラット」だった実例）
-  → 角度の意味は実レンダーで 3 点撮って確定
-- **Blender の `frame_set()` はポーズ凍結に使えない**（アニメが評価されない）→ glb を直接編集
-- **UV も emissive も無いマテリアルにはテクスチャが載らない** → Blender で UV + emissive を焼く。
-  **向きは 4 通り総当たり**が速い
+- **A window longer than its clip loops and breaks** because the default is LoopRepeat. Recreate the clip at the window's duration.
+- **The default pose may not be neutral.** In one case, 0° meant "flat at 180°" rather than "closed." Inspect three points in the production render before interpreting an angle.
+- **Blender's `frame_set()` cannot be used to freeze a pose because the animation is not evaluated.** Edit the glb directly.
+- **A material without UVs or emissive settings will not show its texture.** Bake UVs and emissive settings in Blender. Trying the four orientations is faster than guessing.
 
-## 音
+## Audio
 
-| 症状 | 原因 | 対処 |
+| Symptom | Cause | Remedy |
 |---|---|---|
-| lint の `audio.sfx.track-overlap` | 同トラック・同時刻に 2 発 | 別素材の重ねは info（ミックスは track を見ずに両方鳴る）。重ねるつもりなら track を分ける（NLE 書き出しは track 単位）。同じ素材の二重置きは warning — 片方を消す |
-| 効果音が聞こえない | 間隔が疎すぎる（例: タイプ音を 2 拍間隔） | 実際の所作の速さに合わせる（タイプなら 0.16s 刻み + 微ジッタ） |
-| ピークが 0dB を超える | インパクト系を 0dB で重ねた | 太い音は −2dB 前後に揃える |
+| Lint reports `audio.sfx.track-overlap` | Two effects occur on the same track at the same time. | Layering different sounds is informational: the mix plays both regardless of track. If intentional, put them on separate tracks for NLE export. Duplicate placement of the same sound is a warning; remove one copy. |
+| Sound effects are inaudible | The effects are too far apart, such as typing sounds two beats apart. | Match the action's real pace; for typing, try 0.16-second steps with slight jitter. |
+| Peak exceeds 0 dB | Multiple impact sounds are layered at 0 dB. | Start heavy effects around −2 dB. |
 
-## レンダー
+## Rendering
 
-| 症状 | 原因 | 対処 |
+| Symptom | Cause | Remedy |
 |---|---|---|
-| `execution error: capturing frame N timeout` | 1 フレームの既定タイムアウト 60 秒。マシンが混むと超える | `RENDER_CUT_CAPTURE_TIMEOUT_MS=300000` + 空くまで待つ |
-| 3D 書き出しがタイムアウトする | GPU / OSR 実行体が混雑している | レポート HTML の実行記録を確認する |
-| 書き出しが遅い | 別セッションの ffmpeg と CPU を取り合っている | 同時実行を避ける（待つほうが速い） |
+| `execution error: capturing frame N timeout` | On a busy machine, a frame exceeds the default 60-second timeout. | Set `RENDER_CUT_CAPTURE_TIMEOUT_MS=300000` and wait for the machine to be free. |
+| 3D export times out | The GPU or off-screen renderer is congested. | Inspect the execution record in the report HTML. |
+| Export is slow | Another ffmpeg session competes for CPU time. | Avoid concurrent exports; waiting is faster. |
 
-## 検証そのもの
+## Verification
 
-- **プレビューや Blender の見え方はランタイムと一致しない**。姿勢・テクスチャ・色の確定は
-  必ず本番レンダラーで
-- **静止画 1 枚でモーションを判断しない**。「動いていない」「向きが逆」を見逃す
-- 複数時刻を撮って**全部同じ絵**なら、アニメが適用されていないことを疑う
+- **Preview and Blender appearance do not match the runtime. Always confirm pose, texture, and color with the production renderer.**
+- **One still frame cannot prove motion.** It may conceal a static or reversed animation.
+- If captures at several times all show the same image, check whether the animation was applied.
 
-## 契約まわり
+## Data-contract pitfalls
 
-- `intake.json` v1 の語彙は厳格: `autonomy` は `full-auto` / `checkpoint` / `collaborative`、
-  `tasks` は既知 id のみ、`target.duration_s` と `keep_length: true` は排他
-- マルチソース編集の `captions.json` は `src` が必須（省略すると全件 skip され**黙って字幕ゼロ**）
+- `intake.json` v1 has strict vocabulary: `autonomy` is `full-auto`, `checkpoint`, or `collaborative`; `tasks` accepts known IDs only; and `target.duration_s` is mutually exclusive with `keep_length: true`.
+- For a multi-source edit, `captions.json` requires `src`. Without it, every caption is skipped and you silently get zero subtitles.

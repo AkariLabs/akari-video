@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 // F-50: akari-preview-open-handler.ts から機械移設した this 非依存の関数（本文は無改変。インデント 4 を除き、宣言行に export を足しただけ）。
 import type {
     OverlayTransform,
@@ -148,11 +149,11 @@ export function validateLayerTransformPatch(patch: OverlayTransform | undefined)
     }
     for (const field of ['x', 'y', 'rotate'] as const) {
         if (field in patch && !Number.isFinite(patch[field])) {
-            return `transform.${field} は有限数値である必要があります。`;
+            return t('preview.previewWrite.validation.transformMustFiniteNumberError', { p1: (field) });
         }
     }
     if ('scale' in patch && !(Number.isFinite(patch.scale) && (patch.scale as number) > 0)) {
-        return 'transform.scale は正の数である必要があります。';
+        return t('preview.previewWrite.validation.transformScaleMustPositiveError');
     }
     return undefined;
 }
@@ -165,22 +166,22 @@ export function validateLayerCropPatch(patch: LayerCropPatch | undefined): strin
     }
     for (const field of ['x', 'y'] as const) {
         if (!Number.isFinite(patch[field]) || patch[field] < 0 || patch[field] > 1) {
-            return `crop.${field} は 0 から 1 の範囲の有限数である必要があります。`;
+            return t('preview.previewWrite.validation.cropMustFiniteNumberZeroOneError', { p1: (field) });
         }
     }
     for (const field of ['w', 'h'] as const) {
         if (!Number.isFinite(patch[field]) || patch[field] <= 0 || patch[field] > 1) {
-            return `crop.${field} は 0 より大きく 1 以下の有限数である必要があります。`;
+            return t('preview.previewWrite.validation.cropMustGreaterZeroMostOneError', { p1: (field) });
         }
     }
     if (patch.x + patch.w > 1 + 1e-9) {
-        return 'crop.x + crop.w は 1 以下である必要があります。';
+        return t('preview.previewWrite.validation.cropXCropWMustNotExceedOneError');
     }
     if (patch.y + patch.h > 1 + 1e-9) {
-        return 'crop.y + crop.h は 1 以下である必要があります。';
+        return t('preview.previewWrite.validation.cropYCropHMustNotExceedOneError');
     }
     if (patch.rotate !== undefined && (!Number.isFinite(patch.rotate) || patch.rotate < -45 || patch.rotate > 45)) {
-        return 'crop.rotate は -45 から 45 度の範囲である必要があります。';
+        return t('preview.previewWrite.validation.cropRotateMustBetweenFortyfiveFortyfiveDegreesError');
     }
     return undefined;
 }
@@ -197,17 +198,17 @@ export function validateLayerPerspectivePatch(patch: LayerPerspectivePatch | nul
     }
     const corners = patch.corners;
     if (!Array.isArray(corners) || corners.length !== 4) {
-        return 'perspective.corners は [TL,TR,BL,BR] の 4 要素配列である必要があります。';
+        return t('preview.previewWrite.validation.perspectiveCornersMustFourElementArrayTlTrError');
     }
     const names = ['TL', 'TR', 'BL', 'BR'];
     for (let i = 0; i < 4; i += 1) {
         const corner = corners[i];
         if (!Array.isArray(corner) || corner.length !== 2) {
-            return `perspective.corners[${i}] (${names[i]}) は [x, y] の 2 要素配列である必要があります。`;
+            return t('preview.previewWrite.validation.perspectiveCornersMustTwoElementXYArrayError', { p1: (i), p2: (names[i]) });
         }
         const [x, y] = corner;
         if (!Number.isFinite(x) || x < 0 || x > 1 || !Number.isFinite(y) || y < 0 || y > 1) {
-            return `perspective.corners[${i}] (${names[i]}) は 0 から 1 の範囲の有限数である必要があります。`;
+            return t('preview.previewWrite.validation.perspectiveCornersMustContainFiniteNumbersZeroOneError', { p1: (i), p2: (names[i]) });
         }
     }
     const [tl, tr, bl, br] = corners;
@@ -219,7 +220,7 @@ export function validateLayerPerspectivePatch(patch: LayerPerspectivePatch | nul
         area2 += x1 * y2 - x2 * y1;
     }
     if (Math.abs(area2) < 1e-4) {
-        return 'perspective.corners は退化した四角形（面積がほぼ 0）であってはなりません。';
+        return t('preview.previewWrite.validation.degeneratePerspectiveCornersError');
     }
     return undefined;
 }

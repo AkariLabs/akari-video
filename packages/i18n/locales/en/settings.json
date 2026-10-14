@@ -1,0 +1,6 @@
+{
+  "settings.appearance.language.auto": "Automatic (OS language)",
+  "settings.appearance.language.ja": "日本語",
+  "settings.appearance.language.en": "English",
+  "settings.appearance.language.hint": "Switching reloads the window."
+}

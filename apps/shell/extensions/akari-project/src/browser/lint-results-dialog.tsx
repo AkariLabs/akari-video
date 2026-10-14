@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { ReactDialog } from '@theia/core/lib/browser/dialogs/react-dialog';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -8,7 +9,7 @@ import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } fro
 
 const STYLE_ID = 'akari-lint-results-dialog-style';
 const PARTNER_COMMAND = 'akari.partner.injectPrompt';
-const SEVERITY_LABEL = { error: 'エラー', warning: '注意', info: '情報' } as const;
+const SEVERITY_LABEL = { error: t('project.library.importSheet.errorLabel'), warning: t('project.library.importSheet.warningLabel'), info: t('project.editCheck.resultDialog.infoLabel') } as const;
 
 function ensureStyle(): void {
     if (document.getElementById(STYLE_ID)) return;
@@ -25,12 +26,12 @@ function ensureStyle(): void {
 }
 
 function lastRunLabel(time?: number): string {
-    if (time === undefined) return 'まだ実行していません';
+    if (time === undefined) return t('project.editCheck.resultDialog.notRunYetLabel');
     const minutes = Math.max(0, Math.floor((Date.now() - time) / 60_000));
-    if (minutes < 1) return 'たった今';
-    if (minutes < 60) return `${minutes} 分前`;
+    if (minutes < 1) return t('project.editCheck.resultDialog.justNowLabel');
+    if (minutes < 60) return t('project.editCheck.resultDialog.minutesMinutesAgoLabel', { minutes: minutes, n: minutes });
     const hours = Math.floor(minutes / 60);
-    return hours < 24 ? `${hours} 時間前` : `${Math.floor(hours / 24)} 日前`;
+    return hours < 24 ? t('project.editCheck.resultDialog.hoursHoursAgoLabel', { hours: hours, n: hours }) : t('project.editCheck.resultDialog.daysAgoLabel', { value1: Math.floor(hours / 24) });
 }
 
 export interface LintResultsState {
@@ -49,7 +50,7 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
         protected readonly commands: CommandService,
         protected readonly messages: MessageService
     ) {
-        super({ title: '編集内容のチェック', maxWidth: 720 });
+        super({ title: t('project.editCheck.resultDialog.editCheckLabel'), maxWidth: 720 });
         this.addClass('akari-lint-results-dialog');
         ensureStyle();
         LintResultsDialog.instance = this;
@@ -71,10 +72,10 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
 
     protected async sendToPartner(): Promise<void> {
         try {
-            const sent = await this.commands.executeCommand(PARTNER_COMMAND, lintPartnerPrompt(this.state.findings));
-            if (sent !== false) this.close();
+            await this.commands.executeCommand(PARTNER_COMMAND, lintPartnerPrompt(this.state.findings));
+            this.close();
         } catch (error) {
-            this.messages.error(`パートナーに送れませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.editCheck.resultDialog.couldNotSendPartnerError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -84,8 +85,8 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
         return (
             <div className='popup' role='dialog' aria-modal='true' aria-labelledby='akari-lint-dialog-title'>
                 <div style={{ flex: '0 0 auto', padding: '18px 20px 14px', borderBottom: AKARI_BORDER.hairline }}>
-                    <div id='akari-lint-dialog-title' style={{ fontSize: '16px', fontWeight: 700 }}>編集内容のチェック</div>
-                    <div style={{ marginTop: '3px', color: AKARI_FAINT, fontSize: '12px' }}>最終実行: {lastRunLabel(checkedAt)}</div>
+                    <div id='akari-lint-dialog-title' style={{ fontSize: '16px', fontWeight: 700 }}>{t('project.editCheck.resultDialog.editCheckLabel')}</div>
+                    <div style={{ marginTop: '3px', color: AKARI_FAINT, fontSize: '12px' }}>{t('project.editCheck.resultDialog.lastRunLabel')}{lastRunLabel(checkedAt)}</div>
                 </div>
                 <div style={{ display: 'flex', flex: '0 0 auto', padding: '14px 20px', gap: '10px', borderBottom: AKARI_BORDER.hairline }}>
                     {(['error', 'warning', 'info'] as const).map(severity => (
@@ -98,8 +99,8 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
                     ))}
                 </div>
                 <div className='lint-list' style={{ padding: '10px 20px' }}>
-                    {running ? <div style={{ padding: '12px 0' }}>確認しています…</div> : summary.ordered.length === 0 ?
-                        <div style={{ padding: '12px 0' }}>指摘はありません。</div> : summary.ordered.map((finding, index) => (
+                    {running ? <div style={{ padding: '12px 0' }}>{t('project.editCheck.resultDialog.checkingStatus')}</div> : summary.ordered.length === 0 ?
+                        <div style={{ padding: '12px 0' }}>{t('project.editCheck.resultDialog.noIssuesFoundError')}</div> : summary.ordered.map((finding, index) => (
                             <div key={index} title={finding.check} style={{ display: 'flex', gap: '10px', padding: '12px 0',
                                 borderBottom: AKARI_BORDER.hairline }}>
                                 <span style={{ flex: '0 0 auto', alignSelf: 'flex-start', padding: '2px 6px',
@@ -119,10 +120,10 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
                 <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '8px', padding: '14px 20px',
                     flex: '0 0 auto', borderTop: AKARI_BORDER.hairline }}>
                     <button type='button' className='theia-button secondary' disabled={running || findings.length === 0}
-                        onClick={() => void this.sendToPartner()}>パートナーに直してもらう</button>
+                        onClick={() => void this.sendToPartner()}>{t('project.editCheck.resultDialog.askPartnerFixAction')}</button>
                     <button type='button' className='theia-button secondary' disabled={running}
-                        onClick={() => void this.state.rerun()}>もう一度チェック</button>
-                    <button type='button' className='theia-button' disabled={running} onClick={() => this.close()}>閉じる</button>
+                        onClick={() => void this.state.rerun()}>{t('project.editCheck.resultDialog.checkAgainAction')}</button>
+                    <button type='button' className='theia-button' disabled={running} onClick={() => this.close()}>{t('project.library.card.close')}</button>
                 </div>
             </div>
         );

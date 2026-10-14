@@ -1,18 +1,18 @@
-# 疎通確認（通知の到達 + ボタン承認）
+# Connectivity check (notification delivery + button approval)
 
-両方が取れるまで「構成済み」と言わない（ハードルール 6）。
+Do not say “configured” until both pass (hard rule 6).
 
-## 1. report-helper を起動する
+## 1. Start report-helper
 
-承認レポートを配信しているヘルパーが必要（ブリッジはこの API 経由でのみ `decisions.json` を更新する）。
+A helper serving the approval report is required (the bridge updates `decisions.json` only through this API).
 
 ```
 node packages/decision-cards/report-helper.mjs <report.html のパス> --port <port>
 ```
 
-標準出力の `HELPER: http://localhost:<port>/` を控える。
+Note stdout's `HELPER: http://localhost:<port>/`.
 
-## 2. ブリッジを起動して通知を送る
+## 2. Start the bridge and send a notification
 
 ```
 node packages/chat-bridge/src/telegram.mjs \
@@ -23,30 +23,30 @@ node packages/chat-bridge/src/telegram.mjs \
   --photo <キーフレーム画像のパス>
 ```
 
-- `--photo` は繰り返し可（最大 6 枚）。**レポートの画像だけを送る**。撮影素材の原本は送らない
-- `--report-url` は省略可。省略するとリンクボタンが出ないだけで通知は成立する
-- 応答を待たずに通知だけ出したいときは `--notify-only`
+- Repeat `--photo` for up to 6 images. **Send only report images.** Do not send original footage.
+- `--report-url` is optional. Omitting it removes the link button but still sends a notification.
+- Use `--notify-only` to notify without waiting for a response.
 
-## 3. 実機で確認する（この 2 点が疎通確認）
+## 3. Check on a real device (these 2 items are the connectivity check)
 
-1. **通知の到達**: スマホの Telegram に、要約・画像・ボタンが届く
-2. **ボタン承認**: 「おまかせで確定」をタップ → チャットに「確定しました」が返り、
-   **Mac 側の `<report.html>.decisions.json` の `completedAt` が非 null になる**
+1. **Notification delivery**: Summary, images, and buttons arrive in Telegram on the phone.
+2. **Button approval**: Tap the auto-confirm button → chat returns a confirmation →
+   **`completedAt` in the Mac's `<report.html>.decisions.json` becomes non-null**.
 
-`completedAt` を目視で確認するまで完了としない。すでに確定済みのレポートに対しては
-「すでに確定済みです」が返る（report-helper が 409 を返すため。二重確定は起きない）。
+Do not mark complete until you visually check `completedAt`. For an already finalized report,
+a message saying it is already finalized is returned (report-helper returns 409, preventing double finalization).
 
-## 4. よくある詰まり
+## 4. Common problems
 
-| 症状 | 原因と対処 |
+| Symptom | Cause and fix |
 |---|---|
-| 通知が届かない | chat ID が違う。bot に 1 通送ってから `find-chat-id.mjs` を再実行して照合する |
-| ボタンを押しても無反応 | ブリッジが終了している（`--max-wait` 到達 / 既に確定処理を終えて終了）。再起動する |
-| 「確定に失敗しました」 | report-helper が落ちているか `--helper` のポートが違う。`curl <helper>/api/state` で確認する |
-| リンクを押しても開かない | スマホの Tailscale がオフ、または Mac がスリープ（setup-remote 側の問題） |
+| Notification does not arrive | Wrong chat ID. Send 1 message to the bot, then rerun `find-chat-id.mjs` and compare. |
+| No response to button | Bridge has exited (`--max-wait` reached / finalization already finished). Restart it. |
+| Finalization failure message | report-helper has stopped or `--helper` specifies the wrong port. Check with `curl <helper>/api/state`. |
+| Link does not open | Phone Tailscale is off or Mac is asleep (setup-remote issue). |
 
-## 5. 完了レポート
+## 5. Completion report
 
-- 通知の到達 / ボタンでの `completedAt` 更新の 2 点の結果を提示する
-- **トークンと chat ID の値は書かない**（ハードルール 1）。記録してよいのは「設定済み」という事実だけ
-- 記録の永続化はユーザーが望んだ場合のみ、作業場の `akari.md` への追記を提案する
+- Present the 2 results: notification delivery / button-driven `completedAt` update.
+- **Do not write token or chat ID values** (hard rule 1). Only the fact that configuration is complete may be recorded.
+- Propose appending persistent records to workspace `akari.md` only if the user wants this.

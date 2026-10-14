@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { createPortal } from '@theia/core/shared/react-dom';
 import { MessageService } from '@theia/core/lib/common';
@@ -101,16 +102,16 @@ export function AkariImportFab(props: Props): React.ReactElement {
             return;
         }
         if (!props.projectOpen) {
-            props.messages.warn('先にプロジェクトを開いてください。');
+            props.messages.warn(t('project.materials.importButton.openProjectFirstAction'));
             return;
         }
         const selected = await props.dialogs.showOpenDialog({
-            title: 'デバイスから取り込む', canSelectMany: true, canSelectFiles: true, canSelectFolders: false
+            title: t('project.materials.importButton.importDeviceAction'), canSelectMany: true, canSelectFiles: true, canSelectFolders: false
         });
         const { accepted, rejectedCount } = classifySelectedFiles(selected);
         if (accepted.length) await props.importAssets(accepted);
         if (rejectedCount) props.messages.warn(
-            `対応していないファイル形式のため ${rejectedCount} 件を取り込めませんでした（動画・音声・画像のみ取り込めます）。`
+            t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount, n: rejectedCount })
         );
     };
 
@@ -118,18 +119,18 @@ export function AkariImportFab(props: Props): React.ReactElement {
         display:'flex', justifyContent:'flex-end', alignItems:'flex-end', paddingBottom:12,
         boxSizing:'border-box', pointerEvents:'none' }}>
         <style>{css}</style>
-        {open && createPortal(<div ref={popup} data-akari-import-popup role='dialog' aria-label='いま取り込む'
+        {open && createPortal(<div ref={popup} data-akari-import-popup role='dialog' aria-label={t('project.materials.importButton.importNowAction')}
             style={{ left: anchor.left, top: anchor.top, maxHeight: anchor.maxHeight, transform: 'translateY(-100%)' }}>
-            <h3>いま取り込む</h3>
+            <h3>{t('project.materials.importButton.importNowAction')}</h3>
             {importFabItems(vibePreviewEnabled).map(item => <button key={item.id} type='button' data-soon={item.soon ? 'true' : undefined}
                 onClick={() => void choose(item)}>
                 <span className={`codicon ${item.icon}`} aria-hidden='true' />
                 <span className='akari-import-fab-label'>{item.label}</span>
                 {item.soon && <span className='akari-import-fab-soon'>{item.soon}</span>}
             </button>)}
-            <p>ファイルをこのパネルに落としても取り込めます。</p>
+            <p>{t('project.materials.importButton.youCanAlsoDropFilesOntoMessage')}</p>
         </div>, document.body)}
-        <button ref={button} type='button' data-akari-import-fab aria-label='いま取り込む'
+        <button ref={button} type='button' data-akari-import-fab aria-label={t('project.materials.importButton.importNowAction')}
             aria-haspopup='dialog' aria-expanded={open} onClick={() => { updateAnchor(); setOpen(value => !value); }}
             style={{ pointerEvents:'auto' }}><span className='akari-import-fab-plus'>+</span></button>
     </div>;

@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
@@ -56,8 +57,10 @@ test('既存属性・クリック・ラベルを保持し、透明ボタンと�
     assert.equal(value(tab, 'tabIndex'), '{active ? 0 : -1}');
     assert.match(value(tab, 'onFocus'), /matches\(':focus-visible'\)/);
     assert.match(value(tab, 'onFocus'), /2px solid.*AKARI_LINE.accent/);
-    assert.match(controls.getText(source), /label: 'プロジェクト'/);
-    assert.match(controls.getText(source), /label: 'ライブラリ'/);
+    assert.match(controls.getText(source), /label: t\('project\.library\.shelf\.projectLabel'\)/);
+    assert.match(controls.getText(source), /label: t\('project\.library\.shelf\.libraryLabel'\)/);
+    assert.equal(globalThis.t('project.library.shelf.projectLabel'), 'プロジェクト');
+    assert.equal(globalThis.t('project.library.shelf.libraryLabel'), 'ライブラリ');
 });
 
 test('左右キーは隣の面を選び、対応するボタンへフォーカスを移す', () => {

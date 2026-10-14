@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
@@ -47,6 +51,22 @@ test('missing credentials keep the official provider with setup guidance', () =>
     assert.match(result.guidance, /Settings → Models/);
 });
 
+test('connection detail has no display prefix in either language', () => {
+    try {
+        for (const language of ['ja', 'en']) {
+            setLanguage(language);
+            const connection = detectDeepSeekConnection({
+                env: { DEEPSEEK_API_KEY: fixtureSecret }, homeDir,
+                readFile: () => { throw new Error('should not read auth.json'); }
+            });
+            assert.equal(connection.provider, 'deepseek-official');
+            assert.ok(connection.detail.includes('DeepSeek'));
+            assert.equal(connection.detail.includes('接続先:'), false);
+            assert.equal(connection.detail.includes('Destination:'), false);
+        }
+    } finally { setLanguage('ja'); }
+});
+
 test('patch uses an absolute plugin path and replaces the default model', () => {
     const sessionId = buildDshSessionId(homeDir);
     const official = buildDshPatchYaml({ pluginPath, provider: 'deepseek-official', appVersion: '1.2.3', sessionId });
@@ -65,6 +85,16 @@ test('patch uses an absolute plugin path and replaces the default model', () => 
     assert.throws(() => buildDshPatchYaml({
         pluginPath: 'relative-plugin.mjs', provider: 'opencode-go', appVersion: '1.2.3', sessionId
     }), /absolute/);
+});
+
+test('OpenCode Go offers both DeepSeek V4 Flash and V4 Pro', () => {
+    const go = buildDshPatchYaml({ pluginPath, provider: 'opencode-go', appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir) });
+    const models = go.slice(go.indexOf('        models:\n')).split('\n').filter(line => line.startsWith('          - '));
+    assert.deepEqual(models, [
+        '          - { id: deepseek-v4-flash, name: DeepSeek V4 Flash (OpenCode Go), contextWindow: 131072 }',
+        '          - { id: deepseek-v4-pro, name: DeepSeek V4 Pro (OpenCode Go), contextWindow: 131072 }'
+    ]);
+    assert.ok(go.endsWith('}\n'));
 });
 
 test('generated patches leave the DeepSeek UI theme to its own settings', () => {

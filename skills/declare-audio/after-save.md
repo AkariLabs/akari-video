@@ -1,13 +1,12 @@
-# 保存後の検証（宣言が効いていることの確かめ方）
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
 
-「宣言済み」と報告する前に、**保存されたファイルを読んで**次を確認する。
+# Verify the saved declaration
 
-## 1. 保存内容を読む
+The library normally lives in the workspace's `library/`. Without a workspace, use `~/.akari/assets/`. Confirm its actual path from the first line of `akari-assets list` or `akari assets list`. Below, `<ライブラリの置き場>` denotes that path; audio is under its `audio/` directory.
 
+**Read the saved file** before calling a track declared.
+
+## 1. Inspect saved values
 ```sh
 # LIBRARY_ROOT に list の先頭行で確認した置き場を設定してから実行する
 node -e "const d=require(process.env.LIBRARY_ROOT+'/audio/declarations.json');
@@ -17,56 +16,46 @@ for (const [id, v] of Object.entries(d)) {
     '| サビ頭', drop ? drop.start_sec + 's' : '（未指定）', '|', v.source);
 }"
 ```
+Check:
 
-確認する点:
+- Is the intended track ID present? Use the **track ID, not the library directory name**.
+- Is there a `drop` section? Without one, no chorus cue is available; tell the person and ask whether they want to add one.
+- Is `source` set to `declare-audio`? A `replaced_source` value records that a declaration from a pack was overwritten.
 
-- 目的のトラック id が入っているか（**ライブラリのディレクトリ名ではなくトラック id**）
-- `drop` があるか（無ければサビ頭出しが使えない。ユーザーに知らせて付けるか確認する）
-- `source` が `declare-audio` か（`replaced_source` があれば、パック由来を上書きした記録）
+## 2. Confirm it affects BGM suggestions
 
-## 2. 提案に効いているか確かめる
-
-宣言したトラックを含むトーンで自動提案を実行し、**実測 BPM とサビ頭出しが出る**ことを見る。
-
+Run a BGM suggestion for a tone that includes the track. Check that the measured BPM and chorus cue appear.
 ```sh
 node packages/audio-library-setup/bin/suggest-bgm.mjs --tone 勢い --count 3
 ```
-
-宣言済みトラックはこう出る（`実測BPM` 表記・`耳検証済み +1` の加点・サビ頭の行）:
-
+A declared track should show `実測BPM`, the `耳検証済み +1` scoring note, and a chorus-cue line, as in this CLI output:
 ```
 1. bgm-beatslide-124-001 — Boots On Concrete
    系統: beatslide / 実測BPM: 123（標準） / 一致: 勢い◎ / スコア: 3（耳検証済み +1）
    宣言: サビ頭 9.29s（audio.bgm.in に指定でサビから敷ける） / キメ 1 点
    構成: intro 0-1.46 / build 1.46-9.26 / drop 9.29-17.1 / outro 17.07-24.87
 ```
+If the track does not appear, check:
 
-出ない場合の切り分け:
+- Whether the key in `declarations.json` matches the ID used by the suggested track.
+- Whether `suggest-bgm` can find `declarations.json` at its default `<ライブラリ>/declarations.json` path. For another location, pass `--declarations <path>` or set `AKARI_SOUNDS_DECLARATIONS`.
 
-- 宣言の id と、提案に出るトラック id が食い違っている（`declarations.json` のキーを確認）
-- `declarations.json` が `suggest-bgm` の見る場所に無い（既定は `<ライブラリ>/declarations.json`。
-  別の場所なら `--declarations <path>` か環境変数 `AKARI_SOUNDS_DECLARATIONS` で指す）
+## 3. Explain how to use it
 
-## 3. 使い方をユーザーへ返す
+- During editing, `suggest-bgm` supplies the starting candidates for the media plan in [edit-plan](../edit-plan/SKILL.md). Declared tracks receive priority.
+- To start BGM at the chorus, write the suggested chorus-start second to `audio.bgm.in` in `edit.json`. This is an offset within the BGM file; looping and fades retain their usual meaning.
 
-- 編集時は [edit-plan](../edit-plan/SKILL.md) の素材計画で `suggest-bgm` が起点になり、
-  宣言済みトラックが優先候補として出る
-- サビから敷きたいときは、提案に出た**サビ頭の秒を `edit.json` の `audio.bgm.in` に書く**
-  （BGM ファイル内の開始オフセット。ループ・フェードの意味論は変わらない）
-
-## レポートの書き方（ハードルール 2 の適用）
-
+## Report the verification (hard rule 2)
 ```text
 宣言を保存しました: 3 曲（<ライブラリの置き場>/audio/declarations.json）
 - bgm-lofi-085-001: ♩86.1（耳で確認済み）/ サビ 11.2s〜 / キメ 2 点
 - my-song: ♩120（自動推定のまま・未確認）/ サビ 未指定
 suggest-bgm で確認したところ、bgm-lofi-085-001 はサビ頭 11.2s 付きで提案に出ています。
 ```
+**Distinguish ear-verified values from untouched estimates.** Do not label them all "verified."
 
-**耳で確認したもの / 推定のままのものを分けて書く**。全部を「検証済み」とまとめない。
+## Common mistakes
 
-## よくある間違い
-
-- 画面の「保存しました」だけを見て完了報告する（ファイルを読み返す）
-- サビ（drop）が無いのに「サビ頭出しが使える」と報告する
-- 自動推定のままの BPM を「実測」と書く
+- Reporting success from the UI message `保存しました` ("saved") without reading the file.
+- Claiming a chorus cue is available when there is no drop section.
+- Calling an automatically estimated BPM a measured value.

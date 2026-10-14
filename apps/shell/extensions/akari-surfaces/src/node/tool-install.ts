@@ -1,4 +1,7 @@
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { WHISPER_MODEL } from '../../../../../../packages/akari-tools/src/media/whisper-model.mjs';
+import { installVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -35,6 +38,10 @@ export type RunCommandFn = (command: string, args: string[], options?: RunComman
 
 export interface ToolInstallOptions {
     platform?: NodeJS.Platform;
+    arch?: string;
+    voiceHome?: string;
+    statfs?: typeof fs.statfs;
+    voicePins?: typeof import('../../../../../../packages/akari-tools/bin/tools.mjs').VOICE_ENGINE_PINS;
     env?: NodeJS.ProcessEnv;
     homeDir?: string;
     repoRoot?: string;
@@ -61,9 +68,9 @@ export interface ToolInstallOptions {
 const HOMEBREW_PATHS = ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'];
 const BREW_TIMEOUT_MS = 20 * 60 * 1000;
 
-/** 認識モデルの既定ファイル名 + 版固定 sha256（実 DL で確定・2026-08-17）。 */
-export const WHISPER_MODEL_FILENAME = 'ggml-large-v3-turbo-q5_0.bin';
-export const WHISPER_MODEL_SHA256 = '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2';
+/** 認識モデルの既定ファイル名 + 版固定 sha256（実 DL で確定・2026-08-17）。CLI (`akari tools install whisper`) と共有する正本は packages/akari-tools の whisper-model.mjs。 */
+export const WHISPER_MODEL_FILENAME: string = WHISPER_MODEL.file;
+export const WHISPER_MODEL_SHA256: string = WHISPER_MODEL.sha256;
 
 /** 取得元は公式配布チャネルのみ。URL は定数で持つ（野良ミラー禁止）。 */
 export const OFFICIAL_SOURCES = {
@@ -74,7 +81,7 @@ export const OFFICIAL_SOURCES = {
     /** ggerganov/whisper.cpp の Hugging Face 配布（MIT）。バージョンはコミット固定ではなく
      *  ファイル名固定 + sha256 検証で担保する（HF の `resolve/main` はブランチ追従だが、
      *  内容が変われば sha256 不一致で failed になり誤って古い検証をすり抜けない）。 */
-    whisperModel: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin'
+    whisperModel: WHISPER_MODEL.url as string
 } as const;
 
 const BREW_FORMULA: Partial<Record<AkariToolId, string>> = {
@@ -126,6 +133,18 @@ export async function installTool(id: AkariToolId, options: ToolInstallOptions =
     if (id === 'speech-analyzer') {
         return { id, outcome: 'skipped', message: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE };
     }
+    if (id === 'voice') {
+        const voiceHome = options.voiceHome ?? resolveVoiceHome({ env: options.env ?? process.env, homeDir: options.homeDir ?? homedir() });
+        const result = await installVoiceEngine({
+            voiceHome, platform: options.platform ?? process.platform, arch: options.arch ?? process.arch,
+            fetchImpl: options.fetchImpl, statfs: options.statfs, pins: options.voicePins,
+            onProgress: progress => options.onProgress?.({
+                toolId: 'voice', kind: 'download', phase: progress.phase,
+                downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes
+            })
+        });
+        return { id, outcome: result.outcome === 'installed' || result.outcome === 'unchanged' ? 'installed' : 'failed', message: result.message };
+    }
     const ctx: InstallContext = {
         id,
         env: options.env ?? process.env,
@@ -161,7 +180,7 @@ export async function installTool(id: AkariToolId, options: ToolInstallOptions =
     if (id === 'voicevox') {
         return openOfficialDownloadPage(ctx, OFFICIAL_SOURCES.voicevoxDownloadPage, 'VOICEVOX');
     }
-    return { id, outcome: 'failed', message: `${toolName(id)} はこの環境では自動導入に対応していません。` };
+    return { id, outcome: 'failed', message: t('surfaces.tools.installToolSupportedAutomaticDeploymentEnvironment.message', { name: toolName(id) }) };
 }
 
 async function installOnMac(ctx: InstallContext): Promise<AkariToolInstallResult> {
@@ -181,7 +200,7 @@ async function installXcodeClt(ctx: InstallContext): Promise<AkariToolInstallRes
     // しないため、常に次の一手（再チェック）が分かる 1 行を返す。
     return {
         id: 'xcode-clt', outcome: 'external-installer-opened',
-        message: 'Apple のインストーラーが開きました。完了したら再チェックしてください。'
+        message: t('surfaces.tools.installXcodeCltApplesInstallerOpenCheckAgainInstallationFinishes.message')
     };
 }
 
@@ -202,7 +221,7 @@ async function installWithBrew(ctx: InstallContext, brewPath: string): Promise<A
     const formula = BREW_FORMULA[ctx.id];
     const cask = BREW_CASK[ctx.id];
     if (!formula && !cask) {
-        return { id: ctx.id, outcome: 'failed', message: `${toolName(ctx.id)} はこの環境では自動導入に対応していません。` };
+        return { id: ctx.id, outcome: 'failed', message: t('surfaces.tools.installWithBrewSupportedAutomaticDeploymentEnvironment.message', { name: toolName(ctx.id) }) };
     }
     if (ctx.id === 'voicevox') {
         const info = await ctx.runCommand(brewPath, ['info', '--cask', 'voicevox'], { env: ctx.env });
@@ -213,11 +232,11 @@ async function installWithBrew(ctx: InstallContext, brewPath: string): Promise<A
         env: ctx.env, timeoutMs: BREW_TIMEOUT_MS, onOutput: chunk => reportCommandProgress(ctx, chunk)
     });
     if (result.ok) {
-        return { id: ctx.id, outcome: 'installed', message: `${toolName(ctx.id)} を導入しました。` };
+        return { id: ctx.id, outcome: 'installed', message: t('surfaces.tools.installWithBrewIntroduced.message', { name: toolName(ctx.id) }) };
     }
     return {
         id: ctx.id, outcome: 'failed',
-        message: `${toolName(ctx.id)} の導入に失敗しました。時間をおいて、もう一度お試しください。`
+        message: t('surfaces.tools.installWithBrewInstallTryAgainLater.message', { name: toolName(ctx.id) })
     };
 }
 
@@ -236,14 +255,14 @@ async function installWithoutBrew(ctx: InstallContext): Promise<AkariToolInstall
             // ここに来るのは同梱も brew も無い開発機の端ケースのみ。
             return bundledOnlyFallback(ctx);
         default:
-            return { id: ctx.id, outcome: 'failed', message: `${toolName(ctx.id)} はこの環境では自動導入に対応していません。` };
+            return { id: ctx.id, outcome: 'failed', message: t('surfaces.tools.installWithoutBrewSupportedAutomaticDeploymentEnvironment.message', { name: toolName(ctx.id) }) };
     }
 }
 
 function bundledOnlyFallback(ctx: InstallContext): AkariToolInstallResult {
     return {
         id: ctx.id, outcome: 'failed',
-        message: `${toolName(ctx.id)} はアプリに同梱されています。アプリを最新版に更新すると自動で使えるようになります。`
+        message: t('surfaces.tools.bundledOnlyFallbackShippedAppUpdateAppLatestVersionAble.message', { name: toolName(ctx.id) })
     };
 }
 
@@ -253,11 +272,11 @@ async function installYtDlpBinary(ctx: InstallContext): Promise<AkariToolInstall
         await ctx.ensureDir(akariToolsBinDir(ctx.homeDir));
         await downloadTo(ctx, OFFICIAL_SOURCES.ytDlpMacBinary, destination, reportDownloadProgress(ctx));
         await ctx.makeExecutable(destination);
-        return { id: 'yt-dlp', outcome: 'installed', message: 'yt-dlp を導入しました。' };
+        return { id: 'yt-dlp', outcome: 'installed', message: t('surfaces.tools.installYtDlpBinaryIntroducedYtDlp.message') };
     } catch (error) {
         return {
             id: 'yt-dlp', outcome: 'failed',
-            message: `yt-dlp のダウンロードに失敗しました（${describeError(error)}）。もう一度お試しください。`
+            message: t('surfaces.tools.installYtDlpBinaryDownloadYtDlpTryAgain.message', { error: describeError(error) })
         };
     }
 }
@@ -272,12 +291,12 @@ async function openOfficialDownloadPage(ctx: InstallContext, url: string, label:
         await ctx.openPath(url);
         return {
             id: ctx.id, outcome: 'external-installer-opened',
-            message: `${label} の公式サイトを開きました。ダウンロードしたインストーラーを実行し、完了したら再チェックしてください。`
+            message: t('surfaces.tools.openOfficialDownloadPageOfficialWebsiteHasOpenedRunDownloadedInstaller.message', { label: label })
         };
     } catch (error) {
         return {
             id: ctx.id, outcome: 'failed',
-            message: `${label} の公式サイトを開けませんでした（${describeError(error)}）。もう一度お試しください。`
+            message: t('surfaces.tools.openOfficialDownloadPageOpenWebsiteTryAgain.message', { tool: label, error: describeError(error) })
         };
     }
 }
@@ -298,7 +317,7 @@ async function installYtDlpWindowsBinary(ctx: InstallContext): Promise<AkariTool
     try {
         await ctx.ensureDir(akariToolsBinDir(ctx.homeDir));
         await downloadTo(ctx, OFFICIAL_SOURCES.ytDlpWindowsBinary, destination, reportDownloadProgress(ctx));
-        return { id: 'yt-dlp', outcome: 'installed', message: 'yt-dlp を導入しました。' };
+        return { id: 'yt-dlp', outcome: 'installed', message: t('surfaces.tools.introducedYtDlp.message') };
     } catch {
         // 公式 GitHub releases への到達性が無い環境向けのフォールバック。
         return installWithWinget(ctx);
@@ -308,7 +327,7 @@ async function installYtDlpWindowsBinary(ctx: InstallContext): Promise<AkariTool
 async function installWithWinget(ctx: InstallContext): Promise<AkariToolInstallResult> {
     const wingetId = WINGET_ID[ctx.id];
     if (!wingetId) {
-        return { id: ctx.id, outcome: 'failed', message: `${toolName(ctx.id)} はこの環境では自動導入に対応していません。` };
+        return { id: ctx.id, outcome: 'failed', message: t('surfaces.tools.installWithWingetSupportedAutomaticDeploymentEnvironment.message', { name: toolName(ctx.id) }) };
     }
     const result = await ctx.runCommand(
         'winget',
@@ -316,11 +335,11 @@ async function installWithWinget(ctx: InstallContext): Promise<AkariToolInstallR
         { env: ctx.env, timeoutMs: BREW_TIMEOUT_MS, onOutput: chunk => reportCommandProgress(ctx, chunk) }
     );
     if (result.ok) {
-        return { id: ctx.id, outcome: 'installed', message: `${toolName(ctx.id)} を導入しました。` };
+        return { id: ctx.id, outcome: 'installed', message: t('surfaces.tools.installWithWingetIntroduced.message', { name: toolName(ctx.id) }) };
     }
     return {
         id: ctx.id, outcome: 'failed',
-        message: `${toolName(ctx.id)} の導入に失敗しました。時間をおいて、もう一度お試しください。`
+        message: t('surfaces.tools.installWithWingetInstallTryAgainLater.message', { name: toolName(ctx.id) })
     };
 }
 
@@ -389,16 +408,16 @@ async function installWhisperModel(ctx: InstallContext): Promise<AkariToolInstal
         if (digest !== ctx.whisperModelSha256) {
             return {
                 id: 'whisper', outcome: 'failed',
-                message: '認識モデルの検証に失敗しました（データが壊れている可能性があります）。もう一度お試しください。'
+                message: t('surfaces.tools.installWhisperModelVerifyRecognitionModelDamagedTryAgain.message')
             };
         }
         await ctx.ensureDir(akariToolsModelsDir(ctx.homeDir));
         await ctx.writeFile(destination, buffer);
-        return { id: 'whisper', outcome: 'installed', message: '認識モデルを取得しました。' };
+        return { id: 'whisper', outcome: 'installed', message: t('surfaces.tools.installWhisperModelRecognitionModelDownloaded.message') };
     } catch (error) {
         return {
             id: 'whisper', outcome: 'failed',
-            message: `認識モデルの取得に失敗しました（${describeError(error)}）。もう一度お試しください。`
+            message: t('surfaces.tools.installWhisperModelDownloadRecognitionModelTryAgain.message', { error: describeError(error) })
         };
     }
 }
@@ -407,7 +426,7 @@ async function installWhisperModel(ctx: InstallContext): Promise<AkariToolInstal
 
 function reportDownloadProgress(ctx: InstallContext): (downloadedBytes: number, totalBytes?: number) => void {
     return (downloadedBytes, totalBytes) => {
-        ctx.onProgress?.({ toolId: ctx.id, kind: 'download', phase: 'ダウンロードしています…', downloadedBytes, totalBytes });
+        ctx.onProgress?.({ toolId: ctx.id, kind: 'download', phase: t('surfaces.tools.reportDownloadProgressDownloading.label'), downloadedBytes, totalBytes });
     };
 }
 
@@ -504,7 +523,7 @@ export async function defaultRunCommand(
         };
         let child: ReturnType<typeof spawn>;
         try {
-            child = spawn(command, args, { env: options.env ?? process.env });
+            child = spawn(command, args, { env: childProcessEnv(options.env ?? process.env) });
         } catch {
             resolve({ ok: false, stdout: '', stderr: '' });
             return;
@@ -540,6 +559,6 @@ async function defaultPathExists(path: string): Promise<boolean> {
 async function defaultOpenPath(path: string): Promise<void> {
     const result = await defaultRunCommand('open', [path]);
     if (!result.ok) {
-        throw new Error(result.stderr.trim() || 'open コマンドに失敗しました。');
+        throw new Error(result.stderr.trim() || t('surfaces.tools.defaultOpenPathOpenCommandFailed.message'));
     }
 }

@@ -1,12 +1,20 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
+const require = createRequire(import.meta.url);
+const { t } = require('../lib/common/preview-text.js');
 const source = readHandlerSource();
 
 test('caption snap starts pressed and shows the existing orange focus token while on', () => {
   assert.match(source, /data-caption-tool="snap" class="on" aria-label="吸着" aria-pressed="true"/);
+  assert.equal(t('preview.previewWindow.canvas.snapLabel'), '吸着');
   assert.match(source, /#caption-select-box \[data-caption-tool="snap"\]\.on \{ box-shadow: inset 0 0 0 2px var\(--akari-focus-pulse\); \}/);
   assert.match(source, /--akari-focus-pulse:\s*#f97316/);
   assert.match(source, /let captionSnapEnabled = true;/);
@@ -26,6 +34,7 @@ test('caption snap updates its pressed state with its on class', () => {
     };
   };
   const context = vm.createContext({
+    t,
     selectedCaptionId: null, captionSnapEnabled: true, captionGroupToolEnabled: false,
     captionDragGroupActive: false, captionClampChip: tool('clamp'), captionTool: tool,
     captionPositionReset: {}, selectedCaption: () => null, captionClampEnabled: () => false,

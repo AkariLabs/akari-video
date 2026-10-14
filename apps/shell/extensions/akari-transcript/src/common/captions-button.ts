@@ -1,5 +1,6 @@
+import { t } from '../browser/transcript-text';
 export function captionsButtonLabel(_states: readonly ('none' | 'running' | 'done')[]): string {
-    return '字幕を作る…';
+    return t('transcript.daihon.captionsButton.ongoingCreateCaptionsLabel');
 }
 
 export interface CaptionsApplyPreview {
@@ -20,12 +21,12 @@ export function parseCaptionsApplyPreview(value: unknown): CaptionsApplyPreview 
 }
 
 export function captionsApplyPreviewLine(preview: CaptionsApplyPreview): string {
-    const protectedPart = preview.protected > 0 ? ` · 手直し済み ${preview.protected} 行は保護` : '';
-    return `新規 ${preview.added} · 変更 ${preview.changed}${protectedPart} · 消える ${preview.removed}`;
+    const protectedPart = preview.protected > 0 ? t('transcript.daihon.captionsButton.leadingManuallyEditedLinesProtectedWithCountLabel', { value1: preview.protected, n: preview.protected }) : '';
+    return t('transcript.daihon.captionsButton.newChangedRemovedWithValuesLabel', { value1: preview.added, value2: preview.changed, value3: protectedPart, value4: preview.removed });
 }
 
 export function captionsAppliedLine(preview: CaptionsApplyPreview): string {
-    return `台本に反映した（新規 ${preview.added} · 変更 ${preview.changed}）`;
+    return t('transcript.daihon.captionsButton.appliedScriptNewChangedWithValuesLabel', { value1: preview.added, value2: preview.changed });
 }
 
 export function captionsRetimeMovedWords(value: unknown): number | undefined {
@@ -43,17 +44,17 @@ export function captionsRetimeLine(movedWords: number, value?: unknown): string 
         ? summary.clamped_pairs : 0;
     const overlapsLeft = typeof summary.overlaps_left === 'number' && Number.isFinite(summary.overlaps_left)
         ? summary.overlaps_left : 0;
-    const clampedPart = clampedPairs >= 1 ? ` · ${clampedPairs} 組の重なりを解消` : '';
-    const overlapsPart = overlapsLeft >= 1 ? ` · ${overlapsLeft} 組は重なりのまま` : '';
-    return `${movedWords} 語を動かした${clampedPart}${overlapsPart}`;
+    const clampedPart = clampedPairs >= 1 ? t('transcript.daihon.captionsButton.leadingResolvedOverlapsWithCountLabel', { value1: clampedPairs }) : '';
+    const overlapsPart = overlapsLeft >= 1 ? t('transcript.daihon.captionsButton.leadingOverlapsRemainWithCountLabel', { value1: overlapsLeft }) : '';
+    return t('transcript.daihon.captionsButton.movedWordsWithValuesLabel', { value1: movedWords, n: movedWords, value2: clampedPart, value3: overlapsPart });
 }
 
 export function captionsRetimeHistoryLabel(movedWords: number): string {
-    return `発話に合わせ直す（${movedWords} 語）`;
+    return t('transcript.daihon.captionsButton.alignSpeechWordsWithCountLabel', { value1: movedWords, n: movedWords });
 }
 
 export function captionsApplyHistoryLabel(preview: CaptionsApplyPreview): string {
-    return `台本へ反映（新規 ${preview.added} · 変更 ${preview.changed}）`;
+    return t('transcript.daihon.captionsButton.applyToScriptNewChangedLabel', { value1: preview.added, value2: preview.changed });
 }
 
 export interface DaihonHistoryService {

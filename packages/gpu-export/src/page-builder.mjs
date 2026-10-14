@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
+import { t } from "../../i18n/index.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
+import { prepareCaptionRenderInput, resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
@@ -28,8 +29,8 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
+  captionOutlineRuntime,
 } = require("../../edit-store/lib/index.js");
-const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
@@ -92,6 +93,10 @@ export function buildGpuPage({
     projectRoot,
     output: { width, height },
   });
+  const renderCaptions = prepareCaptionRenderInput(captions, { output: { width, height } }).root;
+  const renderDefaultTextStyle = Array.isArray(renderCaptions) ? null : renderCaptions?.default_text_style ?? null;
+  const renderEmphasisWords = Array.isArray(renderCaptions)
+    ? edit.emphasis_words ?? [] : renderCaptions?.emphasis_words ?? edit.emphasis_words ?? [];
   const captionOverlays = captionPlan.overlays;
   const captionRecords = captionOverlays.map(overlay => ({
     ...overlay,
@@ -108,9 +113,9 @@ export function buildGpuPage({
     [String(overlay.id), mediaPlaneSummary.barrierZ[index]]));
   const resultEligibility = eligibility ?? evaluateGpuEligibility({
     edit: projectedEdit,
-    captions: captionRoot,
-    defaultTextStyle,
-    emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    captions: renderCaptions,
+    defaultTextStyle: renderDefaultTextStyle,
+    emphasisWords: renderEmphasisWords,
     forceDegraded,
   });
   const motionIds = new Set(enabledOverlays.filter(overlay => overlay.motion || overlay.motionSource)
@@ -139,11 +144,11 @@ export function buildGpuPage({
   const dom = buildDomRuns(indexedOverlays, classifications, compositeIds, interleaved ? stackZByOverlay : null);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
-    || overlay.motion || overlay.motionSource);
+    || overlay.motion || overlay.motionSource
+    || overlay.motionParents?.some((parent) => Array.isArray(parent?.keyframes)));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
-  const resolvedEmphasisWords = Array.isArray(captions)
-    ? edit.emphasis_words ?? []
-    : captions?.emphasis_words ?? edit.emphasis_words ?? [];
+  const portrait = height > width;
+  const resolvedEmphasisWords = renderEmphasisWords;
   const spriteManifest = {
     captions: captionOverlays.map((overlay, index) => {
       // generatedFrom は解決経路でも元 cue の id。animator 宣言と段（animatorZ）は元 cue から引く。
@@ -237,6 +242,7 @@ export function buildGpuPage({
     adjustLutCubeTexts,
     spriteManifest,
     eligibility: effectiveEligibility,
+    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder"), longGop: t("render.frameEngine.warning.longGop") },
   };
   if (interleaved) {
     const spriteZ = Object.fromEntries([...stackZByOverlay]);
@@ -291,6 +297,7 @@ export function buildGpuPage({
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};${interleaved ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>window.__akariTypewriterDurations=(${typewriterDurations.toString()});window.__akariTypewriterStepTiming=(${typewriterStepTiming.toString()});</script>
+  <script>window.__akariCaptionOutlineRuntime=(${captionOutlineRuntime.toString()})();</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
   ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}${hasItemMotion ? `<script>${inlineScript(itemMotionRuntime)}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>
@@ -427,7 +434,7 @@ export async function loadAndBuildGpuPage({
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   // プリセット適用と除外フィルタは animator 射影の入力に要るのでここでも通す。
   // buildGpuPage 側の resolveCaptionPlan が同じ前段をもう一度かけるが、どちらも冪等。
-  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], loadTextstyleCatalogSync({ env: process.env }).catalog).root;
+  const styledCaptions = prepareCaptionRenderInput(captionsRoot ?? [], { output: prepared.edit.output }).root;
   const filteredCaptions = filterCaptionRootByExcludedIds(
     styledCaptions,
     collectExcludedCaptionIds(prepared.edit),
@@ -463,9 +470,9 @@ export async function loadAndBuildGpuPage({
   const adjustLutCubeTexts = await resolveItemAdjustLutCubeTexts(edit, projectRoot);
   const eligibility = evaluateGpuEligibility({
     edit,
-    captions,
+    captions: prepareCaptionRenderInput(captions, { output: edit.output }).root,
     defaultTextStyle: Array.isArray(captions) ? null : captions?.default_text_style ?? null,
-    emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    emphasisWords: Array.isArray(styledCaptions) ? edit.emphasis_words ?? [] : styledCaptions?.emphasis_words ?? edit.emphasis_words ?? [],
     forceDegraded,
   });
   const page = buildGpuPage({

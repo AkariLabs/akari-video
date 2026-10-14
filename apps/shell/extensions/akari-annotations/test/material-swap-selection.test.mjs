@@ -14,14 +14,14 @@ const deps={timeline_selection_model_1:{captionIdForTreeSelection:()=>undefined}
  caption_track_layout_1:{renderAfterCaptionStateChange:async(render,load)=>{render();await load?.();}},
  derive_timeline_tracks_1:{sortDefaultTimelineTracks:tracks=>tracks}};
 for (const [, alias] of source.matchAll(/\b(edit_store(?:_\d+)?)\./g)) deps[alias] = store;
-const Widget=new Function(...Object.keys(deps),`return class {${['reloadEdit','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','pushSelectionSnapshot','applySelection','handleLayerSelection','handleCutSelection'].map(method).join('\n')}}`)(...Object.values(deps));
+const Widget=new Function(...Object.keys(deps),`return class {${['reloadEdit','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','pushSelectionSnapshot','releaseTransitionBoundaryForOtherSelection','applySelection','handleLayerSelection','handleCutSelection'].map(method).join('\n')}}`)(...Object.values(deps));
 const fixture=()=>({version:2,output:{width:1280,height:720,fps:30},sources:[{id:'main',path:'main.mp4'},{id:'br',path:'assets/broll/br-city-walk-long/clip.mp4'}],tracks:[
  {id:'v1',lane:'visual',items:[{id:'main',at:0,duration:900,source:{kind:'media',src:'main',in:0,out:30}}]},
  {id:'v2',lane:'visual',items:[{id:'broll-1',at:0,duration:180,source:{kind:'media',src:'br',in:0,out:6,mute:false}}]}
 ]});
 function harness(doc=fixture()){
  let ended=0;
- const w=Object.assign(new Widget(),{editReloadGeneration:0,location:{editUri:{toString:()=>'/edit.json'},root:{toString:()=>'/project'}},
+ const w=Object.assign(new Widget(),{editReloadGeneration:0,activeBoundary:undefined,location:{editUri:{toString:()=>'/edit.json'},root:{toString:()=>'/project'}},
   resolveLegacyEditForOpen:async text=>text,readEdit:text=>store.readInternalEdit(JSON.parse(text)),hydrateDocumentMotionReferences:async()=>{},
   invalidateContentExtent(){},itemLocations:new Map(),sourceMap:new Map(),layerTransitionWarnings:new Map(),timelineTreePartsByHtml:new Map(),timelineCollapsedIds:new Set(),treeRowsByTrack:new Map(),
   withSfxFade:()=>[],withNarrationEnvelope:items=>items??[],withBgmEnvelope:()=>undefined,pinAudioGroupToBottom:tracks=>tracks,

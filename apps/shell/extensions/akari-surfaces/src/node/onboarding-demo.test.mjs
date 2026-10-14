@@ -1,4 +1,5 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -12,6 +13,8 @@ import { lintProject } from '../../../../../../packages/edit-lint/src/edit-lint.
 import { readRenderEdit } from '../../../../../../packages/render-cut/src/internal-render.mjs';
 import { loadCaptions, loadOverlays } from '../../../../../../packages/render-cut/src/render-cut.mjs';
 import { evaluateGpuEligibility } from '../../../../../../packages/gpu-export/src/eligibility.mjs';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const require = createRequire(import.meta.url);
 const { toAnchorCaptions } = require('../../../../../../packages/edit-store/lib/index.js');

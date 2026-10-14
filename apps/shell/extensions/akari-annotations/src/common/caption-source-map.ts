@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type CaptionSourceForMapping = string | null | undefined;
 
 /**
@@ -53,8 +54,7 @@ export function computeCaptionSourceMappingWarning(
     if (hiddenCount === 0) {
         return undefined;
     }
-    return `出自を特定できない字幕 ${hiddenCount} 件を表示していません。`
-        + '複数 source のプロジェクトでは captions.json の各字幕に src が必要です。';
+    return t('annotationscommon.captionSourceMap.warning.hiddenCaptions', { count: hiddenCount, n: hiddenCount });
 }
 
 /** 同じ射影不能状態の再読込・再描画で、同じ警告を繰り返さない。 */

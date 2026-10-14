@@ -23,5 +23,24 @@ const api: ElectronAkariUpdaterApi = {
 };
 
 export function preload(): void {
+    // Electron preloads run before the frontend imports nls, whose locale is captured at module evaluation.
+    const osLocale = /^ja/i.test(navigator.language) ? 'ja' : 'en';
+    let locale = osLocale;
+    try {
+        const choice = window.localStorage.getItem('akari.ui.language');
+        const stored = window.localStorage.getItem('localeId');
+        locale = choice === 'ja' || choice === 'en' ? choice :
+            choice !== 'auto' && (stored === 'ja' || stored === 'en') ? stored : osLocale;
+        if (choice === 'auto' || choice === 'ja' || choice === 'en' || !stored) {
+            window.localStorage.setItem('localeId', locale);
+        }
+    } catch { locale = 'en'; /* Storage may be disabled; Theia then uses its default locale. */ }
+    if (document.documentElement) {
+        document.documentElement.lang = locale;
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.documentElement) document.documentElement.lang = locale;
+        }, { once: true });
+    }
     contextBridge.exposeInMainWorld('electronAkariUpdater', api);
 }

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { WordBookEntry, WordBookFile } from './channel-people-model';
 
 export type InfoKind = 'link' | 'phrase' | 'name' | 'hashtag' | 'note';
@@ -7,13 +8,13 @@ export type RuleEntry = { id: string; area: RuleArea; text: string; pack?: strin
 export type NotesFile = { version: 0; infos: InfoEntry[]; rules: RuleEntry[] };
 
 export const INFO_KIND_LABELS: Record<InfoKind, string> = {
-    link: 'リンク', phrase: '決まり文句', name: '呼び方', hashtag: 'ハッシュタグ', note: '注意書き'
+    link: t('surfaces.channelNotes.info.link'), phrase: t('surfaces.channelNotes.info.phrase'), name: t('surfaces.channelNotes.info.name'), hashtag: t('surfaces.channelNotes.info.hashtag'), note: t('surfaces.channelNotes.info.note')
 };
 export const RULE_AREA_LABELS: Record<RuleArea, string> = {
-    caption: '字幕', audio: '音', structure: '構成', number: '数字', color: '色', other: 'そのほか'
+    caption: t('surfaces.channelNotes.rule.caption'), audio: t('surfaces.channelNotes.rule.audio'), structure: t('surfaces.channelNotes.rule.structure'), number: t('surfaces.channelNotes.rule.number'), color: t('surfaces.channelNotes.rule.color'), other: t('surfaces.channelNotes.rule.other')
 };
 export const WORD_KIND_LABELS: Record<string, string> = {
-    term: '固有名詞', notation: '表記', 'reading-only': '読みだけ', ng: '使わない語'
+    term: t('surfaces.channelNotes.word.term'), notation: t('surfaces.channelNotes.word.notation'), 'reading-only': t('surfaces.channelNotes.word.readingonly'), ng: t('surfaces.channelNotes.word.avoid')
 };
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -70,9 +71,9 @@ export function renderNotesMarkdown(file: NotesFile): string {
     return [
         '<!-- アプリが生成。編集はアプリの『辞書とメモ』で -->', '',
         '## よく使う情報', '', '| 種類 | 名前 | 中身 | いつ使う |', '| --- | --- | --- | --- |',
-        ...file.infos.map(item => `| ${cell(INFO_KIND_LABELS[item.kind])} | ${cell(item.name)} | ${cell(item.body)} | ${cell(item.when)} |`),
+        ...file.infos.map(item => `| ${cell(t(`surfaces.channelNotes.info.${item.kind}`, {}, 'ja'))} | ${cell(item.name)} | ${cell(item.body)} | ${cell(item.when)} |`),
         '', '## 決まりごと', '', '| どこの | 決まり |', '| --- | --- |',
-        ...file.rules.map(item => `| ${cell(RULE_AREA_LABELS[item.area])} | ${cell(item.text)} |`), ''
+        ...file.rules.map(item => `| ${cell(t(`surfaces.channelNotes.rule.${item.area}`, {}, 'ja'))} | ${cell(item.text)} |`), ''
     ].join('\n');
 }
 
@@ -89,7 +90,7 @@ function variants(values: string[], surface: string): string[] {
 export function wordEntryLabel(entry: WordBookEntry): { heard: string; fixed: string; memo: string; source: string } {
     const source = entry.source;
     return { heard: (entry.variants || []).join('、'), fixed: entry.surface, memo: WORD_KIND_LABELS[entry.kind] || entry.kind,
-        source: !source || source === 'manual' ? '自分で足した' : source === 'people' ? '人とモノ'
+        source: !source || source === 'manual' ? t('surfaces.channelNotes.source.manual') : source === 'people' ? t('surfaces.channelNotes.source.people')
             : source.startsWith('pack:') ? `☆${source.slice(5)}` : source };
 }
 export function addWordEntry(book: WordBookFile, input: Pick<WordBookEntry, 'surface' | 'variants' | 'kind' | 'source'>): WordBookFile {
@@ -119,8 +120,8 @@ function sourceKey(entry: WordBookEntry): string { return entry.source?.startsWi
 export function wordSourceOptions(book: WordBookFile): Array<{ key: string; label: string; count: number }> {
     const counts = new Map<string, number>();
     for (const entry of book.entries) counts.set(sourceKey(entry), (counts.get(sourceKey(entry)) || 0) + 1);
-    return [{ key: 'all', label: 'すべて', count: book.entries.length },
-        { key: 'manual', label: '自分で足した', count: counts.get('manual') || 0 },
+    return [{ key: 'all', label: t('surfaces.channelNotes.source.all'), count: book.entries.length },
+        { key: 'manual', label: t('surfaces.channelNotes.source.manual'), count: counts.get('manual') || 0 },
         ...[...counts.entries()].filter(([name]) => name !== 'manual').map(([name, count]) =>
             ({ key: name, label: `☆${name.slice(5)}`, count }))];
 }

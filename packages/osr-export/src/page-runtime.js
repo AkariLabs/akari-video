@@ -9,7 +9,12 @@
   const lookahead = new Map();
   const images = new Map();
 
-  function warn(message) {
+  function warn(message, detail) {
+    if (detail?.code === "long-gop" && config.messages?.longGop) {
+      message = config.messages.longGop
+        .replaceAll("{id}", String(detail.id))
+        .replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+    }
     warnings.push(String(message));
     console.warn("[akari-osr]", message);
   }
@@ -37,19 +42,35 @@
 
   function normalizedCuts(edit, adjustLutCubeTexts = {}) {
     const cuts = Array.isArray(edit.cuts) ? edit.cuts : [];
+    const cursorByTrack = new Map();
     return cuts.map((cut, index) => {
       const copy = Object.assign({}, cut);
-      // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
-      // 時間軸を伸ばし、トランジションの重なりは宣言から再計算する（preview-server と同じ）。
+      // Derived placements in the main chain stay sequential for freeze and transitions.
+      // Keep only an actual gap beyond that chain's cursor (including its leading gap).
       // 2 本目以降の visual トラック（track >= 1）は at / track を保持して絶対配置する。外すと
       // 直列に連結されて出力尺の外へ押し出され、無言で消える（issue #31）。前後関係は
       // frame-engine の既定 trackZ（番号が大きいトラックが前面）。
       const track = Number.isInteger(cut.track) && cut.track > 0 ? cut.track : 0;
+      const cursor = cursorByTrack.get(track) ?? 0;
+      const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
+      const hasGap = explicitAt !== null && explicitAt > cursor + 1e-6;
+      const hold = cut.transitionHold?.headSeconds;
+      const hasHold = typeof hold === "number" && Number.isFinite(hold) && hold > 0;
+      const at = hasGap || (hasHold && explicitAt !== null) ? explicitAt : cursor;
+      const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+      const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
+        ? cut.freeze.duration_sec : 0;
+      const transition = cut.transition_out || cut.transitionOut;
+      const overlap = Number.isFinite(transition?.duration) && transition.duration > 0
+        ? transition.duration : 0;
+      cursorByTrack.set(track, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
       delete copy.at;
       delete copy.track;
       if (track > 0) {
         copy.track = track;
-        if (Number.isFinite(cut.at) && cut.at >= 0) copy.at = Number(cut.at);
+        if (explicitAt !== null) copy.at = explicitAt;
+      } else if (hasGap || (hasHold && explicitAt !== null)) {
+        copy.at = explicitAt;
       }
       copy.src = cut.src || (Array.isArray(edit.sources) ? edit.sources[0] && edit.sources[0].id : "default") || "default";
       copy.in = Number(cut.in || 0);

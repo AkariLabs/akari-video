@@ -117,5 +117,7 @@ export function readLocalLibraryItem(env, category, id) {
     mediaFile: primaryMediaFile(category, files), libraryDir,
     addedAt: new Date(info.birthtimeMs > 0 ? info.birthtimeMs : info.mtimeMs).toISOString(),
     creditText, warnings, state: 'cached',
+    // meta.json の無い取り寄せ（AKARI Sounds は音源ファイルだけを配る）を合成側が見分ける。
+    metaOk: Object.keys(meta).length > 0,
   };
 }

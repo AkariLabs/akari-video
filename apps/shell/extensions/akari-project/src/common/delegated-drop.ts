@@ -9,6 +9,7 @@
  *
  * 委譲規約はこう決めた: **AKARI 内部ドラッグ（自前 MIME 付き）のときだけ委譲する**。
  * OS ファイルドロップ（`types` に `Files` があり内部 MIME が無い）はグローバル経路が拾う。
+ * 例外として、ライブラリ面の OS ファイルドロップはライブラリパネルへ委譲する。
  * task 2026-09-23-finder-drop-frame: dragover だけは OS ファイル受け口へも委譲する。
  *
  * DOM に一切依存しないため node --test で検証できる。DOM 層（`closest()` と
@@ -55,9 +56,20 @@ export function isDelegatedDropInput(input: DelegatedDropInput): boolean {
 }
 
 /**
+ * ライブラリ面の OS ファイルは、動画が混ざっていてもパネル自身に渡す。
+ * `types` は `Files` だけでファイルの種類を示さず、パネル自身の drop が
+ * 全ファイルを取り込みシートへ渡すため。
+ */
+export function isDelegatedLibraryDropInput(input: DelegatedDropInput & { readonly insideLibrarySurface: boolean }): boolean {
+    return isDelegatedDropInput(input)
+        || (input.insideDropzone && input.insideLibrarySurface && isOsFileDropInput(input.types));
+}
+
+/**
  * task 2026-09-23-finder-drop-frame: dragover は OS ファイル受け口にも委譲する。
  * 内部 MIME は従来の委譲判定を使い、Files が同乗しても OS ファイル扱いにしない。
- * drop は isDelegatedDropInput のままとし、動画のグローバル取り込み経路を保つ。
+ * drop はライブラリ面の例外（`isDelegatedLibraryDropInput`）を除いて
+ * `isDelegatedDropInput` のままとし、動画のグローバル取り込み経路を保つ。
  */
 export function isDelegatedDragOverInput(input: DelegatedDragOverInput): boolean {
     return isDelegatedDropInput(input)

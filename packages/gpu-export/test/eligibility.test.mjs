@@ -6,9 +6,31 @@ import { readFileSync } from "node:fs";
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
+import { buildGpuPage } from '../src/page-builder.mjs';
 
 const require = createRequire(import.meta.url);
-const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
+const { applyCaptionStylePresets, planCaptionLookMigration, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
+
+test('GPU page eligibility keeps migrated and remaining emphasis words identical', () => {
+  const edit = { output: { width: 640, height: 360, fps: 30 }, cuts: [], overlays: [] };
+  const root = { captions: [{ id: 'c-0001', src: 'main', start: 1, end: 2, text: '赤青',
+    words: [{ text: '赤', start: 1, end: 1.5 }, { text: '青', start: 1.5, end: 2 }],
+    runs: [{ from: 0, to: 1, style: { color: '#ff0000', scale: 1.4 } }] }],
+  emphasis_words: [
+    { id: 'e-0001', src: 'main', word: '赤', t_start: 1, t_end: 1.5,
+      emotion: 'surprise', style_hint: 'one-char-bang' },
+    { id: 'e-0002', src: 'main', word: '青', t_start: 1.5, t_end: 2,
+      emotion: 'emphasis', style_hint: 'color-only' },
+  ] };
+  const migrated = planCaptionLookMigration(root, TEXTSTYLE_CATALOG).next;
+  const decide = captions => buildGpuPage({ edit, captions, overlays: [], duration: 2,
+    frameEngineBundle: '', pageRuntime: '', slotParamsRuntime: '',
+    itemKeyframesRuntime: '', itemMotionRuntime: '' }).eligibility;
+  const before = decide(root);
+  const after = decide(migrated);
+  assert.deepEqual(after.entries, before.entries);
+  assert.deepEqual(after.summary, before.summary);
+});
 
 function evaluate(overlays, captions = [], extra = {}) {
   return evaluateGpuEligibility({ edit: { overlays, output: {} }, captions, ...extra });
@@ -198,6 +220,76 @@ test("v2 word styles are native while plain words remain a caption sprite", () =
   assert.deepEqual(result.entries.map((entry) => entry.reason), [
     "words-native", "words-native", "words-native", "words-native", "caption-sprite",
   ]);
+});
+
+test('word tiles with a run plate or shadow use the OSR path', () => {
+  for (const look of [{ background: { color: '#ffffff' } }, { glow: { color: '#ffffff' } }]) {
+    const result = evaluate([], [{ id: 'rich', start: 0, end: 1, text: 'x', style: 'reveal',
+      words: [{ text: 'x', start: 0, end: 1 }], runs: [{ from: 0, to: 1, look }] }]);
+    assert.equal(result.eligible, false);
+    assert.equal(result.entries[0].reason, 'caption-run-plate-words-native');
+  }
+});
+
+test('typewriter with run effects uses OSR in either direction', () => {
+  for (const slot of ['in', 'out']) for (const look of [
+    { background: { color: '#ffffff' } }, { glow: { color: '#ffffff' } },
+    { shadow: { color: '#ffffff' } },
+  ]) {
+    const result = evaluate([], [{ id: 'tw', start: 0, end: 1, text: 'x',
+      text_style: { animation: { [slot]: { id: 'typewriter' } } },
+      runs: [{ from: 0, to: 1, look }] }]);
+    assert.equal(result.eligible, false);
+    assert.equal(result.entries[0].reason, 'caption-run-effects-typewriter');
+  }
+});
+
+test('explicit zero run effects keep word and typewriter captions on GPU', () => {
+  const zero = { color: '#ff3355', stroke: { width_px: 0 },
+    shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 } };
+  const cases = [
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: zero, reason: 'words-native' },
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: { ...zero, background: { color: '#ffffff', opacity: 0 } }, reason: 'words-native' },
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: { ...zero, background: { color: '#ffffff' } }, reason: 'caption-run-plate-words-native' },
+    { row: { text_style: { animation: { in: { id: 'typewriter' } } } },
+      look: zero, reason: 'caption-sprite' },
+    { row: { text_style: { animation: { in: { id: 'typewriter' } } } },
+      look: { ...zero, shadow: { color: '#000000', opacity: 0.9 } },
+      reason: 'caption-run-effects-typewriter' },
+  ];
+  for (const { row, look, reason } of cases) {
+    const result = evaluate([], [{ id: 'run', start: 0, end: 1, text: 'x', ...row,
+      runs: [{ id: 'r-0001', from: 0, to: 1, look }] }]);
+    assert.equal(result.entries[0].reason, reason);
+  }
+});
+
+test('GPU page builder agrees with direct eligibility for typewriter run effects', () => {
+  const edit = { output: { width: 640, height: 360, fps: 30 }, cuts: [], overlays: [] };
+  const captions = { captions: [{ id: 'c-0001', start: 0, end: 2, text: 'AB',
+    text_style: { animation: { in: { id: 'typewriter' } } },
+    runs: [{ id: 'r-0001', from: 0, to: 1,
+      look: { background: { color: '#ffd948', padding_px: 8 } } }] }] };
+  const direct = evaluateGpuEligibility({ edit, captions });
+  const page = buildGpuPage({ edit, captions, overlays: [], duration: 2,
+    frameEngineBundle: '', pageRuntime: '', slotParamsRuntime: '',
+    itemKeyframesRuntime: '', itemMotionRuntime: '' });
+  assert.equal(direct.entries[0].reason, 'caption-run-effects-typewriter');
+  assert.equal(page.eligibility.entries[0].reason, direct.entries[0].reason);
+});
+
+test('gradient with an outline ignores run effect declarations for GPU eligibility', () => {
+  const row = { id: 'grad', start: 0, end: 1, text: 'AB',
+    text_style: { fill_gradient: { colors: ['#ffee00', '#ff2200'], angle_deg: 90 },
+      stroke: { color: '#000000', width_px: 3 } } };
+  const withEffects = evaluate([], [{ ...row, runs: [{ from: 0, to: 1,
+    look: { background: { color: '#ffd948' }, glow: { color: '#00e5ff' } } }] }]);
+  const withoutEffects = evaluate([], [{ ...row, runs: [{ from: 0, to: 1,
+    look: {} }] }]);
+  assert.deepEqual(withEffects.entries, withoutEffects.entries);
 });
 
 test("unknown word style and unknown caption motion fail closed", () => {

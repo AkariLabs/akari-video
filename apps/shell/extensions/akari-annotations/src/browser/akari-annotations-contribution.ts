@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { PlaceTextOptions } from '../common/place-text';
 import { QuickInputService } from '@theia/core/lib/browser';
 import type { MaterialSwapTarget } from '../common/material-replacement';
@@ -72,6 +73,8 @@ import { parseDocTarget } from '../common/doc-target';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
+import { TRANSITION_OPEN_PICKER_COMMAND_ID, TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID,
+    TRANSITION_REMOVE_COMMAND_ID, TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID } from '../common/transition-boundary-model';
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { captionPanelSelection } from './inspector/caption-panel-selection';
 import { editUriForVisibleTimeline, setActiveTimelineEditUri } from './active-timeline';
@@ -265,7 +268,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     onWillStop(): OnWillStopAction | undefined {
         const owner = this.materialSwapOwner;
         if (!owner?.hasMaterialSwap) return undefined;
-        return { reason: 'お試し中の素材を元に戻す', action: async () => {
+        return { reason: t('annotations.annotationsContribution.text.restoringTheMaterialBeingTested'), action: async () => {
             await owner.finishMaterialSwap(false);
             return true;
         } };
@@ -427,7 +430,35 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     registerCommands(commands: CommandRegistry): void {
         this.getShortcutKeybindings().registerCommands(commands);
-        commands.registerCommand({ id: 'akari.timeline.toggleVisibility', label: 'タイムラインを隠す / 出す', category: 'タイムライン' }, {
+        const activeTransition = (): AkariAnnotationsWidget | undefined => {
+            const widget = this.timelineWidget;
+            if (widget?.isVisible && widget.isAttached && widget.node.isConnected && widget.activeBoundaryRef) return widget;
+            if (widget?.isVisible && widget.isAttached && widget.node.isConnected) widget.showTransitionSelectionPrompt();
+            this.messages.info(t('transition.picker.notice.selectBoundaryFirst'));
+            return undefined;
+        };
+        commands.registerCommand({ id: TRANSITION_OPEN_PICKER_COMMAND_ID,
+            label: t('transition.picker.command.openPicker'), category: t('transition.picker.command.category') }, {
+            execute: () => activeTransition()?.openActiveTransitionPicker()
+        });
+        commands.registerCommand({ id: TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID,
+            label: t('transition.picker.command.applyToActiveBoundary'), category: t('transition.picker.command.category') }, {
+            execute: (argument?: { type?: unknown }) => activeTransition()?.applyToActiveTransitionBoundary(argument?.type)
+        });
+        commands.registerCommand({ id: TRANSITION_REMOVE_COMMAND_ID,
+            label: t('transition.picker.command.remove'), category: t('transition.picker.command.category') }, {
+            execute: () => activeTransition()?.removeActiveTransition()
+        });
+        commands.registerCommand({ id: TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID,
+            label: t('transition.picker.command.revealInInspector'), category: t('transition.picker.command.category') }, {
+            execute: async () => {
+                const widget = activeTransition();
+                if (!widget?.revealActiveTransitionInInspector()) return false;
+                await this.openInspectorPanel();
+                return true;
+            }
+        });
+        commands.registerCommand({ id: 'akari.timeline.toggleVisibility', label: t('annotations.annotationsContribution.text.hideShowTimeline'), category: t('annotations.annotationsContribution.text.timeline') }, {
             execute: () => this.setTimelineHidden(!this.timelineHidden),
             isToggled: () => this.timelineHidden
         });
@@ -454,7 +485,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: async (options: { avatar?: string } = {}) => {
                 const { avatars } = await this.annotationsService.voiceAvatars();
                 const avatar = voiceDefaultAvatar(avatars, options.avatar);
-                if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(avatar)) throw new Error('アバター ID が不正です。');
+                if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(avatar)) throw new Error(t('annotations.annotationsContribution.text.avatarIdIsInvalid'));
                 return new AkariVoiceCloneDialog(this.annotationsService, this.fileService, this.preferences,
                     avatar, avatars.find(item => item.id === avatar)?.displayName).open();
             }
@@ -465,7 +496,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 const widget = editUri ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
-                    this.messages.warn('タイムラインを開いてから文字を置いてください。');
+                    this.messages.warn(t('annotations.annotationsContribution.text.pleaseOpenTheTimelineAndPlaceThe'));
                     return;
                 }
                 return widget.placeText(options);
@@ -566,7 +597,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
                     this.messages.warn(typeof editUri === 'string'
-                        ? 'プロジェクトを特定できません。' : 'タイムラインを開いてから図形を置いてください。');
+                        ? t('annotations.annotationsContribution.text.unableToIdentifyProject') : t('annotations.annotationsContribution.text.pleaseOpenTheTimelineAndPlaceTheAlternate'));
                     return undefined;
                 }
                 return widget.addShapeAt(request);
@@ -605,7 +636,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 voiceTrack?: boolean; audio?: { in?: number; denoise?: { method: 'fft' | 'nlm'; strength: number };
                     script?: string; captionRef?: string; provenance?: Record<string, unknown> } }) => {
                 const location = request?.editUri ? await this.findProjectLocation(request.editUri) : undefined;
-                if (!location) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
+                if (!location) { this.messages.warn(t('annotations.annotationsContribution.text.unableToIdentifyProject')); return undefined; }
                 const widget = await this.configureQuietTimeline(location);
                 // 置いた要素の id を返す。取り寄せに失敗した楽観配置を消すのに要る。
                 return widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
@@ -636,19 +667,19 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand({ id: 'akari.timeline.applyLibraryItem' }, {
             execute: async (request: { payload?: import('./library-apply-plan').ApplyPayload;
                 target?: import('./library-apply-plan').ApplyTarget; editUri?: string }) => {
-                if (!request?.payload) { this.messages.info('当てるものを読み取れませんでした。'); return false; }
+                if (!request?.payload) { this.messages.info(t('annotations.annotationsContribution.text.iCouldnTReadWhatYouMeant')); return false; }
                 try {
                     const location = request.editUri
                         ? this.findProjectLocation ? await this.findProjectLocation(request.editUri)
                             : (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri)
                         : undefined;
-                    if (request.editUri && !location) { this.messages.warn('プロジェクトを特定できません。'); return false; }
+                    if (request.editUri && !location) { this.messages.warn(t('annotations.annotationsContribution.text.unableToIdentifyProject')); return false; }
                     const widget = request.editUri ? await this.configureQuietTimeline(location!)
                         : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
-                    if (!widget) { this.messages.info('タイムラインを開いてから当ててください。'); return false; }
+                    if (!widget) { this.messages.info(t('annotations.annotationsContribution.text.pleaseOpenTheTimelineAndTakeYour')); return false; }
                     return await widget.applyLibraryItem(request.payload, request.target);
                 } catch (error) {
-                    this.messages.warn(`当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+                    this.messages.warn(t('annotations.annotationsContribution.text.couldNotGuess', { reason: error instanceof Error ? error.message : String(error) }));
                     return false;
                 }
             }
@@ -661,7 +692,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 const widget = request?.editUri
                     ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
-                if (!widget) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
+                if (!widget) { this.messages.warn(t('annotations.annotationsContribution.text.unableToIdentifyProject')); return undefined; }
                 return widget.addOverlayAtOutputPoint(location?.editUri
                     ? { ...request, editUri: location.editUri.toString() } : request);
             }
@@ -773,11 +804,6 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             commandId: OPEN_AKARI_CANVAS.id,
             label: OPEN_AKARI_CANVAS.label,
             order: 'z23'
-        });
-        menus.registerMenuAction(CommonMenus.FILE, {
-            commandId: OPEN_AKARI_SESSION_VIEWER.id,
-            label: OPEN_AKARI_SESSION_VIEWER.label,
-            order: 'z24'
         });
     }
 
@@ -918,7 +944,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             return;
         }
         const dialog = new AkariImageAnnotationDialog(
-            { title: '画像に注釈', mode: 'create', imageUri, relativePath: relative.toString(), maxWidth: 960 },
+            { title: t('annotations.annotationsContribution.text.annotateImages'), mode: 'create', imageUri, relativePath: relative.toString(), maxWidth: 960 },
             this.fileService,
             this.review
         );
@@ -1042,8 +1068,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                             label: candidate.displayName ?? timelineDisplayName(candidate.slug),
                             description: candidate.editUri!.path.base
                         })),
-                        { id: 'new', label: '新しいタイムライン' }
-                    ], { title: 'タイムラインを開く' });
+                        { id: 'new', label: t('annotations.annotationsContribution.text.newTimeline') }
+                    ], { title: t('annotations.annotationsContribution.text.openTimeline') });
                     if (!picked) return undefined;
                     location = picked.id === 'new' ? await this.createTimeline(locations)
                         : closed.find(candidate => candidate.editUri?.toString() === picked.id);
@@ -1068,7 +1094,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const { aspect } = await this.resolveCanvasAspect(current);
         const taken = locations.flatMap(location => location.slug ? [location.slug] : []);
         const result = await new AkariTimelineCreateDialog({
-            title: 'タイムラインを作成', defaultTitle: 'タイムライン',
+            title: t('annotations.annotationsContribution.text.createTimeline'), defaultTitle: t('annotations.annotationsContribution.text.timeline'),
             defaultAspect: { width: aspect.w, height: aspect.h },
             takenSlugs: taken, firstTimeline: !first.editUri
         }).open();
@@ -1116,7 +1142,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             ? { in: payload.in, out: payload.out } : undefined;
         const widget = await this.openCurrentTimeline();
         if (!widget) {
-            this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
+            this.messages.warn(t('annotations.annotationsContribution.text.unableToIdentifyProjectPleaseOpenThe'));
             return;
         }
         if (kind === 'audio' && payload?.voiceTrack === true) {
@@ -1142,12 +1168,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const clientY = payload?.clientY;
         if (typeof clientX !== 'number' || !Number.isFinite(clientX)
             || typeof clientY !== 'number' || !Number.isFinite(clientY)) {
-            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+            this.messages.warn(t('annotations.annotationsContribution.text.unableToAddMaterialDropPositionIs'));
             return;
         }
         const widget = await this.openCurrentTimeline();
         if (!widget) {
-            this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
+            this.messages.warn(t('annotations.annotationsContribution.text.unableToIdentifyProjectPleaseOpenThe'));
             return;
         }
         await widget.addMaterialAtPoint(relativePath, kind, clientX, clientY);
@@ -1379,20 +1405,20 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected async openCanvas(): Promise<void> {
         const location = await this.locate();
         if (!location) {
-            this.messages.error('プロジェクトを特定できません。タイムラインを開いてから開いてください。');
+            this.messages.error(t('annotations.annotationsContribution.text.unableToIdentifyProjectOpenYourTimeline'));
             return;
         }
         this.review.location = location;
         const { aspect, aspectSource } = await this.resolveCanvasAspect(location);
         const dialog = new AkariCanvasDialog(
-            { title: 'キャンバスを開く', mode: 'create', aspect, aspectSource, maxWidth: 1200 },
+            { title: t('annotations.annotationsContribution.text.openCanvas'), mode: 'create', aspect, aspectSource, maxWidth: 1200 },
             this.fileService,
             this.review,
             this.fileDialogService
         );
         const id = await dialog.open();
         if (id) {
-            this.messages.info(`キャンバスを記録しました: ${id}（コンパイルすると review.json の注釈として着地します）`);
+            this.messages.info(t('annotations.annotationsContribution.text.iRecordedTheCanvasItLandsAs', { id: id }));
         }
     }
 

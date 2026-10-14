@@ -6,14 +6,24 @@ import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import { GenerationCliManager } from '../lib/node/generation-cli.js';
-import { GenerationCandidates } from '../lib/node/generation-candidates.js';
-import { StillGenerationManager } from '../lib/node/still-generation.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { replaceVideoCandidateItem } from '../lib/common/video-candidate-replace.js';
+
+
+
+
+
 import { applyReplacement, planReplacement } from '../../../../../packages/generate/src/cli/edit-replace.mjs';
 import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { writeGenerating, writeQueueStatus } from '../../../../../packages/generate/src/cli/meta-video.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { GenerationCliManager } = await import('../lib/node/generation-cli.js');
+const { GenerationCandidates } = await import('../lib/node/generation-candidates.js');
+const { StillGenerationManager } = await import('../lib/node/still-generation.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { replaceVideoCandidateItem } = await import('../lib/common/video-candidate-replace.js');
+
 
 const temp = () => mkdtemp(path.join(os.tmpdir(), 'gen-compare-video-node-test-'));
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');

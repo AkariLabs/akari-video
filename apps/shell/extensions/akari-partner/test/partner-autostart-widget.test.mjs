@@ -1,14 +1,18 @@
-import test from 'node:test';
+import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import ts from 'typescript';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+import ts from 'typescript';
 import { decideAutoStart } from '../lib/common/partner-autostart.js';
 import { rememberPartnerClose } from '../lib/common/partner-last-session.js';
 import { normalizePartnerPermissionMode } from '../lib/common/partner-permissions.js';
 
 const require = createRequire(import.meta.url);
 const chatVisibility = require('../lib/browser/partner-chat-visibility.js');
+const { t } = require('../lib/common/partner-text.js');
+before(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-partner-widget.tsx', import.meta.url), 'utf8'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -17,14 +21,15 @@ function method(name, dependencies) {
     const member = owner.members.find(node => node.name?.getText(source) === name);
     const code = ts.transpileModule(`class Widget { ${member.getText(source)} }`,
         { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-    return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
+    const bindings = { t, ...dependencies };
+    return new Function(...Object.keys(bindings), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(bindings));
 }
 
 function topLevelFunction(name) {
     const declaration = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
     const code = ts.transpileModule(declaration.getText(source),
         { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-    return new Function(`${code}\nreturn ${name};`)();
+    return new Function('t', `${code}\nreturn ${name};`)(t);
 }
 
 function deferred() {
@@ -68,7 +73,8 @@ test('ワークスペースの bypass 指定があっても CLI は User 既定�
         } },
         terminalService: { async newTerminal(options) { assert.deepEqual(options.shellArgs, ['--approve-for-me']); return terminal; } },
         setProgress() {}, setComplete() {}, setFailure: (_entry, _status, detail) => assert.fail(detail),
-        ensureCliProvisioned: async () => {}, attachTerminal: async () => {}, rememberPartnerStart: async () => {}
+        ensureCliProvisioned: async () => {}, attachTerminal: async () => {}, rememberPartnerStart: async () => {},
+        noticeCliUpdate: async () => {}
     };
     widget.partnerPermissionMode = method('partnerPermissionMode', {
         normalizePartnerPermissionMode, PARTNER_PERMISSION_PREFERENCE: 'akari.partner.permissionMode'
@@ -227,7 +233,7 @@ test('auto-start waits for preferences before reading the switch', async () => {
     assert.equal(reads, 0);
     ready.resolve();
     await auto;
-    assert.ok(reads >= 1);
+    assert.equal(reads, 3, 'chat visibility is read twice and reopenLast once after ready');
     assert.equal(reopenReads, 1);
 });
 
@@ -280,6 +286,32 @@ test('uninstalled automatic partner shows a quiet notice without opening a dialo
     assert.equal(starts, 0);
     await run.call(widget);
     assert.equal(notices.length, 1);
+});
+
+test('running web partner is restored by agent ID in either language', async () => {
+    const entry = { id: 'deepseek/dsh-web', agent: 'deepseek', form: 'web', name: 'DeepSeek Harness' };
+    const run = method('autoStartLastPartner', {
+        ...chatVisibility, decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
+        PARTNER_CATALOG: [entry], PartnerWebWidget: { ID: 'web' }
+    });
+    try {
+        for (const language of ['ja', 'en']) {
+            setLanguage(language);
+            const web = { isRunning: () => true, agentId: 'deepseek', title: { caption: language === 'ja' ? '別の表示名' : 'Another display name' } };
+            const widget = {
+                autoStartAttempted: false,
+                preferences: { ready: Promise.resolve(), get: () => true },
+                workspaceService: { roots: [] },
+                storageService: { getData: async () => undefined },
+                readAppMarkerRaw: async () => undefined,
+                widgetManager: { getWidget: async () => web },
+                liveTerminals: new Map(),
+                observeWebClose: () => {}
+            };
+            await run.call(widget);
+            assert.equal(widget.webEntryId, entry.id);
+        }
+    } finally { setLanguage('ja'); }
 });
 
 test('only a close request before disposal clears the project entry', async () => {

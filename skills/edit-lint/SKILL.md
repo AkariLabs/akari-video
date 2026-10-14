@@ -1,128 +1,140 @@
 ---
 name: edit-lint
-description: edit.json と任意の analysis.json / captions.json / メディアを決定的 CLI で検査し、PASS 後のフレーム視認とレポートまで QA を完了する。edit.json を書いた、または変更した直後、書き出し前、レビュー指摘を反映した後の再確認で使う。
+description: Check edit.json and optional analysis.json / captions.json / media with a deterministic CLI, then finish QA with frame inspection and reporting after PASS. Use immediately after writing or modifying edit.json, before export, and after applying review feedback.
 ---
 
-# 編集結果を lint して QA を閉じる
+# Lint edits and close QA
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-## ハードルール
+## Hard rules
 
-1. **決定的であること**: 同一入力 → 同一出力。LLM 判断・乱数・現在時刻を判定に混ぜない
-   （`checked_at` の記録は可・判定には使わない）
-2. **外部 npm 依存ゼロ**。ffmpeg / ffprobe は**本体直叩き**（ラッパーライブラリ禁止）
-3. **書き込みは `.akari/lint.json` と `.akari/reports/` のみ**。edit.json を自動修正しない
-   （fix は人間/エージェントの編集として git diff に出す）
-4. **ネットワーク禁止**（完全ローカル・headless-first 不変条件どおりアプリ不要）
-5. **外部候補のコード転写禁止**（loudcheck 等は設計参考のみ。survey の転記条件に
-   関わらず本 CLI は全量自作 — 依存ゼロ規律と同根）
-6. **analysis.json / captions.json / `.akari/intake.json` 不在をエラーにしない**（skipped 報告。
-   プロジェクトの成長段階に関わらず常に走れる）
-7. **`--media` なしの既定実行はメディアをデコードしない**（起動・CI で常用できる速さを守る）
-8. **視認に使うキーフレーム静止画・QA 生成物、ad-hoc な一時検証スクリプトはプロジェクトルート
-   直下に書かない**。前者は `.akari/reports/`、後者は `.akari/work/` へ置く
-   （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）
-   `.akari/work/` では、使い捨てを `tmp/`、作り直せないものを `keep/` に分ける。
+1. **Deterministic**: Same input → same output. No LLM judgment, randomness, or current time in verdicts
+   (`checked_at` may be recorded but not used for judgments).
+2. **Zero external npm dependencies**. Invoke ffmpeg / ffprobe **directly**, never through wrapper libraries.
+3. **Write only `.akari/lint.json` and `.akari/reports/`**. Never auto-fix edit.json;
+   fixes are human/agent edits visible in git diff.
+4. **No network** (fully local; headless-first invariant means no app required).
+5. **Do not copy external candidates' code** (loudcheck, etc., are design references only).
+   Regardless of survey copy conditions, this CLI is wholly original, consistent with zero dependencies.
+6. **Missing analysis.json / captions.json / `.akari/intake.json` is not an error**: report skipped.
+   Runs at every project maturity level.
+7. **Default execution without `--media` does not decode media**, preserving speed for startup/CI use.
+8. **Never put inspection keyframes, QA outputs, or ad-hoc temporary verification scripts directly in the project root.**
+   Put the former in `.akari/reports/`, the latter in `.akari/work/`
+   ([project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) §1, Japanese).
+   Within `.akari/work/`, use `tmp/` for disposable files and `keep/` for irreplaceable ones.
 
-## 実行手順
+## Procedure
 
-### 実行体の解決
+### Resolve executables
 
-第一手として `akari doctor --json` を実行し、`edit_lint.path` を `<edit-lint>`、
-`cli.node.exec_path` を node の実行体として使う。
-`cli.node.runtime` が `electron` のときは、`cli.node.required_env`（`ELECTRON_RUN_AS_NODE=1`）を付けて呼ぶ
-（書き方は `cli.node.invocation.sh` / `.cmd`。付けずに呼ぶと GUI のアプリが起動する）。
-`cli.node.electron_run_as_node` は診断時の環境を映すだけなので、使えるかどうかの判断に使わない。
-`runtime` を出力しない旧版で、`exec_path` のファイル名が `node` / `node.exe` 以外なら Electron とみなして同じく `ELECTRON_RUN_AS_NODE=1` を付ける。
-まだこれらのフィールドを出力しない版なら、次の探索へ進む。
+First run `akari doctor --json`. Use `edit_lint.path` as `<edit-lint>` and
+`cli.node.exec_path` as the node executable.
+If `cli.node.runtime` is `electron`, include `cli.node.required_env` (`ELECTRON_RUN_AS_NODE=1`)
+using `cli.node.invocation.sh` / `.cmd`; omitting it launches the GUI app.
+`cli.node.electron_run_as_node` reflects only the diagnostic environment; do not use it to judge availability.
+On older versions without `runtime`, treat an `exec_path` filename other than `node` / `node.exe` as Electron
+and likewise set `ELECTRON_RUN_AS_NODE=1`. If these fields are absent, use the search below.
 
-次の 3 形態を表の上から `ls` し、最初に存在した `<edit-lint>` を使う。
+`ls` the following 3 forms top to bottom and use the first existing `<edit-lint>`:
 
-| 形態 | macOS | Windows |
+| Form | macOS | Windows |
 |---|---|---|
-| (a) デスクトップアプリ同梱 | `<App>/Contents/Resources/packages/edit-lint/bin/edit-lint.mjs`（`<App>` の既定は `/Applications/AKARI Video.app`） | `<install dir>\resources\packages\edit-lint\bin\edit-lint.mjs` |
-| (b) `install.sh` 経路 | `~/.akari/app/packages/edit-lint/bin/edit-lint.mjs` | `%USERPROFILE%\.akari\app\packages\edit-lint\bin\edit-lint.mjs` |
-| (c) モノレポ | `<repo>/packages/edit-lint/bin/edit-lint.mjs` | `<repo>\packages\edit-lint\bin\edit-lint.mjs` |
+| (a) Desktop app bundle | `<App>/Contents/Resources/packages/edit-lint/bin/edit-lint.mjs` (default `<App>`: `/Applications/AKARI Video.app`) | `<install dir>\resources\packages\edit-lint\bin\edit-lint.mjs` |
+| (b) `install.sh` installation | `~/.akari/app/packages/edit-lint/bin/edit-lint.mjs` | `%USERPROFILE%\.akari\app\packages\edit-lint\bin\edit-lint.mjs` |
+| (c) Monorepo | `<repo>/packages/edit-lint/bin/edit-lint.mjs` | `<repo>\packages\edit-lint\bin\edit-lint.mjs` |
 
-(a) のデスクトップアプリだけを使う利用者には `~/.akari/app` は存在しない。
+Users with only desktop app (a) have no `~/.akari/app`.
 
-node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱 Electron を
-`ELECTRON_RUN_AS_NODE=1` で node として使う、の順とする。以下の `node` はこの手順で解決した
-実行体、`<edit-lint>` は上で解決した実行体パスを表す。
+Node resolution: `AKARI_NODE_BIN` → PATH node (20+) → bundled Electron as node with
+`ELECTRON_RUN_AS_NODE=1`. Below, `node` means the resolved executable and `<edit-lint>` the resolved script path.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read matching lines only ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
+Write through relevant-line Edit or edit-store's script API.
 
-1. edit.json を保存した直後に、次を実行する。
+1. Immediately after saving edit.json, run:
 
    ```sh
    node <edit-lint> <project-root|edit.json>
    ```
 
-   edit.json 内の相対パスは、最寄りの `.akari/` を持つ祖先（無ければ edit.json のディレクトリ）を基準に解決する。`akari capture --edit` も同じ基準を使う。
+   Resolve edit.json relative paths against the nearest ancestor with `.akari/`, or edit.json's directory if none.
+   `akari capture --edit` uses the same base.
 
-2. exit code と `<project>/.akari/lint.json` を確認する。`0` は PASS、`1` は FAIL、`2` は入力や実行環境のエラーを表す。
-3. FAIL なら `findings[]` を上から読み、指摘された edit.json、参照ファイル、overlay HTML、captions.json を該当行の Edit か edit-store のスクリプト API で修正する。CLI に自動修正させない。
-4. 同じコマンドを再実行し、error finding がなく `verdict: "pass"` になるまで繰り返す。analysis.json または captions.json が無い検査は `skipped[]` で確認する。
-5. 書き出し前は、使う出口に合わせて `--engine gpu` または `--engine osr` を追加して再実行する。
-   書き出し側が出口を自動選択する場合は `--engine auto` を使い、エンジン適合性も PASS させる。
-6. PASS 後に [既存プレビューの起動・確認](preview.md) に従って対象の `edit.json` を開き、再生・シーク・音声（ある場合）を確認する。専用プレイヤーを自作しない。確認した入口と未確認項目を報告に明記する。そのうえで、カット境界と overlay の開始・終了フレームを実際に視認する。**開始・終了フレームに加えて中間時刻（各区間の 1/4・1/2・3/4）も必ず視認する** — 拍ちょうど・カット境界ちょうどのフレームは区間の境界値（0% / 100% = 画面外・opacity 0）に必ず当たるため、正常な動きを事故と誤診する（`akari capture --auto` は各オーバーレイ / 字幕区間の中点を含む代表時刻を決定論で導出する）。機械検査の PASS を意味的な品質確認の代わりにしない。
-7. `<project>/.akari/reports/edit-lint-report.html` とフレーム視認結果を編集レポートへ反映し、checkpoint 状態と provenance を実態に合わせて閉じる。
+2. Check exit code and `<project>/.akari/lint.json`: `0` PASS, `1` FAIL, `2` input/environment error.
+3. On FAIL, read `findings[]` top-down; fix indicated edit.json, referenced files, overlay HTML, captions.json
+   with relevant-line Edit or edit-store's script API. Do not let the CLI auto-fix.
+4. Rerun until no error findings and `verdict: "pass"`. Check `skipped[]` for inspections lacking analysis.json/captions.json.
+5. Before export, rerun with `--engine gpu` or `--engine osr` according to the output engine.
+   If export auto-selects, use `--engine auto`; engine compatibility must also PASS.
+6. After PASS, follow [Launch and check the existing preview](preview.md) to open target `edit.json` and verify
+   playback, seeking, and audio if present. Do not build a dedicated player. Report the checked entry point and
+   unverified items. Then visually inspect cut boundaries and overlay start/end frames.
+   **Also inspect intermediate times at 1/4, 1/2, and 3/4 of every interval**: exact beats/cut boundaries hit interval
+   extremes (0% / 100% = off-screen / opacity 0), risking misdiagnosis of normal motion.
+   `akari capture --auto` deterministically derives representative times including overlay/caption midpoints.
+   Mechanical PASS does not replace semantic quality checks.
+7. Reflect `<project>/.akari/reports/edit-lint-report.html` and frame-inspection results in the editing report;
+   close checkpoint state/provenance according to actual results.
 
-音声も確認するときだけ `--media` を追加する。無音区間と音量値は既定で warning になり、次の明示閾値を指定した検査だけが FAIL になり得る。
+Add `--media` only when checking audio too. Silence/loudness values default to warnings;
+only checks with these explicit thresholds can cause FAIL:
 
 ```sh
 node <edit-lint> <project> --media
 node <edit-lint> <project> --media --silence-error-seconds 2 --max-volume-error-db -0.1
 ```
 
-機械向けの標準出力が必要なら `node <edit-lint> <project> --json` のように `--json` を追加する。
-状態の正本は常に `.akari/lint.json` とし、HTML は可視化にだけ使う。
+For machine-readable stdout, add `--json`, e.g., `node <edit-lint> <project> --json`.
+`.akari/lint.json` is always canonical; HTML is visualization only.
 
-`.akari/intake.json`（進め方フォームの保存先。契約: `packages/schemas/intake.schema.json`）が存在すれば、schema 検証と整合検査（未知の task ID・`duration_s`/`keep_length` の同時指定・`status: submitted` なのに `submitted_at` 欠落 等）を合わせて行う。不正値は error（FAIL）、`status: "draft"`（進め方が未確定）は warning に留める。
-`decision-log.predict-missing`（warning）: 提案つき / そのままで item を入れたのに `decision-log.md` に `machine:director` の予測行が無い。
+If `.akari/intake.json` exists (workflow-form storage; contract `packages/schemas/intake.schema.json`),
+validate schema and consistency: unknown task IDs, simultaneous `duration_s`/`keep_length`,
+`status: submitted` without `submitted_at`, etc. Invalid values are errors (FAIL);
+`status: "draft"` (workflow undecided) is only a warning.
+`decision-log.predict-missing` (warning): an item added in suggestions/direct mode lacks a `machine:director`
+prediction row in `decision-log.md`.
 
-## 非スコープと拡張候補
+## Outside scope and possible extensions
 
-黒フレーム、フリーズ、ビート、シーン、フラッシュフレーム、ギャップ、重複クリップ、オフラインメディア、セーフゾーン、フレームレート不整合は将来候補であり、現在の PASS 条件へ推測で追加しない。
+Black frames, freezes, beats, scenes, flash frames, gaps, duplicate clips, offline media, safe zones,
+and frame-rate mismatches are future candidates; do not add guessed current PASS conditions.
 
-## 音楽グリッド検査（宣言があるときだけ）
+## Music-grid checks (only with declarations)
 
-`audio.bgm.path` に対応する宣言が見つかったときだけ、
-`packages/audio-library-setup/shared/beat-grid.mjs` の `musicGrid` で timeline 秒のグリッドを作り、
-`audio.sfx[].t` を照合する。宣言ファイルの解決順は `suggest-bgm` / `beat-grid`
-と同じく、`--declarations` → 環境変数 `AKARI_SOUNDS_DECLARATIONS` →
-`<ライブラリ>/declarations.json` である。
+Only when a declaration matching `audio.bgm.path` exists, build the timeline-seconds grid with
+`musicGrid` from `packages/audio-library-setup/shared/beat-grid.mjs` and compare `audio.sfx[].t`.
+Declaration resolution matches `suggest-bgm` / `beat-grid`:
+`--declarations` → environment `AKARI_SOUNDS_DECLARATIONS` → `<ライブラリ>/declarations.json`
+(existing library placeholder).
 
-- `audio.sfx.music-grid`（warning）: kind を問わず真に最寄りのグリッド点との差が ±0.12 秒を
-  超えると警告する。同距離の場合だけキメ > 小節頭 > 拍の順で優先する。拍に乗せない演出も
-  正当なので error にはしない。
-- `audio.sfx.music-grid-seam`（warning）: BGM が末尾から先頭へ戻るループ継ぎ目の ±0.3 秒以内で
-  SE が発火すると警告する。
+- `audio.sfx.music-grid` (warning): Warn if the difference from the truly nearest grid point, regardless of kind,
+  exceeds ±0.12 seconds. Only on equal distance, prioritize hit > bar start > beat.
+  Off-beat staging is valid, so this is not an error.
+- `audio.sfx.music-grid-seam` (warning): Warn for SE firing within ±0.3 seconds of a BGM end-to-start loop seam.
 
-宣言が無い、`audio.bgm` が無い、`audio.sfx` が空、または BGM の実尺を ffprobe で取得できない
-場合は検査を静かにスキップする。理由は `skipped[]` に残すが warning は出さない。宣言は任意であり、
-media からビートを自動検出する機能とは別の検査である。
+Quietly skip if declarations/`audio.bgm` are absent, `audio.sfx` is empty, or ffprobe cannot obtain actual BGM duration.
+Record reasons in `skipped[]`, without warnings. Declarations are optional; this differs from automatic media beat detection.
 
-## 公開契約
+## Public contracts
 
-edit.json の検査対象は次の公開契約が定めるフィールドである。契約に無いフィールドの検査を推測で
-足さず、契約が定めた検査（構造・id 一意性・範囲・参照整合）は既に実装済みである。
+Inspect edit.json fields defined by these public contracts. Do not infer checks for undeclared fields.
+Contracted checks (structure, unique IDs, ranges, reference consistency) are already implemented.
 
-- [edit.json v0](../../docs/contract-2026-07-13-m1-m4.md)
-- [マルチソース `sources[]` / `cuts[].src`](../../docs/contract-2026-07-18-edit-json-v1-sources.md)
-  — `version: 1` の必須形、`source` と `sources[]` の排他、`sources[].id` の一意性、`cuts[].src` の参照整合
-- [ナレーション `audio.narration[]`](../../docs/contract-2026-07-20-edit-json-v1-narration.md)
-  — id 形式と一意性、`t` の timeline 座標、`gain_db` 範囲、provenance と credit
-- [見せ場マーカー `beats[]`](../../docs/contract-2026-07-22-edit-json-v1-beats.md)
-  — id・`t`（source 秒）・`kind`・`strength`・`src` の参照整合（`src` は v1 のみ）
-- [演出宣言 `direction`](../../docs/contract-2026-07-23-edit-json-v1-direction.md)
-  — `preset` の必須と `intensity` の範囲、`overrides` の型
-- [語レベル演出 `emphasis_words[]`](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md)
-  — id 形式と一意性、`t_end > t_start`（source 秒）、`src` の参照整合（`src` は v1 のみ）
-- [字幕とカット編集](../../docs/notes-2026-07-14-captions-and-cut-editing.md)
-- [QA lint の方向性](../../docs/notes-2026-07-16-qa-lint-and-transcript-ui.md)
-- エンジンのフィールド単位の適合性は
-  [`packages/schemas/engine-capabilities.json`](../../packages/schemas/engine-capabilities.json) を正本とし、
-  `--engine gpu|osr|auto` が `ignored` / `partial` / 対応表の欠落を検査する
+- [edit.json v0](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md) (Japanese)
+- [Multi-source `sources[]` / `cuts[].src`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-18-edit-json-v1-sources.md) (Japanese)
+  — required `version: 1` form, mutual exclusion of `source`/`sources[]`, unique `sources[].id`, consistent `cuts[].src` references
+- [Narration `audio.narration[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md) (Japanese)
+  — ID form/uniqueness, `t` timeline coordinates, `gain_db` range, provenance/credit
+- [Highlight markers `beats[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md) (Japanese)
+  — id, `t` (source seconds), `kind`, `strength`, consistent `src` references (`src` is v1 only)
+- [Direction declarations `direction`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-direction.md) (Japanese)
+  — required `preset`, `intensity` range, `overrides` type
+- [Word-level direction `emphasis_words[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) (Japanese)
+  — ID form/uniqueness, `t_end > t_start` (source seconds), consistent `src` references (`src` is v1 only)
+- [Captions and cut editing](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md) (Japanese)
+- [QA lint direction](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-16-qa-lint-and-transcript-ui.md) (Japanese)
+- Canonical field-level engine compatibility:
+  [`packages/schemas/engine-capabilities.json`](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/engine-capabilities.json).
+  `--engine gpu|osr|auto` checks `ignored` / `partial` / missing compatibility-table entries.

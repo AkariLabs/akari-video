@@ -1,3 +1,7 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -7,7 +11,17 @@ import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
 import { captionPaintOnlyChange } from '../lib/common/caption-paint-only-change.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
+import { captionCommandHistory } from '../lib/browser/caption-command-history.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 const source = readCompiledSource('widget').text;
 const start = source.indexOf("                case 'caption-style-my-style':");
@@ -16,14 +30,15 @@ assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
 const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
 const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
-  'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', 'caption_paint_only_change_1',
+  'caption_command_history_1', 'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', 'caption_paint_only_change_1',
   ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
   id, textStyle: style, stylePreset, rawStyle
 });
-const location = { captionsUri: { toString: () => 'captions' }, editUri: { toString: () => 'edit' },
+const location = { captionsUri: { toString: () => 'captions', path: { base: 'captions.json' } },
+  editUri: { toString: () => 'edit', path: { base: 'edit.json' } },
   root: { toString: () => 'root' } };
 
 function rawStyle(style) {
@@ -78,7 +93,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
     ...(targets ? { targets } : {}), ...(libraryApplyKind ? { libraryApplyKind } : {}) },
-    location, captionStyleEffects, myStyleLook, {}, libraryApplyPlan, {
+    location, captionStyleEffects, myStyleLook, { captionCommandHistory }, {}, libraryApplyPlan, {
       commitCaptionStyleBatch: (styles, input, read, write) => {
         calls.push(...styles.map(entry => ({ captionId: entry.id, textStyle: entry.style })));
         return commitCaptionStyleBatch(styles, input, read, write);
@@ -169,12 +184,12 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.equal(result.history.length, 1);
   assert.equal(result.writes.length, 1);
   assert.deepEqual(Object.keys(result.writes[0]).sort(),
-    ['captionsSource', 'captionsUri', 'editUri', 'projectRootUri']);
+    ['captionsSource', 'captionsUri', 'editUri', 'expectedHashes', 'projectRootUri']);
   const rows = JSON.parse(result.writes[0].captionsSource);
   assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
   assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);
   assert.ok(rows.every(row => !('glow' in row.text_style) && !('style_preset' in row)
-    && row.text_style.animation.in.id === 'fade-up' && row.text_style.reference_height_px === 1920));
+    && row.text_style.animation.in.id === 'fade-up' && !('reference_height_px' in row.text_style)), JSON.stringify(rows));
   await result.history[0].undo();
   assert.equal(result.writes[1].captionsSource, source);
   await result.history[0].redo();
@@ -242,6 +257,22 @@ test('効果音部品は captions と edit を 1 書き込み・undo 1 回で復
   assert.equal(result.writes[1].captionsSource, source);
 });
 
+test('既定 layout の複数選択はスタイルの基準高さを運ばずに一括適用する', async () => {
+  const captions = [caption('one'), caption('two')];
+  const source = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
+    reference_width_px: 1920, reference_height_px: 1080, left_px: 261, width_px: 1120,
+    bottom_px: 29, text_align: 'center', max_lines: 1 } },
+  captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
+    text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-my-style', {
+    parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
+    captions, targets, source, source, true);
+  assert.equal(result.writes.length, 1);
+  assert.ok(JSON.parse(result.writes[0].captionsSource).captions.every(row =>
+    row.text_style.color === '#f00' && !('reference_height_px' in row.text_style)));
+});
+
 test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {
   const captions = [caption('one'), caption('two')];
   const source = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
@@ -250,7 +281,8 @@ test('既定 layout と基準高さが衝突する複数選択は RPC 前に全�
   captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
     text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
-  const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
+  const result = await invoke('caption-style-my-style', { keepSize: false,
+    parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
     captions, targets, source, source, false);
   assert.match(result.result.message, /layout.*基準高さ/);
   assert.equal(result.writes.length, 0);

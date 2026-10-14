@@ -19,13 +19,13 @@ export interface DaihonHighlightPlan {
 }
 
 export function changedWordPresetRowIds(
-    previous: ReadonlyMap<string, readonly (string | undefined)[]>,
-    next: ReadonlyMap<string, readonly (string | undefined)[]>
+    previous: ReadonlyMap<string, readonly (string | { color?: string; background?: string } | undefined)[]>,
+    next: ReadonlyMap<string, readonly (string | { color?: string; background?: string } | undefined)[]>
 ): string[] {
     return [...new Set([...previous.keys(), ...next.keys()])].filter(id => {
         const before = previous.get(id) ?? [];
         const after = next.get(id) ?? [];
-        return before.length !== after.length || before.some((preset, index) => preset !== after[index]);
+        return before.length !== after.length || before.some((preset, index) => JSON.stringify(preset) !== JSON.stringify(after[index]));
     });
 }
 

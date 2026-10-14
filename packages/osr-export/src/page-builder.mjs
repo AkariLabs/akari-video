@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { t } from "../../i18n/index.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -25,6 +26,7 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
+  captionOutlineRuntime,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
@@ -133,7 +135,8 @@ export function buildOsrPage({
     cubeText: lutCubeText,
     intensity: Number(edit?.output?.look?.intensity ?? 1),
   };
-  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts };
+  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts,
+    messages: { longGop: t("render.frameEngine.warning.longGop") } };
   if (Object.keys(captionAnimators).length) config.captionAnimators = captionAnimators;
   if (multipleBands) config.mediaPlaneSummary = mediaPlaneSummary;
   const pageHeight = height + (stampRow ? 1 : 0);
@@ -159,6 +162,7 @@ export function buildOsrPage({
   ${stampRow ? '<div id="akari-stamp" aria-hidden="true"></div>' : ""}
   <script>window.__akariEncodeStamp=${stampFunctionSource()};window.__AKARI_OSR_CONFIG__=${safeJson(config)};${multipleBands ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>${inlineScript(frameEngineBundle)}</script>
+  <script>(${captionOutlineRuntime.toString()})().install(document);</script>
   <script>${inlineScript(pageRuntime)}</script>
 </body>
 </html>

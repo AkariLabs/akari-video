@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
 import { shapeNumber, shapeOptionValue } from './shape-fields';
 import { parsePaint } from './color-model';
@@ -27,11 +28,11 @@ export function shapeLiveParams(
     const next: Record<string, unknown> = { ...params };
     if (key === 'fillMode' || key === 'strokeMode') {
         const paintKey = key === 'fillMode' ? 'fill' : 'stroke';
-        if (rawValue === 'なし') {
+        if (rawValue === t('inspector.shapeLive.label.none')) {
             next[paintKey] = 'none';
             return next;
         }
-        if (rawValue !== '色') return undefined;
+        if (rawValue !== t('inspector.shapeLive.label.color')) return undefined;
         if (paintKey === 'fill') next.fill = shape === 'bubble' ? '#ffffff' : '#a6a6a6';
         else {
             next.stroke = '#000000';

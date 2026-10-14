@@ -134,3 +134,27 @@ test('shell host delegates material/path resolution instead of maintaining a nar
     assert.ok(method.includes('resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset, overlayVars)'));
     assert.ok(!method.includes("key !== 'texture'"));
 });
+test('断片に書かれたパスは fragment、source.vars から来た画面のパスは vars として解決を頼む', async () => {
+    const calls = [];
+    const resolver = async (relativePath, field, origin) => {
+        calls.push([relativePath, origin]);
+        return `asset:${relativePath}`;
+    };
+    await resolveThreeSceneDescriptorAssets({
+        model: 'model.glb',
+        environment: { map: 'env.png' },
+        materialOverrides: {
+            ScreenMaterial: { texture: 'placeholder.png', textureVar: '--akari-screen-src' },
+            LogoMat: { texture: 'logos/mark.svg', target: 'mask' },
+            Back: { texture: 'var(--back)' },
+        },
+    }, resolver, { '--akari-screen-src': 'assets/clips/user.mp4', '--back': 'assets/back.png' });
+    assert.deepEqual(calls, [
+        ['model.glb', 'fragment'], ['env.png', 'fragment'], ['assets/clips/user.mp4', 'vars'],
+        ['logos/mark.svg', 'fragment'], ['assets/back.png', 'vars'],
+    ]);
+    calls.length = 0;
+    await resolveThreeSceneDescriptorAssets({ model: 'model.glb', materialOverrides: {
+        ScreenMaterial: { texture: 'placeholder.png', textureVar: '--akari-screen-src' } } }, resolver, {});
+    assert.deepEqual(calls, [['model.glb', 'fragment'], ['placeholder.png', 'fragment']]);
+});

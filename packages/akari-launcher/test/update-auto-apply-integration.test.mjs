@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -52,6 +57,11 @@ function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+async function copyI18n(root) {
+  // Release app.tgz is a full git archive, so i18n is a sibling of akari-launcher.
+  await cp(join(packageRoot, '..', 'i18n'), join(root, 'packages', 'i18n'), { recursive: true });
+}
+
 async function buildAppTarball({ version }) {
   const workDir = await mkdtemp(join(tmpdir(), 'akari-auto-apply-fixture-src-'));
   const prefix = 'app-fixture';
@@ -61,6 +71,7 @@ async function buildAppTarball({ version }) {
   await mkdir(join(root, 'packages', 'akari-launcher'), { recursive: true });
   await cp(join(packageRoot, 'bin'), join(root, 'packages', 'akari-launcher', 'bin'), { recursive: true });
   await cp(join(packageRoot, 'src'), join(root, 'packages', 'akari-launcher', 'src'), { recursive: true });
+  await copyI18n(root);
   const pkgRaw = await readFile(join(packageRoot, 'package.json'), 'utf8');
   const pkg = JSON.parse(pkgRaw);
   pkg.version = version;
@@ -81,6 +92,7 @@ async function seedOldApp(env, version) {
   await mkdir(join(appDir, 'packages', 'akari-launcher'), { recursive: true });
   await cp(join(packageRoot, 'bin'), join(appDir, 'packages', 'akari-launcher', 'bin'), { recursive: true });
   await cp(join(packageRoot, 'src'), join(appDir, 'packages', 'akari-launcher', 'src'), { recursive: true });
+  await copyI18n(appDir);
   const pkgRaw = await readFile(join(packageRoot, 'package.json'), 'utf8');
   const pkg = JSON.parse(pkgRaw);
   pkg.version = version;
@@ -92,7 +104,7 @@ async function seedOldApp(env, version) {
 
 function akariVersionOf(appDir, extraEnv = {}) {
   const bin = join(appDir, 'packages', 'akari-launcher', 'bin', 'akari.mjs');
-  return execFileSync(process.execPath, [bin, '--version'], { encoding: 'utf8', env: { ...process.env, ...extraEnv } });
+  return execFileSync(process.execPath, [bin, '--version'], { encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'ja', ...extraEnv } });
 }
 
 /**

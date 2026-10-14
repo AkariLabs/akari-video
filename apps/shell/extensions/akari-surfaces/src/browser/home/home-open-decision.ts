@@ -1,6 +1,7 @@
 export interface OpenDecisionInput {
     ask: boolean;
     busy: boolean;
+    reason?: string;
     hasOrigin: boolean;
     reducedMotion: boolean;
 }
@@ -8,6 +9,7 @@ export interface OpenDecisionInput {
 export type OpenChoice = 'after-work' | 'here' | 'new-window';
 
 export function decideOpenFlow(input: OpenDecisionInput): 'direct' | 'confirm' {
+    if (input.reason === 'onboarding' && !input.busy) return 'direct';
     return !input.ask && !input.busy ? 'direct' : 'confirm';
 }
 

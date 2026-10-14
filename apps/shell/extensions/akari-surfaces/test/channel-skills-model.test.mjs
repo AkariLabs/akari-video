@@ -1,8 +1,11 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import {
     validateSkillSlug, buildSkillMd, parseSkillMd, PRESET_CHANNEL_SKILLS, copiedSkillMd
 } from '../lib/browser/channel/channel-skills-model.js';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 test('呼び名は英小文字・数字・区切りのハイフンだけを受け付ける', () => {
     for (const slug of ['Write-Description', '', 'a--b']) assert.match(validateSkillSlug(slug), /呼び名は英小文字/);

@@ -2,12 +2,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { validateInspectorPerspective } from '../lib/browser/inspector/perspective-fields.js';
-import { objectKeyframeValue } from '../lib/browser/timeline/object-keyframe-value.js';
-import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
-import { setV2Keyframe, removeV2Keyframe } from '../lib/common/edit-v2-mutations.js';
-import { inspectorSource, timelineMethod, perspectiveFields, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { inspectorSource, timelineMethod, perspectiveFields, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { validateInspectorPerspective } = await import('../lib/browser/inspector/perspective-fields.js');
+const { objectKeyframeValue } = await import('../lib/browser/timeline/object-keyframe-value.js');
+const { keyframeRowPropertyOf, keyframeValueAt } = await import('../lib/browser/timeline/timeline-keyframe-rows.js');
+const { setV2Keyframe, removeV2Keyframe } = await import('../lib/common/edit-v2-mutations.js');
+
 
 const inspectorCssSource = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 
@@ -86,6 +97,8 @@ function context() {
         rawKeyframeItem() { return item(this.document); },
         hydratedKeyframes() { return this.rawKeyframeItem().keyframes ?? []; },
         segmentEasingAt() { return 'linear'; },
+        releaseTransitionBoundaryForOtherSelection() {},
+        pushSelectionSnapshot() {}, applySelectionClass() {},
         async setTimelineKeyframe(itemId, property, t, value) {
             this.document = setV2Keyframe(this.document, { itemId, property, t, value });
         },

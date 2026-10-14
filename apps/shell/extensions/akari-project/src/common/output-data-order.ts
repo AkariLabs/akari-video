@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { isEditDataFileName } from './edit-data-file';
 
 /** data の位置だけを定義順に並べ替える。他種別の位置・順序と、未知の data 同士の相対順は保つ。 */
@@ -25,5 +26,5 @@ export function dataFileIcon(name: string): string {
 }
 
 export function editVariantDataFileLabel(name: string): string | undefined {
-    return name !== 'edit.json' && isEditDataFileName(name) ? `編集データ（${name.slice(5, -5)}）` : undefined;
+    return name !== 'edit.json' && isEditDataFileName(name) ? t('project.workspace.outputs.editDataVariantLabel', { value1: name.slice(5, -5) }) : undefined;
 }

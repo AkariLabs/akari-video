@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type {
     AudioMasterWriteRequest,
     TimelineAudioMasterSnapshot
@@ -36,10 +37,10 @@ function assertMasterNumber(
 ): void {
     if (value === null) return;
     const [minimum, maximum, label] = kind === 'audio-master-loudnorm'
-        ? [-70, 0, 'ラウドネス目標'] as const
-        : [-9, 0, 'True Peak 上限'] as const;
+        ? [-70, 0, t('inspector.audioMaster.label.loudnessGoals')] as const
+        : [-9, 0, t('inspector.audioMaster.label.truePeak')] as const;
     if (!Number.isFinite(value) || value < minimum || value > maximum) {
-        throw new Error(`${label}は ${minimum}〜${maximum} の範囲で入力してください。`);
+        throw new Error(t('inspector.audioMaster.error.shouldBeEnteredRangeFrom', { label: label, minimum: minimum, maximum: maximum }));
     }
 }
 
@@ -49,11 +50,11 @@ export function updateAudioMasterDocument(
     request: AudioMasterWriteRequest
 ): Record<string, unknown> {
     if (!isPlainObject(document)) {
-        throw new Error('edit.json のトップレベルは object である必要があります。');
+        throw new Error(t('inspector.audioMaster.error.topLevelEditJsonMustBeObject'));
     }
     const rawAudio = document.audio;
     if (rawAudio !== undefined && !isPlainObject(rawAudio)) {
-        throw new Error('audio は object である必要があります。');
+        throw new Error(t('inspector.audioMaster.error.audioMustBeObject'));
     }
     const audio = { ...(isPlainObject(rawAudio) ? rawAudio : {}) };
 
@@ -68,13 +69,13 @@ export function updateAudioMasterDocument(
     }
 
     if (!isPlainObject(audio.master)) {
-        throw new Error('マスタリングがオフのため変更できません。');
+        throw new Error(t('inspector.audioMaster.error.masteringOffCannotBeChanged'));
     }
     const master = { ...audio.master };
     if (request.kind === 'audio-master-denoise') {
         if (request.value === null || request.value === 'off') delete master.denoise;
         else if (request.value === 'std' || request.value === 'strong') master.denoise = request.value;
-        else throw new Error('ノイズ除去は off/std/strong のいずれかで入力してください。');
+        else throw new Error(t('inspector.audioMaster.error.typeOffStdStRemoveNoise'));
     } else {
         assertMasterNumber(request.kind, request.value);
         const field = request.kind === 'audio-master-loudnorm' ? 'loudnorm' : 'true_peak_dbtp';

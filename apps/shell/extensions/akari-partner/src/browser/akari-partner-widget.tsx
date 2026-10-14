@@ -5,6 +5,7 @@ import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
+import { PartnerExtensionCliAligner } from './partner-extension-cli-aligner';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandRegistry, CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
@@ -42,6 +43,7 @@ import { PARTNER_LAST_KEY, markPartnerShuttingDown, rememberPartnerClose } from 
 import type { PartnerAgentId } from '../common/akari-partner-protocol';
 import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPermissionEnv,
     PartnerAppliedPermissionMode, PartnerPermissionMode } from '../common/partner-permissions';
+import { t } from '../common/partner-text';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -76,12 +78,12 @@ function terminalAgent(terminal: TerminalWidget): string | undefined {
 }
 
 function partnerTerminalLabel(name: string, count: number): string {
-    return count > 1 ? `チャット · ${name}` : 'チャット';
+    return count > 1 ? t('partner.partnerPanel.terminal.chatNamedLabel', { name }) : t('partner.partnerPanel.terminal.chatLabel');
 }
 
 function permissionModeLabel(mode: PartnerAppliedPermissionMode): string {
-    return mode === 'bypass' ? 'すべて許可で起動' : mode === 'ask' ? '毎回確認' :
-        mode === 'default' ? 'ツールの既定で起動' : '自動モードで起動';
+    return mode === 'bypass' ? t('partner.partnerPanel.permission.startAllPermissionsAction') : mode === 'ask' ? t('partner.partnerPanel.permission.askTimeAction') :
+        mode === 'default' ? t('partner.partnerPanel.permission.startToolDefaultsAction') : t('partner.partnerPanel.permission.startAutoModeAction');
 }
 
 // 最大保持メッセージ数（無制限成長を避けるための素朴なキャップ、v0）。
@@ -113,6 +115,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
     @inject(PartnerExtensionUpdater)
     protected readonly extensionUpdater!: PartnerExtensionUpdater;
+
+    @inject(PartnerExtensionCliAligner)
+    protected readonly extensionCliAligner!: PartnerExtensionCliAligner;
 
     @inject(PluginViewRegistry)
     protected readonly pluginViewRegistry!: PluginViewRegistry;
@@ -176,8 +181,23 @@ export class AkariPartnerWidget extends ReactWidget {
     protected webStarting?: Promise<void>;
     protected terminal?: TerminalWidget;
     protected channel?: PartnerChannel;
+    protected channelEntry?: PartnerCliCatalogEntry;
     get deliveryChannelAgent(): string | undefined {
-        return this.channel && this.selected?.form === 'cli' ? this.selected.agent : undefined;
+        return this.channel ? this.channelEntry?.agent : undefined;
+    }
+    get hasDeliveryChannel(): boolean {
+        return !!this.channel && !!this.terminal && !this.terminal.isDisposed &&
+            !this.terminal.exitStatus && this.terminal.terminalId >= 0;
+    }
+
+    reattachDeliveryTerminal(terminal: TerminalWidget, silent = false): boolean {
+        if (terminal.isDisposed || terminal.exitStatus || terminal.terminalId < 0 || terminal.kind !== PartnerTerminal.KIND) return false;
+        const entry = PARTNER_CATALOG.find(candidate => candidate.form === 'cli' &&
+            (terminalEntryId(terminal) === candidate.id ||
+                (!terminalEntryId(terminal) && terminalAgent(terminal) === candidate.agent))) as PartnerCliCatalogEntry | undefined;
+        if (!entry) return false;
+        this.syncTerminalState(terminal, entry, true, silent);
+        return true;
     }
     protected messages: ChatMessage[] = [];
     protected composerValue = '';
@@ -196,8 +216,8 @@ export class AkariPartnerWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariPartnerWidget.ID;
-        this.title.label = 'パートナーを追加';
-        this.title.caption = 'パートナーを追加';
+        this.title.label = t('partner.partnerPanel.onboarding.addPartnerAction');
+        this.title.caption = t('partner.partnerPanel.onboarding.addPartnerAction');
         this.title.iconClass = 'codicon codicon-add';
         this.title.closable = false;
         this.node.setAttribute('data-akari-onboarding-target', 'partner');
@@ -342,7 +362,7 @@ export class AkariPartnerWidget extends ReactWidget {
         this.connectDialog?.close();
         this.connectDialogEntryId = entry.id;
         const dialog = new AkariPartnerConnectDialog(
-            { title: `${entry.name} へ接続`, entry },
+            { title: t('partner.partnerPanel.widget.connectAction', { value1: entry.name }), entry },
             () => this.revealTerminal()
         );
         this.connectDialog = dialog;
@@ -474,17 +494,20 @@ export class AkariPartnerWidget extends ReactWidget {
         if (this.extensionsModel.isInstalled(entry.extensionId)) {
             const outcome = await this.extensionUpdater.checkAndUpdate(entry, (status, detail) => this.setProgress(entry, status, detail));
             if (outcome.kind === 'updated') {
-                this.setComplete(entry, `${entry.name} を ${outcome.installedVersion} → ${outcome.latestVersion} に更新しました`, '再読み込みで反映されます');
+                this.setComplete(entry, t('partner.partnerPanel.widget.updatedStatus', { value1: entry.name, value2: outcome.installedVersion, value3: outcome.latestVersion }), t('partner.partnerPanel.widget.reloadApplyUpdateAction'));
+                const reloadAction = t('partner.partnerPanel.widget.reloadAction');
+                const laterAction = t('partner.partnerPanel.widget.laterLabel');
                 const choice = await this.messageService.info(
-                    formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!), { timeout: 0 }, '今すぐ再読み込み', '後で');
-                if (choice === '今すぐ再読み込み') {
+                    formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!), { timeout: 0 }, reloadAction, laterAction);
+                if (choice === reloadAction) {
                     this.windowService.reload();
                     return;
                 }
-                this.setWarning(entry, '再読み込みするまで旧バージョンの拡張が動きます');
+                this.setWarning(entry, t('partner.partnerPanel.widget.previousExtensionVersionRunUntilReloadText'));
             } else if (outcome.kind === 'failed') {
-                this.setWarning(entry, `拡張の更新に失敗しました（${outcome.detail}）。現在のバージョンで開きます`);
+                this.setWarning(entry, t('partner.partnerPanel.widget.couldNotUpdateExtensionOpeningCurrentVersionError', { value1: outcome.detail }));
             }
+            await this.alignExtensionCli(entry);
             await this.openExtension(entry);
             return;
         }
@@ -517,34 +540,35 @@ export class AkariPartnerWidget extends ReactWidget {
                 return;
             }
         } catch (error) {
-            this.setFailure(entry, entry.name + ' を開けませんでした', this.errorMessage(error));
+            this.setFailure(entry, entry.name + t('partner.partnerPanel.widget.couldNotOpenedError'), this.errorMessage(error));
             return;
         }
         if (!automatic) this.shell.activateWidget(this.id);
         this.selected = entry;
         this.installCancelledNotice = '';
-        this.setProgress(entry, 'CLI を確認しています…', entry.id);
+        this.setProgress(entry, t('partner.partnerPanel.widget.checkingCliLabel'), entry.id);
         try {
             const roots = await this.workspaceService.roots;
             const cwd = roots[0]?.resource.toString();
-            if (!cwd) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
+            if (!cwd) throw new Error(t('partner.partnerPanel.widget.openProjectStartDeepseekHarnessText'));
             const ownerId = await window.electronAkariPartner.web.ownerId();
             let bootstrap = prepared ?? await this.partnerServer.bootstrap(entry.agent, cwd);
             if ('consentRequired' in bootstrap) {
                 const accepted = await new AkariPartnerInstallDialog(bootstrap.disclosure, this.windowService).open();
                 if (accepted !== true) {
-                    this.installCancelledNotice = '導入を中止しました。';
+                    this.installCancelledNotice = t('partner.partnerPanel.widget.installationCanceledStatus');
                     this.setEntryFlow(entry, { state: 'idle', status: '', detail: '', warning: '' });
                     return;
                 }
                 bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, true);
-                if ('consentRequired' in bootstrap) throw new Error('導入には同意が必要です');
+                if ('consentRequired' in bootstrap) throw new Error(t('partner.partnerPanel.widget.installationRequiresConsentText'));
             }
             this.executablePath = bootstrap.executablePath;
-            this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
+            void this.noticeCliUpdate(entry);
+            this.setProgress(entry, t('partner.partnerPanel.widget.preparingCliLabel'), bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
             const permissionMode = this.partnerPermissionMode();
-            this.setProgress(entry, '作業画面を起動しています…', `${entry.name} · ${permissionModeLabel(appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`);
+            this.setProgress(entry, t('partner.partnerPanel.widget.startingWorkspaceLabel'), `${entry.name} · ${permissionModeLabel(appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`);
             const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId, permissionMode);
             let widget: PartnerWebWidget | undefined;
             try {
@@ -555,12 +579,12 @@ export class AkariPartnerWidget extends ReactWidget {
                 if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
                 await this.showPartnerWidget(widget.id, automatic);
                 const opening = widget.open(entry.agent, launch, ownerId);
-                this.setComplete(entry, `DeepSeek Harness を開始しました · ${permissionModeLabel(launch.appliedPermissionMode ?? appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`, launch.providerNote);
+                this.setComplete(entry, t('partner.partnerPanel.widget.startedDeepseekHarnessStatus', { value1: permissionModeLabel(launch.appliedPermissionMode ?? appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode))) }), launch.providerNote);
                 await this.rememberPartnerStart(entry);
                 void opening.catch(error => {
                     if (this.webWidget === widget) this.webWidget = undefined;
-                    if (automatic) this.setAutoStartNotice(entry, '前回のパートナーを開けませんでした — 始めるで再試行');
-                    else this.setFailure(entry, entry.name + ' のセットアップに失敗しました', this.errorMessage(error));
+                    if (automatic) this.setAutoStartNotice(entry, t('partner.partnerPanel.widget.couldNotOpenPreviousPartnerUseStartRetryError'));
+                    else this.setFailure(entry, entry.name + t('partner.partnerPanel.widget.setupFailedError'), this.errorMessage(error));
                     console.error('[akari-partner] web onboarding failed:', error);
                 });
                 await Promise.all([
@@ -575,7 +599,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 throw error;
             }
         } catch (error) {
-            this.setFailure(entry, entry.name + ' のセットアップに失敗しました', this.errorMessage(error));
+            this.setFailure(entry, entry.name + t('partner.partnerPanel.widget.setupFailedError'), this.errorMessage(error));
             console.error('[akari-partner] web onboarding failed:', error);
         }
     }
@@ -584,28 +608,29 @@ export class AkariPartnerWidget extends ReactWidget {
         if (!automatic) this.shell.activateWidget(this.id);
         this.selected = entry;
         this.installCancelledNotice = '';
-        this.setProgress(entry, 'CLI を確認しています…', entry.id);
+        this.setProgress(entry, t('partner.partnerPanel.widget.checkingCliLabel'), entry.id);
         try {
             const roots = await this.workspaceService.roots;
             const cwd = roots[0]?.resource.toString();
 
-            this.setProgress(entry, 'CLI を確認しています…', '同梱ランタイムで実行中');
+            this.setProgress(entry, t('partner.partnerPanel.widget.checkingCliLabel'), t('partner.partnerPanel.widget.runningBundledRuntimeText'));
             let bootstrap = prepared ?? await this.partnerServer.bootstrap(entry.agent, cwd);
             if ('consentRequired' in bootstrap) {
                 const accepted = await new AkariPartnerInstallDialog(bootstrap.disclosure, this.windowService).open();
                 if (accepted !== true) {
-                    this.installCancelledNotice = '導入を中止しました。';
+                    this.installCancelledNotice = t('partner.partnerPanel.widget.installationCanceledStatus');
                     this.setEntryFlow(entry, { state: 'idle', status: '', detail: '', warning: '' });
                     return;
                 }
                 bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, true);
                 if ('consentRequired' in bootstrap) {
-                    throw new Error('導入には同意が必要です');
+                    throw new Error(t('partner.partnerPanel.widget.installationRequiresConsentText'));
                 }
             }
             this.executablePath = bootstrap.executablePath;
+            void this.noticeCliUpdate(entry);
             this.setProgress(entry,
-                bootstrap.reused ? 'インストール済みの CLI を検出しました' : 'CLI をダウンロード・インストールしました',
+                bootstrap.reused ? t('partner.partnerPanel.widget.foundInstalledCliText') : t('partner.partnerPanel.widget.downloadedInstalledCliText'),
                 bootstrap.executablePath
             );
             if (entry.agent === 'claude') {
@@ -615,7 +640,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 // claude branch, right before it emits the result JSON).
                 const wiringLog = bootstrap.log[bootstrap.log.length - 1];
                 if (wiringLog) {
-                    this.setProgress(entry, 'スキル配線を確認しています…', wiringLog);
+                    this.setProgress(entry, t('partner.partnerPanel.widget.checkingSkillIntegrationText'), wiringLog);
                 }
             }
             await this.ensureCliProvisioned(entry);
@@ -623,7 +648,7 @@ export class AkariPartnerWidget extends ReactWidget {
             const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath, permissionMode);
             const appliedMode = launch.appliedPermissionMode ?? appliedPartnerPermissionMode(
                 entry.agent, permissionMode, launch.args, partnerPermissionEnv(entry.agent, permissionMode));
-            this.setProgress(entry, 'パートナー PTY を起動しています…', `${permissionModeLabel(appliedMode)}${launch.permissionFallbackReason ? `（${launch.permissionFallbackReason}）` : ''} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
+            this.setProgress(entry, t('partner.partnerPanel.widget.startingPartnerPtyText'), `${permissionModeLabel(appliedMode)}${launch.permissionFallbackReason ? t('partner.partnerPanel.widget.permissionFallbackNote', { reason: launch.permissionFallbackReason }) : ''} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
                 title: partnerTerminalLabel(entry.name, this.liveTerminals.size + 1),
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
@@ -648,11 +673,11 @@ export class AkariPartnerWidget extends ReactWidget {
             await terminal.start();
             await this.shell.addWidget(terminal, { area: 'right', rank: 50 });
             await this.attachTerminal(terminal, entry, automatic);
-            this.setComplete(entry, `${entry.name} を開始しました · ${permissionModeLabel(appliedMode)}`,
-                'PTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。');
+            this.setComplete(entry, t('partner.partnerPanel.widget.startedWithTerminalStatus', { value1: entry.name, value2: permissionModeLabel(appliedMode) }),
+                t('partner.partnerPanel.widget.followPtyInstructionsSignStartWorkingAfterwardMessage'));
             await this.rememberPartnerStart(entry);
         } catch (error) {
-            this.setFailure(entry, `${entry.name} のセットアップに失敗しました`, this.errorMessage(error));
+            this.setFailure(entry, t('partner.partnerPanel.widget.couldNotSetUpError', { value1: entry.name }), this.errorMessage(error));
             console.error('[akari-partner] onboarding failed:', error);
         }
     }
@@ -664,32 +689,32 @@ export class AkariPartnerWidget extends ReactWidget {
      * 「未配備（接続は続行）」を出すだけで PTY 起動フロー自体は必ず続行する。
      */
     protected async ensureCliProvisioned(entry: PartnerCliCatalogEntry | PartnerWebCatalogEntry): Promise<void> {
-        this.setProgress(entry, 'AKARI CLI を準備しています…（約 46MB・初回のみ）', '同梱ランタイムで確認中');
+        this.setProgress(entry, t('partner.partnerPanel.widget.preparingAkariCliAbout46MbFirstTimeText'), t('partner.partnerPanel.widget.checkingBundledRuntimeText'));
         try {
             const cli = await this.partnerServer.ensureCli();
             const lastLog = cli.log[cli.log.length - 1] ?? '';
             if (cli.appVersionRelation === 'older') {
-                this.setWarning(entry, `AKARI Video の更新が必要です: CLI v${cli.version} / 本体 v${cli.appVersion} → 本体が古い。ターミナルで \`akari update\` を実行してください。`);
+                this.setWarning(entry, t('partner.partnerPanel.widget.akariVideoMustUpdatedCliVAppVAppOlderStatus', { value1: cli.version, value2: cli.appVersion }));
             } else if (cli.appVersionRelation === 'newer') {
-                this.setWarning(entry, `AKARI Video の版が一致しません: CLI v${cli.version} / 本体 v${cli.appVersion}。`);
+                this.setWarning(entry, t('partner.partnerPanel.widget.akariVideoVersionsDoNotMatchCliVAppVMessage', { value1: cli.version, value2: cli.appVersion }));
             }
             if (cli.status === 'ready') {
                 const versionStatus = cli.appVersion
-                    ? `CLI v${cli.version} / 本体 v${cli.appVersion}`
-                    : `AKARI CLI: ${cli.version ? `v${cli.version}` : 'dev'} 利用可能`;
+                    ? t('partner.partnerPanel.widget.cliVAppVText', { value1: cli.version, value2: cli.appVersion })
+                    : t('partner.partnerPanel.widget.akariCliAvailableText', { value1: cli.version ? `v${cli.version}` : 'dev' });
                 this.setProgress(entry, versionStatus, cli.shimDir ?? lastLog);
             } else {
                 const versions = cli.appVersion
-                    ? `CLI v${cli.version} / 本体 v${cli.appVersion}。`
+                    ? t('partner.partnerPanel.widget.cliVAppVMessage', { value1: cli.version, value2: cli.appVersion })
                     : '';
-                this.setWarning(entry, `AKARI CLI の配備に失敗しました: ${versions}${lastLog || '原因を取得できませんでした'}`);
-                this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', lastLog);
+                this.setWarning(entry, t('partner.partnerPanel.widget.couldNotProvisionAkariCliError', { value1: versions, value2: lastLog || t('partner.partnerPanel.widget.couldNotGetReasonError') }));
+                this.setProgress(entry, t('partner.partnerPanel.widget.akariCliNotProvisionedConnectionContinuesText'), lastLog);
             }
         } catch (error) {
             // ensureCli() 自体は fail-soft（'failed'/'skipped' を返すだけ）だが、RPC 経路自体の
             // 想定外エラー（トランスポート断等）も同じ規律で握りつぶす — 接続フローは止めない。
-            this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', this.errorMessage(error));
-            this.setWarning(entry, `AKARI CLI の配備確認に失敗しました: ${this.errorMessage(error)}`);
+            this.setProgress(entry, t('partner.partnerPanel.widget.akariCliNotProvisionedConnectionContinuesText'), this.errorMessage(error));
+            this.setWarning(entry, t('partner.partnerPanel.widget.couldNotCheckAkariCliProvisioningError', { value1: this.errorMessage(error) }));
             console.warn('[akari-partner] ensureCli failed:', error);
         }
     }
@@ -697,46 +722,53 @@ export class AkariPartnerWidget extends ReactWidget {
     protected async beginExtension(entry: PartnerExtensionCatalogEntry): Promise<void> {
         this.shell.activateWidget(this.id);
         this.selected = entry;
-        this.setProgress(entry, '拡張情報を確認しています…', entry.extensionId);
+        this.setProgress(entry, t('partner.partnerPanel.widget.checkingExtensionInformationText'), entry.extensionId);
 
         try {
             const extension = await this.extensionsModel.resolve(entry.extensionId);
             if (!extension.installed) {
-                this.setProgress(entry, '拡張をダウンロード・インストールしています…', entry.extensionId);
+                this.setProgress(entry, t('partner.partnerPanel.widget.downloadingInstallingExtensionText'), entry.extensionId);
                 await extension.install();
             }
 
             const platformKey = await this.partnerServer.getPlatformKey();
             const verification = entry.binaryVerification[platformKey];
             if (verification?.required) {
-                this.setProgress(entry, 'プラットフォーム用バイナリを検証しています…', platformKey);
+                this.setProgress(entry, t('partner.partnerPanel.widget.verifyingPlatformBinaryText'), platformKey);
                 await this.verifyPlatformBinary(entry, verification);
             }
+            await this.alignExtensionCli(entry);
             await this.openExtension(entry);
         } catch (error) {
-            this.setFailure(entry, `${entry.name} のセットアップに失敗しました`, this.errorMessage(error));
+            this.setFailure(entry, t('partner.partnerPanel.widget.couldNotSetUpError', { value1: entry.name }), this.errorMessage(error));
             console.error('[akari-partner] extension onboarding failed:', error);
         }
     }
 
+    /** 拡張に同梱の CLI が古いとき、AKARI 管理の CLI を使わせる。設定を変えたら再読み込みを勧める（開くのは待たせない）。 */
+    protected async alignExtensionCli(entry: PartnerExtensionCatalogEntry): Promise<void> {
+        const outcome = await this.extensionCliAligner.align(entry);
+        if (outcome.changed && outcome.detail) void this.extensionCliAligner.offerReload(outcome.detail);
+    }
+
     protected async openExtension(entry: PartnerExtensionCatalogEntry): Promise<void> {
         this.selected = entry;
-        this.setProgress(entry, `${entry.name} を開いています…`, entry.extensionId);
+        this.setProgress(entry, t('partner.partnerPanel.widget.openingStatus', { value1: entry.name }), entry.extensionId);
         try {
             for (let attempt = 0; attempt < 20; attempt++) {
                 for (const containerId of entry.viewContainerIds) {
                     const widget = await this.pluginViewRegistry.openViewContainer(containerId);
                     if (widget) {
-                        this.setComplete(entry, `${entry.name} を開きました`, containerId);
+                        this.setComplete(entry, t('partner.partnerPanel.widget.openedStatus', { value1: entry.name }), containerId);
                         this.shell.activateWidget(widget.id);
                         return;
                     }
                 }
                 await new Promise(resolve => setTimeout(resolve, 250));
             }
-            throw new Error(`利用可能なビューコンテナが見つかりません: ${entry.viewContainerIds.join(', ')}`);
+            throw new Error(t('partner.partnerPanel.widget.noAvailableViewContainerText', { value1: entry.viewContainerIds.join(', ') }));
         } catch (error) {
-            this.setFailure(entry, `${entry.name} を開けませんでした`, this.errorMessage(error));
+            this.setFailure(entry, t('partner.partnerPanel.widget.couldNotOpenError', { value1: entry.name }), this.errorMessage(error));
             console.error('[akari-partner] extension view open failed:', error);
         }
     }
@@ -751,7 +783,7 @@ export class AkariPartnerWidget extends ReactWidget {
             }
         }
         if (!packagePath) {
-            this.setWarning(entry, '拡張バイナリの配置先を取得できませんでした。拡張ビューの起動を続行します。');
+            this.setWarning(entry, t('partner.partnerPanel.widget.couldNotFindExtensionBinaryLocationContinuingLaunchExtensionViewError'));
             this.update();
             return;
         }
@@ -761,7 +793,7 @@ export class AkariPartnerWidget extends ReactWidget {
             platformTokens: verification.platformTokens
         });
         if (!result.found) {
-            this.setWarning(entry, `拡張のプラットフォーム用バイナリ検証: ${result.reason || '見つかりませんでした'}。拡張ビューの起動を続行します。`);
+            this.setWarning(entry, t('partner.partnerPanel.widget.platformBinaryVerificationContinuingLaunchExtensionViewMessage', { value1: result.reason || t('partner.partnerPanel.widget.notFoundLabel') }));
         }
     }
 
@@ -903,7 +935,7 @@ export class AkariPartnerWidget extends ReactWidget {
         const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
         if (web?.isRunning()) {
             this.webWidget = web;
-            this.webEntryId = PARTNER_CATALOG.find(candidate => candidate.form === 'web' && candidate.name === web.title.caption)?.id;
+            this.webEntryId = PARTNER_CATALOG.find(candidate => candidate.form === 'web' && candidate.agent === web.agentId)?.id;
             this.observeWebClose(web);
         }
         const decision = decideAutoStart({
@@ -917,7 +949,7 @@ export class AkariPartnerWidget extends ReactWidget {
         if (decision.action === 'skip') return;
         const entry = decision.entry;
         const cwd = roots[0].resource.toString();
-        this.setProgress(entry, `前回のパートナー（${entry.name}）を開いています…`, '');
+        this.setProgress(entry, t('partner.partnerPanel.widget.openingPreviousPartnerText', { value1: entry.name }), '');
         try {
             const bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, false);
             const runningWeb = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
@@ -927,17 +959,17 @@ export class AkariPartnerWidget extends ReactWidget {
                 return;
             }
             if ('consentRequired' in bootstrap) {
-                this.setAutoStartNotice(entry, `前回のパートナー（${entry.name}）は未導入です`);
+                this.setAutoStartNotice(entry, t('partner.partnerPanel.widget.previousPartnerNotInstalledText', { value1: entry.name }));
                 return;
             }
             if (entry.form === 'web') await this.beginWeb(entry, bootstrap, true);
             else if (entry.form === 'cli') await this.beginCli(entry, bootstrap, true);
             if (this.entryFlow(entry).state === 'failed') {
-                this.setAutoStartNotice(entry, '前回のパートナーを開けませんでした — 始めるで再試行');
+                this.setAutoStartNotice(entry, t('partner.partnerPanel.widget.couldNotOpenPreviousPartnerUseStartRetryError'));
                 console.warn('[akari-partner] auto-start failed:', entry.id);
             }
         } catch (error) {
-            this.setAutoStartNotice(entry, '前回のパートナーを開けませんでした — 始めるで再試行');
+            this.setAutoStartNotice(entry, t('partner.partnerPanel.widget.couldNotOpenPreviousPartnerUseStartRetryError'));
             console.warn('[akari-partner] auto-start failed:', error);
         }
     }
@@ -1096,7 +1128,12 @@ export class AkariPartnerWidget extends ReactWidget {
             if (this.terminal === terminal) {
                 this.channel?.dispose();
                 this.channel = undefined;
+                this.channelEntry = undefined;
                 this.terminal = undefined;
+                const replacement = this.terminalService.all.find(candidate => candidate !== terminal &&
+                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed &&
+                    !candidate.exitStatus && candidate.terminalId >= 0);
+                if (replacement) this.reattachDeliveryTerminal(replacement, true);
             }
             this.update();
         };
@@ -1116,7 +1153,7 @@ export class AkariPartnerWidget extends ReactWidget {
         }));
     }
 
-    protected syncTerminalState(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, restored: boolean): void {
+    protected syncTerminalState(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, restored: boolean, silent = false): void {
         this.sessionService.useTerminal(terminal);
         this.liveTerminals.set(entry.id, terminal);
         this.refreshTerminalLabels();
@@ -1125,16 +1162,17 @@ export class AkariPartnerWidget extends ReactWidget {
         if (this.channel) {
             this.channel.dispose();
         }
-        this.selected = entry;
+        if (!silent) this.selected = entry;
         this.terminal = terminal;
         this.channel = new TerminalPartnerChannel(terminal);
+        this.channelEntry = entry;
         this.toDispose.push(this.channel);
-        this.setComplete(
+        if (!silent) this.setComplete(
             entry,
-            restored ? `${entry.name} を復元しました` : `${entry.name} を開始しました`,
+            restored ? t('partner.partnerPanel.widget.restoredStatus', { value1: entry.name }) : t('partner.partnerPanel.widget.startedNamedStatus', { value1: entry.name }),
             restored
-                ? '既存の PTY セッションへ再接続しました。'
-                : 'PTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。'
+                ? t('partner.partnerPanel.widget.reconnectedExistingPtySessionMessage')
+                : t('partner.partnerPanel.widget.followPtyInstructionsSignStartWorkingAfterwardMessage')
         );
     }
 
@@ -1143,7 +1181,7 @@ export class AkariPartnerWidget extends ReactWidget {
             !terminal.isDisposed && !terminal.exitStatus);
         for (const [id, terminal] of active) {
             const entry = PARTNER_CATALOG.find(candidate => candidate.id === id);
-            terminal.title.label = partnerTerminalLabel(entry?.name ?? 'パートナー', active.length);
+            terminal.title.label = partnerTerminalLabel(entry?.name ?? t('partner.partnerPanel.widget.partnerLabel'), active.length);
         }
     }
     /**
@@ -1261,6 +1299,23 @@ export class AkariPartnerWidget extends ReactWidget {
         }
     }
 
+    /** セッション中 1 回だけ、更新のある CLI を知らせる。設定の表示と同じ判定を command 越しに借り、失敗しても何も起こさない。 */
+    protected readonly cliUpdateNoticed = new Set<string>();
+    protected async noticeCliUpdate(entry: PartnerCatalogEntry): Promise<void> {
+        if (this.cliUpdateNoticed.has(entry.agent)) return;
+        this.cliUpdateNoticed.add(entry.agent);
+        try {
+            const status = await this.commandService.executeCommand<{ installedVersion: string; latestVersion: string } | undefined>('akari.partner.cliUpdateStatus', entry.agent);
+            if (!status) return;
+            const open = t('partner.partnerPanel.cliUpdate.openSettingsAction');
+            const choice = await this.messageService.info(t('partner.partnerPanel.cliUpdate.availableText',
+                { value1: entry.name, value2: status.latestVersion, value3: status.installedVersion }), open, t('partner.partnerPanel.extensionUpdater.laterLabel'));
+            if (choice === open) await this.commandService.executeCommand('akari.settings.open', { section: 'partner' });
+        } catch (error) {
+            console.warn('[akari-partner] CLI update notice skipped:', String(error).replace(/[\r\n]+/g, ' '));
+        }
+    }
+
     protected errorMessage(error: unknown): string {
         return error instanceof Error ? error.message : String(error);
     }
@@ -1343,9 +1398,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
     protected entryActionLabel(entry: PartnerCatalogEntry): string {
         if (this.entryIsOpen(entry)) {
-            return '開く';
+            return t('partner.partnerPanel.entry.openAction');
         }
-        return entry.form === 'extension' ? 'インストールして始める' : '始める';
+        return entry.form === 'extension' ? t('partner.partnerPanel.entry.installStartAction') : t('partner.partnerPanel.entry.startAction');
     }
 
     /**
@@ -1358,11 +1413,11 @@ export class AkariPartnerWidget extends ReactWidget {
         return (
             <div style={styles.connectedContainer}>
                 <div style={styles.heroIcon}>✦</div>
-                <h2 style={styles.connectedHeading}>パートナー接続済み</h2>
+                <h2 style={styles.connectedHeading}>{t('partner.partnerPanel.status.partnerConnectedStatus')}</h2>
                 <div style={styles.statusCard} role='status' aria-live='polite' data-akari-flow-state={this.flowState}>
                     <div style={styles.statusRow}>
                         <span className='codicon codicon-pass-filled' style={{ color: 'var(--theia-successBackground)' }} />
-                        <strong>{this.selected?.name ?? ''} 接続済み</strong>
+                        <strong>{t('partner.partnerPanel.status.connectedStatus', { name: this.selected?.name ?? '' })}</strong>
                     </div>
                     <div style={styles.detail}>{this.executablePath}</div>
                 </div>
@@ -1370,7 +1425,7 @@ export class AkariPartnerWidget extends ReactWidget {
                     className='theia-button main'
                     style={styles.primaryButton}
                     onClick={() => this.terminal && this.shell.activateWidget(this.terminal.id)}
-                >ターミナルを表示</button>
+                >{t('partner.partnerPanel.status.showTerminalAction')}</button>
             </div>
         );
     }
@@ -1386,9 +1441,9 @@ export class AkariPartnerWidget extends ReactWidget {
             <div style={chatStyles.container}>
                 <div style={chatStyles.header}>
                     <span style={{ ...chatStyles.dot, background: 'var(--theia-successBackground)' }} />
-                    <strong>パートナー</strong>
+                    <strong>{t('partner.partnerPanel.widget.partnerLabel')}</strong>
                     <span style={chatStyles.headerMeta}>
-                        {this.selected?.name ?? ''} 接続済み{this.devMode ? ' · 開発者モード（生ターミナルを表示中）' : ''}
+                        {this.selected?.name ?? ''} {t('partner.partnerPanel.widget.connectedStatus')}{this.devMode ? t('partner.partnerPanel.widget.developerModeShowingRawTerminalText') : ''}
                     </span>
                 </div>
                 <div style={chatStyles.log} ref={el => { if (el) { el.scrollTop = el.scrollHeight; } }}>
@@ -1402,8 +1457,8 @@ export class AkariPartnerWidget extends ReactWidget {
                     <input
                         type='text'
                         value={this.composerValue}
-                        placeholder='パートナーに話しかける…'
-                        aria-label='パートナーに話しかける'
+                        placeholder={t('partner.partnerPanel.widget.askPartnerPlaceholder')}
+                        aria-label={t('partner.partnerPanel.widget.askPartnerAction')}
                         style={chatStyles.input}
                         onChange={event => { this.composerValue = event.target.value; this.update(); }}
                         onKeyDown={event => {
@@ -1417,9 +1472,9 @@ export class AkariPartnerWidget extends ReactWidget {
                     <button
                         className='theia-button main'
                         style={chatStyles.send}
-                        aria-label='送信'
+                        aria-label={t('partner.partnerPanel.widget.sendAction')}
                         onClick={() => this.submitComposer()}
-                    >送信</button>
+                    >{t('partner.partnerPanel.widget.sendAction')}</button>
                 </div>
             </div>
         );
@@ -1429,8 +1484,9 @@ export class AkariPartnerWidget extends ReactWidget {
         const selectedFlow = this.selected ? this.entryFlow(this.selected) : undefined;
         return (
             <div style={styles.container}>
-                <h2 style={styles.heading}>パートナーを追加</h2>
-                <p style={styles.lead}>CLI・作業画面・公式拡張を選んで、右パネルに追加します。</p>
+                <h2 style={styles.heading}>{t('partner.partnerPanel.onboarding.addPartnerAction')}</h2>
+                <p style={styles.lead}>{t('partner.partnerPanel.onboarding.chooseCliWorkspaceOfficialExtensionAddRightPanelMessage')}</p>
+
                 <div style={styles.buttonStack}>
                     {PARTNER_CATALOG.reduce<Array<{
                         agent: PartnerCatalogEntry['agent'];
@@ -1472,13 +1528,13 @@ export class AkariPartnerWidget extends ReactWidget {
                                             {entry.recommended ? <span style={styles.recommendedIconBacking}>{icon}</span> : icon}
                                             <span style={styles.buttonText}>
                                                 <span style={styles.buttonName}>{entry.name}</span>
-                                                {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
+                                                {entry.recommended && <span style={styles.recommendedBadge}>{t('partner.partnerPanel.widget.recommendedStatus')}</span>}
                                                 {entry.id === this.lastPartnerEntryId &&
-                                                    <span style={entry.recommended ? styles.lastBadgeOnMain : styles.lastBadge}>前回</span>}
+                                                    <span style={entry.recommended ? styles.lastBadgeOnMain : styles.lastBadge}>{t('partner.partnerPanel.widget.previousLabel')}</span>}
                                             </span>
                                         </span>
                                         <span style={styles.buttonAction}>
-                                            {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
+                                            {flow.state === 'working' ? t('partner.partnerPanel.widget.workingStatus') : this.entryActionLabel(entry)}
                                         </span>
                                     </button>
                                 </div>;
@@ -1497,11 +1553,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
                 {this.extensionViewLost() && <div style={styles.resumeHint} data-akari-partner-resume-hint='true'>
                     <p style={{ margin: 0 }}>
-                        セッションが切れたときは、パートナー欄で /akari と打つと今の状況から続けられます。ターミナルからは akari --continue です。
-                    </p>
+                        {t('partner.partnerPanel.widget.sessionEndsTypeAkariPartnerPanelContinueHereTerminalUseMessage').trim()}</p>
                     <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
-                        詳しい手順: docs/how-to/resume-session.ja.md
-                    </p>
+                        {t('partner.partnerPanel.widget.fullInstructionsDocsHowResumeSessionMdText').trim()}</p>
                 </div>}
 
                 {selectedFlow && selectedFlow.state !== 'idle' && <div
@@ -1523,14 +1577,13 @@ export class AkariPartnerWidget extends ReactWidget {
                         className='theia-button secondary'
                         style={styles.retryButton}
                         onClick={() => this.selected && this.begin(this.selected)}
-                    >再試行</button>}
+                    >{t('partner.partnerPanel.widget.retryAction')}</button>}
                 </div>}
 
-                <p style={styles.note}>インストール中も進捗を表示します。失敗した場合は原因をこの画面に表示します。</p>
+                <p style={styles.note}>{t('partner.partnerPanel.widget.progressShownInstallationFailsCauseAppearHereMessage')}</p>
                 <button className='theia-button quiet' style={styles.settingsLink}
                     onClick={() => void this.commandService.executeCommand('akari.settings.open', { section: 'partner' })}>
-                    <span className='codicon codicon-gear' aria-hidden='true' />パートナーの設定
-                </button>
+                    <span className='codicon codicon-gear' aria-hidden='true' />{t('partner.partnerPanel.widget.partnerSettingsLabel').trimEnd()}</button>
             </div>
         );
     }

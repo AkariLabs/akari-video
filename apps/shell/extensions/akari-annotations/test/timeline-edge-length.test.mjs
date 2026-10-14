@@ -1,16 +1,33 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import store from '@akari-video/edit-store';
-import * as lengths from '../lib/common/still-cut-length.js';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
+
+
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource, readAllSourceText } from './helpers/widget-source.mjs';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const lengths = await import('../lib/common/still-cut-length.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { pluralCountForDisplay } = await import('../lib/common/plural-display-count.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const widget = readCompiledSource('widget').text;
 const inspector = read('../lib/browser/inspector/sections/cut-sections.js');
 const source = readAllSourceText();
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 const inspectorSource = readInspectorSource();
 function between(text, start, end, offset = 0) {
     const a = text.indexOf(start, offset);
@@ -21,10 +38,11 @@ function between(text, start, end, offset = 0) {
 }
 // Execute compiled production branches without loading Theia's DOM/DI runtime.
 const previewCode = between(widget, "if (state.kind === 'cut-trim') {", "if (state.kind === 'cut-move') {", widget.indexOf('updateDragPreview(state, clientX, clientY, allowGuide)'));
-const previewFn = new Function('state', 'delta', 'showGuide', 'still_cut_length_1', previewCode);
+const previewFn = new Function('state', 'delta', 'showGuide', 'still_cut_length_1', 'plural_display_count_1', previewCode);
 const commitCode = between(widget, "case 'cut-trim': {", "case 'cut-move': {");
 const commitFn = new Function('preview', 'still_cut_length_1', 'edit_v2_mutations_1', `const MINIMUM_ITEM_DURATION = 0.15; let mutate, label, message; switch (preview.kind) { ${commitCode} } return mutate;`);
-const patchCode = between(widget, "const input = request.kind === 'cut-source-in'", "label = '素材の範囲を変更';");
+const patchCode = between(widget, "const input = request.kind === 'cut-source-in'", "label = (0, i18n_1.t)('annotations.timeline.text.changeMaterialRange');");
+assert.equal(ja['annotations.timeline.text.changeMaterialRange'], '素材の範囲を変更');
 const patchFn = new Function('request', 'cut', 'indexed', 'still_cut_length_1', `let patch; ${patchCode} return patch;`);
 const overlapCode = between(widget, 'cutWouldOverlap(index, at, duration, track) {', '/**');
 const overlap = new Function(`return ({ ${overlapCode} }).cutWouldOverlap;`)();
@@ -47,7 +65,7 @@ function fixture(path = 'frame.png', next = Infinity) {
     return { ctx, calls, cut };
 }
 function preview(ctx, delta, edge = 'right') {
-    return previewFn.call(ctx, { kind: 'cut-trim', index: 0, edge, originalIn: ctx.cuts[0].in, originalOut: ctx.cuts[0].out }, delta, false, lengths);
+    return previewFn.call(ctx, { kind: 'cut-trim', index: 0, edge, originalIn: ctx.cuts[0].in, originalOut: ctx.cuts[0].out }, delta, false, lengths, { pluralCountForDisplay });
 }
 function commit(ctx, value, freeze) {
     const doc = toV2Edit({ source: { path: 'source.mp4' }, cuts: [{ at: 1, in: 0, out: 2, ...(freeze ? { freeze } : {}) }] });
@@ -118,8 +136,8 @@ test('現状記述: freeze 付き動画を縮めても freeze は残り、at_sec
     // Existing trim omits freeze.duration_sec from duration; deliberately not repaired here.
     assert.notEqual(item.duration / 30, item.source.out + item.source.freeze.duration_sec);
 });
-const durationCode = between(inspector, "/\\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {", '...(0, transform_fields_1.cutTransitionFields)').trim().replace(/,$/, '');
-const durationField = snapshot => new Function('snapshot', 'requestWrite', 'formatDurationSeconds', `return (${durationCode});`)(snapshot, async request => request, String);
+const durationCode = between(inspector, "/\\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {", '\n            ]').trim().replace(/,$/, '');
+const durationField = snapshot => new Function('i18n_1', 'snapshot', 'requestWrite', 'formatDurationSeconds', `return (${durationCode});`)({ t }, snapshot, async request => request, String);
 test('長さ欄 → cut-source-out → duration/source.out を同時更新・手入力は 0.1 秒精度', async () => {
     const snapshot = { sourcePath: 'frame.png', index: 0, outputStart: 1, outputEnd: 3 };
     const field = durationField(snapshot);
@@ -161,7 +179,7 @@ test('動画の尺は write のない読み取り専用・音声の尺も読み�
     assert.equal(field.write, undefined);
     assert.equal(field.inputKind, undefined);
     const audio = between(inspectorSource, 'function AUDIO_SECTIONS(', 'function ');
-    assert.match(audio, /name: 'audio-duration', label: '尺', getValue:/);
+    assert.match(audio, /name: 'audio-duration', label: translate\('inspector\.audioSections\.label\.duration'\), getValue:/);
 });
 test('undo は共通 mutation の 1 手、数値欄のスクラブ途中は onPreview のみ', () => {
     assert.equal(durationField({ sourcePath: 'frame.png', outputStart: 0, outputEnd: 2 }).liveField, undefined);

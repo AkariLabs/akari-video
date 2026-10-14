@@ -1,17 +1,20 @@
-# ワールド編 — ワールドを作って地図で見る
 
-ワールドは、動画の背景・停留所・移動を一枚の地図として先に決める方法です。正本は `planning/world-map.json`。同じデータから映像のカメラと overview の地図を作るため、映像を直したのに地図だけ古い、というずれを避けられます。v0 は平面の `flat` ワールドが対象です。
 
-一つの world は同じ材質と座標のまとまりです。各 world に「読ませる一枚」である停留所を 2 件以上置きます。背景や規則が変わる所で world を分け、同じ world 内はカメラ移動でつなぎます。
+# Build a world and inspect its map
 
-素材は、世界観の束（例: Pop Motion ワールド対応版）が持つ **背景 / 飛び込み口 / モチーフ** の 3 層として選びます。背景は世界の材質、飛び込み口は境界を越える理由、モチーフは停留所で読む内容を担います。
+A world plan defines the video's backgrounds, stops, and camera travel on one map. `planning/world-map.json` is authoritative. The camera path and overview map come from that same file, so a video change cannot leave the map behind. v0 supports planar `flat` worlds.
 
-## 辺の 3 型
+A world shares one visual material and coordinate system. Give each world at least two stops with content viewers should pause to read. Start a new world when the background or governing rules change; connect stops within a world by moving the camera.
 
-`move` は同じ世界の連続移動です。`portal` は窓、扉、紙の穴などを通って別世界へ入り、世界境界の既定にします。`cut` は時間を縮めて別世界へ飛ぶ手段で、必ず霧が覆う間に切り替えます。世界をまたぐ辺には、主人公やカードなど前後に残す物を `carry` として宣言します。
+Choose assets in three layers from a coordinated world-style bundle (for example, the world-compatible Pop Motion bundle): **background, entrance, and motif**. The background establishes the world's appearance, the entrance explains a boundary crossing, and the motif supplies content at each stop.
 
-`cover` は画面が世界の切り替えを隠した時間です。expand は最初の build を通すため、portal に 0.18 秒、cut に 0.24 秒の有限な暫定値を入れます。`build` → `preview --measure` で実測した後、その値を反映するためもう一度 `build` し、`check --strict` を通します。実測値が正で、許される範囲は 0〜0.4 秒です。move は常に `cover: 0` とします。
+## Three edge types
 
-## 地図タブの見る所
+`move` travels continuously within one world. `portal` is the default world-crossing edge and enters through a visible opening, such as a window, door, or hole in paper. `cut` jumps between worlds to shorten time; always switch while mist covers the view. Declare people, cards, or other objects that remain visible across a boundary in `carry`.
 
-地図では world の面、停留所の順番、辺の種類、camera stop の時刻を読みます。最初に、各 world に入口と出口があるかを見ます。次に、同じ world 内が move、世界境界が portal または mist の cut かを見ます。最後に carry が境界の前後で必要な物だけになっているかを確かめます。地図は読み取り専用で、修正は台本または `planning/world-map.json` に戻して行います。
+`cover` is the time for which the transition hides the world switch. Expansion inserts provisional finite values of 0.18 seconds for a portal and 0.24 seconds for a cut so the first build can run. After `build` → `preview --measure`, run `build` again to apply the measured value, then pass `check --strict`. The measured value is authoritative and must be within 0–0.4 seconds. A move always uses `cover: 0`.
+
+
+## What to check on the map tab
+
+Check each world's area, stop order, edge type, and camera-stop times. Confirm an entrance and exit in every world, `move` edges within worlds, and `portal` or mist-covered `cut` edges at world boundaries. Keep only the objects needed on both sides in `carry`. The map is read-only; make corrections in the script or `planning/world-map.json`.

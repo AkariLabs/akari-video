@@ -13,6 +13,7 @@ import { readInternalEdit } from '../lib/internal-model.js';
 import { normalizeGeometry } from '../lib/migrate/index.js';
 import { writeFallbackTemplate } from '../../project-scaffold/src/index.mjs';
 import { readRenderEdit } from '../../render-cut/src/internal-render.mjs';
+import { t } from '../../i18n/index.mjs';
 
 function loadCommonModule(relativePath) {
   const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
@@ -23,6 +24,7 @@ function loadCommonModule(relativePath) {
   const context = vm.createContext({
     exports,
     require(specifier) {
+      if (specifier === '@akari-video/i18n') return { t };
       assert.equal(specifier, '@akari-video/edit-store');
       return { createEmptyEditV2 };
     },

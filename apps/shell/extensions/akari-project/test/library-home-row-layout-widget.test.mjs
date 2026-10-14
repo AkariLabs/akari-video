@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
@@ -22,7 +23,7 @@ test('ホームのカテゴリ行は4つの子の列・行を固定し、件数�
         ['category.icon', '1', '1 / span 2'],
         ['category.label', '2', '1'],
         ['category.hint', '2', '2'],
-        ["soon ? '近日' : count", '3', '1 / span 2']
+        ["soon ? t('project.library.shelf.comingSoonLabel') : count", '3', '1 / span 2']
     ];
     children.forEach((child, index) => {
         assert.ok(ts.isJsxElement(child));
@@ -45,4 +46,5 @@ test('ホームのカテゴリ行は4つの子の列・行を固定し、件数�
             assert.equal(value('fontVariantNumeric'), 'tabular-nums');
         }
     });
+    assert.equal(globalThis.t('project.library.shelf.comingSoonLabel'), '近日');
 });

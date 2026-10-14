@@ -12,6 +12,29 @@
 .akari-interaction-selection-frame[hidden] {
   display: none;
 }
+.akari-interaction-selection-frame.is-rotation3d .is-edge,
+.akari-interaction-selection-frame.is-rotation3d .is-rotate {
+  display: none;
+}
+.akari-interaction-rotation3d[data-akari-interaction] {
+  position: fixed;
+  z-index: 2147483646;
+  overflow: visible;
+  pointer-events: none;
+  touch-action: none;
+}
+.akari-interaction-rotation3d[hidden] {
+  display: none;
+}
+.akari-interaction-rotation3d-visible {
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px #111);
+}
+.akari-interaction-rotation3d-hit {
+  pointer-events: stroke;
+  cursor: grab;
+  touch-action: none;
+}
 [data-akari-ui=preview-marquee] {
   position: fixed;
   pointer-events: none;

@@ -1,6 +1,12 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendAiTranscribePanel } from '../lib/browser/inspector/ai-transcribe-panel.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { appendAiTranscribePanel } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+
 
 class Node {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.textContent = ''; }

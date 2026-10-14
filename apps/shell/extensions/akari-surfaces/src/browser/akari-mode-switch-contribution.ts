@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandContribution, CommandRegistry, DisposableCollection, MenuContribution, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
@@ -109,7 +110,7 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
         this.shell.rightPanelHandler.addBottomMenu({
             id: MENU_ID,
             iconClass: 'akari-mode-switch-icon',
-            title: autonomy ? `進め方: ${INTAKE_AUTONOMY_LABELS[autonomy]}` : '進め方を切り替える',
+            title: autonomy ? t('surfaces.modeSwitch.menuProceed.message', { autonomy: INTAKE_AUTONOMY_LABELS[autonomy] }) : t('surfaces.modeSwitch.menuSwitchMethodProceeding.label'),
             menuPath: MENU_PATH,
             order: 0
         });
@@ -207,7 +208,7 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
         try {
             const uri = await this.resolveIntakeUri();
             if (!uri || !await this.fileService.exists(uri)) {
-                void this.messages.info('進め方フォームで先に進め方を決めてください');
+                void this.messages.info(t('surfaces.modeSwitch.autonomyChooseAiProceedFirst.label'));
                 return;
             }
             const content = await this.fileService.readFile(uri);
@@ -215,7 +216,7 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
             await this.fileService.writeFile(uri, BinaryBuffer.fromString(next));
             await this.refreshMenu();
         } catch (error) {
-            void this.messages.error(`進め方を変更できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            void this.messages.error(t('surfaces.modeSwitch.autonomyChangeProceedingMethod.message', { error: error instanceof Error ? error.message : String(error) }));
         } finally {
             this.writing = false;
         }

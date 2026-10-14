@@ -52,8 +52,8 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 |---|---|---|
 | [critique-cut](../skills/critique-cut/SKILL.md) | Reads a human-assembled edit.json, observes only the source ranges actually used, and returns a read-only critique of the current cut | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | Deterministic checks of edit.json plus analysis.json / captions.json / media; frame inspection after PASS | Bundled deterministic CLI |
-| [compile-review-session](../skills/compile-review-session/SKILL.md) | Compiling recorded review sessions — transcription → reference resolution → open tickets in review.json | Three-layer STT (same as analyze-footage) |
-| [address-review](../skills/address-review/SKILL.md) | Executing open tickets by the book: fix → edit-lint → ticket update (state machine) | Bundled `bin/respond.mjs` |
+| [compile-review-session](../skills/compile-review-session/SKILL.md) | Transcribing review recordings → resolving references → open comments in review.json | Three-layer STT (same as analyze-footage) |
+| [address-review](../skills/address-review/SKILL.md) | Executing open comments by the book: fix → edit-lint → comment update (state machine) | Bundled `bin/respond.mjs` |
 
 ### Export
 

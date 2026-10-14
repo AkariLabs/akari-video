@@ -1,71 +1,70 @@
-# first-party 一括取得（AKARI Sounds・既定フロー）
+# First-party bulk acquisition (AKARI Sounds, default flow)
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-## 0. これは何か・なぜ第三者ルールと違うのか
+## 0. What this is and why third-party rules differ
 
-[AKARI Sounds](https://github.com/AkariLabs/akari-sounds) は AKARI Video と同じ運営による
-**自社（first-party）音源ライブラリ**（全トラック AI 生成・生成記録公開・商用可・クレジット不要）。
-`catalog/audio/candidates.json` の `first_party` に既定ソースとして宣言されている。
+[AKARI Sounds](https://github.com/AkariLabs/akari-sounds) is a **first-party audio library** operated by the
+same organization as AKARI Video (all tracks AI-generated; generation records public; commercial use permitted;
+no credit required). It is declared as the default source in the candidate file (`akari assets catalog --json` → `audioCandidatesPath`)'s `first_party`.
 
-SKILL.md の「エージェントによる取得はユーザーの指示で行う」「一括・並列取得はしない」は
-**第三者配布元のサーバとライセンスを守るための規律**であり、自社が配布主体の GitHub Release には
-適用しない（2026-08-03 オーナー裁定: 初回セットアップで無料音源を一括ダウンロードできるようにする）。
-ただし取得先は `AkariLabs/akari-sounds` の Release アセットと `catalog.json` だけに限る。
-**他ホストへのアクセスをこのフローに混ぜない。**
+SKILL.md's user-instruction requirement and prohibition on bulk/parallel acquisition **protect third-party servers
+and licenses**. They do not apply to the organization's own GitHub Releases (owner ruling 2026-08-03:
+allow bulk downloading free audio for first-time setup). Acquisition is limited to Release assets and `catalog.json`
+from `AkariLabs/akari-sounds`. **Do not mix access to other hosts into this flow.**
 
-## 1. いつ実行するか
+## 1. When to run
 
-- **ユーザーが一括で欲しいと言ったとき**（`akari sounds`）。BGM とジングルの既定ソースは
-  AKARI Sounds。効果音もまず AKARI Sounds を見て、無い系統（拍手・歓声 / 失敗音 /
-  和風・バトル打撃）だけ候補リスト（第三者）で補完する
-- **初回起動では聞かない**（2026-08-04 変更。旧: [Y/n] 1 問・既定 Yes → 廃止）。
-  既定は asset-resolver（`akari-assets fetch <category/id>`）による**必要な曲だけのオンデマンド取得**で、
-  初回起動は案内 1 行だけ出す。一括の入口は `akari sounds`
-- AKARI Sounds の新しい Release タグが出たとき（`--tag` を差し替えて再実行）
+- **When the user asks for bulk acquisition** (`akari sounds`). AKARI Sounds is the default BGM/jingle source.
+  Check it first for sound effects too; supplement only missing families (applause/cheering, failure sounds,
+  Japanese-style/battle impacts) through third-party candidates.
+- **Do not ask at first launch** (changed 2026-08-04; the former 1-question [Y/n], default Yes flow was abolished).
+  Default to **on-demand acquisition of only needed tracks** through asset-resolver (`akari-assets fetch <category/id>`).
+  First launch shows only 1 guidance line. Bulk entry point: `akari sounds`.
+- When a new AKARI Sounds Release tag appears (rerun with a different `--tag`).
 
-## 2. 実行する
+## 2. Run
 
 ```sh
-# ユーザー向けの入口（launcher 経由・引数はそのまま下記スクリプトへ渡る）
+# ユーザー向けの入口
 akari sounds
 akari sounds --variant wav --force
 
-# スクリプト直叩き（開発・検証時）
 # 取得内容の確認（ダウンロードなし）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs --dry-run
+akari sounds --dry-run
 
 # 一括取得（mp3・既定）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs
+akari sounds
 
 # WAV が欲しい場合（3 分割 zip・約 3GB 級。通常は mp3 で足りる）
-node packages/audio-library-setup/bin/fetch-akari-sounds.mjs --variant wav
+akari sounds --variant wav
 ```
 
-## 3. 何が起きるか
+## 3. What happens
 
-- `catalog.json` を取得 → kind ごとの 3 パック（`akari-sounds-bgm` / `akari-sounds-sfx` /
-  `akari-sounds-jingle`）に分けて Release zip をダウンロード・展開し、
-  `<ライブラリの置き場>/audio/<パックid>/` （user スコープ、drop-folder 登録と同じ置き場）へ配置する
-- 各パックに `meta.json`（schema v0・実体エントリ）+ `preview.png`（実波形。ffmpeg 必須）+
-  `.origin-catalog.json`（取得時点の catalog.json スナップショット = プロンプト原文・生成日時・
-  生成元 URL・sha256 の来歴）を書く
-- 最後に欠品チェックと `validate-asset.mjs` を全パックに実行し、欠品/検証失敗があれば
-  exit 1 で正直に報告する（「登録完了」の捏造をしない）
-- 再実行は冪等: 全ファイル取得済みなら meta.json の更新だけ行う。再取得は `--force`
+- Fetch `catalog.json` → split into 3 kind-specific packs (`akari-sounds-bgm` / `akari-sounds-sfx` /
+  `akari-sounds-jingle`) → download and extract Release zips into `<ライブラリの置き場>/audio/<パックid>/`
+  (existing library-location/pack-ID placeholders; user scope, same location as drop-folder registration).
+- Write each pack's `meta.json` (schema v0, actual-file entry), `preview.png` (real waveform; ffmpeg required), and
+  `.origin-catalog.json` (acquisition-time catalog.json snapshot containing original prompts, generation timestamps,
+  source URLs, and sha256 provenance).
+- Finally check missing files and run `validate-asset.mjs` on all packs. Missing files/validation failures honestly
+  produce exit 1, never a fabricated registration-complete claim.
+- Reruns are idempotent: if all files are acquired, only update meta.json. Use `--force` to reacquire.
 
-## 4. 利用条件（ユーザーに聞かれたら）
+## 4. Terms of use (if asked)
 
-AKARI-Sounds-Terms-v0（Release 同梱 TERMS.md が正本）: 商用可・クレジット不要・編集加工可。
-禁止は 3 点 — 単体再配布/販売・音楽配信サービス（Spotify 等）登録・Content ID 登録。
-AS-IS 無保証。AI 学習利用は明示許可が無いため安全側で `ai_training_allowed: false`。
+AKARI-Sounds-Terms-v0 (canonical source: Release-bundled TERMS.md): commercial use, editing, and processing allowed;
+no credit required. There are 3 prohibitions: standalone redistribution/sale, registration with music streaming services
+(such as Spotify), and Content ID registration. AS-IS, no warranty. Since AI training lacks explicit permission,
+conservatively set `ai_training_allowed: false`.
 
-## よくある間違い
+## Common mistakes
 
-- 第三者配布元（効果音ラボ等）をこの一括フローに混ぜる（第三者は従来どおり
-  candidate-list → drop-folder / assisted-fetch）
-- Release zip を catalog/ や本リポ配下へ展開する（実体は常に user スコープ
-  `<ライブラリの置き場>/audio/` へ。音声実体を本リポにコミットしない規律は first-party でも同じ）
-- `catalog.json` に無いファイル名を当て推量で組み立てて取得する
+- Mixing third-party distributors such as Sound Effect Lab into this bulk flow (third parties still use
+  candidate-list → drop-folder / assisted-fetch).
+- Extracting Release zips into catalog/ or this repository. Actual files always belong in user scope
+  `<ライブラリの置き場>/audio/` (existing library-location placeholder); the no-audio-commit rule applies to first-party assets too.
+- Constructing guessed filenames absent from `catalog.json` for acquisition.

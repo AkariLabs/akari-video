@@ -1,23 +1,31 @@
+import { readFileSync } from 'node:fs';
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  createInspectorAdjustWriteRequest,
-  formatInspectorAdjustValue,
-  INSPECTOR_ADJUST_BASIC_FIELDS,
-  INSPECTOR_LUT_PRESET_IDS,
-  inspectorAdjustDisplayValue,
-  inspectorAdjustInternalValue,
-  isInspectorAdjustIdentity,
-  readInspectorAdjustSnapshot,
-  updateInspectorAdjust
-} from '../lib/browser/inspector/adjust-fields.js';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
-import { IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS } from '../lib/browser/inspector/adjust-editor-model.js';
+
+
+
+
 import { readEditV2 } from '@akari-video/edit-store';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { createInspectorAdjustWriteRequest, formatInspectorAdjustValue, INSPECTOR_ADJUST_BASIC_FIELDS, INSPECTOR_LUT_PRESET_IDS, inspectorAdjustDisplayValue, inspectorAdjustInternalValue, isInspectorAdjustIdentity, readInspectorAdjustSnapshot, updateInspectorAdjust } = await import('../lib/browser/inspector/adjust-fields.js');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS } = await import('../lib/browser/inspector/adjust-editor-model.js');
+
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();
@@ -273,8 +281,9 @@ test('adjust item-field は crop と同じネスト分岐で更新し、v1 は�
   assert.match(itemFieldBranch, /patch = \{[\s\S]{0,220}adjust:/u);
   assert.match(
     timelineSource,
-    /return \{ ok: false, message: 'この項目の編集は edit\.json v2 のみ対応です。' \}/u
+    /return \{ ok: false, message: t\('annotations\.timeline\.text\.editingThisItemIsOnlySupportedByEdit'\) \}/u
   );
+  assert.equal(ja['annotations.timeline.text.editingThisItemIsOnlySupportedByEdit'], 'この項目の編集は edit.json v2 のみ対応です。');
 });
 
 test('RGB・Hue の書き込みは昇順と clamp を保証し、リセットでキーを除去する', () => {

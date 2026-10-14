@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
@@ -5,21 +6,21 @@ import { channelSheetCss } from './channel-sheet-style';
 export const HELPER_KINDS = ['default', 'design', 'words', 'skill', 'trend'] as const;
 export type HelperKind = typeof HELPER_KINDS[number];
 export const HELPER_KIND_LABELS: Record<HelperKind, string> = {
-    default: 'いつもの頼み', design: '過去の動画から design.md を書く', words: '辞書の候補を集める',
-    skill: 'よく頼むことをスキルにする', trend: 'このチャンネルの傾向は？'
+    default: t('surfaces.channel.usualRequest.label'), design: t('surfaces.channel.writeDesignMdPastVideos.label'), words: t('surfaces.channel.collectDictionaryCandidates.label'),
+    skill: t('surfaces.channel.makeAskingOftenSkill.label'), trend: t('surfaces.channel.trendsChannel.message')
 };
-export const HELPER_ROW_DESCRIPTION = '過去の動画と会話から、設計・デザイン・辞書・人とモノに足す候補を出します';
-export const HELPER_CONSENT_TEXT = 'このチャンネルのプロジェクトの会話の履歴と、分析の記録を読みます。ほかのチャンネルや、プロジェクトの外は読みません。';
-export const HELPER_NO_PARTNER_TEXT = '右の「パートナー」からパートナーを開くと、AI に整えてもらえます';
+export const HELPER_ROW_DESCRIPTION = t('surfaces.channel.pastVideosConversationsProvideSuggestionsDesignDesign.label');
+export const HELPER_CONSENT_TEXT = t('surfaces.channel.readsConversationsAnalysisNotesChannelsProjects.message');
+export const HELPER_NO_PARTNER_TEXT = t('surfaces.channel.openPartnerPartnerRightAiArrange.label');
 
 export function helperPrompt(kind: HelperKind, channelName: string): string {
-    const name = `このチャンネル「${channelName}」`;
+    const name = t('surfaces.channel.helperPromptChannel.message', { channelName: channelName });
     switch (kind) {
-        case 'default': return `${name}の動画の edit.json・書き出しのメモ・パートナーとの会話の履歴を読んで、channel.md・design.md・辞書とメモ・スキルに足す候補を 1〜3 件、理由つきで出して。勝手に書き換えないで。`;
-        case 'design': return `${name}の動画の edit.json を読んで、字幕・色・ロゴの置き方の傾向から design.md に足す一文の候補を 1〜3 件、理由つきで出して。勝手に書き換えないで。`;
-        case 'words': return `${name}の文字起こしの直しの記録とパートナーとの会話の履歴を読んで、毎回同じ直しをしている語を辞書の言い換え（ゆれ → 正しい表記）の候補として 1〜5 件出して。勝手に書き換えないで。`;
-        case 'skill': return `${name}のパートナーとの会話の履歴を読んで、何度も同じ頼み方をしているものをスキル（呼び名・いつ使うか・手順）の下書きとして 1〜2 件出して。勝手に書き換えないで。`;
-        case 'trend': return `${name}の動画の edit.json・書き出しのメモを読んで、長さ・冒頭の作り・字幕・音の傾向を 3〜5 行でまとめて。決まりごとやスキルにできそうなものがあれば挙げて。勝手に書き換えないで。`;
+        case 'default': return t('surfaces.channel.helperPromptReadEditJsonExportNotesPartnerConversations.message', { name: name });
+        case 'design': return t('surfaces.channel.helperPromptReadEditJsonSuggestOneThreeSentences.message', { name: name });
+        case 'words': return t('surfaces.channel.helperPromptReadTranscriptionCorrectionsPartnerConversationsSuggestOne.message', { name: name });
+        case 'skill': return t('surfaces.channel.helperPromptReadHistoryConversationsSPartnersDraftOne.message', { name: name });
+        case 'trend': return t('surfaces.channel.helperPromptReadEditJsonExportNotesSummarizeVideos.message', { name: name });
     }
 }
 
@@ -38,9 +39,9 @@ export function buildHelperConsent(now: string): string { return JSON.stringify(
 export function HelperConsentSheet(props: { channelName: string; onAllow: () => void; onCancel: () => void }): React.ReactElement {
     return React.createElement(HomeScrim, { kind: 'channel-helper-consent', onClose: props.onCancel, children: null },
         React.createElement('style', null, homePanelCss, channelSheetCss),
-        React.createElement('h3', null, 'AI に整えてもらう'),
+        React.createElement('h3', null, t('surfaces.channel.helperConsentSheetLetAiSortOut.label')),
         React.createElement('p', null, HELPER_CONSENT_TEXT),
         React.createElement('div', { className: 'akari-channel-sheet-actions' },
-            React.createElement('button', { type: 'button', className: 'theia-button secondary', 'data-akari-helper-cancel': '', onClick: props.onCancel }, 'やめる'),
-            React.createElement('button', { type: 'button', className: 'theia-button main', 'data-akari-helper-allow': '', onClick: props.onAllow }, '読んでいい')));
+            React.createElement('button', { type: 'button', className: 'theia-button secondary', 'data-akari-helper-cancel': '', onClick: props.onCancel }, t('surfaces.channel.helperConsentSheetStop.label')),
+            React.createElement('button', { type: 'button', className: 'theia-button main', 'data-akari-helper-allow': '', onClick: props.onAllow }, t('surfaces.channel.helperConsentSheetOkayRead.label'))));
 }

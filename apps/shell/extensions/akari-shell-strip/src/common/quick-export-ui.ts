@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import {
     formatLintFailureForUi,
     japaneseLintSummary,
@@ -11,29 +12,29 @@ export function quickExportStageLabel(
     verifyCheck?: QuickExportVerifyCheck
 ): string | undefined {
     switch (stage) {
-        case 'prepare': return '準備';
-        case 'audio-cut': return '音を切り出す';
-        case 'render': return '映像を描いて圧縮する';
-        case 'audio-mix': return '音と合わせて仕上げる';
+        case 'prepare': return t('shell.export.progress.preparingStatus');
+        case 'audio-cut': return t('shell.export.progress.extractAudioLabel');
+        case 'render': return t('shell.export.progress.renderEncodeVideoText');
+        case 'audio-mix': return t('shell.export.progress.mixAudioFinishText');
         // 88 分 4K では確認だけで約 63 分かかり、そのうち黒画面検査が約 57 分を占める
         // （不具合メモ 第22項）。「確認」の 1 語だけでは止まったように見えるので、
         // 今どの工程かを添える。
         case 'verify': return verifyCheck
-            ? `確認（${quickExportVerifyCheckLabel(verifyCheck)}）`
-            : '確認';
+            ? t('shell.export.progress.verifyCheckLabel', { value1: quickExportVerifyCheckLabel(verifyCheck) })
+            : t('shell.export.progress.verifyLabel');
         default: return undefined;
     }
 }
 
 export function quickExportVerifyCheckLabel(check: QuickExportVerifyCheck): string {
     switch (check) {
-        case 'probe': return '仕様を読む';
-        case 'video-identity': return '映像が同じか照合';
-        case 'decode': return '全編を復号';
-        case 'audio-decode': return '音声を復号';
-        case 'audio-level': return '音量を測る';
-        case 'motion': return '動きを測る';
-        case 'blank-frames': return '黒画面を探す';
+        case 'probe': return t('shell.export.progress.readSpecificationsLabel');
+        case 'video-identity': return t('shell.export.progress.compareVideoIdentityText');
+        case 'decode': return t('shell.export.progress.decodeEntireVideoText');
+        case 'audio-decode': return t('shell.export.progress.decodeAudioLabel');
+        case 'audio-level': return t('shell.export.progress.measureAudioLevelText');
+        case 'motion': return t('shell.export.progress.measureMotionLabel');
+        case 'blank-frames': return t('shell.export.progress.findBlankFramesText');
     }
 }
 
@@ -57,14 +58,14 @@ export function quickExportErrorNotification(
         return undefined;
     }
     if (status.phase === 'failed') {
-        const summary = status.failureSummary || '理由が返されませんでした。ログを確認してください';
-        return `書き出しに失敗しました: ${summary.split(/\r?\n/)[0]}`;
+        const summary = status.failureSummary || t('shell.export.progress.noReasonReturnedCheckLogMessage');
+        return t('shell.export.progress.exportFailedWithReasonError', { value1: summary.split(/\r?\n/)[0] });
     }
     if (status.phase === 'lint-failed') {
         const findings = status.lintFindings ?? [];
         const errors = lintErrorDetails(findings);
         if (japaneseLintSummary(errors, findings as readonly UiLintFinding[])) {
-            const prefix = '書き出しに失敗しました';
+            const prefix = t('shell.export.progress.exportFailedError');
             const formatted = formatLintFailureForUi(
                 prefix,
                 errors,
@@ -74,9 +75,9 @@ export function quickExportErrorNotification(
         }
         const counts = lintFindingCounts(status);
         const reportHint = status.reportPath
-            ? 'lint レポートを開いて確認できます。'
-            : 'ログを確認してください。';
-        return `lint NG（${counts}）のため書き出しを中断しました。${reportHint}`;
+            ? t('shell.export.progress.openLintReportReviewMessage')
+            : t('shell.export.progress.checkLogAction');
+        return t('shell.export.progress.exportStoppedBecauseLintFoundIssuesStatus', { value1: counts, value2: reportHint });
     }
     return undefined;
 }
@@ -93,16 +94,16 @@ function lintErrorDetails(findings: readonly QuickExportLintFinding[]): string[]
 function lintFindingCounts(status: QuickExportStatus): string {
     const severityCounts: string[] = [];
     if (status.lintErrorCount !== undefined) {
-        severityCounts.push(`エラー ${status.lintErrorCount} 件`);
+        severityCounts.push(t('shell.export.progress.errorsLabel', { value1: status.lintErrorCount }));
     }
     if (status.lintWarningCount !== undefined) {
-        severityCounts.push(`警告 ${status.lintWarningCount} 件`);
+        severityCounts.push(t('shell.export.progress.warningsLabel', { value1: status.lintWarningCount }));
     }
     if (severityCounts.length > 0) {
-        return severityCounts.join('・');
+        return severityCounts.join(t('shell.export.progress.separator'));
     }
     if (status.lintIssueCount !== undefined) {
-        return `lint ${status.lintIssueCount} 件`;
+        return t('shell.export.progress.lintIssuesLabel', { value1: status.lintIssueCount, n: status.lintIssueCount });
     }
-    return '件数不明';
+    return t('shell.export.progress.unknownCountLabel');
 }

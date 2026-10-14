@@ -1,38 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 
 // update-feed.test.mjs と同じ流儀（`src/common/` 同居 — task.md 所有パス境界のため
 // `test/` へは置けない）。`npm run build:ext`（tsc -b）で隣の shell-update-applier.ts を
 // コンパイルした後、`node --test` が拾って直接実行できる。
 import { fileURLToPath } from 'node:url';
 import { generateAppUpdateYml } from '../../../../../../scripts/release/gen-app-update-yml.mjs';
-import {
-    applyImmediateUpdaterFallback,
-    applyShellUpdaterEvent,
-    beginUserInitiatedUpdaterCheck,
-    buildFallbackAppUpdateYml,
-    checkForShellUpdatesOnHomeShow,
-    formatDownloadedBannerText,
-    formatDownloadingBannerText,
-    formatUpdaterFallbackText,
-    FALLBACK_APP_UPDATE_YML_FILENAME,
-    FALLBACK_FEED_OPTIONS,
-    FALLBACK_UPDATER_CACHE_DIR_NAME,
-    INITIAL_SHELL_UPDATER_UI_STATE,
-    isAppTranslocationPath,
-    reconcileVisibleUpdateEvent,
-    resolveManualUpdaterCheckEvent,
-    resolveAllowPrerelease,
-    resolveShellUpdaterErrorReason,
-    resolveUpdaterCheckChannel,
-    resolveUpdaterFeedChannel,
-    resolveUpdateButtonAction,
-    resolveUpdateChannel,
-    resolveUpdateUiEnabled,
-    shouldApplyFeedUrlFallback,
-    shouldOpenUpdaterBrowserFallback
-} from '../../lib/common/shell-update-applier.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { applyImmediateUpdaterFallback, applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck, buildFallbackAppUpdateYml, checkForShellUpdatesOnHomeShow, formatDownloadedBannerText, formatDownloadingBannerText, formatUpdaterFallbackText, FALLBACK_APP_UPDATE_YML_FILENAME, FALLBACK_FEED_OPTIONS, FALLBACK_UPDATER_CACHE_DIR_NAME, INITIAL_SHELL_UPDATER_UI_STATE, isAppTranslocationPath, reconcileVisibleUpdateEvent, resolveManualUpdaterCheckEvent, resolveAllowPrerelease, resolveShellUpdaterErrorReason, resolveUpdaterCheckChannel, resolveUpdaterFeedChannel, resolveUpdateButtonAction, resolveUpdateChannel, resolveUpdateUiEnabled, shouldApplyFeedUrlFallback, shouldOpenUpdaterBrowserFallback } = await import("../../lib/common/shell-update-applier.js");
+
 
 test('更新 UI はパッケージ版と明示フィード付き開発版で有効になる', () => {
     assert.equal(resolveUpdateUiEnabled({ isPackaged: true, feedUrlOverridden: false, testFeedUrlSet: false }), true);

@@ -1,107 +1,100 @@
-# イベント判定とフック採点
+# Evaluate events and score hooks
 
-## 原則
+## Principles
 
-event は「検出できそうな箇所」ではなく、後工程がカット・章立て・冒頭構成を判断するための証拠である。時刻は source 秒、区間 event は `end > start` とする。不確かな候補は無理に追加せず、空配列を許容する。
+An event is evidence for later decisions about cuts, chapters, or the opening, not merely a point that an automated detector might find. Record times in source seconds. Every interval event must satisfy `end > start`. Leave uncertain candidates out; an empty array is valid.
 
-## 5 種 event の判定
+## Identify the five event types
 
-| type | 記録する条件 | 境界の決め方 | 記録しない例 |
+| Type | Record when | Set boundaries using | Do not record for |
 |---|---|---|---|
-| `filler` | 言いよどみ、意味を足さない反復、言い直しなど、除去しても発話意図を保てる区間 | transcript の実発話境界と音声を根拠に `start` / `end` | 意味のある間、強調の反復、文字起こし誤りだけを根拠にした推測 |
-| `trouble` | 音声途切れ、映像停止、操作失敗、収録ミス、明示された撮り直しなど | 問題が始まり正常へ戻る source 区間 | 無音や transcript gap だけで断定した障害、単なる話題の難しさ |
-| `chapter` | 話題、目的、手順、画面状態が新しいまとまりへ切り替わる地点 | 切り替わりを最もよく表す source 時刻 `t` | 一文ごとの細分化、見た目だけの瞬間的なカット |
-| `highlight` | 決定事項、結論、数値・実績、強い主張、引用性の高い一言など、編集判断の根拠になる重要発言 | 該当発言を含む transcript segment の実発話境界に合わせた `start` / `end` | 話題の要約でしかない区間、発言の裏付けがない画面上の変化、単に長い説明 |
-| `hook` | 単独で提示でき、視聴継続の理由になる短い区間 | 理解に必要な最小の開始から、価値またはオチが成立する終了まで | 文脈依存が強い断片、誇張しないと成立しない場面 |
+| `filler` | A hesitation, repetition that adds no meaning, or restart can be removed without changing the speaker's intent. | The actual speech boundaries in the transcript, checked against the audio; record `start` / `end`. | A meaningful pause, emphatic repetition, or a guess based only on an ASR error. |
+| `trouble` | Audio drops out, video freezes, an operation fails, recording goes wrong, or a retake is explicitly requested. | The source interval from the start of the problem until normal recording resumes. | Silence or a transcript gap alone, or a difficult topic without a recording problem. |
+| `chapter` | The topic, goal, procedure, or screen state changes to a new coherent section. | The source time `t` that best represents the transition. | Dividing every sentence or marking a fleeting visual cut with no substantive change. |
+| `highlight` | An important statement, such as a decision, conclusion, result, number, strong claim, or quotable line, provides evidence for an editorial choice. | The actual `start` / `end` of the transcript segment containing that statement. | A mere topic summary, a screen change that does not support the statement, or a long explanation with no key point. |
+| `hook` | A short segment can stand alone and gives viewers a reason to keep watching. | The shortest opening needed for comprehension through the point where its value or payoff is clear. | A fragment that depends heavily on context or works only if exaggerated. |
 
-`trouble.note` は「何が起きたか」と根拠を具体的に書く。`chapter.title` は transcript の内容に沿った短い名詞句または行動句にし、存在しない発言を引用しない。`filler` と `hook` に Schema 外の `note` を足さない。
+In `trouble.note`, explain what happened and cite the evidence. Make `chapter.title` a short noun or action phrase grounded in the transcript; never attribute words the speaker did not say. Do not add a `note` field outside the schema to `filler` or `hook`.
 
-文字起こし backend によってフィラーが正規化で脱落する場合がある。フィラーを保持する backend の transcript がある場合はそちらを優先し、脱落しやすい backend の結果だけなら再現率の限界を完了報告に明記する。
+Some transcription backends normalize away fillers. Prefer a backend transcript that retains them when available. If only transcripts likely to omit them are available, state the resulting recall limit in the completion report.
 
-## highlight（重要発言）の判定
+## Identify highlights: important statements
 
-契約根拠: [M5 契約の追記（2026-07-14）](../../docs/contract-2026-07-13-m5-analysis-report.md)。hook がショート切り出し向けの「見せ場」であるのに対し、highlight は**編集判断全般の根拠になる重要発言**の汎用枠である。同一区間が両方に該当する場合は両方登録してよい（目的が異なる）。
+This section follows the [M5 contract addendum (2026-07-14)](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m5-analysis-report.md). A hook supports a short opening or excerpt; a highlight captures an important statement useful to broader editorial decisions. The same interval may be both when it serves both purposes.
 
-- `quote` は transcript の**実発言に忠実**に書く。要約・言い換え・創作をしない。整形は句読点の補いまでとする
-- `reason` は「なぜ重要か」を根拠カテゴリ付きで書く（例: 「リリース日を明言（決定事項）」「導入効果を数値で提示（数値・実績）」）
-- `importance`（任意、1〜5 整数）: 3 = 編集で残す根拠になる / 4 = テロップ・チャプター見出し候補になる / 5 = サムネ文言・ショートの核になり得る。1〜2 は登録しない方がよい（インフレ防止）
-- 件数の目安: 60 分級の素材で 5〜15 件（**要検証の運用初期値**）。全発言の書き写しにしない
-- transcript が空の素材では作らない（`quote` 必須のため）。視覚のみの重要場面は `chapter` / `hook` で扱う
-- 確定した highlight の時刻は transcript 駆動キーフレーム抽出の入力になる（[keyframes-and-review.md](keyframes-and-review.md) 参照）
+- Write `quote` **faithfully to the actual transcript**. Do not summarize, paraphrase, or invent words. Formatting is limited to adding punctuation.
+- In `reason`, explain why the statement matters and name the evidence category, such as "states a release date (decision)" or "quantifies an implementation result (number/result)."
+- `importance` is optional and takes an integer from 1 to 5: 3 means a reason to keep the statement in the edit; 4 means a possible on-screen title or chapter heading; 5 means a possible centerpiece for a thumbnail or short clip. Avoid registering 1–2, which would inflate the list.
+- As an initial, unverified guideline, a roughly 60-minute source should yield about 5–15 highlights. Do not copy every statement into the list.
+- Do not create a highlight when the transcript is empty, because `quote` is required. Use `chapter` or `hook` for important visual-only moments.
+- Confirmed highlight times feed transcript-driven keyframe extraction; see [keyframes-and-review.md](keyframes-and-review.md).
 
-## hook の 5 軸評価表
+## Score hooks on five axes
 
-### 採点する窓だけ帳面に残す
+### Record only windows that were scored
 
-L2 でも全尺・全窓を採点しない。依頼された候補、後続スキルが要求した候補、または transcript / 視認所見から短い候補として選んだ窓だけを評価し、採点した窓だけ `hook` event として帳面へ残す。採点しなかった窓は 0 点ではなく未評価である。
+Even at L2, do not score the entire source or every possible window. Evaluate only windows requested by the user or a later skill, or short candidates selected from the transcript and viewed imagery. Record only scored windows as `hook` events. An unscored window is unassessed, not a zero.
 
-順序は次を守る。
+Follow this order:
 
-1. 下流の再生数・維持率などの実測を見る前に、対象窓、5 軸の予測値、採用理由を固定する。
-2. 固定した窓だけを下のルーブリックで 5 軸採点し、帳面へ記録する。
-3. 実測が後から得られた場合は予測とは別に比較し、結果に合わせて元の予測点を遡及改変しない。
+1. Before viewing downstream measurements such as views or retention, fix the candidate window, predicted scores on all five axes, and reason for selecting it.
+2. Score only those fixed windows against the rubric below and record the scores in the ledger.
+3. If measurements arrive later, compare them with the predictions separately. Do not revise the original predicted scores retroactively to fit the outcomes.
 
-つまり **予測を先に固定してから実測**する。実測が無い素材でも予測採点は成立するが、実測済みであるかのように説明しない。
+**Fix the prediction before measuring the outcome.** You may predict scores without measured performance, but never describe predictions as measured results.
 
-1〜5 は `analysis.json` v0 が要求する整数尺度である。以下のアンカーは運用初期ルーブリックであり、プラットフォーム公式指標ではないため **要検証**。2 と 4 も含め、最も近い記述を 1 つ選ぶ。
+`analysis.json` v0 requires integer scores from 1 to 5. The anchors below are initial working guidance, **not official platform metrics**, and require validation. Choose the nearest description, including scores 2 and 4.
 
-| 軸 | 1 | 2 | 3 | 4 | 5 |
+| Axis | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|
-| `hook` フック強度 | 導入だけで関心の入口がない | 軽い関心はあるが続きを促す問いが弱い | 問題、問い、意外性のいずれかが明確 | 結果、対立、強い便益を早く提示する | 一瞬で理解できる驚きや高い賭け金があり、続きが不可欠 |
-| `self_contained` 自己完結性 | 前後文脈なしでは意味不明 | 指示語や前提が多く補足が必要 | 短い前置きがあれば要点を理解できる | ほぼ単独で状況と価値が伝わる | 単独で状況・主張・到達点が明瞭 |
-| `emotion` 感情強度 | 感情変化が確認できない | 小さな反応だけがある | 喜び、驚き、焦り等が明確 | 強い自然な反応が区間を牽引する | 素材中の感情ピークで、映像・声・内容が一致する |
-| `density` 価値密度 | 待ちや重複が大半 | 有用部分より前置きが長い | 全体を通して一定の情報または変化がある | ほぼ各瞬間が理解や期待を進める | 無駄がなく高密度だが、理解可能性も保つ |
-| `punch` オチ・決め | 到達点がない | 弱い結論だけがある | 明確な結論、結果、学びがある | 記憶に残る結果または言い切りがある | 鮮明な反転、実証、決め台詞で再視聴価値がある |
+| `hook` — strength | An introduction with no point of interest | Some interest, but little reason to continue | A problem, question, or surprise is clear | A result, conflict, or strong benefit appears quickly | An instantly understandable surprise or high stakes makes continuation compelling |
+| `self_contained` — independence | Incomprehensible without surrounding context | References and assumptions need substantial explanation | A short introduction makes the point understandable | Situation and value are almost clear on their own | Situation, claim, and destination are clear without context |
+| `emotion` — emotional intensity | No observable emotional change | Only a small reaction | Clear joy, surprise, urgency, or similar emotion | A strong, natural reaction drives the interval | Image, voice, and content converge at the source's emotional peak |
+| `density` — value density | Mostly waiting or repetition | The preamble is longer than the useful part | Information or change continues throughout | Nearly every moment advances understanding or anticipation | Dense and economical while remaining comprehensible |
+| `punch` — payoff | No destination | Only a weak conclusion | A clear conclusion, result, or lesson | A memorable result or decisive statement | A vivid reversal, demonstration, or closing line rewards rewatching |
 
-声量だけで emotion を上げず、情報量だけで density を上げない。各軸を独立して採点する。
+Volume alone does not raise `emotion`, and information quantity alone does not raise `density`. Score each axis independently.
 
-## 候補登録の初期閾値
+## Initial threshold for registering candidates
 
-v0 契約は採用閾値を運用調整対象としている。このスキルでは初期選別として次を同時に満たす区間を hook 候補へ登録する。
+The v0 contract treats adoption thresholds as adjustable operating values. Initially, register an interval as a hook candidate only when it satisfies all three conditions:
 
 - `hook >= 3`
 - `self_contained >= 3`
-- 5 軸合計 `>= 16 / 25`
+- Five-axis total `>= 16 / 25`
 
-この数値はプラットフォーム公式値ではなく **要検証の運用初期値** である。素材ジャンルや配信先に合わせて変更した場合は、元の値、変更後の値、理由を報告する。閾値未満でも人間へ提示すべき強い根拠がある場合は、黙って基準を曲げず、例外採用したことを報告する。
+These are **unvalidated starting thresholds**, not official platform success criteria. If the source genre or distribution channel warrants changing one, report the original value, new value, and reason. If a below-threshold interval still merits human review, keep the threshold intact and report that the candidate is an exception.
 
-候補同士は合計点で比較し、同点なら `hook`、`self_contained`、`density` の順で比較する。この順位規則も要検証の運用ルールであり、絶対的な品質評価ではない。
+Rank candidates by total score; break ties using `hook`, then `self_contained`, then `density`. This ranking rule also requires validation and is not an absolute measure of quality.
 
-尺度の契約根拠: [M5 analysis.json v0 契約](../../docs/contract-2026-07-13-m5-analysis-report.md)
+The scale comes from the [M5 analysis.json v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m5-analysis-report.md).
 
-## 見せ場抽出の供給責務
+## Supply evidence for highlight extraction
 
-ここで作る event（`hook` / `chapter` / `highlight`）と hook の 5 軸スコアは、後工程
-（[edit-plan の beats.md](../edit-plan/beats.md)）が `edit.json` の見せ場マーカー `beats[]`
-（[データ契約](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）を導出するときの**供給源**である。
-抽出手順そのものは上の節から変えないが、供給側の品質条件として次の 2 点を満たす。
+Later work in [edit-plan's beats.md](../edit-plan/beats.md) derives highlight markers in `edit.json` `beats[]` from the `hook`, `chapter`, and `highlight` events and hook scores recorded here; see the [data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md). Keep the extraction method above and meet these two additional quality conditions:
 
-- **score の無い highlight を出さない**。`importance` を省いた highlight は後工程で強度を
-  決められず、既定値へ丸められる。編集判断の根拠として登録する以上、1〜5 のどれに当たるかを
-  判断して書く（判断できないほど弱い候補は、そもそも登録しない）。
-- **event の `t` は必ず source 秒**。区間 event の `start` / `end` も同じく未カット素材の
-  source 秒である。beats は source 秒アンカーで永続化されるため、ここに timeline 秒が
-  混ざると後工程では検出できない誤りになる。
+- **Do not emit an unscored highlight.** If `importance` is absent, later stages cannot determine its strength and will use a default. When a statement is important enough to guide an edit, assign an integer from 1 to 5; omit candidates too weak to assess.
+- **Use source seconds for event time.** The event's `t` and any interval `start` / `end` refer to the uncut source. Beat markers persist source-time anchors, so mixing in timeline seconds creates errors later stages cannot detect.
 
-## event 整合性
+## Event consistency
 
-- event を source 時刻順に並べる。同時刻では `trouble`、`filler`、`chapter`、`highlight`、`hook` の順に固定してよい。
-- filler と trouble の同一区間を重複登録しない。主因に合う一方を選ぶ。
-- highlight と hook の重複は許す（目的が異なる）。highlight と filler の重複は矛盾なので登録前に見直す。
-- hook が trouble と重なる場合は、トラブル自体が価値ある内容でない限り候補から外す。
-- chapter は素材冒頭にも置けるが、機械的に必須にはしない。
-- transcript が空の場合、発話に依存する filler と highlight は作らない。視覚的に確認できる trouble、chapter、hook だけを根拠付きで判定する。
+- Sort events by source time. For equal times, the order may be `trouble`, `filler`, `chapter`, `highlight`, then `hook`.
+- Do not register the same interval as both filler and trouble; choose the primary cause.
+- A highlight may overlap a hook because they serve different purposes. Review any overlap between highlight and filler before registering it.
+- Remove a hook that overlaps trouble unless the trouble itself is valuable content.
+- A chapter may start at the beginning of the source, but that is not mandatory.
+- With an empty transcript, do not create speech-dependent fillers or highlights. Assess only visually verifiable trouble, chapters, and hooks, with evidence.
 
-## よくある間違い
+## Common mistakes
 
-- 口癖を一律に filler とし、話者らしさや意味まで削る。
-- ASR の空白を音声トラブルと断定する。
-- chapter を一定時間ごとに機械生成する。
-- hook の総合印象を 5 軸すべてへ同じ点で写す。
-- 全尺を固定窓へ機械分割し、依頼と関係なく全窓を採点する。
-- 実測を見た後で、当たっていたように予測点を書き換える。
-- 低い自己完結性を強い感情だけで相殺する。
-- 採用閾値をプラットフォーム公式の成功基準として説明する。
-- highlight の `quote` に要約や言い換えを書く（実発言に忠実でなければ引用ではない）。
-- 話題ごとに機械的に highlight を置き、importance 1〜2 の羅列でインフレさせる。
-- hook 相当の派手さがないという理由で、決定事項・数値発言を highlight に登録しない。
+- Removing a speaker's characteristic phrasing or meaning by labeling every habitual expression a filler.
+- Treating a blank ASR result as proof of an audio failure.
+- Generating chapters at fixed intervals.
+- Giving all five hook axes the same score based on an overall impression.
+- Dividing the full source into fixed windows and scoring them all regardless of the request.
+- Rewriting predicted scores after seeing measured results.
+- Assuming strong emotion can compensate for a hook that makes little sense alone.
+- Describing working thresholds as official platform success criteria.
+- Summarizing or paraphrasing a highlight in `quote` instead of preserving the actual statement.
+- Inflating highlights by automatically registering every topic with importance 1 or 2.
+- Omitting decisions and numerical statements as highlights because they are less flashy than hooks.

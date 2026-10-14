@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { EXPORT_SHARE_TARGETS } from '../../common/export-share';
 import { resolveOutputResolution } from '../../common/export-settings';
@@ -25,7 +26,7 @@ export function ExportDoneView(props: {
         h264: { video: 'H.264', audio: 'AAC', color: 'Rec.709' },
         hevc: { video: 'H.265', audio: 'AAC', color: 'Rec.709' },
         prores422: { video: 'ProRes 422 HQ', audio: 'PCM', color: '10-bit · Rec.709' },
-        png: { video: 'PNG 連番', audio: 'WAV', color: 'Rec.709' }
+        png: { video: t('shell.exportDialog.completion.pngSequenceLabel'), audio: 'WAV', color: 'Rec.709' }
     };
     const labels = format[snapshot.settings.codec];
     const directoryArtifact = snapshot.settings.codec === 'png';
@@ -53,55 +54,55 @@ export function ExportDoneView(props: {
         <>
             <div className='pb'>
                 <div className='left'>
-                    <div className='sec'><span>できた動画</span><span className='r'>確認済み</span></div>
+                    <div className='sec'><span>{t('shell.exportDialog.completion.finishedVideoStatus')}</span><span className='r'>{t('shell.exportDialog.completion.verifiedStatus')}</span></div>
                     <ExportFrame video={snapshot.video} />
                     <VideoFacts video={snapshot.video} />
-                    <p className='fine'>{directoryArtifact ? 'フォルダを開く' : '動画を開く'}か、Finder で保存先を確認できます。</p>
+                    <p className='fine'>{directoryArtifact ? t('shell.exportDialog.completion.openFolderAction') : t('shell.exportDialog.completion.openVideoAction')}{t('shell.exportDialog.completion.checkSaveLocationFinderMessage')}</p>
                 </div>
                 <div className='rwrap'>
                     <div className='right'>
-                        <div className='sec'><span>できました</span><span className='r'>{formatClock(status.progressElapsedMs)}</span></div>
+                        <div className='sec'><span>{t('shell.exportDialog.completion.doneLabel')}</span><span className='r'>{formatClock(status.progressElapsedMs)}</span></div>
                         <div className='result'>
-                            <div className='fnm'>{status.artifactPath ?? snapshot.outputName}<span className='pill good'>✓ 確認済み</span></div>
+                            <div className='fnm'>{status.artifactPath ?? snapshot.outputName}<span className='pill good'>{t('shell.exportDialog.completion.verifiedBadge')}</span></div>
                             <div className='facts'>
-                                <div><small>容量</small><b>{formatBytes(status.artifactSize)}</b></div>
-                                <div><small>長さ</small><b>{formatDuration(snapshot.video.durationSeconds, true)}</b></div>
-                                <div><small>画角</small><b>{ratioLabel(snapshot.video)} · {outputResolution.width}×{outputResolution.height}</b></div>
+                                <div><small>{t('shell.exportDialog.completion.sizeLabel')}</small><b>{formatBytes(status.artifactSize)}</b></div>
+                                <div><small>{t('shell.exportDialog.completion.durationLabel')}</small><b>{formatDuration(snapshot.video.durationSeconds, true)}</b></div>
+                                <div><small>{t('shell.exportDialog.completion.orientationLabel')}</small><b>{ratioLabel(snapshot.video)} · {outputResolution.width}×{outputResolution.height}</b></div>
                                 <div><small>fps</small><b>{snapshot.settings.fps ?? snapshot.video.fps ?? '—'}</b></div>
-                                <div><small>映像 / 音声</small><b>{labels.video} / {labels.audio}</b></div>
+                                <div><small>{t('shell.exportDialog.completion.videoAudioLabel')}</small><b>{labels.video} / {labels.audio}</b></div>
                             </div>
-                            <div className='checks'><span>成果物の存在と容量を確認</span><span>編集の画角・fps と一致</span><span>{labels.video} / {labels.audio} · {labels.color}</span></div>
+                            <div className='checks'><span>{t('shell.exportDialog.completion.checkOutputPresenceSizeText')}</span><span>{t('shell.exportDialog.completion.matchesEditOrientationAndFpsNote')}</span><span>{labels.video} / {labels.audio} · {labels.color}</span></div>
                         </div>
                         <div className='acts'>
-                            <button type='button' className='btn primary' disabled={!status.artifactPath} onClick={() => openAndClose(status.artifactPath)}>{directoryArtifact ? 'フォルダを開く' : '動画を開く'}</button>
-                            <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void session.revealArtifact()}>Finder で表示</button>
-                            {status.reportPath && <button type='button' className='btn ghost' onClick={() => openAndClose(status.reportPath)}>レポートを開く</button>}
+                            <button type='button' className='btn primary' disabled={!status.artifactPath} onClick={() => openAndClose(status.artifactPath)}>{directoryArtifact ? t('shell.exportDialog.completion.openFolderAction') : t('shell.exportDialog.completion.openVideoAction')}</button>
+                            <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void session.revealArtifact()}>{t('shell.exportDialog.completion.showFinderAction')}</button>
+                            {status.reportPath && <button type='button' className='btn ghost' onClick={() => openAndClose(status.reportPath)}>{t('shell.exportDialog.completion.openReportAction')}</button>}
                         </div>
                         <div className='acts' style={{ alignItems: 'center' }}>
-                            <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void copyArtifact()}>{copied ? 'コピーしました' : 'コピー'}</button>
-                            <span style={{ fontSize: '11px', fontWeight: 600 }}>SNS に投稿</span>
+                            <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void copyArtifact()}>{copied ? t('shell.exportDialog.completion.copiedStatus') : t('shell.exportDialog.completion.copyAction')}</button>
+                            <span style={{ fontSize: '11px', fontWeight: 600 }}>{t('shell.exportDialog.completion.postSocialMediaText')}</span>
                             {EXPORT_SHARE_TARGETS.map(target => (
                                 <button
                                     key={target.id}
                                     type='button'
                                     className='btn'
-                                    title={`${target.label} の投稿 / アップロード画面を外部ブラウザで開く`}
+                                    title={t('shell.exportDialog.completion.openPostUploadPageExternalBrowserText', { value1: target.label })}
                                     onClick={() => session.openShareTarget(target.id)}
                                 >{target.label}</button>
                             ))}
-                            <span className='fine' style={{ margin: 0 }}>先にコピーしてから貼り付けできます</span>
+                            <span className='fine' style={{ margin: 0 }}>{t('shell.exportDialog.completion.copyFirstPasteAction')}</span>
                         </div>
                         <div className='acts' style={{ alignItems: 'center', marginTop: '12px' }}>
-                            <button type='button' className='btn ghost' disabled={!status.artifactPath} onClick={() => void session.handOffFinished()}>パートナーに渡す</button>
-                            <span className='fine' style={{ margin: 0 }}>AI チャットに入ります</span>
+                            <button type='button' className='btn ghost' disabled={!status.artifactPath} onClick={() => void session.handOffFinished()}>{t('shell.exportDialog.completion.sendPartnerAction')}</button>
+                            <span className='fine' style={{ margin: 0 }}>{t('shell.exportDialog.completion.opensAiChatText')}</span>
                         </div>
                     </div>
                 </div>
             </div>
             <ExportEngineReasonView status={status} onCopy={text => session.copyLicenseCredits(text)} />
             <div className='pf'>
-                <button type='button' className='btn ghost' onClick={() => session.resetToSetup()}>もう一度書き出す</button>
-                <span className='sp' /><button type='button' className='btn' onClick={props.close}>閉じる</button>
+                <button type='button' className='btn ghost' onClick={() => session.resetToSetup()}>{t('shell.exportDialog.completion.exportAgainAction')}</button>
+                <span className='sp' /><button type='button' className='btn' onClick={props.close}>{t('shell.exportDialog.completion.closeAction')}</button>
             </div>
         </>
     );

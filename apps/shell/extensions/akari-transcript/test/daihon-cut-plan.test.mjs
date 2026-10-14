@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clampRowCutRange, normalizeCutRanges } from '../lib/common/daihon-cut-plan.js';
@@ -12,6 +18,15 @@ test('次行 start で終了をクランプする', () => assert.equal(clampRowC
 test('captionId と行ラベルを付ける', () => assert.deepEqual(clampRowCutRange(row('c-1', 1, 2)).captionId, 'c-1'));
 test('normalize は source 秒の降順へ並べる', () => assert.deepEqual(normalizeCutRanges([cut([1, 2]), cut([5, 6])]).map(item => item.in), [5, 1]));
 test('同じ属性の重なりレンジを結合する', () => assert.deepEqual(normalizeCutRanges([cut([1, 3]), cut([2, 4])]), [cut([1, 4])]));
+test('表示ラベルが違っても同じ範囲の採否は言語に依存しない', () => {
+  const ranges = [cut([1, 3], { label: '行' }), cut([2, 4], { label: 'Line' })];
+  try {
+    for (const language of ['ja', 'en']) {
+      setLanguage(language);
+      assert.deepEqual(normalizeCutRanges(ranges), [cut([1, 4])]);
+    }
+  } finally { setLanguage('ja'); }
+});
 test('異なる kind の重なりは結合しない', () => assert.equal(normalizeCutRanges([cut([1, 3]), cut([2, 4], { kind: 'silence' })]).length, 2));
 test('異なる captionId の重なりは結合しない', () => assert.equal(normalizeCutRanges([cut([1, 3]), cut([2, 4], { captionId: 'b' })]).length, 2));
 test('不正レンジを拒否する', () => assert.throws(() => normalizeCutRanges([cut([2, 1])]), /不正/));

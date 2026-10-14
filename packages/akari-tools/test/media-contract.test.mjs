@@ -1,10 +1,15 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import test from "node:test";
 import Ajv2020 from "ajv/dist/2020.js";
 
@@ -17,7 +22,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { runMediaCli } from "../bin/media.mjs";
 import { formatTimecode } from "../src/media/common.mjs";
 import { probeMedia } from "../src/media/probe.mjs";
-import { normalizeWhisperJson, transcribeMedia } from "../src/media/transcribe.mjs";
+import { normalizeWhisperJson, runSilenceDetect, transcribeMedia } from "../src/media/transcribe.mjs";
 import { waveformMedia } from "../src/media/waveform.mjs";
 import { writeWordBookFile } from "../../word-book/src/index.mjs";
 
@@ -118,6 +123,21 @@ test("waveform は無音 2 秒 + トーン 3 秒 + 無音 1 秒を ±1 frame で
   assert.ok(Math.abs(result.silences[1].end - 6) <= 1 / 30);
 });
 
+test("音声だけの解析パス（-f null）は映像をデコードしない（4K 素材で数十分かかる回帰の防止）", async () => {
+  const calls = [];
+  const spawn = (command, args, spawnOptions) => {
+    calls.push(args);
+    return spawnSync(command, args, spawnOptions);
+  };
+  await waveformMedia(wavPath, { ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe, noRecord: true, spawn });
+  runSilenceDetect({ inputPath: wavPath, range: { in: 0, out: 6 }, ffmpeg, silenceDb: -35, silenceMinSec: 0.6, options: { spawn } });
+  const nullSinkCalls = calls.filter((args) => args.includes("null"));
+  assert.equal(nullSinkCalls.length, 3);
+  for (const args of nullSinkCalls) {
+    for (const flag of ["-vn", "-sn", "-dn"]) assert.ok(args.includes(flag), `${flag} missing: ${args.join(" ")}`);
+  }
+});
+
 test("transcribe の 2 回目は内容ハッシュ cache hit で backend を起動しない", async () => {
   const project = await createProjectFixture("cache-project");
   let backendCalls = 0;
@@ -179,7 +199,7 @@ test("transcribe cache は単語帳適用前の生 segments を保存する", as
   assert.equal(result.segments[0].text, "AKARI Video");
   const cached = JSON.parse(readFileSync(path.join(project, ".akari", "cache", "transcribe", `${result.cache.key}.json`), "utf8"));
   assert.equal(cached.segments[0].text, "あかり ビデオ");
-  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", "ビデオ"]);
+  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", " ビデオ"]);
 });
 
 test("wordBook: false は単語帳を適用せず生出力を記録する", async () => {
@@ -225,14 +245,14 @@ test("transcribe CLI の --no-snap は吸着監査情報と raw 語時刻を付�
   };
   const stdout = [];
   assert.equal(await runMediaCli([
-    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-no-record", "--no-snap", "--no-record",
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "ja", "--no-snap", "--no-record",
   ], { ...common, stdout: (line) => stdout.push(line) }), 0);
   const result = JSON.parse(stdout[0]);
   assert.equal(Object.hasOwn(result, "timing_snap"), false);
   assert.ok(result.segments.flatMap((segment) => segment.words).every((word) => !Object.hasOwn(word, "raw_start") && !Object.hasOwn(word, "raw_end")));
 
   assert.equal(await runMediaCli([
-    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-recorded", "--no-snap",
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "en", "--no-snap",
   ], { ...common, stdout: () => {} }), 0);
   const transcriptPath = path.join(project, ".akari", "sidecars", "assets", "source.wav.analysis", "transcripts", "speech-analyzer.json");
   const transcript = JSON.parse(readFileSync(transcriptPath, "utf8"));

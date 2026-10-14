@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { captionRunRows } from '../caption-run-rows';
 import type URI from '@theia/core/lib/common/uri';
@@ -51,7 +52,7 @@ function refreshSpeakerName(project: URI, files: FileService, speakerId: string)
 
 async function chooseCaptionPerson(speakerId: string): Promise<InspectorWriteResult> {
     const context = await captionFiles();
-    if (!context) return { ok: false, message: 'プロジェクトを開いてください。' };
+    if (!context) return { ok: false, message: t('inspector.captionSections.message.openProject') };
     const { files, project } = context;
     const [{ default: URI }, { BinaryBuffer }] = await Promise.all([
         import('@theia/core/lib/common/uri'), import('@theia/core/lib/common/buffer')
@@ -72,7 +73,7 @@ async function chooseCaptionPerson(speakerId: string): Promise<InspectorWriteRes
         border: '1px solid var(--akari-line)', boxShadow: '0 8px 24px #0006',
         left: `${Math.max(8, Math.min(rect?.left ?? 8, window.innerWidth - 248))}px`,
         top: `${Math.max(8, Math.min(rect?.bottom ?? 8, window.innerHeight - 320))}px` });
-    const heading = document.createElement('strong'); heading.textContent = '人物をつなぐ…'; popup.append(heading);
+    const heading = document.createElement('strong'); heading.textContent = t('inspector.captionSections.text.linkPerson'); popup.append(heading);
     const save = async (value: { name: string; person?: string } | undefined): Promise<void> => {
         try {
             const folder = project.resolve('.akari'); const dictionary = folder.resolve('dictionary.json');
@@ -94,15 +95,15 @@ async function chooseCaptionPerson(speakerId: string): Promise<InspectorWriteRes
     };
     for (const person of people) popup.append(button(`${person.hasVoiceSample ? '♪ ' : ''}${person.name}`,
         () => void save({ name: person.name, person: `${location!.channel}/${person.id}` })));
-    const input = document.createElement('input'); input.placeholder = '名前だけ付ける';
-    input.setAttribute('aria-label', '名前だけ付ける');
+    const input = document.createElement('input'); input.placeholder = t('inspector.captionSections.placeholder.nameOnly');
+    input.setAttribute('aria-label', t('inspector.captionSections.placeholder.nameOnly'));
     const saveName = () => { if (input.value.trim()) void save({ name: input.value.trim() }); };
     input.addEventListener('keydown', event => { if (event.key === 'Enter') saveName(); });
-    popup.append(input, button('名前だけ付ける', saveName));
+    popup.append(input, button(t('inspector.captionSections.placeholder.nameOnly'), saveName));
     if (location) {
-        popup.append(button('つなぎを外す', () => void save(undefined)));
+        popup.append(button(t('inspector.captionSections.button.unlink'), () => void save(undefined)));
         const note = document.createElement('small'); note.style.color = 'var(--akari-muted)';
-        note.textContent = '声で照らす提案は準備中です（声のサンプルを登録しておくと使えるようになります）';
+        note.textContent = t('inspector.captionSections.text.voiceBasedSuggestionsComingSoonRegisterVoice');
         popup.append(note);
     }
     document.body.append(popup);
@@ -191,7 +192,7 @@ export function CAPTION_SECTIONS(
         inputKind: 'color',
         write: async (_snapshot, nextValue) => {
             if (!isCaptionHexColor(nextValue)) {
-                return { ok: false, message: '色は #RGB / #RRGGBB / #RRGGBBAA で入力してください。' };
+                return { ok: false, message: t('inspector.captionSections.message.enterColorAsRgbRrggbbRrggbbaa') };
             }
             return requestWrite({ kind, id: snapshot.id, value: nextValue, ...requestOptions });
         }
@@ -241,36 +242,36 @@ export function CAPTION_SECTIONS(
     });
     const sections = composeInspectorSections<InspectorSection>([
         {
-            id: 'time', label: '時間', fields: [
+            id: 'time', label: t('inspector.captionSections.label.time'), fields: [
                 {
-                    name: 'caption-output-start', label: '出力位置',
+                    name: 'caption-output-start', label: t('inspector.captionSections.label.outputPosition'),
                     getValue: () => snapshot.outputStart === undefined ? '—' : formatTimestamp(snapshot.outputStart)
                 },
                 {
-                    name: 'caption-output-duration', label: '尺', getValue: () =>
+                    name: 'caption-output-duration', label: t('inspector.captionSections.label.duration'), getValue: () =>
                         snapshot.outputStart === undefined || snapshot.outputEnd === undefined
                             ? '—' : formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart)
                 }
             ]
         },
         {
-            id: 'content', label: '内容',
+            id: 'content', label: t('inspector.captionSections.label.content'),
             fields: [
                 {
-                    name: 'caption-text', label: 'テキスト', inputKind: 'caption-text',
+                    name: 'caption-text', label: t('inspector.captionSections.label.text'), inputKind: 'caption-text',
                     getValue: () => snapshot.text,
                     write: async (_snapshot, nextValue, phase) => {
                         if (!nextValue.trim()) {
-                            return { ok: false, message: '字幕のテキストは空にできません。' };
+                            return { ok: false, message: t('inspector.captionSections.message.subtitleTextCannotBeEmpty') };
                         }
                         return requestWrite({ kind: 'caption-text', id: snapshot.id, value: nextValue, phase });
                     }
                 },
                 {
-                    name: 'caption-speaker', label: '話者',
+                    name: 'caption-speaker', label: t('inspector.captionSections.label.speaker'),
                     getValue: () => orDash(snapshot.speaker, value => value),
                     getEditValue: () => snapshot.speaker ?? '',
-                    ...(snapshot.speaker ? { menuAction: { label: '人物をつなぐ…',
+                    ...(snapshot.speaker ? { menuAction: { label: t('inspector.captionSections.text.linkPerson'),
                         action: () => chooseCaptionPerson(snapshot.speaker!) } } : {}),
                     write: async (_snapshot, nextValue) => requestWrite({
                         kind: 'caption-speaker',
@@ -278,17 +279,17 @@ export function CAPTION_SECTIONS(
                         value: nextValue.trim().length > 0 ? nextValue : null
                     })
                 },
-                { name: 'caption-speaker-name', label: '人物名',
+                { name: 'caption-speaker-name', label: t('inspector.captionSections.label.name'),
                     getValue: () => snapshot.speaker
                         ? speakerNames.get(speakerProjectKey)?.[snapshot.speaker] ?? '—' : '—' },
-                { name: 'caption-edited', label: '編集済み', getValue: () => snapshot.edited ? 'はい' : 'いいえ' }
+                { name: 'caption-edited', label: t('inspector.captionSections.label.edited'), getValue: () => snapshot.edited ? t('inspector.captionSections.label.yes') : t('inspector.captionSections.label.no') }
             ]
         },
         {
-            id: 'style', label: '文字',
+            id: 'style', label: t('inspector.captionSections.label.textOverlay'),
             fields: [
                 colorField(
-                    '色',
+                    t('inspector.captionSections.label.color'),
                     'color',
                     raw?.color,
                     effective?.color,
@@ -296,7 +297,7 @@ export function CAPTION_SECTIONS(
                     'caption-style-color'
                 ),
                 numberField(
-                    '大きさ',
+                    t('inspector.captionSections.label.size'),
                     'size',
                     raw?.sizePx,
                     effective?.sizePx,
@@ -306,26 +307,26 @@ export function CAPTION_SECTIONS(
                     undefined,
                     1,
                     'px',
-                    'サイズは正の数で入力してください。'
+                    t('inspector.captionSections.label.enterPositiveSize')
                 ),
                 {
-                    name: 'caption-wrap-width', label: '折り返し幅', inputKind: 'scrub-number',
+                    name: 'caption-wrap-width', label: t('inspector.captionSections.label.wrapWidth'), inputKind: 'scrub-number',
                     unit: '%', min: 0.1, max: 100, scrubStep: 0.5,
                     getValue: () => options.mixedFields?.has('wrap-width') ? '—'
-                        : raw?.wrapWidthPct === undefined ? '自動' : String(effective?.wrapWidthPct ?? raw.wrapWidthPct),
+                        : raw?.wrapWidthPct === undefined ? t('inspector.captionSections.label.auto') : String(effective?.wrapWidthPct ?? raw.wrapWidthPct),
                     getEditValue: () => options.mixedFields?.has('wrap-width') ? '—'
                         : String(effective?.wrapWidthPct ?? 100),
                     write: async (_snapshot, nextValue) => {
                         const width = Number(nextValue);
                         if (!Number.isFinite(width) || width <= 0 || width > 100) {
-                            return { ok: false, message: '折り返し幅は 0 より大きく 100% 以下で入力してください。' };
+                            return { ok: false, message: t('inspector.captionSections.message.enterWrapWidthGreaterThan0Most') };
                         }
                         return requestWrite({ kind: 'caption-style-wrap-width', id: snapshot.id,
                             value: width, ...requestOptions });
                     }
                 },
                 {
-                    name: 'caption-font-weight', label: '太さ', inputKind: 'caption-weight',
+                    name: 'caption-font-weight', label: t('inspector.captionSections.label.weight'), inputKind: 'caption-weight',
                     getValue: () => options.mixedFields?.has('font-weight') ? '—'
                         : captionStyleDisplayValue(raw?.weight ?? raw?.fontWeight,
                             effective?.weight ?? effective?.fontWeight, CAPTION_STYLE_DEFAULTS.fontWeight),
@@ -333,19 +334,19 @@ export function CAPTION_SECTIONS(
                         : String(effective?.weight ?? effective?.fontWeight ?? CAPTION_STYLE_DEFAULTS.fontWeight),
                     write: async (_snapshot, value) => {
                         const weight = Number(value);
-                        if (![400, 700, 900].includes(weight)) return { ok: false, message: '太さを選んでください。' };
+                        if (![400, 700, 900].includes(weight)) return { ok: false, message: t('inspector.captionSections.message.chooseWeight') };
                         return requestWrite({ kind: 'caption-style-font-weight', id: snapshot.id,
                             value: weight, ...requestOptions });
                     }
                 },
-                numberField('行間', 'line-height', raw?.lineHeight, effective?.lineHeight,
+                numberField(t('inspector.captionSections.label.lineSpacing'), 'line-height', raw?.lineHeight, effective?.lineHeight,
                     CAPTION_STYLE_DEFAULTS.lineHeight, 'caption-style-line-height',
-                    0.9, 2.2, 0.05, '', '行間は 0.9〜2.2 で入力してください。'),
-                numberField('字間', 'letter-spacing', raw?.letterSpacingEm, effective?.letterSpacingEm,
+                    0.9, 2.2, 0.05, '', t('inspector.captionSections.label.enterLineSpacingFrom092')),
+                numberField(t('inspector.captionSections.label.letterSpacing'), 'letter-spacing', raw?.letterSpacingEm, effective?.letterSpacingEm,
                     CAPTION_STYLE_DEFAULTS.letterSpacingEm, 'caption-style-letter-spacing',
-                    -0.1, 0.4, 0.01, 'em', '字間は -0.1〜0.4 で入力してください。'),
+                    -0.1, 0.4, 0.01, 'em', t('inspector.captionSections.label.enterLetterSpacingFrom010')),
                 colorField(
-                    '色',
+                    t('inspector.captionSections.label.color'),
                     'stroke-color',
                     raw?.stroke?.color,
                     effective?.stroke?.color,
@@ -353,7 +354,7 @@ export function CAPTION_SECTIONS(
                     'caption-style-stroke-color'
                 ),
                 numberField(
-                    '太さ',
+                    t('inspector.captionSections.label.weight'),
                     'stroke-width',
                     raw?.stroke?.widthPx,
                     effective?.stroke?.widthPx,
@@ -363,10 +364,10 @@ export function CAPTION_SECTIONS(
                     undefined,
                     0.5,
                     'px',
-                    '縁取り太さは 0 以上で入力してください。'
+                    t('inspector.captionSections.label.enterOutlineWidth0Greater')
                 ),
                 {
-                    name: 'caption-style-bg-enabled', label: '表示', inputKind: 'caption-toggle',
+                    name: 'caption-style-bg-enabled', label: t('inspector.captionSections.label.show'), inputKind: 'caption-toggle',
                     getValue: () => options.mixedFields?.has('background-opacity') ? '—'
                         : effectiveCaptionBackgroundOpacity(effective) > 0 ? 'true' : 'false',
                     getEditValue: () => options.mixedFields?.has('background-opacity') ? '—'
@@ -378,7 +379,7 @@ export function CAPTION_SECTIONS(
                     })
                 },
                 {
-                    name: 'caption-background-mode', label: '形',
+                    name: 'caption-background-mode', label: t('inspector.captionSections.label.shape'),
                     getValue: () => options.mixedFields?.has('background-mode') ? '—'
                         : captionStyleDisplayValue(raw?.background?.mode, effective?.background?.mode,
                             CAPTION_STYLE_DEFAULTS.backgroundMode),
@@ -387,14 +388,14 @@ export function CAPTION_SECTIONS(
                     inputKind: 'caption-mode', options: ['per-line', 'block'],
                     write: async (_snapshot, nextValue) => {
                         if (nextValue !== 'per-line' && nextValue !== 'block') {
-                            return { ok: false, message: '座布団の形を2つの候補から選んでください。' };
+                            return { ok: false, message: t('inspector.captionSections.message.chooseOneTwoTextBackgroundShapes') };
                         }
                         return requestWrite({ kind: 'caption-style-bg-mode', id: snapshot.id,
                             value: nextValue as CaptionBackgroundMode, ...requestOptions });
                     }
                 },
                 colorField(
-                    '色',
+                    t('inspector.captionSections.label.color'),
                     'background-color',
                     raw?.background?.color,
                     effective?.background?.color,
@@ -402,7 +403,7 @@ export function CAPTION_SECTIONS(
                     'caption-style-bg-color'
                 ),
                 numberField(
-                    '不透明度',
+                    t('inspector.captionSections.label.opacity'),
                     'background-opacity',
                     raw?.background?.opacity,
                     effectiveCaptionBackgroundOpacity(effective),
@@ -412,13 +413,13 @@ export function CAPTION_SECTIONS(
                     1,
                     0.01,
                     '%',
-                    '座布団不透明度は 0〜1 の範囲で入力してください。'
+                    t('inspector.captionSections.label.enterTextBackgroundOpacityFrom01')
                 ),
-                numberField('余白', 'background-padding', raw?.background?.paddingPx,
+                numberField(t('inspector.captionSections.label.padding'), 'background-padding', raw?.background?.paddingPx,
                     effective?.background?.paddingPx, CAPTION_STYLE_DEFAULTS.backgroundPaddingPx,
-                    'caption-style-bg-padding', 0, undefined, 1, 'px', '余白は 0 以上で入力してください。'),
+                    'caption-style-bg-padding', 0, undefined, 1, 'px', t('inspector.captionSections.label.enterPadding0Greater')),
                 numberField(
-                    '角丸',
+                    t('inspector.captionSections.label.cornerRadius'),
                     'background-radius',
                     raw?.background?.radiusPx,
                     effective?.background?.radiusPx,
@@ -428,15 +429,15 @@ export function CAPTION_SECTIONS(
                     undefined,
                     1,
                     'px',
-                    '座布団角丸は 0 以上で入力してください。'
+                    t('inspector.captionSections.label.enterTextBackgroundCornerRadius0Greater')
                 ),
                 {
-                    name: 'caption-style-effect', label: '種類', inputKind: 'caption-effect',
+                    name: 'caption-style-effect', label: t('inspector.captionSections.label.type'), inputKind: 'caption-effect',
                     getValue: () => options.mixedFields?.has('effect') ? '—' : currentEffect,
                     write: async (_snapshot, nextValue) => {
                         if (!['none', 'shadow', 'raised', 'neon', 'outline'].includes(nextValue)
                             && !captionEffectCard(nextValue)) {
-                            return { ok: false, message: '効果を選んでください。' };
+                            return { ok: false, message: t('inspector.captionSections.message.selectEffect') };
                         }
                         return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
                             value: { ...captionEffectTransitionPatch(nextValue as Parameters<typeof captionEffectPatch>[0],
@@ -447,7 +448,7 @@ export function CAPTION_SECTIONS(
                     }
                 },
                 {
-                    name: 'caption-style-effect-color', label: '効果の色', inputKind: 'color',
+                    name: 'caption-style-effect-color', label: t('inspector.captionSections.label.effectColor'), inputKind: 'color',
                     getValue: () => options.mixedFields?.has('effect') ? '—'
                         : currentEffect === 'neon' ? effective?.glow?.color ?? '#39D5FF'
                             : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
@@ -456,13 +457,13 @@ export function CAPTION_SECTIONS(
                         : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
                             : effective?.shadow?.color ?? '#000000',
                     write: async (_snapshot, value) => {
-                        if (!isCaptionHexColor(value)) return { ok: false, message: '色は hex で入力してください。' };
+                        if (!isCaptionHexColor(value)) return { ok: false, message: t('inspector.captionSections.message.enterHexColor') };
                         return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
                             value: captionEffectColorPatch(effective ?? {}, value), ...requestOptions });
                     }
                 },
                 {
-                    name: 'caption-style-effect-strength', label: '強さ', inputKind: 'slider-number',
+                    name: 'caption-style-effect-strength', label: t('inspector.captionSections.label.strength'), inputKind: 'slider-number',
                     getValue: () => options.mixedFields?.has('effect') ? '—'
                         : captionStyleDisplayValue(
                             currentEffect === 'neon' ? raw?.glow?.spread
@@ -477,14 +478,14 @@ export function CAPTION_SECTIONS(
                     write: async (_snapshot, value) => {
                         const strength = Number(value);
                         if (!Number.isFinite(strength) || strength < 0) {
-                            return { ok: false, message: '強さは 0 以上で入力してください。' };
+                            return { ok: false, message: t('inspector.captionSections.message.enterStrength0Greater') };
                         }
                         return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
                             value: captionEffectStrengthPatch(effective ?? {}, strength), ...requestOptions });
                     }
                 },
                 {
-                    name: 'caption-zone', label: '位置',
+                    name: 'caption-zone', label: t('inspector.captionSections.label.position'),
                     getValue: () => options.mixedFields?.has('zone')
                         ? '—'
                         : captionStyleDisplayValue(
@@ -501,7 +502,7 @@ export function CAPTION_SECTIONS(
                     zonePreset: zone => options.zonePreset?.(`cue:${snapshot.id}:zone:${zone}`)
                 },
                 ...(['x', 'y'] as const).map(axis => ({
-                    name: `caption-position-${axis}`, label: axis === 'x' ? 'X（左端）' : 'Y',
+                    name: `caption-position-${axis}`, label: axis === 'x' ? t('inspector.captionSections.label.xLeft') : 'Y',
                     inputKind: 'slider-number' as const, min: 0, sliderMax: 100,
                     scrubStep: 0.1, unit: '%' as const,
                     getValue: () => `${captionPositionPercent(effective, axis)}%`,
@@ -509,7 +510,7 @@ export function CAPTION_SECTIONS(
                     write: async (_snapshot: TimelineCaptionSelection, value: string) => {
                         const percent = Number(value);
                         if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
-                            return { ok: false, message: '位置は 0〜100% で入力してください。' };
+                            return { ok: false, message: t('inspector.captionSections.message.enterPositionFrom0100') };
                         }
                         options.zonePreset?.(`cue:${snapshot.id}:${axis}:${percent}`);
                         return { ok: true };
@@ -518,12 +519,12 @@ export function CAPTION_SECTIONS(
             ]
         },
         {
-            id: 'timing', label: 'タイミング',
+            id: 'timing', label: t('inspector.captionSections.label.timing'),
             fields: [
                 { name: 'caption-start', label: 'start', getValue: () => formatTimestamp(snapshot.sourceStart) },
                 { name: 'caption-end', label: 'end', getValue: () => formatTimestamp(snapshot.sourceEnd) },
                 {
-                    name: 'caption-duration', label: '尺',
+                    name: 'caption-duration', label: t('inspector.captionSections.label.duration'),
                     getValue: () => formatDurationSeconds(snapshot.sourceEnd - snapshot.sourceStart)
                 },
                 {
@@ -532,16 +533,16 @@ export function CAPTION_SECTIONS(
                 }
             ]
         },
-        { id: 'motion:caption', label: '動き', fields: [], body: () => createCaptionMotionPanel(snapshot,
+        { id: 'motion:caption', label: t('inspector.captionSections.label.motion'), fields: [], body: () => createCaptionMotionPanel(snapshot,
             requestWrite, options.motionServices) },
         ...(snapshot.animatorOwner ? [ANIMATOR_SECTION(
             snapshot.animatorOwner.id,
-            `袋 ${snapshot.animatorOwner.id} のアニメーター（全 cue に効く）`,
+            t('inspector.captionSections.label.animatorGroupAppliesAllCues', { id: snapshot.animatorOwner.id }),
             snapshot.animatorOwner.animator,
             requestWrite
         )] : []),
         {
-            id: 'info', label: '情報', collapsedByDefault: true, fields: [
+            id: 'info', label: t('inspector.captionSections.label.info'), collapsedByDefault: true, fields: [
                 { name: 'caption-id', label: 'clip', getValue: () => snapshot.id },
                 {
                     name: 'caption-source-ref', label: 'sourceRef.segment',
@@ -554,43 +555,43 @@ export function CAPTION_SECTIONS(
         if (section.id !== 'style') return [section];
         const fields = section.fields;
         return [
-            { id: 'style', label: '文字', fields: [
+            { id: 'style', label: t('inspector.captionSections.label.textOverlay'), fields: [
                 ...fields.slice(0, 6),
                 ...(snapshot.runs?.length ? captionRunRows(snapshot.displayText ?? snapshot.text, snapshot.runs)
                     .map((run, index): InspectorFieldDef<TimelineCaptionSelection> => ({
-                    name: `caption-run-${index}`, label: index === 0 ? '文字範囲' : ' ',
+                    name: `caption-run-${index}`, label: index === 0 ? t('inspector.captionSections.label.textRange') : ' ',
                     getValue: () => '',
-                    actions: [{ name: 'select', label: `${run.from + 1}〜${run.to}文字目 「${run.text}」 ${run.chip}`,
-                        title: 'プレビューで文字範囲を選ぶ', action: async () => {
+                    actions: [{ name: 'select', label: t('inspector.captionSections.label.characters', { start: run.from + 1, end: run.to, text: run.text, chip: run.chip }),
+                        title: t('inspector.captionSections.title.selectTextRangePreview'), action: async () => {
                             window.dispatchEvent(new CustomEvent('akari.preview.selectCaptionRun', { detail: {
                                 captionId: snapshot.id, from: run.from, to: run.to } }));
                             return { ok: true };
                         } },
-                    { name: 'remove', label: '外す', title: '文字範囲を外す', action: () =>
+                    { name: 'remove', label: t('inspector.captionSections.label.remove'), title: t('inspector.captionSections.title.removeTextRange'), action: () =>
                         requestWrite({ kind: 'caption-run-remove', id: snapshot.id, index }) }]
                 })) : [])
             ] },
-            { id: 'style:stroke', label: '縁取り', fields: fields.slice(6, 8) },
-            { id: 'style:background', label: '座布団', fields: fields.slice(8, 14), body: () => {
+            { id: 'style:stroke', label: t('inspector.captionSections.label.outline'), fields: fields.slice(6, 8) },
+            { id: 'style:background', label: t('inspector.captionSections.label.textBackground'), fields: fields.slice(8, 14), body: () => {
                 const note = document.createElement('p');
                 note.className = 'akari-caption-radius-note';
-                note.textContent = '角丸を最大にすると文字に沿った丸い座布団（カプセル）になる';
+                note.textContent = t('inspector.captionSections.text.setCornerRadiusItsMaximumCapsuleShaped');
                 return note;
             } },
-            { id: 'style:effect', label: '効果', fields: [fields[14],
+            { id: 'style:effect', label: t('inspector.captionSections.label.effect'), fields: [fields[14],
                 ...(options.mixedFields?.has('effect') ? [] : captionEffectAdjustmentKeys(currentEffect).map(path => {
                     const labels: Record<string, string> = {
-                        'shadow.color': '影の色', 'shadow.opacity': '影の濃さ',
-                        'shadow.distancePx': '距離', 'shadow.angleDeg': '角度', 'shadow.blurPx': 'ぼかし',
-                        'glow.color': '光の色', 'glow.density': '光の強さ', 'glow.spread': '広がり',
-                        'stroke.color': '縁の色', 'stroke.widthPx': '縁の太さ',
-                        'strokeInner.color': '内縁の色', 'strokeInner.widthPx': '内縁の太さ',
-                        'fillGradient.color0': '色 1', 'fillGradient.color1': '色 2',
-                        'fillGradient.color2': '色 3', 'fillGradient.angleDeg': '角度',
-                        'extrude.depthPx': '奥行き', 'extrude.color': '奥行きの色',
-                        'extrude.colorEnd': '奥の色', 'extrude.angleDeg': '向き',
-                        'background.color': '帯の色', 'background.opacity': '帯の濃さ',
-                        'background.radiusPx': '角丸', 'background.paddingPx': '余白'
+                        'shadow.color': t('inspector.captionSections.label.shadowColor'), 'shadow.opacity': t('inspector.captionSections.label.shadowOpacity'),
+                        'shadow.distancePx': t('inspector.captionSections.label.distance'), 'shadow.angleDeg': t('inspector.captionSections.label.angle'), 'shadow.blurPx': t('inspector.captionSections.label.blur'),
+                        'glow.color': t('inspector.captionSections.label.glowColor'), 'glow.density': t('inspector.captionSections.label.glowStrength'), 'glow.spread': t('inspector.captionSections.label.spread'),
+                        'stroke.color': t('inspector.captionSections.label.outlineColor'), 'stroke.widthPx': t('inspector.captionSections.label.outlineWidth'),
+                        'strokeInner.color': t('inspector.captionSections.label.innerOutlineColor'), 'strokeInner.widthPx': t('inspector.captionSections.label.innerOutlineWidth'),
+                        'fillGradient.color0': t('inspector.captionSections.label.color1'), 'fillGradient.color1': t('inspector.captionSections.label.color2'),
+                        'fillGradient.color2': t('inspector.captionSections.label.color3'), 'fillGradient.angleDeg': t('inspector.captionSections.label.angle'),
+                        'extrude.depthPx': t('inspector.captionSections.label.depth'), 'extrude.color': t('inspector.captionSections.label.extrusionColor'),
+                        'extrude.colorEnd': t('inspector.captionSections.label.endColor'), 'extrude.angleDeg': t('inspector.captionSections.label.orientation'),
+                        'background.color': t('inspector.captionSections.label.bandColor'), 'background.opacity': t('inspector.captionSections.label.bandOpacity'),
+                        'background.radiusPx': t('inspector.captionSections.label.cornerRadius'), 'background.paddingPx': t('inspector.captionSections.label.padding')
                     };
                     return {
                         name: `caption-effect-adjust-${path.replace('.', '-')}`,
@@ -606,12 +607,12 @@ export function CAPTION_SECTIONS(
                                 return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
                                     value: captionEffectAdjustmentPatch(effective ?? {}, path, value), ...requestOptions });
                             } catch (error) {
-                                return { ok: false, message: error instanceof Error ? error.message : '値を確認してください。' };
+                                return { ok: false, message: error instanceof Error ? error.message : t('inspector.captionSections.label.checkValue') };
                             }
                         }
                     };
                 }))] },
-            { id: 'style:position', label: '位置', fields: fields.slice(17) }
+            { id: 'style:position', label: t('inspector.captionSections.label.position'), fields: fields.slice(17) }
         ];
     });
 }
@@ -709,19 +710,19 @@ export function MULTI_CAPTION_SECTIONS(
         (snapshot as TimelineCaptionSelection & { timeDomain?: string }).timeDomain === 'output').length;
     return [
         {
-            id: 'content', label: '内容（複数）',
+            id: 'content', label: t('inspector.captionSections.label.contentsMultiple'),
             fields: [
                 {
-                    name: 'caption-multi-count', label: '選択', getValue: () => `${snapshots.length} 件`
+                    name: 'caption-multi-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length, n: snapshots.length })
                 }
             ]
         },
         ...styleCards,
         ...motion,
-        { id: 'info', label: '情報', fields: [
-            { name: 'caption-multi-info-count', label: '選択', getValue: () => `${snapshots.length} 件` },
-            { name: 'caption-multi-info-kinds', label: '種類', getValue: () =>
-                `字幕 ${snapshots.length - placedCount} 件 / 文字 ${placedCount} 件` }
+        { id: 'info', label: t('inspector.captionSections.label.info'), fields: [
+            { name: 'caption-multi-info-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length, n: snapshots.length }) },
+            { name: 'caption-multi-info-kinds', label: t('inspector.captionSections.label.type'), getValue: () =>
+                t('inspector.captionSections.label.captionsTextOverlays', { captions: snapshots.length - placedCount, textOverlays: placedCount }) }
         ] }
     ];
 }
@@ -731,9 +732,9 @@ export function CAPTION_BAG_MOTION_SECTION(
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     services: (snapshot: TimelineCaptionSelection, ids: string[]) => CaptionMotionServices
 ): InspectorSection {
-    return { id: 'motion:caption', label: '動き', fields: [], body: () => {
+    return { id: 'motion:caption', label: t('inspector.captionSections.label.motion'), fields: [], body: () => {
         const host = document.createElement('div');
-        host.textContent = '字幕の動きを読み込み中…';
+        host.textContent = t('inspector.captionSections.text.loadingCaptionMotion');
         void load().then(({ ids, snapshot }) => {
             if (!host.isConnected) return;
             const targets = captionMultiTargets(ids.map(id => ({ id })));

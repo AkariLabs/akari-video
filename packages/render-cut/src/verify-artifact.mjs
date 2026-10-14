@@ -1,16 +1,19 @@
 import { spawnSync } from "node:child_process";
+import { renderText } from './i18n.mjs';
 import { readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { ExecutionError, messageOf, parseJson } from "./errors.mjs";
 import { blankFramesFromLuma, scanBlankFrames, scanBlankFramesStreaming } from "./verify-blank.mjs";
 import { judgeAudioLevel, judgeMotion, measureAudioLevel } from "./verify-declared.mjs";
+import { verifyLeadingGap } from "./verify-leading-gap.mjs";
 
 export function verifyArtifact({
   outputPath,
   plan,
   inputs = [],
   edit = null,
+  projectRoot = null,
   ffprobeCommand = resolveFfprobe(),
   ffmpegCommand = resolveFfmpeg(),
   spawnSyncImpl = spawnSync,
@@ -150,6 +153,13 @@ export function verifyArtifact({
   });
   if (audioLevel.finding) findings.push(audioLevel.finding);
 
+  const leadingGapStarted = performance.now();
+  notifyVerifyCheck(onCheck, "leading-gap-sync", "start");
+  const leadingGap = verifyLeadingGap({ outputPath, edit, inputs, projectRoot, ffmpegCommand, spawnSyncImpl });
+  notifyVerifyCheck(onCheck, "leading-gap-sync", leadingGap ? "end" : "skipped");
+  reportTiming(onTiming, "verify_leading_gap_sync", leadingGapStarted);
+  if (leadingGap) findings.push(leadingGap);
+
   const motionStarted = performance.now();
   notifyVerifyCheck(onCheck, "motion", "start");
   const motion = judgeMotion({
@@ -279,27 +289,27 @@ export function proveVideoStreamIdentity({
 }) {
   const unproven = (reason) => ({ identical: false, reason, frames: null, sha256: null });
   if (typeof referencePath !== "string" || referencePath === "") {
-    return unproven("audio_mix の入力パスが plan に無い");
+    return unproven(renderText('render.verify.identity.inputMissing'));
   }
-  if (!referenceStream || !candidateStream) return unproven("映像ストリームの測定値が揃っていない");
+  if (!referenceStream || !candidateStream) return unproven(renderText('render.verify.identity.streamMeasurementsMissing'));
   for (const field of VIDEO_STREAM_IDENTITY_FIELDS) {
     const left = referenceStream[field] ?? null;
     const right = candidateStream[field] ?? null;
     if (String(left) !== String(right)) {
-      return unproven(`映像ストリームの ${field} が違う（${String(left)} → ${String(right)}）`);
+      return unproven(renderText('render.verify.identity.fieldMismatch', { field, left: String(left), right: String(right) }));
     }
   }
-  if (finiteFrameCount(referenceFrames) === null) return unproven("GPU 段の数えたフレーム数が読めない");
+  if (finiteFrameCount(referenceFrames) === null) return unproven(renderText('render.verify.identity.gpuFramesMissing'));
   const candidateFrames = finiteFrameCount(candidateStream.nb_frames);
-  if (candidateFrames === null) return unproven("成果物のフレーム数（nb_frames）がコンテナから読めない");
+  if (candidateFrames === null) return unproven(renderText('render.verify.identity.outputFramesMissing'));
   if (candidateFrames !== Number(referenceFrames)) {
-    return unproven(`フレーム数が違う（${referenceFrames} → ${candidateFrames}）`);
+    return unproven(renderText('render.verify.identity.frameCountMismatch', { expected: referenceFrames, actual: candidateFrames }));
   }
   const referenceHash = hashVideoBitstream({ path: referencePath, ffmpegCommand, spawnSyncImpl });
-  if (referenceHash === null) return unproven("audio_mix 入力の映像ビットストリームを読めない");
+  if (referenceHash === null) return unproven(renderText('render.verify.identity.inputBitstreamUnreadable'));
   const candidateHash = hashVideoBitstream({ path: candidatePath, ffmpegCommand, spawnSyncImpl });
-  if (candidateHash === null) return unproven("成果物の映像ビットストリームを読めない");
-  if (referenceHash !== candidateHash) return unproven("映像ビットストリームが一致しない");
+  if (candidateHash === null) return unproven(renderText('render.verify.identity.outputBitstreamUnreadable'));
+  if (referenceHash !== candidateHash) return unproven(renderText('render.verify.identity.bitstreamMismatch'));
   return { identical: true, reason: null, frames: candidateFrames, sha256: candidateHash };
 }
 
@@ -339,7 +349,7 @@ export function resolveVideoEvidenceReuse({
     const video = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
     return {
       scope: "full",
-      reason: "audio_mix は composite のバイトコピーなので最終ファイルは GPU 段が測ったファイルそのもの",
+      reason: renderText('render.verify.reuse.byteCopy'),
       measured: reusable.measured,
       decodeStderr: reusable.decodeStderr,
       frameCount: finiteFrameCount(video?.nb_read_frames),
@@ -364,8 +374,8 @@ export function resolveVideoEvidenceReuse({
   });
   if (reusable === null) {
     return unreusable(gpuVerification === null
-      ? "GPU 段の映像検査値が無い（OSR 経路など）"
-      : "GPU 段の映像検査値が引き継げる形をしていない");
+      ? renderText('render.verify.reuse.gpuMeasurementsMissing')
+      : renderText('render.verify.reuse.gpuMeasurementsInvalid'));
   }
   const referenceStream = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
   const candidateStream = measured.streams?.find((stream) => stream?.codec_type === "video");
@@ -383,11 +393,11 @@ export function resolveVideoEvidenceReuse({
   reportTiming(onTiming, "verify_video_identity", identityStarted);
   notifyVerifyCheck(onCheck, "video-identity", "end");
   if (!identity.identical) {
-    return unreusable(`映像ストリームの同一性を実証できない: ${identity.reason}`, identity);
+    return unreusable(renderText('render.verify.reuse.identityUnproven', { reason: identity.reason }), identity);
   }
   return {
     scope: "video",
-    reason: "映像ビットストリームが audio_mix 入力と同一",
+    reason: renderText('render.verify.reuse.bitstreamIdentical'),
     measured,
     decodeStderr: reusable.decodeStderr,
     frameCount: identity.frames,
@@ -604,7 +614,7 @@ function declaredAudioReasons({ plan, inputs, edit }) {
     if (reasons.length === 0) reasons.push("audio_mix");
   }
   if (inputs.some((input) => input?.has_audio === true || input?.hasAudio === true)) {
-    reasons.push("素材音声");
+    reasons.push(renderText('render.verify.audio.sourceAudio'));
   }
   return [...new Set(reasons)];
 }

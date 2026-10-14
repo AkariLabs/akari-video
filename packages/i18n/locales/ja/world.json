@@ -1,0 +1,22 @@
+{
+  "world.map.openMap.label": "地図を開く",
+  "world.map.showNextPreview.label": "プレビューと並べる",
+  "world.map.subscribeToWidgetInvalidStopMovementArguments.message": "停留所の移動引数が不正です。",
+  "world.map.overviewGeneratingWorldOverview.error": "ワールド俯瞰を生成中です。",
+  "world.map.overviewFindAkariWorldCli.error": "akari world CLI が見つかりません。",
+  "world.map.overviewReadAkariWorldOverviewResult.error": "akari world overview の結果を解釈できません: {error}",
+  "world.map.moveStopInvalidStopId.message": "停留所 id が不正です。",
+  "world.map.moveStopCMustArrayTwoThreeFiniteNumbers.message": "c は 2〜3 要素の有限数配列である必要があります。",
+  "world.map.moveStopStopMoving.message": "停留所 {stopId} は移動処理中です。",
+  "world.map.moveStopFindAkariWorldCli.message": "akari world CLI が見つかりません。",
+  "world.map.moveStopReadAkariWorldMoveStopResult.label": "akari world move-stop の結果を解釈できません: {error}",
+  "world.map.title.label": "地図",
+  "world.map.openWorldMap.label": "ワールド地図",
+  "world.map.subscribeToWidgetFindProjectRoot.message": "プロジェクトルートが見つかりません。",
+  "world.map.subscribeToWidgetMoveStop.message": "停留所を移動できませんでした。",
+  "world.map.overviewAkariWorldOverviewReturnedNoResultExit.label": "akari world overview が結果を返しませんでした（exit {exitCode}）",
+  "world.map.overviewMissingOutputField.label": "output がありません",
+  "world.map.moveStopAkariWorldMoveStopReturnedNoResult.label": "akari world move-stop が結果を返しませんでした（exit {exitCode}）",
+  "world.map.moveStopMissingOkField.label": "ok がありません",
+  "world.worldCli.exit.unknown": "不明"
+}

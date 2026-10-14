@@ -1,4 +1,5 @@
 import { addFinding, isRecord } from "./shared.mjs";
+import { lintText, lintValue } from '../i18n.mjs';
 
 export function validateEngineCapabilities(rawEdit, internalEdit, engine, table, findings) {
   const internalItems = new Map();
@@ -117,7 +118,7 @@ function checkEngineField({
       severity: "warning",
       engines,
       auto: engine === "auto",
-      body: `${canonicalPath} は対応表 packages/schemas/engine-capabilities.json に無いフィールドです（表の更新漏れ）`,
+      body: lintText('lint-messages.engine.capability.unknownField', { path: canonicalPath }),
       actualPath,
     });
     return;
@@ -130,7 +131,8 @@ function checkEngineField({
         engine: engineName,
         check: "engine.unsupported-field",
         severity: "error",
-        body: `${canonicalPath} を消費しません（${actualPath}・描画には反映されません）${row.hint ? `。hint: ${row.hint}` : ""}`,
+        body: lintText('lint-messages.engine.capability.ignored', { path: canonicalPath, actualPath,
+          hint: row.hint ? lintText('lint-messages.engine.capability.hint', { hint: lintValue('lint-messages.engine.source.', row.hint) }) : '' }),
       }];
     }
     if (status === "partial") {
@@ -138,7 +140,8 @@ function checkEngineField({
         engine: engineName,
         check: "engine.partial-field",
         severity: "warning",
-        body: `${canonicalPath} は近似です（${row.note ?? "一部の宣言だけが反映されます"}）`,
+        body: lintText('lint-messages.engine.capability.partial', { path: canonicalPath,
+          note: row.note ? lintValue('lint-messages.engine.source.', row.note) : lintText('lint-messages.engine.capability.partialDefault') }),
       }];
     }
     return [];
@@ -160,7 +163,7 @@ function checkEngineField({
     addFinding(findings, {
       check: entry.check,
       severity: entry.severity,
-      message: engine === "auto" ? `${entry.engine}: ${entry.body}` : `${entry.engine} 経路は ${entry.body}`,
+      message: engine === "auto" ? `${entry.engine}: ${entry.body}` : lintText('lint-messages.engine.capability.routeIs', { engine: entry.engine, body: entry.body }),
       path: `edit.json#${actualPath}`,
     });
   }
@@ -175,7 +178,7 @@ function addEngineFinding(findings, { check, severity, engines, auto, body, actu
     addFinding(findings, {
       check,
       severity,
-      message: auto ? `${engine}: ${body}` : `${engine} 経路では ${body}`,
+      message: auto ? `${engine}: ${body}` : lintText('lint-messages.engine.capability.routeAt', { engine, body }),
       path: `edit.json#${actualPath}`,
     });
   }

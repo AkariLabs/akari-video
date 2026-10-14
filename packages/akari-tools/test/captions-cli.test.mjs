@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -11,6 +16,47 @@ import { runCaptionsCli } from "../bin/captions.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
 
 const ownerFixtureRoot = fileURLToPath(new URL("./fixtures/speech-snap-owner/", import.meta.url));
+
+test('caption language follows CLI, existing locale, then project language', async (t) => {
+  const f = await fixture(t);
+  await mkdir(path.join(f.root, '.akari'), { recursive: true });
+  await writeFile(path.join(f.root, '.akari', 'intake.json'), JSON.stringify({ language: 'en-US' }));
+  assert.equal(JSON.parse((await f.run('--dry-run')).stdout[0]).display_policy.locale, 'en');
+  const existing = JSON.parse((await f.run('--dry-run')).stdout[0]);
+  existing.display_policy.locale = 'ja';
+  await writeFile(f.captionsPath, JSON.stringify(existing));
+  assert.equal(JSON.parse((await f.run('--dry-run')).stdout[0]).display_policy.locale, 'ja');
+  assert.equal(JSON.parse((await f.run('--dry-run', '--lang', 'en-US')).stdout[0]).display_policy.locale, 'en');
+});
+
+test('Japanese captions keep the legacy root shape and bytes without display_policy', async (t) => {
+  const f = await fixture(t);
+  const dry = JSON.parse((await f.run('--dry-run')).stdout[0]);
+  assert.deepEqual(Object.keys(dry), ['captions', 'word_book']);
+  assert.equal(dry.display_policy, undefined);
+  assert.equal((await f.run()).code, 0);
+  const bytes = await readFile(f.captionsPath, 'utf8');
+  assert.deepEqual(Object.keys(JSON.parse(bytes)), ['captions']);
+  assert.equal(bytes, `${JSON.stringify({ captions: dry.captions }, null, 2)}\n`);
+  assert.equal((await f.run()).code, 0);
+  assert.equal(await readFile(f.captionsPath, 'utf8'), bytes);
+});
+
+test('an existing policy keeps its regional locale and all other fields when primary language agrees', async (t) => {
+  const f = await fixture(t);
+  const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+    unit_metric: 'ascii-half-other-one-v1', max_line_units: 18,
+    minimum_fragment_duration_seconds: 1, locale: 'ja-JP', lines: 2 };
+  await writeFile(f.captionsPath, JSON.stringify({ display_policy: policy, captions: [] }));
+  assert.deepEqual(JSON.parse((await f.run('--dry-run')).stdout[0]).display_policy, policy);
+  const englishPolicy = { ...policy, locale: 'en-US' };
+  await writeFile(f.captionsPath, JSON.stringify({ display_policy: englishPolicy, captions: [] }));
+  assert.deepEqual(JSON.parse((await f.run('--dry-run')).stdout[0]).display_policy, englishPolicy);
+  assert.deepEqual(JSON.parse((await f.run('--dry-run', '--lang', 'en-GB')).stdout[0]).display_policy,
+    englishPolicy);
+  assert.deepEqual(JSON.parse((await f.run('--dry-run', '--lang', 'ja')).stdout[0]).display_policy,
+    { ...englishPolicy, locale: 'ja' });
+});
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), "akari-captions-"));
@@ -187,6 +233,7 @@ test("help and no arguments print usage", async () => {
     const lines = [];
     assert.equal(await runCaptionsCli(args, { stdout: (line) => lines.push(line) }), 0);
     assert.equal(lines[0].split("\n")[0], "使い方: akari captions <project-dir> [options]");
+    assert.match(lines[0], /akari captions migrate-look <project> \[--dry-run\] \[--json\]/u);
   }
 });
 

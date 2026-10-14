@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult } from '../../timeline-selection-model';
 import { MOTION_EASES } from '../motion-fields';
@@ -27,7 +28,7 @@ export function ANIMATOR_SECTION(
                 row.style.display = row.hidden ? 'none' : '';
             });
             const button = section.querySelector<HTMLButtonElement>(`[data-akari-ui="action:inspector-${name}-all"]`);
-            if (button) button.textContent = expanded ? '必要な項目だけ' : 'すべての項目';
+            if (button) button.textContent = expanded ? t('inspector.animatorSection.label.onlyNecessaryItems') : t('inspector.animatorSection.label.allItems');
         }
     };
     const writeAnimator = async (update: () => InspectorAnimator[]): Promise<InspectorWriteResult> => {
@@ -35,29 +36,29 @@ export function ANIMATOR_SECTION(
             const value = normalizeInspectorAnimators(update());
             return await requestWrite({ kind: 'item-field', id, path: 'animator', value: value.length ? value : null });
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : 'アニメーターを変更できませんでした。' };
+            return { ok: false, message: error instanceof Error ? error.message : t('inspector.animatorSection.error.changeAnimator') };
         }
     };
     const animatorFields: InspectorFieldDef[] = [{
         name: 'animator-explain', className: 'akari-inspector-animator-explain',
-        label: '文字を 1 文字 / 1 語ずつずらして動かす仕組みです',
+        label: t('inspector.animatorSection.label.mechanismMoveCharactersOneCharacterOneWord'),
         getValue: () => ''
     }, {
-        name: 'animator-template', label: 'ひな形から始める', inputKind: 'select',
-        options: ['選択…', ...INSPECTOR_ANIMATOR_TEMPLATES.map(item => item.label)],
-        getValue: () => '選択…', getEditValue: () => '選択…', keyframeDisabled: true,
+        name: 'animator-template', label: t('inspector.animatorSection.label.startFromTemplate'), inputKind: 'select',
+        options: [t('inspector.animatorSection.action.select'), ...INSPECTOR_ANIMATOR_TEMPLATES.map(item => item.label)],
+        getValue: () => t('inspector.animatorSection.action.select'), getEditValue: () => t('inspector.animatorSection.action.select'), keyframeDisabled: true,
         write: async (_snapshot, value) => {
             const template = INSPECTOR_ANIMATOR_TEMPLATES.find(item => item.label === value);
-            if (!template) return { ok: false, message: 'ひな形を選んでください。' };
+            if (!template) return { ok: false, message: t('inspector.animatorSection.message.selectTemplate') };
             return writeAnimator(() => addInspectorAnimatorTemplate(animators, template.id));
         }
     }, {
-        name: 'animator-add', label: 'アニメーターを追加', inputKind: 'select',
-        options: ['選択…', 'アニメーター'], getValue: () => '選択…', getEditValue: () => '選択…',
+        name: 'animator-add', label: t('inspector.animatorSection.label.addAnimator'), inputKind: 'select',
+        options: [t('inspector.animatorSection.action.select'), t('inspector.animatorSection.label.animator')], getValue: () => t('inspector.animatorSection.action.select'), getEditValue: () => t('inspector.animatorSection.action.select'),
         keyframeDisabled: true,
         write: async (_snapshot, value) => {
-            if (value === '選択…') return { ok: true };
-            if (value !== 'アニメーター') return { ok: false, message: '一覧からアニメーターを選択してください。' };
+            if (value === t('inspector.animatorSection.action.select')) return { ok: true };
+            if (value !== t('inspector.animatorSection.label.animator')) return { ok: false, message: t('inspector.animatorSection.message.selectAnimatorFromList') };
             return writeAnimator(() => addInspectorAnimator(animators));
         }
     }];
@@ -70,19 +71,19 @@ export function ANIMATOR_SECTION(
         animatorFields.push({
             name: `${name}-heading`, label: animator.id, getValue: () => '', keyframeDisabled: true,
             actions: [{
-                name: 'up', label: '↑', title: `${animator.id}を上へ`, disabled: index === 0,
+                name: 'up', label: '↑', title: t('inspector.animatorSection.title.moveUp', { id: animator.id }), disabled: index === 0,
                 action: () => writeAnimator(() => moveInspectorAnimator(animators, index, -1))
             }, {
-                name: 'down', label: '↓', title: `${animator.id}を下へ`, disabled: index === animators.length - 1,
+                name: 'down', label: '↓', title: t('inspector.animatorSection.title.moveDown', { id: animator.id }), disabled: index === animators.length - 1,
                 action: () => writeAnimator(() => moveInspectorAnimator(animators, index, 1))
             }, {
-                name: 'remove', label: '削除', title: `${animator.id}を削除`,
+                name: 'remove', label: t('inspector.animatorSection.label.delete'), title: t('inspector.animatorSection.title.remove', { id: animator.id }),
                 action: () => writeAnimator(() => removeInspectorAnimator(animators, index))
             }]
         });
         if (template) animatorFields.push({
             name: `${name}-all`, label: '', getValue: () => '',
-            actionLabel: showAll ? '必要な項目だけ' : 'すべての項目',
+            actionLabel: showAll ? t('inspector.animatorSection.label.onlyNecessaryItems') : t('inspector.animatorSection.label.allItems'),
             action: async () => {
                 if (expandedAnimatorFields.has(expandedKey)) expandedAnimatorFields.delete(expandedKey);
                 else expandedAnimatorFields.add(expandedKey);
@@ -93,7 +94,7 @@ export function ANIMATOR_SECTION(
         });
         if (showAll) {
         for (const [key, label, options] of [
-            ['basis', '単位', INSPECTOR_ANIMATOR_BASES], ['shape', '形', INSPECTOR_ANIMATOR_SHAPES]
+            ['basis', t('inspector.animatorSection.label.unit'), INSPECTOR_ANIMATOR_BASES], ['shape', t('inspector.animatorSection.label.shape'), INSPECTOR_ANIMATOR_SHAPES]
         ] as const) {
             const selected = options.find(option => option.id === animator[key])!;
             animatorFields.push({
@@ -110,7 +111,7 @@ export function ANIMATOR_SECTION(
         for (const field of INSPECTOR_ANIMATOR_NUMBER_FIELDS) {
             if (field.key === 'randomize.seed') {
                 animatorFields.push({
-                    name: `${name}-ease`, label: 'イージング', inputKind: 'select', options: MOTION_EASES,
+                    name: `${name}-ease`, label: t('inspector.animatorSection.label.easing'), inputKind: 'select', options: MOTION_EASES,
                     getValue: () => animator.ease ?? 'linear', getEditValue: () => animator.ease ?? 'linear',
                     keyframeDisabled: true,
                     write: (_snapshot, value) => writeAnimator(() => updateInspectorAnimator(animators, index, 'ease', value)),
@@ -123,9 +124,9 @@ export function ANIMATOR_SECTION(
                     : animator.amount[key.slice(7) as InspectorAnimatorAmountKey] ?? field.default;
             animatorFields.push({
                 name: `${name}-${key.replace('.', '-')}`,
-                label: !showAll && template ? ({ end: 'かかる時間', offset: '文字ごとのずれ',
-                    'amount.y': '波の高さ', 'amount.rotate': '揺れの角度',
-                    'randomize.seed': 'ランダム seed' } as Record<string, string>)[key] ?? field.label : field.label,
+                label: !showAll && template ? ({ end: t('inspector.animatorSection.error.timeRequired'), offset: t('inspector.animatorSection.label.sPerCharacter'),
+                    'amount.y': t('inspector.animatorSection.label.waveHeight'), 'amount.rotate': t('inspector.animatorSection.label.angleKing'),
+                    'randomize.seed': t('inspector.animatorSection.label.randomSeed') } as Record<string, string>)[key] ?? field.label : field.label,
                 inputKind: key === 'randomize.seed' ? 'number' : 'scrub-number',
                 getValue: () => value === null ? '' : `${Number((value * field.displayScale).toFixed(1))} ${field.unit}`,
                 getEditValue: () => value === null ? '' : String(value),
@@ -139,7 +140,7 @@ export function ANIMATOR_SECTION(
             });
         }
     });
-    return { id: 'animator', label: `詳細設定（上級）: ${headingLabel}`, collapsedByDefault: true,
+    return { id: 'animator', label: t('inspector.animatorSection.label.advanced', { headingLabel: headingLabel }), collapsedByDefault: true,
         fields: animatorFields, body: () => {
             const marker = document.createElement('span');
             queueMicrotask(syncAdvancedRows);

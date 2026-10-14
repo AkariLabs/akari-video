@@ -1,4 +1,5 @@
 import { computeCutTrackSegments, EditCut, TimelineTrackKind } from './edit-store';
+import { t } from '@akari-video/i18n';
 
 /**
  * 素材追加コマンド（akari.timeline.addMaterialAtPlayhead / D&D ドロップ）の挿入要素を組み立てる
@@ -50,7 +51,7 @@ export function materialDropDecision(
         if (trackKind === 'audio' || trackKind === undefined) {
             return { accept: true, zone: 'audio' };
         }
-        return { accept: false, reason: '音は音の段へドロップしてください。' };
+        return { accept: false, reason: t('annotationscommon.timelineMaterialInsert.drop.audioTrack') };
     }
     if (trackKind === 'layers' || trackKind === undefined) {
         return { accept: true, zone: 'layers' };
@@ -60,7 +61,7 @@ export function materialDropDecision(
     }
     return {
         accept: false,
-        reason: '映像は映像の段へ、音は音の段へドロップしてください。'
+        reason: t('annotationscommon.timelineMaterialInsert.drop.correctTrack')
     };
 }
 
@@ -101,9 +102,11 @@ export interface MaterialGhostVisibility {
 
 /** 枠には短い案内だけを出す。詳細な拒否理由はフッターへ渡す。 */
 export function materialGhostRejectLabel(reason: string): string {
-    if (reason.includes('ロック中')) return 'ロック中';
-    if (reason.includes('レーン') || reason.includes('段へ')) return 'レーン違い';
-    return '置けません';
+    if (reason.includes('ロック中') || reason.includes(t('annotationscommon.timelineMaterialInsert.ghost.locked'))) return t('annotationscommon.timelineMaterialInsert.ghost.locked');
+    if (reason.includes('レーン') || reason.includes('段へ')
+        || reason === t('annotationscommon.timelineMaterialInsert.drop.audioTrack')
+        || reason === t('annotationscommon.timelineMaterialInsert.drop.correctTrack')) return t('annotationscommon.timelineMaterialInsert.ghost.laneMismatch');
+    return t('annotationscommon.timelineMaterialInsert.ghost.cannotPlace');
 }
 
 /**

@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -65,7 +66,7 @@ export class AssetSiteWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AssetSiteWidget.ID;
-        this.title.label = '素材サイト'; this.title.closable = true;
+        this.title.label = t('project.library.creator.site'); this.title.closable = true;
         this.node.style.height = '100%';
         this.unsubscribe = window.electronAkariProject.assetSite.onEvent(event => this.receive(event));
         this.ticker = setInterval(() => void this.updateBounds(), 500);
@@ -134,7 +135,7 @@ export class AssetSiteWidget extends ReactWidget {
         const { engines, invalidIds } = validUserEngines(this.preferences.get('akari.browser.userEngines', []), builtIn);
         this.browserEngines = [...builtIn, ...engines];
         for (const id of invalidIds) if (!this.warnedSettings.has(id)) {
-            this.warnedSettings.add(id); this.messages.warn(`検索サイトの設定に使えないものがあります: ${id.slice(0, 40)}`);
+            this.warnedSettings.add(id); this.messages.warn(t('project.web.assetSite.someSearchSiteSettingsAreInvalidLabel', { value1: id.slice(0, 40) }));
         }
     }
 
@@ -142,7 +143,7 @@ export class AssetSiteWidget extends ReactWidget {
         this.browserConfig = await window.electronAkariProject.assetSite.browserConfig();
         this.mode = 'open'; this.listing = undefined; this.browserView = false; this.address = ''; this.pickMode = false;
         this.snapshot = undefined; this.pending = undefined; this.browserError = ''; this.browserLoading = false;
-        this.title.label = 'ブラウザ';
+        this.title.label = t('project.web.assetSite.browserLabel');
         await window.electronAkariProject.assetSite.close();
         this.lastBounds = undefined;
         this.loadUserEngines();
@@ -163,7 +164,7 @@ export class AssetSiteWidget extends ReactWidget {
     get testHttp(): boolean { return Boolean(this.browserConfig?.testHttp); }
 
     async openBrowserUrl(url: string): Promise<void> {
-        if (!this.browserConfig) throw new Error('ブラウザの設定ファイルが見つかりません');
+        if (!this.browserConfig) throw new Error(t('project.web.assetSite.browserConfigurationFileNotFoundMessage'));
         this.browserError = ''; this.browserLoading = true; this.update();
         if (this.browserView) await window.electronAkariProject.assetSite.navigate(url);
         else { const rect = this.host?.getBoundingClientRect();
@@ -196,10 +197,10 @@ export class AssetSiteWidget extends ReactWidget {
     }
 
     private async clearBrowserHistory(): Promise<void> {
-        if (!await new ConfirmDialog({ title: 'ブラウザの記録を消す',
-            msg: 'ログイン状態や閲覧の記録が消えます', ok: '消す', cancel: 'キャンセル' }).open()) return;
+        if (!await new ConfirmDialog({ title: t('project.web.assetSite.clearBrowserHistoryAction'),
+            msg: t('project.web.assetSite.willClearSignStateBrowsingHistoryMessage'), ok: t('project.library.menu.delete'), cancel: t('project.library.pane.cancelLabel') }).open()) return;
         await window.electronAkariProject.assetSite.clearBrowserHistory();
-        this.messages.info('ブラウザの記録を消しました');
+        this.messages.info(t('project.web.assetSite.browserHistoryClearedMessage'));
     }
 
     private async updateBounds(): Promise<void> {
@@ -223,18 +224,18 @@ export class AssetSiteWidget extends ReactWidget {
         if (event.type === 'scratch') {
             const noticeVersion = ++this.scratchNoticeVersion;
             this.scratchNoticeThumb = undefined;
-            const reasons: Record<string, string> = { 'blocked-host': '安全でない接続先です', 'bad-scheme': '対応していないアドレスです',
-                'too-many-redirects': '転送が多すぎます', 'too-large': '画像が大きすぎます', timeout: '時間がかかりすぎました',
-                'http-error': '画像を取得できませんでした', 'not-an-image': '画像ではありません', network: '通信できませんでした' };
-            this.scratchNotice = event.result === 'duplicate' ? 'すでに取り込み済みです'
+            const reasons: Record<string, string> = { 'blocked-host': t('project.web.assetSite.unsafeDestinationMessage'), 'bad-scheme': t('project.web.assetSite.unsupportedAddressError'),
+                'too-many-redirects': t('project.web.assetSite.tooManyRedirectsMessage'), 'too-large': t('project.web.assetSite.imageIsTooLargeMessage'), timeout: t('project.web.assetSite.timedOutError'),
+                'http-error': t('project.web.assetSite.couldNotLoadImageError'), 'not-an-image': t('project.web.assetSite.isNotImageMessage'), network: t('project.web.assetSite.couldNotConnectError') };
+            this.scratchNotice = event.result === 'duplicate' ? t('project.web.assetSite.alreadyImportedMessage')
                 : event.result === 'added' ? event.flags?.includes('injection-suspect')
-                    ? 'このページに指示のような文が含まれています（取り込みは済んでいます）'
+                    ? t('project.web.assetSite.pageContainsTextLooksLikeInstructionsMessage')
                     : event.quality === 'thumbnail'
-                        ? '小さい画像を取り込みました。ページで大きく開いてから、もう一度選ぶと原寸に近づきます'
-                        : '画像を取り込みました — 渡すに入れました（一時取り込み）'
-                    : event.unresolved === 'not-loaded' ? 'この画像は取り込めません（まだ読み込まれていません。少し待ってからもう一度）'
-                        : event.unresolved === 'unsupported' ? 'この画像は取り込めません（対応していない形式です）'
-                            : `取り込めませんでした: ${reasons[event.reason ?? ''] ?? '画像を取得できませんでした'}`;
+                        ? t('project.web.assetSite.smallImageWasImportedOpenLargerMessage')
+                        : t('project.web.assetSite.imageImportedAddedHandoffTemporarilyMessage')
+                    : event.unresolved === 'not-loaded' ? t('project.web.assetSite.cannotImportImageYetWaitItError')
+                        : event.unresolved === 'unsupported' ? t('project.web.assetSite.cannotImportImageBecauseItsFormatError')
+                            : t('project.web.assetSite.couldNotImportError', { value1: reasons[event.reason ?? ''] ?? t('project.web.assetSite.couldNotLoadImageError') });
             if (this.scratchNoticeTimer) clearTimeout(this.scratchNoticeTimer);
             this.scratchNoticeTimer = setTimeout(() => { if (noticeVersion !== this.scratchNoticeVersion) return;
                 this.scratchNoticeVersion++; this.scratchNotice = ''; this.scratchNoticeThumb = undefined; this.update(); }, 6000);
@@ -248,14 +249,14 @@ export class AssetSiteWidget extends ReactWidget {
             }
         }
         if (event.type === 'received' && event.paths?.length) this.pending = {
-            paths: event.paths, name: event.name ?? '素材', sourceUrl: event.url ?? this.address
+            paths: event.paths, name: event.name ?? t('project.catalog.purchase.asset'), sourceUrl: event.url ?? this.address
         };
         if (event.type === 'error') {
             if (this.mode === 'open') {
-                this.browserError = event.message ?? 'このアドレスは開けません';
+                this.browserError = event.message ?? t('project.web.assetSite.cannotOpenAddressError');
                 this.browserLoading = false; void this.updateBounds();
             }
-            else this.messages.error(event.message ?? '受け取りに失敗しました');
+            else this.messages.error(event.message ?? t('project.web.assetSite.couldNotReceiveFileError'));
         }
         this.update();
     }
@@ -275,7 +276,7 @@ export class AssetSiteWidget extends ReactWidget {
             await (await this.widgets.getWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID))?.siteImportCompleted(result);
             await window.electronAkariProject.assetSite.discard(this.pending.paths);
             this.pending = undefined;
-        } catch (error) { this.messages.error(`ライブラリに入れられませんでした: ${String(error)}`); }
+        } catch (error) { this.messages.error(t('project.web.assetSite.couldNotAddLibraryError', { value1: String(error) })); }
         finally { this.busy = false; this.update(); }
     }
 
@@ -299,9 +300,9 @@ export class AssetSiteWidget extends ReactWidget {
                 onSelect={id => { this.selectedEngine = id; this.update(); }}
                 onQuery={value => { this.query = value; this.update(); }}
                 onSearch={() => { void this.search(this.selectedEngine, this.query).then(code => {
-                    if (code !== 'ok') { this.browserError = code === 'empty-query' ? '検索語を入力してください' :
-                        '検索サイトを開けません'; this.browserLoading = false; this.update(); void this.updateBounds(); }
-                }).catch(() => { this.browserError = '検索サイトを開けません'; this.browserLoading = false;
+                    if (code !== 'ok') { this.browserError = code === 'empty-query' ? t('project.web.assetSite.enterSearchTermAction') :
+                        t('project.web.assetSite.couldNotOpenSearchSiteError'); this.browserLoading = false; this.update(); void this.updateBounds(); }
+                }).catch(() => { this.browserError = t('project.web.assetSite.couldNotOpenSearchSiteError'); this.browserLoading = false;
                     this.update(); void this.updateBounds(); }); }}
                 onBack={() => { this.browserError = ''; this.update(); void this.updateBounds();
                     if (this.browserView) void window.electronAkariProject.assetSite.back(); }}
@@ -310,23 +311,22 @@ export class AssetSiteWidget extends ReactWidget {
                 onReload={() => { if (this.browserView) { this.browserLoading = true; this.update();
                     void window.electronAkariProject.assetSite.reload(); } }}
                 onClearHistory={() => void this.clearBrowserHistory()} />
-                : <header style={{ padding: '8px 12px' }}>ブラウザの設定ファイルが見つかりません</header>}
+                : <header style={{ padding: '8px 12px' }}>{t('project.web.assetSite.browserConfigurationFileNotFoundMessage')}</header>}
             <div className='akari-site-body'><div ref={this.bindHost} data-akari-site-surface className='akari-site-surface'
                 style={{ position: 'relative', background: AKARI_SURFACE.card, color: AKARI_INK }}>
                 {this.browserError ? <div role='alert' style={{ height: '100%', display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 14, padding: 20, boxSizing: 'border-box' }}>
                     <span>{this.browserError}</span>
-                    <button type='button' className='theia-button secondary' aria-label='戻る' onClick={() => {
+                    <button type='button' className='theia-button secondary' aria-label={t('project.web.assetSite.backLabel')} onClick={() => {
                         this.browserError = ''; this.update(); void this.updateBounds();
                         if (this.browserView) void window.electronAkariProject.assetSite.back();
-                    }}>戻る</button>
+                    }}>{t('project.web.assetSite.backLabel')}</button>
                 </div> : !this.browserView && !this.snapshot && <div data-akari-browser-empty style={{ height: '100%',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     gap: 18, boxSizing: 'border-box', padding: 20 }}>
                     <p style={{ margin: 0, textAlign: 'center', color: AKARI_INK }}>
-                        調べたいものを入れて、検索するサイトを選びます
-                    </p>
-                    <div role='group' aria-label='検索サイト' style={{ display: 'grid',
+                        {t('project.web.assetSite.enterWhatYouWantFindChooseAction')}</p>
+                    <div role='group' aria-label={t('project.web.assetSite.searchSiteAction')} style={{ display: 'grid',
                         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, width: 'min(100%, 420px)' }}>
                         {(this.browserConfig?.engines ?? []).slice(0, 4).map(engine =>
                             <button key={engine.id} type='button' className='theia-button secondary akari-browser-engine-choice'
@@ -337,8 +337,7 @@ export class AssetSiteWidget extends ReactWidget {
                     </div>
                     <small style={{ color: 'var(--akari-muted)', textAlign: 'center', maxWidth: 420,
                         textWrap: 'balance' }}>
-                        見るだけです。画像の利用条件は、使う前にそのサイトで確かめてください
-                    </small>
+                        {t('project.web.assetSite.browseOnlyCheckImageUsageTermsAction')}</small>
                 </div>}
                 {this.snapshot && <img src={this.snapshot} alt='' aria-hidden='true'
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill' }} />}
@@ -355,15 +354,15 @@ export class AssetSiteWidget extends ReactWidget {
             </output>
         </div>;
         const listing = this.listing;
-        if (!listing) return <div>素材サイトを開いています…</div>;
+        if (!listing) return <div>{t('project.web.assetSite.openingAssetSiteStatus')}</div>;
         return <div data-akari-asset-site className='akari-asset-site-browser'
             style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0,
                 containerType: 'inline-size' }}>
             <style>{layoutCss}</style>
             <header style={{ padding: '8px 12px', borderBottom: '1px solid var(--theia-panel-border)' }}>
-                <strong>{listing.site.name}</strong> {listing.site.price === 'subscription' && <span>サブスク</span>}
-                <div>このサイトの中だけ移動できます</div>
-                {this.agentOpened && <div>エージェントがこのページを開きました</div>}
+                <strong>{listing.site.name}</strong> {listing.site.price === 'subscription' && <span>{t('project.catalog.distribution.subscription')}</span>}
+                <div>{t('project.web.assetSite.youCanNavigateOnlyWithinSiteMessage')}</div>
+                {this.agentOpened && <div>{t('project.web.assetSite.agentOpenedPageMessage')}</div>}
                 <output data-akari-site-address style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{this.address}</output>
                 <small title={listing.site.terms.source_url} style={{ display: 'block', maxHeight: 32, overflow: 'hidden' }}>{listing.site.terms.summary_ja}</small>
             </header>
@@ -373,23 +372,23 @@ export class AssetSiteWidget extends ReactWidget {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <aside className='akari-site-recommendations'>
-                    <strong>AKARI のおすすめ</strong>
+                    <strong>{t('project.web.assetSite.akariRecommendationsLabel')}</strong>
                     {listing.recommendations.length ? listing.recommendations.map(item =>
                         <div key={item.id} style={{ marginTop: 10 }}><div>{item.title}</div>
                             <button className='theia-button secondary' style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
-                                onClick={() => void this.recommend(item)}>ページを開いて光らせる</button>
+                                onClick={() => void this.recommend(item)}>{t('project.web.assetSite.openPageHighlightAction')}</button>
                             <button className='theia-button quiet' style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
                                 onClick={() => void this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID,
-                                composeSiteAgentPrompt(listing.site, `おすすめ「${item.title}」を探して`))}>エージェントに頼む</button></div>)
-                        : <p>このサイトのおすすめは未登録です</p>}
+                                composeSiteAgentPrompt(listing.site, t('project.web.assetSite.findRecommendationTitleAction', { title: item.title })))}>{t('project.web.assetSite.askAgentAction')}</button></div>)
+                        : <p>{t('project.web.assetSite.noRecommendationsAreRegisteredSiteError')}</p>}
                 </aside>
             </div>
             {this.pending && <footer data-akari-site-received style={{ padding: 8, borderTop: '1px solid var(--theia-panel-border)',
                 display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>
-                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{this.pending.name} を受け取りました —</span>
-                <button className='theia-button' disabled={this.busy} onClick={() => void this.importPending()}>ライブラリに入れる</button>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{this.pending.name} {t('project.web.assetSite.receivedLabel')}</span>
+                <button className='theia-button' disabled={this.busy} onClick={() => void this.importPending()}>{t('project.web.assetSite.addLibraryAction')}</button>
                 <button className='theia-button danger' disabled={this.busy} onClick={() => { if (this.pending) void window.electronAkariProject.assetSite.discard(this.pending.paths);
-                    this.pending = undefined; this.update(); }}>捨てる</button>
+                    this.pending = undefined; this.update(); }}>{t('project.web.assetSite.discardAction')}</button>
             </footer>}
         </div>;
     }

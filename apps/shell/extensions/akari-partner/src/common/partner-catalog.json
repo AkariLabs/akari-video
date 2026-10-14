@@ -49,6 +49,10 @@
         "executableNames": ["codex", "codex-aarch64-apple-darwin"],
         "platformTokens": ["darwin-arm64", "macos-aarch64", "aarch64-apple-darwin"]
       }
+    },
+    "managedCli": {
+      "preference": "chatgpt.cliExecutable",
+      "platforms": ["win32-x64"]
     }
   },
   {
@@ -113,6 +117,14 @@
     "form": "cli",
     "name": "Grok Build CLI",
     "description": "xAI の Grok Build（grok）を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
+    "id": "meta/muse-code-cli",
+    "agent": "muse",
+    "form": "cli",
+    "name": "Muse Code CLI",
+    "description": "Meta の Muse Code（muse）を PTY タブで直接使います",
     "recommended": false
   },
   {

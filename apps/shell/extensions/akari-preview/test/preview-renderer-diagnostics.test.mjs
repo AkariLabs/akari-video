@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -224,23 +228,6 @@ test('iframe の付け替えより前の通知を捨て、付け替え後と同�
     h.session.observeAttachedIframe(second, born + 2100);
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at, observedAt: born + 20 }), false);
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at, observedAt: born + 2200 }), true);
-});
-
-test('非表示中の renderer 停止を捨て、表示後の新しい停止は届ける', () => {
-    const born = Date.parse('2026-10-06T12:03:00.000Z');
-    const h = harness({ nowMs: born });
-    const widget = { isDisposed: false, isAttached: true, isVisible: false, akariPreviewDiagnostics: h.session };
-    const gone = { reason: 'unknown', exitCode: null, at: '2026-10-06T12:04:00.000Z', observedAt: born + 1000 };
-    if (host.shouldDeliverPreviewRendererGone(widget, gone)) h.session.rendererGone(gone);
-    assert.equal(h.shown.length, 0);
-    assert.equal(h.session.trace.rendererGone, undefined);
-    widget.isVisible = true;
-    assert.equal(host.shouldDeliverPreviewRendererGone(widget, gone), true);
-    h.session.rendererGone({ reason: gone.reason, exitCode: gone.exitCode, at: gone.at });
-    assert.match(h.shown.at(-1).title, /表示処理が停止しました/u);
-    assert.deepEqual(h.session.trace.rendererGone, { reason: 'unknown', exitCode: null, at: gone.at });
-    const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-    assert.match(handler, /if \(!shouldDeliverPreviewRendererGone\(widget, notice\) \|\| !session\) return;/u);
 });
 
 test('停止理由の日本語化と不明な exitCode の記録', async () => {

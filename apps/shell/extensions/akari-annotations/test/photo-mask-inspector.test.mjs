@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cutSections, itemSections, layerSections, photoMaskFields, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { cutSections, itemSections, layerSections, photoMaskFields, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+
+
 
 const lookNames = ['photo-flip-h', 'photo-flip-v', 'photo-crop-open',
   'photo-frame-width', 'photo-frame-color', 'photo-frame-radius'];

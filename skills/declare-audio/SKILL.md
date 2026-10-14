@@ -1,59 +1,44 @@
 ---
 name: declare-audio
-description: 手元の音源に「サビはどこか・キメはどこか・拍はどこか」を自分の耳で付ける（宣言づけ）。ブラウザで開くタイムライン画面を起動し、人が波形にサビ区間とキメのピンを打ち、BPM・頭拍を確定して declarations.json へ保存する。付けた宣言は BGM 自動提案（suggest-bgm）がそのまま読み、実測 BPM とサビ頭出し（audio.bgm.in）付きの提案になる。「この曲のサビを教えたい」「BGM の提案が雑」「拍に合わせて切りたい」「宣言を自分で作りたい」で発動。音源を増やすのは setup-audio-library（別物）。
+description: Mark a track's chorus, accent hits, beat, BPM, and first downbeat by listening in the browser timeline, then save declarations.json for BGM suggestions and beat-synced editing. Use when a user wants to mark a song's chorus, improve BGM suggestions, cut to the beat, or create declarations. Use setup-audio-library to add tracks.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library normally lives at `library/` in the workspace, or `~/.akari/assets/` when no workspace is available. Confirm its actual location from the first line of `akari-assets list` or `akari assets list`. In this guide, `<ライブラリの置き場>` means that displayed location; audio files are under `audio/`.
 
+Never proceed with declaring in a way that violates any of these rules. They always take precedence over the detailed leaves.
 
-次のいずれかに違反する形で宣言づけを進めない。詳細リーフより常に優先する。
+1. **Never mark a declaration on the person's behalf.** The person decides by listening; the agent only opens the timeline, explains the controls, and verifies what was saved. Never let the automatic BPM estimate be saved as-is as a confirmed declaration; it is only a starting point. **Always tell the person to turn on the click sound and check the beat by ear** before describing BPM or the first downbeat as confirmed.
+2. **Never present an estimate as a measurement.** Automatic tempo estimates are off by ±1–2 BPM, particularly with weak beats or tempo drift in AI-generated songs. Reports must distinguish estimated values from values the person verified by ear.
+3. **Keep audio and declarations in the user's library.** Do not commit either to this repository. The default destination is `<ライブラリの置き場>/audio/`.
+4. **Never silently replace a declaration from another source, such as a purchased declaration pack.** If the existing `source` differs from `declare-audio`, show the Japanese UI badge `パック由来` ("from a pack") and tell the person before saving. The server records the former source in `replaced_source`.
+5. **Never write `declarations.json` manually.** Save through the validating server so bad sections or labels cannot break later suggestions.
+6. **Bind the server only to `127.0.0.1`.** Do not expose it externally.
+7. **Read the saved file before reporting success.** Check the declaration count and contents in `declarations.json`; a UI success message alone is insufficient.
 
-1. **宣言はエージェントが打たない。人が耳で決める。** このスキルの仕事は「画面を起動して、
-   何を打つべきかを案内し、保存されたものを検証する」ところまでである。BPM の自動推定値を
-   そのまま「確定した宣言」として保存させない（推定は出発点であり、**クリック音での耳の
-   答え合わせを必ず案内する**）。
-2. **推定値を実測と偽らない。** 自動推定は ±1〜2 BPM ずれる（打点の弱い曲・AI 生成曲の
-   テンポ揺れでは特に）。レポートに書くときは「推定」「本人が耳で確認済み」を区別して書く。
-3. **音声実体を本リポにコミットしない。** 対象はユーザーのライブラリ（既定
-   `<ライブラリの置き場>/audio/`）であり、リポジトリには宣言も音声も置かない。
-4. **他所由来の宣言を黙って上書きしない。** 購入した宣言パック等（`source` が
-   `declare-audio` 以外）を上書きするときは、画面の「パック由来」バッジをユーザーに
-   知らせてから進める（保存時は `replaced_source` に記録が残る）。
-5. **`declarations.json` を手で書かない。** 保存はサーバ経由（妥当性検査つき）に一本化する。
-   壊れた区間・語彙外ラベルが入ると編集側の自動提案が壊れる。
-6. **サーバは `127.0.0.1` のみにバインドする。** 外部公開しない。
-7. **「宣言済み」と報告する前に、保存された内容を読み返して件数を確認する。**
-   （`declarations.json` を読む。画面のメッセージだけで完了を報告しない）
+# Execution order and leaf files
 
-# 実行順リーフ
+1. [launch.md](launch.md): Start the browser timeline, present its URL, and explain the essential controls.
+2. [what-to-declare.md](what-to-declare.md): Guide the person through the chorus, a few accent pins, and the quality criteria.
+3. [after-save.md](after-save.md): Verify the saved declaration and its effect on BGM suggestions.
 
-1. [launch.md](launch.md) — 画面の起動とユーザーへの案内（起動 → URL 提示 → 操作の要点）
-2. [what-to-declare.md](what-to-declare.md) — 何を打つべきか（サビ最優先・ピンは疎で足りる・
-   品質の目安）。ユーザーが「何を打てばいいの？」と聞いたときはここを案内する
-3. [after-save.md](after-save.md) — 保存後の検証と、宣言が効いていることの確かめ方
-   （suggest-bgm で実測 BPM・サビ頭出しが出るか）
+Read the leaf for the current step only.
 
-詳細を先読みせず、現在の工程に対応するファイルだけを読む。
+## When to use this skill
 
-## このスキルが要るとき / 要らないとき
-
-| 状況 | 使うもの |
+| Situation | Use |
 |---|---|
-| 手元の曲に「サビはここ」を教えて、BGM 提案とサビ頭出しを賢くしたい | **本スキル** |
-| 音源そのものを増やしたい（公式ライブラリの一括取得・外部の補完） | [setup-audio-library](../setup-audio-library/SKILL.md) |
-| AKARI Sounds の曲に、自分で打たずに検証済みの宣言が欲しい | AKARI Store の宣言パック（耳検証済みデータの版ごと買い切り。導入は zip 内の `declarations.json` を `<ライブラリの置き場>/audio/` に置くだけ） |
-| 宣言を使って BGM を選びたい（宣言づけではなく利用側） | `packages/audio-library-setup/bin/suggest-bgm.mjs` / [edit-plan](../edit-plan/SKILL.md) の素材計画 |
+| Mark the chorus of a track so BGM suggestions can cue it | This skill |
+| Add tracks to the audio library, through a bulk download of the official library or external supplements | [setup-audio-library](../setup-audio-library/SKILL.md) |
+| Obtain an ear-verified AKARI Sounds declaration without marking it yourself | An AKARI Store declaration pack, purchased once per version of its ear-verified data; installation is only placing the zip's `declarations.json` under `<ライブラリの置き場>/audio/` |
+| Select BGM using existing declarations, rather than marking new ones | `packages/audio-library-setup/bin/suggest-bgm.mjs` or [edit-plan](../edit-plan/SKILL.md) |
 
-## 宣言の形（保存先と契約）
+## Declaration format and storage
 
-保存先は **`<ライブラリ>/declarations.json`**（既定 `<ライブラリの置き場>/audio/declarations.json`）。
-`suggest-bgm` が既定パスとして自動検出する場所であり、キーはトラック id。
+The server saves **`<ライブラリ>/declarations.json`** (normally `<ライブラリの置き場>/audio/declarations.json`). `suggest-bgm` discovers that path by default. The top-level key is the track id.
 
 ```json
 {
@@ -73,17 +58,12 @@ description: 手元の音源に「サビはどこか・キメはどこか・拍�
 }
 ```
 
-- `label` の語彙は 6 値固定: `intro` / `build` / `drop` / `outro` / `bridge` / `break`
-  （画面では 前奏・導入 / 盛り上げ / サビ・見せ場 / 後奏・締め / 間奏 / 静寂）。**発明しない**
-- **最初の `drop` の `start_sec` が「サビ頭出し」**になり、`edit.json` の `audio.bgm.in` に
-  そのまま書ける値として提案に出る
-- `hit_points` は「写真・カットの入れ替えを決めたい拍」の秒。多く打つ必要はない
+- `label` accepts exactly six values: `intro`, `build`, `drop`, `outro`, `bridge`, and `break`. In that order, the UI labels are `前奏・導入` (prelude/introduction), `盛り上げ` (build), `サビ・見せ場` (chorus/highlight), `後奏・締め` (outro/close), `間奏` (interlude), and `静寂` (silence). Map these to the fixed values; never invent labels.
+- The first `drop` section's `start_sec` is the chorus cue and appears in suggestions as a value you can write directly to `audio.bgm.in` in `edit.json`.
+- `hit_points` contains source seconds for accents worth matching with a cut or visual change. A few well-chosen points are enough.
 
-## 根拠
+## References
 
-- 契約: [`docs/contract-2026-07-14-edit-json-v1-audio.md`](../../docs/contract-2026-07-14-edit-json-v1-audio.md)
-  （`audio.bgm.in` = BGM ファイル内の開始オフセット）
-- 実装: `packages/audio-library-setup/declare-server.mjs` / `declare-template.html` /
-  `bin/declare-helper.mjs`（127.0.0.1 のみ・外部 npm 依存ゼロ・状態は atomic 書き込み。
-  試聴ギャラリー `gallery-server.mjs` と同じ流儀）
-- 利用側: `bin/suggest-bgm.mjs`（宣言があるトラックは実測 BPM 置換・優先表示・サビ頭出し付き）
+- Contract: [`docs/contract-2026-07-14-edit-json-v1-audio.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md); `audio.bgm.in` is the start offset within the BGM file.
+- Server: `packages/audio-library-setup/declare-server.mjs`, `declare-template.html`, and `bin/declare-helper.mjs`. It binds locally, has no external npm dependency, and writes state atomically like `gallery-server.mjs`.
+- Consumer: `bin/suggest-bgm.mjs`, which uses declared BPM, priority, and chorus cue.

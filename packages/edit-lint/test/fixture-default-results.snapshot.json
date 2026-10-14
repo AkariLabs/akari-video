@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fixture_count": 116,
+  "fixture_count": 117,
   "fixtures": {
     "audio-sfx-track-invalid-value": {
       "exit_code": 0,
@@ -3578,6 +3578,50 @@
         }
       ],
       "skipped": []
+    },
+    "v2-unknown-transition-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "cuts.transition-out.unknown-type",
+          "message": "知らない種類のトランジション「future-kind」です。クロスフェードで代用して表示・書き出しします。",
+          "path": "edit.json#cuts[0].transition_out"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
     },
     "v2-valid": {
       "exit_code": 0,

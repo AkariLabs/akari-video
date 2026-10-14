@@ -1,25 +1,26 @@
-# 分析ワークフロー
 
-## 原則
 
-原本を証拠、`analysis.json` を追記可能な帳面として扱う。自動観察は候補生成に使い、確認できない事実を埋めない。キー無しは「未観察」であり、「存在しない」とは限らない。入出力と追記規約は [`akari media` 契約 §1 / §3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) を正本とする。
+# Analysis workflow
 
-## 1. 入力と要求レベルを固定する
+## Principles
 
-次を先に確認する。
+Treat the source footage as evidence and `analysis.json` as an appendable ledger. Use automated observation to suggest candidates; do not fill in facts you cannot confirm. A missing key means "unobserved," not necessarily "absent." The authoritative input, output, and update rules are in the [`akari media` contract §1 / §3](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md).
 
-- 入力が読み取り可能な通常ファイルである。
-- `akari media probe <target>` が exit 0 で JSON を返し、`duration_s` が有限の正数である。
-- 正本の [analysis.schema.json](../../packages/schemas/analysis.schema.json) を読める。
-- ソースの絶対パスと、JSON に書く相対パスを混同していない。
-- 依頼または後続スキルが要求する最高レベルを L0〜L3 のどこまでとするか決まっている。指定がなければ L0 + L1 とする。
+## 1. Confirm the source and requested level
 
-`probe` が失敗した場合は分析を完了扱いにせず、stderr の理由と止まった工程を報告する。
+Check the following first.
 
-## 2. 出力先を決める
+- The input is a readable regular file.
+- `akari media probe <target>` returns JSON on exit 0 and `duration_s` is a finite positive number.
+- The authoritative [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) is readable.
+- The source's absolute path is distinguished from the relative path stored in JSON.
+- The highest level requested by the user or a later skill, from L0 to L3, has been identified. Default to L0 + L1 if none is stated.
 
-source が `.akari/` を持つワークスペース内なら、ワークスペース root からの相対パスを保った `.akari/sidecars/<source-relative-path>.analysis/` を正典とする。
+If `probe` fails, do not mark the analysis complete. Report why and where the workflow stopped.
 
+## 2. Decide the output destination
+
+For a source in a workspace with `.akari/`, the canonical output is `.akari/sidecars/<source-relative-path>.analysis/`, preserving its workspace-relative path.
 ```text
 <workspace-root>/
 ├── assets/IMG_4606.MOV
@@ -30,65 +31,65 @@ source が `.akari/` を持つワークスペース内なら、ワークスペ�
     ├── matte/             # L3 で要求された場合だけ
     └── vision/            # L3 で要求された場合だけ
 ```
+For a standalone source with no identifiable `.akari/` workspace, use `<source-dir>/analysis/<source-stem>/`. `<source-stem>` is the filename without its final extension.
 
-`.akari/` を特定できない単体実行では `<source-dir>/analysis/<source-stem>/` を使う。`<source-stem>` は最後の拡張子を除いたファイル名とする。
+Reuse an output directory only if it refers to the same source. For a different source, append `<source-stem>-<ext>`; if that still collides, append the first eight characters of the normalized absolute path's SHA-256 hash. Apply the same rule to the final `<name>.analysis` directory in the standard AKARI layout.
 
-既存出力が同じ source を指す場合だけ再利用する。別 source なら `<source-stem>-<ext>`、さらに衝突する場合は正規化絶対パスの SHA-256 先頭 8 桁を接尾辞にする。AKARI 標準配置の最終 `<name>.analysis` にも同じ規則を適用する。
+Calculate `source`, `keyframes[].path`, and person-sidecar paths relative to the directory containing analysis.json. Store an absolute path only when the target cannot be represented within the same file tree.
 
-`source`、`keyframes[].path`、人物サイドカーの相対パスはすべて **analysis.json のあるディレクトリ**を基準に機械的に算出する。同一ファイルツリー内を表せない場合以外は絶対パスを保存しない。
+## 3. Decide the scope with four questions
 
-## 3. どこまで見るかを決める 4 問
+Do not add a case-type field to intake. Use these questions to request only the observations needed:
 
-案件タイプを intake に追加しない。次の 4 問で必要な観察だけを引く。
+1. **Is there speech?** — Use L1 if yes or unknown. Proceed to transcription only when `speech_likely` is true.
+2. **Must you select visual content?** — If you need evidence for cut decisions, cropping, B-roll selection, and screen changes, use L2.
+3. **Will you use person-based effects?** — L3 only for sections that use cutouts of people, eyes, fingertips, posture, and facial expressions.
+4. **Has the person already chosen a direction?** — If so, only look at the specified window. Never expand to full-length L2/L3 merely because the direction has not been decided.
 
-1. **喋りがあるか** — ある、または不明なら L1。`speech_likely` が true のときだけ文字起こしへ進む。
-2. **絵を選ぶ必要があるか** — カット判断、切り抜き、B ロール選定、画面変化の根拠が要るなら L2。
-3. **人物演出を使うか** — 人物の切り抜き、瞳、指先、姿勢、表情を使う区間だけ L3。
-4. **人間が既に方向を決めたか** — 決まっているなら指定された窓だけを見る。決まっていないことだけを理由に全尺 L2 / L3 へ広げない。
+If clarification is needed, ask one question: **"Should I stop after the default audio analysis (L0 + L1), or do you need visual review (L2) or person-based effects (L3)?"**
 
-迷ったら質問は 1 問だけにする: **「既定の音まで（L0 + L1）で止めますか、それとも絵（L2）または人物演出（L3）まで必要ですか？」**
 
-## 4. どこまで見るかの例
+## 4. Example scopes
 
-以下は判断例であって、閉じた案件タイプではない。
+These examples guide scope selection; they do not define a fixed set of project types.
 
-| 例 | 目安 | 理由 |
+| Example | Guideline | Reason |
 |---|---|---|
-| 字幕だけ | L0 + L1 | 発話と時刻が要り、絵の選定は不要。 |
-| 対談・ラジオ | L0 + L1 | 音を先に把握し、絵の判断を頼まれたときだけ L2 を足す。 |
-| 15 秒切り抜き | L0 + L1 + 指定窓の L2 | 候補発言と、その窓の画を確認する。全窓採点はしない。 |
-| B ロール PV | L0 + L1、必要なら L2 | waveform で発話なしを確認し、絵を選ぶ依頼があれば L2。 |
-| 人物演出 | L0 + L1 + 必要窓の L2 / L3 | 演出に使う人物種類と区間だけを引く。 |
-| 初見の長尺 | まず L0 + L1 | 全尺の絵を先回りで見ず、方向が決まってから該当窓へ L2 を足す。 |
-| タイムライン先行 | L0、必要窓だけ L1 / L2 | 人間が決めたカット周辺へ観察を限定する。 |
+| Only subtitles | L0 + L1 | Requires utterances and time, no need to select pictures. |
+| Dialogue/Radio | L0 + L1 | Understand the sound first, and add L2 only when asked to judge the picture. |
+| Fifteen-second excerpt | L0 + L1 + L2 in the specified window | Check the candidate statement and its visuals; do not score every window. |
+| B-roll promo | L0 + L1, then L2 if needed | Use the waveform to check for speech; add L2 only when visual selection is requested. |
+| Person-based effect | L0 + L1 + required windows of L2 / L3 | Generate only the person-track types and intervals needed for the effect. |
+| First pass over long footage | Start with L0 + L1 | Do not inspect every visual frame preemptively; add L2 for relevant windows once the direction is known. |
+| Timeline already drafted | L0, with L1 / L2 only for needed windows | Limit observation to the cuts a person has selected. |
 
-## 5. レベル順に実行する
+## 5. Run in order of levels
 
-1. L0: `akari media probe <target>`。
-2. L1: 音声があれば `akari media waveform <target>`。`speech_likely` が true のときだけ `akari media transcribe <target>`。
-3. L2: 要求された場合だけ `filmstrip` / `grab` で候補を作り、画像を視認して keyframe・event・hook を判断する。720p プロキシを置く場合もここからであり、L1 までは作らない。
-4. L3: 要求された人物演出のサイドカーだけを必要区間へ生成する。
-5. 各停止点で、既存の別章を消さずに一時 JSON を Schema 検証・意味検証し、成功したものだけ `analysis.json` へ原子的に反映する。
+1. L0: `akari media probe <target>`.
+2. L1: If there is audio, `akari media waveform <target>`. `akari media transcribe <target>` only when `speech_likely` is true.
+3. L2: Only when requested, use `filmstrip` / `grab` to propose frames and view the images before deciding on keyframes, events, or hooks. A 720p proxy, if needed, belongs here; never create it for L0 or L1.
+4. L3: Generate only the person sidecars needed for the requested effect and interval.
+5. At each stopping point, validate the temporary JSON against the schema and semantic rules without deleting existing untargeted sections, then atomically write only valid results to `analysis.json`.
 
-プロジェクト内では各 `akari media` 呼び出しが既定で帳面へ追記する。プロジェクト外では stdout の結果から最小文書を組み立てる。再実行時は `observations[]` を削除・並べ替えず、対象範囲だけを更新する。
+Within a project, each `akari media` call adds to the ledger by default. Assemble a minimal document from the stdout results outside the project. When re-executing, update only the target range without deleting or rearranging `observations[]`.
 
-## 6. 完了報告
+## 6. Completion report
 
-- source、確定した `analysis.json`、到達レベルと停止理由
-- 実行した `akari media` サブコマンド、観察範囲、stdout で得た件数
-- transcript / keyframe / event の件数。未観察章は「0 件」ではなく「未観察」と明記
-- 文字起こし backend と選定・フォールバック理由。`transcript: []` の場合は no speech / backend 不可 / 未観察を区別
-- L3 を生成した場合は種類・区間・処理時間・出力サイズ。未生成ならその旨
-- 視認できなかった画像、未実施の検証、既定値を変えたオプションと理由
+- Source, finalized `analysis.json`, reached level, and reason for stopping.
+- Each `akari media` subcommand run, its observed interval, and counts returned on stdout.
+- Counts of transcript segments, keyframes, and events. Label an unobserved section "unobserved," not "zero items."
+- Transcription backend and reasons for selection or fallback. For `transcript: []`, distinguish no speech, no available backend, and not observed.
+- For L3, generated type, interval, processing time, and output size; otherwise state that L3 was not generated.
+- Images that could not be viewed, checks not performed, and any changes to default options with their reasons.
 
-劣化理由を Schema 外のフィールドとして JSON に足さない。
+Do not add a field outside the schema merely to record a degraded result.
 
-## よくある間違い
+## Common mistakes
 
-- 依頼レベルを決めず、最初から全尺の L2 / L3 を走らせる。
-- `speech_likely: false` でも全尺を文字起こしする。
-- キー無しを「該当なし」と断定し、未観察の可能性を消す。
-- 複数素材を 1 個の `analysis.json` にまとめる。
-- 既存の未対象章や `observations[]` を再確定時に消す。
-- transcript がないのに映像だけから発話内容を創作する。
-- Schema が通っただけで `end > start` や参照ファイル存在確認を省く。
+- Running full-length L2 or L3 before deciding the requested scope.
+- Transcribing the entire source despite `speech_likely: false`.
+- Interpreting a missing key as "not applicable" rather than possibly unobserved.
+- Combining several source files in one `analysis.json`.
+- Deleting existing untargeted sections or `observations[]` during a repeat analysis.
+- Inventing words from images when no transcript exists.
+- Relying on schema validation alone and skipping `end > start` or referenced-file checks.

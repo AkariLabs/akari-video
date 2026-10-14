@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * `catalog/` 配下の各アイテムディレクトリにある meta.json を寛容リーダーで読む。
  * 必須は id・category・title の 3 フィールドのみ。他フィールドの欠落・未知
@@ -49,11 +50,12 @@ export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'brol
 export type CatalogAudioClassification = 'bgm' | 'sfx';
 
 /**
- * audio 項目を表示上の BGM / 音声クリップに分ける。`sfx` タグだけを音声クリップとし、
- * bgm / jingle / タグ無しは BGM へ安全にフォールドする。I/O を持たない分類の正本。
+ * audio 項目を表示上の BGM / 音声クリップに分ける。`sfx` と `jingle`（数秒のジングル・スティング）を
+ * 音声クリップとし、bgm / タグ無しは BGM へ安全にフォールドする（ジングルを SFX 側へ置くのは
+ * オーナー裁定 2026-10-12。BGM の一覧に短い効果音のような音が混ざって見えていた）。I/O を持たない分類の正本。
  */
 export function classifyCatalogAudioItem(item: { readonly tags?: readonly string[] }): CatalogAudioClassification {
-    return item.tags?.includes('sfx') ? 'sfx' : 'bgm';
+    return item.tags?.includes('sfx') || item.tags?.includes('jingle') ? 'sfx' : 'bgm';
 }
 
 export const CATALOG_AUDIO_BGM_CATEGORY = 'audio:bgm';
@@ -76,13 +78,13 @@ interface CatalogCategoryChipDefinition {
 
 /** raw category の audio だけを、元の位置で BGM → 音声クリップの 2 チップへ展開する。 */
 const CATALOG_CATEGORY_CHIP_DEFINITIONS: readonly CatalogCategoryChipDefinition[] = [
-    { category: 'overlay', label: 'オーバーレイ' },
-    { category: 'still', label: '静止画' },
+    { category: 'overlay', label: t('project.catalog.category.overlayLabel') },
+    { category: 'still', label: t('project.catalog.category.stillImageLabel') },
     { category: 'scene3d', label: '3D' },
     { category: CATALOG_AUDIO_BGM_CATEGORY, label: 'BGM' },
-    { category: CATALOG_AUDIO_SFX_CATEGORY, label: '音声クリップ' },
-    { category: 'broll', label: 'Bロール' },
-    { category: 'font', label: 'フォント' }
+    { category: CATALOG_AUDIO_SFX_CATEGORY, label: t('project.catalog.category.audioClipLabel') },
+    { category: 'broll', label: t('project.catalog.category.bRollLabel') },
+    { category: 'font', label: t('project.library.importSheet.fontLabel') }
 ];
 
 export interface CatalogCategoryChip {

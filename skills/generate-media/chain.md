@@ -1,32 +1,32 @@
+
+
 # still → video → resume
 
-## 一連の流れ
+## End-to-end sequence
 
-1. `akari generate still <projectDir> --spec <beats.json>` で静止画仮枠を作る。絵が未決なら `--placeholder` を使う
-2. タイムラインで尺・順序・静止画としての完成度を確認する
-3. 動かす 1 クリップを選び、`akari generate video <projectDir> --item <itemId> --dry-run --json` で送信 body、丸め、見積、外部送信を確認する
-4. 費用承認後だけ同コマンドへ `--yes` を付けて実行する
-5. CLI が送信前に meta の `job` と `status: "generating"` を保存したことを確認する
-6. 完了なら同じ item の source が動画へ差し替わり、失敗なら静止画を保つ
+1. Create still-image placeholders with `akari generate still <projectDir> --spec <beats.json>`. Use `--placeholder` when the visual is undecided.
+2. Review timing, order, and whether the stills already work as finished images on the timeline.
+3. Choose one clip to animate. Run `akari generate video <projectDir> --item <itemId> --dry-run --json` to inspect the outgoing request, duration rounding, estimate, and external transfer.
+4. Add `--yes` to the same command only after cost approval.
+5. Confirm that the CLI saved the `job` and `status: "generating"` metadata before sending the request.
+6. On success, replace that item's source with video. On failure, retain the still image.
 
-## 再取得
+## Resume an existing job
 
-プロセス終了や通信切断の後は、新規ジョブを黙って作らず保存済み request id を再取得する。
-
+After a process exits or the connection drops, retrieve the job by its saved request ID. Do not silently start a new one.
 ```sh
 akari generate resume <projectDir> --item <itemId> --json
 ```
+Omit `--item` to check all items with generation jobs.
 
-全生成中 item を確認する場合は `--item` を省略できる。
+A job is stale when it still has `status: "generating"` after `stale_after_s` seconds from `started_at` (900 seconds by default). The UI shows `応答なし・再取得` ("no response / retrieve again"). Stale does not mean failed: use resume to query the existing provider job first.
 
-`status: "generating"` のまま `started_at` から `stale_after_s` を超えた状態が stale で、既定は 900 秒。UI は「応答なし・再取得」と表示する。stale は失敗確定ではないため、まず resume で provider の既存ジョブを照会する。
+## Status and appearance
 
-## 失敗と見え方
+- `planned`: Show a text card with a small planned badge. Export the text card itself.
+- `generating`: Show progress over the still image. Export the still image while generation continues.
+- stale: Show the UI label `応答なし` ("no response") and continue exporting the still image.
+- `failed`: Show the failure, retain the original still, and record the reason in history.
+- `done`: Replace the still with video and return to the normal display.
 
-- `planned`: 文字カードと planned の小札。書き出しでは文字カード自体は残る
-- `generating`: 静止画の上に進捗表示。書き出しでは静止画のまま
-- stale: 「応答なし」。書き出しでは静止画のまま
-- `failed`: 失敗表示。元の静止画を消さず、履歴にも失敗理由を残す
-- `done`: 動画へ差し替え、通常表示に戻る
-
-左上の小札、下端の帯、点線、進捗表示は編集用表示である。書き出し時にはすべて消え、0 px になる。失敗や応答なしでも静止画クリップが残るため、タイムラインと書き出しを壊さない。
+The upper-left badge, bottom strip, dotted outline, and progress indicator appear only while editing. They disappear entirely on export (0 px). A failed or unresponsive job leaves the still clip in place, preserving the timeline and export.

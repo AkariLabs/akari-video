@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -36,6 +42,7 @@ test('all command entrances open the same popup without starting transcription',
         async open() {}
     }
     const modules = {
+        '../transcript-text': { t: globalThis.t },
         'akari-theme/lib/browser/init-layout-guard': { guardInitLayout() {} },
         '@theia/core/lib/common': {}, '@theia/core/lib/browser': {},
         '@theia/core/lib/common/preferences': {}, '@theia/core/lib/common/preferences/preference-schema': {},

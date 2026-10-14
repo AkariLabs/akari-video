@@ -1,8 +1,9 @@
+import { t } from '@akari-video/i18n';
 export const AUDIO_KEYFRAME_MIN_DB = -30;
 export const AUDIO_KEYFRAME_MAX_DB = 9;
 export const AUDIO_KEYFRAME_MIN_POINTS = 2;
 export const AUDIO_KEYFRAME_MIN_POINTS_NOTICE =
-    'キーフレームは 2 点以上必要です。点を追加するか、この 1 点を削除してください。';
+    t('annotationscommon.audioKeyframeEditor.notice.minimumPoints');
 
 export type AudioKeyframeWriteGuard = 'ok' | 'too-few';
 
@@ -225,6 +226,6 @@ export function validateAudioKeyframeTime(
     const collision = points.some((point, index) => index !== ignoredIndex
         && Number.isFinite(point.t) && Math.abs(point.t - candidateT) < 1e-9);
     return collision
-        ? { ok: false, message: '同じ時刻には複数のキーフレームを置けません。' }
+        ? { ok: false, message: t('annotationscommon.audioKeyframeEditor.error.duplicateTime') }
         : { ok: true };
 }

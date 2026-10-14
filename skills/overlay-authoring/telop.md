@@ -1,75 +1,63 @@
-# 字幕・テロップ設計
+# Subtitle and telop design
 
-字幕は発話を読み取らせる反復 UI、テロップは要点や感情を強調する画面要素として分けて設計する。両者を同じ密度・同じ強さにしない。
+Design subtitles as a repeated UI for reading speech and telops as visual elements that emphasize a point or feeling. Do not give both the same density or visual force.
 
-## 原則
+## Principles
 
-- `lang="ja"` を付け、日本語グリフを持つローカルフォントとフォールバックを指定する。書き出し環境に存在しないフォントへ暗黙依存しない。
-- 意味のまとまりで改行する。助詞、句読点、括弧の片側だけを行頭・行末へ孤立させず、必要なら HTML に明示改行を置く。事前に行分割を確定した字幕断片は、行内の再折返しを CSS で禁止し（`white-space: nowrap`）、生成時の改行を唯一の改行にする。
-- 全角・半角、英数字、記号の扱いを作品内で統一する。縦組みは横組みの CSS を回転しただけで済ませない。
-- 字幕は映像内テキストや顔を避け、通常は下側、衝突時は上側または左右へ移す。テロップは視線誘導の対象へ寄せるが、被写体を覆うことを「強調」と取り違えない。
-- 静的な不透明・半透明の地、縁取り、影のいずれかで背景から分離する。`filter: blur()` / `backdrop-filter` に頼らない。
-- `--font-size`、`--line-height`、`--color`、`--background`、`--max-width`、`--safe-*` を調整点として公開する。既定値は `var(--name, fallback)` に置き、外側の `vars` を遮らない。
-- 素材の `meta.json` で宣言する `knobs[].default` は必須。インスペクタは `vars` 未設定時にこの `default` を初期値に使い、断片の実効値は読めない。断片内の CSS フォールバックと `default` は同じ値にする。
-- セレクタと `@keyframes` 名を素材固有の接頭辞で閉じる。
-- 座布団 + 文字のテロップは、文字要素に class があると文字だけが先に選ばれる対象になる。
-  丸ごと動かす想定なら文字側に class を付けず、ルート（座布団）に付ける。
+For language-dependent line composition, type, and text conventions, follow the selected language pack.
 
-## 可読サイズと文字量の目安
+- Never rely implicitly on a font absent from the export environment.
+- For captions whose line breaks are decided before fragment generation, prevent further CSS wrapping within each line (`white-space: nowrap`); the generated breaks must be the only breaks.
+- Place subtitles away from on-video text and faces, normally toward the bottom. Move them up or sideways on collision. Put telops near the subject of attention, but do not confuse covering the subject with "emphasis".
+- Separate text from the backdrop with a static opaque or translucent plate, outline, or shadow. Do not rely on `filter: blur()` / `backdrop-filter`.
+- Expose `--font-size`, `--line-height`, `--color`, `--background`, `--max-width`, and `--safe-*` as adjustment points. Put defaults in `var(--name, fallback)` and never block outer `vars`.
+- `knobs[].default` is required in an asset's `meta.json`. The inspector uses this `default` when `vars` is unset and cannot read the fragment's effective value. Keep it equal to the fragment CSS fallback.
+- Scope selectors and `@keyframes` names with asset-specific prefixes.
+- For a plate + text telop, a class on the text element makes that text the first selectable target. If the whole unit should move, omit the text-side class and put one on the root plate.
 
-焼き込みテロップに全プラットフォーム共通の公式最小 px 値はない。したがって、根拠のない `px` 下限をハードルールにせず、`--font-size` を出力高に応じて決め、最終解像度と想定する最小端末で実読する。未実機の値は **要検証** と記す。
+## Readable size and text density
 
-日本語字幕の構造チェックには、Netflix の日本語 Timed Text 仕様を適用条件付きで使える。同仕様は横字幕を **全角 13 文字/行まで**、**2 行まで**とし、半角文字を 0.5 文字として数える。これは Netflix 納品仕様であり、AKARI Video や他プラットフォームへ無条件に一般化しない。長い場合は文字を縮める前に要約・分割する。
+There is no official minimum burned-in telop px size shared by all platforms. Do not turn an unsupported `px` minimum into a hard rule. Set `--font-size` in relation to output height and actually read it at final resolution and on the smallest intended device. Mark untested values **needs verification**. Follow the selected language pack for language-specific line lengths and reading rates.
 
-AKARI Video の字幕既定は 1 行 20 全角字・句読点優先分割（オーナー裁定）。Netflix 13 字は納品仕様であり AKARI の既定ではない。
+## Units — `px` means output px; `vw` / `vh` use output dimensions (2026-08-31)
 
-出典: [Netflix Japanese Timed Text Style Guide](https://partnerhelp.netflixstudios.com/hc/en-us/articles/215767517-Japanese-Timed-Text-Style-Guide)
+The fragment coordinate system is the **logical pixels of the output frame** (`edit.json.output`, for example 1280x720), so `px` means output px directly. `vw` / `vh` / `vmin` / `vmax` also use **output dimensions** (`1vw` = `output.width / 100` px). They mean the same thing in preview and export; the runtime rewrites them in preview, and the fragment needs no code (`packages/overlay-runtime/src/viewport-units.js`). `@media` / `@container` conditions use window dimensions, so do not branch fragment layout with media queries. Receive output size through `vars` or the `--akari-vw` family.
 
-## 単位 — `px` は出力 px、`vw` / `vh` は出力サイズ基準（2026-08-31）
+## Placement safe zones
 
-断片の座標系は **出力フレーム（`edit.json.output`、例 1280x720）の論理 px** で、`px` はその
-まま出力 px を意味する。`vw` / `vh` / `vmin` / `vmax` も**出力サイズ基準**（`1vw` =
-`output.width / 100` px）で、書き出しとプレビューで同じ意味になる（ランタイムが
-プレビュー側で書き換える。断片は何も書かなくてよい — `packages/overlay-runtime/src/viewport-units.js`）。
-`@media` / `@container` の条件式にはウィンドウ寸法が入るため、断片ではメディアクエリで
-レイアウトを分岐しない（出力サイズは `vars` か `--akari-vw` 系で受ける）。
+Before using fixed values, identify destination, ad versus organic placement, aspect ratio, CTA, subtitle area, and LTR/RTL direction. Never reuse numbers across different conditions on the same platform.
 
-## 配置セーフゾーン
-
-固定値を使う前に配信先、広告かオーガニックか、画角、CTA、字幕欄、LTR/RTL を確定する。同名プラットフォームでも条件が違えば数値を流用しない。
-
-| 適用条件 | 公式数値 | 運用 |
+| Conditions | Official figures | Operation |
 |---|---:|---|
-| YouTube 縦型**動画広告**、1080×1920 | 上 288px、右 192px、下 672px、左 48px を避ける | 重要文字・ロゴを残りの safe area 内へ置く。オーガニック Shorts の値として使わない |
-| Instagram / Facebook **Reels 広告**、9:16 | 下 35% を空ける | 下側に重要文字・ロゴを置かず、Meta の safe-zone checker でも確認する |
-| TikTok Auction In-Feed 広告 | 固定座標なし | 画角、caption 長、追加 format、LTR/RTL に対応する公式 ZIP と Preview を使う。値は **要検証** |
+| YouTube vertical **video ad**, 1080×1920 | Avoid top 288px, right 192px, bottom 672px, left 48px | Keep important text / logos in the remaining safe area. Do not treat these as organic Shorts values |
+| Instagram / Facebook **Reels ad**, 9:16 | Leave bottom 35% clear | Keep important text / logos out of the bottom; check with Meta's safe-zone checker too |
+| TikTok Auction In-Feed ad | No fixed coordinates | Use official ZIP and Preview specific to aspect ratio, caption length, additional format, and LTR/RTL; figures **need verification** |
 
-YouTube の safe zone も全端末保証ではない。オーガニック投稿や表にない配信先は、固定座標を書かず **要検証** とし、公開直前のプラットフォーム preview で確認する。
+Even YouTube's safe zone is not guaranteed on every device. For organic posts or destinations absent from the table, do not set fixed coordinates: mark them **needs verification** and check platform preview just before publishing.
 
-出典:
+Sources:
 
 - [Google Ads Help — About video ad specs](https://support.google.com/google-ads/answer/13547298?hl=en)
 - [Google — Universal Video Ad Safe Zones](https://services.google.com/fh/files/misc/universalsafezones-youtube.pdf)
 - [Meta — The Reels ads guide](https://d3m889aznlr23d.cloudfront.net/img/events/458925814/assets/e042d2be.reels_ads_guide1.pdf)
 - [TikTok Ads Manager — TikTok Auction In-Feed Ads](https://ads.tiktok.com/help/article/tiktok-auction-in-feed-ads)
 
-## コーナーキャプション（TV 風の隅ラベル）
+## Corner caption (TV-style corner label)
 
-放送の左上・右上に常駐する番組名/コーナー名ラベル。番組タイトル + 現在の章タイトルを出し、章立てに追従させる定型。**素材ライブラリに入れず、この定型から都度生成してよい**（プロジェクト固有のテキスト差し替えが本体で、再利用価値は構造にしかないため）。
+This is a persistent program / segment label in the upper left or right of a broadcast frame: program title plus current chapter title, changing with chapters. **It may be generated from this pattern for each project rather than added to the asset library**: project-specific text substitutions are the point, and only the structure is reusable.
 
-- **HTML/CSS で作る。画像生成にしない**: 章ごとのテキスト差し替えが必要で、画像だと章数分の生成と文字品質リスク（画像生成の日本語誤字）を抱える。HTML なら 1 断片 + 章ごとのオーバーレイエントリで済み、プレビューと書き出しが同一ソースを通る
-- **章追従の実装**: スロット付きの同じ断片を章数分参照し、章タイトルを各 HTML アイテムの `source.params`、区間を `at` / `duration` に持たせる（1 章 = 1 オーバーレイアイテム）。固定文言だけの既存断片は従来どおり DOM 直書きでもよい。CSS 変数へテキストを持たせない
-- **構造の目安**: ルート 1 つ + プレート（番組名の行 + 章名の行、または 1 行連結）。位置は外側コンテナの transform（ランタイム所有）で決め、断片は見た目だけを持つ
-- **常駐物の抑制**: 常時表示なので主張を抑える。小さめの `--font-size`、半透明の地、画面の隅で被写体・字幕・映像内 UI と重ねない。字幕（下側）と同時表示が前提なので、下側には置かない
-- knobs の例: `--plate-bg`、`--accent`、`--font-size`、`--radius`。既定値は `var(--name, fallback)` で公開する
-- 章替わりの出入りは短い opacity / translate のみ。保持中は動かさない（アニメーション節の原則どおり）
+- **Build it in HTML/CSS, not image generation**: Every chapter needs different text. Images require one generation per chapter and risk misspelled or malformed text. A single fragment with one overlay entry per chapter avoids that work and lets preview and export use the same source. For language-specific text risks, see the selected language pack.
+- **Chapter tracking**: Reference the same slotted fragment for each chapter. Put its title in each HTML item's `source.params` and its interval in `at` / `duration` (one chapter = one overlay item). Existing fragments with fixed text may keep text directly in the DOM. Never put text into CSS variables.
+- **Structure**: one root + plate (program-name row and chapter-name row, or a combined line). Set position with the runtime-owned outer-container transform; the fragment holds only appearance.
+- **Restrain persistent elements**: Use a smaller `--font-size`, translucent plate, and a corner away from subject, subtitles, and in-video UI. Because captions can coexist below, do not put this at the bottom.
+- Example knobs: `--plate-bg`, `--accent`, `--font-size`, `--radius`. Expose defaults through `var(--name, fallback)`.
+- Use only short opacity / translate for chapter transitions. Keep it still while held (per the animation principles).
 
-## テキストスロット（data-akari-slot）
+## Text slots (data-akari-slot)
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write with Edit on matching lines or the edit-store script API.
 
-1 本の HTML を複数アイテムで共有し、文字だけを `edit.json` に分離するときに使う。
+Use slots to share one HTML file across items while putting each item's text in `edit.json`.
 
 ```html
 <span data-akari-slot="title">既定タイトル</span>
@@ -85,45 +73,39 @@ YouTube の safe zone も全端末保証ではない。オーガニック投稿�
 }
 ```
 
-- **宣言**: 差し替えるテキスト要素そのものへ `data-akari-slot="<name>"` を付ける。スロット内はプレーンテキストだけにし、子要素や別スロットを入れ子にしない。ランタイムは値を `textContent` へ入れるため、`<b>` 等を params に書いてもタグにはならない
-- **既定テキスト**: 要素内へ必ず人が読める既定値を書く。対応する params キーが無いアイテムでは、その既定値がそのまま表示される
-- **命名**: `^[a-z][a-z0-9_-]*$` の意味名を使う（例: `title`、`chapter-title`、`speaker_name`）。連番や表示文言そのものを名前にせず、同じ名前を複数要素へ使う場合は同じ文字を表示する意図に限る
-- **共有境界**: 色・余白・書体・アニメーションはテンプレ HTML/CSS、インスタンスごとの文字は `source.params` に置く。スロットをダブルクリック編集した場合も、テンプレファイルではなく params だけが更新される
-- **非スロットとの互換**: `data-akari-slot` の無い断片は従来どおり DOM の文字を編集し、参照先 HTML ファイルへ書き戻す
+- **Declaration**: Put `data-akari-slot="<name>"` on the replaceable text element itself. Keep only plain text inside; do not nest child elements or other slots. The runtime assigns the value through `textContent`, so `<b>` in params will not become a tag.
+- **Default text**: Always put a human-readable default inside the element. Items without the matching params key display that default unchanged.
+- **Naming**: Use a semantic name matching `^[a-z][a-z0-9_-]*$` (for example `title`, `chapter-title`, `speaker_name`). Do not use sequence numbers or the visible string itself as names. Reuse a name on multiple elements only if the same text is intended.
+- **Sharing boundary**: Keep color, spacing, font, and animation in template HTML/CSS; keep per-instance words in `source.params`. Double-click editing a slot updates params, not the template file.
+- **Compatibility without slots**: For fragments without `data-akari-slot`, continue editing DOM text and writing it back to the referenced HTML file.
 
-## 書体（`@font-face`）
+## Fonts (`@font-face`)
 
-`edit-lint` の `overlays.fragment-font-glyphs` は、断片が読む書体のどれにも無い字を warning で知らせる。書体の cmap の和集合を見るため、ある要素の書体に字が無くても別の参照書体にあれば見逃す。実行時の script が字を作るときは、断片のルートへ `data-akari-font-chars="使う可能性のある字"` を宣言する。宣言が無い場合は静的収集が不完全な旨の info が出る。
+`edit-lint` finding `overlays.fragment-font-glyphs` warns when a character is absent from every font referenced by the fragment. It examines the union of font cmaps, so another referenced font can mask a missing glyph in one element's font. If runtime script creates characters, declare them on the fragment root as `data-akari-font-chars="使う可能性のある字"`. Without that declaration, an info finding notes incomplete static collection.
 
-`src` の代替先や別断片の書体によって、実際の表示と警告は食い違う場合がある。`unicode-range`、部品アイテムの `source.text` による差し替え、結合文字の合成も検査では追わない。
+Actual display and warnings can differ due to `src` fallbacks or fonts in another fragment. The check does not track `unicode-range`, `source.text` substitutions in component items, or combining-character composition.
 
-書き出し時に自動で書体を絞る機能は予定段階である。自動で絞る機能が入るまでは、今の手作業の部分フォントの運用のままでよい。機能が入れば手で絞り直す必要がなくなる。規則は [断片書体の契約](../../docs/contract-2026-10-02-fragment-font-subset-v0.md) を参照。
+Automatic font subsetting at export is only planned. Until it exists, continue using the current manually subsetted fonts; then manual resubsetting will no longer be needed. See the [fragment-font contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-02-fragment-font-subset-v0.md).
 
-## アニメーション
+## Animation
 
-- 字幕の出入りは短い opacity / translate を使い、保持中は動かさない。
-- 1 文字ずつの出現は可読速度とシーク再現性を損ねやすい。必要な演出だけに限定し、文字 DOM は先に確定しておく。
-  日本語で時間差の出現をやるなら 1 文字ではなく**文節単位**にする（下の「テキスト分割と stagger 規約」）。
-- CSS animation / WAAPI を使い、ランタイムが `currentTime = (t - start) * 1000` を設定できる形にする。
-- 位置移動の transform は断片内の子要素へ付け、AKARI が所有する外側コンテナの幾何 transform と分離する。
+- Use short opacity / translate transitions for subtitles; keep them still while held.
+- Per-character entrances can harm reading speed and reproducibility on seek. Limit them to effects that need them, and establish the character DOM first. Follow the selected language pack for the appropriate split unit.
+- Use CSS animation / WAAPI so the runtime can set `currentTime = (t - start) * 1000`.
+- Put position-motion transforms on child elements inside the fragment, separate from the runtime-owned outer-container geometry transform.
 
-### IN/OUT を 1 本の `animation` に並べるときの fill-mode の罠（2026-08-04 実測）
+### Fill-mode trap when putting IN/OUT in one `animation` (measured 2026-08-04)
 
-`animation: X__in 0.6s both, X__out 0.6s 3.2s both` のように **OUT 側へ `both` を付けると IN が死ぬ**。
-OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacity: 1` 等）を先に適用**し、
-後に書かれたアニメーションが同一プロパティでは勝つため、遅延中ずっと IN の値を上書きする。
-結果、フェード IN / スライド IN が出ないまま最初から表示済みになる。これは標準の CSS 挙動であり、
-**プレビューでも焼き込みでも同じ結果になる**（プレビューのバグではない）。
+With `animation: X__in 0.6s both, X__out 0.6s 3.2s both`, **`both` on OUT kills IN**. OUT's `both` (backwards fill) applies its starting value (`opacity: 1`, etc.) during the delay. A later animation wins for the same property, overriding IN throughout the delay. The result appears fully visible from the beginning, without fade IN / slide IN. This is standard CSS behavior and occurs **in both preview and burned output**, not a preview bug.
 
-- **OUT は `forwards` にする**（`animation: X__in 0.6s both, X__out 0.6s 3.2s forwards`）
-- 単一アニメの断片（stagger / loop）では起きない。IN と OUT を 1 本のプロパティに並べたときだけ
-- チェック: 断片の冒頭数フレームをシークし、IN の開始値（opacity 0 / 画面外）から始まることを目視する
-- この罠は IN/OUT の 2 段に限らず一般化できる（3 段以上の連鎖、点滅ループの片端省略など）。`motion.md`「複数アニメーションを同一プロパティへ連鎖させるときの暗黙 0% 上書き」を参照
+- **Use `forwards` for OUT** (`animation: X__in 0.6s both, X__out 0.6s 3.2s forwards`).
+- It does not occur for a fragment with a single animation (stagger / loop); only when IN and OUT are listed on the same property.
+- Check the first few frames by seeking and visually confirm the IN start value (opacity 0 / offscreen).
+- The trap generalizes beyond two-stage IN/OUT (chains of three or more, an omitted endpoint in a blinking loop, etc.). See "Implicit 0% override when chaining multiple animations on the same property" in `motion.md`.
 
-## テキスト分割と stagger 規約（2026-08-15）
+## Text splitting and stagger contract (2026-08-15)
 
-文字・単語・文節ごとに時間差で出す演出は、**断片が分割済みで出荷し、
-stagger は CSS の `calc()` で表現する**。断片に `<script>` は書かない。
+For character-, word-, or phrase-staggered entrances, **ship the fragment already split and express stagger with CSS `calc()`**. Never write a `<script>` in the fragment.
 
 ```html
 <div class="foo__line" data-akari-split="bunsetsu"
@@ -150,94 +132,73 @@ stagger は CSS の `calc()` で表現する**。断片に `<script>` は書か�
 }
 ```
 
-- **`animation-delay: calc(var(--i) * var(--anim-stagger))` の 1 行がすべて**。
-  どの `@keyframes`（= どの演出）にも同じ形で stagger が掛かる。
-  演出ごとに遅延を書き並べない
-- **ツマミは CSS 変数**にする。`edit.json` の `vars` から上書きできる
-- **`--i` は 0 始まりの通し番号**。`--n` に総数が入る（ランタイムが振る）
+- **The single `animation-delay: calc(var(--i) * var(--anim-stagger))` line does the work.** The same stagger applies to any `@keyframes` effect. Do not list delays separately for each effect.
+- **Knobs must be CSS variables**, overridable through edit.json `vars`.
+- **`--i` is a zero-based sequential index**. The runtime supplies the total count in `--n`.
 
-### 分割単位（`data-akari-split`）
+### Split units (`data-akari-split`)
 
-| 値 | 単位 | 使いどころ |
+| Value | Unit | Use |
 |---|---|---|
-| `bunsetsu` | 文節（日本語の表示単位） | **日本語テロップの既定** |
-| `chars` | 1 文字 | 演出用。可読速度を損ねるので多用しない |
-| `words` | 単語 | 欧文向け。**日本語では分かち書きしないので機能しない** |
-| `lines` | 行 | 行単位で送る |
-| `none` | 分割しない | — |
+| `bunsetsu` | Japanese phrase unit | See the Japanese language pack |
+| `chars` | One character | For effects; do not overuse because it harms reading speed |
+| `words` | Words | For space-separated languages; see the language pack |
+| `lines` | Lines | Advance by line |
+| `none` | No splitting | — |
 
-日本語の文節分割は BudouX（`src/vendor/budoux-ja-bundle.js`・Apache-2.0）で行う。
-`Intl.Segmenter` 単体の単語分割は助詞がバラけるため使わない
-（`今日 | は | とても | いい | 天気 | です | ね` になる）。
+The runtime's Japanese segmentation behavior and its limits are documented in the Japanese language pack.
 
-### ランタイムの担当（断片は書かなくてよい）
+### Runtime responsibilities (do not implement in the fragment)
 
-`data-mirror="text"` と同じく、DOM 操作はランタイムが持つ:
+As with `data-mirror="text"`, the runtime owns DOM manipulation:
 
-- **mount 時**: 宣言はあるが未分割の要素を分割する（出荷漏れの安全網・冪等）
-- **編集開始時**: 分割を素のテキストへ畳む（`<span>` のまま contenteditable にすると
-  打鍵で span が割れる・キャレットが単位境界で飛ぶ）
-- **編集確定時**: 確定したテキストで分割し直し、`--i` を振り直す。
-  保存される HTML は**分割済みの状態**（書き出しは断片の HTML をそのまま使うため）
+- **At mount**: Split an element that declares splitting but arrives unsplit (an idempotent safety net for shipping mistakes).
+- **At edit start**: Collapse spans to plain text (editing with `<span>` nodes can split spans on keystrokes and jump the caret across unit boundaries).
+- **At edit commit**: Split the final text again and reassign `--i`. Saved HTML is **already split**, because export uses fragment HTML directly.
 
-必要ランタイム: **0.5.0 以降**。素材の `meta.json` に
-`min_overlay_runtime_version: "0.5.0"` を宣言する。
+Required runtime: **0.5.0 or later**. Declare `min_overlay_runtime_version: "0.5.0"` in the asset's `meta.json`.
 
-### 性能 — `[data-akari-active]` ゲートは必須（実測）
+### Performance — the `[data-akari-active]` gate is required (measured)
 
-分割は 1 断片の CSS animation を分割数ぶんに増やす。ゲートが無いと即死する:
+Splitting multiplies one fragment's CSS animations by its unit count. Without the gate, performance collapses:
 
-| 条件 | 現存 animation | 1 tick |
+| Condition | Existing animations | One tick |
 |---|---:|---:|
-| ゲート有り・1,200 断片 × 16 分割・可視 60 | 960 | **0.023ms** |
-| ゲート無し・1,200 断片 × 8 分割 | 9,600 | **221ms** |
-| ゲート無し・上記 + 可視 60 | 9,600 | **11,783ms** |
+| Gated; 1,200 fragments × 16 splits; 60 visible | 960 | **0.023ms** |
+| Ungated; 1,200 fragments × 8 splits | 9,600 | **221ms** |
+| Ungated; above + 60 visible | 9,600 | **11,783ms** |
 
-`getAnimations()` のコストは「ドキュメント全体に現存する CSS animation の総数」に
-比例する。ゲートの中で宣言すれば非可視分は現存しないので、**分割そのものは無害**。
-ゲートを忘れた断片が 1 つあるだけで全体が落ちる。
+`getAnimations()` cost is proportional to the total number of existing CSS animations in the whole document. Under the gate, hidden fragments have none, so splitting itself is harmless. A single fragment without the gate brings the whole document down.
 
-## 多層テキスト断片と data-mirror 規約（2026-08-06）
+## Multilayer text fragments and data-mirror contract (2026-08-06)
 
-同一テキストを太さ違いの `-webkit-text-stroke` 等で複数層重ねる断片（多重縁取り・ずらし影・裏打ち・二段押し出し等）は、編集対象を 1 層に決めないと打ち替えが層間でズレる。層間の同期は overlay-runtime（`packages/overlay-runtime/`）側の機能で行う。
+Fragments that stack the same text in layers with different `-webkit-text-stroke` widths (multiple outlines, offset shadows, backing, two-stage extrusion, etc.) must pick one editable layer or edits diverge. overlay-runtime (`packages/overlay-runtime/`) synchronizes layers.
 
-- **複製層に印を付ける**: 縁取り・影・裏打ち等でテキストを複製した層は `data-mirror="text"` を持たせる。編集対象（ダブルクリック → contenteditable）は最前面の fill 層 1 箇所だけにする。断片側に `contenteditable` や特別な役割属性を明示する必要はなく、「`data-mirror="text"` を持たない直接テキスト層」という消去法で決まる（runtime の `canEditText` がミラー層を候補から除外する）
-- **構造の作法**: ミラー層と fill 層は同じ積層コンテナ（例 `.stack`）の直下に置く。同期スコープは既定で編集層の親要素配下を対象にするため、離れた場所に置くと同期されない
-- **同期は runtime が行う**: 編集層の `input` / `compositionend` で textContent を同一 stack 内の全 `data-mirror="text"` 層へコピーする。断片側に `<script>` を書く必要はない（FORBIDDEN 級ルール「トップレベルを複数にしない」とも整合）。保存確定時にも同期の安全網が働く
-- **出荷時の状態**: 断片は全層に同一テキストを焼き込んで出荷する。ミラー未対応の runtime でも初期表示は正しい — ライブ編集の層間同期だけが `packages/overlay-runtime/package.json` の `version` `0.2.0` 以降（`window.akari.runtime.version` で参照可）に依存する。素材の `meta.json` にはトップレベル任意フィールド **`min_overlay_runtime_version`**（x.y.z・asset-meta.schema.json に 2026-08-06 新設）で最低対応バージョンを宣言する
-- **アクセシビリティ**: mount 時にランタイムが全ミラー層へ `aria-hidden="true"` を付与する。断片側で書く必要はない
+- **Mark duplicate layers**: Give outline, shadow, and backing copies `data-mirror="text"`. Make only the front fill layer editable by double click → contenteditable. The fragment need not set `contenteditable` or a special role; the direct-text layer without `data-mirror="text"` is selected by elimination (`canEditText` excludes mirrors).
+- **Structure**: Place mirror and fill layers immediately under the same stack container (for example `.stack`). Sync defaults to descendants of the editable layer's parent; distant layers do not synchronize.
+- **Runtime sync**: On the editable layer's `input` / `compositionend`, the runtime copies textContent into every `data-mirror="text"` layer in that stack. No fragment `<script>` is needed (also consistent with the FORBIDDEN-level single-root rule). A safety sync runs on save.
+- **Shipping state**: Ship identical text baked into every layer. Initial display is correct even in runtimes without mirror support; only live editing synchronization requires `packages/overlay-runtime/package.json` `version` `0.2.0` or later (available as `window.akari.runtime.version`). Declare the minimum with optional top-level `min_overlay_runtime_version` in asset `meta.json` (x.y.z; added to asset-meta.schema.json on 2026-08-06).
+- **Accessibility**: At mount the runtime adds `aria-hidden="true"` to every mirror layer. Fragments need not write it.
 
-## 中央寄せの可用幅の罠 — 折返し可能な内容全般（2026-08-06 実測・同日一般化）
+## Centering available-width trap — all wrappable content (measured and generalized 2026-08-06)
 
-`position: absolute; left: 50%; transform: translateX(-50%)` で中央寄せした要素では、
-shrink-to-fit の可用幅計算が transform を無視して「left 位置からステージ右端まで」
-（= ステージ幅の半分）を可用幅と誤認する。当初 flex-wrap 併用時の事故として実測したが
-（1920px ステージで 960px と誤認し**既定文言でも勝手に折り返る**）、flex を使わない
-単一 stack 構造でも**折返し可能な内容なら同じ機序で発現する**（小さいキャンバスで顕在化
-しやすい — 検証スクショを 600px 級の狭い舞台で撮ると本番で出ない折返しが出る）。
-中央寄せ + 折返し許可の断片は、コンテンツ側に `width: max-content` を与えて
-shrink-to-fit を回避する（折返しさせたい場合だけ明示の `max-width` を併記する）。
-検証スクショは実プロダクション幅（1080px 以上）でレンダリングしてからトリムする。
+For an element centered with `position: absolute; left: 50%; transform: translateX(-50%)`, shrink-to-fit ignores the transform and calculates available width from left to the right edge of the stage: half its width. It was first measured with flex-wrap (a 1920px stage was treated as 960px, **wrapping even default text unexpectedly**) and also occurs with a single stack without flex whenever content can wrap. Small canvases expose it more easily: a screenshot at a roughly 600px stage can wrap where production will not. For centered fragments that allow wrapping, set `width: max-content` on the content to avoid shrink-to-fit; add explicit `max-width` only when wrapping is intended. Render verification screenshots at actual production width (at least 1080px), then crop them.
 
-## よくある間違い
+## Common mistakes
 
-- 文字が多いまま font-size だけを下げる。
-- 日本語を画像生成モデルに描かせ、誤字や崩れを納品する。
-- 字幕と強調テロップを常時同時表示して、どちらも読めなくする。
-- 白文字だけを明るい映像へ直置きする。
-- 非公式テンプレートの safe zone 数値を、別の placement やオーガニック投稿へ転用する。
-- 断片ルートで `--font-size` などを再定義し、`edit.json.vars` の上書きを効かなくする。
+- Keeping too much text and lowering only font-size.
+- Asking an image generation model to draw text, then delivering misspelled or malformed output.
+- Displaying subtitles and emphatic telops together continuously until neither is readable.
+- Putting plain white text directly over bright video.
+- Reusing unofficial template safe-zone values for a different placement or organic post.
+- Redefining `--font-size` or similar variables on the fragment root, blocking `edit.json.vars` overrides.
+- For language-specific text-generation mistakes, see the selected language pack.
 
-## 固定ラベルの帯分離（2026-08-03 実測 2 敗からの規則）
+## Separate bands for fixed labels (rule from two measured failures, 2026-08-03)
 
-サンプル表示・タイプ入力欄など**可変コンテンツと、カウンタ・注記・ボタンなどの固定ラベルを、
-同じラッパーの中に絶対配置で同居させない**。実測した事故が 2 型ある:
+**Never put variable content (sample display, typed input field, etc.) and fixed labels (counter, note, button, etc.) under the same absolutely positioned wrapper.** Two failure patterns were measured:
 
-1. **ラッパー基準の bottom 逸脱**: 中央寄せラッパー（例 1400×420）内の `bottom: 60px` は
-   「画面の下」ではなく「ラッパーの下」= 画面中央帯になり、中のサンプル文字と重なる。
-   固定ラベルは**ステージ（断片ルート）直下**に絶対配置し、コンテンツ領域と帯を分離する
-2. **可変長コンテンツの帯侵入**: 入力欄の右端にボタンを絶対配置すると、タイプされる文字列が
-   伸びてボタン帯へ潜り込む。ボタン帯ぶんの `padding-right` を親に確保して幅を先取りする
+1. **Wrapper-relative bottom drift**: `bottom: 60px` inside a centered wrapper (for example 1400×420) means the wrapper's bottom, not the screen bottom. It lands in the screen's middle band and overlaps sample text. Absolutely position fixed labels **directly under the stage (fragment root)** and separate their band from content.
+2. **Variable-length content entering the band**: When a button is absolutely positioned at the input's right edge, growing typed text slides under it. Reserve the button band in advance with parent `padding-right`.
 
-チェック: 断片を書いたら「いちばん長い状態のコンテンツ」を入れたフレームで、固定ラベルとの
-重なりを目視する（最長文字列・最終タイプ状態・最多行）。
+After writing a fragment, visually check overlap with fixed labels on a frame containing the **longest content state** (longest string, final typed state, maximum lines).

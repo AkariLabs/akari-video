@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export type DaihonGearStyle = 'karaoke' | 'plain';
 export type DaihonDisplayTiming = 'full' | 'speech-tight';
 
@@ -8,12 +9,12 @@ export interface DaihonGearAnimPreset {
 
 /** ⚙ ポップの一次表示リスト（47 語彙のフル UI は別票）。 */
 export const DAIHON_GEAR_ANIM_PRESETS: readonly DaihonGearAnimPreset[] = [
-    { id: null, label: 'なし' },
-    { id: 'fade-in-out', label: 'フェード' },
-    { id: 'fade-up', label: 'フェード（下から）' },
-    { id: 'slide-up', label: 'スライドアップ' },
-    { id: 'pop', label: 'ポップ' },
-    { id: 'typewriter', label: 'タイプライター' }
+    { id: null, label: t('transcript.daihon.gear.noneLabel') },
+    { id: 'fade-in-out', label: t('transcript.daihon.gear.fadeLabel') },
+    { id: 'fade-up', label: t('transcript.daihon.gear.fadeFromBelowLabel') },
+    { id: 'slide-up', label: t('transcript.daihon.gear.slideUpLabel') },
+    { id: 'pop', label: t('transcript.daihon.gear.popLabel') },
+    { id: 'typewriter', label: t('transcript.daihon.gear.typewriterLabel') }
 ];
 
 export function readGearStyle(style: string | null | undefined): DaihonGearStyle {

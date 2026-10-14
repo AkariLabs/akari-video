@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { timelineIssueCopyText, timelineIssueHeading, timelineIssueLabel, timelineIssueRows }
-    from '../lib/common/timeline-issue-chip.js';
-import { TimelineIssueChip, TIMELINE_ISSUE_ID } from '../lib/browser/timeline/timeline-issue-chip.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineIssueCopyText, timelineIssueHeading, timelineIssueLabel, timelineIssueRows } = await import('../lib/common/timeline-issue-chip.js');
+const { TimelineIssueChip, TIMELINE_ISSUE_ID } = await import('../lib/browser/timeline/timeline-issue-chip.js');
+
+
+
 
 const finding = index => ({ severity: 'error', check: 'references.files',
     message: `素材 ${index} が見つかりません`, path: `sources[${index}].path` });

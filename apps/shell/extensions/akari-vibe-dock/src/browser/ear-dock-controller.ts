@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { inject, injectable, optional } from '@theia/core/shared/inversify';
@@ -63,7 +64,7 @@ export class EarDockController implements FrontendApplicationContribution {
         this.paperOpen = true;
         this.ear.setPaperOpen(true);
         this.now.clearPartial();
-        if (this.ear.state.state === 'listening') this.setLine('紙のメモに残しています');
+        if (this.ear.state.state === 'listening') this.setLine(t('vibe.listening.dockController.savingPaperNotesNotice'));
     };
     protected readonly closed = (): void => {
         // 録音型は閉じたあと文字になる。耳からの確定文を紙に渡し終えるまで保持する。
@@ -87,7 +88,7 @@ export class EarDockController implements FrontendApplicationContribution {
     protected paintStatus(status: EarStatus): void {
         if (status.state === 'idle' || status.state === 'stopping' || status.state === 'error') this.now.clearPartial();
         if (status.state === 'error') {
-            this.errorReason = status.message ?? '聞き取りを続けられませんでした';
+            this.errorReason = status.message ?? t('vibe.listening.dockController.couldNotContinueListeningError');
         }
         if (this.errorReason) {
             this.dock.setMark('idle', this.errorReason);
@@ -95,15 +96,15 @@ export class EarDockController implements FrontendApplicationContribution {
             return;
         }
         if (status.purpose === 'trial' && status.state !== 'idle') {
-            this.dock.setMark('idle', '試し聞きが動いています');
-            this.setLine('試し聞きが動いています');
+            this.dock.setMark('idle', t('vibe.listening.dockController.testListeningRunningMessage'));
+            this.setLine(t('vibe.listening.dockController.testListeningRunningNotice'));
             return;
         }
         this.dock.setMark(status.state === 'listening' ? 'listening' : 'idle');
-        if (status.state === 'starting') this.setLine('聞き取りを始めています…');
-        else if (status.state === 'listening') this.setLine(this.paperOpen ? '紙のメモに残しています'
-            : status.engine === 'record-then-transcribe' ? '録音しています。止めたあとで文字にします' : '聞いています');
-        else if (status.state === 'stopping') this.setLine(status.engine === 'record-then-transcribe' ? '文字にしています…' : '停止しています…');
+        if (status.state === 'starting') this.setLine(t('vibe.listening.dockController.ongoingStartingListeningNotice'));
+        else if (status.state === 'listening') this.setLine(this.paperOpen ? t('vibe.listening.dockController.savingPaperNotesNotice')
+            : status.engine === 'record-then-transcribe' ? t('vibe.listening.dockController.recordingTranscriptionStartsAfterStopMessage') : t('vibe.listening.dockController.listeningLabel'));
+        else if (status.state === 'stopping') this.setLine(status.engine === 'record-then-transcribe' ? t('vibe.listening.dockController.ongoingTranscribingNotice') : t('vibe.listening.dockController.ongoingStoppingNotice'));
         else this.setLine();
     }
 
@@ -112,8 +113,8 @@ export class EarDockController implements FrontendApplicationContribution {
         const state = this.ear.state.state;
         if (state === 'starting' || state === 'stopping') return;
         if (state === 'listening' && this.ear.state.purpose === 'trial') {
-            this.dock.setMark('idle', '試し聞きが動いています');
-            this.setLine('試し聞きが動いています', 'error');
+            this.dock.setMark('idle', t('vibe.listening.dockController.testListeningRunningMessage'));
+            this.setLine(t('vibe.listening.dockController.testListeningRunningNotice'), 'error');
             return;
         }
         if (state === 'listening') await this.ear.stop();

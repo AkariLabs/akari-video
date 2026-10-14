@@ -1,42 +1,39 @@
-# 取得の代行（ユーザー指示時のみ）
+# Assisted acquisition (only on user instruction)
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-## 1. いつ実行するか
+## 1. When to run
 
-- ユーザーが「ダウンロードして」「取得して」等、取得の代行を明示的に指示したとき
-- 指示が無いのに既定フロー（候補リスト生成 → ユーザーの手動保存 → drop-folder 走査）を
-  こちらへ切り替えない。逆に、**指示があったのに「手動でお願いします」へ倒すのも誤り**。
-  取得する/しないの判断はユーザーのものであり、配布元ごとの可否をエージェントが
-  先回りして断定・列挙しない
+- When the user explicitly asks for acquisition, such as “Download it” or “Acquire it”.
+- Do not switch from the default flow (candidate generation → user saves manually → drop-folder scan) without
+  instruction. Conversely, **reverting to “Please do it manually” despite an instruction is also wrong**.
+  The user decides whether to acquire; do not preemptively declare or enumerate per-source feasibility.
 
-## 2. 手順
+## 2. Procedure
 
-1. 対象を確定する: `catalog/audio/candidates.json` のカード、またはユーザーが指定した
-   配布ページ URL
-2. 配布ページを開き、実際に読み取れたファイル URL だけを取得対象にする
-   （当て推量で URL を組み立てない）
-3. 直列で取得する。リクエスト間 3〜5 秒スリープ・失敗はリトライ 1 回まで。
-   一括・並列取得はしない
-4. 保存先: `<ライブラリの置き場>/audio/_staging/<site>/<id>/`。同じディレクトリに来歴
-   `.meta.json`（取得元ページ URL・取得日時・ライセンス・クレジット要否・確認できた範囲）を
-   書く
-5. 取得できなかった配布元は、事実（403・アクセス制限・URL 解決不能 等）を添えて報告し、
-   ダウンロードページのリンクを案内して手動に切り替える
-6. 全件終了後は [gallery.md](gallery.md) の試聴ギャラリーへ合流し、keep 以外は破棄する
+1. Establish targets: cards in the candidate file at `audioCandidatesPath` (`akari assets catalog --json`) or user-specified distribution-page URLs.
+2. Open the page and target only file URLs actually read there (never construct guessed URLs).
+3. Acquire serially. Sleep 3–5 seconds between requests; retry failures at most 1 time.
+   No bulk or parallel acquisition.
+4. Save in `<ライブラリの置き場>/audio/_staging/<site>/<id>/` (existing library-location placeholder).
+   Write provenance `.meta.json` alongside it: source-page URL, acquisition time, license, credit requirement,
+   and what could actually be verified.
+5. Report unsuccessful sources with facts (403, access restriction, unresolved URL, etc.); link the download page
+   and switch to manual acquisition.
+6. After all targets finish, join [gallery.md](gallery.md)'s listening flow and discard everything except keep selections.
 
-## 3. 報告フォーマット
+## 3. Report format
 
-- 成功 N 件 / 取得不能 M 件（配布元別の内訳と理由）
-- ステージング先パス
-- クレジット表記必須の配布元が含まれる場合は `credit_template` の文言をそのまま添える
+- N successes / M acquisition failures (breakdown and reasons by source)
+- Staging path
+- If sources requiring credit are included, attach `credit_template` wording unchanged
 
-## よくある間違い
+## Common mistakes
 
-- 指示が無いのに取得フローへ切り替える（既定はあくまで候補リスト + 手動ドロップ）
-- 取得できなかった配布元について「禁止されているサイト」等の評価・判定を文書や
-  カタログに書き残す（報告は実行時の事実のみ。静的な可否リストは作らない）
-- `_staging/` を永続ライブラリ扱いする（keep の登録先は `<ライブラリの置き場>/audio/<id>/` +
-  catalog メタ。drop-folder.md の登録手順に合流する）
+- Switching to acquisition without instruction (default remains candidate list + manual drop).
+- Recording judgments such as “prohibited site” for failed sources in documents/catalogs.
+  Report only execution-time facts; do not make a static feasibility list.
+- Treating `_staging/` as a permanent library. Register keep selections in `<ライブラリの置き場>/audio/<id>/`
+  (existing library-location placeholder) + catalog metadata; join drop-folder.md's registration procedure.

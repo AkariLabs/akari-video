@@ -34,7 +34,8 @@ test('隠れたカードは版が変わっても読まず、表示時に一度�
             effects[index] = { dependencies, cleanup: callback() };
         }
     };
-    const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', `${code}\nreturn ProjectCard;`)(React, () => '札', new Map());
+    const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', 't', 'formatDate', `${code}\nreturn ProjectCard;`)(
+        React, () => '札', new Map(), () => '', () => '');
     let presenceReads = 0;
     let thumbnailReads = 0;
     const base = {
@@ -76,7 +77,8 @@ test('枠から外れて戻ったカードは結果を保ち、再読込しな�
             },
             useEffect(callback) { callback(); }
         };
-        const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', `${code}\nreturn ProjectCard;`)(React, () => '札', cache);
+        const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', 't', 'formatDate', `${code}\nreturn ProjectCard;`)(
+            React, () => '札', cache, () => '', () => '');
         ProjectCard(props);
         return states;
     };

@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariVoiceDictionaryService, VoiceEntry } from '../common/voice-dictionary-protocol';
@@ -77,7 +78,7 @@ function ensureStyles(): void {
 export class VoiceDictionaryDialog extends AbstractDialog<void> {
     protected readonly content = node('div', 'akari-voice-dict');
     protected readonly header = node('div', 'akari-voice-dict-header');
-    protected readonly lead = node('p', 'akari-voice-dict-lead', '聞き取った文の言い換え。上から順に当てます。同梱の辞書は消せませんが、自分の辞書で上書きできます。');
+    protected readonly lead = node('p', 'akari-voice-dict-lead', t('vibe.dictionary.dialog.replacementPriorityInstruction'));
     protected readonly scroll = node('div', 'akari-voice-dict-table-scroll');
     protected readonly footer = node('div', 'akari-voice-dict-footer');
     protected readonly notice = node('div', 'akari-voice-dict-notice');
@@ -94,7 +95,7 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
     protected override handleEnter(_event: KeyboardEvent): boolean { return false; }
 
     constructor(protected readonly service: AkariVoiceDictionaryService, protected readonly preferences: PreferenceService) {
-        super({ title: '辞書' });
+        super({ title: t('vibe.dictionary.dialog.dictionaryTooltip') });
         ensureStyles();
         this.node.classList.add('akari-voice-dict-dialog');
         this.node.dataset.akariVoiceDictionaryDialog = 'true';
@@ -115,7 +116,7 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
         const table = node('table', 'akari-voice-dict-table');
         const head = node('thead');
         const headings = node('tr');
-        for (const label of ['聞こえたまま', '言い換え', '出どころ']) headings.append(node('th', undefined, label));
+        for (const label of [t('vibe.dictionary.dialog.asHeardText'), t('vibe.dictionary.dialog.replacementText'), t('vibe.dictionary.dialog.sourceText')]) headings.append(node('th', undefined, label));
         head.append(headings);
         const body = node('tbody');
         for (const entry of listed.builtin) {
@@ -125,8 +126,8 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
             row.append(node('td', undefined, entry.from?.join(' / ') ?? ''),
                 node('td', undefined, entry.to ?? ''));
             const source = node('td');
-            const detail = node('span', 'akari-voice-dict-source', '同梱');
-            if (overridden) detail.append(node('span', 'akari-voice-dict-badge', '自分の辞書で上書き'));
+            const detail = node('span', 'akari-voice-dict-source', t('vibe.dictionary.dialog.builtDescription'));
+            if (overridden) detail.append(node('span', 'akari-voice-dict-badge', t('vibe.dictionary.dialog.overrideDictionaryDescription')));
             source.append(detail); row.append(source); body.append(row);
         }
         for (const entry of listed.user) {
@@ -136,7 +137,7 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
         if (this.draftKind) this.appendEditor(body, { kind: this.draftKind, from: this.draftFrom ? [this.draftFrom] : [], to: '', trigger: [], expand: '', scope: ['task'], source: this.draftSource });
         if (!listed.builtin.length && !listed.user.length && !this.draftKind) {
             const empty = node('tr');
-            const cell = node('td', 'akari-voice-dict-empty', '辞書に項目はありません');
+            const cell = node('td', 'akari-voice-dict-empty', t('vibe.dictionary.dialog.noDictionaryEntriesMessage'));
             cell.colSpan = 3; empty.append(cell); body.append(empty);
         }
         table.append(head, body);
@@ -148,16 +149,16 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
     protected appendUserRow(body: HTMLElement, entry: VoiceEntry): void {
         const row = node('tr', 'akari-voice-dict-row-edit');
         const from = entry.kind === 'fix' ? entry.from?.join(' / ') : entry.trigger?.join(' / ');
-        const to = entry.kind === 'fix' ? entry.to : `（プロンプト『${entry.expand ?? ''}』を差し込む）`;
+        const to = entry.kind === 'fix' ? entry.to : t('vibe.dictionary.dialog.insertPromptWithValueLabel', { value1: entry.expand ?? '' });
         row.append(node('td', undefined, from ?? ''), node('td', undefined, to ?? ''));
         const source = node('td');
         const date = localDate(entry.added_at);
-        const detail = node('span', 'akari-voice-dict-source', `自分${date ? ` · ${date}` : ''}`);
-        const remove = button('消す', () => { void this.remove(entry.id); }, 'quiet small');
-        remove.setAttribute('aria-label', `${from ?? 'この項目'}を消す`);
+        const detail = node('span', 'akari-voice-dict-source', t('vibe.dictionary.dialog.yoursWithValueDescription', { value1: date ? ` · ${date}` : '' }));
+        const remove = button(t('vibe.dictionary.dialog.deleteAction'), () => { void this.remove(entry.id); }, 'quiet small');
+        remove.setAttribute('aria-label', t('vibe.dictionary.dialog.deleteWithValueAriaLabel', { value1: from ?? t('vibe.dictionary.dialog.deleteItem') }));
         detail.append(remove); source.append(detail); row.append(source);
         row.tabIndex = 0;
-        row.title = '押すと編集できます';
+        row.title = t('vibe.dictionary.dialog.selectEditTooltip');
         row.addEventListener('click', event => {
             if ((event.target as HTMLElement).closest('button')) return;
             this.editingId = entry.id; this.error = ''; void this.render();
@@ -173,11 +174,11 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
         const row = node('tr', 'akari-voice-dict-editing');
         const phrases = node('textarea', 'akari-voice-dict-input');
         phrases.rows = 2;
-        phrases.setAttribute('aria-label', kind === 'fix' ? '聞こえたまま（改行で複数）' : '合言葉（改行で複数）');
+        phrases.setAttribute('aria-label', kind === 'fix' ? t('vibe.dictionary.dialog.asHeardOnePhrasePerLineAriaLabel') : t('vibe.dictionary.dialog.triggerPhrasesOnePerLineAriaLabel'));
         phrases.value = (kind === 'fix' ? entry.from : entry.trigger)?.join('\n') ?? '';
         const destination = node('textarea', 'akari-voice-dict-input');
         destination.rows = 2;
-        destination.setAttribute('aria-label', kind === 'fix' ? '言い換え' : '差し込むプロンプト');
+        destination.setAttribute('aria-label', kind === 'fix' ? t('vibe.dictionary.dialog.replacementAriaLabel') : t('vibe.dictionary.dialog.promptInsertAriaLabel'));
         destination.value = (kind === 'fix' ? entry.to : entry.expand) ?? '';
         const fromCell = node('td'); fromCell.append(phrases);
         const toCell = node('td'); toCell.append(destination);
@@ -185,17 +186,17 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
         const scopes: Array<{ value: 'note' | 'task' | 'partner'; input: HTMLInputElement }> = [];
         if (kind === 'snippet') {
             const scopeLine = node('div', 'akari-voice-dict-scopes');
-            for (const [value, labelText] of [['note', 'メモ'], ['task', 'タスク'], ['partner', 'パートナー']] as const) {
+            for (const [value, labelText] of [['note', t('vibe.dictionary.dialog.noteLabel')], ['task', t('vibe.dictionary.dialog.taskLabel')], ['partner', t('vibe.dictionary.dialog.partnerLabel')]] as const) {
                 const label = node('label', 'akari-voice-dict-check');
                 const input = node('input'); input.type = 'checkbox';
                 input.checked = (entry.scope ?? ['task']).includes(value);
                 label.append(input, node('span', undefined, labelText));
                 scopeLine.append(label); scopes.push({ value, input });
             }
-            controls.append(node('div', 'akari-voice-dict-scope-label', '宛先'), scopeLine);
+            controls.append(node('div', 'akari-voice-dict-scope-label', t('vibe.dictionary.dialog.destinationText')), scopeLine);
         }
-        const save = button('確定', () => { void commit(); }, 'secondary small');
-        const cancel = button('戻す', () => { this.cancelEdit(); }, 'quiet small');
+        const save = button(t('vibe.dictionary.dialog.confirmAction'), () => { void commit(); }, 'secondary small');
+        const cancel = button(t('vibe.dictionary.dialog.undoAction'), () => { this.cancelEdit(); }, 'quiet small');
         controls.append(save, cancel);
         row.append(fromCell, toCell, controls); body.append(row);
         const errorRow = node('tr', 'akari-voice-dict-error');
@@ -207,36 +208,36 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
         };
         if (kind === 'snippet') destination.addEventListener('input', () => {
             const warning = /sk-[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._-]{20,}|[A-Za-z0-9]{40,}/u.test(destination.value);
-            if (warning) showError('鍵らしき文字列が含まれています');
+            if (warning) showError(t('vibe.dictionary.dialog.containsTextLooksLikeSecretMessage'));
             else errorCell.textContent = '';
         });
         const commit = async (): Promise<void> => {
             const values = phrases.value.split('\n').map(value => value.trim()).filter(Boolean);
             const resultText = destination.value.trim();
-            if (!values.length || !resultText) { showError('聞こえたままと言い換えを入力してください'); return; }
+            if (!values.length || !resultText) { showError(t('vibe.dictionary.dialog.enterRecognizedWordsTheirReplacementMessage')); return; }
             if (values.some(value => value.length > 120) || resultText.length > (kind === 'snippet' ? 2000 : 4000)) {
-                showError('入力が長すぎます'); return;
+                showError(t('vibe.dictionary.dialog.inputTooLongMessage')); return;
             }
-            if (new Set(values.map(phraseKey)).size !== values.length) { showError('同じ言葉が重複しています'); return; }
+            if (new Set(values.map(phraseKey)).size !== values.length) { showError(t('vibe.dictionary.dialog.samePhraseAppearsMoreThanOnceMessage')); return; }
             if (this.userEntries.some(item => item.id !== entry.id &&
                 values.some(value => (item.kind === 'fix' ? item.from : item.trigger)?.some(phrase => phraseKey(phrase) === phraseKey(value))))) {
-                showError('自分の辞書に同じ言葉があります'); return;
+                showError(t('vibe.dictionary.dialog.phraseAlreadyDictionaryMessage')); return;
             }
             if (kind === 'snippet' && !scopes.some(choice => choice.input.checked)) {
-                showError('行き先を選んでください'); return;
+                showError(t('vibe.dictionary.dialog.chooseDestinationMessage')); return;
             }
             const next: Partial<VoiceEntry> = kind === 'fix'
                 ? { ...entry, kind, from: values, to: resultText, source: entry.source ?? 'manual' }
                 : { ...entry, kind, trigger: values, expand: resultText,
                     scope: scopes.filter(choice => choice.input.checked).map(choice => choice.value), source: entry.source ?? 'manual' };
             const result = await this.service.upsert(next);
-            if (!result.ok) { showError(result.errors?.join('、') ?? '保存できません'); return; }
+            if (!result.ok) { showError(result.errors?.join('、') ?? t('vibe.dictionary.dialog.couldNotSaveError')); return; }
             this.cancelEdit(false);
             await this.render();
             this.notice.textContent = result.warnings?.join('、') ?? '';
             if (entry.source === 'history' && result.entry) {
                 const count = await this.service.countHistoryMatches(result.entry.id);
-                this.notice.textContent = `同じ履歴へ当て直した件数: ${count} 件`;
+                this.notice.textContent = t('vibe.dictionary.dialog.reappliedHistoryEntriesWithCountText', { value1: count });
             }
         };
         for (const input of [phrases, destination]) input.addEventListener('keydown', event => {
@@ -261,39 +262,39 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
             const card = node('div', 'akari-voice-dict-history-item');
             const raw = node('textarea', 'akari-voice-dict-input');
             raw.value = item.raw; raw.readOnly = true;
-            raw.setAttribute('aria-label', '履歴の言葉を選ぶ');
-            const pick = button('選んだ語を足す', () => {
+            raw.setAttribute('aria-label', t('vibe.dictionary.dialog.selectWordsFromHistoryAriaLabel'));
+            const pick = button(t('vibe.dictionary.dialog.addSelectedWordsAction'), () => {
                 const selected = raw.value.slice(raw.selectionStart, raw.selectionEnd);
-                if (!selected) { this.notice.textContent = '足したい言葉を選んでください'; return; }
+                if (!selected) { this.notice.textContent = t('vibe.dictionary.dialog.selectWordsAddText'); return; }
                 this.draftKind = 'fix'; this.draftFrom = selected; this.draftSource = 'history'; this.historyOpen = false; void this.render();
             }, 'quiet small');
-            card.append(raw, node('span', 'akari-voice-dict-source', `辞書を当てた形: ${item.text}`), pick);
+            card.append(raw, node('span', 'akari-voice-dict-source', t('vibe.dictionary.dialog.dictionaryAppliedWithValueText', { value1: item.text })), pick);
             panel.append(card);
         }
-        panel.append(button('履歴を消す', () => { void this.service.clearHistory().then(() => this.render()); }, 'quiet small'));
+        panel.append(button(t('vibe.dictionary.dialog.clearHistoryAction'), () => { void this.service.clearHistory().then(() => this.render()); }, 'quiet small'));
         this.scroll.append(panel);
     }
 
     protected paintFooter(): void {
         this.footer.replaceChildren();
-        const add = button('＋ 言い換えを足す', () => {
+        const add = button(t('vibe.dictionary.dialog.addAddReplacementAction'), () => {
             this.addOptionsOpen = !this.addOptionsOpen;
             this.paintFooter();
         });
         this.footer.append(add);
         if (this.addOptionsOpen) {
             const options = node('div', 'akari-seg akari-voice-dict-options');
-            options.append(button('言い換え', () => { this.draftKind = 'fix'; this.addOptionsOpen = false; this.error = ''; void this.render(); }, 'secondary small'),
-                button('定型文', () => { this.draftKind = 'snippet'; this.addOptionsOpen = false; this.error = ''; void this.render(); }, 'secondary small'));
+            options.append(button(t('vibe.dictionary.dialog.replacementAction'), () => { this.draftKind = 'fix'; this.addOptionsOpen = false; this.error = ''; void this.render(); }, 'secondary small'),
+                button(t('vibe.dictionary.dialog.templateAction'), () => { this.draftKind = 'snippet'; this.addOptionsOpen = false; this.error = ''; void this.render(); }, 'secondary small'));
             this.footer.append(options);
         }
-        const history = button('聞き取りの履歴から拾う', () => { this.historyOpen = !this.historyOpen; void this.render(); }, 'quiet small');
+        const history = button(t('vibe.dictionary.dialog.addFromListeningHistoryAction'), () => { this.historyOpen = !this.historyOpen; void this.render(); }, 'quiet small');
         const enabled = this.preferences.get<boolean>(HISTORY_KEY, false);
         history.disabled = !enabled || !this.historyRows.length;
-        if (history.disabled) history.title = !enabled ? '設定で聞き取りの履歴をオンにしてください' : '拾える履歴はありません';
+        if (history.disabled) history.title = !enabled ? t('vibe.dictionary.dialog.turnListeningHistorySettingsTooltip') : t('vibe.dictionary.dialog.noMatchingHistoryAvailableTooltip');
         this.footer.append(history);
         if (history.disabled) this.footer.append(node('span', 'akari-voice-dict-history-reason',
-            !enabled ? '履歴はオフです' : '履歴は空です'));
+            !enabled ? t('vibe.dictionary.dialog.historyOffMessage') : t('vibe.dictionary.dialog.historyEmptyMessage')));
         const label = node('label', 'akari-voice-dict-check');
         const check = node('input');
         check.type = 'checkbox';
@@ -302,13 +303,13 @@ export class VoiceDictionaryDialog extends AbstractDialog<void> {
             document.documentElement.dataset.akariCorrections = String(check.checked);
             void this.preferences.set(CORRECTIONS_KEY, check.checked, PreferenceScope.User);
         };
-        label.append(check, node('span', undefined, '直した語を帯に薄く示す'));
+        label.append(check, node('span', undefined, t('vibe.dictionary.dialog.showCorrectedWordsSubtlyStripText')));
         this.footer.append(label);
     }
 
     protected async remove(id: string): Promise<void> {
         const result = await this.service.remove(id);
-        this.notice.textContent = result.ok ? '' : result.errors?.join('、') ?? '削除できません';
+        this.notice.textContent = result.ok ? '' : result.errors?.join('、') ?? t('vibe.dictionary.dialog.couldNotDeleteError');
         if (result.ok) await this.render();
     }
 }

@@ -1,99 +1,83 @@
 ---
 name: export-nle
-description: "BETA（実 NLE 取り込み未確認）: edit.json を Final Cut Pro / DaVinci Resolve（FCPXML）・Premiere Pro（FCP7 XML）・SRT 字幕へ書き出す。「Premiere で開きたい」「Final Cut に持っていきたい」「Resolve 用に書き出して」「SRT がほしい」で使う。移せないフィールドは dropped[] で必ず報告する。"
+description: "BETA (not yet tested in actual NLEs): Export edit.json to Final Cut Pro / DaVinci Resolve (FCPXML), Premiere Pro (FCP7 XML), and SRT captions. Use for requests to open in Premiere or Final Cut, export for Resolve, or get an SRT. Always report fields that cannot transfer in dropped[]."
 ---
 
-# 編集データを他社 NLE へ書き出す（BETA）
+# Export editing data to other NLEs (BETA)
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-> ⚠ **BETA — 実装のみ・実アプリでの動作未確認**
-> この機能は「実装だけはしたが、生成物を実際の Final Cut Pro / DaVinci Resolve /
-> Premiere Pro に取り込む検証はまだ行っていない」段階で公開している。生成された
-> XML が取り込めない・ずれる等の報告は歓迎（issue へ）。ユーザーへ結果を渡すときは
-> **必ずこのベータ地位を伝える**こと。
+> ⚠ **BETA — implemented, but not verified in actual applications**
+> This feature has been implemented, but its output has not yet been imported into actual
+> Final Cut Pro, DaVinci Resolve, or Premiere Pro applications for verification.
+> Reports of XML that fails to import or is misaligned are welcome as issues.
+> **Always tell users about this beta status** when handing over results.
 
-## これは何か
+## What this is
 
-AKARI Video のセーブデータ SSOT（edit.json）には lock-in がない、という証明としての
-**片道書き出し**。最後の仕上げをプロツールでやりたい人への出口を用意する。
+A **one-way export** demonstrating that AKARI Video's saved-data SSOT (edit.json) has no lock-in. It gives users who want to finish in a professional tool an exit path.
 
-| 形式 | 対象 | ファイル |
+| Format | Target | File |
 |---|---|---|
 | FCPXML 1.11 | Final Cut Pro / DaVinci Resolve | `<project>.fcpxml` |
 | FCP7 XML (xmeml v5) | Premiere Pro | `<project>.premiere.xml` |
-| SRT | 全 NLE 共通の字幕サイドカー | `<project>.srt`（captions.json があるときのみ） |
+| SRT | Caption sidecar shared by all NLEs | `<project>.srt` (only when captions.json exists) |
 
-**逆方向（NLE で編集した結果を edit.json へ戻す）は非対応**。スコープに含めない。
+**The reverse direction (bringing NLE edits back into edit.json) is unsupported.** It is outside scope.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-本スキルは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). This skill does not write them. If another stage must write them, use Edit on the matching lines or the edit-store script API.
 
-## ハードルール
+## Hard rules
 
-1. **決定的であること**: 同一入力 → 同一出力。LLM 判断・乱数・現在時刻を出力に混ぜない
-2. **外部 npm 依存ゼロ**（ffprobe は media-bin 経由の本体直叩きのみ）
-3. **version 2 の edit.json だけを対象にし、id で grep して該当行を読み、書き換えない**。旧版は先に `akari migrate` を通す
-4. **黙って落とさない**: 交換形式に移せないフィールド（ducking / master / LUT /
-   chroma_key / direction 等）は `export-report.json` の `dropped[]` に全件列挙する
-5. **ベータ地位の明示**: ユーザーへの報告に「実 NLE での取り込みは未確認」を必ず含める。
-   検証済みかのように振る舞わない
+1. **Be deterministic**: identical input → identical output. Do not mix LLM judgments, randomness, or current time into output.
+2. **Zero external npm dependencies** (call the ffprobe binary directly through media-bin only).
+3. **Target only version 2 edit.json; grep by ID to read matching lines and do not modify it.** Run `akari migrate` on older versions first.
+4. **Never silently drop fields**: enumerate every field that the exchange format cannot carry (ducking / master / LUT / chroma_key / direction, etc.) in `export-report.json` `dropped[]`.
+5. **Explicit beta status**: Always state that actual NLE import has not been verified in the user report. Never present it as verified.
 
-## 実行手順
+## Procedure
 
-1. 対象プロジェクト（edit.json のあるディレクトリ）に対して実行する。
+1. Run against the target project (the directory containing edit.json).
 
    ```sh
    node packages/export-nle/bin/export-nle.mjs <project-root|edit.json>
    ```
 
-   既定の出力先は `<project>/exports/nle/`。形式を絞るときは `--format fcpxml`（カンマ区切り可）、
-   機械向け出力は `--json`、ffprobe を使わないときは `--no-probe`。
+   The default destination is `<project>/exports/nle/`. To limit formats, use `--format fcpxml` (comma-separated values allowed); use `--json` for machine-readable output or `--no-probe` to avoid ffprobe.
 
-   入力は edit.json v2 に限る。v0/v1 のプロジェクトは先に `akari migrate` で v2 へ変換する。
+   Input must be edit.json v2. Convert a v0/v1 project to v2 with `akari migrate` first.
 
-2. exit code を確認する。`0` は書き出し完了（warnings があっても成功）、`2` は入力・実行環境エラー。
-3. `exports/nle/export-report.json` を読み、`dropped[]`（移らないフィールド）と `warnings[]`
-   （プレースホルダ尺・近似など）をユーザーへの報告に含める。
-4. メディアは**参照**で書かれる（絶対パスの file URL）。プロジェクトを移動・共有した場合は
-   NLE 側の relink 機能で再接続が必要、と案内する。
+2. Check the exit code. `0` means export complete (warnings still count as success); `2` means an input or runtime error.
+3. Read `exports/nle/export-report.json` and include `dropped[]` (non-transferrable fields) and `warnings[]` (placeholder durations, approximations, etc.) in the user report.
+4. Media is written as **references** (absolute-path file URLs). Tell users they must reconnect media with the NLE's relink feature after moving or sharing the project.
 
-## 何が移って何が移らないか（契約の要約）
+## What transfers and what does not (contract summary)
 
-正本: [contract-2026-08-01-export-nle-beta.md](../../docs/contract-2026-08-01-export-nle-beta.md)
+Canonical source: [contract-2026-08-01-export-nle-beta.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-01-export-nle-beta.md)
 
-- **移る**: `tracks[].items[]` の media（`tracks[]` の配列順を下→上の z 順として、整数フレームの
-  `at` / `duration` を NLE 時刻へ変換。素材側 `in` / `out`、speed、transform、opacity も保持。
-  NLE のクリップ名には安定識別子 `item.id` を使う。blend は FCPXML へ移し、xmeml では warning を出す）、
-  transition_out（dissolve は素直に、fade-black/white は cross dissolve 近似）、焼き済みの
-  html / telop（アルファ付き mov 等を通常の素材クリップとして）、narration / sfx / bgm
-  （`tracks[]` の audio lane または `edit.audio.*` から配置 + gain。bgm はループ展開 + フェード）、
-  captions.json（SRT のプレーンテキストへ）
-- **移らない**（dropped[] で報告）: ducking、audio.master（loudnorm / denoise）、
-  output.look（LUT）、chroma_key、字幕スタイル（カラオケ演出・座布団）
+- **Transfers**: `tracks[].items[]` media (interpret `tracks[]` array order as bottom-to-top z order; convert integer-frame `at` / `duration` to NLE time; preserve source `in` / `out`, speed, transform, and opacity; use stable `item.id` for the NLE clip name; carry blend into FCPXML and warn for xmeml), transition_out (dissolve directly, fade-black/white approximated by cross dissolve), pre-baked html / telop (alpha MOV, etc., as ordinary media clips), narration / sfx / bgm (place from the `tracks[]` audio lane or `edit.audio.*`, with gain; expand bgm loops and fades), and captions.json (as plain-text SRT).
+- **Does not transfer** (report in dropped[]): ducking, audio.master (loudnorm / denoise), output.look (LUT), chroma_key, and caption styling (karaoke treatment and background plate).
 
-### source.kind の方針
+### source.kind policy
 
-| `source.kind` | NLE への扱い |
+| `source.kind` | NLE handling |
 |---|---|
-| `media` | `sources[]` で解決した素材クリップとして出す。タイムライン時刻は item の整数フレーム、素材窓は秒の `in` / `out` を使う |
-| `html` | 焼き済み実体 `baked` が内部表現にあれば素材クリップとして出す。現行 v2 の html 宣言には `baked` がないため、通常は書き出さず `dropped[]` に理由と焼成手順を残す |
-| `telop` | `source.baked` があれば素材クリップとして出す。無ければ書き出さず `dropped[]` に理由と焼成手順を残す |
-| `filter` | 相互運用できるクリップ表現がないため書き出さず、`dropped[]` に記録する。必要なら映像へ焼く |
+| `media` | Export as a media clip resolved through `sources[]`. Use the item's integer frames for timeline time and second-based `in` / `out` for the source window. |
+| `html` | Export as a media clip if a baked asset is present in the internal representation. Current v2 html declarations lack `baked`, so normally omit it and put the reason and baking procedure in `dropped[]`. |
+| `telop` | Export `source.baked` as a media clip if present. Otherwise omit it and record the reason and baking procedure in `dropped[]`. |
+| `filter` | No interoperable clip representation exists. Omit it and record it in `dropped[]`; bake it into video if necessary. |
 
-未焼成の html / telop を HTML パスやプリセット名のままメディア参照に偽装しない。
-audio lane の narration / sfx / bgm item は `tracks[]` から書き出す。
-`tracks[]` に audio item がない文書は `edit.audio.narration / sfx / bgm` を従来どおり読む。
-ミュートされた item、speech role、2 本目以降の bgm など、書き出さない audio item は `dropped[]` に理由を記録する。
-`tracks[]` の sfx は、sfx を含む audio lane の順に NLE トラック番号を 0 から振り直す（空の番号は詰める）。
-ducking は `edit.audio.bgm.ducking` キーがあればそれを優先し、無ければ書き出す bgm item から読み、
-従来どおり `dropped[]` の `audio.bgm.ducking` で報告する（migrate 後は bgm item に移る）。
-audio.master は従来どおりトップレベル `edit.audio.master` から読み、`dropped[]` で報告する。
-bgm item の `at > 0` は書き出し器が 0 秒始まりで配置するため移らず、`dropped[]` の `tracks[…].items[…].at` で報告する。
+Never disguise unbaked html / telop as media references to HTML paths or preset names.
+Export narration / sfx / bgm items in audio lanes from `tracks[]`.
+For documents without audio items in `tracks[]`, continue to read `edit.audio.narration / sfx / bgm`.
+Record omitted audio items, including muted items, speech roles, and the second or later bgm item, with reasons in `dropped[]`.
+For `tracks[]` sfx, renumber NLE tracks from 0 in the order of audio lanes containing sfx, closing any gaps.
+For ducking, prefer `edit.audio.bgm.ducking` when present; otherwise read the exported bgm item. Continue to report it as `audio.bgm.ducking` in `dropped[]` (after migration it resides on the bgm item).
+Continue reading audio.master from top-level `edit.audio.master` and report it in `dropped[]`.
+A bgm item's `at > 0` does not transfer because the exporter places it at 0 seconds; report it in `dropped[]` as `tracks[…].items[…].at`.
 
-## 非スコープ
+## Out of scope
 
-- CapCut の draft 形式（非公式・暗号化進行中・バージョン更新で壊れる前提のため見送り。
-  需要が出たら lab/ スパイクから）
-- NLE からの逆輸入（インポート）
-- 生成 XML の実アプリ取り込み検証の自動化（ベータ卒業の条件。手動検証の結果が集まってから設計する）
+- CapCut draft format (unofficial, increasingly encrypted, and liable to break with version updates; revisit through a lab/ spike if demand appears).
+- Reverse import from an NLE.
+- Automation of actual application import verification for generated XML (required to leave beta; design it after manual verification results accumulate).

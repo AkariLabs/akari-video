@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 export interface AssetMeta {
     asset?: string;
     thumbnail?: string;
@@ -19,13 +20,13 @@ export interface AssetMetaDescription {
 
 export function describeAssetMeta(meta: AssetMeta | undefined): AssetMetaDescription {
     return {
-        duration: typeof meta?.durationSeconds === 'number' ? formatDuration(meta.durationSeconds) : '未分析',
-        resolution: meta?.width && meta?.height ? `${meta.width} × ${meta.height}` : '未分析',
-        transcript: meta?.transcript?.available === true ? 'あり' : meta?.transcript?.available === false ? 'なし' : '未分析',
-        analysis: meta?.analysis?.summary || '未分析',
+        duration: typeof meta?.durationSeconds === 'number' ? formatDuration(meta.durationSeconds) : t('project.agent.contextPacket.notAnalyzedLabel'),
+        resolution: meta?.width && meta?.height ? `${meta.width} × ${meta.height}` : t('project.agent.contextPacket.notAnalyzedLabel'),
+        transcript: meta?.transcript?.available === true ? t('project.materials.metadata.yesLabel') : meta?.transcript?.available === false ? t('project.materials.metadata.noLabel') : t('project.agent.contextPacket.notAnalyzedLabel'),
+        analysis: meta?.analysis?.summary || t('project.agent.contextPacket.notAnalyzedLabel'),
         decisions: meta?.decisions?.length
-            ? meta.decisions.map(item => item.summary || item.id || '判断').join(' / ')
-            : '未分析'
+            ? meta.decisions.map(item => item.summary || item.id || t('project.materials.metadata.decisionLabel')).join(' / ')
+            : t('project.agent.contextPacket.notAnalyzedLabel')
     };
 }
 

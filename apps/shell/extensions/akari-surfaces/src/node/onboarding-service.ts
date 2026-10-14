@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { injectable, inject } from '@theia/core/shared/inversify';
 import { promises as fs, constants as fsConstants } from 'fs';
 import { basename, dirname, join, relative, resolve, sep } from 'path';
@@ -142,7 +143,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
 
     async save(state: OnboardingState): Promise<void> {
         const parsed = parseOnboardingState(state);
-        if (!parsed) throw new Error('オンボーディングの保存形式が不正です');
+        if (!parsed) throw new Error(t('surfaces.onboardingService.error.invalidState'));
         await fs.mkdir(this.home, { recursive: true });
         const destination = join(this.home, STATE_FILE);
         const temporary = `${destination}.${process.pid}.tmp`;
@@ -200,7 +201,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
                 current = parent;
             }
         }
-        throw new Error(`${name} が見つかりません`);
+        throw new Error(t('surfaces.onboardingService.error.missingFile', { name }));
     }
 
     protected async ensureSample(rootPath: string): Promise<string> {
@@ -274,22 +275,22 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             tokens?: { items?: TranscriptToken[] }
         };
         const segments = splitOnboardingTokens(transcript.tokens?.items ?? []);
-        if (!segments.length) throw new Error('サンプルの書き起こしを読み取れませんでした');
+        if (!segments.length) throw new Error(t('surfaces.onboardingService.error.readTranscript'));
         return { projectUri: pathToFileURL(projectPath).toString(), sample: { sourcePath: join(assetDir, 'clip.mp4'), segments } };
     }
 
     async importSample(projectUri: string, sourcePath: string): Promise<string> {
         const project = fileURLToPath(projectUri);
         const current = await this.load();
-        if (current?.projectUri !== projectUri || basename(sourcePath) !== 'clip.mp4') throw new Error('サンプルの場所が違います');
+        if (current?.projectUri !== projectUri || basename(sourcePath) !== 'clip.mp4') throw new Error(t('surfaces.onboardingService.error.sampleLocation'));
         const result = await this.projectService.recordDroppedAssets(projectUri,
             [{ name: SAMPLE_NAME, sourcePath }]);
         const imported = result[0];
-        if (!imported?.success) throw new Error('サンプル動画を取り込めませんでした');
+        if (!imported?.success) throw new Error(t('surfaces.onboardingService.error.importSample'));
         const rel = imported.assetPath;
         const assetPath = resolve(project, rel);
         const inside = relative(project, assetPath);
-        if (!inside || inside.startsWith(`..${sep}`) || inside === '..') throw new Error('素材の場所が違います');
+        if (!inside || inside.startsWith(`..${sep}`) || inside === '..') throw new Error(t('surfaces.onboardingService.error.assetLocation'));
         const transcript = JSON.parse(await fs.readFile(join(dirname(sourcePath), 'transcript.json'), 'utf8')) as {
             tokens?: { items?: TranscriptToken[] }
         };
@@ -306,11 +307,11 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         progress?: { stage?: number }): Promise<void> {
         const current = await this.load();
         if (current?.projectUri !== projectUri || (!current.imported && !current.exampleActive) || basename(sourcePath) !== 'clip.mp4')
-            throw new Error('素材を先に取り込んでください');
-        if (!Number.isInteger(count) || count < 0 || count > segments.length || !segments.length) throw new Error('字幕の数が不正です');
+            throw new Error(t('surfaces.onboardingService.error.importFirst'));
+        if (!Number.isInteger(count) || count < 0 || count > segments.length || !segments.length) throw new Error(t('surfaces.onboardingService.error.captionCount'));
         const stage = progress?.stage ?? (title ? (count === segments.length ? 8 : 1) : 0);
         if (!Number.isInteger(stage) || stage < 0 || stage > 8 || (stage >= 1 && !title))
-            throw new Error('お手本の段階が不正です');
+            throw new Error(t('surfaces.onboardingService.error.exampleStage'));
         const project = fileURLToPath(projectUri);
         const samplePath = `assets/${SAMPLE_NAME}`;
         const edit = createOnboardingEdit(samplePath, count > 0 || title) as {
@@ -444,7 +445,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
     async resetTourExample(projectUri: string, sourcePath: string, _segments: TranscriptSegment[]): Promise<void> {
         const current = await this.load();
         if (current?.projectUri !== projectUri || !current.exampleActive || current.workCompleted)
-            throw new Error('完成例の状態が違います');
+            throw new Error(t('surfaces.onboardingService.error.exampleState'));
         const project = fileURLToPath(projectUri);
         const sample = join(project, 'assets', SAMPLE_NAME);
         const captionPath = join(project, 'captions.json');

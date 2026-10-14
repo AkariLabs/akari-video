@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import {
     AkariPreviewService,
     ReviewRectStroke,
@@ -158,7 +159,7 @@ export class ReviewSessionRecorder {
                 throw new DOMException('Microphone access denied', 'NotAllowedError');
             }
             if (!navigator.mediaDevices?.getUserMedia) {
-                throw new Error('この環境ではマイク録音を利用できません。');
+                throw new Error(t('preview.reviewSession.status.microphoneRecordingUnavailableEnvironmentError'));
             }
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             context = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
@@ -273,7 +274,7 @@ export class ReviewSessionRecorder {
             this.active = undefined;
             this.status = 'error';
             await this.refresh(active.projectRootUri, active.editUri);
-            this.emitState(`録音セッションを完了できませんでした: ${this.message(error)}`);
+            this.emitState(t('preview.reviewSession.status.couldNotFinishRecordingSessionError', { reason: this.message(error) }));
         }
     }
 
@@ -717,7 +718,7 @@ export class ReviewSessionRecorder {
             } catch (error) {
                 active.writeError = error instanceof Error ? error : new Error(String(error));
                 this.status = 'error';
-                this.emitState(`録音データを書き込めません: ${active.writeError.message}`);
+                this.emitState(t('preview.reviewSession.status.couldNotWriteRecordingDataError', { reason: active.writeError.message }));
             }
         });
     }
@@ -791,7 +792,7 @@ export class ReviewSessionRecorder {
 
     protected message(error: unknown): string {
         if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-            return 'マイクの使用が許可されませんでした。設定で権限を確認してください。';
+            return t('preview.reviewSession.status.microphoneAccessDeniedCheckPermissionsSettingsError');
         }
         return error instanceof Error ? error.message : String(error);
     }

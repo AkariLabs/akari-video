@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -57,9 +63,10 @@ function harness(initial = before) {
       async applyCutRanges(request) {
         applyCalls++;
         assert.equal(request.editUri, 'edit');
+        const beforeSource = edit;
         const result = applyCutRanges(edit, request.ranges);
         edit = result.source;
-        return result;
+        return { ...result, beforeSource };
       },
       async restoreCutRange(request) {
         restoreCalls++;
@@ -188,6 +195,18 @@ test('同期映像がない区間のカット拒否理由を台本と範囲修�
   await edge.widget.applyCutEntries([{ rowId: row.id,
     range: { in: 0.6, out: 1.5, kind: 'row', captionId: 'mic', label: '行' } }], '行をカット');
   assert.deepEqual(edge.notifications, ['映像のある部分だけ切りました']);
+  setLanguage('en');
+  try {
+    const english = harness(grouped);
+    english.widget.rows = [{ ...row, src: 'mic' }];
+    english.widget.sourceIdForRow = () => 'mic';
+    await english.widget.applyCutEntries([
+      { rowId: row.id, range: { in: 1.2, out: 1.6, kind: 'row', captionId: 'mic', label: 'Line' } },
+      { rowId: row.id, range: { in: 0.2, out: 0.6, kind: 'row', captionId: 'mic', label: 'Line' } }
+    ], 'Cut selected lines');
+    assert.equal(english.toasts.at(-1), 'Cut 1 item.');
+    assert.deepEqual(english.notifications, ['Did not cut 1 location (No synced video covers this range).']);
+  } finally { setLanguage('ja'); }
 });
 
 test('組なしの複数カットでは部分カットの通知を出さない', async () => {
@@ -311,6 +330,14 @@ test('エラーと成功は同じ積み重ねに並び、成功の取り消す�
     stack.children[0].children.at(-1).click();
     assert.equal(stack.removed, true, '最後の通知を閉じると容器も消える');
     assert.ok(cleared.length > 0, '通常通知の入れ替え時には前のタイマーを止める');
+    setLanguage('en');
+    try {
+      run.widget.node = element('root');
+      run.widget.pendingUndoAt = Date.now();
+      run.widget.notify(globalThis.t('transcript.daihon.editor.captionUpdatedNotice'));
+      const englishToast = run.widget.node.children[0].children[0];
+      assert.equal(englishToast.children[1].textContent, 'Undo');
+    } finally { setLanguage('ja'); }
   } finally {
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
     globalThis.setTimeout = oldSetTimeout;

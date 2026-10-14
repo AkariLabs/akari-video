@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cliText } from './i18n.mjs';
 import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -372,9 +373,9 @@ export function maybeApplyPendingUpdateOnLaunch({ env = process.env, log = () =>
   const { staged: _droppedStaged, ...cacheWithoutStaged } = latestCache;
   writeCacheSync(cachePath, cacheWithoutStaged);
 
-  log(`v${staged.version} に更新しました`);
+  log(cliText('cli.selfUpdate.apply.complete', { version: staged.version }));
   if (feed.notes_url) {
-    log(`リリースノート: ${feed.notes_url}`);
+    log(cliText('cli.update.feed.notes', { url: feed.notes_url }));
   }
   return { applied: true, version: staged.version, notesUrl: feed.notes_url };
 }

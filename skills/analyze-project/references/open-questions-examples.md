@@ -1,35 +1,35 @@
-# open_questions 例文集 — 取材質問 / 判断質問の見分け方
+# open_questions examples — Interview versus decision questions
 
-[interpretation.md](../interpretation.md#open_questions-は取材質問のみ判断質問の禁止) の
-規律を、より多くの実例で補う。判断に迷ったら「この質問への回答は**一次情報**か、それとも
-**複数の妥当な選択肢からの選択**か」で判定する。前者だけを書く。
+Additional examples for [interpretation.md](../interpretation.md#open_questions-are-interview-questions-only-no-decision-questions).
+When unsure, ask whether the answer supplies **primary information** or **a choice among valid alternatives**.
+Write only the former.
 
-## 取材質問（書いてよい）— 一次情報の欠落を埋める
+## Interview questions (allowed) — Fill primary-information gaps
 
-| 状況 | 質問 | fills（何のために聞くか） |
+| Situation | Question | fills (why ask) |
 |---|---|---|
-| SFX 参照先ファイルが存在しない | 「`audio/missing.wav` は配置予定だった SFX ですか、それとも参照ミスですか」 | 参照切れの原因を事実として確定するため |
-| 撮影日が transcript にも由来プロジェクトにも記録されていない | 「この B ロールの撮影日はいつですか」 | flags/relations の evidence を補強するため |
-| 登場人物の実名・公開同意が確認できない | 「画面に映っている◯◯さんは実名公開で問題ない方ですか」 | プライバシー配慮の要否を判断する材料（判断そのものは編集フェーズ） |
-| 固有名詞が言い淀みで曖昧 | 「リリース日として言及されている『7月の最終日曜日』の具体的な日付は分かりますか」 | 事実の正確性確認（構成案の成立に必須の場合のみ質問化する） |
-| トラブル区間の技術的原因が不明 | 「画面フリーズ（44:34-44:49）の原因は分かっていますか。自己解決していますか」 | flags の trouble_overlap を裏付ける事実確認 |
+| Referenced SFX file does not exist | “Was `audio/missing.wav` intended for placement, or is the reference wrong?” | Establish the factual cause of the broken reference |
+| Shoot date absent from transcript and originating project | “When was this B-roll filmed?” | Strengthen flags/relations evidence |
+| Real name / publication consent unverified | “Has the person shown agreed to publication under their real name?” | Inform privacy considerations (the decision itself belongs to editing) |
+| Proper name/reference unclear due to hesitation | “Do you know the exact date meant by ‘the last Sunday in July (month 7)’ as the release date?” | Verify factual accuracy; ask only if essential to a coherent arc |
+| Technical cause of trouble unclear | “Is the cause of the screen freeze (44:34-44:49) known? Did it resolve itself?” | Establish facts supporting flags trouble_overlap |
 
-## 判断質問（書かない）— 選択を人間へ丸投げしている
+## Decision questions (do not write) — Delegate choices to the human
 
-| 悪い質問 | なぜ判断質問か | 代わりにすること |
+| Bad question | Why it is a decision question | Do instead |
 |---|---|---|
-| 「このトラブル区間は本編に残しますか、カットしますか」 | 複数の妥当な選択肢からの選択 | 事実（内容・自己解決有無・本筋との関連度）だけを `flags[]` に記録し、採否は edit-plan のチャット対話へ送る |
-| 「章タイトルはこのままでいいですか、言い換えますか」 | 好みの判断 | 1 パス目のタイトルが章全体を代表していなければ、根拠に基づく訂正として 2 パス目が直接書く（好みではなく事実の訂正なら書いてよい） |
-| 「どんな雰囲気の動画にしたいですか」 | 方向性そのもの | 対話フェーズ（edit-plan）が扱う。analyze-project は事実の提示までに留める |
-| 「サムネイルはどの案がいいですか」 | 選択肢からの選択 | analyze-project はレポートを作らない。サムネイル案は edit-plan がチャットで提示する |
-| 「BGM は何を使いますか」 | 選択肢からの選択 | 素材計画の管轄（edit-plan）。analyze-project は BGM の要否に関わる事実（既存音声トラックの有無等）だけを記録する |
+| “Keep this trouble section in the main video, or cut it?” | Choice among valid alternatives | Record only facts (contents, self-resolution, main-story relevance) in `flags[]`; send inclusion decisions to edit-plan chat |
+| “Keep the chapter title or rephrase it?” | Preference | If the pass-1 title does not represent the whole chapter, pass 2 directly corrects it with evidence (factual correction, not preference, is allowed) |
+| “What mood should the video have?” | Direction itself | Handled by edit-plan dialogue; analyze-project only presents facts |
+| “Which thumbnail proposal is best?” | Choice among alternatives | analyze-project does not create that report; edit-plan presents thumbnail proposals in chat |
+| “Which BGM should we use?” | Choice among alternatives | Asset planning (edit-plan); analyze-project records only relevant facts such as existing audio tracks |
 
-## 見分けにくい境界例
+## Ambiguous boundary cases
 
-- 「この素材はなぜここにあるのですか」— **取材質問として成立する**（由来・意図という一次情報）。
-  ただし由来プロジェクトの `edit.json`/`planning/`/`README.md` を読んで確定できるなら、
-  質問化する前にそちらを先に調べる（取材は素材にもネットにも無い情報を埋める最終手段）。
-- 「この 2 つの素材は関連していますか」— 事実（同一人物・場所・時間・内容重複）として
-  2 パス目が transcript/keyframe note から判定を試み、判定できなければ `relations[]` を
-  空のままにするか、判定に必要な一次情報（例: 撮影日・撮影場所）だけを取材質問にする。
-  「関連しているとみなして構成しますか」という聞き方は判断質問になるので避ける。
+- “Why is this asset here?” — **Valid interview question** (primary provenance/intent information).
+  First inspect the originating project's `edit.json`/`planning/`/`README.md` if they can establish it;
+  interviewing is the last resort for information absent from footage and the internet.
+- “Are these 2 assets related?” — Pass 2 first attempts a factual judgment (same person/place/time or overlapping
+  contents) from transcript/keyframe notes. If impossible, leave `relations[]` empty or interview only for the
+  primary information needed (e.g., shoot date/location). Avoid “Should we treat these as related in the structure?”
+  because that asks for a decision.

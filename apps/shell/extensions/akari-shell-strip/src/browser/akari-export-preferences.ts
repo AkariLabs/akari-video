@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { PreferenceContribution, PreferenceSchema } from '@theia/core/lib/common/preferences';
 import { OS } from '@theia/core/lib/common/os';
 import { injectable } from '@theia/core/shared/inversify';
@@ -21,33 +22,33 @@ const AKARI_EXPORT_PREFERENCE_SCHEMA: PreferenceSchema = {
             type: 'string',
             enum: ['standard', 'high', 'light', 'master'],
             default: 'standard',
-            description: '書き出し画質。標準、高画質、軽量から選びます。'
+            description: t('shell.settings.exportPreferences.exportQualityChooseStandardHighQualityCompactMessage')
         },
         [AKARI_EXPORT_ENCODER]: {
             type: 'string',
             enum: encoderValues,
             default: 'auto',
-            description: '書き出しエンコーダ。自動では利用可能なハードウェアを優先します。'
+            description: t('shell.settings.exportPreferences.exportEncoderAutoPrefersAvailableHardwareMessage')
         },
         [AKARI_EXPORT_CODEC]: {
             type: 'string',
             enum: ['h264', 'hevc', 'prores422', 'png'],
             default: 'h264',
-            description: '書き出し形式。H.264、H.265（HEVC）、ProRes 422 HQ、連番 PNG から選びます。'
+            description: t('shell.settings.exportPreferences.exportFormatChooseH264H265HevcProres422Message')
         },
         [AKARI_EXPORT_FPS]: {
             type: 'number',
             enum: [24, 30, 60],
-            description: '書き出しフレームレート。未設定では edit.json の出力設定に従います。'
+            description: t('shell.settings.exportPreferences.exportFrameRateUnsetUsesOutputSettingEditJsonMessage')
         },
         [AKARI_EXPORT_OUTPUT_DIRECTORY]: {
             type: 'string',
             default: '',
-            description: '書き出し先フォルダの URI。空欄ではプロジェクトの exports/ を使います。'
+            description: t('shell.settings.exportPreferences.exportFolderUriLeaveBlankUseProjectSExportsFolderMessage')
         },
         [AKARI_EXPORT_GPU_PREFERENCE_CONSENT]: {
             type: 'boolean',
-            description: 'Windows で書き出す間だけ、AKARI Video に高性能 GPU を割り当てます。書き出し後は元に戻します。'
+            description: t('shell.settings.exportPreferences.gpuPreferenceDescription')
         }
     }
 };

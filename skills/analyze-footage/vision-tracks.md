@@ -1,72 +1,50 @@
-# 顔ランドマーク・手ポーズ・3D ボディポーズのトラックを作る（任意工程）
+# Generate face, hand, and 3D body-pose tracks (optional)
 
-## 目次
+## Contents
 
-- [実行するかを先に決める](#実行するかを先に決める)
-- [道具を確認する](#道具を確認する)
-- [生成する](#生成する)
-- [analysis.json への反映](#analysisjson-への反映)
-- [body-pose-3d（3D ボディポーズ）](#body-pose-3d3d-ボディポーズ)
-- [face-expression（頭部姿勢 + 表情 52）](#face-expression頭部姿勢--表情-52)
-- [消費: 目線黒帯（eye-bar）](#消費-目線黒帯eye-bar)
-- [消費: pose-skeleton](#消費-pose-skeleton)
-- [劣化](#劣化)
-- [消費側: finger-frame（指フレーム切り替え）](#消費側-finger-frame指フレーム切り替え)
+- [Decide whether to execute first](#decide-whether-to-execute-first)
+- [Check tools](#check-tools)
+- [Generate](#generate)
+- [Update analysis.json](#update-analysisjson)
+- [body-pose-3d (3D body pose)](#body-pose-3d-3d-body-pose)
+- [face-expression (head posture + facial expression 52)](#face-expression-head-posture-facial-expression-52)
+- [Use tracks for an eye bar](#use-tracks-for-an-eye-bar)
+- [Use tracks for pose-skeleton](#use-tracks-for-pose-skeleton)
+- [Degraded operation](#degraded-operation)
+- [Use tracks for finger-frame](#use-tracks-for-finger-frame)
 
-## 原則
+## Principles
 
-vision-tracks は**目線黒帯（eye-bar）・指フレーム（finger-frame）・スティックフィギュア
-（pose-skeleton）のような、瞳・指先・身体の関節位置を使う演出を使うと決めた素材でだけ**作る。
-既定の分析フローはトラックを作らず、`tracks.face_landmarks` / `tracks.hand_pose` /
-`tracks.body_pose_3d` キー自体を書かない（未生成 = キー無し。
-person_matte の「キーは必須・値が null」とは扱いが違う点に注意 — §2 参照）。データ契約は
-[docs/contract-2026-08-11-analysis-vision-tracks-v0.md](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
-が正本である。**分析はプル駆動**（契約 §0 原則 1）: 顔だけ要る演出なら `--kinds face` だけを
-生成し、手や 3D ボディポーズのトラックは作らない。
-以下の `node bin/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
-analyze-footage の手順から直接呼ぶものではない。内部のデコード・検証は各生成器自身が担う。
+Generate vision tracks **only for selected footage and intervals** that will use positions of eyes, fingertips, or body joints—for example, eye-bar, finger-frame, or pose-skeleton effects. By default, omit the `tracks.face_landmarks`, `tracks.hand_pose`, and `tracks.body_pose_3d` keys entirely. An ungenerated vision track has no key; this differs from person_matte, whose required key has a null value. Follow the [vision-track data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md).
+**Keep analysis pull-driven** as required by contract §0 principle 1. If only facial data is needed, request `--kinds face` and do not generate hand or 3D body-pose tracks. The `node bin/...` commands below are the public L3 sidecar-generator interface; each generator handles its own decoding and validation rather than exposing the media backend directly to this skill.
 
-## 実行するかを先に決める
+## Decide whether to execute first
 
-全素材で常時実行しない。実測（26.3 秒 / 1280x720 / 24fps・`--kinds face,hand`・負荷のあるマシン）:
+Do not run this on every source. For a 26.3-second 1280×720 clip at 24 fps on a loaded machine with `--kinds face,hand`, measurements were:
 
-| 工程 | 実測 | 備考 |
+| Process | Actual measurement | Notes |
 |---|---|---|
-| Vision 検出（顔+手 1 パス） | 13.5 ms/frame | 顔・手を同時要求しても 1 回の `perform()` で両方検出する |
-| 全体（同梱 decoder 込み） | 実時間比 **約 0.45 倍**（26.3 秒 → 11.9 秒） | エンコード段が無いため person-matte（約 7.7 倍）より大幅に軽い |
+| Vision face + hand detection in one pass | 13.5 ms/frame | One `perform()` detects both when requested together. |
+| Total, including bundled decoder | **About 0.45× real time** (26.3 seconds → 11.9 seconds) | Much less than person-matte's roughly 7.7× because no video is encoded. |
 
-person-matte と違い **VP9 alpha エンコードが無い**（トラックは JSON であって動画ではない）ため、
-実時間より速く終わる。それでも次のいずれにも当てはまらない素材では実行しない。
+Unlike a person matte, a vision track is JSON rather than video and needs no VP9 alpha encoding. The measured face-and-hand pass finished faster than real time, but that is not a reason to run it on unrelated footage.
 
-**性能の注意（重要）**: 実測 15.3 倍実時間（12 秒素材で約 3 分）。face/hand の実時間比
-（約 0.45 倍）と桁違いに重いので、プル駆動の原則（契約 §0 原則 1）どおり、body-pose-3d を
-使う演出（pose-skeleton 等）を使うと決めた区間だけに絞ること。長尺素材では `--fps` を下げ、
-サンプリング頻度を落とす選択肢がある。
+**Body-pose-3d is much slower:** measured at 15.3× real time, or about three minutes for 12 seconds of footage, compared with about 0.45× for face and hand. Generate it only for intervals chosen for a body-pose effect such as pose-skeleton. For long sources, consider lowering `--fps` to sample less often.
 
-- 瞳・指先・身体の関節位置を使う演出（eye-bar / finger-frame / pose-skeleton 等）を使うと
-  決まっている。
-- 顔だけ・手だけ・3D ボディポーズだけで足りる演出なら `--kinds face` / `--kinds hand` /
-  `--kinds body-pose-3d` に絞る（不要な種類まで生成しない — プル駆動の原則）。
+- Run only when an effect using eye, fingertip, or joint positions—such as eye-bar, finger-frame, or pose-skeleton—has been chosen.
+- Limit the request to `--kinds face`, `--kinds hand`, or `--kinds body-pose-3d` when only one kind is needed. Do not generate other kinds preemptively.
 
-## 道具を確認する
+## Check tools
 
 ```bash
 node bin/vision-tracks/vision-tracks.mjs --check
 ```
 
-`{"available":true}` 以外なら `reason` を報告し、トラックを作らずキー無しのまま進む。macOS、
-`swiftc`、同梱 decoder / prober のいずれかが欠けていれば作れない（person-matte と違い
-`libvpx-vp9` エンコーダは不要 — 動画を書き出さないため）。ネットワークからツールを導入しない。
-`--check` も指定された `--kinds` だけを検査し、macOS 14 未満では `body-pose-3d` のみ利用不可
-（`face` / `hand` には影響しない）。
-Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、バイナリはコミットしない
-（[.gitignore](.gitignore) 参照）。
+Unless the result is `{"available":true}`, report `reason` and continue without generating the track or its key. Generation needs macOS, `swiftc`, and the bundled decoder and prober. Unlike person-matte, it does not need `libvpx-vp9` because it exports no video. Do not install tools from the network. `--check` tests only the requested `--kinds`; on macOS older than 14, `body-pose-3d` alone is unavailable while `face` and `hand` remain available. The Swift helper builds itself with `swiftc -O` on first use; do not commit the binary (see [.gitignore](.gitignore)).
 
-## 生成する
+## Generate
 
-`--analysis` に**既存の（既に確定済みの）analysis.json** を渡す。person-matte と違い、
-このツールは analysis.json を**自分で読み書きする**（agent が手で `tracks` へ貼り付ける
-工程が無い）。
+Pass an existing, finalized analysis.json to `--analysis`. Unlike person-matte, this tool **reads and updates analysis.json itself**; there is no step where the agent pastes track pointers into `tracks` by hand.
 
 ```bash
 node bin/vision-tracks/vision-tracks.mjs \
@@ -74,59 +52,35 @@ node bin/vision-tracks/vision-tracks.mjs \
   --analysis "$OUT_DIR/analysis.json"
 ```
 
-オプション（既定のままで良ければ渡さない）:
+Optional overrides (omit them to use defaults):
 
-- `--kinds face,hand`（既定 `face,hand`）。`face` / `hand` / `body-pose-3d` をカンマ区切りで
-  自由に組み合わせられ、`--kinds body-pose-3d` のように 1 種類だけでも指定できる。
-  いずれの場合も生成器内部のデコード + Vision 検出は 1 回で済ませ、要求した種類のトラックファイルだけを書く
-- `--fps <n>`（既定 24）。トラックのサンプリング fps。元素材と一致しなくてよい
-- `--decode-width <n>`（既定 1280）。person-matte と同じ理由で、素材が 1280 幅未満なら
-  拡大せずその幅を使う
-- `--joint-confidence <0..1>`（既定 0.3）。手の各関節をこの信頼度未満で省略する
-  （契約 §2.2「捏造ゼロ — 無い関節は無い」）。顔ランドマークには同種の閾値は無い
-  （6 領域が丸ごと計算できない検出はそもそも出力に含めない — 後述）
-- `--metrics <path>`。処理実測（frames・elapsed_seconds・realtime_ratio・detection_counts 等）を
-  JSON で書く
+- `--kinds face,hand` defaults to `face,hand`. Combine `face`, `hand`, and `body-pose-3d` with commas, or request just one, such as `--kinds body-pose-3d`. The generator decodes and runs Vision detection once, then writes only the requested track files.
+- `--fps <n>` defaults to 24 samples per second and need not match the source frame rate.
+- `--decode-width <n>` defaults to 1280. As with person-matte, use the source width rather than upscaling when it is narrower than 1280.
+- `--joint-confidence <0..1>` defaults to 0.3. Omit hand joints below that confidence under contract §2.2's "no invented joints" rule. Face landmarks have no equivalent per-region threshold; omit a whole face detection if any of the six required regions is unavailable.
+- `--metrics <path>` writes measured frames, elapsed_seconds, realtime_ratio, detection_counts, and related values as JSON.
 
-`--input` には**原本**を渡す（person-matte と同じ理由 — プロキシでも動くが、原本と時刻対応が
-崩れた素材を渡さない）。
+Pass the **original footage** to `--input`. A proxy can work, but never use one whose times no longer correspond to the source.
 
-成功時は 1 行の JSON が返る。`ok`、`tracks`（analysis.json へ書いた `face_landmarks` /
-`hand_pose` / `body_pose_3d` ポインタ）、`frames`、`detection_counts`（kind ごとの総検出数）、
-`elapsed_seconds`、`realtime_ratio` を含む。**analysis.json は自動的に書き換わっている**
-（`.tmp` → 原子的置換）。
+On success, stdout contains one JSON line with `ok`, `tracks` pointers written to analysis.json (`face_landmarks`, `hand_pose`, or `body_pose_3d`), `frames`, per-kind `detection_counts`, `elapsed_seconds`, and `realtime_ratio`. The tool has **already rewritten analysis.json** via an atomic `.tmp` replacement.
 
-`ok: false` なら `reason` を報告し、トラックを諦めてキー無しのまま分析を続ける。**トラックが
-作れないことを理由に分析全体を失敗扱いにしない。**
+For `ok: false`, report `reason`, omit the track key, and continue analysis. **Failure to generate a track does not fail the whole analysis.**
 
-### 顔・手の一部だけ検出できないフレーム
+### Frames with incomplete face or hand detections
 
-- **手**: 各関節は `--joint-confidence` 未満だとキーごと省略される。全関節が省略されると、
-  その手の検出は `joints: {}`（空 object）になる。これは検出はしたが信頼できる関節が
-  無かったという事実であり、検出自体を消さない。
-- **顔**: Vision が landmark 領域（瞳・目・唇）を一部でも計算できなかった顔は、
-  その検出を**丸ごと**その時刻の `detections` から除く（v0 必須の 6 領域が揃わない検出を
-  出力に混ぜない）。実測（26.3 秒・1 名の顔がほぼ映り続ける素材）ではこの除外は 0 件だった
-  （report.md 参照）。逆光・強い横顔が続く素材では起こりうる。
+- **Hands:** Omit the key for each joint below `--joint-confidence`. If none passes, keep the hand detection with `joints: {}`. It records that a hand was detected but no joint was reliable; do not erase the detection.
+- **Faces:** If Vision cannot calculate even one of the required landmark regions, including pupils, eyes, or lips, omit that face detection entirely from that time's `detections`. v0 never writes a partial six-region face. In a measured 26.3-second clip with one mostly visible face, no detections were excluded (see report.md); backlighting or a sustained profile view may produce exclusions.
 
-### 座標系
+### Coordinates
 
-顔・手の座標と body-pose-3d の `projection` は**すべて 0〜1 正規化・左上原点**
-（契約 §2）。Vision framework 自体は左下原点で返すため、y 反転はヘルパー内部で完結している。
-body-pose-3d の `position` は root/hip 相対メートルのモデル座標である。いずれも
-**エージェント側で座標を反転・変換する必要はない。**
+Face and hand coordinates and body-pose-3d `projection` use **0–1 normalization with a top-left origin**, per contract §2. Vision itself uses a bottom-left origin, but the helper already flips y. Body-pose-3d `position` uses model coordinates in meters relative to the root or hip. **The agent must not flip or transform these coordinates again.**
 
-## analysis.json への反映
+## Update analysis.json
 
-person-matte と異なり、agent が返り値を手で `tracks` へ貼り付ける工程は無い。
-`vision-tracks.mjs` が analysis.json を直接読み、次を行ってから原子的に置き換える。
+Unlike person-matte, the agent does not paste a returned value into `tracks`. `vision-tracks.mjs` reads analysis.json, makes these changes, and atomically replaces the file:
 
-1. `<analysis-dir>/vision/face-landmarks.json` / `<analysis-dir>/vision/hand-pose.json` /
-   `<analysis-dir>/vision/body-pose-3d.json`
-   （要求した kind の分だけ）を書く。
-2. `analysis.json` の `tracks.face_landmarks` / `tracks.hand_pose` / `tracks.body_pose_3d` に、そのファイルへの
-   ポインタ（`path` は analysis.json のディレクトリ基準の相対パス・`sample_fps`・
-   `provider`・`tool`・`generated_at`）を追記する。
+1. Write only the requested kinds among `<analysis-dir>/vision/face-landmarks.json`, `<analysis-dir>/vision/hand-pose.json`, and `<analysis-dir>/vision/body-pose-3d.json`.
+2. Add pointers in `analysis.json` under `tracks.face_landmarks`, `tracks.hand_pose`, or `tracks.body_pose_3d`. Each pointer includes `path` relative to the analysis.json directory, plus `sample_fps`, `provider`, `tool`, and `generated_at`.
 
 ```json
 "face_landmarks": {
@@ -138,52 +92,37 @@ person-matte と異なり、agent が返り値を手で `tracks` へ貼り付け
 }
 ```
 
-**`--kinds face` だけで再実行すると、`hand_pose` の既存ポインタには触れない**（プル駆動 —
-必要な種類だけを更新する。person-matte のような単一アーティファクトの上書きとは違う）。
-すでに確定済みの analysis.json に対して実行する工程なので、[analysis-json.md](analysis-json.md)
-の Schema 検証・意味制約チェックを**先に**通してから呼び出すこと。
+**Rerunning with `--kinds face` leaves an existing `hand_pose` pointer unchanged.** This pull-driven operation updates only requested kinds, unlike replacing a single person-matte artifact. Because the tool operates on finalized analysis.json, pass the schema and semantic checks in [analysis-json.md](analysis-json.md) **before** running it.
 
-## body-pose-3d（3D ボディポーズ）
+## body-pose-3d (3D body pose)
 
-body-pose-3d だけを生成する場合は、確定済みの analysis.json に対して次を実行する。
+To generate only body-pose-3d, run this against finalized analysis.json:
 
 ```bash
 node bin/vision-tracks/vision-tracks.mjs --input <video> --analysis <analysis.json> --kinds body-pose-3d
 ```
 
-出力は macOS 14+ 限定の `VNDetectHumanBodyPose3DRequest` revision 1 が返す 17 関節で、
-各関節に root/hip 相対メートルの `position` と 2D の `projection` を保存する。17 関節のうち
-1 関節でも取得できない観測は detection ごと省略する「全か無か」のトラックであり、部分検出や
-補間による捏造は行わない（契約 §2.4「捏造ゼロ」）。v0 の各関節の `conf` は関節別の値ではなく、
-`VNHumanBodyPose3DObservation.confidence` という観測全体の confidence を複製した値である。
+On macOS 14 or later, `VNDetectHumanBodyPose3DRequest` revision 1 returns 17 joints. Save each joint's `position` in root/hip-relative meters and its 2D `projection`. If even one joint is unavailable, omit the entire detection: this is an all-or-nothing track, with no partial output or invented interpolation (contract §2.4). In v0, each joint's `conf` repeats the observation-wide `VNHumanBodyPose3DObservation.confidence`; it is not joint-specific.
 
-## face-expression（頭部姿勢 + 表情 52）
+## face-expression (head posture + facial expression 52)
 
-話者本人の首振り・表情でアバターを補助駆動する素材だけに対して、既存 Vision 3 kind とは別の
-`face-expression` kind を作る。生成元は **MediaPipe Face Landmarker**。ランタイムは
-Apache-2.0 の `@mediapipe/tasks-vision@0.10.17`（vendored JS/WASM）を既存 headless Chromium
-経路で動かし、Python/Swift の新しいサイドカーは追加しない。既存の「あいうえお」口パクを
-置換するトラックではなく、消費側の結線は別工程である。
+Only for footage chosen to drive an avatar using the speaker's head motion and expressions, generate the separate `face-expression` kind alongside the three existing Vision kinds. It uses **MediaPipe Face Landmarker** through vendored Apache-2.0 `@mediapipe/tasks-vision@0.10.17` JS/WASM in the existing headless Chromium path; it adds no Python or Swift sidecar. It does not replace the existing vowel-based lip-sync track. Wiring the consumer effect is a separate stage.
 
-### 道具とモデルを確認する
+### Check tools and models
 
 ```bash
 node bin/face-expression/face-expression.mjs --check
 ```
 
-この任意機能には Chrome と既存 workspace 依存の `puppeteer-core` が必要。未検出時は
-「この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）」と明示して停止する。同梱の
-decoder / prober、vendored runtime の全 SHA-256 を確認する。モデルが未取得でも runtime が揃っていれば
-利用可能と判定し、初回生成時だけ公式の versioned URL から取得する。
+This optional feature requires Chrome and the workspace's existing `puppeteer-core` dependency. If Chrome is missing, stop and report the CLI message ``この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）`` ("this feature requires Chrome; specify it with `AKARI_CHROME_BIN`"). Check SHA-256 hashes for the bundled decoder, prober, and vendored runtime. A missing model does not make the runtime unavailable: fetch it from the official versioned URL only on first generation.
 
-- 保存先: `${AKARI_HOME:-~/.akari}/models/mediapipe/face-landmarker/float16-1/face_landmarker.task`
+- Save to: `${AKARI_HOME:-~/.akari}/models/mediapipe/face-landmarker/float16-1/face_landmarker.task`
 - URL: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`
 - SHA-256: `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`
 
-取得中は `.tmp-<pid>` へ書き、SHA-256 一致後だけ rename する。既存モデルの hash が違う場合も
-自動再取得で隠さず即エラーにする。モデル・実素材・demo 出力はリポジトリへコミットしない。
+Download to `.tmp-<pid>` and rename only after the SHA-256 matches. If an existing model has the wrong hash, fail immediately rather than silently downloading another copy. Do not commit models, real footage, or demo outputs.
 
-### 生成する
+### Generate
 
 ```bash
 node bin/face-expression/face-expression.mjs \
@@ -193,19 +132,14 @@ node bin/face-expression/face-expression.mjs \
   --metrics "$OUT_DIR/face-expression-metrics.json"
 ```
 
-- `--fps <n>` は既定 24。生成器内部でこの等間隔へデコードし、sample の `t` は `index / fps`
-- `--decode-width <n>` は既定 1280。入力が小さければ拡大しない
-- 出力は `<analysis-dir>/vision/face-expression.json` 1 ファイルだけ。各 sample は `t` と
-  `detections[]`、各 detection は `head.{yaw,pitch,roll}`（ラジアン）、MediaPipe 固定 52 キーの
-  `blendshapes`（0..1 生 score）、`conf` を持つ。平滑化・補間はしない
-- 成功後に `tracks.face_expression` を additive 追記し、トラックと analysis.json はどちらも
-  tmp → rename で原子的に置換する。他の track pointer には触れない
+- `--fps <n>` defaults to 24. The generator decodes at regular intervals; each sample's `t` is `index / fps`.
+- `--decode-width <n>` defaults to 1280; smaller inputs are not upscaled.
+- Write only `<analysis-dir>/vision/face-expression.json`. Each sample has `t` and `detections[]`. A detection contains `head.{yaw,pitch,roll}` in radians, 52 fixed MediaPipe `blendshapes` raw scores from 0 to 1, and `conf`. Do not smooth or interpolate.
+- On success, add `tracks.face_expression` without replacing other pointers. Replace both the track file and analysis.json atomically through temporary-file rename.
 
-### 性能を実測する
+### Measure performance
 
-実素材 12 秒窓の実測は fieldtest 担当で行い、未実施値を推測で書かない。CPU 時間を主指標、
-wall time と実時間比を補助指標にする。macOS では次のように `user + sys` を CPU 秒として記録し、
-同時に metrics の `detected_frames / frames`、代表 `mouthSmileLeft/Right`、yaw の符号を確認する。
+The fieldtest owner measures a twelve-second window of real footage. Never write unmeasured performance values by guesswork. Use CPU time as the primary measure and wall time and real-time ratio as secondary measures. On macOS, record `user + sys` as CPU seconds, and inspect `detected_frames / frames`, representative `mouthSmileLeft/Right` values, and the yaw sign in the metrics.
 
 ```bash
 /usr/bin/time -p node bin/face-expression/face-expression.mjs \
@@ -215,54 +149,34 @@ wall time と実時間比を補助指標にする。macOS では次のように 
   --metrics "$OUT_DIR/face-expression-metrics.json"
 ```
 
-実測記録には Chrome 版、CPU 秒、wall 秒、`elapsed_seconds / 12`、検出率、52 キー成立率を残す。
-MediaPipe の Web API は face-presence score を結果へ公開しないため、v0 の `conf` は返された
-52 blendshape 生 score の最大値であり、face detection confidence と読み替えない。
+Record the Chrome version, CPU seconds, wall seconds, `elapsed_seconds / 12`, detection rate, and rate of valid 52-key results. MediaPipe's Web API does not expose a face-presence score in this result, so v0 `conf` is the maximum raw score among the 52 blendshapes. Do not interpret it as face-detection confidence.
 
-## 消費: 目線黒帯（eye-bar）
+## Use tracks for an eye bar
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines, following [the edit.json access guide](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write with the Edit operation or edit-store script API for those lines.
 
-`face_landmarks` を生成しただけでは何も起きない。「犯罪者風の目線黒帯」を実際に映像へ乗せる
-のは別の決定論変換器 `packages/akari-tools/bin/eye-bar.mjs`（`akari internal eye-bar` からも
-起動できる）の仕事であり、本スキルの範囲外（[analysis-vision-tracks-v0 契約](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
-§4）。使い分け:
+Generating `face_landmarks` alone does not add a visual effect. The separate deterministic converter `packages/akari-tools/bin/eye-bar.mjs`, also available as `akari internal eye-bar`, draws a criminal-style black eye bar. It is outside this skill; see the [vision-track contract §4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md). Divide responsibilities as follows:
 
-- **本スキル（vision-tracks.mjs）**: 「動画から瞳の位置を検出してトラックに残す」——
-  分析（事実の記録）
-- **eye-bar.mjs**: 「トラックから黒帯の位置・角度・大きさを計算し `layers[].keyframes`
-  として `edit.json` に足す」—— 消費（演出への変換）
+- **This skill (vision-tracks.mjs):** Detect eye positions in footage and record them as factual track data.
+- **eye-bar.mjs**: Calculate the black bar's position, angle, and size from the track, then add `layers[].keyframes` to `edit.json`. This consumes analysis data to create a visual effect.
 
-顔だけ・瞳を使う演出（eye-bar）を使うと決めているときは、`--kinds face`（`hand` は不要）で
-トラックを作ってから、承認済みの `edit.json`（cuts が確定済みであること — eye-bar は
-cuts の in/out/at/speed から source 秒→タイムライン秒を解くため、cuts を後から編集し直すと
-黒帯の位置がずれる）に対して実行する。
+For an eye-bar effect, generate only `--kinds face`; `hand` is unnecessary. Then apply the converter to an approved `edit.json` with finalized cuts. Eye-bar maps source to timeline seconds using each cut's in, out, at, and speed; editing cuts afterward misaligns the bar.
 
 ```bash
 node packages/akari-tools/bin/eye-bar.mjs \
   --analysis "$OUT_DIR/analysis.json" --edit "$OUT_DIR/edit.json" --apply
 ```
 
-- 既定値のままで大抵は動く（瞳間距離 ×1.6 の長さ・太さ比 0.22・移動平均 5 サンプルでの平滑化・
-  0.2 秒間隔の間引き）。パラメータの全体は `eye-bar.mjs --help` 相当のヘッダコメントを参照
-- `--apply` を付けない限り `edit.json` は変更されない（stdout の JSON で生成結果だけ確認できる）
-- 複数人が写る素材は `--face <index>` で対象を選ぶ（v0 は 1 人だけ・複数人同時追跡は非対応）
-- 黒帯素材（アルファ mov）は `.akari/cache/eye-bar/` へ自動生成される（プロジェクトの
-  再生成可能キャッシュ層 — 削除しても再実行すれば作り直せる）
-- 別カットアウェイ（対象人物が画面から消える区間）を挟む素材では、eye-bar は複数の
-  `layers[]` エントリ（区間ごとに 1 枚）を追加する。黒帯が無関係な映像の上に浮いたまま残る
-  ことを避けるための設計であり、意図した挙動である
-- Vision の瞳検出が瞬き等で数フレームだけ左右を取り違えることが実測で確認されている
-  （conf は 1.0 のまま角度だけ物理的にあり得ない量で跳ねる）。eye-bar 側で「直前採用値から
-  45°を超える瞬時ジャンプ」を自動的に棄却しホールドで埋めるため、通常は手当て不要
-  （`--outlier-max-angle-jump` で閾値変更・無効化も可）
+- Defaults usually suffice: bar length is interpupillary distance × 1.6, thickness ratio 0.22, smoothing uses a five-sample moving average, and samples are decimated every 0.2 seconds. For all parameters, see the header documentation corresponding to `eye-bar.mjs --help`.
+- Without `--apply`, stdout shows the proposed JSON and `edit.json` remains unchanged.
+- Use `--face <index>` to choose a target when multiple people appear. v0 follows one person only; simultaneous multi-person tracking is unsupported.
+- The alpha-MOV bar asset is generated under `.akari/cache/eye-bar/`, a recreatable project cache. It can be rebuilt after deletion.
+- If the target disappears during a cutaway, the converter adds several `layers[]` entries, one per visible interval. This intentionally prevents the bar from floating above unrelated footage.
+- Measurements show that blinking can make Vision swap left and right eyes for a few frames even when confidence remains 1.0, producing an impossible angle jump. Eye-bar rejects jumps over 45° from the last accepted value and fills the gap with a hold. Usually no manual correction is needed; `--outlier-max-angle-jump` can change or disable the threshold.
 
-## 消費: pose-skeleton
+## Use tracks for pose-skeleton
 
-`body_pose_3d` を生成しただけでは何も起きない。`packages/akari-tools/bin/pose-skeleton.mjs` は、
-17 関節の 2D `projection` からスティックフィギュアのアルファ付き overlay を事前ベイクし、
-`kind: "baked"` の `layers[]` を出力する決定論変換器である。
+Generating `body_pose_3d` alone does not add a visual effect. `packages/akari-tools/bin/pose-skeleton.mjs` deterministically bakes an alpha stick-figure overlay from the 17 joints' 2D `projection` and outputs `kind: "baked"` entries in `layers[]`.
 
 ```bash
 node packages/akari-tools/bin/pose-skeleton.mjs \
@@ -271,26 +185,17 @@ node packages/akari-tools/bin/pose-skeleton.mjs \
   --smoothing 5 --min-confidence 0.3 --apply
 ```
 
-- `--stroke-width` は骨線の太さ、`--color` は線と関節の色、`--joint-radius` は関節円の半径を
-  指定する。`--smoothing` は移動平均 window（既定 5、`1` は平滑化なし）、
-  `--min-confidence` は骨を表示する最低 confidence（既定 0.3）
-- `--apply` を付けない限り `edit.json` は変更されず、stdout の JSON に生成した `layers[]` と
-  baked asset の情報だけを返す。付けた場合は既存 `layers[]` へ additive に追記する
-- v0 は各フレームの `bodyIndex=0` 固定で先頭の 1 人だけを消費し、複数人には非対応
+- `--stroke-width` controls bone-line thickness; `--color` colors lines and joints; `--joint-radius` sets joint-circle radius. `--smoothing` is the moving-average window (default 5; `1` disables smoothing). `--min-confidence` sets the minimum confidence for displaying a bone (default 0.3).
+- Without `--apply`, return proposed `layers[]` and baked-asset information as stdout JSON without changing `edit.json`. With it, append to existing `layers[]`.
+- v0 uses `bodyIndex=0` in every frame, consuming only the first person; it does not support multiple people.
 
-## 劣化
+## Degraded operation
 
-道具が無い、生成に失敗した場合は `tracks.face_landmarks` / `tracks.hand_pose` /
-`tracks.body_pose_3d` の**キー自体を書かず**に分析を確定し、理由を完了報告に書く
-（person_matte の「キーは必須・値は null」という劣化表現とは違う — このトラックは真に任意であり、
-キーの有無で生成済みかどうかを表す）。
+If tools are unavailable or generation fails, omit the `tracks.face_landmarks`, `tracks.hand_pose`, or `tracks.body_pose_3d` key for the failed kind, finalize the rest of the analysis, and report why. Unlike person_matte, whose required key takes a null value, these keys are optional; presence indicates generation.
 
-## 消費側: finger-frame（指フレーム切り替え）
+## Use tracks for finger-frame
 
-`tracks.hand_pose`（両手の `thumb_tip`/`index_tip` = 4 点）を「指で作ったフレームの中だけ映像が
-切り替わる」演出の `layers[].keyframes`（perspective 4 隅 corner-pin）へ決定論変換する CLI。
-契約 [docs/contract-2026-08-11-analysis-vision-tracks-v0.md](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
-§4 の消費者第 2 号（本契約は変換の責務分担のみを定め、新しい 3 面実装は発生しない — §0 原則 3）。
+This CLI deterministically maps `tracks.hand_pose` (the `thumb_tip` and `index_tip` on both hands, four points total) to a perspective four-corner pin in `layers[].keyframes`. It is the second consumer in §4 of the [vision-track contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md). That contract allocates conversion responsibilities; it does not add a new three-surface implementation under §0 principle 3.
 
 ```bash
 akari internal vision-finger-frame <project> \
@@ -300,30 +205,16 @@ akari internal vision-finger-frame <project> \
   [--apply]
 ```
 
-- **発動検出**: 親指・人差し指の距離（ソース動画の実ピクセル寸法でアスペクト補正済み）が
-  `--open-threshold`（既定 0.16）を両手とも超えた区間を「開き」とする。閉じるのは
-  `--close-threshold`（既定 0.11、open より低い）未満へ落ちるか片手でも検出が消えたとき —
-  固定引数のヒステリシスで決定論的にバタつきを防ぐ（`bin/finger-frame/gesture.mjs`）。
-- **幾何**: 4 点をどの指がどの隅かに関わらず正しい `[TL,TR,BL,BR]`（#layerPerspective）へ
-  正規化する（ねじれ/自己交差 quad は点集合の重心まわりの角度ソートで解消 —
-  `bin/finger-frame/corners.mjs` のヘッダコメントに導出込み）。同一区間内では前フレームの
-  コーナー割当に一番近い回転を選び、指の担当隅が視覚的に飛ばないようにする。
-- **時間写像**: hand_pose はソース動画の秒基準、layers はタイムライン秒基準 -- `cuts[]` の
-  `in`/`out`/`at`/`speed`（render-cut の `cut-timeline.mjs` を読み取り専用で再利用）から解く。
-  対象カットに `framing`/`transform` の宣言があると既定 letterbox 前提が崩れるため、そのカットの
-  区間はスキップし warnings に理由を残す（v0 の既知の境界。黙って誤った座標を出さない）。
-- **既知の境界（v0）**: 分析はプル駆動の任意工程のまま（本節は既存ワークフローに新しいハード
-  ルールを追加しない）。finger-frame 自体の詳細な設計判断・実測は
-  非公開の内部記録（`akari-video-internal`）の実測記録を参照。
+- **Activation:** Correct thumb-to-index distances for the source video's actual pixel aspect. A window opens when both hands exceed `--open-threshold` (default 0.16). It closes when either distance falls below `--close-threshold` (default 0.11) or one hand disappears. Fixed hysteresis prevents rapid toggling; see `bin/finger-frame/gesture.mjs`.
+- **Geometry:** Normalize the four points to `[TL,TR,BL,BR]` for #layerPerspective regardless of which finger initially occupies a corner. Sort points by angle around their centroid to resolve twisted or self-intersecting quads; the derivation is in `bin/finger-frame/corners.mjs`. Within a window, choose the rotation nearest the prior frame's corner assignment to prevent visual jumps.
+- **Time mapping:** Hand poses use source seconds; layers use timeline seconds. Convert using `cuts[]` `in`, `out`, `at`, and `speed`, reusing render-cut's `cut-timeline.mjs` read-only. If a cut declares `framing` or `transform`, the default letterbox assumption no longer holds: skip that interval and record a warning rather than output wrong coordinates.
+- **v0 boundary:** Analysis remains optional and pull-driven; this consumer adds no blanket analysis rule. For detailed finger-frame design decisions and measurements, see the private internal records.
 
-## よくある間違い
+## Common mistakes
 
-- 瞳・指先・身体の関節位置を使う演出を使うと決まっていない素材にも一律で実行する。
-- `--kinds face,hand,body-pose-3d` を毎回指定し、必要のない重いトラックまで生成する。
-- 出力された座標を「Vision は左下原点だから」と agent 側でもう一度反転する
-  （ヘルパーが既に反転済み — 二重反転すると壊れる）。
-- 手の関節が `joints: {}`（空）の検出を「検出失敗」と誤読してエラーにする（信頼できる
-  関節が無かっただけで、手自体の検出は成立している）。
-- `analysis.json` を Schema 検証する前に vision-tracks.mjs を実行し、壊れた analysis.json に
-  対してトラックだけ足してしまう。
-- トラックが作れなかったことを理由に `analysis.json` 自体を出さない。
+- Running vision detection on unspecified footage before an eye, fingertip, or joint-based effect is chosen.
+- Requesting `--kinds face,hand,body-pose-3d` every time and paying for unneeded heavy tracks.
+- Flipping coordinates again because Vision uses a bottom-left origin; the helper has already flipped them.
+- Treating a `joints: {}` hand detection as a failed hand detection. The hand was seen; only reliable joints were absent.
+- Running vision-tracks.mjs before validating `analysis.json` and adding tracks to an invalid ledger.
+- Withholding `analysis.json` because one optional track could not be generated.

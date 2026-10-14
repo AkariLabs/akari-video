@@ -4,11 +4,20 @@ import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { AkariTasksServiceImpl } from '../lib/node/akari-tasks-service.js';
-import { importTaskifyResult } from '../lib/node/taskify/taskify-import.js';
-import { validateResult } from '../lib/node/taskify/taskify-schema.js';
+
+
+
 import { applyTaskPatch } from '../../../../../packages/edit-store/lib/tasks-store.js';
-import { availableActions } from '../lib/common/task-actions.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariTasksServiceImpl } = await import('../lib/node/akari-tasks-service.js');
+const { importTaskifyResult } = await import('../lib/node/taskify/taskify-import.js');
+const { validateResult } = await import('../lib/node/taskify/taskify-schema.js');
+const { availableActions } = await import('../lib/common/task-actions.js');
+
+
 const raw = { summary: '案', tasks: [{ ref: 't1', title: '公開前に確認', body: '公開前に確認する', kind: 'ask',
   target: { outputT: 0, src: 'a', sourceT: 0, cutIndex: 0, refs: [], region: null },
   evidence: { memo: 'c-0001', speech: [0, 1], quote: '確認', ink: [] }, confidence: 'low',

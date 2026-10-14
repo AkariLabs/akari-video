@@ -6,11 +6,19 @@ import { join, resolve } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { appendAiStillPanel, stillAspects, stillCroppedNotice, stillRouteAvailability } from '../lib/browser/inspector/ai-still-panel.js';
-import { frameDimensions } from '../lib/browser/inspector/frame-geometry.js';
-import { stillAspectText, stillCropPlan, StillGenerationManager } from '../lib/node/still-generation.js';
+
+
+
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { doneStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { appendAiStillPanel, stillAspects, stillCroppedNotice, stillRouteAvailability } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { frameDimensions } = await import('../lib/browser/inspector/frame-geometry.js');
+const { stillAspectText, stillCropPlan, StillGenerationManager } = await import('../lib/node/still-generation.js');
+
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const bins = fileURLToPath(new URL('./fixtures/ai-still-routes-bin/', import.meta.url));

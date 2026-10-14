@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import type { AssetCatalogViewItem } from '../common/akari-project-protocol';
 import { AKARI_SURFACE } from '../common/akari-surface-tokens';
@@ -24,7 +25,7 @@ export function LibraryShelfVisualStyles(): React.ReactElement { return <style d
 
 export function LutPreview(props: { url?: string }): React.ReactElement {
     return <span data-akari-lut-preview style={{ width: '100%', height: '100%', display: 'block', background: AKARI_SURFACE.card }}>
-        {props.url && <img src={props.url} alt='ビフォー｜アフター' draggable={false}
+        {props.url && <img src={props.url} alt={t('project.library.visualShelf.beforeAfterLabel')} draggable={false}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
     </span>;
 }
@@ -61,17 +62,17 @@ export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid
         face={<span style={{ display: 'block', width: '100%', height: '100%', position: 'relative',
             opacity: props.availability?.status === 'available' ? 1 : 0.65 }}>
             {item.previewUrl
-                ? <img src={item.previewUrl} alt={`${item.title} の見本`} draggable={false}
+                ? <img src={item.previewUrl} alt={t('project.library.visualShelf.previewTitleAction', { title: item.title })} draggable={false}
                     style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
                 : <span data-akari-font-fallback style={{ fontFamily: item.title.replace(/（.*$/, ''), fontSize: '0.72em', textAlign: 'center', padding: '4px', color: 'var(--akari-muted)' }}>
                     あア亜 ABC 123
                 </span>}
             <small data-akari-font-status style={{ position: 'absolute', bottom: 2, right: 3,
                 background: 'var(--theia-editor-background)', padding: '1px 3px', fontSize: '10px' }}>
-                {props.availability?.status === 'available' ? '使える'
-                    : props.availability?.status === 'download' ? '↓ ダウンロード'
-                        : props.availability?.status === 'source' ? '入手が必要'
-                            : props.availability?.status === 'failed' ? '確認できませんでした' : '確認中'}
+                {props.availability?.status === 'available' ? t('project.library.visualShelf.availableLabel')
+                    : props.availability?.status === 'download' ? t('project.library.visualShelf.downloadLabel')
+                        : props.availability?.status === 'source' ? t('project.library.visualShelf.downloadRequiredAction')
+                            : props.availability?.status === 'failed' ? t('project.library.visualShelf.couldNotVerifyError') : t('project.library.visualShelf.checkingLabel')}
             </small>
         </span>} />;
 }

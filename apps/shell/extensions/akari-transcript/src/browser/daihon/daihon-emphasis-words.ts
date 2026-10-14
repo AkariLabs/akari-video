@@ -25,6 +25,7 @@ export function planEmphasisUpserts(
 export function emphasisIdsCovering(existing: readonly EmphasisWordRecord[],
     spans: readonly { src?: string; t_start: number; t_end: number }[]): string[] {
     return [...new Set(existing.filter(record => spans.some(span =>
-        record.src === span.src && record.t_start < span.t_end && span.t_start < record.t_end
+        (record.src === undefined || record.src === span.src)
+        && record.t_start < span.t_end && span.t_start < record.t_end
     )).map(record => record.id))];
 }

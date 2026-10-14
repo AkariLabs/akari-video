@@ -1,3 +1,15 @@
+import { after } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = "ja";
+setLanguage("ja");
+after(() => {
+  setLanguage(undefined);
+  if (previousAkariLang === undefined) delete process.env.AKARI_LANG;
+  else process.env.AKARI_LANG = previousAkariLang;
+});
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile, readFile, rm, symlink } from "node:fs/promises";
@@ -50,3 +62,12 @@ for (const args of [["unknown", "."], ["settle"], ["settle", ".", "--actor"], ["
     assert.ok(result.stderr.trim());
   });
 }
+
+test("--lang en selects English help and errors", () => {
+  const help = run("--help", "--lang", "en");
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /^Usage: akari decision-log/mu);
+  const invalid = run("settle", ".", "--lang", "en", "--unknown");
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /Unknown option/u);
+});

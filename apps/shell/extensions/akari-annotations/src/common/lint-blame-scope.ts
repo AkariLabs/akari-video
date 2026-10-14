@@ -33,7 +33,7 @@ export function splitLintBlame(
     const split: LintBlameSplit = { own: [], foreign: [] };
     for (const [index, finding] of findings.entries()) {
         const findingFile = finding.path?.split('#', 1)[0];
-        if ((!findingFile || writtenFileSet.has(findingFile))
+        if (!finding.preexisting && (!findingFile || writtenFileSet.has(findingFile))
             && !existing.has(currentKeys[index] ?? lintFindingKey(finding))) {
             split.own.push(finding);
         } else {

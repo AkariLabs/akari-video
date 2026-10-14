@@ -1,9 +1,17 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import test from 'node:test';
-import { CAPTION_PANEL_FONTS } from '../lib/common/caption-panel-catalog.js';
-import { captionFontWeights } from '../lib/common/caption-panel-state.js';
-import { CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { CAPTION_PANEL_FONTS } = await import('../lib/common/caption-panel-catalog.js');
+const { captionFontWeights } = await import('../lib/common/caption-panel-state.js');
+const { CAPTION_PANEL_STYLES } = await import('../lib/browser/inspector/caption-panels.js');
+
 
 const root = new URL('../../../../../', import.meta.url);
 const FONT_TAGS = new Set(['japanese', 'handwriting', 'mincho', 'gothic', 'rounded',

@@ -1,4 +1,5 @@
-export type MotionMark = 'キーフレーム' | '入り・抜き' | 'キャンバス';
+import { t } from '@akari-video/i18n';
+export type MotionMark = string;
 
 export function itemMotionMarks(input: {
     keyframes?: readonly Record<string, unknown>[];
@@ -12,8 +13,8 @@ export function itemMotionMarks(input: {
             ? !!seat && typeof seat === 'object' && property.slice(10) in seat
             : seat !== undefined;
     });
-    if (hasKeyframe) marks.push('キーフレーム');
-    if (input.motion?.in || input.motion?.out || input.motion?.loop) marks.push('入り・抜き');
-    if (input.canvasMotion) marks.push('キャンバス');
+    if (hasKeyframe) marks.push(t('inspector.motionMarks.label.keyframe'));
+    if (input.motion?.in || input.motion?.out || input.motion?.loop) marks.push(t('inspector.motionMarks.label.contactUs'));
+    if (input.canvasMotion) marks.push(t('inspector.motionMarks.label.canvas'));
     return marks;
 }

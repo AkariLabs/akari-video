@@ -11,6 +11,7 @@ const {
   filterCaptionRootByExcludedIds,
   referencedCaptionSourceCount,
   resolveCaptionDisplay,
+  captionRenderInputFromV1,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 
@@ -68,10 +69,10 @@ export function resolveCaptionPlan({
     );
   }
 
-  const textstyleCatalog = loadTextstyleCatalogSync({ env: process.env });
-  const presetResolution = applyCaptionStylePresets(parsedRoot, textstyleCatalog.catalog);
+  const styleOutput = output ?? edit.output;
+  const { root: renderInput, warnings: presetWarnings } = prepareCaptionRenderInput(parsedRoot, { output: styleOutput });
   const captionsRoot = filterCaptionRootByExcludedIds(
-    presetResolution.root,
+    renderInput,
     collectExcludedCaptionIds(edit),
   );
   const captions = Array.isArray(captionsRoot)
@@ -83,8 +84,7 @@ export function resolveCaptionPlan({
     throw new Error("captions.json root must be an array or an object with captions[]");
   }
 
-  const warnings = [...textstyleCatalog.warnings,
-    ...presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`)];
+  const warnings = [...presetWarnings];
   const warn = (warning) => {
     warnings.push(warning);
     onWarning?.(warning);
@@ -98,8 +98,6 @@ export function resolveCaptionPlan({
       if (!available.has(name)) warn(`captions.json item ${cue?.source_cue_id ?? cue?.id ?? '(unknown)'} font_family ${JSON.stringify(name)} is unavailable`);
     }
   };
-
-  const styleOutput = output ?? edit.output;
 
   const layout = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), {
     output: styleOutput,
@@ -151,6 +149,16 @@ export function resolveCaptionPlan({
     defaultTextStyle: legacyDefaultTextStyle ?? null,
     emphasisWords: legacyEmphasisWords ?? [],
     warnings,
+  };
+}
+
+export function prepareCaptionRenderInput(root, { output } = {}) {
+  const textstyleCatalog = loadTextstyleCatalogSync({ env: process.env });
+  const presetResolution = applyCaptionStylePresets(root, textstyleCatalog.catalog);
+  return {
+    root: captionRenderInputFromV1(presetResolution.root, { output }),
+    warnings: [...textstyleCatalog.warnings,
+      ...presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`)],
   };
 }
 

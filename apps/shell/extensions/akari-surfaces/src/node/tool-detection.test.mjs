@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
-import { detectTools as detectToolsImpl } from '../../lib/node/tool-detection.js';
+import test, { after as afterI18nTest } from 'node:test';
 
 const detectTools = options => detectToolsImpl({ fetchImpl: async () => ({ ok: false }), ...options });
 
@@ -273,6 +272,11 @@ test('whisper モデル: 何も無ければ未取得（WHISPER_CPP_MODEL 未設�
 
 // The CLI and shell consume this exact ordered table and exclusion predicate.
 import { whisperModelLocations, whisperModelCandidates, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { detectTools: detectToolsImpl } = await import("../../lib/node/tool-detection.js");
+
 
 test('CLI model locations keep their priority, recursive search and exclusions', async t => {
     const scratch = await mkdtemp(join(tmpdir(), 'akari-model-candidates-'));

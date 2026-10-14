@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    computeMaterialGhostRange,
-    insertCutIntoEdit,
-    planCutDrop,
-    materialDropDecision,
-    materialGhostVisibility
-} from '../lib/common/timeline-material-insert.js';
-import { computeCutTrackSegments } from '../lib/common/edit-store.js';
+
+
 import { readLegacyView, toV2Edit } from './helpers/v2-fixture.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { computeMaterialGhostRange, insertCutIntoEdit, planCutDrop, materialDropDecision, materialGhostVisibility } = await import('../lib/common/timeline-material-insert.js');
+const { computeCutTrackSegments } = await import('../lib/common/edit-store.js');
+
 
 // --- materialDropDecision（ドロップ受理判定） ---
 

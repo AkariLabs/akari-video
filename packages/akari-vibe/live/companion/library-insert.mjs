@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'node:path';
 import { byId } from '../../src/exec-support/insert_from_library_search.mjs';
+import { stillImageFile } from '../../src/ops-exec/insert_from_library_add.mjs';
 import { audioAssets } from '../../src/exec-support/audio_ops_sfx.mjs';
 import { planPlacementZones } from './placement-zones.mjs';
 
@@ -259,7 +260,10 @@ export async function prepareLibraryInsert({ decision = {}, confidence = {}, ins
         return { decision, runtime: { companion:true,assetPaths: {} }, shellEffect: {} };
     }
     const isAudio = decision.op === 'audio_sfx' || decision.op === 'audio_bgm_pick';
-    if (decision.op === 'insert_from_library_add'
+    // 静止画は画像 1 枚で置ける（fragment.html はツマミ用の包み。insert_from_library_add.mjs と同じ規則）。
+    const stillImage = decision.op === 'insert_from_library_add' && byId.get(assetId)?.category === 'still'
+        ? stillImageFile(assetPath.files, assetPath.dir) : null;
+    if (decision.op === 'insert_from_library_add' && !stillImage
         && !assetPath.files.includes(path.posix.join(assetPath.dir, 'fragment.html'))) {
         setBanner('取り込んだ素材に fragment.html がありません');
         return { decision, runtime: { companion:true,assetPaths: {} }, shellEffect: {} };
@@ -274,14 +278,14 @@ export async function prepareLibraryInsert({ decision = {}, confidence = {}, ins
     // 置き場所は素材のツマミ（位置・揃え）かドラッグで直す。
     const planned = placementFor({ decision, assetId, edit, playheadT, persons });
     const placement = planned ? { ...planned, transform: null } : planned;
-    const durationSeconds = fragmentDurationSeconds(location, assetPath);
+    const durationSeconds = stillImage ? null : fragmentDurationSeconds(location, assetPath);
     return {
         decision,
         applyLabel: `素材を入れる: ${byId.get(assetId)?.title?.trim()
             || audioAssets.find(asset => asset.id === assetId)?.title?.trim() || assetId}`,
         runtime: { companion:true,assetPaths: { [assetId]: assetPath }, placement,
             durationSeconds,
-            fragmentPath: decision.op === 'insert_from_library_add'
+            fragmentPath: decision.op === 'insert_from_library_add' && !stillImage
                 ? placedFragmentCopy(location, assetPath)
                 : null },
         shellEffect: placement?.zones?.length ? { zoneHint: { zones: placement.zones, durationMs: 4000 } } : {},

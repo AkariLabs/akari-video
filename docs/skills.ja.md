@@ -52,8 +52,8 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 |---|---|---|
 | [critique-cut](../skills/critique-cut/SKILL.md) | 人間が先に組んだ edit.json を読み、使われている素材区間だけを観察して、現在のカットへ読み取り専用の所見を返す | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | edit.json + analysis.json / captions.json / メディアの決定的検査。PASS 後のフレーム視認まで | 同梱の決定的 CLI |
-| [compile-review-session](../skills/compile-review-session/SKILL.md) | 録音レビューセッションを文字起こし → 参照解決 → review.json の open チケットへコンパイル | STT 3 層（analyze-footage と同じ） |
-| [address-review](../skills/address-review/SKILL.md) | open チケットへの実対応 → edit-lint → チケット更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
+| [compile-review-session](../skills/compile-review-session/SKILL.md) | レビューの録音を文字起こし → 参照解決 → review.json の open コメントにまとめる | STT 3 層（analyze-footage と同じ） |
+| [address-review](../skills/address-review/SKILL.md) | open コメントへの実対応 → edit-lint → コメント更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
 
 ### 書き出し
 

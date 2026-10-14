@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { availableActions } from '../lib/common/task-actions.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { availableActions } = await import('../lib/common/task-actions.js');
+
+
 
 const task = (state, extra = {}) => ({ id: 't-0001', source: 'annotation', state, createdAt: '', ...extra });
 const ids = t => availableActions(t).map(action => action.id);

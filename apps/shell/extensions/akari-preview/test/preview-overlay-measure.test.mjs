@@ -204,8 +204,8 @@ test('注入関数の本体はモジュール外の関数名に依存しない',
 
 test('別 script の返答口だけを window 経由で呼ぶ', async () => {
     const text = readHandlerSource();
-    assert.match(text, /<script>\$\{hostAdapterScript\(\)\}<\/script>/u);
-    assert.match(text, /<script>\$\{previewBootstrapScript\(\)\}<\/script>/u);
+    assert.match(text, /<script>\$\{webviewScriptText\(hostAdapterScript\(\)\)\}<\/script>/u);
+    assert.match(text, /<script>\$\{webviewScriptText\(previewBootstrapScript\(\)\)\}<\/script>/u);
     const ast = ts.createSourceFile('preview.ts', text, ts.ScriptTarget.Latest, true);
     const method = name => {
         const declaration = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.getText(ast) === name);

@@ -4,6 +4,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { isMainModule } from "../src/common/main-module.mjs";
+import { toolsText } from '../src/i18n.mjs';
 
 import { resolveCreatorRoot } from "../../creator-root/src/index.mjs";
 import {
@@ -17,16 +18,16 @@ import { runValidateWordBookCli } from "../../schemas/bin/validate-word-book.mjs
 import { updateAnalysisTranscript } from "../src/media/record.mjs";
 
 const {
-  applyWordBookToCaptionsInSource,
+  applyWordBookToCaptionsInSourceWithNotices,
 } = createRequire(import.meta.url)("../../edit-store/lib/caption-store.js");
 const {
   writeProjectFilesGuarded,
 } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
 
-const usage = [
-  "使い方: akari-word-book <subcommand> [options]",
+const usage = () => [
+  toolsText('tools.wordBook.help.usage'),
   "",
-  "サブコマンド:",
+  toolsText('tools.wordBook.help.commands'),
   "  resolve [--project <dir>] [--word-book <path>] [--json]",
   "  validate <file>",
   "  add --surface <s> [--variant <v>]... --scope project|channel|workspace [options]",
@@ -38,7 +39,7 @@ export async function runWordBookCli(argv, options = {}) {
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
   const env = options.env ?? process.env;
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
-    stdout(usage);
+    stdout(usage());
     return 0;
   }
   const [command, ...rest] = argv;
@@ -49,8 +50,8 @@ export async function runWordBookCli(argv, options = {}) {
     if (command === "resolve") return await runResolve(rest, { stdout, env });
     if (command === "add") return await runAdd(rest, { stdout, stderr, env });
     if (command === "apply") return await runApply(rest, { stdout, env });
-    stderr(`不明な word-book サブコマンドです: ${command}`);
-    stderr(usage);
+    stderr(toolsText('tools.wordBook.error.unknownCommand', { command }));
+    stderr(usage());
     return 1;
   } catch (error) {
     stderr(error instanceof Error ? error.message : String(error));
@@ -90,11 +91,11 @@ async function runAdd(argv, { stdout, env }) {
     booleans: new Map([["--protect-break", "protectBreak"]]),
     repeat: new Set(["variants"]),
   });
-  if (!parsed.surface) throw new Error("add: --surface が必要です");
-  if (!parsed.scope) throw new Error("add: --scope が必要です");
-  if (!new Set(["project", "channel", "workspace"]).has(parsed.scope)) throw new Error("add: --scope は project / channel / workspace のいずれかです");
+  if (!parsed.surface) throw new Error(toolsText('tools.wordBook.error.surfaceRequired'));
+  if (!parsed.scope) throw new Error(toolsText('tools.wordBook.error.scopeRequired'));
+  if (!new Set(["project", "channel", "workspace"]).has(parsed.scope)) throw new Error(toolsText('tools.wordBook.error.scopeInvalid'));
   const kind = parsed.kind ?? "term";
-  if (!new Set(["term", "notation", "ng", "reading-only"]).has(kind)) throw new Error("add: --kind が不正です");
+  if (!new Set(["term", "notation", "ng", "reading-only"]).has(kind)) throw new Error(toolsText('tools.wordBook.error.kindInvalid'));
   const projectRoot = path.resolve(parsed.project ?? process.cwd());
   let creatorRoot = null;
   if (parsed.scope !== "project") {
@@ -103,7 +104,7 @@ async function runAdd(argv, { stdout, env }) {
   }
   const filePath = layerPathFor({ scope: parsed.scope, projectRoot, creatorRoot });
   if (!filePath) {
-    const error = new Error("作業場がありません（お試しモード）。`--scope project` を使うか作業場を作ってください");
+    const error = new Error(toolsText('tools.wordBook.error.workspaceMissing'));
     error.exitCode = 2;
     throw error;
   }
@@ -116,7 +117,7 @@ async function runAdd(argv, { stdout, env }) {
     source: parsed.source ?? "manual",
   };
   const result = await addEntry(filePath, entry);
-  stdout(`${result.replaced ? "置換" : "追加"}: ${entry.surface} -> ${filePath}`);
+  stdout(toolsText('tools.wordBook.result.entry', { action: result.replaced ? toolsText('tools.wordBook.action.replaced') : toolsText('tools.wordBook.action.added'), surface: entry.surface, path: filePath }));
   return 0;
 }
 
@@ -163,12 +164,18 @@ async function runApply(argv, { stdout, env }) {
     dry_run: parsed.dryRun === true,
     analysis: { files: analysisPaths.length, changed_files: changedFiles, stats: total },
     captions: captionResult,
+    ...(captions.notices?.length ? { notices: captions.notices } : {}),
   };
   if (parsed.json) {
     stdout(JSON.stringify(result));
   } else {
-    stdout(`analysis.json: ${total.replaced} 語を置換（${changedFiles}/${analysisPaths.length} ファイル${parsed.dryRun ? "・dry-run" : ""}）`);
-    stdout(`captions.json: ${captionResult.replaced} 語を置換（${captionResult.records_written} 行${parsed.dryRun ? "・dry-run" : ""}）`);
+    stdout(toolsText('tools.wordBook.result.analysis', { replaced: total.replaced, n: total.replaced,
+      files: toolsText('tools.wordBook.result.fileCount', { changed: changedFiles, total: analysisPaths.length, n: analysisPaths.length }),
+      dryRun: parsed.dryRun ? toolsText('tools.wordBook.result.dryRun') : '' }));
+    stdout(toolsText('tools.wordBook.result.captions', { replaced: captionResult.replaced, n: captionResult.replaced,
+      rows: toolsText('tools.wordBook.result.rowCount', { written: captionResult.records_written, n: captionResult.records_written }),
+      dryRun: parsed.dryRun ? toolsText('tools.wordBook.result.dryRun') : '' }));
+    for (const notice of captions.notices ?? []) stdout(notice);
   }
   return 0;
 }
@@ -183,14 +190,14 @@ function parseOptions(argv, { values, booleans, repeat = new Set() }) {
     }
     if (values.has(argument)) {
       const value = argv[index + 1];
-      if (value === undefined || value.startsWith("--")) throw new Error(`${argument} の値が必要です`);
+      if (value === undefined || value.startsWith("--")) throw new Error(toolsText('tools.wordBook.error.valueRequired', { option: argument }));
       const key = values.get(argument);
       if (repeat.has(key)) (result[key] ??= []).push(value);
       else result[key] = value;
       index += 1;
       continue;
     }
-    throw new Error(`不明なオプションです: ${argument}`);
+    throw new Error(toolsText('tools.wordBook.error.unknownOption', { option: argument }));
   }
   return result;
 }
@@ -251,7 +258,8 @@ async function inspectCaptions(projectRoot, matcher) {
   return {
     ...applied.stats,
     records_written: changes.length,
-    source: changes.length === 0 ? source : applyWordBookToCaptionsInSource(source, changes),
+    ...(changes.length === 0 ? { source, notices: [] }
+      : applyWordBookToCaptionsInSourceWithNotices(source, changes)),
   };
 }
 

@@ -22,7 +22,7 @@ function fixture(form = 'cli', inject = true) {
     backend,
     async execute(id, ...args) {
       calls.push(['command', id, ...args]);
-      if (id === 'akari.partner.deliveryTarget') return { form, agent: 'claude', focusCommandId: 'claude-vscode.focus' };
+      if (id === 'akari.partner.deliveryTarget') return { form, agent: 'claude', ...(form === 'extension' ? { focusCommandId: 'claude-vscode.focus' } : {}) };
       if (id === 'akari.partner.injectPrompt') return inject;
       return true;
     },
@@ -43,6 +43,7 @@ test('送る前に確認前と未送信以外を除き、PTY 失敗なら状態�
   assert.deepEqual(result, { sent: [], skipped: 2, route: 'pty' });
   assert.equal(f.items[0].state, 'unsent');
   assert.equal(f.calls.some(c => Array.isArray(c) && c[0] === 'update'), false);
+  assert.equal(f.calls.filter(c => c[0] === 'warn').length, 1);
 });
 
 test('拡張形式はコピーとフォーカスの後に sent を記録する', async () => {
@@ -53,6 +54,16 @@ test('拡張形式はコピーとフォーカスの後に sent を記録する',
   assert.equal(f.items[0].sentTo.route, 'clipboard');
   assert.equal(f.calls.findIndex(c => c[0] === 'copy') < f.calls.findIndex(c => c[0] === 'update'), true);
   assert.equal(f.calls.some(c => c[1] === 'claude-vscode.focus'), true);
+});
+
+test('web 形式はコピー経路を使い、フォーカスコマンドを実行しない', async () => {
+  const f = fixture('web');
+  const result = await f.ops.send(['t-0001'], f.items, 'file:///p');
+  assert.deepEqual(result.sent, ['t-0001']);
+  assert.equal(f.items[0].sentTo.form, 'web');
+  assert.equal(f.items[0].sentTo.route, 'clipboard');
+  assert.equal(f.calls.some(c => c[1] === 'akari.partner.injectPrompt'), false);
+  assert.equal(f.calls.some(c => c[1] === 'claude-vscode.focus'), false);
 });
 
 test('複数件は outbox を先に書き、依頼は 1 行', async () => {

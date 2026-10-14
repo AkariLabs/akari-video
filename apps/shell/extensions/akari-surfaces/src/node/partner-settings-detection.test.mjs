@@ -33,9 +33,9 @@ test('Command Code は PATH 外の正式名で検出し、専用 Node の bin �
     });
     assert.equal(result.status, 0, result.stderr);
     const [availability, details] = JSON.parse(result.stdout);
-    assert.equal(Object.keys(details).length, 10);
+    assert.equal(Object.keys(details).length, 11);
     assert.equal(availability.commandcode, true);
-    assert.deepEqual(details.commandcode, { installed: true, version: 'command-code-1.45.0', detail: 'command-code-1.45.0' });
+    assert.deepEqual(details.commandcode, { installed: true, version: 'command-code-1.45.0', detail: 'command-code-1.45.0', managedByApp: true });
 });
 
 test('PATH 外の CLI が --version に失敗してもインストール済みとし、エラーを版にしない', async t => {
@@ -55,5 +55,37 @@ test('PATH 外の CLI が --version に失敗してもインストール済み�
         encoding: 'utf8'
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), { installed: true, version: '__undefined__', detail: '—' });
+    assert.deepEqual(JSON.parse(result.stdout), { installed: true, version: '__undefined__', detail: '—', managedByApp: true });
+});
+
+test('PATH 上の別管理コピーは managedByApp=false、最新版は注入した fetch で比べ、失敗時は更新なし', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-partner-settings-fresh-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const pathBin = join(root, 'path-bin');
+    await mkdir(pathBin, { recursive: true });
+    async function executable(file, body) { await writeFile(file, `#!/bin/sh\n${body}\n`); await chmod(file, 0o755); }
+    await executable(join(pathBin, 'codex'), 'echo codex-cli 0.46.0');
+    await executable(join(pathBin, 'claude'), 'echo "2.0.14 (Claude Code)"');
+    const script = `
+        const urls = [];
+        globalThis.fetch = async url => { urls.push(String(url)); if (process.env.OFFLINE) throw new Error('offline');
+            return { ok: true, json: async () => ({ tag_name: 'rust-v0.47.0' }) }; };
+        const { AkariSettingsMaintenanceServiceImpl } = require('./lib/node/settings-maintenance-service.js');
+        const service = new AkariSettingsMaintenanceServiceImpl();
+        service.partnerDetails().then(async details => process.stdout.write(JSON.stringify({
+            codex: details.codex, claude: details.claude, fresh: await service.partnerFreshness(details), urls })));`;
+    const run = extra => spawnSync(process.execPath, ['-e', script], {
+        cwd: new URL('../..', import.meta.url),
+        env: { ...process.env, HOME: root, AKARI_HOME: join(root, '.akari'), PATH: `${pathBin}:/usr/bin:/bin`, ...extra }, encoding: 'utf8'
+    });
+    const online = run({});
+    assert.equal(online.status, 0, online.stderr);
+    const value = JSON.parse(online.stdout);
+    assert.equal(value.codex.managedByApp, false);
+    assert.deepEqual(value.fresh.codex, { latestVersion: '0.47.0', updateAvailable: true, selfUpdating: false });
+    assert.deepEqual(value.fresh.claude, { updateAvailable: false, selfUpdating: true });
+    assert.deepEqual(value.urls, ['https://api.github.com/repos/openai/codex/releases/latest'], 'Claude は問い合わせない');
+    const offline = run({ OFFLINE: '1' });
+    assert.equal(offline.status, 0, offline.stderr);
+    assert.deepEqual(JSON.parse(offline.stdout).fresh.codex, { updateAvailable: false, selfUpdating: false });
 });

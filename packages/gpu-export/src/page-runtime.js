@@ -48,7 +48,12 @@
     while (encoder.encodeQueueSize > limit) await yieldMacrotask();
   }
 
-  function warn(message) {
+  function warn(message, detail) {
+    if (detail?.code === "long-gop" && pageConfig.messages?.longGop) {
+      message = pageConfig.messages.longGop
+        .replaceAll("{id}", String(detail.id))
+        .replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+    }
     warnings.push(String(message));
     console.warn("[akari-gpu]", message);
   }
@@ -376,19 +381,35 @@
   }
 
   function normalizedCuts(edit, adjustLutCubeTexts = {}) {
+    const cursorByTrack = new Map();
     return (Array.isArray(edit.cuts) ? edit.cuts : []).map((cut, index) => {
       const copy = Object.assign({}, cut);
-      // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
-      // 時間軸を伸ばし、トランジションの重なりは宣言から再計算する（preview-server と同じ）。
+      // Derived placements in the main chain stay sequential for freeze and transitions.
+      // Keep only an actual gap beyond that chain's cursor (including its leading gap).
       // 2 本目以降の visual トラック（track >= 1）は at / track を保持して絶対配置する。外すと
       // 直列に連結されて出力尺の外へ押し出され、無言で消える（issue #31）。前後関係は
       // frame-engine の既定 trackZ（番号が大きいトラックが前面）。
       const track = Number.isInteger(cut.track) && cut.track > 0 ? cut.track : 0;
+      const cursor = cursorByTrack.get(track) ?? 0;
+      const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
+      const hasGap = explicitAt !== null && explicitAt > cursor + 1e-6;
+      const hold = cut.transitionHold?.headSeconds;
+      const hasHold = typeof hold === "number" && Number.isFinite(hold) && hold > 0;
+      const at = hasGap || (hasHold && explicitAt !== null) ? explicitAt : cursor;
+      const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+      const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
+        ? cut.freeze.duration_sec : 0;
+      const transition = cut.transition_out || cut.transitionOut;
+      const overlap = Number.isFinite(transition?.duration) && transition.duration > 0
+        ? transition.duration : 0;
+      cursorByTrack.set(track, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
       delete copy.at;
       delete copy.track;
       if (track > 0) {
         copy.track = track;
-        if (Number.isFinite(cut.at) && cut.at >= 0) copy.at = Number(cut.at);
+        if (explicitAt !== null) copy.at = explicitAt;
+      } else if (hasGap || (hasHold && explicitAt !== null)) {
+        copy.at = explicitAt;
       }
       copy.src = cut.src || (Array.isArray(edit.sources) ? edit.sources[0] && edit.sources[0].id : "default") || "default";
       copy.in = Number(cut.in || 0);
@@ -695,7 +716,6 @@
   // SVG foreignObject does not run the phase script in a caption fragment. Resolve
   // the same line coordinates in the measured DOM before serializing the texture.
   function captionRichPhaseHtml(value, config, html, extraCss) {
-    if (!value.richTextStyle) return html;
     const root = captionRoot(value, config, html, extraCss);
     try {
       const caption = root.querySelector('.akari-caption--rich');
@@ -739,6 +759,7 @@
           }
         }
       }
+      window.__akariCaptionOutlineRuntime.bake(root);
       root.querySelector('style')?.remove();
       root.querySelectorAll('script[data-akari-rich-phase]').forEach(script => script.remove());
       return root.innerHTML;
@@ -767,6 +788,26 @@
       right: rect.right - origin.left,
       bottom: rect.bottom - origin.top,
     };
+  }
+
+  function expandedCaptionRunRect(rect, rawOutset, rawRotation) {
+    const outset = Number.isFinite(rawOutset) ? Math.max(0, rawOutset) : 0;
+    const angle = (Number.isFinite(rawRotation) ? rawRotation : 0) * Math.PI / 180;
+    const width = Math.abs((rect.width + 2 * outset) * Math.cos(angle))
+      + Math.abs((rect.height + 2 * outset) * Math.sin(angle));
+    const height = Math.abs((rect.height + 2 * outset) * Math.cos(angle))
+      + Math.abs((rect.width + 2 * outset) * Math.sin(angle));
+    return { x: rect.x + (rect.width - width) / 2,
+      y: rect.y + (rect.height - height) / 2,
+      width, height };
+  }
+
+  function measureCaptionRunEffectRects(unitElement, origin) {
+    return [...unitElement.querySelectorAll('.akari-caption__run-frag')]
+      .flatMap(fragment => [...fragment.getClientRects()].map(rect =>
+        expandedCaptionRunRect(relativeRect(rect, origin),
+          Number(fragment.getAttribute('data-akari-ink-outset')),
+          Number(fragment.getAttribute('data-akari-ink-rotate')))));
   }
 
   function tokenRole(element) {
@@ -860,7 +901,9 @@
     const runRects = [...unitElement.querySelectorAll('.akari-caption__run')]
       .filter(run => typeof run.getBoundingClientRect === 'function')
       .map(run => relativeRect(run.getBoundingClientRect(), origin));
-    const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines), ...runRects];
+    const runEffectRects = measureCaptionRunEffectRects(unitElement, origin);
+    const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines),
+      ...runRects, ...runEffectRects];
     const ink = inkRects.length ? {
       x: Math.min(...inkRects.map(rect => rect.x)),
       y: Math.min(...inkRects.map(rect => rect.y)),
@@ -1169,6 +1212,30 @@
 
   function scopeCaptionCss(css, prefix) {
     if (css.includes("@")) throw new Error("caption variant CSS cannot contain at-rules");
+    const splitSelectors = value => {
+      const result = [];
+      let start = 0;
+      let parens = 0;
+      let brackets = 0;
+      let quote = null;
+      for (let at = 0; at < value.length; at++) {
+        const char = value[at];
+        if (quote) {
+          if (char === "\\") at++;
+          else if (char === quote) quote = null;
+        } else if (char === '"' || char === "'") quote = char;
+        else if (char === '(') parens++;
+        else if (char === ')') parens--;
+        else if (char === '[') brackets++;
+        else if (char === ']') brackets--;
+        else if (char === ',' && parens === 0 && brackets === 0) {
+          result.push(value.slice(start, at));
+          start = at + 1;
+        }
+      }
+      result.push(value.slice(start));
+      return result;
+    };
     let out = "";
     let index = 0;
     for (;;) {
@@ -1180,7 +1247,7 @@
       const close = css.indexOf("}", open);
       const selectors = css.slice(index, open);
       const body = css.slice(open, close < 0 ? css.length : close + 1);
-      out += selectors.split(",").map((one) => one.trim()).filter(Boolean)
+      out += splitSelectors(selectors).map((one) => one.trim()).filter(Boolean)
         .map((one) => `${prefix} ${one}`).join(",") + body;
       if (close < 0) break;
       index = close + 1;
@@ -2156,6 +2223,25 @@
     }
   }
 
+  function applyThreeItemMotion(container, item, seconds, fps) {
+    if (!item) return;
+    const motion = window.akari?.itemMotion;
+    if (!motion) throw new Error("3D item motion runtime is unavailable");
+    const state = motion.evaluateOverlayMotion(item, seconds, fps);
+    const background = item.role === "background";
+    container.style.setProperty("--x", background ? "0px" : `${state.x}px`);
+    container.style.setProperty("--y", background ? "0px" : `${state.y}px`);
+    container.style.setProperty("--scale", background ? "1" : String(state.scale));
+    container.style.setProperty("--scale-x", background ? "1" : String(state.scaleX));
+    container.style.setProperty("--scale-y", background ? "1" : String(state.scaleY));
+    container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
+    container.style.setProperty("opacity", String(state.opacity));
+    container.style.clipPath = motion.motionRevealCss(state);
+    for (const [name, value] of Object.entries(motion.evaluateOverlayVars(item, seconds, fps))) {
+      container.style.setProperty(name, String(value));
+    }
+  }
+
   function nextAnimationFrame() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
   }
@@ -2738,7 +2824,9 @@
           }
           if (!state.warned) {
             state.warned = true;
-            const message = `WARN overlay ${state.overlayId}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください`;
+            const template = pageConfig.messages?.preserve3dOrder
+              ?? "WARN overlay {id}: preserve-3d children overlap on screen, and their depth order differs from DOM order. GPU occlusion follows DOM order, so the image will differ from OSR. Avoid overlapping these children or export with --engine osr";
+            const message = template.replace("{id}", state.overlayId);
             try { await bridge?.log?.(message); } catch {}
             console.warn(message);
           }
@@ -3083,6 +3171,8 @@
     const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], luma: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
+    const threeItemsById = new Map((config.edit.overlays ?? [])
+      .map((item) => [String(item.id), item]));
     const vgpuRecords = new Map();
     let vgpuRuntime = null;
     let vgpuProbe = null;
@@ -3240,7 +3330,13 @@
           const draw = value.entranceMode === "none"
             ? threeCanvasPlacement(canvas, container, config.width, config.height)
             : null;
-          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor, draw });
+          const item = threeItemsById.get(value.id);
+          // 毎コマの変形と 3D の向きを描画に入れるのはキーを持つ 3D（自分か祖先）だけ。動きのプリセットだけの 3D は
+          // 従来どおり登場・退場の経路（sampled / composite）に任せ、挙動を変えない
+          const hasMotion = Array.isArray(item?.keyframes) || Array.isArray(item?.motionSource?.keyframes)
+            || item?.motionParents?.some((parent) => Array.isArray(parent?.keyframes));
+          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor,
+            draw, motionItem: hasMotion ? item : null });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
         if (config.spriteManifest.vgpu?.length > 0) {
@@ -3371,7 +3467,12 @@
               if (!activeAt(value, seconds)) continue;
               const record = threeRecords.get(value.id);
               if (!record) throw new Error(`3D overlay record is missing: ${value.id}`);
+              if (record.motionItem) applyThreeItemMotion(record.container.parentElement,
+                record.motionItem, seconds, config.fps);
               threeRuntime.render(record.container, seconds - value.start);
+              if (record.motionItem && value.entranceMode === "none") {
+                record.draw = threeCanvasPlacement(record.canvas, record.container, config.width, config.height);
+              }
               if (value.entranceMode === "composite") {
                 threeComposite.syncAt(value, seconds);
               } else if (value.entranceMode === "sampled") {

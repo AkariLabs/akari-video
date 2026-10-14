@@ -1,6 +1,16 @@
+import { readFileSync } from 'node:fs';
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 // task 2026-09-02-timeline-caption-overlap-guard: widget 側の配線を文字列で固定する（既存テストの流儀）。
 const widget = readSourceFile('widget').text;
@@ -28,7 +38,8 @@ test('字幕ドラッグは move / start / end のすべてで隣の字幕への
 
 test('止まったことはドラッグ表示に出し、ゴーストは赤にしない', () => {
     const branch = between(widget, "let timeDomain: 'source' | 'output' = state.originalTimeDomain ?? 'source';", "if (state.kind === 'layer') {");
-    assert.match(branch, /（隣の字幕で止まりました）/);
+    assert.match(branch, /t\('annotations\.timeline\.text\.stoppedAtTheNextSubtitle'/u);
+    assert.equal(ja['annotations.timeline.text.stoppedAtTheNextSubtitle'], '{range}（隣の字幕で止まりました）');
     assert.doesNotMatch(branch, /setGhostRejected\(state\.ghost, (true|blockedByNeighbor)\)/);
     assert.match(branch, /this\.setGhostSnapped\(state\.ghost, snapped && !blockedByNeighbor\)/);
 });

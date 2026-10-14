@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { InspectorWriteRequest, InspectorWriteResult } from '../timeline-selection-model';
 import { buildLutOptions } from './lut-options';
 import { hitPhotoInstance } from './photo-instance-hit';
@@ -43,14 +44,14 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
     };
     positionByInspector();
     const heading = document.createElement('h2');
-    heading.textContent = options.mode === 'cutout' ? '背景透過' : '写真を編集';
+    heading.textContent = options.mode === 'cutout' ? t('inspector.photoEditPanel.action.removeBackground') : t('inspector.photoEditPanel.action.editPhotos');
     heading.style.cssText = 'font-size:16px;margin:0 0 12px';
     dialog.append(heading);
     const toolbar = document.createElement('div');
     toolbar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px';
     dialog.append(toolbar);
     const status = document.createElement('p');
-    status.textContent = maskAvailable ? '写真の中から選んでください' : '背景透過は Mac でだけ使えます';
+    status.textContent = maskAvailable ? t('inspector.photoEditPanel.label.selectFromPhoto') : t('inspector.photoEditPanel.label.backgroundTransmissionOnlyAvailableMac');
     status.style.cssText = 'min-height:1.4em;margin:7px 0';
     dialog.append(status);
     const list = document.createElement('div');
@@ -77,7 +78,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         element.style.cssText = `background:${theme.button};color:var(--theia-button-foreground);` +
             'border:0;border-radius:5px;padding:6px 10px;cursor:pointer';
         element.onclick = () => { void action(); };
-        if (requiresMask && !maskAvailable) { element.disabled = true; element.title = '背景透過は Mac でだけ使えます'; }
+        if (requiresMask && !maskAvailable) { element.disabled = true; element.title = t('inspector.photoEditPanel.label.backgroundTransmissionOnlyAvailableMac'); }
         parent.append(element);
         return element;
     };
@@ -134,10 +135,10 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
     };
     const query = async (mode: 'foreground' | 'people' | 'click', point?: [number, number], append = false): Promise<void> => {
         const epoch = append ? queryEpoch : ++queryEpoch;
-        status.textContent = mode === 'click' ? '写真を分けています… 初回はモデルを取得します' : '写真の中身を調べています…';
+        status.textContent = mode === 'click' ? t('inspector.photoEditPanel.label.separatingPhotoModelDownloadedFirstUse') : t('inspector.photoEditPanel.message.analyzingPhoto');
         const result = await write('photo-query', { mode, ...(point ? { x: point[0], y: point[1] } : {}) });
         if (closed || epoch !== queryEpoch) return;
-        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? '背景を消す準備ができていません'; return; }
+        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? t('inspector.photoEditPanel.label.noBackgroundsReadyBeRemoved'); return; }
         if (!append || response?.inputSha256 !== result.inputSha256 || response.photoRevision !== result.photoRevision) {
             highlight(null);
             candidates = []; selected = new Set();
@@ -149,18 +150,18 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
             const all = result.photoCandidates.find(candidate => candidate.id.endsWith('--all'));
             if (all) selected.add(all.id);
         }
-        status.textContent = candidates.length ? '残すものを選んでください' : '見つかりませんでした';
+        status.textContent = candidates.length ? t('inspector.photoEditPanel.action.chooseLeftOne') : t('inspector.photoEditPanel.error.notFound');
         renderCandidates();
     };
-    button(toolbar, '自動', () => { invert = false; void query('foreground'); }, true);
-    button(toolbar, '人物だけ', () => { invert = false; void query('people'); }, true);
-    button(toolbar, '人物以外', () => { invert = true; void query('people'); }, true);
-    if (options.mode === 'regions') button(toolbar, '背景', () => { invert = true; void query('foreground'); }, true);
-    button(toolbar, '写っているものを押す', async () => {
+    button(toolbar, t('inspector.photoEditPanel.label.auto'), () => { invert = false; void query('foreground'); }, true);
+    button(toolbar, t('inspector.photoEditPanel.label.onlyPeople'), () => { invert = false; void query('people'); }, true);
+    button(toolbar, t('inspector.photoEditPanel.label.otherThanPeople'), () => { invert = true; void query('people'); }, true);
+    if (options.mode === 'regions') button(toolbar, t('inspector.photoEditPanel.label.background'), () => { invert = true; void query('foreground'); }, true);
+    button(toolbar, t('inspector.photoEditPanel.label.pressProjected'), async () => {
         invert = false;
         const result = await write('photo-select-toggle', null);
         selectingOnPreview = result.ok;
-        status.textContent = result.ok ? 'プレビューの写真を押してください' : result.message ?? '使えません';
+        status.textContent = result.ok ? t('inspector.photoEditPanel.label.pressPreviewPhoto') : result.message ?? t('inspector.photoEditPanel.error.unavailable');
     }, true);
     const onClick = (event: Event): void => {
         const detail = (event as CustomEvent<{ id: string; point: [number, number] }>).detail;
@@ -186,15 +187,15 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         if (detail?.id === options.id) dialog.close();
     };
     window.addEventListener('akari.photo.select-end', onEnd);
-    button(controls, options.mode === 'cutout' ? '選んだものを残す' : '選んだエリアを追加', async () => {
+    button(controls, options.mode === 'cutout' ? t('inspector.photoEditPanel.label.leaveSelectedItems') : t('inspector.photoEditPanel.action.addSelectedAreas'), async () => {
         if (!response?.inputSha256 || !response.photoRevision || !response.photoEngine || selected.size === 0) {
-            status.textContent = '候補を選んでください'; return;
+            status.textContent = t('inspector.photoEditPanel.text.selectCandidate'); return;
         }
         const labels = candidates.filter(candidate => selected.has(candidate.id)).map(candidate => candidate.label);
-        const name = invert ? '背景' : labels.length > 1 ? `${labels[0]} ほか` : labels[0] ?? 'エリア';
+        const name = invert ? t('inspector.photoEditPanel.label.background') : labels.length > 1 ? t('inspector.photoEditPanel.message.etc', { firstArea: labels[0] }) : labels[0] ?? t('inspector.photoEditPanel.label.area');
         const result = await write('photo-adopt', { candidates: [...selected], inputSha256: response.inputSha256,
             photoRevision: response.photoRevision, engine: response.photoEngine, target, invert, name });
-        status.textContent = result.ok ? '適用しました' : result.message ?? '適用できませんでした';
+        status.textContent = result.ok ? t('inspector.photoEditPanel.action.applyNow') : result.message ?? t('inspector.photoEditPanel.error.couldNotApply');
         if (result.ok && options.mode === 'cutout') {
             selectingOnPreview = false;
             window.dispatchEvent(new CustomEvent('akari.photo.select-stop', { detail: { itemId: options.id } }));
@@ -210,19 +211,19 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         }
     }, true);
     if (options.mode === 'cutout') {
-        const smooth = document.createElement('label'); smooth.textContent = 'なめらかさ ';
+        const smooth = document.createElement('label'); smooth.textContent = t('inspector.photoEditPanel.text.smoothness');
         const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100';
         slider.value = String(options.maskFeather ?? 0);
         slider.onchange = () => { void write('maskFeather', Number(slider.value)); };
         smooth.append(slider); controls.append(smooth);
-        button(controls, '消しゴムで直す', async () => {
+        button(controls, t('inspector.photoEditPanel.label.refineEraser'), async () => {
             const result = await write('photo-brush-toggle', { mode: 'erase', size: 0.05, hardness: 0.8 });
-            if (result.ok) dialog.close(); else status.textContent = result.message ?? '使えません';
+            if (result.ok) dialog.close(); else status.textContent = result.message ?? t('inspector.photoEditPanel.error.unavailable');
         });
     } else {
         const area = document.createElement('select');
         const add = (label: string, value: string): void => { const option = document.createElement('option'); option.textContent = label; option.value = value; area.append(option); };
-        add('画像全体', 'all');
+        add(t('inspector.photoEditPanel.label.images'), 'all');
         (options.regions ?? []).forEach((region, index) => add(regionDisplayName(region as { id: string; name?: string }, index), String(index)));
         controls.append(area);
         const editor = document.createElement('div');
@@ -231,32 +232,32 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         const updateRegion = async (key: string, value: unknown): Promise<InspectorWriteResult> => {
             const index = Number(area.value);
             const regions = (options.regions ?? []).map(region => ({ ...region }));
-            const region = regions[index]; if (!region) return { ok: false, message: 'エリアが見つかりません' };
+            const region = regions[index]; if (!region) return { ok: false, message: t('inspector.photoEditPanel.message.noArea') };
             if (key === 'enabled') region.enabled = value;
             else if (key === 'blur') region.blur = value;
             else if (key === 'filter') region.filter = value;
             else region.adjust = { ...(region.adjust ?? {}), basic: { ...(region.adjust?.basic ?? {}), [key]: value } };
             const result = await write('regions', regions);
-            if (result.ok) options.regions = regions; else status.textContent = result.message ?? '変更できませんでした';
+            if (result.ok) options.regions = regions; else status.textContent = result.message ?? t('inspector.photoEditPanel.error.makeChange');
             return result;
         };
         const renderEditor = (): void => {
             editor.replaceChildren();
             const index = Number(area.value), region = (options.regions ?? [])[index];
             if (region) {
-                const enabled = document.createElement('label'); enabled.textContent = 'このエリアを使う ';
+                const enabled = document.createElement('label'); enabled.textContent = t('inspector.photoEditPanel.text.useArea');
                 const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = region.enabled !== false;
                 checkbox.onchange = () => { void updateRegion('enabled', checkbox.checked); };
                 enabled.append(checkbox); editor.append(enabled);
-                button(editor, 'エリアを消す', async () => {
+                button(editor, t('inspector.photoEditPanel.action.removeArea'), async () => {
                     const next = (options.regions ?? []).filter((_, i) => i !== index);
                     const result = await write('regions', next);
                     if (result.ok) { options.regions = next; area.options[index + 1]?.remove(); area.value = 'all'; renderEditor(); }
                 });
             }
             for (const [key, label, min, max] of [
-                ['exposure', '露出', -3, 3], ['contrast', 'コントラスト', -1, 1],
-                ['saturation', '彩度', -1, 1], ['temperature', '色温度', -1, 1], ['blur', 'ぼかし', 0, 50]
+                ['exposure', t('inspector.photoEditPanel.label.exposure'), -3, 3], ['contrast', t('inspector.photoEditPanel.label.contrast'), -1, 1],
+                ['saturation', t('inspector.photoEditPanel.label.saturation'), -1, 1], ['temperature', t('inspector.photoEditPanel.label.colorTemperature'), -1, 1], ['blur', t('inspector.photoEditPanel.label.blur'), 0, 50]
             ] as const) {
                 const field = document.createElement('label'); field.textContent = label;
                 field.style.cssText = 'display:flex;flex-direction:column;gap:4px;min-width:0';
@@ -290,7 +291,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
                 input.onchange = () => { void commit(); };
                 row.append(slider, input); field.append(row); editor.append(field);
             }
-            const filter = document.createElement('label'); filter.textContent = 'フィルター ';
+            const filter = document.createElement('label'); filter.textContent = t('inspector.photoEditPanel.text.filter');
             const select = document.createElement('select');
             for (const option of buildLutOptions([])) {
                 const item = document.createElement('option'); item.textContent = option.label; item.value = option.value ?? '';
@@ -314,7 +315,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         };
         renderEditor();
     }
-    button(controls, '閉じる', () => dialog.close());
+    button(controls, t('inspector.photoEditPanel.action.close'), () => dialog.close());
     const onKeyDown = (event: KeyboardEvent): void => {
         if (event.key === 'Escape') { event.preventDefault(); dialog.close(); }
     };

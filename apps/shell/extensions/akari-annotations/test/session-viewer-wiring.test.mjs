@@ -30,10 +30,17 @@ test('active utterance has a visible selection treatment and fully clears it whe
   assert.match(widget, /row\.style\.fontWeight = ''/);
 });
 
-test('panel keeps its grid and the preview handler receives seek ticks', async () => {
+test('panel leaves the viewer command available while removing its recording button', async () => {
   const panel = await source('../src/browser/akari-review-panel-widget.ts');
-  assert.match(panel, /data-review-session-viewer/);
-  assert.match(panel, /gridTemplateColumns: 'auto minmax\(0, 1fr\) auto auto'/);
+  const contribution = await source('../src/browser/akari-annotations-contribution.ts');
+  assert.doesNotMatch(panel, /data-review-session-viewer/);
+  assert.match(panel, /flexDirection: 'column'/);
+  assert.match(panel, /flex: '1 1 0', minHeight: '0', overflow: 'auto'/);
+  assert.match(panel, /maxHeight: '35%', overflow: 'auto'/);
+  assert.match(panel, /position: 'static', width: 'auto', maxHeight: '25%', flex: 'none'/);
+  assert.match(panel, /this\.node\.append\(\s*this\.toolbar,\s*this\.recordingSection,\s*this\.sessionList,\s*this\.filterButtons,\s*this\.notice\.node,\s*this\.listContainer,\s*this\.batchBar,\s*this\.composerRow\s*\)/);
+  assert.doesNotMatch(panel, /gridTemplateRows/);
+  assert.match(contribution, /registerCommand\(OPEN_AKARI_SESSION_VIEWER/);
   const handler = readHandlerSource();
   assert.match(handler, /akari\.review\.session\.viewer\.sync/);
   assert.match(handler, /'akari-preview-seek'/);

@@ -2,12 +2,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 import { resolveLauncherAssets } from "./repo-assets.mjs";
+import { cliText } from './i18n.mjs';
 
 export async function runCaptionsCommand(argv, options = {}) {
   const logError = options.error ?? options.logError ?? ((line) => console.error(line));
   const assets = options.assets ?? resolveLauncherAssets();
   if (!assets.captionsScript || !existsSync(assets.captionsScript)) {
-    logError("akari captions の実行スクリプトが見つかりません。AKARI Video を再インストールしてください。");
+    logError(cliText('cli.captions.error.scriptMissing'));
     return { exitCode: 1 };
   }
 

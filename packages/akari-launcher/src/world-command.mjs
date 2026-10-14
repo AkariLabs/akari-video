@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { cliText } from './i18n.mjs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -9,7 +10,7 @@ export async function runWorldCommand(args, options = {}) {
   const assets = options.assets ?? resolveLauncherAssets();
   const script = assets.repoRoot ? path.join(assets.repoRoot, WORLD_CLI_RELATIVE) : null;
   if (!script || !existsSync(script)) {
-    logError('内部コマンド world の実行スクリプトが見つかりません。AKARI Video の完全な checkout または配布物を確認してください。');
+    logError(cliText('cli.internal.error.scriptMissing', { command: 'world' }));
     return { exitCode: 1 };
   }
   const result = (options.spawn ?? spawnSync)(process.execPath, [script, ...args], { stdio: 'inherit' });

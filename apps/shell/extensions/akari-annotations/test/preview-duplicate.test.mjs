@@ -1,10 +1,24 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { duplicatePreviewItem } from '../lib/common/preview-duplicate.js';
+
 import { lintProjectCandidates } from '../../../../../packages/edit-store/lib/write-gate.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { duplicatePreviewItem } = await import('../lib/common/preview-duplicate.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('duplicates a top-level visual item into the next higher track and keeps the source unchanged', () => {
   const source = JSON.stringify({ version: 2, tracks: [{ id: 'v1', lane: 'visual', items: [

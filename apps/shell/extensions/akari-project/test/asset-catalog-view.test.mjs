@@ -1,5 +1,17 @@
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
+
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
+
+test('asset catalog uses English UI labels when selected', () => {
+    setLanguage('en');
+    assert.equal(assetStateBadgeTitle({ state: 'cached' }), 'Downloaded');
+    assert.equal(assetDistributionBadgeText('free', 'login'), '☁ Free download (registration required)');
+    assert.equal(formatCatalogPackBreakdown({ total: 2, bundled: 1, free: 1, paid: 0, subscription: 0 }),
+        '2 items — Included 1 / Free download 1');
+});
 import {
     assetDistributionBadgeText,
     assetStateBadgeText,
@@ -350,7 +362,9 @@ test('assetDistributionBadgeText: subscription は「サブスク」', () => {
 });
 
 test('assetDistributionBadgeText: paid は「¥ 各自入手」', () => {
-    assert.equal(assetDistributionBadgeText('paid'), '¥ 各自入手');
+    setLanguage('ja');
+    try { assert.equal(assetDistributionBadgeText('paid'), '¥ 各自入手'); }
+    finally { setLanguage(undefined); }
 });
 
 test('assetDistributionBadgeText: free かつ acquisition 未指定/direct は「☁ 無料 DL」', () => {

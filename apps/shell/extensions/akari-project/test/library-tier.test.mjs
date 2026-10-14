@@ -1,5 +1,10 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
 import { EMPTY_LIBRARY_FILTER, LIBRARY_FILTER_SECTIONS, libraryItemPrice, matchesLibraryFilter, toggleLibraryFilterOption } from '../lib/common/library-filter.js';
 import { libraryAssetInfoCard, libraryCardMenuEntries, premiumPromptText } from '../lib/common/library-card-menu.js';
 

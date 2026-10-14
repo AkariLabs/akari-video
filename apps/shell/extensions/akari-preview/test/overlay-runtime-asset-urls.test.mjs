@@ -12,7 +12,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
-const { bundledCaptionFontFaceCss } = require('../lib/common/bundled-caption-fonts.js');
+const { bundledCaptionFontFaceCss, latinCaptionFontFaceCss } = require('../lib/common/bundled-caption-fonts.js');
 
 const URL_KEYS = [
     'threeJavaScriptUrl',
@@ -23,7 +23,8 @@ const URL_KEYS = [
     'interactionJavaScriptUrl',
     'webviewKernelJavaScriptUrl',
     'frameEngineJavaScriptUrl',
-    'captionFontUrl'
+    'captionFontUrl',
+    'latinCaptionFontUrl'
 ];
 
 test('overlay runtime assets are served by content-hashed URL with immutable caching', async () => {
@@ -58,6 +59,12 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
         assert.equal(urls.bundledCaptionFontFaces.some(face => face.id === 'noto-sans-jp'), false);
         assert.equal((await fetch(directNoto.url)).status, 200);
         assert.match(bundledCaptionFontFaceCss(urls.bundledCaptionFontFaces), /font-family: "Noto Sans JP"; src: url\(/u);
+        const latinResponse = await fetch(urls.latinCaptionFontUrl);
+        assert.equal(latinResponse.status, 200);
+        assert.equal(latinResponse.headers.get('content-type'), 'font/ttf');
+        assert.ok((await latinResponse.arrayBuffer()).byteLength > 1024 * 1024);
+        assert.match(latinCaptionFontFaceCss(urls.latinCaptionFontUrl),
+            /font-family: "AKARI Noto Sans"; src: url\(/u);
         const inspector = readInspectorSource();
         assert.match(inspector, /\{ id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900'/u);
         const dela = urls.bundledCaptionFontFaces.find(face => face.id === 'dela-gothic-one');
@@ -108,7 +115,9 @@ test('prepareHtml references the runtime by URL and never inlines the font or th
     // URL 参照と CSP の許可
     assert.match(source, /captionFontFaceCss\(assets\.captionFontUrl\)/);
     assert.match(source, /bundledCaptionFontFaceCss\(assets\.bundledCaptionFontFaces/);
-    for (const key of URL_KEYS.filter(k => k !== 'captionFontUrl')) {
+    assert.match(source, /latinCaptionFontFaceCss\(assets\.latinCaptionFontUrl\)/u);
+    assert.match(source, /document\.fonts\.load\('600 82px "AKARI Noto Sans"', 'English captions'\)/u);
+    for (const key of URL_KEYS.filter(k => k !== 'captionFontUrl' && k !== 'latinCaptionFontUrl')) {
         assert.match(source, new RegExp(`externalScriptTag\\(assets\\.${key}\\)`), key);
     }
     assert.match(source, /script-src 'unsafe-inline' \$\{assetOrigin\}/);

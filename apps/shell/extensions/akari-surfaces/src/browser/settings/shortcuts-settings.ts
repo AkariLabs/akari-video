@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CommandRegistry, Disposable } from '@theia/core/lib/common';
 import { KeybindingRegistry, KeybindingScope, ScopedKeybinding } from '@theia/core/lib/browser/keybinding';
 import { Key, KeyCode, KeySequence } from '@theia/core/lib/common/keys';
@@ -59,18 +60,18 @@ export class ShortcutsSettingsView {
         private readonly maintenance: AkariSettingsMaintenanceService,
         private readonly error: (message: string) => void
     ) {
-        this.search = textField({ label: 'ショートカットを検索', placeholder: '操作の名前 または キーで探す（例: ⌘B）' });
+        this.search = textField({ label: t('surfaces.settings.editTimeline.label'), placeholder: t('surfaces.settings.searchOperationNameKeyEGB.placeholder') });
         this.search.setAttribute('data-shortcuts-search', '');
         this.search.addEventListener('input', () => { this.query = this.search.value; this.renderList(); });
         const searchWrap = el('label', 'akari-shortcuts-search');
         searchWrap.append(settingsIcon('search', 'sm'), this.search);
-        const filters = segmentedControl<ShortcutFilter>({ label: 'ショートカットの状態', value: this.filter,
-            options: [{ value: 'all', label: 'すべて' }, { value: 'modified', label: '変更した' },
-                { value: 'unassigned', label: '未割り当て' }, { value: 'conflicts', label: '重なり' }],
+        const filters = segmentedControl<ShortcutFilter>({ label: t('surfaces.settings.preview.label'), value: this.filter,
+            options: [{ value: 'all', label: t('surfaces.settings.scriptCaptions.label') }, { value: 'modified', label: t('surfaces.settings.panelScreen.label') },
+                { value: 'unassigned', label: t('surfaces.settings.shortcutsPartner.label') }, { value: 'conflicts', label: t('surfaces.settings.others.label') }],
             onChange: value => { this.filter = value; this.renderList(); } });
         filters.querySelectorAll<HTMLButtonElement>('[data-value]').forEach(button =>
             button.setAttribute('data-shortcuts-filter', button.dataset.value ?? ''));
-        const open = shortcutButton('akari-set-btn akari-set-btn-ghost akari-set-btn-sm', 'JSON で開く', () => void this.openJson());
+        const open = shortcutButton('akari-set-btn akari-set-btn-ghost akari-set-btn-sm', t('surfaces.settings.anytime.label'), () => void this.openJson());
         open.prepend(settingsIcon('code', 'sm'));
         open.setAttribute('data-shortcuts-open-json', '');
         const first = el('div', 'akari-shortcuts-controls');
@@ -160,7 +161,7 @@ export class ShortcutsSettingsView {
             card.classList.add('akari-shortcuts-card');
             this.list.append(heading, card);
         }
-        if (!rows.length) { this.list.append(el('p', 'akari-shortcuts-empty', '一致する操作はありません。')); }
+        if (!rows.length) { this.list.append(el('p', 'akari-shortcuts-empty', t('surfaces.settings.listSelectingKeyframe.label'))); }
     }
 
     private renderRow(row: ShortcutRow): HTMLElement {
@@ -169,7 +170,7 @@ export class ShortcutsSettingsView {
         const name = el('div', 'akari-shortcuts-name');
         name.append(el('span', undefined, row.label));
         if (row.conflict) {
-            const badge = el('span', 'akari-shortcuts-conflict', '重なり');
+            const badge = el('span', 'akari-shortcuts-conflict', t('surfaces.settings.rowNumericalField.label'));
             badge.setAttribute('data-shortcuts-conflict', '');
             name.append(badge);
         }
@@ -192,14 +193,14 @@ export class ShortcutsSettingsView {
         const button = shortcutButton('akari-shortcuts-key', '', () => this.startRecording(id, label, binding, button));
         button.setAttribute('data-shortcuts-key', '');
         const chords = binding ? shortcutKeyText(binding.keybinding) : [];
-        const displayed = chords.map(parts => parts.join(' ')).join(' / ') || '未割り当て';
-        button.setAttribute('aria-label', `${label} のキー ${displayed} を変更`);
+        const displayed = chords.map(parts => parts.join(' ')).join(' / ') || t('surfaces.settings.keyButtonUnassigned.label');
+        button.setAttribute('aria-label', t('surfaces.settings.keyButtonChangeKey.message', { label: label, displayed: displayed }));
         if (binding) {
             chords.forEach((parts, index) => {
-                if (index) { button.append(el('span', 'akari-shortcuts-chord', 'つぎ')); }
+                if (index) { button.append(el('span', 'akari-shortcuts-chord', t('surfaces.settings.keyButtonListScripts.label'))); }
                 for (const part of parts) { button.append(el('kbd', undefined, part)); }
             });
-        } else { button.append(el('span', 'akari-shortcuts-unassigned', '未割り当て')); }
+        } else { button.append(el('span', 'akari-shortcuts-unassigned', t('surfaces.settings.keyButtonTimeline.label'))); }
         return button;
     }
 
@@ -207,7 +208,7 @@ export class ShortcutsSettingsView {
         if (this.busy) { return; }
         this.stopRecording(false);
         this.recording = { id, label, old, button };
-        button.replaceChildren(el('span', 'akari-shortcuts-record-label', 'キーを押す…'));
+        button.replaceChildren(el('span', 'akari-shortcuts-record-label', t('surfaces.settings.startRecordingPressKey.label')));
         button.setAttribute('data-recording', 'true');
         window.addEventListener('keydown', this.keydown, true);
     }
@@ -229,13 +230,13 @@ export class ShortcutsSettingsView {
             trigger.setAttribute('aria-expanded', String(!next));
         });
         trigger.setAttribute('data-shortcuts-menu', '');
-        trigger.setAttribute('aria-label', `${row.label} のメニュー`);
+        trigger.setAttribute('aria-label', t('surfaces.settings.rowMenuMenu.message', { rowLabel: row.label }));
         trigger.setAttribute('aria-haspopup', 'menu');
         trigger.setAttribute('aria-expanded', 'false');
         const items = el('div', 'akari-shortcuts-menu-items');
         items.setAttribute('role', 'menu');
         items.hidden = true;
-        const disable = shortcutButton('akari-shortcuts-menu-action', '無効にする', () => {
+        const disable = shortcutButton('akari-shortcuts-menu-action', t('surfaces.settings.rowMenuDisable.label'), () => {
             items.hidden = true;
             void this.write(async () => {
                 for (const binding of this.registry.getKeybindingsForCommand(row.id)) { await this.keymaps.unsetKeybinding(binding); }
@@ -244,7 +245,7 @@ export class ShortcutsSettingsView {
         disable.setAttribute('data-shortcuts-action', 'disable');
         disable.setAttribute('role', 'menuitem');
         disable.disabled = row.bindings.length === 0;
-        const reset = shortcutButton('akari-shortcuts-menu-action', '既定に戻す', () => {
+        const reset = shortcutButton('akari-shortcuts-menu-action', t('surfaces.settings.rowMenuRestoreDefault.label'), () => {
             items.hidden = true;
             void this.write(() => this.keymaps.removeKeybinding(row.id));
         });
@@ -259,7 +260,7 @@ export class ShortcutsSettingsView {
     private async write(operation: () => Promise<void>): Promise<void> {
         this.busy = true;
         try { await operation(); this.renderList(); }
-        catch (error) { this.error(`ショートカットを保存できませんでした: ${String(error)}`); }
+        catch (error) { this.error(t('surfaces.settings.writeFailedSaveShortcut.message', { error: String(error) })); }
         finally { this.busy = false; }
     }
     private async openJson(): Promise<void> {
@@ -269,6 +270,6 @@ export class ShortcutsSettingsView {
             const file = config.resolve('keymaps.json');
             if (!await this.files.exists(file)) { await this.files.create(file, '[]\n'); }
             await this.maintenance.openPath(file.path.fsPath());
-        } catch (error) { this.error(`keymaps.json を開けませんでした: ${String(error)}`); }
+        } catch (error) { this.error(t('surfaces.settings.openJsonOpenKeymapsJson.message', { error: String(error) })); }
     }
 }

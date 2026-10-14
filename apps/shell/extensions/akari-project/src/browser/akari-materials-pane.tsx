@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
@@ -195,7 +196,7 @@ export class AkariMaterialsPane {
         this.materialRangeRevisions.set(timerKey, ++this.materialRangeRevision);
         if (range) this.materialRanges[relativePath] = range;
         else delete this.materialRanges[relativePath];
-        if (!range) void this.host.messages.info('範囲をなしに戻しました');
+        if (!range) void this.host.messages.info(t('project.materials.pane.rangeClearedMessage'));
         this.host.update();
         window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
             detail: { relativePath, range, source: this.materialRangeSource }
@@ -208,7 +209,7 @@ export class AkariMaterialsPane {
                 projectUri: root.toString(), relativePath, range, source: this.materialRangeSource
             });
             this.rangeSavesInFlight.set(timerKey, save);
-            void save.catch(error => this.host.messages.warn(`範囲を保存できませんでした: ${String(error)}`))
+            void save.catch(error => this.host.messages.warn(t('project.materials.pane.couldNotSaveRangeError', { value1: String(error) })))
                 .finally(() => {
                     if (this.rangeSavesInFlight.get(timerKey) === save) this.rangeSavesInFlight.delete(timerKey);
                 });
@@ -694,9 +695,9 @@ export class AkariMaterialsPane {
         Object.assign(body.style, { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '420px' });
 
         const lead = document.createElement('p');
-        lead.textContent = '次の素材はいまライブラリを「参照」しています。まとめると、実体をこのプロジェクトの'
-            + ' assets/ へ複製します。以後はライブラリ側を消したり別のパソコンへ移しても、'
-            + 'このプロジェクトだけで開けるようになります。';
+        lead.textContent = t('project.materials.pane.followingAssetsCurrentlyReferenceLibraryCopyingLabel')
+            + t('project.materials.pane.assetsFolderYouWillStillBeLabel')
+            + t('project.materials.pane.anotherComputerMessage');
         Object.assign(lead.style, { margin: '0', lineHeight: '1.6' });
         body.appendChild(lead);
 
@@ -730,7 +731,7 @@ export class AkariMaterialsPane {
             Object.assign(title.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
             const where = document.createElement('span');
             const bytes = reference.files.reduce((total, file) => total + (file.bytes || 0), 0);
-            where.textContent = `${reference.category} · ${bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '容量不明'}`
+            where.textContent = `${reference.category} · ${bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : t('project.materials.pane.sizeUnknownLabel')}`
                 + ` → assets/${reference.category}/${reference.id}/`;
             Object.assign(where.style, { opacity: '0.62', fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
             text.append(title, where);
@@ -740,14 +741,14 @@ export class AkariMaterialsPane {
         body.appendChild(list);
 
         const total = document.createElement('p');
-        total.textContent = `合計 ${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB`
-            + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '');
+        total.textContent = t('project.materials.pane.totalLengthItemsMbLabel', { length: plan.planned.length, n: plan.planned.length, value2: (plan.bytes / 1024 / 1024).toFixed(2) })
+            + (plan.unknownSizeCount ? t('project.materials.pane.unknownSizeCountItemsUnknownSizeLabel', { unknownSizeCount: plan.unknownSizeCount, n: plan.unknownSizeCount }) : '');
         Object.assign(total.style, { margin: '0', opacity: '0.72' });
         body.appendChild(total);
 
         if (plan.restrictedCount) {
             const warning = document.createElement('p');
-            warning.textContent = `再配布できない素材が ${plan.restrictedCount} 件含まれます`;
+            warning.textContent = t('project.materials.pane.includesRestrictedCountAssetsCannotBeRedistributedMessage', { restrictedCount: plan.restrictedCount, n: plan.restrictedCount });
             Object.assign(warning.style, { margin: '0', color: 'var(--theia-editorWarning-foreground)' });
             body.appendChild(warning);
         }
@@ -762,10 +763,10 @@ export class AkariMaterialsPane {
         try {
             const plan = await this.host.projectService.bundleProjectAssets(root.toString(), true);
             if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            if (!plan.planned.length) { this.host.messages.info('ライブラリを参照している素材はありません。まとめるものはありません。'); return; }
+            if (!plan.planned.length) { this.host.messages.info(t('project.materials.pane.noAssetsReferenceLibraryThereIsError')); return; }
             const confirmed = await new ConfirmDialog({
-                title: 'ライブラリの素材をプロジェクトへ複製する',
-                msg: this.buildBundlePlanBody(plan), ok: '複製する', cancel: 'キャンセル'
+                title: t('project.materials.pane.copyLibraryAssetsIntoProjectAction'),
+                msg: this.buildBundlePlanBody(plan), ok: t('project.materials.pane.copyAction'), cancel: t('project.library.pane.cancelLabel')
             }).open();
             if (!confirmed) return;
             if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
@@ -775,16 +776,16 @@ export class AkariMaterialsPane {
             // 結果はパネルに貼り付けず、その場限りの通知で流す（2026-09-26 オーナー指示
             // 「3 件まとめましたが出続けるのが気になる」）。取りこぼしがあるときだけ、
             // 読み返せるようダイアログで残す。
-            this.host.messages.info(`${result.materialized.length} 件をこのプロジェクトへ複製しました。`);
+            this.host.messages.info(t('project.materials.pane.copiedLengthAssetsIntoProjectMessage', { length: result.materialized.length, n: result.materialized.length }));
             if (result.failures.length) {
                 await new ConfirmDialog({
-                    title: '複製できなかった素材',
-                    msg: `次の素材は参照のまま残っています。\n\n`
+                    title: t('project.materials.pane.assetsCouldNotBeCopiedLabel'),
+                    msg: t('project.materials.pane.followingAssetsAreStillReferencedMessage')
                         + result.failures.map(failure => `${failure.key}: ${failure.message}`).join('\n'),
-                    ok: '閉じる'
+                    ok: t('project.library.card.close')
                 }).open();
             }
-        } catch (error) { this.host.messages.error(`素材をまとめられませんでした: ${String(error)}`); }
+        } catch (error) { this.host.messages.error(t('project.materials.pane.couldNotCopyAssetsError', { value1: String(error) })); }
         finally { this.bundleBusy = false; this.host.update(); }
     }
 
@@ -799,10 +800,10 @@ export class AkariMaterialsPane {
         event.stopPropagation();
         const rect = event.currentTarget.getBoundingClientRect();
         const items: (MaterialContextMenuItem & { icon?: string; separator?: boolean })[] = [
-            { id: 'bundle', label: this.bundleBusy ? 'まとめています…' : '素材をまとめる…', icon: 'archive' }
+            { id: 'bundle', label: this.bundleBusy ? t('project.materials.pane.copyingAssetsStatus') : t('project.materials.pane.copyAssetsAction'), icon: 'archive' }
         ];
         if (this.projectCreditLines.length) {
-            items.push({ id: 'copy-credits', label: 'クレジットをコピー', icon: 'copy' });
+            items.push({ id: 'copy-credits', label: t('project.library.card.copyCredit'), icon: 'copy' });
         }
         openAkariContextMenu({
             x: rect.right, y: rect.bottom + 4, items,
@@ -810,8 +811,8 @@ export class AkariMaterialsPane {
                 if (id === 'bundle') { if (!this.bundleBusy) void this.bundleMaterials(); }
                 else if (id === 'copy-credits') {
                     void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
-                        .then(() => this.host.messages.info('クレジットをコピーしました'))
-                        .catch(() => this.host.messages.error('クレジットをコピーできませんでした'));
+                        .then(() => this.host.messages.info(t('project.library.pane.creditCopiedMessage')))
+                        .catch(() => this.host.messages.error(t('project.materials.pane.couldNotCopyCreditError')));
                 }
             }
         });
@@ -822,8 +823,8 @@ export class AkariMaterialsPane {
             <button
                 type='button'
                 data-akari-materials-menu='true'
-                title='その他の操作'
-                aria-label='その他の操作'
+                title={t('project.materials.pane.moreActionsLabel')}
+                aria-label={t('project.materials.pane.moreActionsLabel')}
                 aria-haspopup='menu'
                 onClick={event => this.openMaterialsMenu(event)}
                 style={{
@@ -852,10 +853,10 @@ export class AkariMaterialsPane {
             return;
         }
         const confirmed = await new ConfirmDialog({
-            title: 'assets へ移動しますか？',
-            msg: `${entry.name} を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`,
-            ok: '移動する',
-            cancel: 'キャンセル'
+            title: t('project.materials.pane.moveAssetsQuestion'),
+            msg: t('project.materials.pane.moveNameDirectlyIntoAssetsReferencesAction', { name: entry.name }),
+            ok: t('project.materials.pane.moveAction'),
+            cancel: t('project.library.pane.cancelLabel')
         }).open();
         if (!confirmed) {
             return;
@@ -865,7 +866,7 @@ export class AkariMaterialsPane {
         try {
             await this.host.files.move(entry.uri, assetsUri.resolve(targetName), { overwrite: false });
         } catch {
-            this.host.messages.error(`${entry.name} を移動できませんでした。`);
+            this.host.messages.error(t('project.materials.pane.couldNotMoveNameError', { name: entry.name }));
             return;
         }
         void this.loadMaterials();
@@ -881,21 +882,21 @@ export class AkariMaterialsPane {
     }
 
     public async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
-        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
+        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn(t('project.materials.pane.movingAssetsPleaseWaitUntilItMessage')); return; }
         const root = this.host.workflow.workspaceRoot;
         if (!root || !entry.reference) return;
         try {
             const result = await this.host.projectService.resolveAsset(`${entry.reference.category}/${entry.reference.id}`, root.toString(), { force: true });
             if (result.success === false) this.host.messages.error(result.error);
             await this.loadMaterials();
-        } catch (error) { this.host.messages.error(`素材を取得できませんでした: ${String(error)}`); }
+        } catch (error) { this.host.messages.error(t('project.materials.pane.couldNotDownloadAssetError', { value1: String(error) })); }
     }
 
     public async removeMaterialReference(entry: MaterialCardEntry): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
         if (!root || !entry.reference) return;
         try {
-            if (!await this.confirmReferenceImpact(`${entry.relativePath}/`, false, 'このプロジェクトから外す')) return;
+            if (!await this.confirmReferenceImpact(`${entry.relativePath}/`, false, t('project.materials.pane.removeProjectAction'))) return;
             if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
             await this.host.projectService.removeProjectAssetReference(root.toString(), entry.reference);
             await this.loadMaterials();
@@ -957,14 +958,14 @@ export class AkariMaterialsPane {
             return true;
         }
         const message = count === undefined
-            ? '参照を確認できませんでした。このまま進めると edit.json / captions.json の参照が壊れる可能性があります（edit.json は自動的に書き換えません）。'
-            : `edit.json / captions.json から ${count} 箇所参照されています。`
-                + `${actionLabel}すると参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`;
+            ? t('project.materials.pane.couldNotCheckReferencesContinuingMayError')
+            : t('project.materials.pane.referencedCountPlacesEditJsonCaptionsMessage', { count: count, n: count })
+                + t('project.materials.pane.actionLabelMayBreakReferencesEditJsonMessage', { actionLabel: actionLabel });
         const confirmed = await new ConfirmDialog({
-            title: `${actionLabel}しますか？`,
+            title: t('project.materials.pane.actionLabelQuestion', { actionLabel: actionLabel }),
             msg: message,
-            ok: '続ける',
-            cancel: 'キャンセル'
+            ok: t('project.materials.pane.continueAction'),
+            cancel: t('project.library.pane.cancelLabel')
         }).open();
         return !!confirmed;
     }
@@ -973,30 +974,29 @@ export class AkariMaterialsPane {
     public async buildDeleteReferenceMessage(relativePath: string, isDirectory: boolean): Promise<string> {
         const root = this.host.workflow.workspaceRoot;
         if (!root) {
-            return '参照を確認できませんでした。';
+            return t('project.materials.pane.couldNotCheckReferencesError');
         }
         const { documents, failed } = await this.readProjectReferenceDocuments(root);
         if (failed) {
-            return '参照を確認できませんでした。';
+            return t('project.materials.pane.couldNotCheckReferencesError');
         }
         const count = countReferences(documents, relativePath, isDirectory);
         return count > 0
-            ? `edit.json / captions.json から ${count} 箇所参照されています。削除すると参照が壊れます。`
-            : 'プロジェクトデータからの参照は見つかりませんでした。';
+            ? t('project.materials.pane.referencedCountPlacesEditJsonCaptionsJsonMessage', { count: count, n: count })
+            : t('project.materials.pane.noReferencesWereFoundProjectDataError');
     }
 
     public renderMaterialsTab(): React.ReactNode {
         if (!this.host.workflow.workspaceRoot) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.materials.pane.openProjectAction')}</p>;
         }
         if (this.materialsLoading && !this.materialsLoadedOnce) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         }
         if (!this.materials.length && !this.unorganizedMaterials.length) {
             return (
                 <p style={{ opacity: 0.7, padding: '16px' }}>
-                    ここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。
-                </p>
+                    {t('project.materials.pane.noAssetsHereYetDragVideoError')}</p>
             );
         }
         let materials = visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort);
@@ -1016,10 +1016,10 @@ export class AkariMaterialsPane {
         return (
             <div>
                 {isFiltered && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 10px 0', fontSize: '0.78em', color: 'var(--akari-muted)' }}>
-                    <span>{visibleCount} / {total} 件</span>
+                    <span>{visibleCount} / {total} {t('project.materials.pane.itemsLabel')}</span>
                 </div>}
                 {!visibleCount
-                    ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>
+                    ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>{t('project.materials.pane.noAssetsMatchFiltersError')}</p>
                     : materials.length
                     ? <div style={isMaterialsList(this.mode)
                         ? { display: 'flex', flexDirection: 'column', gap: '4px', padding: MATERIAL_GRID_LAYOUT.gridPadding }
@@ -1027,7 +1027,7 @@ export class AkariMaterialsPane {
                             rowGap: '10px', padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
                         {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
-                    : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
+                    : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>{t('project.materials.pane.thereAreNoAssetsAssetsYetMessage')}</p>}
                 {unorganizedMaterials.length > 0 && this.renderUnorganizedSection(unorganizedMaterials)}
             </div>
         );
@@ -1037,10 +1037,9 @@ export class AkariMaterialsPane {
         return (
             <div style={{ borderTop: `1px solid ${AKARI_PROJECT_LINE}`, marginTop: '8px' }}>
                 <div style={{ padding: '10px 10px 0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '0.85em', fontWeight: 600 }}>未整理</span>
+                    <span style={{ fontSize: '0.85em', fontWeight: 600 }}>{t('project.materials.pane.unorganizedLabel')}</span>
                     <span style={{ opacity: 0.7, fontSize: '0.78em' }}>
-                        プロジェクトルート直下に置かれています。「assets へ移動」で整理できます。
-                    </span>
+                        {t('project.materials.pane.fileIsProjectRootUseMoveMessage')}</span>
                 </div>
                 <div
                     data-akari-unorganized-count={entries.length}
@@ -1101,7 +1100,7 @@ export class AkariMaterialsPane {
                 return;
             }
             cleanup();
-            void this.host.messages.info('未整理の素材は「assets へ移動」のあとで置けます');
+            void this.host.messages.info(t('project.materials.pane.moveUnorganizedAssetsAssetsBeforeAddingAction'));
         };
         const onMouseUp = (): void => cleanup();
         window.addEventListener('mousemove', onMouseMove);
@@ -1116,8 +1115,8 @@ export class AkariMaterialsPane {
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
-        const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
-        const transcriptLabel = `文字起こし ${transcriptStatus}`;
+        const transcriptStatus = { none: t('project.materials.pane.pendingLabel'), running: t('project.materials.pane.runningLabel'), done: t('project.materials.pane.doneLabel') }[transcriptState];
+        const transcriptLabel = t('project.materials.pane.transcriptStatusLabel', { transcriptStatus: transcriptStatus });
         const iconStyle: React.CSSProperties = { width: '14px', height: '14px', color: '#e5e5e5',
             background: 'rgba(0,0,0,.55)', borderRadius: '2px', flex: '0 0 14px' };
         const flags: React.ReactNode[] = [];
@@ -1128,15 +1127,15 @@ export class AkariMaterialsPane {
                 <path d='M3 1.5h6l2 2v9H3zM9 1.5v2h2M5 6h4M5 8h4M5 10h3' />
             </svg>);
         if (entry.reference) flags.push(<svg key='reference' data-akari-reference-badge
-            aria-label='ライブラリを参照しています' viewBox='0 0 14 14' fill='none' stroke='currentColor'
-            strokeWidth='1.3' style={iconStyle}><title>ライブラリを参照しています</title><path d='M5.5 4.5l1-1a3 3 0 014.2 4.2l-1.4 1.4M8.5 9.5l-1 1a3 3 0 01-4.2-4.2l1.4-1.4M5 9l4-4' /></svg>);
+            aria-label={t('project.materials.pane.referencesLibraryLabel')} viewBox='0 0 14 14' fill='none' stroke='currentColor'
+            strokeWidth='1.3' style={iconStyle}><title>{t('project.materials.pane.referencesLibraryLabel')}</title><path d='M5.5 4.5l1-1a3 3 0 014.2 4.2l-1.4 1.4M8.5 9.5l-1 1a3 3 0 01-4.2-4.2l1.4-1.4M5 9l4-4' /></svg>);
         if (entry.missing) flags.unshift(<svg key='missing' data-akari-reference-missing
-            aria-label='見つかりません' viewBox='0 0 14 14' fill='none' stroke='#f85149' strokeWidth='1.3'
-            style={iconStyle}><title>見つかりません</title><path d='M7 1.5l5.5 10h-11zM7 5v3M7 10v1' /></svg>);
-        if (entry.unorganized) flags.unshift(<svg key='unorganized' aria-label='未整理'
+            aria-label={t('project.materials.pane.notFoundError')} viewBox='0 0 14 14' fill='none' stroke='#f85149' strokeWidth='1.3'
+            style={iconStyle}><title>{t('project.materials.pane.notFoundError')}</title><path d='M7 1.5l5.5 10h-11zM7 5v3M7 10v1' /></svg>);
+        if (entry.unorganized) flags.unshift(<svg key='unorganized' aria-label={t('project.materials.pane.unorganizedLabel')}
             viewBox='0 0 14 14' fill='none' stroke='currentColor' strokeWidth='1.3' strokeDasharray='2 1'
-            style={iconStyle}><title>未整理</title><rect x='2' y='2' width='10' height='10' rx='1' /></svg>);
-        if (entry.analyzed) flags.push(<span key='analyzed' title='分析済み' aria-label='分析済み'
+            style={iconStyle}><title>{t('project.materials.pane.unorganizedLabel')}</title><rect x='2' y='2' width='10' height='10' rx='1' /></svg>);
+        if (entry.analyzed) flags.push(<span key='analyzed' title={t('project.materials.pane.analyzedLabel')} aria-label={t('project.materials.pane.analyzedLabel')}
             style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316', flex: '0 0 6px' }} />);
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
@@ -1249,29 +1248,28 @@ export class AkariMaterialsPane {
                         {entry.name}
                     </span>
                     {isMaterialsList(this.mode) && entry.missing && <span data-akari-reference-missing
-                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>見つかりません</span>}
+                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>{t('project.materials.pane.notFoundError')}</span>}
                     {isMaterialsList(this.mode) && entry.unorganized && <span
-                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>未整理</span>}
+                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>{t('project.materials.pane.unorganizedLabel')}</span>}
                 </div>
                 {this.host.renderGenerationPickBadge(pickCandidate)}
                 {entry.missing && entry.reference && (() => {
                     const known = this.host.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
                     const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
                     return state.lab
-                        ? <button className='theia-button secondary small' onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
-                        : <span>入れ直してください</span>;
+                        ? <button className='theia-button secondary small' onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>{t('project.materials.pane.downloadAgainAction')}</button>
+                        : <span>{t('project.materials.pane.importAgainAction')}</span>;
                 })()}
                 {entry.unorganized && (
                     <div style={{ padding: '0 6px 6px' }}>
                         <button
                             type='button'
                             className='theia-button secondary'
-                            title={`${entry.name} を assets へ移動`}
+                            title={t('project.materials.pane.moveNamedAssetToAssetsAction', { name: entry.name })}
                             style={{ width: '100%', fontSize: '0.75em', padding: '2px 4px' }}
                             onClick={event => { event.stopPropagation(); void this.moveToAssets(entry); }}
                         >
-                            assets へ移動
-                        </button>
+                            {t('project.materials.pane.moveAssetsAction')}</button>
                     </div>
                 )}
             </div>
@@ -1285,7 +1283,7 @@ export class AkariMaterialsPane {
      */
     public async askAgent(entry: MaterialCardEntry): Promise<void> {
         const request = await this.host.quickInputService.input({
-            placeHolder: 'この素材について何を頼みますか'
+            placeHolder: t('project.materials.pane.whatWouldYouLikeAskAboutQuestion')
         });
         if (!request || !request.trim()) {
             return;
@@ -1303,7 +1301,7 @@ export class AkariMaterialsPane {
     }
 
     public async storeMaterialInLibrary(entry: MaterialCardEntry): Promise<void> {
-        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
+        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn(t('project.materials.pane.movingAssetsPleaseWaitUntilItMessage')); return; }
         if (entry.reference) return;
         try {
             const uri = entry.mediaRelativePath && this.host.workflow.workspaceRoot
@@ -1312,7 +1310,7 @@ export class AkariMaterialsPane {
             const result = await this.host.projectService.applyLibraryImport(plan);
             this.host.reportLibraryImportResult(result);
             await this.host.loadAssetCatalogView('user');
-        } catch (error) { this.host.messages.error(`ライブラリに保管できませんでした: ${String(error)}`); }
+        } catch (error) { this.host.messages.error(t('project.materials.pane.couldNotSaveLibraryError', { value1: String(error) })); }
     }
 
     /**
@@ -1348,7 +1346,7 @@ export class AkariMaterialsPane {
                 ...(range ? { in: range.in, out: range.out } : {})
             });
         } catch {
-            this.host.messages.error('タイムライン機能の更新が必要です。');
+            this.host.messages.error(t('project.materials.pane.timelineFeatureNeedsUpdateMessage'));
         }
     }
 
@@ -1381,8 +1379,8 @@ export class AkariMaterialsPane {
             const result = await this.host.commandService.executeCommand<string>('akari.transcribe.openDialog', {
                 projectRoot: root.toString(), relativePath: entry.relativePath
             });
-            if (result === 'running') void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
-            else if (result === 'cancelled') void this.host.messages.info(`${entry.name}: 文字起こしを中止しました`);
+            if (result === 'running') void this.host.messages.info(t('project.materials.pane.nameTranscribingStatus', { name: entry.name }));
+            else if (result === 'cancelled') void this.host.messages.info(t('project.materials.pane.assetTranscriptCanceledNotice', { name: entry.name }));
             await this.loadMaterials();
             return;
         } catch (error) {

@@ -1,5 +1,9 @@
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
+
+before(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -28,8 +32,8 @@ test('スキル widget は共有 ID を使う', () => {
 });
 
 test('左パネルのラベルと説明', () => {
-    assert.match(widgetSource, /title\.label = 'スキル'/);
-    assert.match(widgetSource, /title\.caption = 'パートナーに頼める決まった仕事（\/呼び名）'/);
+    assert.match(widgetSource, /title\.label = t\('shell\.skills\.panel\.skillsLabel'\)/);
+    assert.match(widgetSource, /title\.caption = t\('shell\.skills\.panel\.readyMadeTasksPartnerSkillNameStatus'\)/);
     assert.equal(SKILLS_PANEL_TEXT.heading, 'スキル');
     assert.equal(SKILLS_PANEL_TEXT.subtitle, 'パートナーに頼める決まった仕事。/呼び名 でも呼べます');
 });

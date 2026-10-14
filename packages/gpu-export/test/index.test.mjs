@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import test from "node:test";
+import test, { afterEach, beforeEach } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+beforeEach(() => setLanguage("ja"));
+afterEach(() => setLanguage(undefined));
 
 import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions, verifyFinalVideoWithDecode } from "../src/index.mjs";
 

@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 import type { DaihonRow } from './daihon-row-model';
 
 export interface DaihonCutRange {
@@ -20,14 +21,14 @@ export function clampRowCutRange(
         out: Math.min(row.end + 0.04, next?.start ?? Number.POSITIVE_INFINITY),
         kind: 'row',
         captionId: row.id,
-        label: '行',
+        label: t('transcript.daihon.cutPlan.lineLabel'),
     };
 }
 
 export function normalizeCutRanges(ranges: readonly DaihonCutRange[]): DaihonCutRange[] {
     const sorted = ranges.map(range => {
         if (!Number.isFinite(range.in) || !Number.isFinite(range.out) || range.in < 0 || range.out <= range.in) {
-            throw new Error('カット範囲が不正です。');
+            throw new Error(t('transcript.daihon.cutPlan.invalidCutRangeError'));
         }
         return { ...range };
     }).sort((left, right) => left.in - right.in || left.out - right.out);
@@ -35,7 +36,7 @@ export function normalizeCutRanges(ranges: readonly DaihonCutRange[]): DaihonCut
     for (const range of sorted) {
         const previous = merged[merged.length - 1];
         if (previous && range.in <= previous.out && range.kind === previous.kind
-            && range.captionId === previous.captionId && range.label === previous.label) {
+            && range.captionId === previous.captionId) {
             previous.out = Math.max(previous.out, range.out);
         } else {
             merged.push(range);

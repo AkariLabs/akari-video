@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     describeNextDraft,
     GenerationMetaV1,
@@ -26,11 +27,11 @@ export interface GenerationChipDescription {
 
 /** 札の文字幅を保守的に見積もり、枠内に残せる表記を選ぶ。 */
 export function generationChipLabel(badge: string, widthPx: number): string {
-    const count = /^候補 (\d+)$/u.exec(badge)?.[1];
-    const short = /^\d+ 案作成中 · (\d+\/\d+)$/u.exec(badge)?.[1]
-        ?? (count ? `候補 ${count}` : undefined)
-        ?? /^生成中 · (\d+ 秒)$/u.exec(badge)?.[1]
-        ?? /^生成中 (\d+%)$/u.exec(badge)?.[1];
+    const count = /^(?:候補|Candidates) (\d+)$/u.exec(badge)?.[1];
+    const short = /^(?:\d+ 案作成中|Creating \d+ options) · (\d+\/\d+)$/u.exec(badge)?.[1]
+        ?? (count ? t('annotationscommon.generationSidecar.badge.candidates', { count, n: count }) : undefined)
+        ?? /^(?:生成中|Generating) · (\d+ (?:秒|seconds))$/u.exec(badge)?.[1]
+        ?? /^(?:生成中|Generating) (\d+%)$/u.exec(badge)?.[1];
     const shortLabel = short ? `✦ ${short}` : '✦';
     const textWidth = (value: string): number => Array.from(value).reduce((width, char) =>
         width + (char === ' ' ? 2 : char.codePointAt(0)! < 0x80 ? 5 : char === '·' ? 5 : 9), 0);
@@ -84,49 +85,49 @@ export function describeGenerationChip(
     const completed = typeof meta?.job?.completed === 'number' ? meta.job.completed : 0;
     const candidates = typeof meta?.job?.candidates === 'number' ? meta.job.candidates : 0;
     if (state === 'generating' && meta?.job?.provider === 'compare' && routes.length) {
-        const badge = `${routes.length} 案作成中 · ${completed}/${routes.length}`;
+        const badge = t('annotationscommon.generationSidecar.badge.compareGenerating', { count: routes.length, n: routes.length, completed, total: routes.length });
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }
     if (state !== 'generating' && candidates > 0) {
-        const badge = `候補 ${candidates}`;
+        const badge = t('annotationscommon.generationSidecar.badge.candidates', { count: candidates, n: candidates });
         return { badge, className: 'akari-generation-planned', title: badge };
     }
     if (state === 'planned-video') {
         const draft = describeNextDraft(meta);
-        const variety = { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' };
-        return { badge: '▶ 動画予定', className: 'akari-generation-planned-video',
-            title: `動画予定（${variety[draft?.variety ?? 'prompt']}）` };
+        const variety = { prompt: t('annotationscommon.generationSidecar.variety.promptOnly'), first: t('annotationscommon.generationSidecar.variety.fromImage'), 'first-last': t('annotationscommon.generationSidecar.variety.firstToLast'), references: t('annotationscommon.generationSidecar.variety.fromReferences') };
+        return { badge: t('annotationscommon.generationSidecar.badge.videoPlanned'), className: 'akari-generation-planned-video',
+            title: t('annotationscommon.generationSidecar.title.videoPlanned', { variety: variety[draft?.variety ?? 'prompt'] }) };
     }
     if (state === 'planned') {
         if (meta?.kind === 'audio') {
-            return { badge: '空の枠（音）', className: 'akari-generation-planned-audio', title: '音の空の枠' };
+            return { badge: t('annotationscommon.generationSidecar.badge.emptyAudioFrame'), className: 'akari-generation-planned-audio', title: t('annotationscommon.generationSidecar.title.emptyAudioFrame') };
         }
         const prompt = meta?.inputs?.prompt;
-        return { badge: typeof prompt === 'string' && prompt.trim() ? '予定' : '空の枠',
-            className: 'akari-generation-planned', title: '生成予定（絵なし）' };
+        return { badge: typeof prompt === 'string' && prompt.trim() ? t('annotationscommon.generationSidecar.badge.planned') : t('annotationscommon.generationSidecar.badge.emptyFrame'),
+            className: 'akari-generation-planned', title: t('annotationscommon.generationSidecar.title.plannedNoImage') };
     }
     if (state === 'generating') {
         const startedMs = Date.parse(String(meta?.job?.started_at ?? ''));
         const elapsed = Number.isFinite(startedMs) ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : undefined;
-        const badge = progress === undefined ? elapsed === undefined ? '生成中' : `生成中 · ${elapsed} 秒`
-            : `生成中 ${Math.round(progress)}%`;
+        const badge = progress === undefined ? elapsed === undefined ? t('annotationscommon.generationSidecar.badge.generating') : t('annotationscommon.generationSidecar.badge.generatingSeconds', { seconds: elapsed, n: elapsed })
+            : t('annotationscommon.generationSidecar.badge.generatingPercent', { percent: Math.round(progress) });
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }
     if (state === 'stale') {
-        return { badge: '応答なし・再取得', className: 'akari-generation-stale', title: '生成処理から応答がありません' };
+        return { badge: t('annotationscommon.generationSidecar.badge.noResponse'), className: 'akari-generation-stale', title: t('annotationscommon.generationSidecar.title.noResponse') };
     }
     if (state === 'failed') {
-        return { badge: '失敗', className: 'akari-generation-failed', title: '生成に失敗しました · もう一度（右パネルで費用承認）' };
+        return { badge: t('annotationscommon.generationSidecar.badge.failed'), className: 'akari-generation-failed', title: t('annotationscommon.generationSidecar.title.failed') };
     }
     if (state === 'orphan') {
         return {
-            badge: '孤児', className: 'akari-generation-orphan',
-            title: '素材が変わりました（meta の sha256 と一致しません）'
+            badge: t('annotationscommon.generationSidecar.badge.orphan'), className: 'akari-generation-orphan',
+            title: t('annotationscommon.generationSidecar.title.orphan')
         };
     }
     if (state === 'done' && meta?.kind === 'video') {
-        return { badge: '生成', className: 'akari-generation-done', title: '生成された動画' };
+        return { badge: t('annotationscommon.generationSidecar.badge.generated'), className: 'akari-generation-done', title: t('annotationscommon.generationSidecar.title.generatedVideo') };
     }
     // none と done の still は完成品の静止画として見せる。
-    return { badge: '静止画', className: 'akari-generation-none', title: '静止画' };
+    return { badge: t('annotationscommon.generationSidecar.badge.stillImage'), className: 'akari-generation-none', title: t('annotationscommon.generationSidecar.badge.stillImage') };
 }

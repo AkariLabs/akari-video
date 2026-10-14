@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { readUpdateChannel, resolveAkariHome } from './update-check.mjs';
 import { compareVersions } from './version.mjs';
+import { cliText } from './i18n.mjs';
 
 /**
  * `akari update` の実適用（update-and-versioning 契約（内部リポ）§11）:
@@ -80,7 +81,7 @@ async function downloadFile({ url, destPath, fetchImpl = globalThis.fetch, timeo
   try {
     response = await fetchImpl(url, { signal: controller.signal });
   } catch (error) {
-    throw new Error(`ネットワークエラー: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(cliText('cli.selfUpdate.error.network', { message: error instanceof Error ? error.message : String(error) }));
   } finally {
     clearTimeout(timeout);
   }
@@ -103,7 +104,7 @@ function extractTarGz({ tarPath, destDir }) {
     throw result.error;
   }
   if (result.status !== 0) {
-    throw new Error(`tar が失敗しました（code ${result.status}）: ${result.stderr?.toString().trim() ?? ''}`);
+    throw new Error(cliText('cli.selfUpdate.error.tar', { code: result.status, message: result.stderr?.toString().trim() ?? '' }));
   }
 }
 
@@ -198,18 +199,18 @@ export async function stageSelfUpdate({
 } = {}) {
   const appComponent = feed?.components?.app;
   if (!appComponent?.url || !appComponent?.sha256) {
-    log('更新フィードに app 成分がありません（旧フィード）。手動更新の案内に切り替えます。');
+    log(cliText('cli.selfUpdate.feed.appMissing'));
     return { ok: false, reason: 'no-app-component' };
   }
 
   const version = feed.product;
   if (readUpdateChannel(env) === 'stable' && version?.includes('-')) {
-    log('安定版だけを受け取る設定です。');
+    log(cliText('cli.selfUpdate.feed.stableOnly'));
     return { ok: false, reason: 'channel-mismatch' };
   }
   const installedVersion = readVersionAt(resolveAppDir(env));
   if (installedVersion && compareVersions(version, installedVersion) < 0) {
-    log('現在より古い版は適用できません。');
+    log(cliText('cli.selfUpdate.feed.olderVersion'));
     return { ok: false, reason: 'older-version' };
   }
   const stagingRoot = resolveStagingRoot(env);
@@ -221,19 +222,19 @@ export async function stageSelfUpdate({
   rmSync(downloadPath, { force: true });
   mkdirSync(stagingRoot, { recursive: true });
 
-  log(`v${version} をダウンロードしています…`);
+  log(cliText('cli.selfUpdate.download.start', { version }));
   try {
     await downloadFile({ url: appComponent.url, destPath: downloadPath, fetchImpl, timeoutMs });
   } catch (error) {
     rmSync(downloadPath, { force: true });
-    log(`更新のダウンロードに失敗しました（現在のインストールは変更していません）: ${error.message}`);
+    log(cliText('cli.selfUpdate.download.failed', { message: error.message }));
     return { ok: false, reason: 'download-failed' };
   }
 
   const actualSha256 = sha256File(downloadPath);
   if (actualSha256 !== appComponent.sha256) {
     rmSync(downloadPath, { force: true });
-    log(`更新の検証に失敗しました（sha256 不一致。期待値 ${appComponent.sha256} / 実際 ${actualSha256}）。適用を中止しました（現在のインストールは変更していません）。`);
+    log(cliText('cli.selfUpdate.download.hashMismatch', { expected: appComponent.sha256, actual: actualSha256 }));
     return { ok: false, reason: 'hash-mismatch' };
   }
 
@@ -243,7 +244,7 @@ export async function stageSelfUpdate({
   } catch (error) {
     rmSync(stagingDir, { recursive: true, force: true });
     rmSync(downloadPath, { force: true });
-    log(`更新の展開に失敗しました（現在のインストールは変更していません）: ${error instanceof Error ? error.message : String(error)}`);
+    log(cliText('cli.selfUpdate.download.extractFailed', { message: error instanceof Error ? error.message : String(error) }));
     return { ok: false, reason: 'extract-failed' };
   }
   rmSync(downloadPath, { force: true });
@@ -269,7 +270,7 @@ export function swapStagedApp({
 } = {}) {
   const lockPath = acquireApplyLock(env);
   if (!lockPath) {
-    log('他のプロセスが更新を適用中のため、今回の適用は見送りました。次回に持ち越します。');
+    log(cliText('cli.selfUpdate.apply.locked'));
     return { exitCode: 1, applied: false, lockContention: true };
   }
 
@@ -286,7 +287,7 @@ export function swapStagedApp({
         renameSync(appDir, swapTag);
       } catch (error) {
         rmSync(stagingDir, { recursive: true, force: true });
-        log(`更新の適用に失敗しました（既存インストールの退避に失敗。現在のインストールは変更していません）: ${error.message}`);
+        log(cliText('cli.selfUpdate.apply.backupFailed', { message: error.message }));
         return { exitCode: 1, applied: false };
       }
     }
@@ -311,11 +312,11 @@ export function swapStagedApp({
           renameSync(swapTag, appDir);
         } catch {
           // 復元も失敗した場合は打つ手がない。手動介入を促すメッセージだけ残す。
-          log(`重大: 旧インストールの復元にも失敗しました。手動確認が必要です（退避先: ${swapTag}）。`);
+          log(cliText('cli.selfUpdate.apply.restoreFailed', { path: swapTag }));
         }
       }
       rmSync(stagingDir, { recursive: true, force: true });
-      log(`更新の適用に失敗しました（切り替えに失敗。可能な範囲で元の状態へ復元しました）: ${error instanceof Error ? error.message : String(error)}`);
+      log(cliText('cli.selfUpdate.apply.swapFailed', { message: error instanceof Error ? error.message : String(error) }));
       return { exitCode: 1, applied: false };
     }
 
@@ -330,12 +331,12 @@ export function swapStagedApp({
 
     const npmResult = runNpmInstall({ cwd: appDir });
     if (!npmResult.ok) {
-      log(`npm install が失敗しました（更新自体は適用済みです。問題が続く場合は \`akari update --rollback\` を検討してください）: ${npmResult.message ?? ''}`);
+      log(cliText('cli.selfUpdate.apply.npmFailed', { message: npmResult.message ?? '' }));
     }
 
-    log(`v${version} に更新しました`);
+    log(cliText('cli.selfUpdate.apply.complete', { version }));
     if (notesUrl) {
-      log(`リリースノート: ${notesUrl}`);
+      log(cliText('cli.update.feed.notes', { url: notesUrl }));
     }
     return { exitCode: 0, applied: true, version, npmInstallOk: npmResult.ok };
   } finally {
@@ -382,7 +383,7 @@ export function rollbackSelfUpdate({ env = process.env, log = () => {} } = {}) {
   const appPreviousDir = resolveAppPreviousDir(env);
 
   if (!existsSync(appPreviousDir)) {
-    log('ロールバック対象がありません（保存されている前バージョンがありません）。');
+    log(cliText('cli.selfUpdate.rollback.unavailable'));
     return { exitCode: 1, rolledBack: false };
   }
 
@@ -397,7 +398,7 @@ export function rollbackSelfUpdate({ env = process.env, log = () => {} } = {}) {
       renameSync(swapTag, appPreviousDir);
     }
   } catch (error) {
-    log(`ロールバックに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    log(cliText('cli.selfUpdate.rollback.failed', { message: error instanceof Error ? error.message : String(error) }));
     return { exitCode: 1, rolledBack: false };
   }
 
@@ -406,6 +407,6 @@ export function rollbackSelfUpdate({ env = process.env, log = () => {} } = {}) {
     // install-ref が無い古い app-previous へ戻した場合も、以後の更新判定を本体版基準に保つ。
     writeFileSync(join(appDir, '.akari-install-ref'), `v${version}\n`, 'utf8');
   }
-  log(version ? `v${version} へロールバックしました` : 'ロールバックしました');
+  log(version ? cliText('cli.selfUpdate.rollback.version', { version }) : cliText('cli.selfUpdate.rollback.complete'));
   return { exitCode: 0, rolledBack: true, version };
 }

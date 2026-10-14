@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -55,6 +59,19 @@ test('Antigravity のサイドタブは background shorthand に画像を消さ�
     assert.match(baseRule, /background-repeat: no-repeat;/);
 });
 
+test('Muse Code の公式 PNG は単色マスクとブランド色で表示する', () => {
+    const rule = rules.find(rule => rule.trimStart().startsWith('.akari-partner-muse-cli-icon {'));
+    assert.ok(rule);
+    const encoded = rule.match(/mask-image: url\("data:image\/png;base64,([A-Za-z0-9+/=]+)"\)/)?.[1];
+    assert.ok(encoded);
+    const png = Buffer.from(encoded, 'base64');
+    assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    assert.equal(createHash('sha256').update(png).digest('hex'),
+        '6cd6d666850a83f25532d93c0b4144661a9f2b06e5e7147c20bfc31dc8fc3a54');
+    assert.match(rule, /-webkit-mask-image: url\("data:image\/png;base64,/);
+    assert.match(iconRules('muse'), /background-color: #0082FB !important;/);
+});
+
 // 2026-09-22 の編集前に評価した出力 CSS。共通ルールも含め文字列を固定する。
 // 現行ソースから期待値を再生成しないこと。
 test('Grok / Cursor / OpenCode / Command Code の出力 CSS は BEFORE と同一', () => {
@@ -64,7 +81,8 @@ test('Grok / Cursor / OpenCode / Command Code の出力 CSS は BEFORE と同一
         assert.equal(iconRules(agent)
             .replace('.akari-partner-pi-cli-icon,\n', '')
             .replace('.akari-partner-deepseek-cli-icon,\n', '')
-            .replace('.akari-partner-devin-cli-icon,\n', ''), expected, agent);
+            .replace('.akari-partner-devin-cli-icon,\n', '')
+            .replace('.akari-partner-grok-cli-icon,\n.akari-partner-muse-cli-icon {', '.akari-partner-grok-cli-icon {'), expected, agent);
     }
 });
 

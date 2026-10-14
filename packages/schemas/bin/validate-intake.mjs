@@ -23,7 +23,8 @@ const TASK_IDS = ["transcribe-captions", "silence-cut", "bgm-sfx", "narration", 
 const AUTONOMY_VALUES = ["full-auto", "checkpoint", "collaborative"];
 const STATUS_VALUES = ["draft", "submitted"];
 const ROOT_FIELDS = ["version", "tasks", "target", "autonomy", "status", "submitted_at"];
-const OPTIONAL_ROOT_FIELDS = ["title"];
+const OPTIONAL_ROOT_FIELDS = ["title", "language"];
+const LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 const TARGET_REQUIRED_FIELDS = ["duration_s", "keep_length"];
 const TARGET_FIELDS = ["duration_s", "keep_length", "taste"];
 
@@ -77,11 +78,20 @@ function validateIntake(value) {
   if (hasOwn(value, "title")) {
     validateTitle(value.title);
   }
+  if (hasOwn(value, "language")) {
+    validateLanguage(value.language);
+  }
 }
 
 function validateTitle(value) {
   if (value !== null && typeof value !== "string") {
     fail("title は null または文字列である必要があります");
+  }
+}
+
+function validateLanguage(value) {
+  if (typeof value !== "string" || !LANGUAGE_TAG.test(value)) {
+    fail("language は有効な BCP 47 言語タグである必要があります");
   }
 }
 

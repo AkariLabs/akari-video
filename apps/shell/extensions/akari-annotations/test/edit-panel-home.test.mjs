@@ -1,14 +1,25 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { viewAfterHomeTabClick } from '../lib/browser/inspector/home-tab.js';
-import { appendHomeTuneTiles, homeTuneTiles } from '../lib/browser/inspector/home-tune.js';
-import { tabsForKind } from '../lib/browser/inspector/tab-model.js';
-import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
-import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.js';
-import { appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { viewAfterHomeTabClick } = await import('../lib/browser/inspector/home-tab.js');
+const { appendHomeTuneTiles, homeTuneTiles } = await import('../lib/browser/inspector/home-tune.js');
+const { tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const { appendImageAiPanel } = await import('../lib/browser/inspector/image-ai-panel.js');
+const { appendAiMaterialView } = await import('../lib/browser/inspector/ai-material-view.js');
+const { appendAiTiles } = await import('../lib/browser/inspector/ai-tiles.js');
+
 
 class Node {
     constructor(tag = 'div') { this.tag = tag; this.children = []; this.attributes = new Map(); this.style = {}; this.listeners = new Map(); this.className = ''; this.textContent = ''; this.isConnected = true; }

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
 const { introVisual, PREPARING_COPY, inviteMarkup } = require('../../lib/onboarding/intro-model.js');
@@ -23,6 +27,13 @@ test('招待はサンプル動画チップを置かず、小さなリンク文�
     assert.ok(!markup.includes('ao-chip'));
     assert.ok(!markup.includes('0:37'));
     assert.match(markup, /data-ao="later">後で自分で始める<\/button>/);
+});
+
+test('作業中のパートナーがいる招待には切り替えの同意が要る', () => {
+    const markup = inviteMarkup(false, '', 'いまのプロジェクトから切り替わります');
+    assert.match(markup, /role="alert">いまのプロジェクトから切り替わります<\/p>/);
+    assert.match(markup, /data-ao="start">同意してはじめる<\/button>/);
+    assert.match(markup, /data-ao="later"/);
 });
 
 test('ビフォーアフター図の余白は透明で、左右ラベルはそれぞれ中央', () => {

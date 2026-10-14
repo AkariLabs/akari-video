@@ -1,4 +1,5 @@
 import { realpathSync, statSync } from "node:fs";
+import { lintText } from '../i18n.mjs';
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../../render-cut/src/fragment-assets.mjs";
@@ -131,7 +132,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       addFinding(findings, {
         severity: "warning",
         check: "overlays.root-data-attributes",
-        message: "断片ルートの data-start / data-duration は使われません。edit.json の時刻が正です。素材の長さは data-akari-natural-duration に記録してください",
+        message: lintText('lint-messages.overlays.root.attributes'),
         path: relativePath(paths.projectRoot, htmlPath),
       });
     }
@@ -140,7 +141,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
     // getAnimations() のコストはドキュメント全体の animation 総数に比例するため、
     // ゲート無しの断片が 1 つでも混ざると全体の tick が落ちる。分割はその危険を
     // 分割数ぶんに増幅する（実測: 1,200 断片 × 8 分割 = 9,600 本で 221ms/tick。
-    // akari-video-internal contract-2026-08-15-telop-motion-grammar-v0 §6）。
+    // テロップの動きの文法の契約（2026-08-15）§6）。
     if (/\bdata-akari-split\s*=/.test(html) && /(^|[^-\w])animation\s*:/.test(html)) {
       const gated = /\[data-akari-active\][^{}]*\.[^{}]*\{[^{}]*animation\s*:/.test(html);
       if (!gated) {
@@ -208,11 +209,11 @@ function validateOverlayFragmentAssets(html, overlay, paths, findings) {
   };
   const finding = (reference, check, detail) => addFinding(findings, {
     severity: "error", check: `overlay-fragment-asset-${check}`,
-    message: `overlay:${overlay.id} fragment ${overlay.html} の参照 "${reference.raw}"${check === "missing" ? " " : ": "}${detail}`,
+    message: lintText('lint-messages.overlays.fragment.assetReference', { id: overlay.id, html: overlay.html, reference: reference.raw, separator: check === "missing" ? " " : ": ", detail }),
     path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
   });
   for (const reference of extractAbsoluteFragmentAssetReferences(html, overlay.html)) {
-    finding(reference, "absolute-path", "断片からの相対パスで書く");
+    finding(reference, "absolute-path", lintText('lint-messages.overlays.fragment.relativePath'));
   }
   for (const reference of extractFragmentAssetReferences(html, overlay.html, overlay.id)) {
     const target = resolve(root, reference.path);
@@ -228,7 +229,7 @@ function validateOverlayFragmentAssets(html, overlay, paths, findings) {
       references: paths.assetReferences, libraryRoots: paths.libraryRoots,
     });
     if (fallback.path !== null) continue;
-    finding(reference, "missing", "が見つからない。" + describeFragmentAssetHint({
+    finding(reference, "missing", lintText('lint-messages.overlays.fragment.missing') + describeFragmentAssetHint({
       projectRoot: paths.projectRoot, htmlPath: overlay.html, ...reference,
     }));
   }
@@ -245,7 +246,7 @@ export function runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings,
       ? error.name : "Error";
     addFinding(findings, {
       severity: "info", check: "overlays.fragment-font-glyphs",
-      message: `overlay:${overlay.id} fragment ${overlay.html}: 字形検査を飛ばしました（${name}）。`,
+      message: lintText('lint-messages.overlays.fragment.glyphSkipped', { id: overlay.id, html: overlay.html, name }),
       path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
     });
   }
@@ -268,7 +269,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
   }
   const hasDeclaredChars = rootTag && Object.hasOwn(parseHtmlAttributes(rootTag.text), "data-akari-font-chars");
   if (hasDynamicScript && !hasDeclaredChars) {
-    add("info", "script が生成する字は静的に集めきれません。data-akari-font-chars で宣言できます。");
+    add("info", lintText('lint-messages.overlays.font.scriptChars'));
   }
   const fontSets = [];
   const fontPaths = [];
@@ -276,7 +277,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
   let unreadable = false;
   for (const face of faces) if (face.sources.length === 0) {
     unreadable = true;
-    add("info", `@font-face (${face.family || "名称なし"}) に読める書体参照がありません。`);
+    add("info", lintText('lint-messages.overlays.font.faceUnreadable', { family: face.family || lintText('lint-messages.overlays.font.unnamed') }));
   }
   const root = realpathSync(paths.projectRoot);
   const outside = target => {
@@ -306,7 +307,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
       if (outside(target)) {
         unreadable = true;
         fontPaths.push(label);
-        add("info", `書体 ${label} はプロジェクト外の参照なので読みません。`);
+        add("info", lintText('lint-messages.overlays.font.outsideProject', { label }));
         continue;
       }
       const binding = resolveReferenceBinding(paths.editPath, source.path, paths);
@@ -315,7 +316,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
         if (binding.scope !== "library" && outside(real)) {
           unreadable = true;
           fontPaths.push(label);
-          add("info", `書体 ${label} はプロジェクト外の参照なので読みません。`);
+          add("info", lintText('lint-messages.overlays.font.outsideProject', { label }));
           continue;
         }
         const stat = statSync(real);
@@ -331,7 +332,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
     fontPaths.push(label);
     if (!result.ok) {
       unreadable = true;
-      add("info", `書体 ${label} は${result.missing ? "見つからない" : "読めない（書体データを解析できません）"}。`);
+      add("info", lintText('lint-messages.overlays.font.unavailable', { label, reason: result.missing ? lintText('lint-messages.overlays.font.notFound') : lintText('lint-messages.overlays.font.unreadable') }));
       continue;
     }
     fontSets.push(result.codepoints);
@@ -340,7 +341,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
   const missing = [...codepoints].filter(cp => !fontSets.some(points => points.has(cp))).sort((a, b) => a - b);
   if (missing.length) {
     const sample = missing.slice(0, 20).map(cp => `${String.fromCodePoint(cp)}(U+${cp.toString(16).toUpperCase().padStart(4, "0")})`).join(" ");
-    add("warning", `書体 ${fontPaths.join(", ")} の和集合に無い字 ${missing.length} 件 (${sample})。要素ごとの書体の欠けは検出できません。`);
+    add("warning", lintText('lint-messages.overlays.font.glyphsMissing', { fonts: fontPaths.join(", "), count: missing.length, n: missing.length, sample }));
   }
 }
 

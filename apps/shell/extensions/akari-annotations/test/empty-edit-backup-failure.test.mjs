@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -9,6 +11,12 @@ import ts from 'typescript';
 
 import { applyMigration, planMigration } from '../../../../../packages/edit-store/lib/migrate/index.js';
 
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+
 function widgetMigrationMethod() {
   const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
   const start = source.indexOf('    protected async resolveLegacyEditForOpen(');
@@ -18,7 +26,7 @@ function widgetMigrationMethod() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports = {};
-  vm.runInContext(compiled, vm.createContext({ exports }), { filename: 'akari-annotations-widget.ts' });
+  vm.runInContext(compiled, vm.createContext({ exports, t: annotationT, i18n_1: annotationI18n }), { filename: 'akari-annotations-widget.ts' });
   return exports.Widget;
 }
 

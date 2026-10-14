@@ -1,3 +1,5 @@
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
@@ -17,7 +19,11 @@ import {
   audioKeyframeZoomWindow,
 } from '../lib/common/audio-keyframe-editor-geometry.js';
 
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
+
 const dialog = readFileSync(new URL('../src/browser/akari-audio-keyframe-dialog.ts', import.meta.url), 'utf8');
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 const widget = readSourceFile('widget').text;
 
 function section(source, startNeedle, endNeedle) {
@@ -87,7 +93,8 @@ test('裁定1: close と accept 共通の detach で Audio 停止と AudioContex
 
 test('裁定1: 非対応コーデックは指定の1行だけを再生状態へ表示する', () => {
   const failed = section(dialog, 'protected readonly playbackFailed', 'protected async togglePlayback()');
-  assert.match(failed, /textContent = 'この形式は再生未対応'/u);
+  assert.match(failed, /textContent = t\('annotations\.audioKeyframeDialog\.text\.thisFormatIsNotSupportedForPlayback'\)/u);
+  assert.equal(ja['annotations.audioKeyframeDialog.text.thisFormatIsNotSupportedForPlayback'], 'この形式は再生未対応');
   assert.doesNotMatch(failed, /ffmpeg/iu);
 });
 

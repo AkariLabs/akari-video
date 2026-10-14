@@ -1,6 +1,12 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { captionRunRows } = await import('../lib/browser/inspector/caption-run-rows.js');
+
 
 test('インスペクターの文字範囲は表示文字列の書記素で示す', () => {
     assert.deepEqual(captionRunRows('A👩‍👩‍👧‍👦最高', [

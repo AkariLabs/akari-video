@@ -70,6 +70,7 @@ All contracts follow the
 | File | Contents |
 |---|---|
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | The canonical agent-native architecture rationale (three-layer sandwich, editing model, MVP milestones) |
+| [contract-2026-10-11-ui-i18n.md](./contract-2026-10-11-ui-i18n.md) | UI catalogs, language selection, formatting, and the Japanese text ratchet |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | Versioning and migration principles for data contracts (cross-cutting) |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | Where generated artifacts live (layer definitions, root-level principle, deletion safety) |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | The workspace (CreatorRoot) contract — the layer above projects. Three locations, four ownership layers, first-run flow, portability |
@@ -79,6 +80,7 @@ All contracts follow the
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | Generation v0: placeholder clips, nine normalized input slots, sidecar metadata, model capabilities, state, planned videos, replacement, cost approval, and frame capture (Japanese) |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
+| [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | Content language storage, resolution order, normalization, and language-pack fallback |
 
 ### edit.json (the editing save file)
 
@@ -98,12 +100,14 @@ All contracts follow the
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, picker batch-apply RPC, row badges, and the three free caption presets (Japanese) |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | My Styles v0: portable parts bundle, library storage, effective caption look capture, and value-copy application (Japanese) |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | Caption grapheme range styles, overlap precedence, rendering, and text edit rebasing (Japanese) |
+| [contract-2026-10-12-caption-look-v1.md](./contract-2026-10-12-caption-look-v1.md) | Caption look v1 data shape, size conversion, run identity, anchors, migration, and validation (Japanese) |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | Rich textstyle v1 vocabulary, layered strokes, gradient and pattern fills, rendering paths, and overlay boundary (Japanese) |
 | [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | Asset tier contract v1: free / pro tier field, price deprecation, compatibility rule, pro-vs-CC0 validation, and library-side locking (Japanese) |
 | [contract-2026-10-06-timeline-ripple-v0.md](./contract-2026-10-06-timeline-ripple-v0.md) | Timeline cut, shift, split, and gap closure kernel for edit.json v2 (Japanese) |
 | [contract-2026-10-07-material-ranges-v0.md](./contract-2026-10-07-material-ranges-v0.md) | Persistent non-destructive material in/out ranges, strip handles, and timeline placement |
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | Task contract v0 (Japanese) |
 | [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | Channel people records, local photo and voice files, speaker links, and design assets (Japanese) |
+| [contract-2026-10-11-speaker-split-v0.md](./contract-2026-10-11-speaker-split-v0.md) | Optional speaker diarization, local voice matching suggestions, and human speaker decisions (Japanese) |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`edit-lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |

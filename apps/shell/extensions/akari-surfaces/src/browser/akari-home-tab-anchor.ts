@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { ApplicationShell, Widget } from '@theia/core/lib/browser';
 import { Disposable } from '@theia/core/lib/common';
 
@@ -43,8 +44,8 @@ export function installHomeTabAnchor(shell: ApplicationShell, home: Widget): Dis
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'akari-home-tab-anchor codicon codicon-home';
-            button.setAttribute('aria-label', 'ホーム');
-            button.title = 'ホーム';
+            button.setAttribute('aria-label', t('surfaces.home.refreshBarsHome.button'));
+            button.title = t('surfaces.home.refreshBarsHome.tooltip');
             button.hidden = true;
             Object.assign(button.style, {
                 // flex 項目にすると表示のたびにスクローラーが 36px 縮み、判定へ戻ってしまう。

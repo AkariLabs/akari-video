@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { captionOutlineRuntime } from '@akari-video/edit-store';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import { CommandContribution } from '@theia/core/lib/common';
 import { WidgetFactory } from '@theia/core/lib/browser';
@@ -17,6 +19,8 @@ import { AkariGpuPreferenceContribution } from './akari-gpu-preference-contribut
 import { AkariPreviewOpenHandler } from './akari-preview-open-handler';
 import { AkariOutputPreviewOpenHandler } from './akari-output-preview-open-handler';
 import { ConnectionDiagnosticsContribution } from './connection-diagnostics-contribution';
+
+captionOutlineRuntime().install(document);
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariAudioMeterWidget).toSelf();
@@ -59,23 +63,23 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                 'akari.preview.frameEngine': {
                     type: 'boolean',
                     default: true,
-                    description: 'frame-engine の製品プレビューを使います（false で従来の video プレビュー）。'
+                    description: t('preview.previewSettings.description.useFrameEngineProductPreviewFalseUsesLegacyDescription')
                 },
                 'akari.preview.exportLook': {
                     type: 'boolean',
                     default: false,
-                    description: '書き出しの見え方でプレビューを表示します（生成クリップの小札・帯・シマー・編集領域の点線を隠す）。書き出しの結果は変わりません。'
+                    description: t('preview.previewSettings.description.showPreviewAppearExportHideGenerationLabelsBandsDescription')
                 },
                 'akari.preview.renderScale': {
                     type: 'string',
                     enum: ['auto', '1', '0.5', '0.25'],
                     default: 'auto',
-                    description: '合成面の辺あたり描画倍率。auto は表示サイズに合わせ、停止後は等倍で描き直します。プレビュー専用。書き出しと画像の位置・大きさには影響しません。'
+                    description: t('preview.previewSettings.description.renderScaleEdgeCompositionAutoMatchesDisplaySizeDescription')
                 },
                 'akari.preview.highPerformanceGpu': {
                     type: 'boolean',
                     default: false,
-                    description: 'プレビュー（デコード / 描画）を高性能 GPU で動かします。Windows のアプリ別 GPU 設定に書き込み、次回起動から有効。アプリ全体が高性能 GPU で動きます。'
+                    description: t('preview.previewSettings.description.highPerformanceGpuDescription')
                 }
             }
         }

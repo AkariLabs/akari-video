@@ -1,6 +1,9 @@
+import { t } from '@akari-video/i18n';
 import { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
-import { scaledCaptionLook, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
-import { CAPTION_DEFAULT_SIZE_PX } from 'akari-preview/lib/common/textstyle-sample';
+import { TEXTSTYLE_CATALOG, CAPTION_ROW_LOOK_FIELDS as LOOK_FIELDS, sanitizeMyStyleLook,
+    planCaptionStyleEdit,
+    type CaptionRoot, type CaptionStyleSource, type TextstyleCatalog } from '@akari-video/edit-store';
+export { sanitizeMyStyleLook, scaledLookForCaption, captionEffectiveSize } from '@akari-video/edit-store';
 export { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 
 import { mergeCaptionTextStyles, type CaptionAnimation, type CaptionTextStyle, type CaptionTextStylePatch } from '../common/caption-store';
@@ -15,14 +18,6 @@ const KEYS: Readonly<Record<string, string>> = {
     blurPx: 'blur_px', distancePx: 'distance_px', angleDeg: 'angle_deg', spread: 'spread'
 };
 const SKIP = new Set(['position', 'textAnchor', 'text_anchor', 'zone', 'animation', 'layout']);
-const LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>> = {
-    color: true, size_px: true, reference_height_px: true, font_family: true,
-    font_weight: true, weight: true, line_height: true, letter_spacing_em: true,
-    text_transform: true, fill: true, strokes: true,
-    stroke: ['color', 'width_px'], background: ['color', 'opacity', 'radius_px', 'padding_px', 'mode'],
-    shadow: ['color', 'opacity', 'blur_px', 'distance_px', 'angle_deg'],
-    glow: ['color', 'density', 'spread', 'offset_x', 'offset_y']
-};
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 export function newMyStyleUid(now = Date.now()): string {
@@ -44,7 +39,7 @@ export function myStyleOutputHeight(editSource: string): number {
     const edit = JSON.parse(editSource) as { output?: { height?: unknown } };
     const height = edit.output?.height;
     if (typeof height !== 'number' || !Number.isInteger(height) || height < 1) {
-        throw new Error('出力解像度の高さを確認できません。');
+        throw new Error(t('annotations.myStyleLook.text.unableToCheckOutputResolutionHeight'));
     }
     return height;
 }
@@ -112,82 +107,79 @@ export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: u
     const height = cue.reference_height_px ?? cue.referenceHeightPx
         ?? base.reference_height_px ?? base.referenceHeightPx;
     if (layout !== undefined && height !== undefined) {
-        throw new Error('既定のスタイルを含めて layout と基準高さが重なるため、マイスタイルを当てられません。');
+        throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
     }
-}
-
-export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
-    if (!record(value)) return {};
-    const look: Record<string, unknown> = {};
-    for (const [key, allowed] of Object.entries(LOOK_FIELDS)) {
-        if (!(key in value)) continue;
-        const entry = value[key];
-        if (allowed === true) look[key] = entry;
-        else if (record(entry)) look[key] = Object.fromEntries(
-            Object.entries(entry).filter(([field]) => allowed.includes(field)));
-    }
-    return look;
-}
-
-export function scaledLookForCaption(look: Record<string, unknown>, targetSize: number): Record<string, unknown> {
-    return scaledCaptionLook(look, targetSize);
-}
-
-export function captionEffectiveSize(row: Record<string, unknown>, defaultStyle: Record<string, unknown>,
-    catalog: Record<string, { style: Record<string, unknown> }> = TEXTSTYLE_CATALOG): number {
-    const before = record(row.text_style) ? row.text_style : {};
-    const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
-    const presetStyle = record(preset) ? preset : {};
-    const size = before.size_px ?? presetStyle.size_px ?? defaultStyle.size_px ?? CAPTION_DEFAULT_SIZE_PX;
-    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : CAPTION_DEFAULT_SIZE_PX;
 }
 
 /** One source write replaces every look field and removes style_preset on all selected cues. */
 export function replaceMyStylePartsInSource(source: string, ids: readonly string[],
     parts: readonly { kind: string; text_style?: unknown; animation?: unknown }[],
     options: { keepSize?: boolean; catalog?: Record<string, { style: Record<string, unknown> }>;
-        motionDelta?: CaptionMotionDelta } = {}): string {
+        motionDelta?: CaptionMotionDelta; source?: CaptionStyleSource; now?: string | Date } = {}): string {
+    const keepSize = options.keepSize !== false;
     const lookPart = parts.find(part => part.kind === 'look');
     const motionPart = parts.find(part => part.kind === 'motion');
     const look = sanitizeMyStyleLook(lookPart?.text_style);
-    const document = JSON.parse(source) as unknown;
+    const document = JSON.parse(source) as CaptionRoot;
     const rows = Array.isArray(document) ? document
         : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
-    if (!rows) throw new Error('字幕データを読み取れません。');
-    const defaultStyle = record(document) && record(document.default_text_style) ? document.default_text_style : {};
+    if (!rows) throw new Error(t('annotations.myStyleLook.text.unableToReadSubtitleData'));
     const catalog = options.catalog ?? TEXTSTYLE_CATALOG;
+    const index = new Map<string, { row: Record<string, unknown>; position: number; count: number }>();
+    rows.forEach((row, position) => {
+        if (!record(row) || typeof row.id !== 'string') return;
+        const prior = index.get(row.id);
+        index.set(row.id, { row, position, count: (prior?.count ?? 0) + 1 });
+    });
+    const targets: Array<{ caption_id: string; parts: { look?: Record<string, unknown>; motion?: Record<string, unknown> } }> = [];
+    const orders: Array<{ id: string; before: Record<string, unknown> }> = [];
     for (const id of new Set(ids)) {
-        const matches = rows.filter(row => record(row) && row.id === id);
-        if (matches.length !== 1) throw new Error(`字幕 ${id} が一意に見つかりません。`);
-        const row = matches[0] as Record<string, unknown>;
+        const match = index.get(id);
+        if (!match || match.count !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
+        if (!lookPart && !motionPart) continue;
+        const row = match.row;
         const before = record(row.text_style) ? row.text_style : {};
-        const next = { ...before };
-        if (lookPart) {
-            for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
-            if (options.keepSize) {
-                const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
-                const presetStyle = record(preset) ? preset : {};
-                const targetSize = captionEffectiveSize(row, defaultStyle, catalog);
-                const referenceHeight = before.reference_height_px ?? presetStyle.reference_height_px
-                    ?? defaultStyle.reference_height_px;
-                Object.assign(next, scaledLookForCaption(look, targetSize));
-                next.size_px = targetSize;
-                if (referenceHeight !== undefined) next.reference_height_px = referenceHeight;
-            } else Object.assign(next, look);
-            assertMyStyleLayoutCompatible(defaultStyle, next);
-            delete row.style_preset;
-        }
-        if (motionPart) {
-            if (options.motionDelta) {
-                const animation = applyCaptionMotionDelta(before.animation, options.motionDelta);
-                if (Object.keys(animation).length) next.animation = animation;
-                else delete next.animation;
-            } else next.animation = motionPart.animation;
-        }
-        if (Object.keys(next).length) row.text_style = next;
-        else delete row.text_style;
+        if (lookPart && !keepSize) assertMyStyleLayoutCompatible(
+            record(document) ? document.default_text_style : undefined, { ...before, ...look });
+        const motion = motionPart && options.motionDelta
+            ? applyCaptionMotionDelta(before.animation, options.motionDelta) : motionPart?.animation;
+        const partsToApply = {
+            ...(lookPart ? { look } : {}),
+            ...(motionPart ? { motion: record(motion) ? motion : {} } : {})
+        };
+        targets.push({ caption_id: id, parts: partsToApply });
+        orders.push({ id, before });
     }
-    return `${JSON.stringify(document, null, 2)}\n`;
+    let next = document;
+    if (targets.length) try {
+        next = planCaptionStyleEdit({ captions: document, targets,
+            parts: {}, source: options.source, now: options.now, catalog: catalog as TextstyleCatalog,
+            legacy: { preset: 'drop', ...(keepSize ? {} : { size: 'style' }) } }).next.captions;
+    } catch (error) {
+            if (error instanceof Error && (error as Error & { code?: string }).code
+                === 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT') {
+                throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
+            }
+            throw error;
+    }
+    const nextRows = Array.isArray(next) ? next : next.captions;
+    for (const { id, before } of orders) {
+        const nextRow = nextRows[index.get(id)!.position];
+        if (nextRow && record(nextRow.text_style)) {
+            const style = nextRow.text_style;
+            const order = [
+                ...Object.keys(before).filter(key => !lookPart || !Object.prototype.hasOwnProperty.call(LOOK_FIELDS, key)),
+                ...(lookPart ? [...Object.keys(look).filter(key => !keepSize
+                    || key !== 'size_px' && key !== 'reference_height_px'),
+                    ...(keepSize ? ['size_px', 'reference_height_px'] : [])] : []),
+                ...(motionPart ? ['animation'] : []), ...Object.keys(style)
+            ];
+            const ordered: Record<string, unknown> = {};
+            for (const key of order) if (Object.prototype.hasOwnProperty.call(style, key)) ordered[key] = style[key];
+            nextRow.text_style = ordered;
+        }
+    }
+    return `${JSON.stringify(next, null, 2)}\n`;
 }
 
 export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown,
@@ -301,7 +293,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
     };
     for (const captionId of targets) {
         const caption = captions.find(candidate => candidate.id === captionId);
-        if (!caption) throw new Error(`字幕 ${captionId} が見つかりません。`);
+        if (!caption) throw new Error(t('annotations.myStyleLook.text.subtitleNotFound', { id: captionId }));
         for (const part of parts) {
             if (!supportedMyStyleAttachPart(part)) continue;
             const attach = part.attach as { at?: string; offset_frames?: number } | undefined;
@@ -322,7 +314,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
                 const category = part.kind === 'sfx' ? 'audio' : 'overlay';
                 if (asset?.category !== category || typeof asset.id !== 'string' || typeof part.file !== 'string'
                     || !assetLocation(`assets/${category}/${asset.id}/${part.file}`, category))
-                    throw new Error(`${part.kind} の素材参照が不正です。`);
+                    throw new Error(t('annotations.myStyleLook.text.theMaterialReferenceForIsInvalid', { kind: part.kind }));
                 const path = `assets/${category}/${asset.id}/${part.file}`;
                 if (part.kind === 'sfx') {
                     let source = next.sources.find(candidate => candidate.path === path);
@@ -352,7 +344,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
 export function appendMyStyleUsage(source: string | undefined, entry: MyStyleUsageEntry): string {
     const document = source ? JSON.parse(source) as unknown : { version: 1, entries: [] };
     if (!record(document) || document.version !== 1 || !Array.isArray(document.entries)) {
-        throw new Error('スタイル利用台帳の保存形を確認できません。');
+        throw new Error(t('annotations.myStyleLook.text.theStorageFormatOfTheStyleUsage'));
     }
     return `${JSON.stringify({ ...document, entries: [...document.entries, entry] }, null, 2)}\n`;
 }
@@ -420,12 +412,12 @@ export function unsupportedMyStyleLookFields(value: unknown): string[] {
 }
 
 const PART_LABELS: Readonly<Record<string, string>> = {
-    look: '見た目', motion: '動き', sfx: '効果音', fx: '画面効果', decor: '装飾', camera: 'カメラ'
+    get look() { return t('annotations.myStyleLook.text.appearance'); }, get motion() { return t('annotations.myStyleLook.text.movement'); }, get sfx() { return t('annotations.myStyleLook.text.soundEffects'); }, get fx() { return t('annotations.myStyleLook.text.screenEffects'); }, get decor() { return t('annotations.myStyleLook.text.decoration'); }, get camera() { return t('annotations.myStyleLook.text.camera'); }
 };
 const FIELD_LABELS: Readonly<Record<string, string>> = {
-    italic: '斜体', underline: '下線', align: '文字揃え', vertical: '縦書き',
-    'background.width_pct': '座布団の幅', 'background.height_pct': '座布団の高さ',
-    max_width_pct: '文字の最大幅', text_transform: '文字変換'
+    get italic() { return t('annotations.myStyleLook.text.italic'); }, get underline() { return t('annotations.myStyleLook.text.underline'); }, get align() { return t('annotations.myStyleLook.text.characterAlignment'); }, get vertical() { return t('annotations.myStyleLook.text.verticalWriting'); },
+    get 'background.width_pct'() { return t('annotations.myStyleLook.text.widthOfCushion'); }, get 'background.height_pct'() { return t('annotations.myStyleLook.text.heightOfCushion'); },
+    get max_width_pct() { return t('annotations.myStyleLook.text.maximumCharacterWidth'); }, get text_transform() { return t('annotations.myStyleLook.text.characterConversion'); }
 };
 
 export function myStyleApplyNotice(parts: readonly { kind: string; mode?: unknown; text_style?: unknown }[],
@@ -437,8 +429,8 @@ export function myStyleApplyNotice(parts: readonly { kind: string; mode?: unknow
         ...unsupportedMyStyleLookFields(look?.text_style).map(field => FIELD_LABELS[field] ?? field)
     ])];
     if (!ignored.length) return undefined;
-    const labels = ignored.length > 3 ? `${ignored.slice(0, 3).join('・')}ほか` : ignored.join('・');
-    return `${labels} は当てません。`;
+    const labels = ignored.length > 3 ? t('annotations.myStyleLook.text.andOthers', { labels: ignored.slice(0, 3).join(t('annotations.myStyleLook.list.separator')) }) : ignored.join(t('annotations.myStyleLook.list.separator'));
+    return t('annotations.myStyleLook.text.isNotApplicable', { label: labels });
 }
 
 /** Put the look in the new cue before insertCaption, keeping its default position. */

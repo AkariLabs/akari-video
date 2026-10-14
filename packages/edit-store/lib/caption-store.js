@@ -11,6 +11,7 @@ exports.updateCaptionRunsInSource = updateCaptionRunsInSource;
 exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
 exports.captionEditNotices = captionEditNotices;
 exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
+exports.applyWordBookToCaptionsInSourceWithNotices = applyWordBookToCaptionsInSourceWithNotices;
 exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
 exports.insertCaptionLine = insertCaptionLine;
@@ -24,6 +25,7 @@ const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_merge_1 = require("./textstyle-catalog-merge");
 const caption_display_1 = require("./caption-display");
 const caption_look_scale_1 = require("./caption-look-scale");
+const caption_style_command_1 = require("./caption-style-command");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -331,21 +333,35 @@ function captionEditNotices(result, oldDisplayText) {
         captionEmphasisRemovedNotice(result.removedEmphasis)].filter((notice) => !!notice);
 }
 function applyWordBookToCaptionsInSource(source, changes) {
+    return applyWordBookToCaptionsInSourceWithNotices(source, changes).source;
+}
+function applyWordBookToCaptionsInSourceWithNotices(source, changes) {
     if (changes.length === 0) {
-        return source;
+        return { source, notices: [] };
     }
     let output = source;
+    const notices = [];
     for (const change of changes) {
         const array = locateCaptionArray(output);
         const element = findCaptionElement(array.elements, change.id);
         let nextElement = element.text;
+        const previous = JSON.parse(element.text);
+        if (Array.isArray(previous.runs) && previous.runs.length) {
+            const oldDisplay = previous.display_text ?? previous.text;
+            const newDisplay = change.display_text ?? change.text;
+            const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, previous.runs, { mode: 'project' });
+            const notice = (0, caption_runs_1.captionRunsRemovedNotice)(rebased.removed, oldDisplay);
+            if (notice)
+                notices.push(notice);
+            nextElement = syncOptionalCaptionProperty(nextElement, 'runs', rebased.runs.length ? rebased.runs : undefined, change.id);
+        }
         nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
         nextElement = syncOptionalCaptionProperty(nextElement, 'words', change.words, change.id);
         nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', change.display_text, change.id);
         nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
     }
-    return output;
+    return { source: output, notices };
 }
 function updateCaptionTextStyleInSource(source, captionId, updates, options = {}) {
     if (!captionId) {
@@ -355,17 +371,53 @@ function updateCaptionTextStyleInSource(source, captionId, updates, options = {}
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
-    const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
-    if (updates.sizePx !== undefined) {
-        const record = JSON.parse(nextElement);
+    const suppliedCatalog = options.catalog;
+    const catalog = suppliedCatalog ?? (Object.keys(options).length
+        ? options : (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
+    const originalRecord = JSON.parse(nextElement);
+    const rootRecord = JSON.parse(source);
+    const defaultLook = isRecord(rootRecord) && isRecord(rootRecord.default_text_style)
+        ? rootRecord.default_text_style : {};
+    const cueLook = isRecord(originalRecord.text_style) ? originalRecord.text_style : {};
+    const useSizePlan = typeof updates.sizePx === 'number' && ((Array.isArray(originalRecord.runs) && originalRecord.runs.length > 0)
+        || (!originalRecord.style_preset && !isRecord(originalRecord.style_sources)
+            && cueLook.fill === undefined && cueLook.strokes === undefined
+            && (defaultLook.shadow !== undefined || defaultLook.glow !== undefined
+                || cueLook.shadow !== undefined || cueLook.glow !== undefined)));
+    if (useSizePlan) {
+        const planned = (0, caption_style_command_1.planCaptionSizeEdit)({ captions: JSON.parse(source),
+            targets: [{ caption_id: captionId }], size_px: updates.sizePx, catalog });
+        if (planned.changed.length) {
+            const rows = Array.isArray(planned.next.captions) ? planned.next.captions : planned.next.captions.captions;
+            const row = rows.find(candidate => candidate.id === captionId);
+            for (const key of ['text_style', 'runs', 'style_sources', 'style_preset'])
+                nextElement = syncOptionalCaptionProperty(nextElement, key, row[key], captionId);
+        }
+        updates = { ...updates, sizePx: undefined };
+    }
+    else if (updates.sizePx !== undefined) {
         const root = JSON.parse(source);
         const defaultStyle = isRecord(root) && isRecord(root.default_text_style) ? root.default_text_style : {};
-        const preset = presetStyle(catalog, record.style_preset);
+        const preset = presetStyle(catalog, originalRecord.style_preset);
         const fallbackSize = typeof preset?.size_px === 'number' && preset.size_px > 0
             ? preset.size_px : defaultStyle.size_px;
         const nextSize = updates.sizePx === null ? fallbackSize : updates.sizePx;
         if (typeof nextSize === 'number' && Number.isFinite(nextSize) && nextSize > 0) {
             nextElement = rescaleCaptionPresetParts(nextElement, nextSize, source, catalog);
+            const oldSize = typeof cueLook.size_px === 'number' && cueLook.size_px > 0
+                ? cueLook.size_px : typeof defaultStyle.size_px === 'number' && defaultStyle.size_px > 0
+                ? defaultStyle.size_px : (0, caption_display_1.captionDefaultSizePx)();
+            if (updates.sizePx !== null && nextSize !== oldSize && !preset
+                && (cueLook.strokes !== undefined || cueLook.fill !== undefined)) {
+                const scaledStyle = { ...JSON.parse(nextElement).text_style };
+                for (const key of ['strokes', 'fill']) {
+                    if (cueLook[key] === undefined)
+                        continue;
+                    const scaled = (0, caption_look_scale_1.scaledCaptionLookPart)(key, cueLook[key], nextSize / oldSize);
+                    scaledStyle[key] = JSON.parse(JSON.stringify(scaled, (_key, value) => typeof value === 'number' ? Number(value.toFixed(6)) : value));
+                }
+                nextElement = syncOptionalCaptionProperty(nextElement, 'text_style', scaledStyle, captionId);
+            }
         }
     }
     const record = JSON.parse(nextElement);
@@ -444,7 +496,14 @@ function updateCaptionTextStyleInSource(source, captionId, updates, options = {}
             ? removeObjectProperty(nextElement, 'text_style')
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
-    return replaceElement(source, array.openIndex + 1, element, nextElement);
+    const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+    if (updated !== source) {
+        const base = array.defaultTextStyle;
+        const before = { captions: [JSON.parse(element.text)], default_text_style: base };
+        const after = { captions: [JSON.parse(nextElement)], default_text_style: base };
+        (0, caption_style_command_1.assertChangedCaptionStyles)(before, after, ['captions[0].text_style']);
+    }
+    return updated;
 }
 function presetStyle(catalog, id) {
     if (typeof id !== 'string')
@@ -800,9 +859,15 @@ function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
         const split = textA.length;
         const rawText = String(record.text);
         const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
-        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs;
-        const runsA = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, 0, split);
-        const runsB = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, split, rawText.length);
+        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs, { mode: 'project' }).runs;
+        const document = JSON.parse(source);
+        const allRuns = (Array.isArray(document) ? document : document.captions ?? [])
+            .flatMap(row => row.runs ?? []);
+        if (!Array.isArray(document))
+            allRuns.push(...(document.unresolved_runs ?? []).flatMap(item => item.run ? [item.run] : []));
+        const pieces = (0, caption_runs_1.splitCaptionRuns)(rawText, runs, split, { start: Number(recordA.start), end: Number(recordA.end) }, { start: Number(recordB.start), end: Number(recordB.end) }, allRuns);
+        const runsA = pieces.left;
+        const runsB = pieces.right;
         if (runsA)
             recordA.runs = runsA;
         else
@@ -851,15 +916,15 @@ function mergeCaptionLines(source, captionIds) {
     };
     if (records.some(record => Array.isArray(record.runs))) {
         let offset = 0;
-        const mergedRuns = (0, caption_runs_1.joinAdjacentCaptionRuns)(records.flatMap(record => {
+        const mergedRuns = records.flatMap(record => {
             const rawText = String(record.text ?? '');
             const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
             const runs = Array.isArray(record.runs)
-                ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs : [];
+                ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs, { mode: 'project' }).runs : [];
             const projected = runs.map(run => ({ ...run, from: run.from + offset, to: run.to + offset }));
             offset += (0, caption_runs_1.captionGraphemes)(rawText).length;
             return projected;
-        }));
+        });
         if (mergedRuns.length > 0)
             survivor.runs = mergedRuns;
         else
@@ -922,33 +987,40 @@ function normalizeCaption(value, onTextStyleUnknownKeys) {
         ...(unrecognized !== undefined ? { unrecognized } : {}),
         ...(value.time_domain === 'source' || value.time_domain === 'output'
             ? { timeDomain: value.time_domain } : {}),
-        ...(textStyle !== undefined ? { textStyle } : {})
+        ...(textStyle !== undefined ? { textStyle } : {}),
+        ...(isRecord(value.style_sources) ? { styleSources: value.style_sources } : {})
     };
 }
 function locateCaptionArray(source) {
-    const value = JSON.parse(source);
     const rootStart = source.search(/\S/);
     if (rootStart < 0) {
         throw new Error('字幕データの形式を確認できません。');
     }
     let openIndex;
-    if (Array.isArray(value) && source[rootStart] === '[') {
+    let defaultTextStyle;
+    if (source[rootStart] === '[') {
         openIndex = rootStart;
     }
-    else if (isRecord(value) && Array.isArray(value.captions) && source[rootStart] === '{') {
+    else if (source[rootStart] === '{') {
         const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
         if (source.slice(rootClose + 1).trim()) {
             throw new Error('字幕データの形式を確認できません。');
         }
         const rootInner = source.slice(rootStart + 1, rootClose);
-        const captionsProperties = (0, edit_store_1.splitTopLevelElements)(rootInner)
+        const properties = (0, edit_store_1.splitTopLevelElements)(rootInner);
+        const captionsProperties = properties
             .filter(element => /^"captions"\s*:/.test(element.text));
         if (captionsProperties.length !== 1) {
             throw new Error('字幕データの captions 配列を特定できません。');
         }
         const property = captionsProperties[0];
+        const defaultProperty = properties.find(element => /^"default_text_style"\s*:/.test(element.text));
+        if (defaultProperty)
+            defaultTextStyle = JSON.parse(defaultProperty.text.slice(defaultProperty.text.indexOf(':') + 1));
         const propertyOffset = rootStart + 1 + property.start;
         const colonIndex = property.text.indexOf(':');
+        if (!/^\s*\[/.test(property.text.slice(colonIndex + 1)))
+            throw new Error('字幕データの captions 配列を特定できません。');
         openIndex = source.indexOf('[', propertyOffset + colonIndex + 1);
         if (openIndex < 0 || openIndex >= rootStart + 1 + property.end) {
             throw new Error('字幕データの captions 配列を特定できません。');
@@ -958,7 +1030,7 @@ function locateCaptionArray(source) {
         throw new Error('字幕データの形式を確認できません。');
     }
     const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
-    if (Array.isArray(value) && source.slice(closeIndex + 1).trim()) {
+    if (source[rootStart] === '[' && source.slice(closeIndex + 1).trim()) {
         throw new Error('字幕データの形式を確認できません。');
     }
     const inner = source.slice(openIndex + 1, closeIndex);
@@ -966,7 +1038,8 @@ function locateCaptionArray(source) {
         openIndex,
         closeIndex,
         inner,
-        elements: (0, edit_store_1.splitTopLevelElements)(inner)
+        elements: (0, edit_store_1.splitTopLevelElements)(inner),
+        defaultTextStyle
     };
 }
 function captionElementEntries(elements) {
@@ -1124,6 +1197,9 @@ function serializeCaption(caption) {
     if (caption.textStyle !== undefined) {
         parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
     }
+    if (caption.styleSources !== undefined) {
+        parts.push(`"style_sources": ${JSON.stringify(caption.styleSources)}`);
+    }
     if (caption.extra?.display_timing !== undefined) {
         parts.push(`"display_timing": ${JSON.stringify(caption.extra.display_timing)}`);
     }
@@ -1133,7 +1209,7 @@ function serializeCaption(caption) {
     const schemaKeys = new Set([
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style', 'display_timing', 'runs'
+        'display_fragments', 'style_preset', 'text_style', 'style_sources', 'display_timing', 'runs'
     ]);
     for (const [key, value] of Object.entries(caption.extra ?? {})) {
         if (value !== undefined && !schemaKeys.has(key)) {
@@ -1146,7 +1222,7 @@ function serializeCaptionRaw(value) {
     const schemaKeys = [
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style', 'display_timing', 'runs'
+        'display_fragments', 'style_preset', 'text_style', 'style_sources', 'display_timing', 'runs'
     ];
     const known = new Set(schemaKeys);
     const parts = [];

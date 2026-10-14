@@ -1191,6 +1191,28 @@ function response(key) {
   };
 }
 
+test('window-contained speech starts at its window and keeps seek-time gain', async t => {
+  const context = new FakeContext(new Map([[1, buffer(5)]]));
+  const schedules = [];
+  const speech = [{ id: 'inside', src: 'inside', url: '/inside', atSec: 4,
+    durationSec: 1, inSec: 0, outSec: 1, speed: 1, materialDurationSec: 1,
+    crossfadeInSec: 1, fadeInAtStart: true }];
+  const supply = createPreviewAudioSupply({ timelineDurationSec: 5, speech,
+    contextFactory: () => context, fetchImpl: async () => response(1),
+    scheduleBuilder: input => {
+      const result = buildWebAudioSchedule(input);
+      schedules.push(result);
+      return result;
+    } });
+  t.after(() => supply.dispose());
+  supply.playFrom(4.5);
+  await flush();
+  const item = schedules[schedules.length - 1].items.find(value => value.id === 'inside');
+  assert.ok(item);
+  assert.equal(item.timelineStartSec, 4.5);
+  assert.equal(item.gainEvents[0].value, 0.5);
+});
+
 async function settle() {
   for (let index = 0; index < 50; index += 1) await Promise.resolve();
 }

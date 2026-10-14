@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from '../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
@@ -21,6 +23,8 @@ import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SE
 import { ANNOTATIONS_WIDGET_CSS } from './style/annotations-widget-style';
 import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars, overlayBoxWithinDelay,
     parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../common/overlay-place';
+import { isScene3dPath, scene3dPlacementVars, scene3dScreenTextureVar, scene3dScreenVars,
+    SCENE3D_MAX_SCREEN_BYTES } from '../common/scene3d-item';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
 import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWrapRequest } from '../common/preview-caption-wrap';
@@ -58,15 +62,19 @@ import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
 import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWriteBatch,
     selectGenerationSidecarForSource, setCaptionTimingLine, setSourceSyncGroup,
-    type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
+    type ItemV2, type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { isCurrentPhotoResponse } from './inspector/photo-response-state';
 import { buildAdoptedPhotoRegion, photoAdoptionPolarity } from './inspector/photo-panel-state';
 import { writeNestedPreviewLayer } from './inspector/nested-preview-layer';
+import { treeItemOutputStart } from './inspector/tree-item-output-start';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
-import { ApplicationShell, BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget, OpenerService, StorageService, WidgetManager, open } from '@theia/core/lib/browser';
+import { Message } from '@theia/core/shared/@lumino/messaging';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { webviewKeydownSource } from './webview-keydown-source';
 import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
 import { StatusBar } from '@theia/core/lib/browser/status-bar/status-bar';
 import { TimelineZoomBar, ZoomBarPart } from './timeline/timeline-zoom-bar';
@@ -112,11 +120,22 @@ import {
     collectExcludedCaptionIds,
     isStillImageSourcePath,
     isTransitionType,
-    planTransitionHandleWindow,
+    planTrackTransitions,
+    transitionPlanClipsFromCuts,
+    chooseTransitionAlign,
+    isTransitionAlign,
+    type TransitionAlign,
+    type TransitionPlanTrack,
+    type TransitionBoundaryPlan,
+    type TransitionShortenReason,
     removeV2TransitionOutWithHandleRetractInSource,
     serializeMotion,
-    TRANSITION_CATEGORIES,
-    TRANSITION_VOCABULARY,
+    TRANSITION_FAMILIES,
+    transitionFamilyOf,
+    transitionFamilyLabelKey,
+    transitionDirectionLabelKey,
+    TRANSITION_NAME_WITH_DIRECTION_KEY,
+    TRANSITION_UNKNOWN_LABEL_KEY,
     toAnchorCaptions,
     resolveItemAnchors,
     removeStyleAttachedItems,
@@ -125,7 +144,7 @@ import {
     withNewerVersionLintPrefix,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
-import type { InternalTrack, ProjectItemV2, TransitionType } from '@akari-video/edit-store';
+import type { InternalTrack, ProjectItemV2, TransitionFamily, TransitionDirection } from '@akari-video/edit-store';
 import { scanHtmlParts } from 'akari-preview/lib/common/preview-parts';
 import {
     AkariAnnotationsService,
@@ -289,7 +308,9 @@ import {
     removeV2KeyframePoint,
     setV2Keyframe,
     activateV2ItemTransformKeyframe,
+    activateV2ItemRotation3dKeyframe,
     writeV2ItemTransformAt,
+    writeV2ItemVarsAt,
     writeV2ItemOpacityAt,
     setV2SegmentEasing,
     ungroupTreeV2Item,
@@ -351,7 +372,15 @@ import {
     TimelineTrackDropLayout
 } from '../common/timeline-track-drop';
 import { hitTestTimelineTreeDrop, TimelineTreeDropHit } from '../common/timeline-tree-drop';
-import { computeCutBoundaries } from '../common/cut-boundaries';
+import { computeCutBoundaryCandidates } from '../common/cut-boundaries';
+import { boundaryBandGeometry, placeBoundary, primaryBoundaryBlock,
+    sameBoundary, sourceEdgeMarks, TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID,
+    type BoundaryRef, type BoundaryBlock } from '../common/transition-boundary-model';
+import { resolveBoundaryInDocument, validateTransitionBoundaryWrite } from '../common/transition-boundary-write';
+import { renderTransitionBoundaryView, renderSourceEdgeMarks } from './transition-boundary-view';
+import { createTransitionPicker, type TransitionPicker, type TransitionPreviewUrls } from './transition-picker';
+import { createTransitionFillAsk, type TransitionFillAsk } from './transition-fill-ask';
+import { transitionDeclarationIsDead, transitionWriteIsBlocked } from '../common/transition-boundary-state';
 import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
@@ -366,7 +395,12 @@ import {
     TimelineAnnotationTargetKind
 } from '../common/timeline-context-menu-items';
 import { parseTimelineUiTarget } from '../common/doc-target';
-import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
+import { formatTransitionSeconds } from '../common/transition-duration';
+import { cachedTransitionHandleInput } from '../common/transition-handle-plan';
+import { transitionMaterialDuration, transitionDeclarationPatch } from '../common/transition-write-plan';
+import { canFillTransition, compareTransitionConfirmation, confirmedTransitionPatch, decideTransitionWrite,
+    refreshedTransitionConfirmation, transitionFillBodyKey, type TransitionFillFacts } from '../common/transition-fill-write';
+import { transitionFreezeSnapshot, transitionFreezeGrowth } from '../common/transition-freeze-growth';
 import {
     collectEdgeCandidates,
     readStoredSnapEnabled,
@@ -398,7 +432,7 @@ import { closeTimelineContextMenu, openTimelineContextMenu, withAudioTrimMenuIte
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
 import {
     filterSupportedTransitionBoundaries,
-    hitTestTransitionBoundary,
+    nearestTransitionBoundary,
     LibraryTransitionDragPayload,
     LibraryAssetDragPayload,
     LibraryTextStyleDragPayload,
@@ -446,14 +480,18 @@ import {
     focusScopeAtBreadcrumb,
     FocusScopeState,
     initialFocusScope,
+    isPreviewSelectionEscapeEcho,
     rowsInFocusScope,
+    selectionLeavesFocus,
     timelineDoubleClickAction
 } from './focus/focus-scope';
+import { groupsWithoutKeys, type PreviewKeyframeGroup } from './focus/preview-keyframe-prompt';
 import {
     aggregateKeyframeDiamonds,
     deriveTimelineKeyframeRows,
     keyframeValueAt,
     keyframeRowPropertyOf,
+    keyframeDiamondSeekTime,
     KeyframeProperty,
     TimelineKeyframePropertyRow
 } from './timeline/timeline-keyframe-rows';
@@ -496,6 +534,9 @@ import {
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
+import { projectFileContentHash } from '@akari-video/edit-store';
+import { captionCommandHistory } from './caption-command-history';
+import { offerCaptionLookMigration } from './caption-look-migration-offer';
 import { ReviewModel } from './review-model';
 import {
     AudioMasterWriteRequest,
@@ -509,6 +550,7 @@ import {
     TimelineItemSelectionSnapshot,
     TimelineWorldSelection,
     TimelineGapSelection,
+    TimelineTransitionSelection,
     TimelineGapEndpoint,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
@@ -521,6 +563,7 @@ import {
     togglePreviewSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
+import { createTransitionSelection } from '../common/transition-selection-model';
 
 // スキーマは akari-surfaces が所有。拡張間の依存を増やさず文字列をミラーする。
 const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
@@ -641,23 +684,10 @@ const STRIP_TOP_MARGIN = 24;
 const STRIP_BOTTOM_MARGIN = 24;
 const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
-const TRANSITION_BADGE_SIZE_PX = 16;
-const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
-const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'var(--akari-tl-transition-neutral)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
-const TRANSITION_DROP_HIT_TOLERANCE_PX = 24;
-const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
-    + 'すき間を詰めるか、トランジションを削除してください。';
-const ZERO_OVERLAP_TRANSITION_MESSAGE = 'このトランジションは効きません: 素材に余りがありません。'
-    + 'のりしろにできる素材の余りがないため、素材のトリムを調整するか削除してください。';
-const TRANSITION_MIN_DURATION_SECONDS = 0.1;
-const TRANSITION_MAX_DURATION_SECONDS = 3;
-const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY.map(entry => ({
-    type: entry.id,
-    label: entry.labelJa,
-    category: entry.category,
-    glyph: entry.glyph
-}));
+const NON_ADJACENT_TRANSITION_MESSAGE = (): string => t('annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere')
+    + t('annotations.timeline.text.pleaseCloseTheGapOrRemoveTheTransition');
+const ZERO_OVERLAP_TRANSITION_MESSAGE = (): string => t('transition.boundary.dead.noHandle');
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
@@ -809,10 +839,10 @@ const SHAPE_PRESET_COMMAND_ID = 'akari.library.shapePreset';
 const SHAPE_PLACED_EVENT = 'akari.library.shapePlaced';
 const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
 /** 既定の操作案内はツールバーの title、空状態の案内は帯の中央に置く。 */
-const TIMELINE_FOOTER_DEFAULT_HINT =
-    'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
-const TIMELINE_FOOTER_EMPTY_HINT =
-    '素材カードをここへドラッグすると置けます（Finder からのドロップも可）。';
+const TIMELINE_FOOTER_DEFAULT_HINT = (): string =>
+    t('annotations.timeline.text.clickOnTheTimelineToSelectTheTime');
+const TIMELINE_FOOTER_EMPTY_HINT = (): string =>
+    t('annotations.timeline.text.youCanPlaceTheMaterialCardByDragging');
 
 /** ゴースト・ドロップ挿入で使う D&D 中の素材ペイロード（送信側 dataTransfer/CustomEvent の共通形）。 */
 interface MaterialDragPayload {
@@ -969,6 +999,18 @@ export function generationOverhangLabelLayout(
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
+    protected override onAfterHide(msg: Message): void {
+        this.transitionPicker?.close(false);
+        this.transitionFillAsk?.close();
+        super.onAfterHide(msg);
+    }
+
+    override dispose(): void {
+        this.transitionPicker?.close(false);
+        this.transitionFillAsk?.close();
+        super.dispose();
+    }
+
     protected lastCaptionRunNotice: string | undefined;
     protected readonly captionStyleWrites = new CoalescedCaptionWrites<InspectorWriteRequest, InspectorWriteResult>(request =>
         withCaptionPreviewFailure(request, this.handleInspectorWrite(request)));
@@ -999,7 +1041,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly inspectorRequestAdjustLutList = async (): Promise<string[]> => this.location
         ? (await this.annotationsService.listAdjustLuts({ projectRootUri: this.location.root.toString() })).refs : [];
     protected readonly inspectorRequestAdjustLutImport = async (sourcePath: string): Promise<string> => {
-        if (!this.location) throw new Error('プロジェクトが開かれていません。');
+        if (!this.location) throw new Error(t('annotations.timeline.text.projectIsNotOpen'));
         return (await this.annotationsService.importAdjustLut({ projectRootUri: this.location.root.toString(), sourcePath })).ref;
     };
     protected readonly inspectorRequestKeyframe = (request: KeyframeControlRequest): Promise<InspectorWriteResult> =>
@@ -1119,6 +1161,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(KeybindingRegistry)
     protected readonly keybindings!: KeybindingRegistry;
 
+    @inject(WidgetManager)
+    protected readonly widgetManager?: WidgetManager;
+
     protected shortcutHandler?: (event: KeyboardEvent) => void;
 
     runRegisteredShortcut(event: KeyboardEvent): void {
@@ -1154,7 +1199,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 || this.timelineRange.inFrame !== undefined || this.timelineRange.outFrame !== undefined);
         }
         if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide' || id === 'akari.timeline.rippleDelete') {
-            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
+            return !!(this.activeBoundary || this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
                 || this.selectedGap || completeTimelineRange(this.timelineRange));
         }
         if (id === 'akari.timeline.selectParent' || id === 'akari.timeline.selectChild') {
@@ -1167,12 +1212,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected refreshShortcutsHelp(): void {
-        this.toolbar.title = AKARI_SHORTCUTS.filter(shortcut => shortcut.command.category === 'タイムライン'
-            || shortcut.command.category === '再生').map(shortcut => {
+        this.toolbar.title = AKARI_SHORTCUTS.filter(shortcut => shortcut.command.id.startsWith('akari.timeline.')
+            || shortcut.command.id === 'akari.caption.placeText').map(shortcut => {
             const keys = this.keybindings.getKeybindingsForCommand(shortcut.command.id)
                 .map(binding => this.keybindings.acceleratorFor(binding, '+').join(' '));
-            return `${keys.join(' / ') || '未割り当て'}: ${shortcut.command.label}`;
-        }).join('\n') + `\n${TIMELINE_FOOTER_DEFAULT_HINT}`;
+            return `${keys.join(' / ') || t('annotations.timeline.text.unassigned')}: ${shortcut.command.label}`;
+        }).join('\n') + `\n${TIMELINE_FOOTER_DEFAULT_HINT()}`;
     }
 
     @inject(MessageService)
@@ -1259,6 +1304,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected vZoomDragOrigin = { scale: 1, scrollTop: 0 };
     protected clipEdgeScroller!: TimelineEdgeAutoScroll;
     protected materialEdgeScroller!: TimelineEdgeAutoScroll;
+    protected transitionEdgeScroller!: TimelineEdgeAutoScroll;
 
     @inject(ReviewModel)
     protected readonly review!: ReviewModel;
@@ -1311,6 +1357,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     });
     protected captions: CaptionRecord[] = [];
     protected readonly captionTextSessions = new Map<string, { before: string }>();
+    protected captionDisplayLocale = 'ja';
+    protected hasCaptionDisplayPolicy = false;
     protected lastAppliedCaptionsSource: string | undefined;
     protected captionDisplayCuesBySource = new Map<string, CaptionDisplayCueLike[]>();
     protected captionDisplayReloadGeneration = 0;
@@ -1353,7 +1401,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected timelineTracks: EditTimelineTrack[] = [];
     protected timelineTreeRows: TimelineTreeRow[] = [];
     protected expandedTimelineTreeRows: TimelineTreeRow[] = [];
-    protected focusScope: FocusScopeState = { rootId: null, breadcrumbs: ['全体'], span: { at: 0, duration: 0 } };
+    protected focusScope: FocusScopeState = { rootId: null, breadcrumbs: [t('annotations.timeline.text.whole')], span: { at: 0, duration: 0 } };
+    protected pendingPreviewKeyframes: { itemId: string; groups: PreviewKeyframeGroup[] } | undefined;
+    protected lastBlankPreviewPointerAt = 0;
+    protected lastPublishedPreviewSelectionAt = 0;
     protected lastTreeClick: { id: string; time: number; x: number; y: number } | undefined;
     protected readonly keyframeRowsByItem = new Map<string, TimelineKeyframePropertyRow[]>();
     protected readonly extraKeyframeProperties = new Map<string, Set<KeyframeProperty>>();
@@ -1370,6 +1421,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected itemLocations = new Map<string, ItemLocation>();
     /** 旧表示ビューの cuts[index] を v2 item id へ結ぶ読み取り専用の橋。 */
     protected cutItemIds: string[] = [];
+    protected activeBoundary: BoundaryRef | undefined;
+    protected transitionPreviewUrls: Record<string, TransitionPreviewUrls> = {};
+    protected readonly transitionDirections = new Map<TransitionFamily, TransitionDirection>();
+    protected transitionPicker: TransitionPicker | undefined;
+    protected transitionFillAsk: TransitionFillAsk | undefined;
+    protected transitionWriteGeneration = 0;
     /**
      * 表示専用のトラック一覧（R7-3・読み込み時の重なり自動配置）。this.timelineTracks（実体・
      * 書き込み経路の基準）に、重なりを解消するための「表示上」追加トラック行を足したもの。
@@ -1401,6 +1458,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialDragPayload: MaterialDragPayload | undefined;
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
+    protected hoveredTransitionDropKey: string | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
     protected libraryLockedDragKey: string | undefined;
     protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined;
@@ -1519,6 +1577,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected audioDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
     protected videoDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
+    protected transitionPlanRevision = 0;
+    protected transitionPlanCache?: { cuts: readonly EditCut[]; revision: number;
+        tracks: TransitionPlanTrack[]; plans: TransitionBoundaryPlan[] };
     protected videoDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
     protected ffmpegMissingNoticeShown = false;
     protected videoDurationNoticeShown = false;
@@ -1611,6 +1672,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        void this.annotationsService.getTransitionBoundaryPreviewUrls().then(urls => {
+            this.transitionPreviewUrls = urls;
+            this.scheduleStripRender();
+            if (this.activeBoundary) this.pushSelectionSnapshot();
+        }).catch(() => undefined);
         // Theia switches the body class; AKARI tokens are then written on the document root.
         // Observe both so existing canvas pixels are repainted without reopening the timeline.
         let timelineThemeSignature = '';
@@ -1699,26 +1765,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (!Array.isArray(command) && command.kind === 'caption-wrap') {
                         const before = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                         const after = writePreviewCaptionWrap(before, command);
-                        await this.commitEditMutation('文字の折り返し幅を変更', doc => doc,
+                        await this.commitEditMutation(t('annotations.timeline.text.changeTextWrappingWidth'), doc => doc,
                             { captions: { before, after }, optimistic: true });
                         return true;
                     }
                     if (!Array.isArray(command) && command.kind === 'caption-duplicate') {
                         const before = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                         const after = duplicatePreviewCaption(before, command.captionId, command.position);
-                        await this.commitEditMutation('文字を複製', doc => doc,
+                        await this.commitEditMutation(t('annotations.timeline.text.duplicateCharacters'), doc => doc,
                             { captions: { before, after }, optimistic: true });
                         return true;
                     }
                     if (!Array.isArray(command) && command.kind === 'mixed-move') {
-                        await this.commitEditMutation('複数の素材を移動', doc => {
+                        this.setPendingPreviewKeyframes(undefined);
+                        await this.commitEditMutation(t('annotations.timeline.text.moveMultipleMaterials'), doc => {
                             if (!command.writes.length) return doc;
                             const result = resolvePreviewItemWriteBatch(JSON.stringify(doc), command.writes);
-                            if (!result.candidateText) throw new Error('移動結果がありません');
+                            if (!result.candidateText) throw new Error(t('annotations.timeline.text.noMoveResults'));
                             return JSON.parse(result.candidateText) as EditV2Document;
                         }, { captions: command.captions });
                         return true;
                     }
+                    this.setPendingPreviewKeyframes(undefined);
+                    const promptCommand = !Array.isArray(command) && command.kind !== 'duplicate'
+                        ? command : undefined;
+                    const promptItemId = promptCommand?.itemId;
+                    const promptItem = promptItemId && promptItemId === this.focusScope.rootId
+                        ? this.rawV2Item(promptItemId) as ItemV2 | undefined : undefined;
+                    const promptRow = promptItem
+                        ? this.expandedTimelineTreeRows.find(row => row.id === promptItemId) : undefined;
+                    const promptSeconds = promptCommand?.playheadSeconds;
+                    const promptFrame = promptItem && promptRow && typeof promptSeconds === 'number'
+                        && Number.isFinite(promptSeconds)
+                        ? Math.max(0, Math.min(promptItem.duration,
+                            Math.round(promptSeconds * this.fps) - Math.round(promptRow.at * this.fps))) : 0;
+                    const prompt = promptItem && promptCommand
+                        ? groupsWithoutKeys(promptItem, promptCommand.patch, promptFrame) : [];
                     const applyPreviewWrite = (doc: EditV2Document): EditV2Document => {
                         if (!Array.isArray(command) && command.kind === 'layer') {
                             const nested = writeNestedPreviewLayer(doc, command);
@@ -1731,20 +1813,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const resolved = Array.isArray(command)
                             ? resolvePreviewItemWriteBatch(source, command)
                             : resolvePreviewItemWrite(source, command);
-                        if (!resolved.candidateText) throw new Error('変形の書き込み結果がありません。');
+                        if (!resolved.candidateText) throw new Error(t('annotations.timeline.text.thereAreNoTransformationResults'));
                         return JSON.parse(resolved.candidateText) as EditV2Document;
                     };
                     if (!Array.isArray(command) && command.kind === 'overlay' && command.patch.element) {
                         const undoKind = previewElementUndoKind(command.patch.element.style);
                         if (undoKind === 'size') {
-                            await this.commitEditMutation('プレビューで要素の大きさを変更', doc => applyPreviewWrite(doc));
+                            await this.commitEditMutation(t('annotations.timeline.text.resizeElementsInPreview'), doc => applyPreviewWrite(doc));
                         } else if (undoKind === 'rotate') {
-                            await this.commitEditMutation('プレビューで要素を回転', doc => applyPreviewWrite(doc));
+                            await this.commitEditMutation(t('annotations.timeline.text.rotateElementsInPreview'), doc => applyPreviewWrite(doc));
                         } else {
-                            await this.commitEditMutation('プレビューで要素を移動', doc => applyPreviewWrite(doc));
+                            await this.commitEditMutation(t('annotations.timeline.text.moveElementsInPreview'), doc => applyPreviewWrite(doc));
                         }
                     } else {
-                        await this.commitEditMutation('プレビューで変形を変更', doc => applyPreviewWrite(doc));
+                        await this.commitEditMutation(t('annotations.timeline.text.changeTransformationInPreview'), doc => applyPreviewWrite(doc));
+                    }
+                    if (promptItemId && prompt.length && this.focusScope.rootId === promptItemId) {
+                        this.setPendingPreviewKeyframes({ itemId: promptItemId, groups: prompt });
                     }
                     return true;
                 }
@@ -1758,6 +1843,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         window.addEventListener('akari.preview.mixedSelected', onPreviewMixedSelected);
         this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.preview.mixedSelected', onPreviewMixedSelected)));
+        const onPreviewUserInput = (event: Event): void => {
+            if ((event as CustomEvent<{ blankPreview?: boolean }>).detail?.blankPreview) {
+                this.lastBlankPreviewPointerAt = Date.now();
+            }
+        };
+        window.addEventListener('akari.contextBar.userInput', onPreviewUserInput);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.contextBar.userInput', onPreviewUserInput)));
         this.toDispose.push(this.contextKeys.onDidChange(event => {
             if (event.affects(new Set(['akari.worldMap']))) {
                 void this.reloadWorldMap().then(() => this.renderStrip());
@@ -1888,7 +1980,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             window.removeEventListener(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, onClipAnnotationLabelsRequest);
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
-        this.title.label = 'タイムライン';
+        this.title.label = t('annotations.timeline.text.timeline');
         void this.updateTimelineTabCaption();
         this.title.iconClass = 'codicon codicon-comment';
         this.title.closable = true;
@@ -1896,7 +1988,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:timeline');
         this.node.setAttribute('data-akari-onboarding-target', 'timeline');
-        this.node.setAttribute('data-akari-ui-label', 'タイムライン');
+        this.node.setAttribute('data-akari-ui-label', t('annotations.timeline.text.timeline'));
         Object.assign(this.node.style, {
             display: 'grid',
             // An implicit auto track can grow to child max-content, so force the column to shrink to the widget width.
@@ -1918,34 +2010,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
             alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
             padding: '3px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
-        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
+        this.configureIconButton(this.selectToolButton, 'codicon-cursor', t('annotations.timeline.text.selectionTool'), t('annotations.timeline.text.selectV'));
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
-        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B / C)');
+        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', t('annotations.timeline.text.splitTool'), t('annotations.timeline.text.splitBC'));
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
-        this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
+        this.configureIconButton(this.frameToolButton, 'codicon-preview', t('annotations.timeline.text.temporaryFrameTool'), t('annotations.timeline.text.temporaryFrameF'));
         this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
-        this.configureIconButton(this.readAloudButton, 'codicon-unmute', '読み上げ', '読み上げ');
+        this.configureIconButton(this.readAloudButton, 'codicon-unmute', t('annotations.timeline.text.readingAloud'), t('annotations.timeline.text.readingAloud'));
         this.readAloudButton.classList.remove('akari-annotations-icon-button');
         this.readAloudButton.classList.add('akari-annotations-text-button', 'akari-timeline-read-aloud');
-        this.readAloudButton.textContent = '🔊 読み上げ';
+        this.readAloudButton.textContent = t('annotations.timeline.text.readAloud');
         Object.assign(this.readAloudButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0' });
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
-        this.configureIconButton(this.voiceRecordButton, 'codicon-mic', 'アフレコ', 'アフレコ（マイクで録る）');
+        this.configureIconButton(this.voiceRecordButton, 'codicon-mic', t('annotations.timeline.text.dubbing'), t('annotations.timeline.text.dubbingRecordingWithMicrophone'));
         Object.assign(this.voiceRecordButton.style, { flexShrink: '0', marginLeft: 'auto' });
         this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record',
             { editUri: this.location?.editUri?.toString() }));
-        this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
+        this.configureIconButton(this.snapToggleButton, 'codicon-magnet', t('annotations.timeline.text.magnet'), t('annotations.timeline.text.magnetSnapSwitchingMN'));
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
-        this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', '自動で詰める', '自動で詰める');
+        this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', t('annotations.timeline.text.automaticallyFill'), t('annotations.timeline.text.automaticallyFill'));
         this.autoRippleButton.dataset.akariAutoRipple = '';
         this.autoRippleButton.addEventListener('click', () => this.setAutoRippleEnabled(!this.autoRipple));
-        this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
+        this.configureIconButton(this.undoButton, 'codicon-discard', t('annotations.timeline.text.undo'), t('annotations.timeline.text.undoZ'));
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
-        this.configureIconButton(this.redoButton, 'codicon-redo', 'やり直す', 'やり直す (⇧⌘Z)');
+        this.configureIconButton(this.redoButton, 'codicon-redo', t('annotations.timeline.text.startOver'), t('annotations.timeline.text.startOverZ'));
         this.redoButton.disabled = true;
         this.redoButton.addEventListener('click', () => void this.performRedo());
-        this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
+        this.configureIconButton(this.compactButton, 'codicon-collapse-all', t('annotations.timeline.text.pack'), t('annotations.timeline.text.fillInTheSpacesBetweenClips'));
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
             this.selectToolButton, this.razorToolButton, this.frameToolButton, this.readAloudButton,
@@ -1967,7 +2059,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.zoomLabel.type = 'button';
         this.zoomLabel.textContent = '100%';
         this.zoomLabel.setAttribute('data-testid', 'akari-timeline-zoom-percent');
-        this.zoomLabel.title = '100%（全体表示）に戻す';
+        this.zoomLabel.title = t('annotations.timeline.text.returnTo100FullView');
         Object.assign(this.zoomLabel.style, {
             fontSize: '11px', fontVariantNumeric: 'tabular-nums', minWidth: '38px', textAlign: 'right',
             color: 'var(--theia-descriptionForeground)', background: 'none', border: '0', padding: '0',
@@ -1979,7 +2071,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.zoomSlider.max = String(ZOOM_SLIDER_RESOLUTION);
         this.zoomSlider.step = '1';
         this.zoomSlider.value = '0';
-        this.zoomSlider.setAttribute('aria-label', 'ズーム率');
+        this.zoomSlider.setAttribute('aria-label', t('annotations.timeline.text.zoomRate'));
         this.zoomSlider.setAttribute('data-testid', 'akari-timeline-zoom-slider');
         Object.assign(this.zoomSlider.style, { width: '80px' });
         this.zoomSlider.addEventListener('input', () => {
@@ -1991,13 +2083,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.zoomHud.append(this.zoomIcon, this.zoomLabel, this.zoomSlider);
         this.reviewButton.type = 'button';
         this.reviewButton.className = 'theia-button secondary akari-annotations-text-button';
-        this.reviewButton.textContent = '注釈';
-        this.reviewButton.title = '注釈パネルを開く';
+        this.reviewButton.textContent = t('annotations.timeline.text.annotation');
+        this.reviewButton.title = t('annotations.timeline.text.openAnnotationPanel');
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
         this.reviewSessionRangesButton.type = 'button';
         this.reviewSessionRangesButton.className = `theia-button ${this.recordingRangesVisible ? 'main' : 'secondary'} akari-annotations-text-button`;
-        this.reviewSessionRangesButton.textContent = '録音帯';
-        this.reviewSessionRangesButton.title = '録音セッションの通過区間を表示';
+        this.reviewSessionRangesButton.textContent = t('annotations.timeline.text.recordingBand');
+        this.reviewSessionRangesButton.title = t('annotations.timeline.text.displaysTheRecordingSessionSPath');
         this.reviewSessionRangesButton.dataset.testid = 'akari-timeline-review-session-ranges-toggle';
         this.reviewSessionRangesButton.setAttribute('aria-pressed', String(this.recordingRangesVisible));
         this.reviewSessionRangesButton.addEventListener('click', () => {
@@ -2039,11 +2131,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const fallback = [...this.displayTimelineTracks].find(track => track.kind !== 'audio' && track.kind !== 'captions');
             const ids = selected.length ? selected : fallback ? [fallback.id] : [];
             const popup = openTrackRipplePresetMenu(anchor, selected.length
-                ? '選んだトラックだけ切る（他は固定）' : '本編だけ切る（他は固定）', preset => {
+                ? t('annotations.timeline.text.cutOnlyTheSelectedTrackOthersRemainFixed') : t('annotations.timeline.text.cutOnlyTheMainPartOthersAreFixed'), preset => {
                 this.closeAnnotationPopup();
-                void this.commitEditMutation('トラックの詰め方をまとめて変更', doc =>
+                void this.commitEditMutation(t('annotations.timeline.text.changeTheWayTrucksArePackedAllAt'), doc =>
                     applyTrackRipplePreset(doc as unknown as EditV2, preset, ids) as unknown as EditV2Document
-                ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+                ).catch(error => this.showNotice(t('annotations.timeline.text.cannotChangeTrackPackingMethod', { reason: this.errorMessage(error) })));
             });
             document.body.appendChild(popup);
             this.contextPopup = popup;
@@ -2263,8 +2355,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.selectGapAt(event.clientX, event.clientY) && this.selectedGap) {
                 event.preventDefault();
                 openTimelineContextMenu({ x: event.clientX, y: event.clientY,
-                    items: [{ id: 'generate-gap', label: 'あいだを生成' },
-                        { id: 'close-gap', label: 'この隙間を詰める (Delete)' }],
+                    items: [{ id: 'generate-gap', label: t('annotations.timeline.text.generateAGap') },
+                        { id: 'close-gap', label: t('annotations.timeline.text.closeThisGapDelete') }],
                     onSelect: id => {
                         if (id === 'generate-gap') {
                             this.pushSelectionSnapshot();
@@ -2313,9 +2405,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const point = this.materialPanelDropPoint(x, y);
             if (point.zone === 'strip') this.updateMaterialGhost(point.x, point.y);
         });
+        this.transitionEdgeScroller = new TimelineEdgeAutoScroll(edgeView, advanceEdge, (x, y) => {
+            this.setHoveredTransitionDropTarget(this.hitLibraryTransitionDropTarget(x, y));
+        });
         this.toDispose.push(Disposable.create(() => {
             this.clipEdgeScroller.stop();
             this.materialEdgeScroller.stop();
+            this.transitionEdgeScroller.stop();
         }));
         this.stripScroll.appendChild(this.strip);
         this.stripScroll.addEventListener('scroll', () => {
@@ -2401,12 +2497,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 typeof document.querySelectorAll === 'function'
                     ? Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')) : [])) return;
             // Theia が webview の keydown を再送すると、target と activeElement は iframe になる。
-            const isWebviewKeydown = focusedElement?.tagName === 'IFRAME'
-                || (typeof HTMLElement !== 'undefined' && event.target instanceof HTMLElement
-                    && event.target.tagName === 'IFRAME');
+            // タイムラインが受けるのは Akari の webview（プレビュー等）からの再送だけ。拡張の webview
+            // （Claude Code / Codex 等）の入力欄で打ったキーは、ここでは何もしない。
+            const webviewSource = webviewKeydownSource(focusedElement, event.target,
+                this.widgetManager?.getWidgets(WebviewWidget.FACTORY_ID) as WebviewWidget[] | undefined ?? []);
+            if (webviewSource === 'foreign') return;
+            const isWebviewKeydown = webviewSource === 'akari';
             const timelineOwnsFocus = isWebviewKeydown || !!focusedElement && this.node.contains(focusedElement);
             const focusOutsideTimeline = !!focusedElement && focusedElement !== document.body
                 && !timelineOwnsFocus;
+            if (event.key === 'Escape' && this.shouldIgnorePreviewSelectionEscape?.(isWebviewKeydown, event.keyCode)) return;
             if (event.key === 'Escape' && focusOutsideTimeline) return;
             const hadMarqueeRange = event.key === 'Escape'
                 && (this.canvasRange !== undefined || this.selectionMarquee?.style.display === 'block');
@@ -2452,6 +2552,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
                 return;
             }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.activeBoundary) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
+                void this.performTimelineDelete(event.shiftKey, event.altKey);
+                return;
+            }
             if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectionModel.keyframeSelection) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -2483,7 +2590,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const id = selectedVisualItemId();
                 const raw = id ? this.rawV2Item(id) : undefined;
                 if (!id || !raw) {
-                    if (this.selection) this.showNotice('この操作は v2 のみです。');
+                    if (this.selection) this.showNotice(t('annotations.timeline.text.thisOperationIsV2Only'));
                     return;
                 }
                 event.preventDefault();
@@ -2517,10 +2624,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 const id = selectedVisualItemId();
                 if (!id || !Array.isArray(this.editDocument?.tracks)) {
-                    if (this.selection) this.showNotice('この操作は v2 のみです。');
+                    if (this.selection) this.showNotice(t('annotations.timeline.text.thisOperationIsV2Only'));
                     return;
                 }
-                this.moveSelectedZOrder(id, event.key === ']' ? 'forward' : 'backward', 'クリップを前後へ移動');
+                this.moveSelectedZOrder(id, event.key === ']' ? 'forward' : 'backward', t('annotations.timeline.text.moveClipForwardOrBackward'));
                 return;
             }
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') {
@@ -2528,18 +2635,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 if (event.shiftKey) {
                     if (this.multiSelection.length > 1) {
-                        this.footer.textContent = 'キャンバスをほどくときは 1 つだけ選んでください';
+                        this.footer.textContent = t('annotations.timeline.text.chooseOnlyOneWhenUnravelingTheCanvas');
                         return;
                     }
                     const id = selectedVisualItemId();
                     if (!id) {
-                        this.footer.textContent = 'ほどくキャンバスを 1 つ選んでください';
+                        this.footer.textContent = t('annotations.timeline.text.chooseOneCanvasToUnravel');
                         return;
                     }
-                    void this.commitEditMutation('キャンバスをほどく', doc => ungroupTreeV2Item(doc, id).document)
-                        .then(() => { this.footer.textContent = 'キャンバスをほどきました。'; })
+                    void this.commitEditMutation(t('annotations.timeline.text.unravelTheCanvas'), doc => ungroupTreeV2Item(doc, id).document)
+                        .then(() => { this.footer.textContent = t('annotations.timeline.text.iUnraveledTheCanvas'); })
                         .catch(error => {
-                            this.showNotice(`キャンバスをほどけません: ${canvasOperationReason(error)}`);
+                            this.showNotice(t('annotations.timeline.text.unableToUnwindCanvas', { reason: canvasOperationReason(error) }));
                         });
                     return;
                 }
@@ -2550,30 +2657,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (this.previewBagSelection && this.location?.editUri?.normalizePath().toString() === this.previewBagSelection.editUri
                     && (!this.selection || ('id' in this.selection
                         && this.selection.id === this.previewBagSelection.representative))) {
-                    this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
+                    this.footer.textContent = t('annotations.timeline.text.bagPartsCannotBeMadeIntoCanvasPlease');
                     return;
                 }
                 if (ids.length < 2) {
-                    this.footer.textContent = 'キャンバスにするものを 2 つ以上選んでください';
+                    this.footer.textContent = t('annotations.timeline.text.pleaseSelectTwoOrMoreThingsToBe');
                     return;
                 }
                 if (ids.some(id => id.includes('#') || this.rawV2Item(this.timelineTreeRows.find(row => row.id === id)?.parentId ?? '')?.source?.kind === 'html')) {
-                    this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
+                    this.footer.textContent = t('annotations.timeline.text.bagPartsCannotBeMadeIntoCanvasPlease');
                     return;
                 }
                 let changedOrderIds: string[] = [];
-                void this.commitEditMutation('キャンバスにする', doc => {
+                void this.commitEditMutation(t('annotations.timeline.text.makeItACanvas'), doc => {
                     const result = groupTreeV2Items(doc, ids, { canvas: true });
                     changedOrderIds = result.value.changedOrderIds;
                     return result.document;
                 }).then(() => {
                     if (changedOrderIds.length > 0) {
-                        this.showNotice(`${changedOrderIds.join('、')} の前後が変わりました`);
+                        this.showNotice(t('annotations.timeline.text.hasChangedBeforeAndAfter', { names: changedOrderIds.join(t('annotations.timeline.list.separator')) }));
                     } else {
-                        this.footer.textContent = 'キャンバスにしました。';
+                        this.footer.textContent = t('annotations.timeline.text.iMadeItIntoACanvas');
                     }
                 }).catch(error => {
-                    this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`);
+                    this.showNotice(t('annotations.timeline.text.cannotCanvas', { reason: canvasOperationReason(error) }));
                 });
                 return;
             }
@@ -2766,9 +2873,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
-        const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload
-                || this.libraryLockedDragKey || this.libraryShapeDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+        const onWindowLibraryDrop = (event: DragEvent): void => {
+            if (this.libraryDragPayload && !event.composedPath().includes(this.stripScroll)) {
+                this.showNotice(t('transition.library.notice.outsideVideoRow'));
+            }
+            if (this.libraryDragPayload) setTimeout(() => this.clearLibraryTransitionDragState(), 0);
+            else if (this.libraryAssetDragPayload || this.libraryTextStyleDragPayload
+                || this.libraryLockedDragKey || this.libraryShapeDragPayload)
+                queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
             if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload
@@ -2977,7 +3089,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!value) {
             this.hideSnapGuide();
         }
-        this.footer.textContent = value ? 'マグネット ON（見えている端にだけ吸着します）' : 'マグネット OFF';
+        this.footer.textContent = value ? t('annotations.timeline.text.magnetOnAttractsOnlyToVisibleEdges') : t('annotations.timeline.text.magnetOff');
     }
 
     protected updateSnapButton(): void {
@@ -3012,6 +3124,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
+        const hadBoundary = this.releaseTransitionBoundaryForOtherSelection();
+        if (this.selectionKey(this.selection) !== this.selectionKey(selection)) this.setPendingPreviewKeyframes?.(undefined);
+        this.exitFocusUnlessSelected?.(selection);
         if (!this.preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
         const seekTime = selection && directSingle && notifyPreview
             ? previewSelectionSeekTime({ range: this.focusRangeFor(selection), playhead: this.playheadT,
@@ -3027,7 +3142,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection || hadMultiSelection || hadGap) {
+            if (selection || hadMultiSelection || hadGap || hadBoundary) {
                 this.claimInspectorOwner?.();
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
@@ -3050,6 +3165,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
+        if (this.focusScope?.rootId) this.lastPublishedPreviewSelectionAt = Date.now();
         this.previewBagSelection = undefined;
         let target: { kind: 'cut' | 'caption'; id: string } | null = null;
         let overlayId: string | null = null;
@@ -3122,7 +3238,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
     }
 
+    protected shouldIgnorePreviewSelectionEscape(isWebviewKeydown: boolean, keyCode: number): boolean {
+        return isPreviewSelectionEscapeEcho('Escape', isWebviewKeydown, this.focusScope.rootId,
+            Date.now(), this.lastPublishedPreviewSelectionAt, keyCode);
+    }
+
     protected applyPreviewMixedSelection(selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         const selected = selection.map(item => {
             const row = this.timelineTreeRows.find(candidate => candidate.id === item.id
                 || item.kind === 'caption' && this.rawKeyframeItem(candidate.id)?.source?.id === item.id);
@@ -3145,6 +3267,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         this.previewBagSelection = undefined;
         const candidates = togglePreviewSelection(this.multiSelection.length > 0
             ? this.multiSelection : this.selection ? [this.selection] : [], item,
@@ -3155,6 +3278,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         this.publishPrimaryPreviewSelection(this.selection ?? candidates[candidates.length - 1]);
+    }
+
+    protected releaseTransitionBoundaryForOtherSelection(): boolean {
+        if (this.transitionPicker || !this.activeBoundary) return false;
+        this.activeBoundary = undefined;
+        this.scheduleStripRender();
+        return true;
     }
 
     /**
@@ -3209,17 +3339,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected enterTreeItem(row: TimelineTreeRow): void {
-        if (timelineDoubleClickAction(row.itemKind, row.sourceKind) === 'trimmer') {
-            const index = this.cutItemIds.indexOf(row.id);
-            if (index >= 0) this.toggleTrimmerMode(index);
+        const cutIndex = this.cutItemIds.indexOf(row.id);
+        if (timelineDoubleClickAction(row.itemKind, row.sourceKind, cutIndex >= 0) === 'trimmer') {
+            this.toggleTrimmerMode(cutIndex);
             return;
         }
         this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, row.id));
     }
 
     protected applyFocusScope(scope: FocusScopeState): void {
+        if (this.focusScope.rootId !== scope.rootId) {
+            this.setPendingPreviewKeyframes(undefined);
+            this.lastBlankPreviewPointerAt = 0;
+        }
         this.focusScope = scope;
         this.dispatchPreviewEvent('akari.timeline.selectionFloor', { scopeId: scope.rootId });
+        if (scope.rootId !== null) this.lastPublishedPreviewSelectionAt = Date.now();
+        if (scope.rootId) {
+            const root = this.expandedTimelineTreeRows.find(row => row.id === scope.rootId);
+            if (root) this.applySelection(this.selectionForTreeRow(root));
+        }
         if (scope.rootId === null) {
             this.viewStart = 0;
             this.viewDuration = undefined;
@@ -3256,6 +3395,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toolbar.insertBefore(breadcrumbs, this.zoomHud);
     }
 
+    protected exitFocusUnlessSelected(selection: TimelineSelection): void {
+        const selectedId = selection?.kind === 'cut' ? this.cutItemId(selection.index)
+            : selection?.kind === 'caption'
+                ? this.expandedTimelineTreeRows.find(row => this.rawKeyframeItem(row.id)?.source?.id === selection.id)?.id
+                    ?? selection.id
+                : selection && 'id' in selection ? selection.id : null;
+        if (selectionLeavesFocus(this.expandedTimelineTreeRows, this.focusScope.rootId, selectedId ?? null)) {
+            this.applyFocusScope(initialFocusScope(this.expandedTimelineTreeRows));
+        }
+    }
+
     /** クリップ dblclick によるソーストリマーモードの開始/終了トグル（R6 契約 §1 裁定 3）。 */
     protected toggleTrimmerMode(index: number): void {
         if (this.dragState) {
@@ -3272,7 +3422,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const videoUri = this.cutVideoUri(cut);
         if (!videoUri) {
-            this.showNotice('素材の場所を特定できないため、ソーストリマーを開けません。');
+            this.showNotice(t('annotations.timeline.text.theSourceTrimmerCannotBeOpenedBecauseIt'));
             return;
         }
         this.trimmerItemId = index;
@@ -3341,7 +3491,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? findAudioItemIdByRole(this.editDocument, 'bgm') ?? id : id;
         const audio = bgm ?? narration ?? sfx;
         if (!audioKind || !audio) {
-            this.showNotice('音声クリップが見つからないため、音量キーフレームを編集できません。');
+            this.showNotice(t('annotations.timeline.text.theVolumeKeyframeCannotBeEditedBecauseThe'));
             return;
         }
         this.applySelection({ kind: 'audio', id });
@@ -3383,7 +3533,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined
                 : this.rawV2Item(id) !== undefined;
             const dialog = new AkariAudioKeyframeDialog({
-                title: `音量キーフレーム — ${this.pathBaseName(audio.path)}`,
+                title: t('annotations.timeline.text.volumeKeyframe', { path: this.pathBaseName(audio.path) }),
                 maxWidth: 840,
                 audioUri,
                 audioKind,
@@ -3433,14 +3583,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     value: dialogValue.keyframes.length > 0 ? dialogValue.keyframes : null
                 });
             } catch (error) {
-                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                this.showNotice(t('annotations.timeline.text.failedToWriteVolumeKeyframe', { reason: this.errorMessage(error) }));
                 return;
             }
             if (!keyframeResult.ok) {
-                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${keyframeResult.message ?? '不明なエラー'}`);
+                this.showNotice(t('annotations.timeline.text.failedToWriteVolumeKeyframe', { reason: keyframeResult.message ?? t('annotations.timeline.error.unknown') }));
                 return;
             }
-            if (shapeChanged) await this.commitEditMutation('フェードの形を変更', doc =>
+            if (shapeChanged) await this.commitEditMutation(t('annotations.timeline.text.changeTheShapeOfTheFade'), doc =>
                 patchInlineAudioItemForWrite(doc, shapeItemId, {
                     fade_in_shape: dialogValue.fadeInShape, fade_out_shape: dialogValue.fadeOutShape
                 }));
@@ -3455,14 +3605,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         })
                         : await this.handleInspectorWrite({ kind: 'sfx-gain', id, value: dialogValue.gainDb });
             } catch (error) {
-                this.showNotice(`全体ゲインの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                this.showNotice(t('annotations.timeline.text.failedToWriteOverallGain', { reason: this.errorMessage(error) }));
                 return;
             }
             if (!gainResult.ok) {
-                this.showNotice(`全体ゲインの書き込みに失敗しました: ${gainResult.message ?? '不明なエラー'}`);
+                this.showNotice(t('annotations.timeline.text.failedToWriteOverallGain', { reason: gainResult.message ?? t('annotations.timeline.error.unknown') }));
             }
         } catch (error) {
-            this.showNotice(`音量キーフレームを開けません: ${this.errorMessage(error)}`);
+            this.showNotice(t('annotations.timeline.text.unableToOpenVolumeKeyframe', { reason: this.errorMessage(error) }));
         }
     }
 
@@ -3476,7 +3626,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected showAudioDurationUnavailableNotice(): void {
         if (!this.audioDurationNoticeShown && !this.notice.hasMessage()) {
-            this.showNotice('音声素材の実尺が取得できないため、ソーストリマーを開けません。');
+            this.showNotice(t('annotations.timeline.text.theSourceTrimmerCannotBeOpenedBecauseThe'));
             this.audioDurationNoticeShown = true;
         }
     }
@@ -3508,12 +3658,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (isAudioFadeShapeWriteRequest(fadeShapeRequest)) {
             const itemId = fadeShapeRequest.audioKind === 'bgm' && this.editDocument
                 ? findAudioItemIdByRole(this.editDocument, 'bgm') : fadeShapeRequest.id;
-            if (!this.editDocument || !itemId) return { ok: false, message: '音声クリップが見つかりません。' };
+            if (!this.editDocument || !itemId) return { ok: false, message: t('annotations.timeline.text.audioClipNotFound') };
             const patch: InlineAudioPatch = fadeShapeRequest.edge === 'in'
                 ? { fade_in_shape: fadeShapeRequest.value } : { fade_out_shape: fadeShapeRequest.value };
             try {
                 patchInlineAudioItemForWrite(this.editDocument, itemId, patch);
-                await this.commitEditMutation('フェードの形を変更', doc =>
+                await this.commitEditMutation(t('annotations.timeline.text.changeTheShapeOfTheFade'), doc =>
                     patchInlineAudioItemForWrite(doc, itemId, patch));
                 return { ok: true };
             } catch (error) {
@@ -3529,34 +3679,65 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const location = this.location;
         if (!location) {
-            return { ok: false, message: 'プロジェクトの場所を特定できません。' };
+            return { ok: false, message: t('annotations.timeline.text.unableToLocateProject') };
         }
         if (request.kind === 'image-ai-apply') {
             try {
                 const inspected = await this.annotationsService.imageAiInspect(location.root.toString(), request.binding.itemId);
                 if (inspected.binding.inputSha256 !== request.binding.inputSha256
                     || inspected.binding.editVersion !== request.binding.editVersion) {
-                    return { ok: false, message: '編集が変わりました。もう一度高画質化してください。' };
+                    return { ok: false, message: t('annotations.timeline.text.editingHasChangedPleaseIncreaseTheQualityAgain') };
                 }
                 if (!/^assets\/generated\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(request.relativePath)) {
-                    return { ok: false, message: '別案の場所が不正です。' };
+                    return { ok: false, message: t('annotations.timeline.text.theAlternativeLocationIsInvalid') };
                 }
-                await this.commitEditMutation('高画質化した案にする', doc => {
+                await this.commitEditMutation(t('annotations.timeline.text.makeAHighQualityProposal'), doc => {
                     return replaceMaterial(doc, { itemId: request.binding.itemId,
                         relativePath: request.relativePath, kind: 'image' });
                 }, { imageAiBinding: request.binding });
                 return { ok: true };
-            } catch (error) { return { ok: false, message: error instanceof Error ? error.message : '差し替えられませんでした。' }; }
+            } catch (error) { return { ok: false, message: error instanceof Error ? error.message : t('annotations.timeline.text.itCouldNotBeReplaced') }; }
         }
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
-        if (request.kind === 'cut-transition-out') {
+        if (request.kind === 'transition-boundary') {
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'align')
+                && request.value.align !== null && !isTransitionAlign(request.value.align)) {
+                return { ok: false, message: t('transition.inspector.error.unknownAlign') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'recommendAlign')
+                && request.value.recommendAlign !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'alignOnly')
+                && request.value.alignOnly !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'fillOnly')
+                && request.value.fillOnly !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && !request.value.fillOnly && !isTransitionType(request.value.type)) {
+                return { ok: false, message: t('transition.inspector.error.unknownType') };
+            }
+            const currentDuration = this.rawV2Item?.(request.ref.earlierItemId)?.source?.transition_out?.duration;
+            if (request.value && request.value.duration !== currentDuration
+                && (!Number.isFinite(request.value.duration)
+                    || request.value.duration < 0.1 || request.value.duration > 3)) {
+                return { ok: false, message: t('transition.inspector.error.durationRange') };
+            }
             if (this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks)) {
-                return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
+                return { ok: false, message: t('annotations.timeline.text.editingThisItemIsOnlySupportedByEdit') };
             }
             try {
-                return await this.applyTransitionOut(request.index, request.value);
+                const result = await this.applyTransitionOut(request.ref, request.value);
+                if (result.ok && request.value) {
+                    const family = transitionFamilyOf(request.value.type);
+                    if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+                }
+                const inspectorMessage = (result as typeof result & { inspectorMessage?: string }).inspectorMessage;
+                return inspectorMessage !== undefined ? { ...result, message: inspectorMessage || undefined } : result;
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };
             }
@@ -3566,7 +3747,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return this.handleAudioMasterWrite(request);
         }
         if ((isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request)) && this.legacyReadOnly) {
-            return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
+            return { ok: false, message: t('annotations.timeline.text.theOldEditJsonIsOpenReadOnly') };
         }
         if (isCutFramingWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
             return this.handleLegacyCutFramingWrite(request);
@@ -3623,7 +3804,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                     const caption = this.captions.find(candidate => candidate.id === request.id);
                     if (!caption) {
-                        throw new Error(`字幕 ${request.id} が見つかりません。`);
+                        throw new Error(t('annotations.timeline.text.subtitleNotFound', { id: request.id }));
                     }
                     const originalText = caption.text;
                     const originalSpeaker = caption.speaker;
@@ -3641,7 +3822,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         this.lastCaptionRunNotice = notice;
                     }
                     this.pushHistory({
-                        label: request.kind === 'caption-text' ? '字幕のテキストを変更' : '字幕の話者を変更',
+                        label: request.kind === 'caption-text' ? t('annotations.timeline.text.changeSubtitleText') : t('annotations.timeline.text.changeSubtitleSpeaker'),
                         undo: async () => {
                             await this.annotationsService.setCaptionFields({
                                 captionsUri,
@@ -3665,18 +3846,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadCaptions();
                     this.hideNotice();
-                    this.footer.textContent = '字幕を更新しました。';
+                    this.footer.textContent = t('annotations.timeline.text.updatedSubtitles');
                     return { ok: true };
                 }
                 case 'caption-run-remove': {
                     const caption = this.captions.find(item => item.id === request.id);
                     const run = caption?.runs?.[request.index];
-                    if (!run) return { ok: false, message: '文字範囲が見つかりません。' };
+                    if (!run) return { ok: false, message: t('annotations.timeline.text.characterRangeNotFound') };
                     const args = { captionsUri: location.captionsUri.toString(),
                         projectRootUri: location.root.toString(), captionId: request.id };
                     await this.annotationsService.setCaptionRun({ ...args,
                         edit: { kind: 'remove', index: request.index } });
-                    this.pushHistory({ label: '字幕の文字範囲を外す',
+                    this.pushHistory({ label: t('annotations.timeline.text.removeSubtitleCharacterRange'),
                         undo: async () => { await this.annotationsService.setCaptionRun({ ...args,
                             edit: { kind: 'insert', index: request.index, run } }); await this.reloadCaptions(); },
                         redo: async () => { await this.annotationsService.setCaptionRun({ ...args,
@@ -3687,18 +3868,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 case 'caption-style-my-style': {
                     const ids = [...new Set(request.targets?.map(target => {
-                        if (target.kind !== 'caption') throw new Error('字幕以外にはマイスタイルを当てられません。');
+                        if (target.kind !== 'caption') throw new Error(t('annotations.timeline.text.myStyleCannotBeAppliedToAnythingOther'));
                         return target.id;
                     }) ?? [request.id])];
                     const captionsUri = location.captionsUri;
-                    if (!location.editUri) throw new Error('edit.json がありません。');
+                    if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
                     const editUri = location.editUri.toString();
                     const before = (await this.fileService.readFile(captionsUri)).value.toString();
                     const after = replaceMyStylePartsInSource(before, ids,
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
-                        { keepSize: request.value.keepSize === true,
+                        { keepSize: request.value.keepSize !== false,
                             catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
-                            motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined });
+                            motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined,
+                            source: request.value.style_source as { kind: 'builtin' | 'library' | 'my'; id: string;
+                                uid?: string; revision?: number } | undefined });
                     const attachParts = (request.value.parts as Array<{ kind: string }>).filter(part =>
                         ['sfx', 'fx', 'decor'].includes(part.kind));
                     const editBefore = attachParts.length
@@ -3708,26 +3891,77 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             JSON.parse(editBefore), toAnchorCaptions(JSON.parse(after)), ids,
                             request.value.style_uid, attachParts) as unknown as EditV2, toAnchorCaptions(JSON.parse(after))).edit, null, 2)}\n`
                         : undefined;
-                    const write = async (captionsSource: string, editSource?: string): Promise<void> => {
-                        await this.annotationsService.writeEditSnapshot({
-                            editUri, projectRootUri: location.root.toString(),
-                            captionsUri: captionsUri.toString(), captionsSource,
-                            ...(editSource ? { editSource } : {})
-                        });
+                    const writeRequest = {
+                        editUri, projectRootUri: location.root.toString(),
+                        captionsUri: captionsUri.toString(), captionsSource: after,
+                        ...(editAfter ? { editSource: editAfter } : {}),
+                        expectedHashes: { captions: projectFileContentHash(before),
+                            ...(editBefore ? { edit: projectFileContentHash(editBefore) } : {}) }
                     };
-                    await write(after, editAfter);
+                    const writeResult = await this.annotationsService.writeEditSnapshot(writeRequest);
+                    if (writeResult?.conflict) {
+                        try {
+                            if (editAfter) await this.reloadEdit();
+                            await this.reloadCaptions();
+                        } catch (error) { console.warn('[akari-annotations] reload after caption conflict failed', error); }
+                        const message = t('annotations.captionCommandHistory.text.reloadAfterConflict');
+                        return { ok: false, message };
+                    }
                     const feedback = captionLibraryApplyFeedback(request.libraryApplyKind);
-                    this.pushHistory({ label: feedback?.history ?? 'マイスタイルを当てる',
-                        undo: async () => { await write(before, editBefore); await this.reloadEdit(); await this.reloadCaptions(); },
-                        redo: async () => { await write(after, editAfter); await this.reloadEdit(); await this.reloadCaptions(); } });
+                    if (after !== before || editAfter && editAfter !== editBefore) {
+                        const versions = { captions: captionsUri.path.base, edit: location.editUri.path.base };
+                        this.pushHistory(captionCommandHistory({
+                            written: [versions.captions, ...(editBefore && editAfter ? [versions.edit] : [])],
+                            roles: versions,
+                            before: { [versions.captions]: { text: before, hash: projectFileContentHash(before) },
+                                [versions.edit]: { text: editBefore ?? null, hash: editBefore ? projectFileContentHash(editBefore) : null } },
+                            after: { [versions.captions]: { text: after, hash: projectFileContentHash(after) },
+                                [versions.edit]: { text: editAfter ?? null, hash: editAfter ? projectFileContentHash(editAfter) : null } }
+                        }, feedback?.history ?? t('annotations.timeline.text.guessMyStyle'),
+                        { editUri, projectRootUri: location.root.toString(), captionsUri: captionsUri.toString() },
+                        request => this.annotationsService.writeEditSnapshot(request),
+                        async () => { if (editAfter) await this.reloadEdit(); await this.reloadCaptions(); }));
+                    }
                     if (editAfter) await this.reloadEdit();
                     await this.reloadCaptions();
                     this.hideNotice();
-                    this.footer.textContent = feedback?.footer ?? 'マイスタイルを当てました。';
+                    this.footer.textContent = feedback?.footer ?? t('annotations.timeline.text.iGuessedMyStyle');
+                    return { ok: true };
+                }
+                case 'caption-style-size': {
+                    if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
+                    const targets = [...new Set(request.targets
+                        ? request.targets.flatMap(target => target.kind === 'caption' ? [target.id] : [])
+                        : [request.id])].map(caption_id => ({ caption_id }));
+                    if (request.targets && targets.length !== request.targets.length) {
+                        throw new Error(t('annotations.timeline.text.batchEditingOfSubtitleStylesIncludesItemsOther'));
+                    }
+                    const [captionsSource, editSource] = await Promise.all([
+                        this.fileService.readFile(location.captionsUri).then(file => file.value.toString()),
+                        this.fileService.readFile(location.editUri).then(file => file.value.toString())
+                    ]);
+                    const destination = { projectRootUri: location.root.toString(),
+                        captionsUri: location.captionsUri.toString(), editUri: location.editUri.toString() };
+                    const result = await this.annotationsService.setCaptionSize({ ...destination,
+                        expectedHashes: { captions: projectFileContentHash(captionsSource),
+                            edit: projectFileContentHash(editSource) },
+                        input: { targets, size_px: request.value } });
+                    if (!result.ok) {
+                        await this.reloadCaptions();
+                        return { ok: false, message: 'conflict' in result
+                            ? t('annotations.captionCommandHistory.text.reloadAfterConflict')
+                            : 'invalid' in result ? result.message : t('annotations.timeline.error.unknown') };
+                    }
+                    if (result.written.length) this.pushHistory(captionCommandHistory({ ...result,
+                        roles: { captions: location.captionsUri.path.base, edit: location.editUri.path.base } },
+                    t('annotations.timeline.text.changeSubtitleStyle'), destination,
+                    write => this.annotationsService.writeEditSnapshot(write), () => this.reloadCaptions()));
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = t('annotations.timeline.text.updatedSubtitleStyle');
                     return { ok: true };
                 }
                 case 'caption-style-color':
-                case 'caption-style-size':
                 case 'caption-style-wrap-width':
                 case 'caption-style-font-weight':
                 case 'caption-style-line-height':
@@ -3750,9 +3984,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     switch (request.kind) {
                         case 'caption-style-color':
                             nextStyle = { color: request.value };
-                            break;
-                        case 'caption-style-size':
-                            nextStyle = { sizePx: request.value };
                             break;
                         case 'caption-style-wrap-width':
                             nextStyle = { wrapWidthPct: request.value };
@@ -3807,13 +4038,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         ? request.targets.flatMap(target => target.kind === 'caption' ? [target.id] : [])
                         : [request.id];
                     if (request.targets && targetIds.length !== request.targets.length) {
-                        throw new Error('字幕スタイルの一括編集対象に字幕以外が含まれています。');
+                        throw new Error(t('annotations.timeline.text.batchEditingOfSubtitleStylesIncludesItemsOther'));
                     }
                     const uniqueTargetIds = [...new Set(targetIds)];
                     const captions = uniqueTargetIds.map(id => {
                         const caption = this.captions.find(candidate => candidate.id === id);
                         if (!caption) {
-                            throw new Error(`字幕 ${id} が見つかりません。`);
+                            throw new Error(t('annotations.timeline.text.subtitleNotFound', { id: id }));
                         }
                         return caption;
                     });
@@ -3853,7 +4084,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const feedback = request.kind === 'caption-style-font-family'
                         ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
-                        label: feedback?.history ?? '字幕のスタイルを変更',
+                        label: feedback?.history ?? t('annotations.timeline.text.changeSubtitleStyle'),
                         undo: async () => {
                             await this.reloadCaptionsIfChanged(await applyStyles(originalStyles));
                         },
@@ -3863,7 +4094,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadCaptionsIfChanged(appliedSource);
                     this.hideNotice();
-                    this.footer.textContent = feedback?.footer ?? '字幕のスタイルを更新しました。';
+                    this.footer.textContent = feedback?.footer ?? t('annotations.timeline.text.updatedSubtitleStyle');
                     return { ok: true };
                 }
                 case 'bgm-duck-db':
@@ -3874,7 +4105,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'sfx-duck-attack':
                 case 'sfx-duck-release':
                 case 'audio-keyframes': {
-                    if (!location.editUri) throw new Error('edit.json がありません。');
+                    if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
                     const editUri = location.editUri.toString();
                     const projectRootUri = location.root.toString();
                     const audioKind = request.kind === 'audio-keyframes'
@@ -3884,13 +4115,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : audioKind === 'narration'
                             ? this.audioNarration.findIndex(item => item.id === ('id' in request ? request.id : ''))
                             : -1;
-                    if (audioKind !== 'bgm' && index < 0) throw new Error('音声クリップが見つかりません。');
+                    if (audioKind !== 'bgm' && index < 0) throw new Error(t('annotations.timeline.text.audioClipNotFound'));
                     const target = audioKind === 'bgm'
                         ? { kind: 'bgm' as const }
                         : { kind: audioKind, index } as { kind: 'sfx' | 'narration'; index: number };
                     const current = audioKind === 'bgm' ? this.audioBgm
                         : audioKind === 'sfx' ? this.audioSfx[index] : this.audioNarration[index];
-                    if (!current) throw new Error('音声クリップが見つかりません。');
+                    if (!current) throw new Error(t('annotations.timeline.text.audioClipNotFound'));
                     if (request.kind === 'audio-keyframes') {
                         const before = current.keyframes ?? null;
                         const apply = async (keyframes: AudioEnvelopeKeyframePayload[] | null): Promise<void> => {
@@ -3905,7 +4136,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         };
                         await apply(request.value);
                         this.pushHistory({
-                            label: '音量キーフレームを変更',
+                            label: t('annotations.timeline.text.changeVolumeKeyframe'),
                             undo: async () => { await apply(before); await this.reloadEdit(); },
                             redo: async () => { await apply(request.value); await this.reloadEdit(); }
                         });
@@ -3924,7 +4155,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         };
                         await apply(updates);
                         this.pushHistory({
-                            label: '音声のダッキングを変更',
+                            label: t('annotations.timeline.text.changeAudioDucking'),
                             undo: async () => { await apply(beforeUpdates); await this.reloadEdit(); },
                             redo: async () => { await apply(updates); await this.reloadEdit(); }
                         });
@@ -3932,7 +4163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                     this.hideNotice();
                     this.footer.textContent = request.kind === 'audio-keyframes'
-                        ? '音量キーフレームを変更しました。' : 'ダッキングを変更しました。';
+                        ? t('annotations.timeline.text.changedVolumeKeyframe') : t('annotations.timeline.text.modifiedDucking');
                     return { ok: true };
                 }
                 case 'bgm-gain':
@@ -3940,13 +4171,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'bgm-fade-out':
                 case 'bgm-ducking': {
                     if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
+                        throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
                     }
                     const editUri = location.editUri.toString();
                     const projectRootUri = location.root.toString();
                     const bgm = this.audioBgm;
                     if (!bgm) {
-                        throw new Error('BGM が見つかりません。');
+                        throw new Error(t('annotations.timeline.text.bgmNotFound'));
                     }
                     const originalGainDb = bgm.gainDb ?? null;
                     const originalFadeIn = bgm.fadeIn ?? null;
@@ -3974,18 +4205,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                                 : request.kind === 'bgm-fade-out'
                                     ? { fade_out: request.value }
                                     : { ducking: request.value };
-                        await this.commitEditMutation('BGM の設定を変更', doc => {
+                        await this.commitEditMutation(t('annotations.timeline.text.changeBackgroundMusicSettings'), doc => {
                             const itemId = findAudioItemIdByRole(doc, 'bgm');
-                            if (!itemId) throw new Error('BGM の item が見つかりません。');
+                            if (!itemId) throw new Error(t('annotations.timeline.text.bgmItemNotFound'));
                             return updateV2Item(doc, { itemId, patch: itemPatch });
                         });
                         this.hideNotice();
-                        this.footer.textContent = 'BGM の設定を変更しました。';
+                        this.footer.textContent = t('annotations.timeline.text.bgmSettingsHaveBeenChanged');
                         return { ok: true };
                     }
                     await this.annotationsService.setBgmFields({ editUri, projectRootUri, ...nextFields });
                     this.pushHistory({
-                        label: 'BGM の設定を変更',
+                        label: t('annotations.timeline.text.changeBackgroundMusicSettings'),
                         undo: async () => {
                             await this.annotationsService.setBgmFields({
                                 editUri,
@@ -4005,11 +4236,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'BGM の設定を変更しました。';
+                    this.footer.textContent = t('annotations.timeline.text.bgmSettingsHaveBeenChanged');
                     return { ok: true };
                 }
                 default:
-                    return { ok: false, message: '未対応の編集要求です。' };
+                    return { ok: false, message: t('annotations.timeline.text.thisIsAnUnfulfilledEditRequest') };
             }
         } catch (error) {
             return { ok: false, message: this.errorMessage(error) };
@@ -4020,13 +4251,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         request: Extract<InspectorWriteRequest, { kind: 'audio-auto-level' }>
     ): Promise<InspectorWriteResult> {
         const location = this.location;
-        if (!location?.editUri) return { ok: false, message: 'edit.json がありません。' };
+        if (!location?.editUri) return { ok: false, message: t('annotations.timeline.text.editJsonIsMissing') };
         try {
             const current = request.audioKind === 'bgm' ? this.audioBgm
                 : request.audioKind === 'narration'
                     ? this.audioNarration.find(item => item.id === request.id)
                     : this.audioSfx.find(item => item.id === request.id) ?? this.audioSpeech?.find(item => item.id === request.id);
-            if (!current) throw new Error('音声クリップが見つかりません。');
+            if (!current) throw new Error(t('annotations.timeline.text.audioClipNotFound'));
             const rawItemId = request.audioKind === 'bgm' && this.editDocument
                 ? findAudioItemIdByRole(this.editDocument, 'bgm') : request.id;
             const raw = rawItemId ? this.rawV2Item(rawItemId) : undefined;
@@ -4042,11 +4273,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : (current as EditAudioSfxWithFade).duration
             });
             if ('reason' in measured) {
-                const message = `自動レベルを適用できませんでした（${measured.reason}）。gain は手動で調整してください`;
+                const message = t('annotations.timeline.text.failedToApplyAutomaticLevelPleaseAdjustGain', { reason: measured.reason });
                 this.footer.textContent = message;
                 return { ok: false, message };
             }
-            await this.commitEditMutation('自動レベル', doc => {
+            await this.commitEditMutation(t('annotations.timeline.text.automaticLevel'), doc => {
                 if (request.audioKind === 'bgm') {
                     const itemId = findAudioItemIdByRole(doc, 'bgm');
                     if (itemId) return updateV2Item(doc, { itemId, patch: { gain_db: measured.gain_db } });
@@ -4066,7 +4297,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
             });
             this.hideNotice();
-            this.footer.textContent = `自動レベル: ${measured.gain_db.toFixed(1)} dB（${measured.basis}・${measured.role}）`;
+            this.footer.textContent = t('annotations.timeline.text.autoLevelDb', { gain: measured.gain_db.toFixed(1), basis: measured.basis, role: measured.role });
             return { ok: true };
         } catch (error) {
             const message = this.errorMessage(error);
@@ -4089,13 +4320,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         request: CutFramingWriteRequest
     ): Promise<InspectorWriteResult> {
         const editUri = this.location?.editUri;
-        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        if (!editUri) return { ok: false, message: t('annotations.timeline.text.editJsonIsMissing') };
         try {
             const before = (await this.fileService.readFile(editUri)).value.toString();
             const document = JSON.parse(before) as Record<string, any>;
             const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
             if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
-                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+                throw new Error(t('annotations.timeline.text.clipNotFound', { index: request.index + 1 }));
             }
             const framing = updateCutFraming(cut.framing, request);
             if (JSON.stringify(cut.framing ?? null) === JSON.stringify(framing)) {
@@ -4106,7 +4337,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const after = `${JSON.stringify(document, null, 2)}\n`;
             await this.writeEditSnapshotGuarded(after);
             const label = request.kind === 'cut-framing-keyframes'
-                ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+                ? t('annotations.timeline.text.changeZoomKf') : t('annotations.timeline.text.changeFramingWindows');
             this.pushHistory({
                 label,
                 undo: async () => {
@@ -4120,11 +4351,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             await this.reloadEdit();
             this.hideNotice();
-            this.footer.textContent = `${label}しました。`;
+            this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
             return { ok: true };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.cannotBeChanged', { reason: detail }));
             return { ok: false, message: detail };
         }
     }
@@ -4133,13 +4364,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         request: CutFreezeWriteRequest
     ): Promise<InspectorWriteResult> {
         const editUri = this.location?.editUri;
-        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        if (!editUri) return { ok: false, message: t('annotations.timeline.text.editJsonIsMissing') };
         try {
             const before = (await this.fileService.readFile(editUri)).value.toString();
             const document = JSON.parse(before) as Record<string, any>;
             const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
             if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
-                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+                throw new Error(t('annotations.timeline.text.clipNotFound', { index: request.index + 1 }));
             }
             const playbackDuration = cutPlaybackDuration(cut);
             const displayedAt = resolveCutFreezeDisplayAt(
@@ -4150,7 +4381,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             const freeze = updateCutFreeze(cut.freeze, request, displayedAt, playbackDuration);
             if (freeze && isExplicitV0CutTimeline(cut, document.version)) {
-                throw new Error('明示 at/track を使う edit.json v0 ではフリーズを設定できません。');
+                throw new Error(t('annotations.timeline.text.freezeCannotBeSetInEditJsonV0'));
             }
             if (JSON.stringify(cut.freeze ?? null) === JSON.stringify(freeze)) {
                 return { ok: true };
@@ -4159,7 +4390,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else delete cut.freeze;
             const after = `${JSON.stringify(document, null, 2)}\n`;
             await this.writeEditSnapshotGuarded(after);
-            const label = 'フリーズを変更';
+            const label = t('annotations.timeline.text.changeFreeze');
             this.pushHistory({
                 label,
                 undo: async () => {
@@ -4173,22 +4404,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             await this.reloadEdit();
             this.hideNotice();
-            this.footer.textContent = `${label}しました。`;
+            this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
             return { ok: true };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.cannotBeChanged', { reason: detail }));
             return { ok: false, message: detail };
         }
     }
 
     protected async handleAudioClipFxWrite(request: AudioClipFxWriteRequest): Promise<InspectorWriteResult> {
         if (this.legacyReadOnly) {
-            return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
+            return { ok: false, message: t('annotations.timeline.text.theOldEditJsonIsOpenReadOnly') };
         }
         const editUri = this.location?.editUri;
-        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
-        const label = '音声クリップのエフェクトを変更';
+        if (!editUri) return { ok: false, message: t('annotations.timeline.text.editJsonIsMissing') };
+        const label = t('annotations.timeline.text.changeAudioClipEffects');
         try {
             if (this.editDocument?.version === 2) {
                 await this.commitEditMutation(label, doc => updateAudioClipFxDocument(doc, request));
@@ -4213,18 +4444,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             this.hideNotice();
-            this.footer.textContent = `${label}しました。`;
+            this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
             return { ok: true };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.cannotBeChanged', { reason: detail }));
             return { ok: false, message: detail };
         }
     }
 
     protected async handleAudioMasterWrite(request: AudioMasterWriteRequest): Promise<InspectorWriteResult> {
         const editUri = this.location?.editUri;
-        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        if (!editUri) return { ok: false, message: t('annotations.timeline.text.editJsonIsMissing') };
         try {
             const before = (await this.fileService.readFile(editUri)).value.toString();
             const document = JSON.parse(before) as Record<string, unknown>;
@@ -4233,7 +4464,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (after !== before) {
                 await this.writeEditSnapshotGuarded(after);
                 this.pushHistory({
-                    label: '音声マスターを変更',
+                    label: t('annotations.timeline.text.changeAudioMaster'),
                     undo: async () => {
                         await this.writeEditSnapshotGuarded(before);
                         await this.reloadEdit();
@@ -4246,11 +4477,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.reloadEdit();
             }
             this.hideNotice();
-            this.footer.textContent = '音声マスターを変更しました。';
+            this.footer.textContent = t('annotations.timeline.text.changedTheAudioMaster');
             return { ok: true };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.cannotBeChanged', { reason: detail }));
             return { ok: false, message: detail };
         }
     }
@@ -4298,7 +4529,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const cutIndex = this.cutItemIds.indexOf(request.id);
             const mappedKind = legacyTransformOpFor(request.path, cutIndex >= 0 ? 'cut' : 'layer');
             if (!mappedKind) {
-                return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
+                return { ok: false, message: t('annotations.timeline.text.editingThisItemIsOnlySupportedByEdit') };
             }
             return cutIndex >= 0
                 ? this.handleInspectorWriteV2({
@@ -4313,7 +4544,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
         }
         try {
-            let label = 'クリップを変更';
+            let label = t('annotations.timeline.text.changeClip');
             let itemId: string;
             let patch: Record<string, unknown>;
             let audioPatch = false;
@@ -4326,7 +4557,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 itemId = request.audioKind === 'bgm'
                     ? findAudioItemIdByRole(this.editDocument!, 'bgm')! : request.id;
                 patch = { keyframes: request.value };
-                label = '音量キーフレームを変更';
+                label = t('annotations.timeline.text.changeVolumeKeyframe');
             } else if (request.kind === 'bgm-duck-db' || request.kind === 'bgm-duck-attack'
                 || request.kind === 'bgm-duck-release') {
                 audioEnvelopeRole = 'bgm';
@@ -4334,7 +4565,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const field = request.kind === 'bgm-duck-db' ? 'duck_db'
                     : request.kind === 'bgm-duck-attack' ? 'duck_attack' : 'duck_release';
                 patch = { [field]: request.value };
-                label = 'BGM のダッキングを変更';
+                label = t('annotations.timeline.text.changeBackgroundMusicDucking');
             } else if (request.kind === 'sfx-ducking' || request.kind === 'sfx-duck-db'
                 || request.kind === 'sfx-duck-attack' || request.kind === 'sfx-duck-release') {
                 audioEnvelopeRole = 'sfx';
@@ -4343,11 +4574,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     : request.kind === 'sfx-duck-db' ? 'duck_db'
                         : request.kind === 'sfx-duck-attack' ? 'duck_attack' : 'duck_release';
                 patch = { [field]: request.value };
-                label = '音声クリップのダッキングを変更';
+                label = t('annotations.timeline.text.changeDuckingOfAudioClips');
             } else if (request.kind === 'item-field') {
                 itemId = request.id;
                 const raw = this.rawKeyframeItem(itemId);
-                if (!raw) throw new Error(`クリップが見つかりません: ${itemId}`);
+                if (!raw) throw new Error(t('annotations.timeline.text.clipNotFoundAlternate', { id: itemId }));
                 if (request.path.startsWith('transform.')) {
                     const field = request.path.slice('transform.'.length);
                     const transform: Record<string, unknown> = { ...(raw.transform ?? {}) };
@@ -4390,73 +4621,73 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         delete transform.scaleY;
                     }
                     patch = { transform };
-                    label = 'クリップの変形を変更';
+                    label = t('annotations.timeline.text.changeClipTransformation');
                 } else if (request.path.startsWith('crop.')) {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
-                    label = 'クリップのクロップを変更';
+                    label = t('annotations.timeline.text.changeCropOfClip');
                 } else if (request.path === 'photo-crop-open') {
-                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     window.dispatchEvent(new CustomEvent('akari.photo.crop-open', { detail: {
                         editUri: this.location.editUri.toString(), itemId
                     } }));
                     return { ok: true };
                 } else if (request.path === 'frame.stroke.width' || request.path === 'frame.stroke.color'
                     || request.path === 'frame.cornerRadius') {
-                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const frame: { stroke?: { color: string; width: number }; cornerRadius?: number } = { ...(raw.frame ?? {}) };
                     if (request.path === 'frame.cornerRadius') {
                         const radius = Number(request.value);
-                        if (!Number.isFinite(radius) || radius < 0 || radius > 100) throw new Error('角の丸みは 0〜100 です');
+                        if (!Number.isFinite(radius) || radius < 0 || radius > 100) throw new Error(t('annotations.timeline.text.cornerRoundnessIsFrom0To100'));
                         frame.cornerRadius = radius;
                     } else {
                         const stroke = { color: '#ffffff', width: 0, ...(frame.stroke ?? {}) };
                         if (request.path.endsWith('width')) {
                             const width = Number(request.value);
-                            if (!Number.isFinite(width) || width < 0 || width > 100) throw new Error('枠線は 0〜100px です');
+                            if (!Number.isFinite(width) || width < 0 || width > 100) throw new Error(t('annotations.timeline.text.borderIs0100px'));
                             stroke.width = width;
                         } else {
                             if (typeof request.value !== 'string' || !/^#[0-9a-fA-F]{6}$/u.test(request.value)) {
-                                throw new Error('色は #RRGGBB で指定してください');
+                                throw new Error(t('annotations.timeline.text.pleaseSpecifyTheColorWithRrggbb'));
                             }
                             stroke.color = request.value;
                         }
                         frame.stroke = stroke;
                     }
                     patch = { frame };
-                    label = '写真の枠を変更';
+                    label = t('annotations.timeline.text.changePhotoFrame');
                 } else if (request.path === 'mask') {
                     const value = request.value;
-                    if (raw.source?.kind !== 'media') throw new Error('media item だけが指定できます');
-                    if (value !== null && typeof value !== 'string') throw new Error('mask は sources の id で指定してください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.onlyMediaItemCanBeSpecified'));
+                    if (value !== null && typeof value !== 'string') throw new Error(t('annotations.timeline.text.pleaseSpecifyMaskWithSourcesId'));
                     if (typeof value === 'string' && !this.sourceMap.has(value)) {
-                        return { ok: false, message: 'sources に無い id です' };
+                        return { ok: false, message: t('annotations.timeline.text.thisIsAnIdThatIsNotIn') };
                     }
                     patch = { mask: value };
-                    label = 'クリップのマスクを変更';
+                    label = t('annotations.timeline.text.changeClipMask');
                 } else if (request.path === 'photo-mask') {
-                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const sourceId = String(raw.source.src ?? '');
                     const source = this.sourceMap.get(sourceId);
-                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error('写真を選んでください');
+                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const result = await this.annotationsService.generatePhotoMask({
                         projectRootUri: this.location.root.toString(), sourceUri: source.videoUri
                     });
                     if ('message' in result) return { ok: false, message: result.message };
                     if (this.rawKeyframeItem(itemId)?.source?.src !== sourceId
                         || this.sourceMap.get(sourceId)?.videoUri !== source.videoUri) {
-                        return { ok: false, message: '処理中に写真が変わりました' };
+                        return { ok: false, message: t('annotations.timeline.text.thePhotoChangedDuringProcessing') };
                     }
                     const hash = result.ref.match(/([a-f0-9]{64})\.png$/u)?.[1];
-                    if (!hash) throw new Error('マスクの保存名が正しくありません');
+                    if (!hash) throw new Error(t('annotations.timeline.text.maskSaveNameIsIncorrect'));
                     generatedMask = { id: `mask-${hash}`, ref: result.ref };
                     patch = { mask: generatedMask.id };
-                    label = '背景を消す';
+                    label = t('annotations.timeline.text.eraseTheBackground');
                 } else if (request.path === 'photo-query') {
-                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const sourceId = String(raw.source.src ?? '');
                     const source = this.sourceMap.get(sourceId);
-                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error('写真を選んでください');
+                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const revision = JSON.stringify(raw);
                     const value = request.value as { mode?: string; x?: number; y?: number } | null;
                     const engine = value?.mode === 'click' ? 'sam2.1-tiny' : 'apple-vision';
@@ -4471,18 +4702,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         sourceId: String(this.rawKeyframeItem(itemId)?.source?.src ?? ''),
                         sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
                         inputSha256: result.inputSha256, revision: JSON.stringify(this.rawKeyframeItem(itemId)) })) {
-                        return { ok: false, message: '処理中に写真が変わりました' };
+                        return { ok: false, message: t('annotations.timeline.text.thePhotoChangedDuringProcessing') };
                     }
                     return { ok: true, photoCandidates: result.candidates, inputSha256: result.inputSha256,
                         photoRevision: revision, photoEngine: engine };
                 } else if (request.path === 'photo-adopt') {
-                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const sourceId = String(raw.source.src ?? '');
                     const source = this.sourceMap.get(sourceId);
-                    if (!source) throw new Error('写真を選んでください');
+                    if (!source) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const value = request.value as { candidate?: string; candidates?: string[]; inputSha256: string; photoRevision: string;
                         engine: 'apple-vision' | 'sam2.1-tiny'; target: 'cutout' | 'region'; invert?: boolean; name?: string };
-                    if (JSON.stringify(raw) !== value.photoRevision) return { ok: false, message: '処理中に写真が変わりました' };
+                    if (JSON.stringify(raw) !== value.photoRevision) return { ok: false, message: t('annotations.timeline.text.thePhotoChangedDuringProcessing') };
                     const polarity = photoAdoptionPolarity(value.target, value.invert === true);
                     const result = value.candidates ? await this.annotationsService.photoAdoptMany({
                         projectRootUri: this.location.root.toString(), sourceUri: source.videoUri,
@@ -4497,10 +4728,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         itemId: this.rawKeyframeItem(itemId)?.id ?? '', sourceId: String(this.rawKeyframeItem(itemId)?.source?.src ?? ''),
                         sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
                         inputSha256: result.inputSha256, revision: JSON.stringify(this.rawKeyframeItem(itemId)) })) {
-                        return { ok: false, message: '処理中に写真が変わりました' };
+                        return { ok: false, message: t('annotations.timeline.text.thePhotoChangedDuringProcessing') };
                     }
                     const hash = result.ref.match(/([a-f0-9]{64})\.png$/u)?.[1];
-                    if (!hash) throw new Error('マスクの保存名が正しくありません');
+                    if (!hash) throw new Error(t('annotations.timeline.text.maskSaveNameIsIncorrect'));
                     generatedMask = { id: `mask-${hash}`, ref: result.ref };
                     const existingRegions = Array.isArray(raw.regions) ? raw.regions : [];
                     adoptedRegion = value.target === 'region'
@@ -4508,13 +4739,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : undefined;
                     patch = value.target === 'cutout' ? { mask: generatedMask.id }
                         : { regions: [...existingRegions, adoptedRegion] };
-                    label = value.target === 'cutout' ? '背景を消す' : 'エリアを追加';
+                    label = value.target === 'cutout' ? t('annotations.timeline.text.eraseTheBackground') : t('annotations.timeline.text.addArea');
                 } else if (request.path === 'maskFeather') {
-                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     patch = { maskFeather: request.value };
-                    label = '境界をなめらかに変更';
+                    label = t('annotations.timeline.text.changeTheBorderToSmooth');
                 } else if (request.path === 'regions') {
-                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     if (Array.isArray(request.value) && this.location) for (const region of request.value as Array<{ filter?: { lut?: string } }>) {
                         if (typeof region?.filter?.lut === 'string' && region.filter.lut) {
                             await this.annotationsService.photoStageRegionLut({
@@ -4523,32 +4754,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                     }
                     patch = { regions: request.value };
-                    label = 'エリアの補正を変更';
+                    label = t('annotations.timeline.text.changeAreaCorrection');
                 } else if (request.path === 'photo-brush-toggle') {
-                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     window.dispatchEvent(new CustomEvent('akari.photo.brush', { detail: {
                         editUri: this.location.editUri.toString(), itemId, settings: request.value
                     } }));
                     return { ok: true };
                 } else if (request.path === 'photo-select-toggle') {
-                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     window.dispatchEvent(new CustomEvent('akari.photo.select', { detail: {
                         editUri: this.location.editUri.toString(), itemId
                     } }));
                     return { ok: true };
                 } else if (request.path === 'flip.h' || request.path === 'flip.v') {
-                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     const axis = request.path.endsWith('h') ? 'h' : 'v';
                     patch = { flip: { ...(raw.flip ?? {}), [axis]: request.value === true } };
-                    label = '写真を反転';
+                    label = t('annotations.timeline.text.flipPhoto');
                 } else if (request.path === 'erase') {
-                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (raw.source?.kind !== 'media') throw new Error(t('annotations.timeline.text.pleaseSelectAPhoto'));
                     patch = { erase: request.value };
-                    label = '消しゴムの線を変更';
+                    label = t('annotations.timeline.text.changeEraserLine');
                 } else if (request.path === 'motion-draw') {
-                    if (!this.location?.editUri) throw new Error('編集中の動画がありません');
+                    if (!this.location?.editUri) throw new Error(t('annotations.timeline.text.thereAreNoVideosBeingEdited'));
                     if (raw.source?.kind === 'caption' || raw.source?.kind === 'captions') {
-                        throw new Error('字幕には動きを描けません');
+                        throw new Error(t('annotations.timeline.text.youCannotDrawMovementInSubtitles'));
                     }
                     window.dispatchEvent(new CustomEvent('akari.motion.draw', { detail: {
                         editUri: this.location.editUri.toString(), itemId
@@ -4556,16 +4787,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return { ok: true };
                 } else if (request.path === 'motion') {
                     if (raw.source?.kind === 'caption' || raw.source?.kind === 'captions') {
-                        throw new Error('字幕の動きは各行の設定から変更してください。');
+                        throw new Error(t('annotations.timeline.text.pleaseChangeTheSubtitleMovementFromTheSettings'));
                     }
                     const value = request.value;
                     validateInspectorMotion(value, raw.duration);
                     patch = { motion: value };
-                    label = 'クリップの動きを変更';
+                    label = t('annotations.timeline.text.changeClipMovement');
                 } else if (request.path === 'animator') {
                     const value = request.value;
                     patch = { animator: value };
-                    label = 'クリップのアニメーターを変更';
+                    label = t('annotations.timeline.text.changeClipAnimator');
                 } else if (request.path === 'perspective') {
                     const value = request.value;
                     if (value !== null) {
@@ -4574,7 +4805,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         );
                     }
                     patch = { perspective: value };
-                    label = 'クリップのパースを変更';
+                    label = t('annotations.timeline.text.changeClipPerspective');
                 } else if (request.path === 'adjust' || request.path.startsWith('adjust.')) {
                     patch = {
                         adjust: updateInspectorAdjust(
@@ -4583,36 +4814,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             request.value as InspectorAdjustValue
                         )
                     };
-                    label = 'クリップの調整を変更';
+                    label = t('annotations.timeline.text.changeClipAdjustments');
                 } else if (request.path === 'source.canvas.intent' || request.path === 'source.canvas.background') {
-                    if (raw.source?.kind !== 'group') throw new Error('キャンバスを選んでください。');
+                    if (raw.source?.kind !== 'group') throw new Error(t('annotations.timeline.text.pleaseChooseACanvas'));
                     const field = request.path.slice('source.canvas.'.length);
                     patch = { source: { canvas: { ...(raw.source.canvas ?? { origin: 'user', durationMode: 'fixed' }),
                         [field]: request.value } } };
-                    label = 'キャンバスの設定を変更';
+                    label = t('annotations.timeline.text.changeCanvasSettings');
                 } else if (request.path === 'duration') {
-                    if (raw.source?.kind !== 'group') throw new Error('キャンバスを選んでください。');
+                    if (raw.source?.kind !== 'group') throw new Error(t('annotations.timeline.text.pleaseChooseACanvas'));
                     if (typeof request.value !== 'number' || !Number.isFinite(request.value) || request.value <= 0) {
-                        throw new Error('尺は正の秒数で指定してください。');
+                        throw new Error(t('annotations.timeline.text.pleaseSpecifyTheLengthAsAPositiveNumber'));
                     }
                     patch = { duration: Math.max(1, Math.round(Number(request.value) * this.fps)) };
-                    label = 'キャンバスの尺を変更';
+                    label = t('annotations.timeline.text.changeCanvasLength');
                 } else if (request.path === 'name') {
                     patch = { name: String(request.value ?? '') };
-                    label = 'キャンバスの名前を変更';
+                    label = t('annotations.timeline.text.renameCanvas');
                 } else if (request.path.startsWith('source.vars.')) {
                     const name = request.path.slice('source.vars.'.length);
                     patch = {
                         source: { vars: { ...(raw.source?.vars ?? {}), [name]: request.value } }
                     };
-                    label = 'クリップのパラメータを変更';
+                    label = t('annotations.timeline.text.changeClipParameters');
                 } else if (request.path === 'source.params' || request.path.startsWith('source.params.')) {
                     const name = request.path.slice('source.params.'.length);
                     patch = {
                         source: { params: request.path === 'source.params' ? request.value
                             : { ...(raw.source?.params ?? {}), [name]: request.value } }
                     };
-                    label = raw.source?.kind === 'shape' ? '図形の見た目を変更' : 'クリップのテキストを変更';
+                    label = raw.source?.kind === 'shape' ? t('annotations.timeline.text.changeShapeAppearance') : t('annotations.timeline.text.changeClipText');
                     needsTelopRebake = raw.source?.baked !== undefined;
                 } else if (request.path.startsWith('source.chroma_key.')) {
                     const field = request.path.slice('source.chroma_key.'.length);
@@ -4621,42 +4852,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                     if (request.value === null) delete chromaKey[field];
                     patch = { source: { chroma_key: chromaKey } };
-                    label = 'クリップのクロマキーを変更';
+                    label = t('annotations.timeline.text.changeTheChromaKeyOfAClip');
                 } else {
                     patch = { [request.path]: request.value };
                     label = request.path === 'opacity'
-                        ? 'クリップの不透明度を変更' : 'クリップの合成を変更';
+                        ? t('annotations.timeline.text.changeClipOpacity') : t('annotations.timeline.text.changeClipCompositing');
                 }
             } else if (cutKinds.has(request.kind)) {
                 const indexed = request as Extract<InspectorWriteRequest, { index: number }>;
                 itemId = this.cutItemId(indexed.index);
                 const cut = this.cuts[indexed.index];
-                if (!cut) throw new Error('クリップが見つかりません。');
+                if (!cut) throw new Error(t('annotations.timeline.text.clipNotFoundVariant3'));
                 if (request.kind === 'cut-speed') {
                     const speed = request.value ?? 1;
                     patch = {
                         duration: Math.max(1, this.frameAt((cut.out - cut.in) / speed)),
                         source: { speed: request.value }
                     };
-                    label = 'クリップの速度を変更';
+                    label = t('annotations.timeline.text.changeClipSpeed');
                 } else if (request.kind === 'cut-audio-gain') {
                     if (request.value !== null && (!Number.isFinite(request.value) || request.value < -60 || request.value > 12)) {
-                        return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                        return { ok: false, message: t('annotations.timeline.text.pleaseEnterTheEmbeddedAudioVolumeWithinThe') };
                     }
                     patch = { source: { gain_db: request.value } };
-                    label = '埋め込み音声の音量を変更';
+                    label = t('annotations.timeline.text.changeTheVolumeOfEmbeddedAudio');
                 } else if (request.kind === 'cut-audio-mute') {
                     patch = { source: { mute: request.value ? true : null } };
-                    label = request.value ? '埋め込み音声をミュート' : '埋め込み音声のミュートを解除';
+                    label = request.value ? t('annotations.timeline.text.muteEmbeddedAudio') : t('annotations.timeline.text.unmuteEmbeddedAudio');
                 } else if (request.kind === 'cut-opacity') {
                     patch = { opacity: request.value };
-                    label = 'クリップの不透明度を変更';
+                    label = t('annotations.timeline.text.changeClipOpacity');
                 } else if (isCutFramingWriteRequest(request)) {
                     const raw = this.rawV2Item(itemId);
                     const framing = updateCutFraming(raw?.source?.framing, request);
                     patch = { source: { framing } };
                     label = request.kind === 'cut-framing-keyframes'
-                        ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+                        ? t('annotations.timeline.text.changeZoomKf') : t('annotations.timeline.text.changeFramingWindows');
                 } else if (isCutFreezeWriteRequest(request)) {
                     const raw = this.rawV2Item(itemId);
                     const playbackDuration = cutPlaybackDuration(cut);
@@ -4680,13 +4911,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         } : {}),
                         source: { freeze }
                     };
-                    label = 'フリーズを変更';
+                    label = t('annotations.timeline.text.changeFreeze');
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
                     if (this.isStillImageCut(cut)) {
                         const segment = this.segments[indexed.index];
-                        if (!segment) throw new Error('クリップが見つかりません。');
+                        if (!segment) throw new Error(t('annotations.timeline.text.clipNotFoundVariant3'));
                         const available = Math.min(Infinity, ...this.segments
                             .filter(other => other.index !== indexed.index && other.track === segment.track
                                 && other.tlEnd > segment.tlStart)
@@ -4696,7 +4927,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         );
                         if (duration === undefined || this.cutWouldOverlap(
                             indexed.index, segment.tlStart, duration, segment.track
-                        )) throw new Error('隣のクリップとの間に 0.5 秒以上の長さを確保できません。');
+                        )) throw new Error(t('annotations.timeline.text.thereCannotBeMoreThan05Seconds'));
                         patch = { duration: this.frameAt(duration), source: { in: 0, out: duration } };
                     } else {
                         patch = {
@@ -4704,39 +4935,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             source: { in: input, out: output }
                         };
                     }
-                    label = '素材の範囲を変更';
+                    label = t('annotations.timeline.text.changeMaterialRange');
                 } else {
                     const field = request.kind === 'cut-transform-x' ? 'x'
                         : request.kind === 'cut-transform-y' ? 'y'
                             : request.kind === 'cut-scale' ? 'scale' : 'rotate';
                     patch = { transform: { ...(cut.transform ?? {}), [field]: request.value } };
                     if (request.value === null) delete (patch.transform as Record<string, unknown>)[field];
-                    label = 'クリップの変形を変更';
+                    label = t('annotations.timeline.text.changeClipTransformation');
                 }
             } else if (layerKinds.has(request.kind)) {
                 const identified = request as Extract<InspectorWriteRequest, { id: string }>;
                 itemId = identified.id;
                 const layer = this.layers.find(candidate => candidate.id === itemId);
-                if (!layer) throw new Error('クリップが見つかりません。');
+                if (!layer) throw new Error(t('annotations.timeline.text.clipNotFoundVariant3'));
                 if (request.kind === 'layer-opacity') {
                     patch = { opacity: request.value };
-                    label = 'クリップの不透明度を変更';
+                    label = t('annotations.timeline.text.changeClipOpacity');
                 } else if (request.kind === 'layer-blend') {
                     patch = { blend: request.value };
-                    label = 'クリップの合成を変更';
+                    label = t('annotations.timeline.text.changeClipCompositing');
                 } else if (request.kind === 'layer-crop-x' || request.kind === 'layer-crop-y'
                     || request.kind === 'layer-crop-w' || request.kind === 'layer-crop-h') {
                     const field = request.kind.slice('layer-crop-'.length) as InspectorCropAxis;
                     const raw = this.rawKeyframeItem(itemId);
                     patch = { crop: updateInspectorCrop(raw?.crop, field, request.value) };
-                    label = 'クリップのクロップを変更';
+                    label = t('annotations.timeline.text.changeCropOfClip');
                 } else {
                     const field = request.kind === 'layer-transform-x' ? 'x'
                         : request.kind === 'layer-transform-y' ? 'y'
                             : request.kind === 'layer-scale' ? 'scale' : 'rotate';
                     patch = { transform: { ...(layer.transform ?? {}), [field]: request.value } };
                     if (request.value === null) delete (patch.transform as Record<string, unknown>)[field];
-                    label = 'クリップの変形を変更';
+                    label = t('annotations.timeline.text.changeClipTransformation');
                 }
             } else if (request.kind === 'overlay-var') {
                 itemId = (request as Extract<InspectorWriteRequest, { id: string }>).id;
@@ -4744,18 +4975,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 patch = {
                     source: { vars: { ...(raw?.source?.vars ?? {}), [request.name]: request.value } }
                 };
-                label = 'クリップのパラメータを変更';
+                label = t('annotations.timeline.text.changeClipParameters');
             } else if (request.kind === 'narration-gain') {
                 itemId = request.id;
                 patch = { gain_db: request.value };
-                label = 'ナレーションの音量を変更';
+                label = t('annotations.timeline.text.changeNarrationVolume');
             } else {
                 itemId = (request as Extract<InspectorWriteRequest, { id: string }>).id;
                 patch = request.kind === 'sfx-gain'
                     ? { gain_db: request.value }
                     : { [request.kind === 'sfx-fade-in' ? 'fade_in' : 'fade_out']: request.value };
                 audioPatch = true;
-                label = '音声クリップの設定を変更';
+                label = t('annotations.timeline.text.changeAudioClipSettings');
             }
             const keyframeField = request.kind === 'item-field' && request.path.startsWith('transform.')
                 ? (this.rawKeyframeItem(request.id)?.source?.kind === 'group'
@@ -4774,6 +5005,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const itemDuration = rawKeyframe?.duration ?? 0;
             const itemFrame = keyframeWrite ? Math.max(0, Math.min(itemDuration,
                 Math.round(((this.playheadT ?? itemStart) - itemStart) * this.fps))) : 0;
+            const trackFreezeGrowth = request.kind === 'cut-speed'
+                || request.kind === 'cut-source-in' || request.kind === 'cut-source-out';
+            const beforeFreeze = trackFreezeGrowth
+                ? transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds) : [];
             await this.commitEditMutation(label, doc => keyframeField && numericValue !== undefined
                 ? writeV2ItemTransformAt(doc, { itemId, t: itemFrame, patch: { [keyframeField]: numericValue } })
                 : keyframeOpacity && numericValue !== undefined
@@ -4805,13 +5040,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
             if (needsTelopRebake) {
-                this.showNotice('テキストを変更しました。プレビューは焼成済み素材のままなので再ベイクが必要です。');
+                this.showNotice(t('annotations.timeline.text.textChangedThePreviewIsStillTheFired'));
             }
-            this.footer.textContent = label === '背景を消す' ? '背景を消しました。' : `${label}しました。`;
+            this.footer.textContent = label === t('annotations.timeline.text.eraseTheBackground') ? t('annotations.timeline.text.iDeletedTheBackground') : t('annotations.timeline.text.iDid', { action: label });
+            const grown = trackFreezeGrowth
+                ? transitionFreezeGrowth(beforeFreeze, this.transitionPlans().plans, this.cutItemIds)
+                    .map(entry => t('transition.fill.notice.grown',
+                        { from: entry.from, to: entry.to, seconds: entry.seconds })) : [];
+            if (grown.length) this.footer.textContent += ` ${grown.join(' ')}`;
             return { ok: true, ...(adoptedRegion ? { photoRegion: adoptedRegion } : {}) };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`変更できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.cannotBeChanged', { reason: detail }));
             return { ok: false, message: detail };
         }
     }
@@ -4895,27 +5135,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async resolveMyStyleAsset(category: string, id: string, file: string): Promise<void> {
-        if (!this.location) throw new Error('プロジェクトがありません。');
+        if (!this.location) throw new Error(t('annotations.timeline.text.thereAreNoProjects'));
         await new Promise<void>((resolve, reject) => {
             const detail = { projectUri: this.location!.root.toString(), category, id, file,
                 handled: false, resolve, reject };
             window.dispatchEvent(new CustomEvent('akari.mystyle.resolve-asset', { detail }));
-            if (!detail.handled) reject(new Error('素材の参照サービスがありません。'));
+            if (!detail.handled) reject(new Error(t('annotations.timeline.text.noMaterialReferenceServiceAvailable')));
         });
     }
 
     /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
-    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number;
+    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number; id?: string; slug?: string;
+        style_source?: { kind: 'builtin' | 'library' | 'my'; id: string };
         parts?: Array<{ kind: string; text_style?: unknown; animation?: unknown }> }; ids?: string[];
         selectedParts?: string[] } | undefined): Promise<boolean> {
         const style = detail?.style;
-        if (!style || !Array.isArray(style.parts)) { this.showNotice('スタイルを読み取れませんでした。'); return false; }
+        if (!style || !Array.isArray(style.parts)) { this.showNotice(t('annotations.timeline.text.unableToReadStyle')); return false; }
         const selected = detail?.selectedParts ?? ['look', 'motion', 'sfx', 'fx', 'decor'];
         const appliedKinds = appliedMyStyleKinds(style.parts, selected);
         const applied = style.parts.filter(part => appliedKinds.includes(part.kind));
         const ids = detail?.ids ?? this.selectionModel.selectedCaptionIds;
-        if (!ids.length) { this.showNotice('字幕を選んでください。'); return false; }
-        if (!applied.length) { this.showNotice('当てられる部品がありません。'); return false; }
+        if (!ids.length) { this.showNotice(t('annotations.timeline.text.pleaseSelectSubtitles')); return false; }
+        if (!applied.length) { this.showNotice(t('annotations.timeline.text.thereAreNoMatchingParts')); return false; }
         if (applied.length) {
             if (applied.some(part => ['sfx', 'decor'].includes(part.kind))) {
                 try {
@@ -4923,17 +5164,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         if (part.kind !== 'sfx' && part.kind !== 'decor') continue;
                         const asset = (part as { asset?: { category?: string; id?: string }; file?: string }).asset;
                         const file = (part as { file?: string }).file;
-                        if (!asset?.category || !asset.id || !file) throw new Error('素材参照が不正です。');
+                        if (!asset?.category || !asset.id || !file) throw new Error(t('annotations.timeline.text.invalidMaterialReference'));
                         await this.resolveMyStyleAsset(asset.category, asset.id, file);
                     }
                 } catch (error) { this.showNotice(this.errorMessage(error)); return false; }
             }
             const result = await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: ids[0],
                 value: { parts: applied, style_uid: style.uid,
-                    keepSize: (style as { keepSize?: boolean }).keepSize === true,
+                    ...(style.style_source ? { style_source: style.style_source }
+                        : (style.slug ?? style.id ?? style.uid)
+                            ? { style_source: { kind: 'my', id: style.slug ?? style.id ?? style.uid,
+                                uid: style.uid, revision: style.revision } } : {}),
+                    keepSize: true,
                     catalog: (style as { catalog?: Record<string, { style: Record<string, unknown> }> }).catalog },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
-            if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return false; }
+            if (!result.ok) { this.showNotice(result.message ?? t('annotations.timeline.text.iCouldnTGuessTheStyle')); return false; }
             await this.recordMyStyleUsage(style, ids, appliedKinds);
         }
         const notice = myStyleApplyNotice(style.parts, selected);
@@ -4956,7 +5201,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async openMyStyleSaveDialog(captionId?: string): Promise<void> {
         const id = captionId ?? this.selectionModel.selectedCaptionIds[0];
         const caption = this.captions.find(item => item.id === id);
-        if (!caption) { this.showNotice('字幕を選んでください。'); return; }
+        if (!caption) { this.showNotice(t('annotations.timeline.text.pleaseSelectSubtitles')); return; }
         const motion = effectiveMyStyleMotion(this.defaultTextStyle, caption.textStyle);
         const attachedParts = this.location?.editUri
             ? myStyleAttachedPartsFromEdit(JSON.parse((await this.fileService.readFile(this.location.editUri)).value.toString()), caption.id)
@@ -4966,41 +5211,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const dialog = document.createElement('div');
         dialog.setAttribute('data-akari-my-style-dialog', '');
         dialog.setAttribute('role', 'dialog');
-        dialog.setAttribute('aria-label', 'マイスタイルに保存');
+        dialog.setAttribute('aria-label', t('annotations.timeline.text.saveToMyStyle'));
         Object.assign(dialog.style, { position: 'fixed', zIndex: '100000', left: '50%', top: '50%',
             transform: 'translate(-50%, -50%)', width: 'min(360px, 90vw)', padding: '16px',
             background: 'var(--theia-editor-background)', color: 'var(--theia-foreground)',
             border: '1px solid var(--theia-widget-border)', borderRadius: '8px', boxShadow: '0 12px 30px #0008' });
-        dialog.innerHTML = `<strong>マイスタイルに保存</strong>
-            <label style="display:block;margin-top:12px">名前<input data-akari-my-style-name style="display:block;width:100%;box-sizing:border-box" maxlength="80"></label>
-            <label style="display:block;margin-top:10px">使いどころ<textarea data-akari-my-style-when style="display:block;width:100%;box-sizing:border-box" rows="2" placeholder="どんな場面で使うか"></textarea></label>
-            <div style="margin-top:12px">保存する部品</div>
-            <label style="display:block"><input type="checkbox" data-akari-my-style-part-input="look" checked> 見た目 <small>（位置は含めない）</small></label>
-            <label style="display:block${motion ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="motion" ${motion ? 'checked' : 'disabled'}> 動き${motion ? '' : '（この字幕には動きがありません）'}</label>
-            <label style="display:block${available('sfx') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="sfx" ${available('sfx') ? 'checked' : 'disabled'}> 効果音${available('sfx') ? '' : '（ひも付いた要素がありません）'}</label>
-            <label style="display:block${available('fx') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="fx" ${available('fx') ? 'checked' : 'disabled'}> 画面効果${available('fx') ? '' : '（ひも付いた要素がありません）'}</label>
-            <label style="display:block${available('decor') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="decor" ${available('decor') ? 'checked' : 'disabled'}> 装飾${available('decor') ? '' : '（ひも付いた要素がありません）'}</label>
-            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="theia-button secondary" data-akari-my-style-cancel>キャンセル</button><button type="button" class="theia-button main" data-akari-my-style-save>保存</button></div>`;
+        dialog.innerHTML = `<strong>${t('annotations.timeline.myStyleSave.title')}</strong>
+            <label style="display:block;margin-top:12px">${t('annotations.timeline.myStyleSave.name')}<input data-akari-my-style-name style="display:block;width:100%;box-sizing:border-box" maxlength="80"></label>
+            <label style="display:block;margin-top:10px">${t('annotations.timeline.myStyleSave.usage')}<textarea data-akari-my-style-when style="display:block;width:100%;box-sizing:border-box" rows="2" placeholder="${t('annotations.timeline.myStyleSave.usagePlaceholder')}"></textarea></label>
+            <div style="margin-top:12px">${t('annotations.timeline.myStyleSave.parts')}</div>
+            <label style="display:block"><input type="checkbox" data-akari-my-style-part-input="look" checked> ${t('annotations.timeline.myStyleSave.look')} <small>${t('annotations.timeline.myStyleSave.noPosition')}</small></label>
+            <label style="display:block${motion ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="motion" ${motion ? 'checked' : 'disabled'}> ${t('annotations.timeline.myStyleSave.motion')}${motion ? '' : t('annotations.timeline.text.thisSubtitleHasNoMovement')}</label>
+            <label style="display:block${available('sfx') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="sfx" ${available('sfx') ? 'checked' : 'disabled'}> ${t('annotations.timeline.myStyleSave.sfx')}${available('sfx') ? '' : t('annotations.timeline.text.thereAreNoAttachedElements')}</label>
+            <label style="display:block${available('fx') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="fx" ${available('fx') ? 'checked' : 'disabled'}> ${t('annotations.timeline.myStyleSave.fx')}${available('fx') ? '' : t('annotations.timeline.text.thereAreNoAttachedElements')}</label>
+            <label style="display:block${available('decor') ? '' : ';opacity:.55'}"><input type="checkbox" data-akari-my-style-part-input="decor" ${available('decor') ? 'checked' : 'disabled'}> ${t('annotations.timeline.myStyleSave.decor')}${available('decor') ? '' : t('annotations.timeline.text.thereAreNoAttachedElements')}</label>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="theia-button secondary" data-akari-my-style-cancel>${t('annotations.timeline.myStyleSave.cancel')}</button><button type="button" class="theia-button main" data-akari-my-style-save>${t('annotations.timeline.myStyleSave.save')}</button></div>`;
         document.body.appendChild(dialog);
         const name = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-name]')!;
         const when = dialog.querySelector<HTMLTextAreaElement>('[data-akari-my-style-when]')!;
         const saveButton = dialog.querySelector<HTMLButtonElement>('[data-akari-my-style-save]')!;
-        name.value = caption.text.slice(0, 40) || 'マイスタイル';
+        name.value = caption.text.slice(0, 40) || t('annotations.timeline.text.myStyle');
         const close = (): void => { document.removeEventListener('keydown', keyboard, true); dialog.remove(); };
         let saving = false;
         const save = async (): Promise<void> => {
             if (saving) return;
-            if (!name.value.trim() || !when.value.trim()) { this.showNotice('名前と使いどころを入力してください。'); return; }
+            if (!name.value.trim() || !when.value.trim()) { this.showNotice(t('annotations.timeline.text.pleaseEnterTheNameAndUsage')); return; }
             const lookChecked = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-part-input="look"]')?.checked;
             const motionChecked = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-part-input="motion"]')?.checked;
             const attachedSelected = attachedParts.filter(part =>
                 dialog.querySelector<HTMLInputElement>(`[data-akari-my-style-part-input="${part.kind}"]`)?.checked);
-            if (!lookChecked && !motionChecked && !attachedSelected.length) { this.showNotice('保存する部品を選んでください。'); return; }
+            if (!lookChecked && !motionChecked && !attachedSelected.length) { this.showNotice(t('annotations.timeline.text.pleaseSelectThePartsToSave')); return; }
             saving = true;
             saveButton.disabled = true;
             let height: number;
             try {
-                if (!this.location?.editUri) throw new Error('edit.json がありません。');
+                if (!this.location?.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
                 height = myStyleOutputHeight((await this.fileService.readFile(this.location.editUri)).value.toString());
             } catch (error) {
                 saving = false; saveButton.disabled = false;
@@ -5018,10 +5263,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const pending = new Promise<void>((resolve, reject) => {
                 window.dispatchEvent(new CustomEvent('akari.mystyle.save', { detail: { style, resolve, reject } }));
             });
-            void pending.then(() => { close(); this.showNotice('マイスタイルに保存しました。'); }, error => {
+            void pending.then(() => { close(); this.showNotice(t('annotations.timeline.text.savedToMyStyle')); }, error => {
                 saving = false;
                 saveButton.disabled = false;
-                this.showNotice(`保存できません: ${error instanceof Error ? error.message : String(error)}`);
+                this.showNotice(t('annotations.timeline.text.unableToSave', { reason: error instanceof Error ? error.message : String(error) }));
             });
         };
         const keyboard = (event: KeyboardEvent): void => {
@@ -5091,10 +5336,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (part.kind !== 'sfx' && part.kind !== 'decor') continue;
                 const asset = (part as { asset?: { category?: string; id?: string }; file?: string }).asset;
                 const file = (part as { file?: string }).file;
-                if (!asset?.category || !asset.id || !file) throw new Error('素材参照が不正です。');
+                if (!asset?.category || !asset.id || !file) throw new Error(t('annotations.timeline.text.invalidMaterialReference'));
                 await this.resolveMyStyleAsset(asset.category, asset.id, file);
             }
-            await this.withHistory('文字を置く', async () => {
+            await this.withHistory(t('annotations.timeline.text.placeLetters'), async () => {
                 if (canvas) {
                     const captionsSource = insertCaptionLine(source, caption);
                     const withParts = attachedParts.length && options.myStyle?.uid
@@ -5124,7 +5369,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else {
                     await this.annotationsService.insertCaption({
                         captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        caption, label: '文字を置く'
+                        caption, label: t('annotations.timeline.text.placeLetters')
                     });
                 }
             });
@@ -5158,7 +5403,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    async applyLibraryItem(payload: ApplyPayload, target?: ApplyTarget): Promise<boolean> {
+    async applyLibraryItem(payload: ApplyPayload | { kind: 'video'; relativePath: string }
+        | { kind: 'image'; relativePath: string }, target?: ApplyTarget): Promise<boolean> {
+        if ((payload.kind === 'video' || payload.kind === 'image') && target?.kind === 'item') {
+            return this.applyScene3dScreen(payload.relativePath, target.id);
+        }
+        if (payload.kind === 'video' || payload.kind === 'image') return false;
         const current = target ?? (this.selection?.kind === 'caption' ? { kind: 'caption' as const, id: this.selection.id }
             : this.selection?.kind === 'cut' ? { kind: 'cut' as const, id: this.cutItemId(this.selection.index) }
                 : this.selection?.kind === 'layer' || this.selection?.kind === 'item'
@@ -5167,8 +5417,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!plan) {
             const needsVideo = payload.kind === 'lut';
             const hasSuitableTarget = current && (needsVideo ? current.kind !== 'caption' : current.kind === 'caption');
-            this.messages.info(hasSuitableTarget ? 'カードの内容を読み取れませんでした。'
-                : needsVideo ? '写真や映像を選んでから当ててください。' : '文字を選んでから当ててください。');
+            this.messages.info(hasSuitableTarget ? t('annotations.timeline.text.theContentsOfTheCardCouldNotBe')
+                : needsVideo ? t('annotations.timeline.text.pleaseSelectAPhotoOrVideoAndThen') : t('annotations.timeline.text.pleaseSelectALetterAndThenGuess'));
             return false;
         }
         if (payload.kind === 'mystyle' && plan.kind === 'caption') {
@@ -5184,15 +5434,69 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? await this.handleInspectorWrite({ kind: 'caption-style-font-family', id: plan.id,
                     value: payload.fontFamily!.trim(), libraryApplyKind: 'font' })
                 : await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: plan.id,
-                    value: { parts: plan.parts, keepSize: plan.keepSize, catalog: plan.catalog },
+                    value: { parts: plan.parts, keepSize: plan.keepSize, catalog: plan.catalog,
+                        style_source: plan.style_source },
                     libraryApplyKind: payload.kind });
-        if (!result.ok) { this.messages.warn(result.message ?? '当てられませんでした。'); return false; }
+        if (!result.ok) { this.messages.warn(result.message ?? t('annotations.timeline.text.iCouldnTGuess')); return false; }
         if (plan.kind === 'caption' && this.location?.editUri) this.selectCaptions(this.location.editUri.toString(), [plan.id]);
         else if (current?.kind === 'cut') {
             const index = this.cutItemIds.indexOf(current.id);
             if (index >= 0) this.applySelection({ kind: 'cut', index }, false);
         } else if (current?.kind === 'layer') this.applySelection({ kind: 'layer', id: current.id }, false);
         return true;
+    }
+
+    protected async applyScene3dScreen(relativePath: string, itemId: string): Promise<boolean> {
+        const location = this.location;
+        if (!location?.editUri || !scene3dScreenVars('--akari-screen-path', relativePath)) return false;
+        const editUri = location.editUri.toString();
+        const findItem = (doc: Record<string, unknown>): Record<string, unknown> | undefined => {
+            const visit = (items: unknown[]): Record<string, unknown> | undefined => {
+                for (const raw of items) {
+                    if (!raw || typeof raw !== 'object') continue;
+                    const item = raw as Record<string, unknown>;
+                    if (item.id === itemId) return item;
+                    const child = Array.isArray(item.items) ? visit(item.items) : undefined;
+                    if (child) return child;
+                }
+                return undefined;
+            };
+            for (const track of (Array.isArray(doc.tracks) ? doc.tracks : [])) {
+                const items = (track as { items?: unknown[] }).items;
+                const found = Array.isArray(items) ? visit(items) : undefined;
+                if (found) return found;
+            }
+            return undefined;
+        };
+        try {
+            const doc = JSON.parse((await this.fileService.readFile(location.editUri)).value.toString()) as Record<string, unknown>;
+            const source = findItem(doc)?.source as { kind?: unknown; path?: unknown } | undefined;
+            const path = typeof source?.path === 'string' ? source.path : undefined;
+            if (source?.kind !== 'html' || !isScene3dPath(path)) return false;
+            const stat = await this.fileService.resolve(location.root.resolve(relativePath), { resolveMetadata: true });
+            if (typeof stat.size === 'number' && stat.size > SCENE3D_MAX_SCREEN_BYTES) {
+                this.messages.warn(t('annotations.timeline.text.scene3dScreenTooLarge'));
+                return false;
+            }
+            await this.refreshReferenceMediaUris(undefined, [path!]);
+            const fragment = (await this.fileService.readFile(this.resolveEditMediaUri(path!, location.editUri)))
+                .value.toString();
+            if (this.location?.editUri?.toString() !== editUri) return false;
+            const screenVar = scene3dScreenTextureVar(fragment);
+            if (!screenVar) { this.messages.info(t('annotations.timeline.text.scene3dNoScreen')); return false; }
+            const vars = scene3dScreenVars(screenVar, relativePath);
+            if (!vars) return false;
+            await this.commitEditMutation(t('annotations.timeline.text.setScene3dScreen'), current => {
+                const item = findItem(current);
+                const existing = item?.source as { kind?: unknown; path?: unknown; vars?: Record<string, unknown> } | undefined;
+                if (existing?.kind !== 'html' || existing.path !== path) throw new Error(t('annotations.timeline.text.scene3dChanged'));
+                return updateTreeV2Item(current, itemId, { source: { vars: { ...existing.vars, ...vars } } });
+            });
+            return true;
+        } catch (error) {
+            this.messages.warn(t('annotations.timeline.text.couldNotSetScene3dScreen', { reason: this.errorMessage(error) }));
+            return false;
+        }
     }
 
     protected async withHistory(label: string, operation: () => Promise<void>): Promise<void> {
@@ -5236,7 +5540,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         rows.forEach(row => { row.nextStart = allOutputRows[allOutputRows.findIndex(item => item.id === row.id) + 1]?.start; });
         const caption = this.captions.find(item => item.id === captionIds[0]);
         const start = rows[0]?.outputStart ?? this.playheadT;
-        if (start === undefined) { this.showNotice('字幕の出力時刻を特定できません。'); return; }
+        if (start === undefined) { this.showNotice(t('annotations.timeline.text.unableToDetermineSubtitleOutputTime')); return; }
         const dialog = new AkariReadAloudDialog({
             captionIds, captionId: caption?.id, text: caption?.text ?? '', start,
             end: caption?.end, frameSeconds: caption ? caption.end - caption.start : undefined,
@@ -5244,8 +5548,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             projectRootUri: location.root.toString(), rows, replaceIds: options.replaceIds
         }, this.annotationsService, this.fileService, this.preferences, this.commands,
         async (placements: ReadAloudPlacement[]) => {
-            if (placements.some(placement => !placement.result.path)) throw new Error('音声ファイルがありません。');
-            await this.withHistory('読み上げ', async () => {
+            if (placements.some(placement => !placement.result.path)) throw new Error(t('annotations.timeline.text.thereAreNoAudioFiles'));
+            await this.withHistory(t('annotations.timeline.text.readingAloud'), async () => {
                 for (const placement of placements) {
                     const current = this.captions.find(item => item.id === placement.captionId);
                     if (!current || placement.extendEnd === undefined || current.timeDomain !== 'output') continue;
@@ -5320,14 +5624,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.canHandlePlaybackTick(editUri)) {
             return;
         }
+        const focusedRootId = this.focusScope.rootId;
         if (overlayId === null) {
+            if (this.focusScope.rootId !== null && Date.now() - this.lastBlankPreviewPointerAt < 750) {
+                this.applySelection(undefined, false);
+                return;
+            }
+            if (this.focusScope.rootId !== null) {
+                if (this.selection) this.publishPrimaryPreviewSelection(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'overlay' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('overlay:')))) {
                 this.applySelection(undefined, false);
             }
             return;
         }
-        let treeRow = this.timelineTreeRows.find(row => row.id === overlayId);
+        let treeRow = (this.focusScope.rootId === null ? this.timelineTreeRows : this.expandedTimelineTreeRows)
+            .find(row => row.id === overlayId);
         if (!treeRow) {
             const scopedRows = this.focusScope.rootId === null ? this.expandedTimelineTreeRows
                 : rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope);
@@ -5342,13 +5656,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         if (treeRow) {
+            const outsideFocus = this.focusScope.rootId !== null
+                && selectionLeavesFocus(this.expandedTimelineTreeRows, this.focusScope.rootId, treeRow.id);
             this.applySelection({
                 kind: 'item', id: treeRow.id, itemKind: treeRow.itemKind,
                 parentId: treeRow.parentId, trackId: treeRow.trackId
-            }, false);
+            }, outsideFocus);
             this.revealPreviewSelection();
         } else if (this.overlays.some(overlay => overlay.id === overlayId)) {
             this.applySelection({ kind: 'overlay', id: overlayId }, false);
+            if (focusedRootId !== null
+                && selectionLeavesFocus(this.expandedTimelineTreeRows, focusedRootId, overlayId)) {
+                this.publishPrimaryPreviewSelection({ kind: 'overlay', id: overlayId });
+            }
             this.revealPreviewSelection();
         }
     }
@@ -5415,7 +5735,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const id = selection?.kind === 'cut' ? this.cutItemId(selection.index)
             : selection && 'id' in selection ? selection.id : undefined;
         if (!matchesPreviewZOrderSelection(id, selectedIds, this.multiSelection.length > 0)) return;
-        this.moveSelectedZOrder(id, op, '重なり順を変更');
+        this.moveSelectedZOrder(id, op, t('annotations.timeline.text.changeStackingOrder'));
     }
 
     // ---- 出力プレビューの上のバー・要素の上の小さなメニューへの窓口（中身は context-bar-controller / context-bar-edit） ----
@@ -5430,7 +5750,44 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const caption = selectedCaptionId ? this.captions.find(item => item.id === selectedCaptionId) : undefined;
         return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
             playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path,
-            caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {} } : undefined };
+            pendingKeyframeGroups: this.pendingPreviewKeyframes && selectedId === this.pendingPreviewKeyframes.itemId
+                ? this.pendingPreviewKeyframes.groups : [],
+            caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {},
+                locale: this.captionDisplayLocale } : undefined };
+    }
+
+    protected setPendingPreviewKeyframes(value: { itemId: string; groups: PreviewKeyframeGroup[] } | undefined): void {
+        if (!this.pendingPreviewKeyframes && !value) return;
+        this.pendingPreviewKeyframes = value;
+        window.dispatchEvent(new CustomEvent('akari.contextBar.refresh'));
+    }
+
+    async commitPendingPreviewKeyframes(itemId: string): Promise<{ ok: boolean; message?: string }> {
+        const pending = this.pendingPreviewKeyframes;
+        if (!pending || pending.itemId !== itemId || this.focusScope.rootId !== itemId) return { ok: false };
+        const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
+        const raw = this.rawKeyframeItem(itemId);
+        if (!row || !raw) return { ok: false };
+        const frame = Math.max(0, Math.min(raw.duration, Math.round((this.playheadT - row.at) * this.fps)));
+        try {
+            await this.commitEditMutation(t('annotations.timeline.text.addPreviewKeyframes'), doc => {
+                let next = doc;
+                for (const [index, group] of pending.groups.entries()) {
+                    const hydratedPoints = index === 0 ? this.hydratedKeyframes(itemId) : undefined;
+                    next = group === 'rotation3d'
+                        ? activateV2ItemRotation3dKeyframe(next, { itemId, t: frame,
+                            ...(hydratedPoints ? { hydratedPoints } : {}) })
+                        : activateV2ItemTransformKeyframe(next, { itemId, t: frame,
+                            field: ({ position: 'x', size: 'scale', rotation: 'rotate' } as const)[group],
+                            ...(hydratedPoints ? { hydratedPoints } : {}) });
+                }
+                return next;
+            });
+            this.setPendingPreviewKeyframes(undefined);
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: this.errorMessage(error) };
+        }
     }
 
     async applyContextCaptionPreset(id: string, presetId: string, targetIds: readonly string[]): Promise<{ ok: boolean }> {
@@ -5468,7 +5825,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.editDocument || id.includes('#')) return;
         const plan = planZOrderMove(this.editDocument, id, op);
         if (plan.blocked) {
-            this.footer.textContent = plan.blocked === 'front' ? 'いちばん前面です' : 'いちばん背面です';
+            this.footer.textContent = plan.blocked === 'front' ? t('annotations.timeline.text.itSTheVeryFront') : t('annotations.timeline.text.itSAtTheVeryBack');
             return;
         }
         if (!plan.target) return;
@@ -5486,17 +5843,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : this.commitEditMutation(label, mutate)).then(() => {
             if (createdTrackId) {
                 const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
-                this.showNotice(`${name} を追加しました`);
+                this.showNotice(t('annotations.timeline.text.added', { name: name }));
             } else {
                 this.hideNotice();
             }
-            this.footer.textContent = `${label}しました。`;
-        }).catch(error => this.showNotice(`移動できません: ${this.errorMessage(error)}`));
+            this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
+        }).catch(error => this.showNotice(t('annotations.timeline.text.unableToMove', { reason: this.errorMessage(error) })));
     }
 
     notifyPreviewBagGrouping(editUri: string): void {
         if (this.canHandlePlaybackTick(editUri) && this.previewBagSelection?.editUri === editUri) {
-            this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
+            this.footer.textContent = t('annotations.timeline.text.bagPartsCannotBeMadeIntoCanvasPlease');
         }
     }
 
@@ -5506,6 +5863,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (layerId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'layer' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('layer:')))) {
                 this.applySelection(undefined, false);
@@ -5529,6 +5891,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (cutId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'cut' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('cut:')))) {
                 this.applySelection(undefined, false);
@@ -5548,6 +5915,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (captionId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.multiSelection.some(item => item.kind === 'caption'
                 || this.selectionRenderKeys(item).some(key => key.startsWith('caption:')))
                 || this.selection?.kind === 'caption' || (this.selection?.kind === 'item'
@@ -5571,7 +5943,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     raw?.source?.kind === 'caption' ? raw.source.id : undefined);
             };
             const inGroup = this.multiSelection.some(item => selectedCaptionId(item) === captionId);
-            if (!inGroup && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
+            const currentCaptionId = this.selection ? selectedCaptionId(this.selection) : undefined;
+            // 同じ字幕の item 選択を保つのはキーフレームの画面（フォーカス中）だけ。それ以外では字幕の選択へ
+            // 切り替える。常に保つと、T で置いた文字をプレビューで選んでも上の文字の帯が出なかった。
+            const keepFocusedItem = this.focusScope?.rootId != null && currentCaptionId === captionId;
+            if (!inGroup && !keepFocusedItem
+                && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
@@ -5682,11 +6059,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let actualDurationS: number | undefined;
             if (material.kind !== 'image') {
                 const result = await this.annotationsService.getAudioDuration({ projectRootUri: location.root.toString(), audioUri: mediaUri.toString() });
-                if (result.status !== 'ready') throw new Error('素材の実尺を取得できません。');
+                if (result.status !== 'ready') throw new Error(t('annotations.timeline.text.unableToObtainActualScaleOfMaterial'));
                 actualDurationS = result.durationSeconds;
             }
             if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
-            await this.commitEditMutation('お試し中', doc => replaceMaterial(doc, {
+            await this.commitEditMutation(t('annotations.timeline.text.currentlyTrying'), doc => replaceMaterial(doc, {
                 itemId: session.target.itemId, relativePath, kind: material.kind, actualDurationS
             }), { trial: true });
             // 終了要求は finishMaterialSwap が復元する。次候補なら中間保存せず before を引き継ぐ。
@@ -5701,10 +6078,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
                 // 解決・実尺取得・適用に失敗した場合は、以前の候補も含めて元の byte 列へ戻す。
                 await this.historyService.finishMaterialTrial(false);
-                this.messages.error(`お試しできません: ${this.errorMessage(error)}`);
+                this.messages.error(t('annotations.timeline.text.unableToTry', { reason: this.errorMessage(error) }));
             } catch (rollbackError) {
                 // 復元用 entry を残し、I/O 回復後の「やめる」を実行できるキューにしておく。
-                this.messages.error(`お試しを巻き戻せません: ${this.errorMessage(rollbackError)}`);
+                this.messages.error(t('annotations.timeline.text.unableToRewindTrial', { reason: this.errorMessage(rollbackError) }));
             }
         });
         return this.materialSwapTail as Promise<void>;
@@ -5752,7 +6129,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!active()) return;
             logSwapTrial(playback, 'trial_playback_error', { reason: String(error) });
             this.materialSwapPlaybackWindow = undefined;
-            this.messages.error('再生できませんでした。▶ もう一度で再試行できます。');
+            this.messages.error(t('annotations.timeline.text.couldNotBePlayedYouCanTryAgain'));
         }
     }
 
@@ -5784,7 +6161,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.commandRegistry.executeCommand('akari.catalog.closeSwap');
         });
         this.materialSwapTail = operation.catch(error => {
-            this.messages.error(`お試しを終了できません: ${this.errorMessage(error)}`);
+            this.messages.error(t('annotations.timeline.text.unableToEndTrial', { reason: this.errorMessage(error) }));
         });
         return operation;
     }
@@ -5834,6 +6211,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.snapshot = snapshot;
             this.selectionModel.fps = this.fps;
             if (!snapshot) { this.selectedGap = undefined; this.gapBand?.remove(); }
+            return;
+        }
+        if (this.activeBoundary) {
+            const snapshot = this.transitionSelectionSnapshot();
+            this.selectionModel.materialSwapTarget = undefined;
+            this.selectionModel.treeSelection = undefined;
+            this.selectionModel.snapshot = snapshot;
+            this.selectionModel.fps = this.fps;
+            if (!snapshot) this.activeBoundary = undefined;
             return;
         }
         const target = this.selectedMaterialSwapTarget();
@@ -5940,11 +6326,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.photoMaskAvailability.then(available => {
             if (!available || this.preparingPhotoSources.has(source.videoUri)) return;
             this.preparingPhotoSources.add(source.videoUri);
-            this.showNotice('写真の準備をしています。初回はモデルを取得します…');
-            void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
-                if (!result.ok) this.showNotice(result.message ?? '背景を消す準備ができていません');
-                else this.hideNotice();
-            }).catch(() => this.showNotice('背景を消す準備ができていません'));
+            // 選んだだけの写真の下準備（背景透過のモデルを温める）は黙って行う。失敗を黄色い帯で出すと、
+            // 背景透過を頼んでいないのに移動のたびに「背景透過を実行できませんでした」が出ていた
+            // （オーナー指摘 2026-10-12）。失敗は背景透過を実際に使ったとき（clickPhoto 側）に案内する。
+            void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).catch(() => undefined);
         });
     }
 
@@ -5958,6 +6343,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
         return {
             ...selection,
+            ...(raw.source?.kind === 'html' ? { source: raw.source } : {}),
             ...(selection.parentId && this.rawKeyframeItem(selection.parentId)?.motion
                 ? { canvasMotion: true } : {}),
             ...(raw.source?.kind === 'media' ? {
@@ -5970,7 +6356,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
                     /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))
             } : {}),
-            outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
+            outputStart: row?.at ?? (this.editDocument
+                ? treeItemOutputStart(this.editDocument, selection.id, Number(raw.at) || 0, this.fps)
+                : (Number(raw.at) || 0) / this.fps),
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
             ...(raw.source?.kind !== 'html' && raw.motion && typeof raw.motion === 'object' && !Array.isArray(raw.motion)
@@ -6104,7 +6492,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
             const animatorOwner = this.captionAnimatorOwner(caption.id);
             return {
-                kind: 'caption', id: caption.id, text: caption.text,
+                kind: 'caption', id: caption.id, text: caption.text, captionLocale: this.captionDisplayLocale,
                 ...(caption.displayText !== undefined ? { displayText: caption.displayText } : {}),
                 ...(caption.runs?.length ? { runs: caption.runs } : {}),
                 sourceStart: caption.start, sourceEnd: caption.end,
@@ -6289,7 +6677,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const itemId = this.splittableItemId(selection);
         if (!itemId || !this.location?.editUri) return;
         const atFrames = this.frameAt(this.timeAtClientX(clientX));
-        await this.commitTimelineRipple('クリップの分割', doc => runTimelineCutKernel(doc,
+        await this.commitTimelineRipple(t('annotations.timeline.text.splittingAClip'), doc => runTimelineCutKernel(doc,
             { kind: 'split', frame: atFrames, itemIds: [itemId], lockedTrackIds: this.timelineLockedTrackIds() }));
     }
 
@@ -6310,7 +6698,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return outcome.edit as unknown as EditV2Document;
             });
             if (!outcome) return;
-            if (outcome.blocked?.length) this.footer.textContent = `${outcome.blocked.length} 件は前のクリップにぶつかって寄せきれませんでした`;
+            if (outcome.blocked?.length) this.footer.textContent = t('annotations.timeline.text.couldNotBeCollectedBecauseItCollidedWith', { count: outcome.blocked.length, n: outcome.blocked.length });
             after?.(outcome);
             this.revealOutputPreview();
         } catch (error) {
@@ -6339,7 +6727,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performSplitAtPlayhead(): Promise<void> {
         const itemId = this.selection ? this.splittableItemId(this.selection) : undefined;
-        await this.commitTimelineRipple('再生ヘッドで分割', doc => runTimelineCutKernel(doc, {
+        await this.commitTimelineRipple(t('annotations.timeline.text.splitByPlayhead'), doc => runTimelineCutKernel(doc, {
             kind: 'split', frame: this.frameAt(this.playheadT),
             ...(this.selection ? { itemIds: itemId ? [itemId] : [] } : {}),
             lockedTrackIds: this.timelineLockedTrackIds() }));
@@ -6347,7 +6735,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performRippleTrim(side: 'prev' | 'next'): Promise<void> {
         const frame = this.frameAt(this.playheadT);
-        await this.commitTimelineRipple(side === 'prev' ? '前の切れ目まで詰める' : '次の切れ目まで詰める',
+        await this.commitTimelineRipple(side === 'prev' ? t('annotations.timeline.text.fillUpToThePreviousCut') : t('annotations.timeline.text.fillToTheNextCut'),
             doc => runTimelineCutKernel(doc, { kind: 'trim', frame, side, lockedTrackIds: this.timelineLockedTrackIds() }),
             result => { if (side === 'prev') this.seekTimelineFrame(frame - (result.removedFrames ?? 0)); });
     }
@@ -6360,19 +6748,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performTimelineDelete(shift: boolean, oneSide = false, forceLift = false): Promise<void> {
         const range = completeTimelineRange(this.timelineRange);
-        const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection, gap: !!this.selectedGap,
+        const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection,
+            transition: !!this.activeBoundary, gap: !!this.selectedGap,
             range: !!range, selection: !!this.selection || this.multiSelection.length > 0,
             shift, autoRipple: forceLift ? false : this.autoRipple, oneSide });
         if (plan.target === 'keyframe') { await this.removeSelectedKeyframes(); return; }
+        if (plan.target === 'transition') { await this.removeActiveTransition(); return; }
         if (plan.target === 'gap' && this.selectedGap) {
             const gap = this.selectedGap;
-            await this.commitTimelineRipple('この隙間を詰める', doc => runTimelineCutKernel(doc,
+            await this.commitTimelineRipple(t('annotations.timeline.text.fillThisGap'), doc => runTimelineCutKernel(doc,
                 { kind: 'gap', trackId: gap.trackId, frame: gap.startFrames,
                     lockedTrackIds: this.timelineLockedTrackIds() }), () => this.applySelection(undefined));
             return;
         }
         if (plan.target === 'range' && range) {
-            await this.commitTimelineRipple(plan.ripple ? '詰めて消す' : '隙間を残して消す',
+            await this.commitTimelineRipple(plan.ripple ? t('annotations.timeline.text.fillAndErase') : t('annotations.timeline.text.eraseLeavingAGap'),
                 doc => runTimelineCutKernel(doc, { kind: 'range', range, ripple: plan.ripple,
                     lockedTrackIds: this.timelineLockedTrackIds() }),
                 () => { this.setTimelineRange({}); if (plan.ripple) this.seekTimelineFrame(range.start); });
@@ -6387,7 +6777,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const selections = this.multiSelection.length ? this.multiSelection : this.selection ? [this.selection] : [];
         const ids = selections.flatMap(selection => selection.kind === 'cut' ? [this.cutItemId(selection.index)]
             : 'id' in selection && this.rawV2Item(selection.id) ? [selection.id] : []);
-        await this.commitTimelineRipple('詰めて消す', doc => runTimelineCutKernel(doc,
+        await this.commitTimelineRipple(t('annotations.timeline.text.fillAndErase'), doc => runTimelineCutKernel(doc,
             { kind: 'items', itemIds: ids, lockedTrackIds: this.timelineLockedTrackIds(), oneSide }),
             () => this.applySelection(undefined));
     }
@@ -6408,15 +6798,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            await this.commitEditMutation('クリップの削除', doc => removeV2Item(doc, this.cutItemId(index)));
+            await this.commitEditMutation(t('annotations.timeline.text.deleteClip'), doc => removeV2Item(doc, this.cutItemId(index)));
             this.applySelection(undefined);
             this.hideNotice();
-            this.footer.textContent = 'クリップを削除しました。';
+            this.footer.textContent = t('annotations.timeline.text.clipDeleted');
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`クリップを削除できません: ${detail}`);
-            this.messages.error(`クリップを削除できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToDeleteClip', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToDeleteClip', { reason: detail }));
         }
     }
 
@@ -6430,7 +6820,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (this.linkedPairForSelection(selection)) {
-            await this.performLinkedDeletion([selection], altKey, 'クリップの削除');
+            await this.performLinkedDeletion([selection], altKey, t('annotations.timeline.text.deleteClip'));
             return;
         }
         if (selection.kind === "cut") {
@@ -6450,7 +6840,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const captionId = selection.kind === "caption" ? selection.id : projectedCaptionId;
             if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
                 const caption = this.captions.find(candidate => candidate.id === captionId);
-                if (!caption) throw new Error("字幕が見つかりません。");
+                if (!caption) throw new Error(t('annotations.timeline.text.noSubtitlesFound'));
                 if (typeof this.projectImmediateItemEdit === 'function') {
                     const previousCaptions = this.captions;
                     this.captions = previousCaptions.filter(candidate => candidate.id !== captionId);
@@ -6460,7 +6850,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         detail: { editUri: location.editUri.toString(), removedIds: [captionId] }
                     }));
                     try {
-                        await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
+                        await this.withHistory(caption.timeDomain === 'output' ? t('annotations.timeline.text.deleteCharacters') : t('annotations.timeline.text.deleteSubtitles'), async () => {
                             await this.annotationsService.removeCaption({
                                 captionsUri: location.captionsUri.toString(),
                                 projectRootUri: location.root.toString(), captionId: caption.id
@@ -6475,7 +6865,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         throw error;
                     }
                 } else {
-                    await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
+                    await this.withHistory(caption.timeDomain === 'output' ? t('annotations.timeline.text.deleteCharacters') : t('annotations.timeline.text.deleteSubtitles'), async () => {
                         await this.annotationsService.removeCaption({
                             captionsUri: location.captionsUri.toString(),
                             projectRootUri: location.root.toString(), captionId: caption.id
@@ -6484,10 +6874,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 await this.reloadEdit();
                 await this.reloadCaptions();
-                this.footer.textContent = caption.timeDomain === 'output' ? '文字を削除しました。' : '字幕を削除しました。';
+                this.footer.textContent = caption.timeDomain === 'output' ? t('annotations.timeline.text.iDeletedTheCharacters') : t('annotations.timeline.text.subtitlesHaveBeenRemoved');
             } else {
                 if (selection.id === "bgm") {
-                    this.footer.textContent = "BGM は削除できません。";
+                    this.footer.textContent = t('annotations.timeline.text.backgroundMusicCannotBeDeleted');
                     return;
                 }
                 const narrationSelected = selection.kind === 'audio'
@@ -6501,19 +6891,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                                 ? removeTreeV2Item(doc, selection.id).document
                                 : removeV2Item(doc, selection.id);
                 if (typeof this.commitImmediateItemMutation === 'function') {
-                    await this.commitImmediateItemMutation("クリップの削除", mutate, [selection.id]);
+                    await this.commitImmediateItemMutation(t('annotations.timeline.text.deleteClip'), mutate, [selection.id]);
                 } else {
-                    await this.commitEditMutation("クリップの削除", mutate);
+                    await this.commitEditMutation(t('annotations.timeline.text.deleteClip'), mutate);
                 }
-                this.footer.textContent = "クリップを削除しました。";
+                this.footer.textContent = t('annotations.timeline.text.clipDeleted');
             }
             this.applySelection(undefined);
             this.hideNotice();
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice("選択項目を削除できません: " + detail);
-            this.messages.error("選択項目を削除できません: " + detail);
+            this.showNotice(t('annotations.timeline.text.unableToDeleteSelection') + detail);
+            this.messages.error(t('annotations.timeline.text.unableToDeleteSelection') + detail);
         }
     }
 
@@ -6524,13 +6914,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (this.multiSelection.some(item => this.linkedPairForSelection(item))) {
             // Linked cut/audio deletion may change the base duration; keep its full reload path.
-            await this.performLinkedDeletion(this.multiSelection, altKey, '複数アイテムを削除');
+            await this.performLinkedDeletion(this.multiSelection, altKey, t('annotations.timeline.text.deleteMultipleItems'));
             return;
         }
         const retained = this.multiSelection.filter(item => this.isTrackLocked(this.trackIdOfSelection(item)));
         const selected = this.multiSelection.filter(item => !this.isTrackLocked(this.trackIdOfSelection(item)));
         if (selected.length === 0) {
-            this.footer.textContent = `${retained.length} 件はロック中のため残しました`;
+            this.footer.textContent = t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length, n: retained.length });
             return;
         }
         if (typeof this.commitImmediateItemMutation === 'function'
@@ -6538,16 +6928,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const ids = [...new Set(selected.filter((item): item is Exclude<TimelineSelectionItem, { kind: 'cut' }> =>
                 item.kind !== 'cut').map(item => item.id).filter(id => id !== 'bgm'))];
             try {
-                await this.commitImmediateItemMutation('複数アイテムを削除', doc => ids.reduce(
+                await this.commitImmediateItemMutation(t('annotations.timeline.text.deleteMultipleItems'), doc => ids.reduce(
                     (next, id) => removeTreeV2Item(next, id).document, doc), ids);
                 this.multiSelection = [];
                 this.selection = undefined;
                 this.pushSelectionSnapshot();
-                this.footer.textContent = '選択したアイテムを削除しました。';
+                this.footer.textContent = t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
             } catch (error) {
                 const detail = this.errorMessage(error);
-                this.showNotice(`選択項目を削除できません: ${detail}`);
-                this.messages.error(`選択項目を削除できません: ${detail}`);
+                this.showNotice(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
+                this.messages.error(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
             }
             return;
         }
@@ -6570,8 +6960,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.captions = captionsAtStart;
                 await this.reloadEdit();
                 const detail = this.errorMessage(error);
-                this.showNotice(`選択項目を削除できません: ${detail}`);
-                this.messages.error(`選択項目を削除できません: ${detail}`);
+                this.showNotice(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
+                this.messages.error(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
                 return;
             }
         }
@@ -6641,7 +7031,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             if (JSON.stringify(value) === serializedBefore && captionsAfter === captionsBefore) {
-                this.footer.textContent = '選択したアイテムが見つからないため削除できませんでした。';
+                this.footer.textContent = t('annotations.timeline.text.theSelectedItemCouldNotBeDeletedBecause');
                 return;
             }
             let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
@@ -6649,7 +7039,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.reloadAll();
             editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
             this.pushHistory({
-                label: '複数アイテムを削除',
+                label: t('annotations.timeline.text.deleteMultipleItems'),
                 undo: async () => {
                     await this.writeTimelineSnapshots(editBefore, captionsBefore);
                     await this.reloadAll();
@@ -6663,7 +7053,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selection = undefined;
             this.pushSelectionSnapshot();
             this.footer.textContent = retained.length > 0
-                ? `${retained.length} 件はロック中のため残しました` : '選択したアイテムを削除しました。';
+                ? t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length, n: retained.length }) : t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
         } catch (error) {
             if (immediateCaptions) {
                 this.captions = captionsAtStart;
@@ -6674,8 +7064,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }));
             }
             const detail = this.errorMessage(error);
-            this.showNotice(`選択項目を削除できません: ${detail}`);
-            this.messages.error(`選択項目を削除できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToDeleteSelectedItem', { reason: detail }));
         }
     }
 
@@ -6685,14 +7075,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * へ委譲する（task 2026-08-10-material-dnd-timeline 指示6）。
      */
     async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean; voiceTrack?: boolean; in?: number; out?: number }): Promise<void> {
-        const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
+        const timeValue1 = Number.isFinite(this.playheadT) ? this.playheadT : 0;
         const sourceRange = typeof options?.in === 'number' && Number.isFinite(options.in) && options.in >= 0
             && typeof options.out === 'number' && Number.isFinite(options.out) && options.out > options.in
             ? { in: options.in, out: options.out } : undefined;
         if (kind === 'audio' && (options?.createAudioTrack === true || sourceRange !== undefined)) {
-            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options?.voiceTrack, ...sourceRange });
+            await this.addMaterialAt(relativePath, kind, timeValue1, 0, { createAudioTrack: true, voiceTrack: options?.voiceTrack, ...sourceRange });
         } else {
-            await this.addMaterialAt(relativePath, kind, t, 0, sourceRange);
+            await this.addMaterialAt(relativePath, kind, timeValue1, 0, sourceRange);
         }
     }
 
@@ -6708,7 +7098,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): Promise<void> {
         const payload = parseMaterialDragPayload({ relativePath, kind });
         if (!payload) {
-            this.messages.warn('素材を追加できません（種別またはパスが不正です）。');
+            this.messages.warn(t('annotations.timeline.text.unableToAddMaterialTypeOrPathIs'));
             return;
         }
         const target = this.resolveMaterialDropTarget(payload.kind, clientY);
@@ -6785,12 +7175,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 呼び出し側が既に解像度を知っている場合はそちらを使う。probe は取り寄せ直後だと
      * 失敗しやすく、失敗すると scale=1（原寸）で置かれて画面からはみ出していた。
      */
-    async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
+    async addMaterialAtOutputPoint(relativePath: string, kind: string, timeValue2: number,
         transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false,
         knownSourceWidth?: number, voiceTrack?: boolean,
         audio?: VoiceAudioOptions, inPoint?: number, outPoint?: number): Promise<string | undefined> {
-        if (!Number.isFinite(t)) {
-            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+        if (!Number.isFinite(timeValue2)) {
+            this.messages.warn(t('annotations.timeline.text.unableToAddMaterialDropPositionIsInvalid'));
             return undefined;
         }
         const sourceRange = typeof inPoint === 'number' && Number.isFinite(inPoint) && inPoint >= 0
@@ -6798,19 +7188,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? { in: inPoint, out: outPoint } : {};
         if (kind === 'audio') {
             if ('in' in sourceRange) {
-                return this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack, audio, ...sourceRange });
+                return this.addMaterialAt(relativePath, kind, timeValue2, 0, { createAudioTrack: true, voiceTrack, audio, ...sourceRange });
             }
-            return this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: voiceTrack, voiceTrack, audio });
+            return this.addMaterialAt(relativePath, kind, timeValue2, 0, { createAudioTrack: voiceTrack, voiceTrack, audio });
         }
         if (kind !== 'image' && kind !== 'video') return undefined;
         const outputWidth = (this.editDocument?.output as { width?: number } | undefined)?.width;
         if (!transform || !Number.isFinite(transform.x) || !Number.isFinite(transform.y)
             || !(outputWidth && outputWidth > 0)) {
-            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+            this.messages.warn(t('annotations.timeline.text.unableToAddMaterialDropPositionIsInvalid'));
             return undefined;
         }
         const known = Number.isFinite(knownSourceWidth) && (knownSourceWidth ?? 0) > 0 ? knownSourceWidth : undefined;
-        const probeStartedAt = Date.now();
         // 呼び出し側が知らないときは、まずレンダラで読む（ヘッダだけで済むので数十 ms）。
         // バックエンドの probe は実測 15 秒かかったうえ undefined を返しており、
         // その失敗が scale=1（原寸）での配置に化けて画面からはみ出していた。
@@ -6829,15 +7218,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         const sourceWidth = known ?? fromDom?.width ?? dimensions?.width;
         if (!(sourceWidth && sourceWidth > 0)) {
-            const placed = await this.addMaterialAt(relativePath, kind, t, 0, {
+            const placed = await this.addMaterialAt(relativePath, kind, timeValue2, 0, {
                 transform: { ...transform, scale: 1 }, placeOnTop: true,
                 ...(outsideCanvas ? { outsideCanvas: true } : {}),
                 ...(canvasAware ? { canvasAware: true } : {}), ...sourceRange
             });
-            this.messages.warn('素材の大きさを取得できなかったため、既定の大きさで置きました。');
+            this.messages.warn(t('annotations.timeline.text.sinceICouldNotObtainTheSizeOf'));
             return placed;
         }
-        return this.addMaterialAt(relativePath, kind, t, 0, {
+        return this.addMaterialAt(relativePath, kind, timeValue2, 0, {
             transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true,
             ...(outsideCanvas ? { outsideCanvas: true } : {}),
             ...(canvasAware ? { canvasAware: true } : {}), ...sourceRange
@@ -6852,7 +7241,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!itemId || !this.location?.editUri) return;
         try {
             const { removePlacedMaterialAndUnusedSource } = await import('../common/edit-v2-mutations');
-            await this.commitEditMutation('置いた素材を取り消す', doc =>
+            await this.commitEditMutation(t('annotations.timeline.text.cancelThePlacedMaterial'), doc =>
                 removePlacedMaterialAndUnusedSource(doc, itemId));
         } catch (error) {
             console.warn('[akari-annotations] 取り寄せに失敗した素材を消せませんでした', error);
@@ -6876,8 +7265,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     async addOverlayAtOutputPoint(request: unknown): Promise<string | undefined> {
         const options = parseOverlayPlaceRequest(request);
+        const scene3d = options?.key.startsWith('scene3d/') === true;
         if (!options || !this.location?.editUri) {
-            this.messages.warn('オーバーレイを置けません。');
+            this.messages.warn(t('annotations.timeline.text.unableToPlaceOverlay'));
             return undefined;
         }
         const editUri = this.location.editUri.toString();
@@ -6893,45 +7283,50 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         emitPlacement('akari-preview-placement', { phase: 'begin', editUri, key: options.key });
         try {
-            const t = options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0);
+            const timeValue3 = options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0);
             let placedId: string | undefined;
             const placed = await resolveThenWriteOverlay(
                 () => this.commands.executeCommand<{ relativePath: string; meta: unknown; fragment: string } | undefined>(
                     'akari.catalog.resolveOverlay', options.key),
                 async resolved => {
                     diagnostic('resolve');
-                    if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
-                    const vars = overlayDefaultVars(resolved.meta, resolved.fragment);
-                    const measurement = Promise.resolve(this.commands.executeCommand('akari.preview.measureOverlayBox', {
+                    if (this.location?.editUri?.toString() !== editUri) throw new Error(t('annotations.timeline.text.projectHasBeenSwitched'));
+                    const defaults = overlayDefaultVars(resolved.meta, resolved.fragment);
+                    const vars = scene3d ? scene3dPlacementVars(Object.fromEntries(Object.entries(defaults)
+                        .map(([name, value]) => [name, String(value)]))) : defaults;
+                    const measurement = scene3d ? undefined : Promise.resolve(this.commands.executeCommand('akari.preview.measureOverlayBox', {
                         editUri, fragment: resolved.fragment, relativePath: resolved.relativePath, vars }));
-                    const box = await overlayBoxWithinDelay(measurement);
-                    diagnostic(box ? 'measure' : 'measure-fallback');
-                    if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
-                    if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
-                    const write = await this.commitEditMutation('オーバーレイを置く', doc => {
+                    const box = measurement ? await overlayBoxWithinDelay(measurement) : undefined;
+                    if (!scene3d) {
+                        diagnostic(box ? 'measure' : 'measure-fallback');
+                        if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
+                    }
+                    if (this.location?.editUri?.toString() !== editUri) throw new Error(t('annotations.timeline.text.projectHasBeenSwitched'));
+                    const label = scene3d ? t('annotations.timeline.text.placeScene3d') : t('annotations.timeline.text.putAnOverlay');
+                    const write = await this.commitEditMutation(label, doc => {
                         const output = doc.output as { width?: number; height?: number } | undefined;
                         const width = Number(output?.width) || 1920;
                         const height = Number(output?.height) || 1080;
                         placedId = nextOverlayItemId(doc);
-                        const item = buildOverlayItem({ id: placedId, at: this.frameAt(t),
+                        const item = buildOverlayItem({ id: placedId, at: this.frameAt(timeValue3),
                             duration: this.frameAt(5), path: resolved.relativePath,
                             output: { width, height }, center: options.center,
-                            vars, box });
+                            vars, box, scene3d });
                         return insertOverlayItem(doc, item, options.outsideCanvas === true);
                     }, { history: false });
                     diagnostic('write');
                     let historyAfter = write.after;
-                    const history: HistoryEntry = { label: 'オーバーレイを置く', before: write.before, after: historyAfter,
+                    const history: HistoryEntry = { label, before: write.before, after: historyAfter,
                         undo: async () => { await this.writeEditSnapshotGuarded(write.before); await this.reloadEdit(); },
                         redo: async () => { await this.writeEditSnapshotGuarded(historyAfter); await this.reloadEdit(); } };
                     this.pushHistory(history);
-                    if (!box && placedId) void measurement.then(async lateBox => {
+                    if (measurement && !box && placedId) void measurement.then(async lateBox => {
                         if (!isUsableOverlayBox(lateBox) || !this.historyService.isTop(history)
                             || this.location?.editUri?.toString() !== editUri) return;
-                        const corrected = await this.commitEditMutation('オーバーレイの枠を合わせる', doc => {
+                        const corrected = await this.commitEditMutation(t('annotations.timeline.text.alignTheOverlayFrame'), doc => {
                             if (stringifyEditV2(doc) !== historyAfter) return doc;
                             const output = doc.output as { width?: number; height?: number } | undefined;
-                            const item = buildOverlayItem({ id: placedId!, at: this.frameAt(t),
+                            const item = buildOverlayItem({ id: placedId!, at: this.frameAt(timeValue3),
                                 duration: this.frameAt(5), path: resolved.relativePath,
                                 output: { width: Number(output?.width) || 1920, height: Number(output?.height) || 1080 },
                                 center: options.center, vars, box: lateBox });
@@ -6949,17 +7344,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(!options.center ? { seekIfOutside: true } : {}), reveal: true, pulse: true
             });
             if (!options.center && !focused) {
-                const start = this.frameAt(t) / this.fps;
+                const start = this.frameAt(timeValue3) / this.fps;
                 const end = start + this.frameAt(5) / this.fps;
                 if (this.playheadT < start || this.playheadT >= end) {
                     await this.requestSeek?.(start, { domain: 'output' });
                 }
             }
-            this.footer.textContent = 'オーバーレイを置きました。';
+            this.footer.textContent = scene3d ? t('annotations.timeline.text.placedScene3d') : t('annotations.timeline.text.iPutAnOverlay');
             diagnostic('focus');
             return placedId;
         } catch (error) {
-            this.messages.warn(`オーバーレイを置けませんでした: ${this.errorMessage(error)}`);
+            this.messages.warn(t('annotations.timeline.text.couldNotPlaceOverlay', { reason: this.errorMessage(error) }));
             return undefined;
         } finally {
             emitPlacement('akari-preview-placement', { phase: 'end', editUri, key: options.key });
@@ -6987,7 +7382,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     async addMaterialAt(
         relativePath: string,
         kind: string,
-        t: number,
+        timeValue4: number,
         track: number,
         options?: {
             durationSeconds?: number; in?: number; out?: number; insertTrack?: number; insertIndex?: number;
@@ -6999,15 +7394,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): Promise<string | undefined> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
-            this.messages.warn('素材を追加できません（種別が不正です）。');
+            this.messages.warn(t('annotations.timeline.text.unableToAddMaterialInvalidType'));
             return;
         }
         if (!relativePath) {
-            this.messages.warn('素材を追加できません（パスが空です）。');
+            this.messages.warn(t('annotations.timeline.text.unableToAddMaterialPathIsEmpty'));
             return;
         }
         if (!this.location) {
-            this.messages.warn('プロジェクトを開いてから素材を追加してください。');
+            this.messages.warn(t('annotations.timeline.text.pleaseOpenTheProjectAndAddMaterials'));
             return;
         }
         // 素材カード / OS ドロップのパスは root 相対。初回だけ生成先の edit.json 相対へ直す。
@@ -7018,13 +7413,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.location.editUri && !await this.ensureTimelineEdit(initialMaterialUri)) return;
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`素材を追加できません: ${detail}`);
-            this.messages.error(`素材を追加できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
             return;
         }
         const location = this.location;
         if (!location?.editUri) {
-            const message = '素材を追加できません: edit.json が見つかりません。';
+            const message = t('annotations.timeline.text.unableToAddMaterialEditJsonNotFound');
             this.showNotice(message);
             this.messages.error(message);
             return;
@@ -7055,7 +7450,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 if (resolved === undefined) {
                     durationSeconds = MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
-                    fallbackNote = `実尺を取得できなかったため ${MATERIAL_INSERT_FALLBACK_DURATION_SECONDS} 秒として追加しました。`;
+                    fallbackNote = t('annotations.timeline.text.sinceTheActualLengthCouldNotBeObtained', { duration: MATERIAL_INSERT_FALLBACK_DURATION_SECONDS, n: MATERIAL_INSERT_FALLBACK_DURATION_SECONDS });
                 } else {
                     durationSeconds = resolved;
                 }
@@ -7072,7 +7467,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
             let value = JSON.parse(editBefore) as EditV2Document;
-            const successNote = 'タイムラインに素材を追加しました。';
+            const successNote = t('annotations.timeline.text.addedMaterialToTheTimeline');
             let beyondNote = '';
             let overlapNote = '';
             if (kind === 'audio') {
@@ -7091,13 +7486,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 実尺と読み直した文書で再判定する。プレイヘッド追加の legacy sfx は対象外。
                 const overlapIndex = options?.createAudioTrack ? undefined : materialOverlapInsertIndex(
                     value.tracks as Array<Record<string, unknown>>, targetTrackId,
-                    { at: this.frameAt(Math.max(0, t)), duration: Math.max(1, this.frameAt(durationSeconds)) }
+                    { at: this.frameAt(Math.max(0, timeValue4)), duration: Math.max(1, this.frameAt(durationSeconds)) }
                 );
                 if (options?.createAudioTrack || overlapIndex !== undefined) {
                     const index = overlapIndex ?? 0;
                     value = insertV2Track(value, { index, lane: 'audio' });
                     targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[index].id);
-                    if (overlapIndex !== undefined) overlapNote = '重なりを避けて新しいトラックに置きました。';
+                    if (overlapIndex !== undefined) overlapNote = t('annotations.timeline.text.iPlacedItOnANewTrackTo');
                 }
                 const targetTrack = targetTrackId === undefined ? undefined
                     : (value.tracks as Array<Record<string, unknown>>)
@@ -7123,11 +7518,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     item: {
                         id: itemId,
                         ...(options?.voiceTrack ? { role: 'speech' } : {}),
-                        at: this.frameAt(Math.max(0, t)),
+                        at: this.frameAt(Math.max(0, timeValue4)),
                         duration: Math.max(1, this.frameAt(durationSeconds)),
                         source: { kind: 'media', src: sourceId, in: sourceIn, out: sourceOut }
                     },
-                    legacyItem: { id: itemId, path: relativePath, t: Math.max(0, t), track }
+                    legacyItem: { id: itemId, path: relativePath, t: Math.max(0, timeValue4), track }
                 });
                 const insertedLocation = indexEditV2Items(value).get(itemId);
                 const insertedV2Item = insertedLocation
@@ -7175,9 +7570,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                                 editAfter = setSfxFadeInSource(editAfter, insertedLegacyIndex, fadeUpdates);
                             }
                         }
-                        autoLevelNotice = `自動レベル: ${measured.gain_db.toFixed(1)} dB（${measured.basis}・${measured.role}）`;
+                        autoLevelNotice = t('annotations.timeline.text.autoLevelDb', { gain: measured.gain_db.toFixed(1), basis: measured.basis, role: measured.role });
                     } else if ('reason' in measured) {
-                        autoLevelNotice = `自動レベルを適用できませんでした（${measured.reason}）。gain は手動で調整してください`;
+                        autoLevelNotice = t('annotations.timeline.text.failedToApplyAutomaticLevelPleaseAdjustGain', { reason: measured.reason });
                     }
                 }
                 if (insertedV2Item && options?.audio) {
@@ -7187,7 +7582,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.writeTimelineSnapshots(editAfter);
                 await this.reloadEdit();
                 this.pushHistory({
-                    label: '音声素材を追加',
+                    label: t('annotations.timeline.text.addAudioMaterial'),
                     undo: async () => {
                         await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
@@ -7204,7 +7599,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
                     });
                     if (options?.zone && !focused) {
-                        const start = this.frameAt(Math.max(0, t)) / this.fps;
+                        const start = this.frameAt(Math.max(0, timeValue4)) / this.fps;
                         const end = start + Math.max(1, this.frameAt(durationSeconds)) / this.fps;
                         if (this.playheadT < start || this.playheadT >= end) {
                             await this.requestSeek?.(start, { domain: 'output' });
@@ -7230,7 +7625,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const duration = Math.max(1, this.frameAt(durationSeconds));
             const item: Record<string, unknown> = {
                 id: `${baseId}-${serial}`,
-                at: this.frameAt(t),
+                at: this.frameAt(timeValue4),
                 duration,
                 source: { kind: 'media', src: source.id, in: sourceIn, out: sourceOut }
             };
@@ -7284,17 +7679,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (overlapIndex !== undefined) {
                     value = insertV2Track(value, { index: overlapIndex, lane });
                     targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[overlapIndex].id);
-                    overlapNote = '重なりを避けて新しいトラックに置きました。';
+                    overlapNote = t('annotations.timeline.text.iPlacedItOnANewTrackTo');
                 }
                 value = insertV2Item(value, targetTrackId, item);
             }
-            beyondNote = this.beyondCutsEndNote(t);
+            beyondNote = this.beyondCutsEndNote(timeValue4);
             let editAfter = stringifyEditV2(value);
             await this.writeTimelineSnapshots(editAfter);
             await this.reloadEdit();
             editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
             this.pushHistory({
-                label: '素材を追加',
+                label: t('annotations.timeline.text.addMaterial'),
                 undo: async () => {
                     await this.writeTimelineSnapshots(editBefore);
                     await this.reloadEdit();
@@ -7322,8 +7717,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } };
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`素材を追加できません: ${detail}`);
-            this.messages.error(`素材を追加できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
         }
         });
         this.editMutationTail = operation.catch(() => undefined);
@@ -7333,8 +7728,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await placed.afterPlacement();
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`素材を追加できません: ${detail}`);
-            this.messages.error(`素材を追加できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToAddMaterial', { reason: detail }));
             return undefined;
         }
         return placed.itemId;
@@ -7601,17 +7996,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (lockedKey) {
             this.hideMaterialGhost();
             void this.commands.executeCommand('akari.library.showPremiumPrompt', { key: lockedKey })
-                .catch(() => this.messages.warn('この素材を使うには購入が必要です。'));
+                .catch(() => this.messages.warn(t('annotations.timeline.text.purchaseIsRequiredToUseThisMaterial')));
             return;
         }
         const overlayPayload = this.readLibraryOverlayDropPayload?.(event.dataTransfer);
         if (overlayPayload) {
             this.hideMaterialGhost();
             this.clearLibraryTransitionDragState();
-            const t = point.zone === 'header-column'
+            const timeValue5 = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
                 : this.materialDropTime(point.x, 'layers', 0, 0);
-            void this.addOverlayAtOutputPoint({ key: overlayPayload.key, t,
+            void this.addOverlayAtOutputPoint({ key: overlayPayload.key, t: timeValue5,
                 editUri: this.location?.editUri?.toString() });
             return;
         }
@@ -7620,16 +8015,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // タイムラインへ落とす = 落とした時刻・出力の中央（プレイヘッドの位置は使わない）。
             this.hideMaterialGhost();
             this.clearLibraryTransitionDragState();
-            const t = point.zone === 'header-column'
+            const timeValue6 = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
                 : this.materialDropTime(point.x, 'layers', 0, SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
             const rowTarget = this.resolveMaterialDropTarget('image', point.y);
             if (rowTarget.rejected || this.isTrackLocked(rowTarget.targetTrackId)) {
-                this.footer.textContent = rowTarget.reason || '図形をここには置けません。';
+                this.footer.textContent = rowTarget.reason || t('annotations.timeline.text.shapesCannotBePlacedHere');
                 return;
             }
-            const timelineTarget = this.materialDropTargetWithoutOverlap(rowTarget, t, SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
-            void this.addShapeAt({ preset: shapePayload.preset, t, timelineTarget });
+            const timelineTarget = this.materialDropTargetWithoutOverlap(rowTarget, timeValue6, SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
+            void this.addShapeAt({ preset: shapePayload.preset, t: timeValue6, timelineTarget });
             return;
         }
         const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
@@ -7649,7 +8044,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (textPayload.kind === 'textanim' || textPayload.kind === 'font' || textPayload.kind === 'lut') {
-                this.messages.info(textPayload.kind === 'lut' ? '写真や映像の上に落としてください。' : '文字の上に落としてください。');
+                this.messages.info(textPayload.kind === 'lut' ? t('annotations.timeline.text.dropItOnTopOfYourPhotoOr') : t('annotations.timeline.text.dropItOntoTheLetters'));
                 return;
             }
             const rect = this.strip.getBoundingClientRect();
@@ -7671,7 +8066,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hideMaterialGhost();
         this.materialDragPayload = undefined;
         if (!payload) {
-            this.footer.textContent = '素材のドラッグ情報を読み取れないため置けません。';
+            this.footer.textContent = t('annotations.timeline.text.itCannotBePlacedBecauseTheDragInformation');
             return;
         }
         const target = this.resolveMaterialDropTarget(payload.kind, point.y);
@@ -7683,7 +8078,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (libraryAsset) {
             this.clearLibraryTransitionDragState();
             if (target.rejected) {
-                this.footer.textContent = target.reason || '素材をここには置けません。';
+                this.footer.textContent = target.reason || t('annotations.timeline.text.materialsCannotBePlacedHere');
                 this.messages.warn(this.footer.textContent);
                 return;
             }
@@ -7712,7 +8107,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         canvasId?: string
     ): Promise<void> {
         if (target.rejected) {
-            this.footer.textContent = target.reason || '素材をここには置けません。';
+            this.footer.textContent = target.reason || t('annotations.timeline.text.materialsCannotBePlacedHere');
             return;
         }
         const durationSeconds = payload.kind === 'image'
@@ -7722,13 +8117,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ?? (payload.kind === 'image' ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS : MATERIAL_INSERT_FALLBACK_DURATION_SECONDS);
         const resolvedDuration = payload.in !== undefined && payload.out !== undefined
             ? Math.max(0, Math.min(fullDuration, payload.out) - payload.in) : fullDuration;
-        const t = panelZone === 'header-column'
+        const timeValue7 = panelZone === 'header-column'
             ? (Number.isFinite(this.playheadT) ? this.playheadT : 0)
             : this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
         const hadNotice = this.notice.hasMessage();
         const noticeTextBefore = this.notice.node.textContent;
         await this.addMaterialAt(
-            payload.relativePath, payload.kind, t, target.track,
+            payload.relativePath, payload.kind, timeValue7, target.track,
             {
                 zone: target.zone,
                 ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
@@ -7744,8 +8139,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const hasNewNotice = this.notice.hasMessage()
                 && (!hadNotice || this.notice.node.textContent !== noticeTextBefore);
             this.footer.textContent = hasNewNotice
-                ? `トラックヘッダ列から再生ヘッド ${this.formatTimestamp(t)} に素材を置けませんでした。`
-                : `トラックヘッダ列から再生ヘッド ${this.formatTimestamp(t)} に素材を置きました。`;
+                ? t('annotations.timeline.text.couldNotPlaceMaterialFromTrackHeaderRow', { time: this.formatTimestamp(timeValue7) })
+                : t('annotations.timeline.text.placedMaterialFromTrackHeaderColumnToPlayhead', { time: this.formatTimestamp(timeValue7) });
         }
     }
 
@@ -7775,7 +8170,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
         const payload = raw ? parseLibraryDragPayload(raw) : undefined;
-        return payload?.kind === 'overlay' ? payload : undefined;
+        return payload?.kind === 'overlay' || payload?.kind === 'scene3d' ? payload : undefined;
     }
 
     protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined {
@@ -7809,11 +8204,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? (request as { timelineTarget?: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']> }).timelineTarget
             : undefined;
         if (!options) {
-            this.messages.warn('図形を置けません（図形の指定が不正です）。');
+            this.messages.warn(t('annotations.timeline.text.theShapeCannotBePlacedTheShapeSpecification'));
             return undefined;
         }
         if (!this.location) {
-            this.messages.warn('プロジェクトを開いてから図形を置いてください。');
+            this.messages.warn(t('annotations.timeline.text.openTheProjectAndPlaceTheShapes'));
             return undefined;
         }
         try {
@@ -7821,17 +8216,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const resolved = await this.commands.executeCommand<{ preset?: ShapePresetV1; base?: ShapePresetV1 }>(
                 SHAPE_PRESET_COMMAND_ID, options.preset);
             if (!resolved?.preset) {
-                this.messages.warn('この図形は棚に見つかりません。');
+                this.messages.warn(t('annotations.timeline.text.thisShapeIsNotFoundOnTheShelf'));
                 return undefined;
             }
-            const t = Math.max(0, options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0));
+            const timeValue8 = Math.max(0, options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0));
             const placement: { placed?: { id: string; createdTrack: boolean } } = {};
-            await this.commitEditMutation('図形を置く', doc => {
+            await this.commitEditMutation(t('annotations.timeline.text.placeAShape'), doc => {
                 const output = doc.output as { width?: unknown; height?: unknown } | undefined;
                 const id = nextShapeItemId(doc);
                 const item = buildShapeItem({
                     preset: resolved.preset!, base: resolved.base, id,
-                    at: this.frameAt(t), duration: this.frameAt(SHAPE_PLACE_DEFAULT_DURATION_SECONDS),
+                    at: this.frameAt(timeValue8), duration: this.frameAt(SHAPE_PLACE_DEFAULT_DURATION_SECONDS),
                     output: { width: Number(output?.width) || 1920, height: Number(output?.height) || 1080 },
                     center: options.center, transform: options.transform
                 });
@@ -7858,20 +8253,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 seek: !timelineTarget, ...(timelineTarget ? { seekIfOutside: true } : {}), reveal: true, pulse: true
             });
             if (timelineTarget && !focused) {
-                const start = this.frameAt(t) / this.fps;
+                const start = this.frameAt(timeValue8) / this.fps;
                 const end = start + this.frameAt(SHAPE_PLACE_DEFAULT_DURATION_SECONDS) / this.fps;
                 if (this.playheadT < start || this.playheadT >= end) {
                     await this.requestSeek?.(start, { domain: 'output' });
                 }
             }
             this.hideNotice();
-            this.footer.textContent = placed.createdTrack ? '図形を置きました（新しいトラックに置きました）。' : '図形を置きました。';
+            this.footer.textContent = placed.createdTrack ? t('annotations.timeline.text.iPlacedTheShapeOnANewTrack') : t('annotations.timeline.text.iPlacedTheShape');
             this.revealOutputPreview();
             return placed.id;
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`図形を置けません: ${detail}`);
-            this.messages.error(`図形を置けません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToPlaceShape', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToPlaceShape', { reason: detail }));
             return undefined;
         }
     }
@@ -7889,7 +8284,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.style.border = '2px solid #f97316';
         this.materialGhost.style.background = 'rgba(249, 115, 22, .2)';
         this.materialGhost.style.display = 'block';
-        this.showMaterialDropBadge(clientX, clientY, '文字の行に入ります');
+        this.showMaterialDropBadge(clientX, clientY, t('annotations.timeline.text.enterTheLineOfText'));
     }
 
     protected showMaterialDropBadge(clientX: number, clientY: number, label: string): void {
@@ -7932,11 +8327,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!resolved) return;
             const payload = parseMaterialDragPayload(resolved);
             if (!payload || payload.kind !== libraryAssetGhostPayload(asset).kind) {
-                this.messages.warn('この素材は直接置けません');
+                this.messages.warn(t('annotations.timeline.text.thisMaterialCannotBePlacedDirectly'));
                 return;
             }
             if (this.location?.editUri?.toString() !== editUri) {
-                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                this.messages.warn(t('annotations.timeline.text.iDidnTAddTheMaterialBecauseThe'));
                 return;
             }
             if (this.isTrackLocked(target.targetTrackId)) {
@@ -7946,7 +8341,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (canvasId) await this.placeMaterialAtTarget(payload, target, clientX, panelZone, canvasId);
             else await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
         } catch (error) {
-            this.messages.error(`素材を追加できません: ${this.errorMessage(error)}`);
+            this.messages.error(t('annotations.timeline.text.unableToAddMaterial', { reason: this.errorMessage(error) }));
         } finally {
             notifyPlacement('end');
         }
@@ -7971,9 +8366,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
         event.preventDefault();
         event.stopPropagation();
-        let hit = this.libraryDragPayload
-            ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY)
-            : undefined;
+        this.transitionEdgeScroller?.update(event.clientX, event.clientY);
+        let hit = this.hitLibraryTransitionDropTarget(event.clientX, event.clientY);
         if (hit) {
             for (const index of [hit.earlierIndex, hit.laterIndex]) {
                 const trackId = this.trackIdOfItem(this.cutItemId(index));
@@ -7985,13 +8379,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.setHoveredTransitionDropTarget(hit);
-        if (event.dataTransfer) event.dataTransfer.dropEffect = hit ? 'copy' : 'none';
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
     }
 
     protected handleLibraryTransitionDragLeave(event: DragEvent): void {
         if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
         const next = event.relatedTarget;
         if (next instanceof Node && this.stripScroll.contains(next)) return;
+        this.transitionEdgeScroller?.stop();
         this.setHoveredTransitionDropTarget(undefined);
     }
 
@@ -8001,8 +8396,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         event.stopPropagation();
         const payload = this.readLibraryTransitionDropPayload(event.dataTransfer);
         const hit = payload ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY) : undefined;
+        const reason = !hit ? this.libraryTransitionDropReason(event.clientX, event.clientY) : undefined;
         this.clearLibraryTransitionDragState();
-        if (!payload || !hit) return;
+        if (!payload || !hit) {
+            const message = reason ?? t('transition.library.notice.nearBoundary');
+            this.showNotice(message);
+            this.footer.textContent = message;
+            return;
+        }
         for (const index of [hit.earlierIndex, hit.laterIndex]) {
             const lockedTrackId = this.trackIdOfItem(this.cutItemId(index));
             if (this.isTrackLocked(lockedTrackId)) {
@@ -8017,25 +8418,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         transfer: DataTransfer | null
     ): LibraryTransitionDragPayload | undefined {
         const raw = transfer?.getData(LIBRARY_DRAG_MIME);
-        // drop 時に MIME の本文が存在する場合はそれを正とし、不正値をミラー状態で救済しない。
-        // 本文が空の環境だけ dragStart の CustomEvent ミラーへフォールバックする。
         return raw ? parseLibraryTransitionDragPayload(raw) : this.libraryDragPayload;
     }
 
-    protected transitionDropHitCandidates(): TransitionBoundaryHitCandidate[] {
+    protected transitionDropHitCandidates(clientY: number): TransitionBoundaryHitCandidate[] {
         const candidates: TransitionBoundaryHitCandidate[] = [];
-        for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
-            '[data-akari-transition-drop-target]'
-        ))) {
-            const earlierIndex = Number(element.dataset.akariTransitionEarlierIndex);
-            const laterIndex = Number(element.dataset.akariTransitionLaterIndex);
-            if (!Number.isInteger(earlierIndex) || !Number.isInteger(laterIndex)) continue;
-            const rect = element.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) continue;
+        const stripRect = this.strip.getBoundingClientRect();
+        const contentRect = this.stripContent.getBoundingClientRect();
+        for (const boundary of this.transitionBoundaryCandidates()) {
+            const trackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            const row = resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track);
+            if (!row || row.hidden || clientY < contentRect.top + row.top
+                || clientY > contentRect.top + row.top + row.height) continue;
+            const plan = this.transitionPlanFor(boundary.earlierIndex, boundary.laterIndex);
+            const windowStartX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.startOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
+            const windowEndX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.endOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
             candidates.push({
-                earlierIndex, laterIndex,
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2
+                earlierIndex: boundary.earlierIndex, laterIndex: boundary.laterIndex,
+                x: stripRect.left + (boundary.boundaryT - this.viewStart) / this.visibleDuration() * stripRect.width,
+                windowStartX, windowEndX,
+                applicable: boundary.blocks.length === 0
+                    && this.unsupportedTransitionTrack(boundary.earlierIndex) === undefined
             });
         }
         return candidates;
@@ -8045,25 +8452,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
         clientX: number,
         clientY: number
     ): TransitionBoundaryHitCandidate | undefined {
-        return hitTestTransitionBoundary(
-            { x: clientX, y: clientY },
-            this.transitionDropHitCandidates(),
-            TRANSITION_DROP_HIT_TOLERANCE_PX
-        );
+        const rect = this.stripScroll.getBoundingClientRect();
+        if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right) return undefined;
+        return nearestTransitionBoundary(clientX, this.transitionDropHitCandidates(clientY), rect.left, rect.right);
+    }
+
+    protected libraryTransitionDropReason(clientX: number, clientY: number): string {
+        const rect = this.stripScroll.getBoundingClientRect();
+        if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right)
+            return t('transition.library.notice.outsideVideoRow');
+        const contentTop = this.stripContent.getBoundingClientRect().top;
+        const inVideoRow = this.laneLayout.tracks.some(row => row.kind === 'cuts' && !row.hidden
+            && clientY >= contentTop + row.top && clientY <= contentTop + row.top + row.height);
+        if (!inVideoRow) return t('transition.library.notice.outsideVideoRow');
+        const visible = this.transitionDropHitCandidates(clientY).filter(candidate => candidate.x >= rect.left && candidate.x <= rect.right);
+        const blocked = nearestTransitionBoundary(clientX, visible.map(candidate => ({ ...candidate, applicable: true })), rect.left, rect.right);
+        const boundary = this.transitionBoundaryCandidates().find(candidate => candidate.earlierIndex === blocked?.earlierIndex);
+        return boundary?.blocks.length ? this.boundaryBlockMessage(primaryBoundaryBlock(boundary.blocks))
+            : t('transition.library.notice.nearBoundary');
     }
 
     protected setHoveredTransitionDropTarget(hit: TransitionBoundaryHitCandidate | undefined): void {
         const key = hit ? `${hit.earlierIndex}-${hit.laterIndex}` : undefined;
+        this.hoveredTransitionDropKey = key;
         for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
             '[data-akari-transition-drop-target]'
         ))) {
-            element.dataset.akariTransitionDropHover = String(
-                key !== undefined && element.dataset.akariTransitionDropTarget === key
-            );
+            const selected = key !== undefined && element.dataset.akariTransitionDropTarget === key;
+            element.dataset.akariTransitionDropHover = String(selected);
+            element.textContent = selected ? t('transition.library.target.applyHere') : '';
         }
     }
 
     protected clearLibraryTransitionDragState(): void {
+        this.transitionEdgeScroller?.stop();
         this.libraryLockedDragKey = undefined;
         const hadTextStyle = this.libraryTextStyleDragPayload !== undefined;
         if (this.libraryShapeDragPayload) {
@@ -8083,6 +8505,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
+        this.hoveredTransitionDropKey = undefined;
         this.setHoveredTransitionDropTarget(undefined);
         if (hadTextStyle) this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
             element.removeAttribute('data-akari-library-apply-target'));
@@ -8093,14 +8516,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
         payload: LibraryTransitionDragPayload,
         earlierIndex: number
     ): Promise<void> {
-        if (!this.location?.editUri || this.unsupportedTransitionTrack(earlierIndex) !== undefined) return;
+        if (!this.location?.editUri) {
+            this.showNotice(t('annotations.timeline.text.unableToLocateProject'));
+            return;
+        }
         const currentDuration = this.cuts[earlierIndex]?.transitionOut?.duration;
-        await this.applyTransitionOut(earlierIndex, {
+        const result = await this.applyTransitionOut(earlierIndex, {
             type: payload.id,
             duration: typeof currentDuration === 'number' && currentDuration > 0
                 ? currentDuration : TRANSITION_DEFAULT_DURATION_SECONDS
         });
-        this.footer.textContent = `トランジション「${payload.name}」を適用しました`;
+        if (!result.ok) {
+            if (result.message && !(result as typeof result & { cancelled?: boolean }).cancelled)
+                this.showNotice(result.message);
+            return;
+        }
+        const family = transitionFamilyOf(payload.id);
+        if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+        this.hideNotice();
+        this.footer.textContent = t('transition.picker.notice.applied', {
+            from: earlierIndex + 1, to: (this.nextSameTrackSegment(earlierIndex)?.index ?? earlierIndex + 1) + 1,
+            name: family ? t(transitionFamilyLabelKey(family.family)) : payload.name
+        });
+        if (result.message) this.footer.textContent = result.message;
     }
 
     /**
@@ -8168,7 +8606,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return {
             zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
             rejected: true,
-            reason: '音のレーンには映像を置けません。'
+            reason: t('annotations.timeline.text.videoCannotBePlacedInTheSoundLane')
         };
     }
 
@@ -8193,14 +8631,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ゴーストだけを挿入先へ切り替える。確定時は addMaterialAt が実尺で再判定する。 */
     protected materialDropTargetWithoutOverlap(
         target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
-        t: number, durationSeconds: number
+        timeValue9: number, durationSeconds: number
     ): ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']> {
         if (target.rejected || target.zone === 'cuts' || target.insertIndex !== undefined
             || this.isTrackLocked(target.targetTrackId)) return target;
         const tracks = Array.isArray(this.editDocument?.tracks)
             ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
         const insertIndex = materialOverlapInsertIndex(tracks, target.targetTrackId, {
-            at: this.frameAt(Math.max(0, t)), duration: Math.max(1, this.frameAt(durationSeconds))
+            at: this.frameAt(Math.max(0, timeValue9)), duration: Math.max(1, this.frameAt(durationSeconds))
         });
         if (insertIndex === undefined) return target;
         return {
@@ -8242,8 +8680,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         const durationSeconds = this.materialGhostDurationSeconds(payload);
-        const t = this.materialDropTime(clientX, rowTarget.zone, rowTarget.track, durationSeconds);
-        const target = this.materialDropTargetWithoutOverlap(rowTarget, t, durationSeconds);
+        const timeValue10 = this.materialDropTime(clientX, rowTarget.zone, rowTarget.track, durationSeconds);
+        const target = this.materialDropTargetWithoutOverlap(rowTarget, timeValue10, durationSeconds);
         const visibility = materialGhostVisibility(payload.kind, target);
         if (!visibility.showGhost) {
             this.hideMaterialGhost();
@@ -8254,7 +8692,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 本編帯だけは重なりが許されない（cuts.track-overlap は error）ので、着地位置を
         // 空きへ寄せた結果をそのままゴーストに出す（見えている場所 = 入る場所）。
         const range = computeMaterialGhostRange(
-            t,
+            timeValue10,
             durationSeconds
         );
         this.setGhostRange(this.materialGhost, range.start, range.end);
@@ -8278,13 +8716,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.style.height = `${target.height}px`;
         this.materialGhost.style.display = 'block';
         if (payload.kind === 'audio' && !target.rejected) {
-            this.showMaterialDropBadge?.(clientX, clientY, '音の行に入ります');
+            this.showMaterialDropBadge?.(clientX, clientY, t('annotations.timeline.text.goToTheSoundLine'));
         } else {
             if (this.materialDropBadge) this.materialDropBadge.style.display = 'none';
         }
         if (target.overlapInsert) {
-            this.footer.textContent = '重なるので新しいトラックに置きます';
-        } else if (this.footer.textContent === '重なるので新しいトラックに置きます') {
+            this.footer.textContent = t('annotations.timeline.text.sinceItOverlapsIWillPutItOn');
+        } else if (this.footer.textContent === t('annotations.timeline.text.sinceItOverlapsIWillPutItOn')) {
             this.footer.textContent = '';
         }
         if (visibility.showInsertIndicator) {
@@ -8311,7 +8749,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         if (this.materialDropBadge) this.materialDropBadge.style.display = 'none';
         this.hideTrackInsertIndicator();
-        if (this.footer.textContent === '重なるので新しいトラックに置きます') {
+        if (this.footer.textContent === t('annotations.timeline.text.sinceItOverlapsIWillPutItOn')) {
             this.footer.textContent = '';
         }
     }
@@ -8325,11 +8763,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     { kind: 'compact', ...(selectedId ? { fromItemId: selectedId } : {}),
                         lockedTrackIds: this.timelineLockedTrackIds() }))).edit as unknown as EditV2Document);
             this.hideNotice();
-            this.footer.textContent = "クリップ間の空白を詰めました。";
+            this.footer.textContent = t('annotations.timeline.text.filledTheSpacesBetweenClips');
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice("クリップ間の空白を詰められません: " + detail);
-            this.messages.error("クリップ間の空白を詰められません: " + detail);
+            this.showNotice(t('annotations.timeline.text.unableToFillSpacesBetweenClips') + detail);
+            this.messages.error(t('annotations.timeline.text.unableToFillSpacesBetweenClips') + detail);
         }
     }
 
@@ -8379,6 +8817,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async adoptTimelineEdit(uri: URI): Promise<void> {
         if (!this.location || this.location.editUri || !await this.fileService.exists(uri)) return;
+        this.transitionFillAsk?.close();
         const location = await this.refreshLocationEditUri?.(uri);
         this.location = location ?? {
             ...this.location, editUri: uri,
@@ -8401,7 +8840,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const dimensions = materialUri
                     ? await this.annotationsService.probeSourceDimensions({ path: materialUri.toString() }).catch(() => ({})) : {};
                 const result = await new AkariTimelineCreateDialog({
-                    title: 'タイムラインを作成', firstTimeline: true, defaultTitle: 'タイムライン',
+                    title: t('annotations.timeline.text.createTimeline'), firstTimeline: true, defaultTitle: t('annotations.timeline.text.timeline'),
                     defaultAspect: estimateAspectFromOrientation(
                         (dimensions as { width?: number }).width, (dimensions as { height?: number }).height)
                 }).open();
@@ -8429,6 +8868,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         location: ProjectLocation,
         refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>
     ): Promise<void> {
+        this.transitionFillAsk?.close();
         if (this.configured) {
             if (!this.location?.editUri && location.editUri) await this.adoptTimelineEdit(location.editUri);
             return;
@@ -8441,9 +8881,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshLocationEditUri = refreshLocationEditUri;
         this.refreshReviewSessionRanges();
+        try {
+            const recovery = await this.annotationsService.recoverInterruptedWrite({ projectRootUri: location.root.toString() });
+            if (recovery.notice) this.showNotice(recovery.notice);
+        } catch (error) {
+            console.warn('[akari-annotations] write recovery failed', error);
+        }
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
+        if (location.editUri) void offerCaptionLookMigration({
+            projectRootUri: location.root.toString(), editUri: location.editUri.toString(),
+            captionsUri: location.captionsUri.toString(),
+            captionsName: location.captionsUri.path.base, editName: location.editUri.path.base,
+            getRemembered: key => this.storage.getData<boolean>(key, false).then(value => value === true),
+            remember: key => this.storage.setData(key, true),
+            migrate: request => this.annotationsService.migrateCaptionLook(request),
+            ask: async count => {
+                const fix = t('annotations.captionLookMigration.offer.fixAction');
+                const later = t('annotations.captionLookMigration.offer.laterAction');
+                const choice = await this.messages.info(t('annotations.captionLookMigration.offer.fixAppearanceNotice',
+                    { count }), { timeout: 0 }, fix, later);
+                return choice === fix ? 'fix' : choice === later ? 'later' : undefined;
+            },
+            notifySaved: async count => await this.messages.info(
+                t('annotations.captionLookMigration.offer.fixedNotice', { count }),
+                { timeout: 0 },
+                t('annotations.captionLookMigration.offer.undoAction'))
+                === t('annotations.captionLookMigration.offer.undoAction'),
+            notifyConflict: () => { void this.messages.warn(
+                t('annotations.captionCommandHistory.text.reloadAfterConflict')); },
+            pushHistory: entry => this.pushHistory(entry),
+            undo: async entry => {
+                if (this.historyService.isTop(entry)) await this.performUndo();
+                else this.showNotice(t('annotations.captionLookMigration.offer.undoAfterOtherChangesNotice'));
+            },
+            write: request => this.annotationsService.writeEditSnapshot(request),
+            reload: () => this.reloadCaptions(),
+            historyLabel: t('annotations.captionLookMigration.offer.historyLabel')
+        });
         // The onboarding example is written by its backend service, outside this widget's
         // file service. Let it request a read after each staged write on file systems
         // whose watcher does not report those writes promptly (notably Windows drives).
@@ -8462,10 +8938,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!this.warnedNewerVersionProjects.has(project)) {
                     this.warnedNewerVersionProjects.add(project);
                     void this.messages.warn(
-                        '新しい版で使われた設定が、この版で保存すると失われることがあります。先に AKARI Video を更新するのがおすすめです',
-                        'アップデートを確認'
+                        t('annotations.timeline.text.settingsUsedInANewerVersionMayBe'),
+                        t('annotations.timeline.text.checkForUpdates')
                     ).then(choice => {
-                        if (choice === 'アップデートを確認') {
+                        if (choice === t('annotations.timeline.text.checkForUpdates')) {
                             void this.commands.executeCommand('akari.settings.open', { section: 'about' });
                         }
                     });
@@ -8506,7 +8982,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return !!relative && !relative.split('/').some(part => part.startsWith('.') || part === 'node_modules');
                 });
                 if (edit) void this.adoptTimelineEdit(edit.resource).then(() => this.updateTimelineTabCaption()).catch(error => {
-                    this.showNotice(`編集データを読み込めません: ${this.errorMessage(error)}`);
+                    this.showNotice(t('annotations.timeline.text.unableToLoadEditData', { reason: this.errorMessage(error) }));
                 });
             }
             // 削除後も location は保持されるため、同じ URI の再作成でも表示を更新する。
@@ -8615,10 +9091,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (writtenFiles === undefined) {
             this.timelineIssueChip.setFindings([]);
             message.textContent = withNewerVersionLintPrefix(
-                formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings), lintSavedVersion);
+                formatLintFailureForUi(t('annotations.timeline.text.problemsFoundWithPostSaveValidation'), errors, findings), lintSavedVersion);
             const undo = document.createElement('button');
             undo.type = 'button';
-            undo.textContent = '直前の編集を元に戻す';
+            undo.textContent = t('annotations.timeline.text.undoLastEdit');
             undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
@@ -8628,16 +9104,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.timelineIssueChip.setFindings(foreignErrors, lintSavedVersion);
         const formatFinding = (finding: UiLintFinding): string =>
-            `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`;
+            `[${finding.check ?? 'edit-lint'}] ${finding.message ?? t('annotations.timeline.text.unknownError')}`;
         if (ownErrors.length > 0) {
             message.textContent = withNewerVersionLintPrefix(formatLintFailureForUi(
-                '保存後の検証で問題が見つかりました',
+                t('annotations.timeline.text.problemsFoundWithPostSaveValidation'),
                 ownErrors.map(formatFinding),
                 ownErrors
             ), lintSavedVersion);
             const undo = document.createElement('button');
             undo.type = 'button';
-            undo.textContent = '直前の編集を元に戻す';
+            undo.textContent = t('annotations.timeline.text.undoLastEdit');
             undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
@@ -8682,7 +9158,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         } catch (error) {
             this.review.annotations = [];
-            this.showNotice(`レビューデータを読み取れません: ${this.errorMessage(error)}`);
+            this.showNotice(t('annotations.timeline.text.unableToReadReviewData', { reason: this.errorMessage(error) }));
         }
         this.renderStrip();
     }
@@ -8905,7 +9381,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     versionContext.stampText, versionContext.currentVersion);
                 const source = await this.resolveLegacyEditForOpen(diskSource);
                 if (!source) {
-                    throw new ReportedEditLoadFailure('古い edit.json を読み取り専用で開けません。');
+                    throw new ReportedEditLoadFailure(t('annotations.timeline.text.iCanTOpenTheOldEditJson'));
                 }
                 // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
                 // その射影しか見ない。
@@ -8989,8 +9465,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             this.layerTransitionWarnings.set(
                                 item.id,
                                 cause
-                                    ? `このクリップは他トラックのアイテム（${cause.causeItemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。`
-                                    : 'このクリップは合成機能または同一トラック内の重なりにより PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。'
+                                    ? t('annotations.timeline.text.sinceThisClipOverlapsWithAnItemOn', { itemId: cause.causeItemId })
+                                    : t('annotations.timeline.text.thisClipWillBeSavedToThePip')
                             );
                         }
                     }
@@ -9086,7 +9562,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         if ('ok' in planned && planned.ok === false) {
             this.setLegacyReadOnly(true);
-            this.showNotice(`このプロジェクトは変換できません: ${planned.blockers.join(' / ')}`);
+            this.showNotice(t('annotations.timeline.text.thisProjectCannotBeConverted', { blockers: planned.blockers.join(' / ') }));
             return undefined;
         }
         const proposal = planned as EditMigrationProposal;
@@ -9096,7 +9572,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } catch (error) {
                 this.setLegacyReadOnly(true);
                 const reason = error instanceof Error ? error.message : String(error);
-                this.showNotice(`空の edit.json を初期化できませんでした（退避に失敗）: ${reason}。元ファイルは変更されていません。`);
+                this.showNotice(t('annotations.timeline.text.failedToInitializeEmptyEditJsonEvacuationFailed', { reason: reason }));
                 return undefined;
             }
             this.setLegacyReadOnly(false);
@@ -9104,17 +9580,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const summary = proposal.changes.map(change => `${change.path}: ${change.note}`).join('\n');
         const choice = await this.messages.info(
-            `${proposal.filePath} は edit.json version ${proposal.version} です。\n${summary}`,
-            { timeout: 0 }, '変換する', '読み取り専用で開く'
+            t('annotations.timeline.text.isEditJsonVersion', { path: proposal.filePath, version: proposal.version, summary: summary }),
+            { timeout: 0 }, t('annotations.timeline.text.convert'), t('annotations.timeline.text.openReadOnly')
         );
-        if (choice === '変換する') {
+        if (choice === t('annotations.timeline.text.convert')) {
             await this.annotationsService.applyEditMigration(proposal);
             this.setLegacyReadOnly(false);
             void this.messages.info(
-                `version 2 へ変換しました。変換前: ${proposal.backupPath}`,
-                '元に戻す'
+                t('annotations.timeline.text.convertedToVersion2', { path: proposal.backupPath }),
+                t('annotations.timeline.text.undo')
             ).then(async action => {
-                if (action !== '元に戻す') return;
+                if (action !== t('annotations.timeline.text.undo')) return;
                 await this.annotationsService.revertEditMigration(proposal);
                 this.legacyReadOnlyText = proposal.nextText;
                 this.legacyMigrationProposal = proposal;
@@ -9126,7 +9602,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.legacyReadOnlyText = proposal.nextText;
         this.legacyMigrationProposal = proposal;
         this.setLegacyReadOnly(true);
-        this.showNotice('古い edit.json を読み取り専用で開いています。元ファイルは変更されていません。');
+        this.showNotice(t('annotations.timeline.text.openingOldEditJsonReadOnlyTheOriginal'));
         return proposal.nextText;
     }
 
@@ -9223,7 +9699,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.editReloadGeneration || migrateMutedIds.size === 0) return;
         try {
             // 保存成功後だけ表示へ反映する。reload しないので移行中に再入しない。
-            await this.commitEditMutation('トラックのミュートを保存', doc =>
+            await this.commitEditMutation(t('annotations.timeline.text.saveTrackMute'), doc =>
                 [...migrateMutedIds].reduce((value, trackId) => setV2TrackFlag(value, {
                     trackId, field: 'muted', value: true
                 }), doc), { reload: false, history: false });
@@ -9233,7 +9709,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.storage.setData(this.trackFlagStorageKey(editUri, trackId, 'muted'), undefined)));
         } catch (error) {
             console.warn('[akari-annotations] track mute migration failed', error);
-            this.footer.textContent = `トラックのミュートを保存できません: ${this.errorMessage(error)}`;
+            this.footer.textContent = t('annotations.timeline.text.unableToSaveTrackMute', { reason: this.errorMessage(error) });
         }
     }
 
@@ -9714,7 +10190,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
                 }
                 if (!image && captureOnHover && !caption) {
-                    const loading = document.createElement('div'); loading.textContent = '撮影中…'; popup.append(loading);
+                    const loading = document.createElement('div'); loading.textContent = t('annotations.timeline.text.shooting'); popup.append(loading);
                     const active = (): boolean => this.visualHover === popup && element.isConnected && !this.isDisposed
                         && !this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false);
                     const startCapture = (): void => {
@@ -9723,7 +10199,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const id = hoverElement.akariVisualHoverId;
                         const input = hoverElement.akariVisualHoverInput;
                         if (!editUri || !id || !window.electronAkariPreview?.captureVisualThumbnail) {
-                            loading.textContent = '撮影できません'; return;
+                            loading.textContent = t('annotations.timeline.text.canTTakePictures'); return;
                         }
                         // Restore disk revisions before constructing the same key as the band path.
                         if (!this.initializeVisualThumbnailDisk()) { timer = setTimeout(startCapture, 100); return; }
@@ -9784,7 +10260,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             if (!wanted()) { if (this.visualHover === popup) hide(); return; }
                             const capture = this.visualThumbnails.request(job);
                             if (capture === undefined) { timer = setTimeout(refresh, 100); return; }
-                            if (!capture) { loading.textContent = '撮影できません'; return; }
+                            if (!capture) { loading.textContent = t('annotations.timeline.text.canTTakePictures'); return; }
                             loading.remove();
                             enlarged!.style.display = 'block';
                             enlarged!.onload = updateGeometry;
@@ -9938,7 +10414,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected resolveEditMediaUri(path: string, editUri: URI): URI {
         const normalized = path.replace(/\\/g, '/');
-        if (normalized.startsWith('assets/') && normalized.split('/').some(part => part === '..' || part === '.')) throw new Error('素材パスがプロジェクトの外を指しています');
+        if (normalized.startsWith('assets/') && normalized.split('/').some(part => part === '..' || part === '.')) throw new Error(t('annotations.timeline.text.materialPathPointsOutsideTheProject'));
         if (this.referenceMediaRoot === editUri.parent.toString() && this.referenceMediaUris[normalized]) {
             return new URI(this.referenceMediaUris[normalized]);
         }
@@ -10098,8 +10574,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const label = badge.querySelector<HTMLElement>('[data-akari-fetch-badge-label]');
         // 細いチップでは文字が入らない。クルクルだけでも「待ち」は伝わる。
         const wide = (parseFloat(element.style.width) || element.getBoundingClientRect().width) >= 96;
-        if (label) label.textContent = wide ? 'ダウンロード中' : '';
-        badge.title = `${pending.title ?? '素材'}をダウンロード中`;
+        if (label) label.textContent = wide ? t('annotations.timeline.text.downloading') : '';
+        badge.title = t('annotations.timeline.text.downloadingAlternate', { name: pending.title ?? t('annotations.timeline.asset.genericName') });
     }
 
     /** 枠外の生成尺は表示だけ。item の矩形、スナップ、書き出しには加えない。 */
@@ -10137,8 +10613,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? 0 : videoOverhangSeconds(frameSeconds, generatedSeconds ?? 0);
         if (!excess) return;
         const widthPx = clipWidth * excess / (segment.tlEnd - segment.tlStart);
-        const text = finished ? `動画は ${videoSecondsLabel(generatedSeconds!)} 秒`
-            : `${videoSecondsLabel(generatedSeconds!)} 秒で作ります`;
+        const text = finished ? t('annotations.timeline.text.videoIsSeconds', { duration: videoSecondsLabel(generatedSeconds!), n: videoSecondsLabel(generatedSeconds!) })
+            : t('annotations.timeline.text.createInSeconds', { duration: videoSecondsLabel(generatedSeconds!), n: videoSecondsLabel(generatedSeconds!) });
         const labelWidthPx = Array.from(text).reduce((width, char) => width + (char.codePointAt(0)! < 0x80 ? char === ' ' ? 3 : 5 : 10), 0);
         const nextItemStartPx = (this.segments ?? [])
             .filter(next => next.index !== segment.index && next.track === segment.track
@@ -10236,9 +10712,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         badge.className = 'akari-generation-badge';
         const frameWidth = clipWidth ?? ((typeof element.getBoundingClientRect === 'function'
             ? element.getBoundingClientRect().width : 0) || parseFloat(element.style.width) || 0);
-        const chipText = generation.state === 'planned-video' && description.badge === '▶ 動画予定' ? description.badge
+        const plannedVideoBadge = generation.state === 'planned-video'
+            && description.className === 'akari-generation-planned-video';
+        const chipText = plannedVideoBadge ? description.badge
             : generationChipLabel(description.badge, frameWidth);
-        badge.textContent = narrow && description.badge === '▶ 動画予定' ? '▶' : chipText;
+        badge.textContent = narrow && plannedVideoBadge ? '▶' : chipText;
         badge.title = description.title;
         badge.setAttribute('aria-label', description.badge);
         badge.style.maxWidth = '100%';
@@ -10398,8 +10876,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'akari-generation-action';
-            button.textContent = 'もう一度';
-            button.title = '同じ入力でもう一度（費用承認）';
+            button.textContent = t('annotations.timeline.text.onceAgain');
+            button.title = t('annotations.timeline.text.againWithTheSameInputCostApproval');
             Object.assign(button.style, { fontSize: '10px', lineHeight: '10px', padding: '0 4px', pointerEvents: 'auto',
                 border: '1px solid currentColor', borderRadius: '3px', color: 'inherit',
                 background: 'var(--theia-editor-background, #1e1e1e)', cursor: 'pointer', whiteSpace: 'nowrap' });
@@ -10475,13 +10953,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (selected()) finish();
             });
             if (this.isDisposed) return;
-            if (!selected()) { this.showNotice('再試行するクリップの選択を反映できませんでした。'); return; }
+            if (!selected()) { this.showNotice(t('annotations.timeline.text.failedToHonorSelectionOfClipsToRetry')); return; }
             // fieldName is forwarded unchanged by the existing open command.
             await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, {
                 tabId: 'generation', sectionId: 'generation', fieldName: 'akari-generation-retry'
             });
         } catch (error) {
-            this.showNotice(`再試行を開けませんでした: ${String(error)}`);
+            this.showNotice(t('annotations.timeline.text.failedToOpenRetry', { reason: String(error) }));
         }
     }
 
@@ -10575,7 +11053,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 label.className = 'akari-generation-frame-label';
                 cell.appendChild(label);
             }
-            label.textContent = side === 'first' ? '最初' : '最後';
+            label.textContent = side === 'first' ? t('annotations.timeline.text.first') : t('annotations.timeline.text.last');
             label.style.display = !narrow && cellWidth >= 44 ? '' : 'none';
             if (!this.visualPlaying && !this.visualPointerDown && !this.dragState) {
                 this.fetchThumbnail(key, { src: frame.path, in: 0, out: 1 }, uri);
@@ -10602,7 +11080,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!link) {
                 link = document.createElement('span');
                 link.className = 'akari-generation-link';
-                link.title = '次のクリップの絵につながる';
+                link.title = t('annotations.timeline.text.leadsToTheNextClipPicture');
                 element.appendChild(link);
             }
         } else link?.remove();
@@ -10648,6 +11126,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const previousCaptions = this.captions;
                 this.invalidateContentExtent();
                 this.captions = parsed.captions;
+                const parsedWithPolicy = parsed as typeof parsed & {
+                    displayPolicy?: { locale?: unknown }; display_policy?: { locale?: unknown }
+                };
+                let locale: unknown = parsedWithPolicy.displayPolicy?.locale ?? parsedWithPolicy.display_policy?.locale;
+                if (locale === undefined) {
+                    try { locale = JSON.parse(nextSource)?.display_policy?.locale; }
+                    catch { /* The parsed caption rows remain available. */ }
+                }
+                this.captionDisplayLocale = typeof locale === 'string' && locale.trim() ? locale : 'ja';
+                try { this.hasCaptionDisplayPolicy = JSON.parse(nextSource)?.display_policy !== undefined; }
+                catch { this.hasCaptionDisplayPolicy = false; }
                 this.captionSources = readCaptionSourceMap(nextSource);
                 this.defaultTextStyle = parsed.defaultTextStyle;
                 this.lastAppliedCaptionsSource = nextSource;
@@ -10659,6 +11148,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (generation !== this.captionReloadGeneration) return;
                 this.invalidateContentExtent();
                 this.captions = [];
+                this.captionDisplayLocale = 'ja';
+                this.hasCaptionDisplayPolicy = false;
                 this.captionSources.clear();
                 this.defaultTextStyle = undefined;
                 this.lastAppliedCaptionsSource = undefined;
@@ -10753,6 +11244,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         });
         this.nextSameTrackSegmentByCutIndex.clear();
+        if (this.activeBoundary && !validateTransitionBoundaryWrite(this.activeBoundary,
+            this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length).pairExists) {
+            this.clearActiveTransitionBoundary();
+        }
         this.unsupportedTrackTransitionByCutIndex.clear();
         this.nonAdjacentTransitionTargetByCutIndex.clear();
         this.zeroOverlapTransitionIndexes.clear();
@@ -10779,7 +11275,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.nextSameTrackSegmentByCutIndex.set(earlier.index, later);
                 const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
                 if (overlapFrames === 0) {
-                    if (earlier.transitionOut && this.transitionHandlePlanSync(earlier, later).effectiveSeconds <= 0) {
+                    if (earlier.transitionOut && placeBoundary(this.transitionPlanFor(earlier.index, later.index)).state === 'dead') {
                         this.zeroOverlapTransitionIndexes.add(earlier.index);
                         this.declaredTransitionAdjacencyWarnings.add(earlier.index);
                     }
@@ -10886,37 +11382,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** source 秒 → 出力秒。cuts が無ければ恒等写像（後方互換）。範囲外は最も近いセグメントへクランプする。 */
-    protected sourceToOutput(t: number): number {
+    protected sourceToOutput(timeValue11: number): number {
         if (this.segments.length === 0) {
-            return t;
+            return timeValue11;
         }
         let best: { segment: OutputSegment; distance: number } | undefined;
         for (const segment of this.segments) {
-            if (t >= segment.in && t <= segment.out) {
-                return segment.tlStart + (t - segment.in) / segment.speed;
+            if (timeValue11 >= segment.in && timeValue11 <= segment.out) {
+                return segment.tlStart + (timeValue11 - segment.in) / segment.speed;
             }
-            const distance = t < segment.in ? segment.in - t : t - segment.out;
+            const distance = timeValue11 < segment.in ? segment.in - timeValue11 : timeValue11 - segment.out;
             if (!best || distance < best.distance) {
                 best = { segment, distance };
             }
         }
         const segment = best!.segment;
-        const clamped = Math.min(segment.out, Math.max(segment.in, t));
+        const clamped = Math.min(segment.out, Math.max(segment.in, timeValue11));
         return segment.tlStart + (clamped - segment.in) / segment.speed;
     }
 
     /** 出力秒 → source 秒。cuts が無ければ恒等写像（後方互換）。 */
-    protected outputToSource(t: number): number {
+    protected outputToSource(timeValue12: number): number {
         if (this.segments.length === 0) {
-            return t;
+            return timeValue12;
         }
         for (const segment of this.segments) {
-            if (t >= segment.tlStart && t <= segment.tlEnd) {
-                return segment.in + (t - segment.tlStart) * segment.speed;
+            if (timeValue12 >= segment.tlStart && timeValue12 <= segment.tlEnd) {
+                return segment.in + (timeValue12 - segment.tlStart) * segment.speed;
             }
         }
         const last = this.segments[this.segments.length - 1];
-        if (t > last.tlEnd) {
+        if (timeValue12 > last.tlEnd) {
             return last.out;
         }
         return this.segments[0].in;
@@ -11077,6 +11573,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     id: row.id,
                     duration: typeof raw.duration === 'number' ? raw.duration : Math.round(row.duration * this.fps),
                     keyframes: raw.keyframes,
+                    source: raw.source,
                     crop: raw.crop,
                     perspective: raw.perspective
                 }, [...requested]));
@@ -11471,8 +11968,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.timelineEmpty) {
             this.keyedNode('strip', 'timeline-empty-state', 'empty', () => {
                 const message = document.createElement('p');
-                message.dataset.akariUiLabel = 'タイムライン空状態';
-                message.textContent = `${timelineEmptyStateMessage(false)} ${TIMELINE_FOOTER_EMPTY_HINT}`;
+                message.dataset.akariUiLabel = t('annotations.timeline.text.timelineEmptyState');
+                message.textContent = `${timelineEmptyStateMessage(false)} ${TIMELINE_FOOTER_EMPTY_HINT()}`;
                 Object.assign(message.style, {
                     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
                     margin: '0', width: '80%', textAlign: 'center',
@@ -11536,7 +12033,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (created) {
                 const label = document.createElement('span');
                 label.className = 'akari-beats-band-label';
-                label.textContent = '見せ場';
+                label.textContent = t('annotations.timeline.text.highlight');
                 beatsBand.appendChild(label);
             }
             beatsBand.style.opacity = this.beatsVisible ? '1' : '.28';
@@ -11752,9 +12249,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const deltaFrames = Math.round((this.timeAtClientX(up.clientX) - this.timeAtClientX(startX)) * this.fps);
                         const patch = canvasChipDropPatch({ at: Number(original.at), duration: Number(original.duration) },
                             deltaFrames, resize ? 'right' : 'body');
-                        void this.commitEditMutation(resize ? 'キャンバスの尺を変える' : 'キャンバスを動かす', doc =>
+                        void this.commitEditMutation(resize ? t('annotations.timeline.text.changeTheScaleOfTheCanvas') : t('annotations.timeline.text.moveTheCanvas'), doc =>
                             updateTreeV2Item(doc, row.id, patch)
-                        ).catch(error => this.showNotice(`キャンバスを変更できません: ${canvasOperationReason(error)}`));
+                        ).catch(error => this.showNotice(t('annotations.timeline.text.cannotChangeCanvas', { reason: canvasOperationReason(error) })));
                     };
                     element.addEventListener('pointermove', onMove);
                     element.addEventListener('pointerup', onUp);
@@ -11768,7 +12265,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (row.sourceKind === 'group' && (!Array.isArray(raw?.items) || raw.items.length === 0)) {
                 element.style.setProperty('background-image',
                     'repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)', 'important');
-                element.title = raw?.source?.canvas?.intent ?? '空のキャンバス';
+                element.title = raw?.source?.canvas?.intent ?? t('annotations.timeline.text.emptyCanvas');
             } else element.style.removeProperty('background-image');
         }
 
@@ -11957,9 +12454,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariLayerTransitionWarning = layer.id;
-                warning.setAttribute('aria-label', '書き出せないトランジションを削除');
+                warning.setAttribute('aria-label', t('annotations.timeline.text.deleteTransitionsThatCannotBeExported'));
                 warning.title = transitionWarning;
-                warning.textContent = '⚠ 削除';
+                warning.textContent = t('annotations.timeline.text.delete');
                 Object.assign(warning.style, {
                     position: 'absolute', top: '3px', right: '3px', zIndex: '8',
                     padding: '1px 5px', borderRadius: '4px', border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
@@ -12047,9 +12544,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, bgmInlineId, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, bgm.path);
         }
@@ -12088,12 +12589,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const metadata = this.narrationReadAloudMetadata(narration.id);
             const captionRef = metadata?.caption_ref;
             const stale = staleNarrations([{ id: narration.id, caption_ref: captionRef, script: metadata?.script ?? narration.script }], this.captions).has(narration.id);
-            if (captionRef) element.title = stale ? `字幕 ${captionRef} の文字が変わりました` : `字幕 ${captionRef} から作成`;
+            if (captionRef) element.title = stale ? t('annotations.timeline.text.theTextOfSubtitleHasChanged', { caption: captionRef }) : t('annotations.timeline.text.createFromSubtitle', { caption: captionRef });
             const oldBadge = element.querySelector('[data-akari-stale-narration]');
             if (oldBadge) oldBadge.remove();
             if (stale) {
                 const badge = document.createElement('span'); badge.dataset.akariStaleNarration = 'true';
-                badge.textContent = '🔊 古い'; badge.title = `字幕 ${captionRef} の文字が変わりました`;
+                badge.textContent = t('annotations.timeline.text.old'); badge.title = t('annotations.timeline.text.theTextOfSubtitleHasChanged', { caption: captionRef });
                 badge.style.cssText = 'position:absolute;right:2px;top:2px;background:#9b5a13;color:white;padding:1px 3px;border-radius:3px;font-size:10px';
                 element.append(badge);
             }
@@ -12130,13 +12631,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 .replace(/\\/gu, '/').split('/').pop();
             if (videoName && video?.source !== speechSource) {
                 element.dataset.akariSyncBaseTitle = element.title;
-                element.title = [element.title, `${videoName} と同期`].filter(Boolean).join('\n');
+                element.title = [element.title, t('annotations.timeline.text.syncWith', { video: videoName })].filter(Boolean).join('\n');
                 element.dataset.akariSyncTitle = element.title;
                 if (this.audioBarWidthPx(narration.t, end) >= 130) {
                     const chip = document.createElement('span');
                     chip.dataset.akariSyncChip = 'true';
-                    chip.textContent = `🔗 ${videoName} と同期`;
-                    chip.title = `${videoName} と同期`;
+                    chip.textContent = t('annotations.timeline.text.syncWithAlternate', { video: videoName });
+                    chip.title = t('annotations.timeline.text.syncWith', { video: videoName });
                     chip.style.cssText = 'position:absolute;right:3px;top:2px;font-size:10px;white-space:nowrap;background:#194638;color:#9ce8bc;border-radius:8px;padding:1px 4px';
                     element.append(chip);
                 }
@@ -12156,9 +12657,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, narration.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, narration.path);
             const speech = this.audioSpeech?.find(item => item.id === narration.id);
@@ -12335,9 +12840,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, sfx.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, sfx.path);
         });
@@ -12347,6 +12856,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 揺れないようにする）。
         const trimmerActiveIndex = this.trimmerItemId;
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
+        const deadBoundaryIndexes = new Set(this.transitionBoundaryCandidates().filter(boundary => {
+            if (!unsupportedDeclaredTransitions.has(boundary.earlierIndex)) return false;
+            const trackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            return !!resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track)
+                && this.isRangeMounted(boundary.boundaryT, boundary.boundaryT);
+        }).map(boundary => boundary.earlierIndex));
         this.segments.forEach(segment => {
             const cutItemId = this.cutItemIds[segment.index] ?? '';
             if (timelineItemRenderRoute(cutItemId, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
@@ -12481,13 +12996,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.applyGenerationChip(element, cutGeneration, clipWidth);
             this.applyGenerationOverhang(element, cut, segment, clipWidth, cutGeneration, cutItemId);
             this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
-            if (created && unsupportedDeclaredTransitions.has(segment.index)) {
+            if (deadBoundaryIndexes.has(segment.index) || !unsupportedDeclaredTransitions.has(segment.index)) {
+                element.querySelector('[data-akari-unsupported-transition]')?.remove();
+            }
+            if (unsupportedDeclaredTransitions.has(segment.index) && !deadBoundaryIndexes.has(segment.index)
+                && !element.querySelector('[data-akari-unsupported-transition]')) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariUnsupportedTransition = String(segment.index);
-                warning.setAttribute('aria-label', '書き出せないトランジションを削除');
+                warning.setAttribute('aria-label', t('annotations.timeline.text.deleteTransitionsThatCannotBeExported'));
                 warning.title = this.unsupportedTransitionMessage(segment.index);
-                warning.textContent = '⚠ 削除';
+                warning.textContent = t('annotations.timeline.text.delete');
                 Object.assign(warning.style, {
                     position: 'absolute', top: '3px', right: '3px', zIndex: '8',
                     padding: '1px 5px', borderRadius: '4px', border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
@@ -12504,6 +13023,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 element.appendChild(warning);
             }
+            const cachedDuration = this.videoDurationCache.get(this.cutVideoUri(cut));
+            renderSourceEdgeMarks(element, sourceEdgeMarks({
+                inSeconds: cut.in, outSeconds: cut.out,
+                sourceDurationSeconds: typeof cachedDuration === 'number' ? cachedDuration : undefined,
+                still: this.isStillImageCut(cut)
+            }));
         });
         this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
         this.finishKeyedRender('strip');
@@ -12672,304 +13197,630 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 同じ判定基準 = computeCutBoundaries）に常時バッジを描く。transition_out 未設定は
      * 控えめなニュートラル丸、設定済みはアクセント色 + 種別頭文字。クリックでポップオーバー編集。
      */
+    protected transitionBoundaryInputs() {
+        return this.segments.map(segment => ({
+            ...segment, itemId: this.cutItemIds[segment.index],
+            locked: this.isTrackLocked(this.trackIdOfItem(this.cutItemId(segment.index))),
+            trackOrderValid: this.unsupportedTransitionTrack(segment.index) === undefined
+        }));
+    }
+
+    protected transitionBoundaryCandidates() {
+        return computeCutBoundaryCandidates(this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
+    }
+
+    protected boundaryBlockMessage(block: BoundaryBlock | undefined): string {
+        const key = block === 'multi-track' ? 'transition.boundary.block.multiTrack'
+            : block === 'track-order' ? 'transition.boundary.block.trackOrder'
+                : block === 'locked' ? 'transition.boundary.block.locked'
+                    : 'transition.boundary.block.gap';
+        return t(key);
+    }
+
+    protected deadTransitionMessage(block: BoundaryBlock | undefined, earlierIndex: number): string {
+        if (block === 'gap' || this.nonAdjacentTransitionTarget(earlierIndex) !== undefined)
+            return t('transition.boundary.dead.gap');
+        if (block === 'track-order') return t('transition.boundary.dead.trackOrder');
+        if (block === 'multi-track' || this.unsupportedTransitionTrack(earlierIndex) !== undefined)
+            return t('transition.boundary.dead.multiTrack');
+        return block ? this.boundaryBlockMessage(block) : ZERO_OVERLAP_TRANSITION_MESSAGE();
+    }
+
     protected renderTransitionBoundaries(unsupported: ReadonlySet<number>): void {
-        const boundaries = computeCutBoundaries(this.segments, this.fps);
-        const unsupportedDropEarlierIndexes = new Set(unsupported);
-        for (const cutIndex of this.unsupportedTrackTransitionByCutIndex.keys()) {
-            unsupportedDropEarlierIndexes.add(cutIndex);
-        }
+        const boundaries = this.transitionBoundaryCandidates();
         const supportedDropEarlierIndexes = new Set((this.libraryDragPayload
-            ? filterSupportedTransitionBoundaries(
-                boundaries,
-                unsupportedDropEarlierIndexes
-            )
+            ? filterSupportedTransitionBoundaries(boundaries.filter(boundary => boundary.blocks.length === 0), unsupported)
             : []).map(boundary => boundary.earlierIndex));
         for (const boundary of boundaries) {
-            const itemTrackId = this.itemLocations.get(this.cutItemIds[boundary.earlierIndex] ?? '')?.trackId;
-            const cutLayout = resolveItemRowLayout(
-                this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track
-            );
-            if (!cutLayout || !this.isRangeMounted(boundary.boundaryT, boundary.boundaryT)) {
-                continue;
+            const itemTrackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            const cutLayout = resolveItemRowLayout(this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track);
+            if (!cutLayout || !this.isRangeMounted(boundary.boundaryT, boundary.boundaryT)) continue;
+            const earlier = this.segments.find(segment => segment.index === boundary.earlierIndex);
+            const later = this.segments.find(segment => segment.index === boundary.laterIndex);
+            if (!earlier || !later) continue;
+            const declared = boundary.transitionOut;
+            if (declared && !this.isStillImageCut(this.cuts[boundary.earlierIndex])) {
+                const uri = this.cutVideoUri(this.cuts[boundary.earlierIndex]);
+                if (uri && !this.videoDurationCache.has(uri)) void this.ensureVideoDurationFetch(uri);
             }
-            const option = boundary.transitionOut
-                ? TRANSITION_TYPE_OPTIONS.find(candidate => candidate.type === boundary.transitionOut!.type)
-                : undefined;
-            const { element: badge, created } = this.keyedNode(
-                'strip', `boundary:${boundary.earlierIndex}-${boundary.laterIndex}`,
-                JSON.stringify([boundary, unsupported.has(boundary.earlierIndex), cutLayout.hidden]),
-                () => document.createElement('button')
-            );
-            badge.type = 'button';
-            Object.assign(badge.style, {
-                position: 'absolute',
-                left: `${this.layoutPercent(boundary.boundaryT)}%`,
-                top: `${cutLayout.top + cutLayout.height / 2}px`,
-                transform: 'translate(-50%, -50%)',
-                width: `${TRANSITION_BADGE_SIZE_PX}px`,
-                height: `${TRANSITION_BADGE_SIZE_PX}px`,
-                borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '8px', fontWeight: '700', lineHeight: '1', padding: '0',
-                cursor: 'pointer', pointerEvents: 'auto', zIndex: '5', boxSizing: 'border-box',
-                opacity: cutLayout.hidden ? '.28' : '1'
+            const placement = declared ? placeBoundary(this.transitionPlanFor(earlier.index, later.index)) : undefined;
+            const dead = transitionDeclarationIsDead(!!declared, boundary.blocks,
+                unsupported.has(boundary.earlierIndex), placement?.state === 'dead');
+            const family = declared ? transitionFamilyOf(declared.type) : undefined;
+            const unknown = !!declared && !family;
+            const kind = dead ? 'dead' : unknown ? 'unknown' : declared ? 'band'
+                : boundary.blocks.length > 0 ? 'blocked' : 'add';
+            const pxPerSecond = this.layoutViewDuration > 0 ? this.stripLayoutWidthPx / this.layoutViewDuration : 0;
+            const micro = (kind === 'add' || kind === 'blocked') && Math.min(
+                earlier.tlEnd - earlier.tlStart, later.tlEnd - later.tlStart
+            ) * pxPerSecond < MICRO_CLIP_WIDTH_PX;
+            const familyName = family ? t(transitionFamilyLabelKey(family.family)) : '';
+            const label = unknown ? t(TRANSITION_UNKNOWN_LABEL_KEY)
+                : family?.direction ? t(TRANSITION_NAME_WITH_DIRECTION_KEY, {
+                    family: familyName, direction: t(transitionDirectionLabelKey(family.direction))
+                }) : familyName;
+            const reason = primaryBoundaryBlock(boundary.blocks);
+            const pairLabel = t('transition.picker.boundary.pair', {
+                from: boundary.earlierIndex + 1, to: boundary.laterIndex + 1
             });
-            if (unsupported.has(boundary.earlierIndex)) {
-                Object.assign(badge.style, {
-                    background: '#9a3412',
-                    border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
-                    color: '#fff'
-                });
-                badge.textContent = '!';
-                badge.dataset.akariUnsupportedTransition = String(boundary.earlierIndex);
-                badge.title = this.unsupportedTransitionMessage(boundary.earlierIndex);
-            } else if (boundary.transitionOut) {
-                Object.assign(badge.style, {
-                    background: TRANSITION_BADGE_ACCENT_COLOR,
-                    border: `1px solid ${TRANSITION_BADGE_ACCENT_COLOR}`,
-                    color: '#fff'
-                });
-                badge.textContent = option?.glyph ?? '✨';
-                badge.title = `${option?.label ?? boundary.transitionOut.type} `
-                    + `(${boundary.transitionOut.duration.toFixed(2)}s) — クリックで編集`;
-            } else {
-                Object.assign(badge.style, {
-                    background: 'transparent',
-                    border: `1px solid ${TRANSITION_BADGE_NEUTRAL_BORDER_COLOR}`,
-                    color: TRANSITION_BADGE_NEUTRAL_BORDER_COLOR
-                });
-                badge.textContent = '';
-                badge.title = 'トランジションを追加';
-            }
-            badge.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
-            badge.setAttribute('aria-label', badge.title);
-            if (created) {
-                badge.addEventListener('pointerdown', event => event.stopPropagation());
-                badge.addEventListener('contextmenu', event => event.stopPropagation());
-                badge.addEventListener('click', event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
-                });
-            }
-            if (supportedDropEarlierIndexes.has(boundary.earlierIndex)) {
+            const ariaLabel = `${pairLabel}: ${declared
+                ? t('transition.picker.boundary.declared', { name: label, duration: declared.duration.toFixed(2) })
+                : kind === 'blocked' ? this.boundaryBlockMessage(reason) : t('transition.picker.boundary.empty')}`
+                + (placement?.state === 'shortened' ? ` ${t('transition.boundary.status.shortened',
+                    { reason: this.transitionReasonText(placement.reasons) })}` : '')
+                + (placement && !dead && placement.freezeIncomingSeconds > 0
+                    ? ` ${t('transition.fill.band.incoming', { seconds: placement.freezeIncomingSeconds.toFixed(2) })}` : '')
+                + (placement && !dead && placement.freezeOutgoingSeconds > 0 && !placement.freezeOutgoingUnknown
+                    ? ` ${t('transition.fill.band.outgoing', { seconds: placement.freezeOutgoingSeconds.toFixed(2) })}` : '');
+            const { element } = this.keyedNode('strip',
+                `boundary:${boundary.ref.earlierItemId}:${boundary.ref.laterItemId}`,
+                'transition-boundary', () => document.createElement('button'));
+            const button = element as HTMLButtonElement;
+            renderTransitionBoundaryView(button, {
+                kind, label, ariaLabel, leftPercent: this.layoutPercent(boundary.boundaryT),
+                rowTopPx: cutLayout.top, rowHeightPx: cutLayout.height, hidden: cutLayout.hidden,
+                geometry: placement && !dead ? boundaryBandGeometry(placement, pxPerSecond) : undefined,
+                previewUrl: declared ? this.transitionPreviewUrls[declared.type]?.preview : undefined,
+                selected: sameBoundary(this.activeBoundary, boundary.ref), micro
+            });
+            button.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
+            button.dataset.akariBoundaryEarlierId = boundary.ref.earlierItemId;
+            button.dataset.akariBoundaryLaterId = boundary.ref.laterItemId;
+            const messageForDead = (): string => this.deadTransitionMessage(reason, boundary.earlierIndex);
+            button.onpointerdown = event => event.stopPropagation();
+            button.oncontextmenu = event => event.stopPropagation();
+            button.onclick = event => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.selectTransitionBoundary(boundary.ref);
+                this.hideNotice();
+                this.footer.textContent = ariaLabel;
+                this.scheduleStripRender();
+                if (kind === 'blocked' || kind === 'dead') {
+                    const message = kind === 'dead' ? messageForDead() : this.boundaryBlockMessage(reason);
+                    if (kind === 'blocked') this.showNotice(message);
+                    this.footer.textContent = message;
+                    if (kind === 'blocked') return;
+                }
+                if (boundary.blocks.includes('locked')) {
+                    const message = this.boundaryBlockMessage('locked');
+                    this.showNotice(message);
+                    this.footer.textContent = message;
+                    return;
+                }
+                this.openTransitionPicker(boundary.ref, kind === 'dead' ? messageForDead() : undefined);
+            };
+            if (supportedDropEarlierIndexes.has(boundary.earlierIndex) && !cutLayout.hidden) {
                 const { element: dropTarget } = this.keyedNode(
                     'strip', `transition-drop:${boundary.earlierIndex}-${boundary.laterIndex}`,
-                    JSON.stringify([boundary, cutLayout.hidden]),
-                    () => document.createElement('div')
-                );
+                    JSON.stringify([boundary, cutLayout.hidden]), () => document.createElement('div'));
                 dropTarget.className = 'akari-annotations-transition-drop-target';
-                const locked = this.isTrackLocked(this.trackIdOfItem(this.cutItemId(boundary.earlierIndex)))
-                    || this.isTrackLocked(this.trackIdOfItem(this.cutItemId(boundary.laterIndex)));
-                // Keep geometry available for a drop refusal while hiding the target affordance.
-                dropTarget.style.visibility = locked ? 'hidden' : '';
-                dropTarget.setAttribute('aria-hidden', String(locked));
+                dropTarget.style.visibility = '';
+                dropTarget.setAttribute('aria-hidden', 'false');
                 dropTarget.dataset.akariTransitionDropTarget = `${boundary.earlierIndex}-${boundary.laterIndex}`;
                 dropTarget.dataset.akariTransitionEarlierIndex = String(boundary.earlierIndex);
                 dropTarget.dataset.akariTransitionLaterIndex = String(boundary.laterIndex);
-                dropTarget.dataset.akariTransitionDropHover = 'false';
-                dropTarget.setAttribute('role', 'button');
-                dropTarget.setAttribute('aria-label', `C${boundary.earlierIndex + 1} と C${boundary.laterIndex + 1} の境界へ適用`);
-                dropTarget.title = 'ここにトランジションを適用';
+                dropTarget.dataset.akariTransitionDropHover = String(this.hoveredTransitionDropKey ===
+                    `${boundary.earlierIndex}-${boundary.laterIndex}`);
+                dropTarget.textContent = this.hoveredTransitionDropKey === `${boundary.earlierIndex}-${boundary.laterIndex}`
+                    ? t('transition.library.target.applyHere') : '';
                 Object.assign(dropTarget.style, {
                     left: `${this.layoutPercent(boundary.boundaryT)}%`,
                     top: `${cutLayout.top + cutLayout.height / 2}px`,
-                    opacity: cutLayout.hidden ? '.45' : '1'
+                    height: `${cutLayout.height}px`
                 });
             }
         }
     }
 
-    /** ㉔ 境界バッジのクリックで開くポップオーバー: type（カテゴリ別）・duration・削除。 */
-    protected openTransitionPopup(anchorX: number, anchorY: number, earlierIndex: number, laterIndex: number): void {
-        this.closeAnnotationPopup();
-        const popup = document.createElement('div');
-        popup.className = 'akari-annotations-transition-popover';
-        const popoverWidth = 440;
-        const margin = 8;
-        const left = Math.max(margin, Math.min(anchorX - popoverWidth / 2, window.innerWidth - popoverWidth - margin));
-        const top = anchorY + 12;
-        Object.assign(popup.style, {
-            position: 'fixed', left: `${left}px`, top: `${top}px`, zIndex: '10000',
-            display: 'flex', flexDirection: 'column', gap: '6px', width: `${popoverWidth}px`,
-            padding: '8px', borderRadius: '6px', border: '1px solid var(--theia-widget-border)',
-            background: 'var(--theia-menu-background)', boxShadow: '0 3px 12px rgba(0,0,0,.35)',
-            fontSize: '11px', maxHeight: `calc(100vh - ${top + margin}px)`, overflowY: 'auto'
+    public get activeBoundaryRef(): BoundaryRef | undefined { return this.activeBoundary; }
+
+    protected transitionSelectionSnapshot(): TimelineTransitionSelection | undefined {
+        const ref = this.activeBoundary;
+        if (!ref || !this.editDocument) return undefined;
+        const boundary = this.transitionBoundaryCandidates().find(candidate => sameBoundary(candidate.ref, ref));
+        if (!boundary) return undefined;
+        const earlier = this.segments.find(segment => segment.index === boundary.earlierIndex);
+        const later = this.segments.find(segment => segment.index === boundary.laterIndex);
+        if (!earlier || !later) return undefined;
+        const declaration = boundary.transitionOut;
+        const handle = declaration ? this.transitionHandleInputSync(earlier, later) : undefined;
+        const outgoingCut = this.cuts[earlier.index];
+        const outgoingUri = outgoingCut && !this.isStillImageCut(outgoingCut)
+            ? this.cutVideoUri(outgoingCut) : undefined;
+        const hasOutgoingDuration = outgoingUri
+            && typeof this.videoDurationCache.get(outgoingUri) === 'number';
+        const showHandles = !boundary.blocks.some(block => block === 'gap'
+            || block === 'multi-track' || block === 'track-order');
+        const placement = declaration ? placeBoundary(this.transitionPlanFor(earlier.index, later.index)) : undefined;
+        const rawAlign = this.rawV2Item(boundary.ref.earlierItemId)?.source?.transition_out?.align
+            ?? this.cuts[earlier.index]?.transitionOut?.align;
+        const track = this.transitionPlanTrackFor(earlier.index);
+        const rawTransition = this.rawV2Item(boundary.ref.earlierItemId)?.source?.transition_out;
+        const canFill = track ? !!canFillTransition({ clips: track.clips, earlierId: String(earlier.index),
+            existing: rawTransition && typeof rawTransition === 'object'
+                ? rawTransition as Record<string, unknown> : undefined,
+            fps: this.fps, blocked: boundary.blocks.length > 0, legacyOverlap: placement?.legacyOverlap }) : false;
+        const recommendedAlign = declaration && track && cutOverlapFrames(earlier, later, this.fps) === 0
+            ? chooseTransitionAlign(track.clips, String(earlier.index), declaration.duration,
+                { fps: this.fps, tailRoom: 'ignore', allowFill: false })?.align : undefined;
+        const name = (index: number): string => {
+            const itemName = this.rawKeyframeItem(this.cutItemIds[index])?.name;
+            return typeof itemName === 'string' && itemName.trim()
+                ? itemName : this.cuts[index] ? this.cutSourceName(this.cuts[index]) : '';
+        };
+        return createTransitionSelection({
+            ref,
+            earlier: { index: boundary.earlierIndex + 1, name: name(boundary.earlierIndex) },
+            later: { index: boundary.laterIndex + 1, name: name(boundary.laterIndex) },
+            ...(declaration ? { declaration: { type: declaration.type, duration: declaration.duration,
+                align: rawAlign }, recommendedAlign } : {}),
+            placement,
+            outgoingTailRoomSeconds: showHandles && hasOutgoingDuration ? handle?.outgoingTailRoomSeconds : undefined,
+            incomingHeadRoomSeconds: showHandles ? handle?.incomingHeadRoomSeconds : undefined,
+            block: primaryBoundaryBlock(boundary.blocks), locked: boundary.blocks.includes('locked'),
+            stripUrl: declaration ? this.transitionPreviewUrls[declaration.type]?.strip : undefined,
+            canFill, captionConflict: this.hasCaptionDisplayPolicy && !!declaration
+                && placement?.state !== 'dead' && !!placement
         });
-        const render = (): void => {
-            popup.replaceChildren();
-            const current = this.cuts[earlierIndex]?.transitionOut;
-            const unsupportedTrack = this.unsupportedTransitionTrack(earlierIndex);
-            const unsupportedAdjacency = this.nonAdjacentTransitionTarget(earlierIndex);
-            const zeroOverlap = this.zeroOverlapTransitionIndexes.has(earlierIndex);
-            const heading = document.createElement('div');
-            heading.textContent = `C${earlierIndex + 1} → C${laterIndex + 1}`;
-            heading.style.opacity = '.7';
-            popup.appendChild(heading);
-            if (unsupportedTrack !== undefined || unsupportedAdjacency !== undefined || zeroOverlap) {
-                const warning = document.createElement('div');
-                warning.dataset.akariTransitionGuard = String(earlierIndex);
-                warning.textContent = this.unsupportedTransitionMessage(earlierIndex);
-                Object.assign(warning.style, {
-                    padding: '6px', borderRadius: '4px', border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
-                    color: 'var(--theia-list-warningForeground, #cca700)', lineHeight: '1.4'
-                });
-                popup.appendChild(warning);
-            }
-            for (const category of TRANSITION_CATEGORIES) {
-                const categorySection = document.createElement('section');
-                categorySection.dataset.akariTransitionCategory = category;
-                const categoryHeading = document.createElement('div');
-                categoryHeading.textContent = category;
-                categoryHeading.style.opacity = '.72';
-                categoryHeading.style.marginTop = '2px';
-                categorySection.appendChild(categoryHeading);
-                const typeGrid = document.createElement('div');
-                Object.assign(typeGrid.style, {
-                    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px'
-                });
-                for (const option of TRANSITION_TYPE_OPTIONS.filter(candidate => candidate.category === category)) {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
-                    button.textContent = option.label;
-                    button.style.padding = '3px 4px';
-                    button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
-                    button.dataset.akariTransitionType = option.type;
-                    button.setAttribute('aria-pressed', String(current?.type === option.type));
-                    button.addEventListener('click', () => {
-                        void this.applyTransitionOut(earlierIndex, {
-                            type: option.type,
-                            duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
-                        }).then(render);
-                    });
-                    typeGrid.appendChild(button);
-                }
-                categorySection.appendChild(typeGrid);
-                popup.appendChild(categorySection);
-            }
-            if (current) {
-                const sliderRow = document.createElement('div');
-                Object.assign(sliderRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
-                const slider = document.createElement('input');
-                slider.type = 'range';
-                slider.min = String(TRANSITION_MIN_DURATION_SECONDS);
-                slider.max = String(TRANSITION_MAX_DURATION_SECONDS);
-                slider.step = '0.05';
-                slider.value = String(current.duration);
-                const currentType = isTransitionType(current.type) ? current.type : undefined;
-                slider.disabled = currentType === undefined;
-                slider.setAttribute('aria-label', 'トランジションの尺');
-                slider.style.flex = '1';
-                const durationLabel = document.createElement('span');
-                durationLabel.textContent = `${current.duration.toFixed(2)}s`;
-                Object.assign(durationLabel.style, { fontVariantNumeric: 'tabular-nums', minWidth: '34px' });
-                slider.addEventListener('input', () => {
-                    durationLabel.textContent = `${Number(slider.value).toFixed(2)}s`;
-                });
-                slider.addEventListener('change', () => {
-                    if (!currentType) return;
-                    void this.applyTransitionOut(earlierIndex, {
-                        type: currentType, duration: Number(slider.value)
-                    }).then(render);
-                });
-                sliderRow.append(slider, durationLabel);
-                popup.appendChild(sliderRow);
-                const removeButton = document.createElement('button');
-                removeButton.type = 'button';
-                removeButton.className = 'theia-button secondary';
-                removeButton.textContent = 'トランジションを削除';
-                removeButton.addEventListener('click', () => {
-                    void this.applyTransitionOut(earlierIndex, null).then(() => this.closeAnnotationPopup());
-                });
-                popup.appendChild(removeButton);
-            }
-        };
-        render();
-        popup.addEventListener('contextmenu', popupEvent => popupEvent.preventDefault());
-        popup.addEventListener('pointerdown', popupEvent => popupEvent.stopPropagation());
-        document.body.appendChild(popup);
-        this.contextPopup = popup;
-        const close = (outsideEvent: PointerEvent): void => {
-            if (!popup.contains(outsideEvent.target as Node)) {
-                document.removeEventListener('pointerdown', close, true);
-                this.closeAnnotationPopup();
-            }
-        };
-        setTimeout(() => document.addEventListener('pointerdown', close, true), 0);
     }
 
-    /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
+    protected selectTransitionBoundary(ref: BoundaryRef): void {
+        const changed = !this.activeBoundary || !sameBoundary(this.activeBoundary, ref);
+        this.selection = undefined;
+        this.multiSelection = [];
+        this.selectedGap = undefined;
+        this.gapBand?.remove();
+        this.gapBand = undefined;
+        this.setTimelineRange({});
+        this.selectionModel.keyframeSelection = undefined;
+        this.clearMarqueeRange();
+        this.activeBoundary = ref;
+        if (changed) {
+            const boundary = this.transitionBoundaryCandidates().find(candidate => sameBoundary(candidate.ref, ref));
+            const cut = boundary ? this.cuts[boundary.earlierIndex] : undefined;
+            if (cut && !this.isStillImageCut(cut)) {
+                const videoUri = this.cutVideoUri(cut);
+                if (videoUri && !this.videoDurationCache.has(videoUri)) void this.ensureVideoDurationFetch(videoUri);
+            }
+        }
+        this.applySelectionClass();
+        this.publishPrimaryPreviewSelection(undefined);
+        this.pushSelectionSnapshot();
+    }
+
+    protected clearActiveTransitionBoundary(ref?: BoundaryRef): void {
+        if (!this.activeBoundary || (ref && !sameBoundary(this.activeBoundary, ref))) return;
+        this.activeBoundary = undefined;
+        this.transitionPicker?.close(false);
+        this.scheduleStripRender();
+        this.pushSelectionSnapshot();
+    }
+
+    public showTransitionSelectionPrompt(): void {
+        this.footer.textContent = t('transition.picker.notice.selectBoundaryFirst');
+    }
+
+    public rememberTransitionDirection(family: TransitionFamily, direction: TransitionDirection): void {
+        const definition = TRANSITION_FAMILIES.find(entry => entry.family === family);
+        if (definition?.directions.includes(direction)) {
+            this.transitionDirections.set(family, direction);
+            this.transitionPicker?.update();
+        }
+    }
+
+    protected transitionBoundaryElement(ref: BoundaryRef): HTMLButtonElement | undefined {
+        return Array.from(this.node.querySelectorAll<HTMLButtonElement>('[data-akari-boundary-earlier-id]')).find(button =>
+            button.dataset.akariBoundaryEarlierId === ref.earlierItemId
+            && button.dataset.akariBoundaryLaterId === ref.laterItemId);
+    }
+
+    public openActiveTransitionPicker(): boolean {
+        if (!this.activeBoundary) return false;
+        const candidate = this.transitionBoundaryCandidates().find(boundary =>
+            sameBoundary(boundary.ref, this.activeBoundary));
+        if (candidate?.blocks.includes('locked')) {
+            const message = this.boundaryBlockMessage('locked');
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return false;
+        }
+        const button = this.transitionBoundaryElement(this.activeBoundary);
+        if (button?.dataset.akariBoundaryKind === 'blocked') {
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(candidate?.blocks ?? []));
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return false;
+        }
+        const blockedReason = button?.dataset.akariBoundaryKind === 'dead'
+            ? this.deadTransitionMessage(primaryBoundaryBlock(candidate?.blocks ?? []),
+                this.cutItemIds.indexOf(this.activeBoundary.earlierItemId)) : undefined;
+        this.openTransitionPicker(this.activeBoundary, blockedReason);
+        return true;
+    }
+
+    protected openTransitionPicker(ref: BoundaryRef, blockedReason?: string): void {
+        if (!this.transitionBoundaryElement(ref)) return;
+        this.hideNotice();
+        this.transitionPicker?.close();
+        this.closeAnnotationPopup();
+        const current = () => this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        const snapshot = this.transitionSelectionSnapshot();
+        this.transitionPicker = createTransitionPicker({
+            anchor: () => this.transitionBoundaryElement(ref),
+            fallbackFocus: () => this.node,
+            current,
+            blockedReason,
+            fill: blockedReason && snapshot?.canFill && current() ? () => {
+                this.transitionPicker?.close(false);
+                const declaration = current();
+                if (declaration) void this.applyTransitionOut(ref, { type: declaration.type,
+                    duration: declaration.duration, fillOnly: true });
+            } : undefined,
+            previews: this.transitionPreviewUrls,
+            rememberedDirection: family => this.transitionDirections.get(family),
+            apply: async type => {
+                const result = await this.applyTransitionOut(ref, {
+                    type, duration: current()?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
+                });
+                if (!result.ok) return false;
+                this.hideNotice();
+                const family = transitionFamilyOf(type);
+                if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+                const from = this.cutItemIds.indexOf(ref.earlierItemId) + 1;
+                const to = this.cutItemIds.indexOf(ref.laterItemId) + 1;
+                const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+                this.footer.textContent = result.message ?? t('transition.picker.notice.applied', { from, to, name });
+                return true;
+            },
+            remove: async () => (await this.applyTransitionOut(ref, null)).ok,
+            reveal: () => void this.commands.executeCommand(TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID),
+            closed: () => {
+                this.transitionPicker = undefined;
+            }
+        });
+    }
+
+    public async applyToActiveTransitionBoundary(type: unknown): Promise<boolean> {
+        const ref = this.activeBoundary;
+        if (!ref || !isTransitionType(type)) return false;
+        const current = this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        const result = await this.applyTransitionOut(ref, { type, duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS });
+        if (!result.ok) return false;
+        this.hideNotice();
+        const family = transitionFamilyOf(type);
+        if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+        this.transitionPicker?.update();
+        const from = this.cutItemIds.indexOf(ref.earlierItemId) + 1;
+        const to = this.cutItemIds.indexOf(ref.laterItemId) + 1;
+        this.footer.textContent = result.message ?? t('transition.picker.notice.applied', {
+            from, to, name: family ? t(transitionFamilyLabelKey(family.family)) : type
+        });
+        return true;
+    }
+
+    public async removeActiveTransition(): Promise<boolean> {
+        const ref = this.activeBoundary;
+        if (!ref) return false;
+        const current = this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        if (!current) return false;
+        const result = await this.applyTransitionOut(ref, null);
+        if (!result.ok && result.message) {
+            this.footer.textContent = result.message;
+            this.showNotice(result.message);
+        }
+        return result.ok;
+    }
+
+    public revealActiveTransitionInInspector(): boolean {
+        const ref = this.activeBoundary;
+        if (!ref) return false;
+        if (!this.transitionSelectionSnapshot()) return false;
+        this.transitionPicker?.close();
+        this.pushSelectionSnapshot();
+        return true;
+    }
+
     protected async applyTransitionOut(
-        cutIndex: number,
-        next: { type: TransitionType; duration: number } | null
+        cutIndexOrRef: number | BoundaryRef,
+        next: { type: string; duration: number; align?: TransitionAlign | null;
+            recommendAlign?: true; alignOnly?: true; fillOnly?: true } | null
     ): Promise<{ ok: boolean; message?: string }> {
+        const generation = this.transitionWriteGeneration = (this.transitionWriteGeneration || 0) + 1;
+        const cutIndex = typeof cutIndexOrRef === 'number' ? cutIndexOrRef
+            : this.cutItemIds.indexOf(cutIndexOrRef.earlierItemId);
+        const nextSegment = this.nextSameTrackSegment(cutIndex);
+        const ref: BoundaryRef = typeof cutIndexOrRef === 'number'
+            ? { earlierItemId: this.cutItemIds[cutIndex] ?? '',
+                laterItemId: nextSegment ? this.cutItemIds[nextSegment.index] ?? '' : '' }
+            : cutIndexOrRef;
         const location = this.location;
         if (!location?.editUri) {
-            return { ok: false, message: 'プロジェクトの場所を特定できません。' };
+            return { ok: false, message: t('annotations.timeline.text.unableToLocateProject') };
         }
-        if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined
-            || this.nonAdjacentTransitionTarget(cutIndex) !== undefined)) {
-            const message = this.unsupportedTransitionMessage(cutIndex);
+        this.transitionFillAsk?.close();
+        const projectUri = location.editUri.toString();
+        const current = (): boolean => this.transitionWriteGeneration === generation && !this.isDisposed
+            && this.location?.editUri?.toString() === projectUri;
+        const startingDeclaration = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
+        const startedKind = !next ? 'remove' : next.fillOnly ? 'fill'
+            : !startingDeclaration ? 'attach'
+                : next.duration === startingDeclaration.duration && next.align === undefined
+                    && !next.recommendAlign && !next.alignOnly ? 'retype' : 'change';
+        const validation = validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
+        if (!validation.pairExists || transitionWriteIsBlocked(next, validation.blocks)) {
+            if (!validation.pairExists) this.clearActiveTransitionBoundary(ref);
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(validation.blocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: false, message };
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
-        if (!next && earlier?.transitionOut && later) {
-            const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
-            if (overlapFrames > 0 && areCutsAdjacent(earlier, later, this.fps)) {
-                await this.commitEditTextMutation('トランジションを削除', text =>
-                    removeV2TransitionOutWithHandleRetractInSource(text, {
-                        itemId: this.cutItemId(cutIndex), retractFrames: overlapFrames, fps: this.fps
-                    })
-                );
-                this.hideNotice();
-                this.footer.textContent = 'トランジションを削除しました（のりしろも戻しました）。';
-                return { ok: true };
-            }
-        }
-        let handle: ReturnType<typeof planTransitionHandleWindow> | undefined;
-        let writtenNext = next;
+        let beforePlans: TransitionBoundaryPlan[] = [];
+        const beforeFreeze = transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds);
+        let incomingFeedback: number | undefined;
+        let wroteFill = false;
+        let writeKind: 'attach' | 'fill' | 'retype' | 'change' | undefined;
         if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
-            handle = await this.transitionHandlePlan(earlier, later, next.duration);
-            if (handle.outcome === 'clamped') {
-                const roundedSeconds = roundTransitionDurationForWrite(handle.effectiveSeconds);
-                handle = roundedSeconds > 0
-                    ? { ...handle, effectiveSeconds: roundedSeconds, halfSeconds: roundedSeconds / 2 }
-                    : { ...handle, effectiveSeconds: 0, halfSeconds: 0, outcome: 'none' };
-                if (handle.outcome === 'clamped') {
-                    writtenNext = { ...next, duration: handle.effectiveSeconds };
+            await this.waitForTransitionMaterial(earlier.index);
+            if (!current()) return { ok: false };
+        }
+        let confirmed: TransitionFillFacts | undefined;
+        let confirmedKind: 'attach' | 'fill' | undefined;
+        let confirmedAlign: unknown;
+        let confirmedType: unknown;
+        if (next && this.editDocument) {
+            const initial = this.transitionPlanInDocument(this.editDocument, ref);
+            const raw = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
+            const existing = raw && typeof raw === 'object' ? raw as Record<string, unknown> : undefined;
+            const decision = initial ? decideTransitionWrite({ clips: initial.track.clips,
+                earlierId: String(initial.earlierIndex), existing, request: next,
+                fps: this.fps, blocked: validation.blocks.length > 0,
+                legacyOverlap: initial.plans.some(plan => plan.earlierId === String(initial.earlierIndex)
+                    && plan.legacyOverlap) }) : undefined;
+            if (decision && decision.kind !== 'none' && decision.kind !== startedKind) {
+                const message = t('transition.fill.notice.changed');
+                this.footer.textContent = message;
+                this.showNotice(message);
+                return { ok: false, message };
+            }
+            if (decision?.kind === 'none' && next.fillOnly) return { ok: false };
+            if (decision && (decision.kind === 'attach' || decision.kind === 'fill') && decision.confirmation) {
+                confirmed = decision.confirmation;
+                confirmedKind = decision.kind;
+                confirmedAlign = existing?.align;
+                confirmedType = existing?.type;
+                this.transitionPicker?.close(false);
+                this.selectTransitionBoundary(ref);
+                const family = transitionFamilyOf(next.type);
+                const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+                const fullName = family?.direction ? t(TRANSITION_NAME_WITH_DIRECTION_KEY, {
+                    family: name, direction: t(transitionDirectionLabelKey(family.direction)) }) : name;
+                const lead = t(decision.kind === 'attach' ? 'transition.fill.ask.leadAttach'
+                    : 'transition.fill.ask.leadFill', { name: fullName });
+                const body = t(transitionFillBodyKey(confirmed), { lead,
+                    from: (initial?.earlierIndex ?? cutIndex) + 1,
+                    to: (later?.index ?? cutIndex + 1) + 1,
+                    outgoing: confirmed.freezeOutgoingSeconds.toFixed(2),
+                    incoming: confirmed.freezeIncomingSeconds.toFixed(2) });
+                if (!current()) return { ok: false };
+                this.transitionFillAsk?.close();
+                const ask = createTransitionFillAsk({ anchor: () => this.transitionBoundaryElement(ref),
+                    body, action: decision.kind, captionConflict: this.hasCaptionDisplayPolicy });
+                this.transitionFillAsk = ask;
+                const approved = await ask.result;
+                if (this.transitionFillAsk === ask) this.transitionFillAsk = undefined;
+                if (!current()) return { ok: false };
+                if (!approved) {
+                    const message = t(decision.kind === 'attach' ? 'transition.fill.notice.cancelled'
+                        : 'transition.fill.notice.fillCancelled');
+                    this.footer.textContent = message;
+                    return Object.assign({ ok: false, message }, { cancelled: true });
                 }
             }
         }
-        await this.commitEditMutation('トランジションを変更', doc => updateV2Item(doc, {
-            itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: writtenNext } }
-        }));
-        if (handle?.outcome === 'clamped') {
-            const seconds = formatTransitionSeconds(handle.effectiveSeconds);
-            const message = `トランジションが ${seconds} 秒に短くなります（素材の余りが足りません）`;
+        let writeBlocks: BoundaryBlock[] | undefined;
+        let missingPair = false;
+        let didRetract = false;
+        const rejected = new Error('transition boundary changed before write');
+        let changedDuringConfirmation = false;
+        try {
+            await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => {
+                if (!current()) { changedDuringConfirmation = true; throw rejected; }
+                const boundary = resolveBoundaryInDocument(doc, ref, new Set(this.timelineLockedTrackIds()));
+                if (!boundary.pairExists || transitionWriteIsBlocked(next, boundary.blocks)) {
+                    writeBlocks = boundary.blocks;
+                    missingPair = !boundary.pairExists;
+                    changedDuringConfirmation = !!confirmed;
+                    throw rejected;
+                }
+                if (!next && boundary.earlierTransition && boundary.overlapFrames > 0) {
+                    didRetract = true;
+                    return JSON.parse(removeV2TransitionOutWithHandleRetractInSource(stringifyEditV2(doc), {
+                        itemId: ref.earlierItemId, retractFrames: boundary.overlapFrames, fps: this.fps
+                    })) as EditV2Document;
+                }
+                const fresh = next ? this.transitionPlanInDocument(doc, ref) : undefined;
+                if (next && !fresh) {
+                    missingPair = true;
+                    writeBlocks = ['gap'];
+                    changedDuringConfirmation = !!confirmed;
+                    throw rejected;
+                }
+                beforePlans = fresh?.plans ?? [];
+                let writtenNext: { type: string; duration: number; align?: TransitionAlign | null;
+                    fill?: 'freeze' | null } | null = next;
+                if (next && fresh) {
+                    const existing = boundary.earlierTransition && typeof boundary.earlierTransition === 'object'
+                        ? boundary.earlierTransition as Record<string, unknown> : undefined;
+                    let decision = decideTransitionWrite({ clips: fresh.track.clips,
+                        earlierId: String(fresh.earlierIndex), existing, request: next,
+                        fps: this.fps, blocked: boundary.blocks.length > 0,
+                        legacyOverlap: boundary.overlapFrames > 0 });
+                    if (decision.kind === 'none' && confirmedKind === 'fill' && existing
+                        && existing.fill !== 'freeze') {
+                        decision = { kind: 'fill', patch: { type: String(existing.type),
+                            duration: Number(existing.duration), fill: null } };
+                    }
+                    if (decision.kind === 'none') {
+                        changedDuringConfirmation = true;
+                        throw rejected;
+                    }
+                    if (decision.kind !== startedKind || ((decision.kind === 'attach' || decision.kind === 'fill')
+                        && decision.confirmation && !confirmed)) {
+                        changedDuringConfirmation = true;
+                        throw rejected;
+                    }
+                    writeKind = decision.kind;
+                    writtenNext = decision.patch;
+                    incomingFeedback = decision.kind === 'change' ? decision.incomingSeconds : undefined;
+                    if (confirmed) {
+                        if (decision.kind !== confirmedKind || (confirmedKind === 'attach' && existing)
+                            || (confirmedKind === 'fill' && (!existing
+                                || existing.duration !== confirmed.declaredSeconds
+                                || existing.align !== confirmedAlign || existing.type !== confirmedType
+                                || existing.fill === 'freeze'))) {
+                            changedDuringConfirmation = true;
+                            throw rejected;
+                        }
+                        const after = refreshedTransitionConfirmation(fresh.track.clips,
+                            String(fresh.earlierIndex), confirmed, this.fps);
+                        if (!after || !compareTransitionConfirmation(confirmed, after)) {
+                            changedDuringConfirmation = true;
+                            throw rejected;
+                        }
+                        const patch = confirmedTransitionPatch({ confirmed, decision, after, type: next.type });
+                        if (!patch) { changedDuringConfirmation = true; throw rejected; }
+                        writtenNext = patch;
+                    }
+                    wroteFill = writtenNext.fill === 'freeze';
+                }
+                const patchNext = writtenNext ? transitionDeclarationPatch(writtenNext) : null;
+                return updateV2Item(doc, {
+                    itemId: ref.earlierItemId, patch: { source: { transition_out: patchNext } }
+                });
+            });
+        } catch (error) {
+            if (error !== rejected) throw error;
+        }
+        if (changedDuringConfirmation) {
+            const message = t('transition.fill.notice.changed');
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return { ok: false, message };
+        }
+        if (writeBlocks) {
+            if (missingPair) this.clearActiveTransitionBoundary(ref);
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(writeBlocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
+            return { ok: false, message };
+        }
+        if (didRetract) {
+            this.hideNotice();
+            this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe');
+            return { ok: true };
+        }
+        const messages: string[] = [];
+        const grownMessages: string[] = [];
+        let materialNotice = false;
+        let captionConflict = false;
+        if (next) {
+            const afterPlans = this.transitionPlans().plans;
+            const currentIndex = this.cutItemIds.indexOf(ref.earlierItemId);
+            const current = afterPlans.find(plan => plan.earlierId === String(currentIndex));
+            const family = transitionFamilyOf(next.type);
+            const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+            if (confirmedKind === 'attach') messages.push(t('transition.picker.notice.applied', {
+                from: currentIndex + 1, to: this.cutItemIds.indexOf(ref.laterItemId) + 1, name }));
+            else if (confirmedKind === 'fill') messages.push(t('annotations.timeline.text.changedTheTransition'));
+            if (confirmedKind && wroteFill) messages.push(t('transition.fill.notice.applied'));
+            if (incomingFeedback !== undefined) messages.push(t('transition.fill.feedback.incoming', {
+                index: this.cutItemIds.indexOf(ref.laterItemId) + 1,
+                seconds: incomingFeedback.toFixed(2) }));
+            for (const plan of afterPlans) {
+                if (plan.earlierId === String(currentIndex)) continue;
+                const before = beforePlans.find(entry => entry.earlierId === plan.earlierId
+                    && entry.laterId === plan.laterId);
+                if (before && plan.effectiveSeconds < before.effectiveSeconds - 0.000001) {
+                    messages.push(t('transition.boundary.notice.neighborShortened', {
+                        from: Number(plan.earlierId) + 1, to: Number(plan.laterId) + 1,
+                        seconds: formatTransitionSeconds(plan.effectiveSeconds)
+                    }));
+                }
+            }
+            for (const growth of transitionFreezeGrowth(beforeFreeze, afterPlans, this.cutItemIds,
+                [ref.earlierItemId, ref.laterItemId])) {
+                grownMessages.push(t('transition.fill.notice.grown',
+                    { from: growth.from, to: growth.to, seconds: growth.seconds }));
+            }
+            if (current?.state === 'shortened' && current.reasons.some(reason =>
+                reason === 'neighbor' || reason === 'outgoing-length' || reason === 'incoming-length')) {
+                messages.push(t('transition.boundary.notice.shortened', {
+                    seconds: formatTransitionSeconds(current.effectiveSeconds),
+                    reason: this.transitionReasonText(current.reasons)
+                }));
+            }
+            if (current?.state === 'shortened' && current.reasons.includes('incoming-room')) {
+                const seconds = formatTransitionSeconds(current.effectiveSeconds);
+                messages.push(t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial',
+                    { duration: seconds, n: seconds }));
+                materialNotice = true;
+            } else if (current?.state === 'none' && writeKind !== 'retype') {
+                messages.push(ZERO_OVERLAP_TRANSITION_MESSAGE());
+                materialNotice = true;
+            }
+            if (this.hasCaptionDisplayPolicy && writeKind !== 'retype' && current?.state !== 'none' && current) {
+                captionConflict = true;
+                messages.push(t('transition.fill.notice.captionConflict'));
+            }
+            if (writeKind === 'attach' && !confirmedKind && (messages.length || grownMessages.length)) {
+                messages.unshift(t('transition.picker.notice.applied', {
+                    from: currentIndex + 1, to: this.cutItemIds.indexOf(ref.laterItemId) + 1, name }));
+            }
+        }
+        if (messages.length || grownMessages.length) {
+            const message = [...messages, ...grownMessages].join(' ');
+            if (materialNotice) this.showNotice(messages.join(' '));
+            else this.hideNotice();
+            this.footer.textContent = message;
+            if (captionConflict) {
+                const inspectorMessage = [...messages.slice(0, -1), ...grownMessages].join(' ');
+                return Object.assign({ ok: true, message }, { inspectorMessage });
+            }
             return { ok: true, message };
         }
-        if (handle?.outcome === 'none') {
-            this.showNotice(ZERO_OVERLAP_TRANSITION_MESSAGE);
-            this.footer.textContent = ZERO_OVERLAP_TRANSITION_MESSAGE;
-            this.messages.warn(ZERO_OVERLAP_TRANSITION_MESSAGE);
-            return { ok: true, message: ZERO_OVERLAP_TRANSITION_MESSAGE };
-        }
         if (!next && earlier && later && cutOverlapFrames(earlier, later, this.fps) > 0) {
-            const message = 'トランジションを削除しました。クリップの重なりが残っています。';
+            const message = t('annotations.timeline.text.iDeletedTheTransitionOverlappingClipsRemain');
             this.showNotice(message);
             this.footer.textContent = message;
             return { ok: true, message };
         }
         this.hideNotice();
-        this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
+        this.footer.textContent = next ? t('annotations.timeline.text.changedTheTransition') : t('annotations.timeline.text.iDeletedTheTransition');
         return { ok: true };
     }
 
@@ -12985,77 +13836,113 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return isStillImageSourcePath(declaredPath);
     }
 
-    protected transitionHandlePlanSync(
-        earlier: OutputSegment,
-        later: OutputSegment,
-        declaredSeconds = earlier.transitionOut?.duration ?? 0
-    ): ReturnType<typeof planTransitionHandleWindow> {
-        const outgoing = this.cuts[earlier.index];
-        const incoming = this.cuts[later.index];
-        const outgoingSpeed = typeof outgoing?.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
-        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-        let tailSeconds = Number.POSITIVE_INFINITY;
-        if (!this.isStillImageCut(outgoing)) {
-            const videoUri = outgoing ? this.cutVideoUri(outgoing) : undefined;
-            const cached = videoUri ? this.videoDurationCache.get(videoUri) : undefined;
-            tailSeconds = typeof cached === 'number'
-                ? Math.max(0, cached - (outgoing?.out ?? 0)) / outgoingSpeed
-                : cached === 'unavailable' ? 0 : Number.POSITIVE_INFINITY;
+    protected transitionPlanInDocument(doc: EditV2Document, ref: BoundaryRef): {
+        earlierIndex: number; track: TransitionPlanTrack; plans: TransitionBoundaryPlan[];
+        earlierTransition: boolean;
+    } | undefined {
+        const internal = this.readEdit(stringifyEditV2(doc));
+        const view = projectLegacyEdit(internal);
+        const ids: string[] = [];
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'cuts') ids[item.legacy.index] = item.id;
         }
-        return planTransitionHandleWindow({
-            declaredSeconds,
-            outgoingTailRoomSeconds: tailSeconds,
-            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+        const earlierIndex = ids.indexOf(ref.earlierItemId);
+        const laterIndex = ids.indexOf(ref.laterItemId);
+        if (earlierIndex < 0 || laterIndex < 0) return undefined;
+        const cuts = (view.cuts as Array<EditCut & { transition_out?: EditCut['transitionOut'] }>).map((cut, index) => {
+            const raw = internal.tracks.flatMap(track => track.items).find(entry => entry.id === ids[index])
+                ?.declaration.transition_out as { align?: unknown; fill?: unknown } | undefined;
+            const transitionOut = cut.transitionOut ?? cut.transition_out;
+            return raw && transitionOut ? { ...cut, transitionOut: { ...transitionOut,
+                align: raw.align, fill: raw.fill } } : { ...cut, transitionOut };
         });
+        const tracks = transitionPlanClipsFromCuts(cuts, { fps: this.fps, resolve: (cut, index) => {
+            const stillImage = this.isStillImageCut(cut);
+            const item = internal.tracks.flatMap(track => track.items).find(entry => entry.id === ids[index]);
+            const freeze = item?.declaration.freeze;
+            const freezeSeconds = freeze && typeof freeze === 'object'
+                ? Number((freeze as { duration_sec?: unknown }).duration_sec) || 0 : 0;
+            const videoUri = stillImage ? undefined : this.cutVideoUri(cut);
+            const duration = transitionMaterialDuration({ videoUri,
+                cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined, outSeconds: cut.out });
+            return { stillImage, freezeSeconds,
+                ...(duration !== undefined ? { materialDurationSeconds: duration } : {}) };
+        } });
+        const track = tracks.find(candidate => candidate.clips.some(clip => clip.id === String(earlierIndex))
+            && candidate.clips.some(clip => clip.id === String(laterIndex)));
+        if (!track) return undefined;
+        return { earlierIndex, track, plans: tracks.flatMap(candidate => planTrackTransitions(candidate.clips,
+            { fps: this.fps, tailRoom: 'ignore' })),
+            earlierTransition: !!cuts[earlierIndex]?.transitionOut };
     }
 
-    protected async transitionHandlePlan(
-        earlier: OutputSegment,
-        later: OutputSegment,
-        declaredSeconds: number
-    ): Promise<ReturnType<typeof planTransitionHandleWindow>> {
-        const outgoing = this.cuts[earlier.index];
-        if (!outgoing || this.isStillImageCut(outgoing)) {
-            return this.transitionHandlePlanSync(earlier, later, declaredSeconds);
-        }
-        const videoUri = this.cutVideoUri(outgoing);
-        if (!videoUri) {
-            const incoming = this.cuts[later.index];
-            const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-            return planTransitionHandleWindow({
-                declaredSeconds,
-                outgoingTailRoomSeconds: 0,
-                incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                    ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-                outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-                incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
-            });
-        }
-        const duration = await this.ensureVideoDurationFetch(videoUri);
-        const incoming = this.cuts[later.index];
-        const outgoingSpeed = typeof outgoing.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
-        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-        return planTransitionHandleWindow({
-            declaredSeconds,
-            outgoingTailRoomSeconds: typeof duration === 'number'
-                ? Math.max(0, duration - outgoing.out) / outgoingSpeed : 0,
-            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+    protected transitionPlans(): { tracks: TransitionPlanTrack[]; plans: TransitionBoundaryPlan[] } {
+        const cached = this.transitionPlanCache;
+        if (cached?.cuts === this.cuts && cached.revision === this.transitionPlanRevision) return cached;
+        const cuts = this.cuts.map((cut, index) => {
+            const raw = this.rawV2Item(this.cutItemIds[index])?.source?.transition_out;
+            return raw && typeof raw === 'object' && cut.transitionOut
+                ? { ...cut, transitionOut: { ...cut.transitionOut, align: raw.align, fill: raw.fill } } : cut;
         });
+        const tracks = transitionPlanClipsFromCuts(cuts, { fps: this.fps, resolve: (cut, index) => {
+            const stillImage = this.isStillImageCut(cut);
+            const raw = this.rawV2Item(this.cutItemIds[index]);
+            const freezeSeconds = Number(raw?.source?.freeze?.duration_sec) || 0;
+            const videoUri = stillImage ? undefined : this.cutVideoUri(cut);
+            const duration = transitionMaterialDuration({ videoUri,
+                cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined, outSeconds: cut.out });
+            return { stillImage, freezeSeconds,
+                ...(duration !== undefined ? { materialDurationSeconds: duration } : {}) };
+        } });
+        const plans = tracks.flatMap(track => planTrackTransitions(track.clips,
+            { fps: this.fps, tailRoom: 'ignore' }));
+        this.transitionPlanCache = { cuts: this.cuts, revision: this.transitionPlanRevision, tracks, plans };
+        return this.transitionPlanCache;
+    }
+
+    protected transitionPlanFor(earlierIndex: number, laterIndex: number): TransitionBoundaryPlan | undefined {
+        return this.transitionPlans().plans.find(plan => plan.earlierId === String(earlierIndex)
+            && plan.laterId === String(laterIndex));
+    }
+
+    protected transitionReasonText(reasons: readonly TransitionShortenReason[]): string {
+        const reason = reasons.includes('neighbor') ? 'neighbor'
+            : reasons.includes('outgoing-length') || reasons.includes('incoming-length') ? 'clipLength'
+                : 'material';
+        return t(`transition.boundary.reason.${reason}`);
+    }
+
+    protected transitionPlanTrackFor(earlierIndex: number): TransitionPlanTrack | undefined {
+        return this.transitionPlans().tracks.find(track => track.clips.some(clip => clip.id === String(earlierIndex)));
+    }
+
+    protected transitionHandleInputSync(
+        earlier: OutputSegment, later: OutputSegment,
+        declaredSeconds = earlier.transitionOut?.duration ?? 0
+    ): ReturnType<typeof cachedTransitionHandleInput> {
+        const outgoing = this.cuts[earlier.index];
+        const incoming = this.cuts[later.index];
+        const outgoingStill = this.isStillImageCut(outgoing);
+        const videoUri = outgoing && !outgoingStill ? this.cutVideoUri(outgoing) : undefined;
+        return cachedTransitionHandleInput({ earlier, later, outgoing, incoming, declaredSeconds,
+            outgoingStill, incomingStill: this.isStillImageCut(incoming),
+            videoUri, cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined });
+    }
+
+    protected async waitForTransitionMaterial(earlierIndex: number): Promise<void> {
+        const outgoing = this.cuts[earlierIndex];
+        if (!outgoing || this.isStillImageCut(outgoing)) return;
+        const videoUri = this.cutVideoUri(outgoing);
+        if (videoUri) await this.ensureVideoDurationFetch(videoUri);
     }
 
     protected async removeLayerEvacuatedTransition(itemId: string): Promise<void> {
-        await this.commitEditMutation('トランジションを削除', doc => updateV2Item(doc, {
+        await this.commitEditMutation(t('annotations.timeline.text.deleteTransition'), doc => updateV2Item(doc, {
             itemId,
             patch: { source: { transition_out: null } }
         }));
         this.hideNotice();
-        this.footer.textContent = 'トランジションを削除しました。';
+        this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransition');
     }
 
     protected unsupportedTransitionTrack(cutIndex: number): number | undefined {
@@ -13076,15 +13963,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected unsupportedTransitionMessage(cutIndex: number): string {
         if (this.nonAdjacentTransitionTarget(cutIndex) !== undefined) {
-            return NON_ADJACENT_TRANSITION_MESSAGE;
+            return NON_ADJACENT_TRANSITION_MESSAGE();
         }
         if (this.zeroOverlapTransitionIndexes.has(cutIndex)) {
-            return ZERO_OVERLAP_TRANSITION_MESSAGE;
+            return ZERO_OVERLAP_TRANSITION_MESSAGE();
         }
         const track = this.unsupportedTransitionTrack(cutIndex);
-        const suffix = track === undefined ? '' : `（映像トラック ${track + 1}）`;
-        return `このトランジション${suffix}は、PiP または複数トラックを合成する方式では書き出せません。`
-            + '削除するか、映像を単一のトラックへ戻してください。';
+        const suffix = track === undefined ? '' : t('annotations.timeline.text.videoTrack', { track: track + 1 });
+        return t('annotations.timeline.text.thisTransitionCannotBeExportedUsingPipOr', { track: suffix })
+            + t('annotations.timeline.text.pleaseDeleteItOrRevertTheFootageTo');
     }
 
     protected captionAnimatorOwner(captionId: string): { id: string; animator?: readonly Record<string, unknown>[] } | undefined {
@@ -13205,15 +14092,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     )) return;
                     const rect = element.getBoundingClientRect();
                     const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
-                    const t = Math.max(0, Math.min(durationFrames, Math.round(ratio * durationFrames)));
-                    void this.setTimelineKeyframe(row.id, propertyRow.property, t,
+                    const timeValue13 = Math.max(0, Math.min(durationFrames, Math.round(ratio * durationFrames)));
+                    void this.setTimelineKeyframe(row.id, propertyRow.property, timeValue13,
                         propertyRow.property === 'crop' || propertyRow.property === 'perspective'
-                            ? objectKeyframeValue(raw, propertyRow.property, t, undefined, this.hydratedKeyframes(row.id))
+                            ? objectKeyframeValue(raw, propertyRow.property, timeValue13, undefined, this.hydratedKeyframes(row.id))
                             : this.staticKeyframeValue(raw, propertyRow.property));
                 });
             }
             if (created) for (const diamond of propertyRow.diamonds) {
                 const marker = document.createElement('button');
+                let dragged = false;
                 marker.type = 'button';
                 marker.textContent = '◆';
                 marker.dataset.akariKeyframeT = String(diamond.t);
@@ -13232,7 +14120,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 marker.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.applySelection(this.selectionForTreeRow(row), true, true);
+                    if (dragged) { dragged = false; return; }
+                    this.applySelection(this.selectionForTreeRow(row), true, false);
+                    this.seekTimelineTransport(keyframeDiamondSeekTime(row.at, diamond.t, this.fps));
                     const current = this.selectionModel.keyframeSelection;
                     const times = event.shiftKey && current?.itemId === row.id
                         && current.property === propertyRow.property
@@ -13247,6 +14137,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 marker.addEventListener('pointerdown', event => {
                     if (event.button !== 0) return;
+                    dragged = false;
                     event.stopPropagation();
                     const startX = event.clientX;
                     marker.setPointerCapture(event.pointerId);
@@ -13254,6 +14145,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         marker.removeEventListener('pointerup', finish);
                         marker.removeEventListener('pointercancel', finish);
                         if (Math.abs(up.clientX - startX) < 2) return;
+                        dragged = true;
                         const delta = Math.round((up.clientX - startX) / Math.max(1, this.strip.clientWidth)
                             * this.visibleDuration() * this.fps);
                         const toT = Math.max(0, Math.min(durationFrames, diamond.t + delta));
@@ -13274,7 +14166,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (motion[slot] === undefined) continue;
             const mark = document.createElement('span');
             mark.dataset.akariMotionMark = slot;
-            mark.title = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
+            mark.title = slot === 'in' ? t('annotations.timeline.text.enter') : slot === 'out' ? t('annotations.timeline.text.without') : t('annotations.timeline.text.loop');
             Object.assign(mark.style, {
                 position: 'absolute', left, bottom: '2px', width: '4px', height: '4px',
                 borderRadius: slot === 'loop' ? '50%' : '0', background: 'var(--akari-tl-playhead)', pointerEvents: 'none'
@@ -13335,6 +14227,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected staticKeyframeValue(raw: Record<string, any> | undefined, property: KeyframeProperty): unknown {
+        if (property === 'rotation3d') return Object.fromEntries(
+            ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z'].map(name =>
+                [name, Number.parseFloat(String(raw?.source?.vars?.[name] ?? 0)) || 0]));
         if (property.startsWith('transform.')) {
             const key = property.substring('transform.'.length);
             return raw?.transform?.[key] ?? (key.startsWith('scale') ? raw?.transform?.scale ?? 1 : 0);
@@ -13348,36 +14243,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return Array.isArray(points) ? points : undefined;
     }
 
-    protected segmentEasingAt(itemId: string, property: KeyframeProperty, t: number): string {
+    protected segmentEasingAt(itemId: string, property: KeyframeProperty, timeValue14: number): string {
         const points = this.hydratedKeyframes(itemId) ?? [];
         const declaredTimes: number[] = [];
         let target: Record<string, unknown> | undefined;
         for (const point of points) {
             if (keyframeValueAt(point, property) === undefined) continue;
             declaredTimes.push(Number(point.t));
-            if (point.t === t) target = point;
+            if (point.t === timeValue14) target = point;
         }
-        if (!target || t === Math.min(...declaredTimes)) return 'linear';
+        if (!target || timeValue14 === Math.min(...declaredTimes)) return 'linear';
         if (typeof target.easing === 'string') return target.easing;
         if (target.easing && typeof target.easing === 'object' && !Array.isArray(target.easing)) {
             const easing = target.easing as Record<string, unknown>;
-            const value = easing[property] ?? (property.startsWith('transform.') ? easing.transform : undefined);
+            const value = easing[property] ?? (property === 'rotation3d'
+                ? easing['vars.--akari-3d-rot-x'] : property.startsWith('transform.') ? easing.transform : undefined);
             if (typeof value === 'string') return value;
         }
         return 'linear';
     }
 
     protected async setTimelineKeyframe(
-        itemId: string, property: KeyframeProperty, t: number, value: unknown
+        itemId: string, property: KeyframeProperty, timeValue15: number, value: unknown
     ): Promise<void> {
         const hydratedPoints = this.hydratedKeyframes(itemId);
-        await this.commitEditMutation('キーフレームを打つ', doc => setV2Keyframe(doc, {
-            itemId, property, t, value, ...(hydratedPoints ? { hydratedPoints } : {})
+        await this.commitEditMutation(t('annotations.timeline.text.hitAKeyFrame'), doc => setV2Keyframe(doc, {
+            itemId, property, t: timeValue15, value, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
+        const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
         this.selectionModel.keyframeSelection = {
-            kind: 'keyframe', itemId, property, times: [t],
-            easing: this.segmentEasingAt(itemId, property, t)
+            kind: 'keyframe', itemId, property, times: [timeValue15],
+            easing: this.segmentEasingAt(itemId, property, timeValue15)
         };
+        if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
     }
 
     protected async moveTimelineKeyframe(
@@ -13389,7 +14287,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const hydratedPoints = this.hydratedKeyframes(itemId);
-        await this.commitEditMutation('キーフレームを移動', doc => moveV2Keyframe(doc, {
+        await this.commitEditMutation(t('annotations.timeline.text.moveKeyframe'), doc => moveV2Keyframe(doc, {
             itemId, property, fromT, toT, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
         this.selectionModel.keyframeSelection = {
@@ -13407,7 +14305,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (selected.property === ('gain_db' as KeyframeProperty)) {
-            await this.commitEditMutation('音量キーフレームを削除', doc => {
+            await this.commitEditMutation(t('annotations.timeline.text.deleteVolumeKeyframe'), doc => {
                 const raw = this.rawV2Item(selected.itemId);
                 const points = Array.isArray(raw?.keyframes) ? raw.keyframes : [];
                 return patchInlineAudioItem(doc, selected.itemId, {
@@ -13418,14 +14316,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const hydratedPoints = this.hydratedKeyframes(selected.itemId);
-        await this.commitEditMutation('キーフレームを削除', doc => selected.times.reduce(
-            (current, t, index) => wholePoint
+        await this.commitEditMutation(t('annotations.timeline.text.deleteKeyframe'), doc => selected.times.reduce(
+            (current, timeValue16, index) => wholePoint
                 ? removeV2KeyframePoint(current, {
-                    itemId: selected.itemId, t,
+                    itemId: selected.itemId, t: timeValue16,
                     ...(index === 0 && hydratedPoints ? { hydratedPoints } : {})
                 })
                 : removeV2Keyframe(current, {
-                    itemId: selected.itemId, property: selected.property, t,
+                    itemId: selected.itemId, property: selected.property, t: timeValue16,
                     ...(index === 0 && hydratedPoints ? { hydratedPoints } : {})
                 }), doc
         ));
@@ -13441,7 +14339,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         const hydrated = new Map(itemIds.map(id => [id, this.hydratedKeyframes(id)]));
-        await this.commitEditMutation('集約キーフレームを移動', doc => {
+        await this.commitEditMutation(t('annotations.timeline.text.moveAggregateKeyframe'), doc => {
             let current = doc;
             for (const itemId of itemIds) {
                 const raw = this.rawKeyframeItem(itemId);
@@ -13472,6 +14370,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if ('x' in transform || 'y' in transform) result.push('transform.x');
         if ('scale' in transform || 'scaleX' in transform || 'scaleY' in transform) result.push('transform.scale');
         if ('rotate' in transform) result.push('transform.rotate');
+        if (point.vars && typeof point.vars === 'object' && !Array.isArray(point.vars)
+            && ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z']
+                .some(name => name in (point.vars as Record<string, unknown>))) result.push('rotation3d');
         for (const key of ['opacity', 'crop', 'perspective'] as const) if (key in point) result.push(key);
         return result;
     }
@@ -13531,14 +14432,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             const itemId = request.itemId.startsWith('cut:')
                 ? this.cutItemIds[Number(request.itemId.substring('cut:'.length))] : request.itemId;
-            if (!itemId) throw new Error('キーフレーム対象が見つかりません。');
+            if (!itemId) throw new Error(t('annotations.timeline.text.keyframeTargetNotFound'));
             let row: TimelineTreeRow | undefined;
             for (const candidate of this.expandedTimelineTreeRows) {
                 if (candidate.id === itemId) { row = candidate; break; }
             }
             const raw = this.rawKeyframeItem(itemId);
-            if (!row || !raw) throw new Error('キーフレーム対象が見つかりません。');
-            const t = Math.max(0, Math.min(raw.duration,
+            if (!row || !raw) throw new Error(t('annotations.timeline.text.keyframeTargetNotFound'));
+            const timeValue17 = Math.max(0, Math.min(raw.duration,
                 Math.round((this.playheadT - row.at) * this.fps)));
             const points = this.hydratedKeyframes(itemId) ?? [];
             const times: number[] = [];
@@ -13547,17 +14448,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             times.sort((left, right) => left - right);
             if (request.action === 'reveal') {
-                if (times.length === 0) throw new Error('キーフレームがありません。');
+                if (times.length === 0) throw new Error(t('annotations.timeline.text.thereAreNoKeyframes'));
                 const nearest = times.reduce((best, candidate) =>
-                    Math.abs(candidate - t) < Math.abs(best - t) ? candidate : best);
+                    Math.abs(candidate - timeValue17) < Math.abs(best - timeValue17) ? candidate : best);
+                const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                 this.selectionModel.keyframeSelection = {
                     kind: 'keyframe', itemId, property, times: [nearest],
                     easing: this.segmentEasingAt(itemId, property, nearest)
                 };
+                if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                 this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
                 this.applyKeyframePropertySelectionClass();
                 if (!this.scrollTimelineKeyframeRowIntoView(itemId, property)) {
-                    throw new Error('キーフレーム行を表示できませんでした。');
+                    throw new Error(t('annotations.timeline.text.failedToDisplayKeyframeRow'));
                 }
                 return { ok: true };
             }
@@ -13565,19 +14468,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 let target: number | undefined;
                 if (request.action === 'previous') {
                     for (let index = times.length - 1; index >= 0; index--) {
-                        if (times[index] < t) { target = times[index]; break; }
+                        if (times[index] < timeValue17) { target = times[index]; break; }
                     }
                 } else {
-                    for (const time of times) if (time > t) { target = time; break; }
+                    for (const time of times) if (time > timeValue17) { target = time; break; }
                 }
                 if (target !== undefined) {
                     this.playheadT = row.at + target / this.fps;
                     this.selectedSourceT = this.outputToSource(this.playheadT);
                     await this.requestSeek(this.playheadT, { domain: 'output' });
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                     this.selectionModel.keyframeSelection = {
                         kind: 'keyframe', itemId, property, times: [target],
                         easing: this.segmentEasingAt(itemId, property, target)
                     };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                     this.applyKeyframePropertySelectionClass();
                 }
                 return { ok: true };
@@ -13586,10 +14491,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const selected = this.selectionModel.keyframeSelection;
                 let toT = selected?.itemId === itemId && selected.times.length > 0
                     ? Math.max(...selected.times) : undefined;
-                if (toT === undefined) for (const time of times) if (time > t) { toT = time; break; }
-                if (toT === undefined || !request.easing) throw new Error('イージングを設定する区間を選択してください。');
+                if (toT === undefined) for (const time of times) if (time > timeValue17) { toT = time; break; }
+                if (toT === undefined || !request.easing) throw new Error(t('annotations.timeline.text.pleaseSelectTheSectionForWhichYouWant'));
                 const hydratedPoints = this.hydratedKeyframes(itemId);
-                await this.commitEditMutation('区間イージングを変更', doc => setV2SegmentEasing(doc, {
+                await this.commitEditMutation(t('annotations.timeline.text.changeIntervalEasing'), doc => setV2SegmentEasing(doc, {
                     itemId, property, toT, easing: request.easing!,
                     ...(hydratedPoints ? { hydratedPoints } : {})
                 }));
@@ -13599,50 +14504,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return { ok: true };
             }
             if (request.action === 'write') {
+                if (property === 'rotation3d') {
+                    const axis = request.property.split('.')[1];
+                    if (!['x', 'y', 'z'].includes(axis) || typeof request.value !== 'number'
+                        || !Number.isFinite(request.value)) throw new Error(t('annotations.timeline.text.invalidRotation3dValue'));
+                    await this.commitEditMutation(t('annotations.timeline.text.changeRotation3d'), doc => writeV2ItemVarsAt(doc, {
+                        itemId, t: timeValue17, values: { [`--akari-3d-rot-${axis}`]: request.value! },
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    return { ok: true };
+                }
                 if (property.startsWith('transform.')) {
                     const field = property.substring('transform.'.length) as TransformField;
                     if (typeof request.value !== 'number' || !Number.isFinite(request.value)) {
-                        throw new Error('変形の値が不正です。');
+                        throw new Error(t('annotations.timeline.text.theTransformationValueIsInvalid'));
                     }
-                    await this.commitEditMutation('変形キーフレームを変更', doc => writeV2ItemTransformAt(doc, {
-                        itemId, t, patch: { [field]: request.value! },
+                    await this.commitEditMutation(t('annotations.timeline.text.changeTransformKeyframe'), doc => writeV2ItemTransformAt(doc, {
+                        itemId, t: timeValue17, patch: { [field]: request.value! },
                         ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
                     }));
                     return { ok: true };
                 }
                 if (property !== 'crop' && property !== 'perspective') {
-                    throw new Error('数値行の書き込み対象が不正です。');
+                    throw new Error(t('annotations.timeline.text.theWritingTargetForTheNumericLineIs'));
                 }
-                const value = objectKeyframeValue(raw, request.property, t, request.value,
-                    times.includes(t) ? points : []);
+                const value = objectKeyframeValue(raw, request.property, timeValue17, request.value,
+                    times.includes(timeValue17) ? points : []);
                 if (property === 'perspective') validateInspectorPerspective(value.corners);
-                if (times.includes(t)) await this.setTimelineKeyframe(itemId, property, t, value);
+                if (times.includes(timeValue17)) await this.setTimelineKeyframe(itemId, property, timeValue17, value);
                 else if (property === 'crop') return await this.handleInspectorWrite({
                     kind: 'item-field', id: itemId, path: request.property as `crop.${InspectorCropAxis}`, value: request.value
                 });
                 else return await this.handleInspectorWrite({ kind: 'item-field', id: itemId, path: 'perspective', value });
                 return { ok: true };
             }
-            if (times.includes(t)) {
+            if (times.includes(timeValue17)) {
                 this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId, property, times: [t],
-                    easing: this.segmentEasingAt(itemId, property, t)
+                    kind: 'keyframe', itemId, property, times: [timeValue17],
+                    easing: this.segmentEasingAt(itemId, property, timeValue17)
                 };
                 await this.removeSelectedKeyframes(false);
             } else {
-                if (property.startsWith('transform.')) {
-                    await this.commitEditMutation('キーフレームを打つ', doc => activateV2ItemTransformKeyframe(doc, {
-                        itemId, t, field: property.substring('transform.'.length) as TransformField,
+                if (property === 'rotation3d') {
+                    await this.commitEditMutation(t('annotations.timeline.text.keyRotation3d'), doc =>
+                        activateV2ItemRotation3dKeyframe(doc, { itemId, t: timeValue17,
+                            ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {}) }));
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId, property, times: [timeValue17],
+                        easing: this.segmentEasingAt(itemId, property, timeValue17)
+                    };
+                } else if (property.startsWith('transform.')) {
+                    await this.commitEditMutation(t('annotations.timeline.text.hitAKeyFrame'), doc => activateV2ItemTransformKeyframe(doc, {
+                        itemId, t: timeValue17, field: property.substring('transform.'.length) as TransformField,
                         ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
                     }));
                     this.selectionModel.keyframeSelection = {
-                        kind: 'keyframe', itemId, property, times: [t],
-                        easing: this.segmentEasingAt(itemId, property, t)
+                        kind: 'keyframe', itemId, property, times: [timeValue17],
+                        easing: this.segmentEasingAt(itemId, property, timeValue17)
                     };
                 } else {
-                    await this.setTimelineKeyframe(itemId, property, t,
+                    await this.setTimelineKeyframe(itemId, property, timeValue17,
                         property === 'crop' || property === 'perspective'
-                            ? objectKeyframeValue(raw, request.property, t, request.value, points)
+                            ? objectKeyframeValue(raw, request.property, timeValue17, request.value, points)
                             : request.value ?? this.staticKeyframeValue(raw, property));
                 }
             }
@@ -13658,7 +14581,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.keyedNode('header', 'header:world', 'world', () => {
                 const row = document.createElement('div');
                 row.className = 'akari-track-header-row';
-                row.textContent = '地図';
+                row.textContent = t('annotations.timeline.text.map');
                 Object.assign(row.style, { position: 'absolute', left: '0', right: '0', top: `${this.laneLayout.world.top}px`, height: `${this.laneLayout.world.height}px`, padding: '4px 8px' });
                 return row;
             });
@@ -13666,7 +14589,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (beatsHeight > 0) {
             this.keyedNode('header', 'header:beats', `${this.beatsVisible}:${this.beatsMuted}:${this.beatsLocked}`, () =>
                 this.trackHeaderRow(
-                    '見せ場', 'beat', 'beats', beatsTop, beatsHeight,
+                    t('annotations.timeline.text.highlight'), 'beat', 'beats', beatsTop, beatsHeight,
                     this.beatsVisible, () => {
                         this.beatsVisible = !this.beatsVisible;
                         this.dispatchPreviewEvent(TIMELINE_SET_BEATS_VISIBILITY_EVENT, { visible: this.beatsVisible });
@@ -13687,7 +14610,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layout) {
                 return;
             }
-            const name = track.id === PLACED_TEXT_TRACK_ID ? '文字' : track.label || autoNames.get(track.id) || '';
+            const name = track.id === PLACED_TEXT_TRACK_ID ? t('annotations.timeline.text.characters') : track.label || autoNames.get(track.id) || '';
             const iconKind = this.trackIconKind(track.kind);
             let visible = true;
             let audible = true;
@@ -13855,7 +14778,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const add = document.createElement('button');
                 add.type = 'button';
                 add.textContent = '+';
-                add.title = 'プロパティ行を追加';
+                add.title = t('annotations.timeline.text.addPropertyLine');
                 add.dataset.akariKeyframePropertyAdd = treeRow.id;
                 add.addEventListener('click', event => {
                     event.preventDefault();
@@ -13994,10 +14917,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         void this.takeItemsOutOfCanvas([source.id]);
                         return;
                     }
-                    void this.commitEditMutation('出す', doc => detachTreeV2Item(doc, source.id, {
+                    void this.commitEditMutation(t('annotations.timeline.text.putOut'), doc => detachTreeV2Item(doc, source.id, {
                         at: Math.round(source.at * this.fps), duration: Math.round(source.duration * this.fps)
                     }).document)
-                        .catch(error => this.showNotice(`出せません: ${canvasOperationReason(error)}`));
+                        .catch(error => this.showNotice(t('annotations.timeline.text.cannotIssue', { reason: canvasOperationReason(error) })));
                     return;
                 }
                 const moveTarget = hit!.mode === 'inside'
@@ -14005,9 +14928,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     : targetParentId
                         ? { parent: targetParentId, index: hit!.index }
                         : { track: target.trackId, index: hit!.index };
-                void this.commitEditMutation('木の行を移動', doc =>
+                void this.commitEditMutation(t('annotations.timeline.text.movingTreeRows'), doc =>
                     moveTreeV2Item(doc, source.id, moveTarget).document
-                ).catch(error => this.showNotice(`移動できません: ${canvasOperationReason(error)}`));
+                ).catch(error => this.showNotice(t('annotations.timeline.text.unableToMove', { reason: canvasOperationReason(error) })));
             };
             element.addEventListener('pointermove', onMove);
             element.addEventListener('pointerup', onUp);
@@ -14060,15 +14983,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const nameElement = document.createElement('span');
         nameElement.className = 'akari-track-header-name';
         nameElement.textContent = timelineTrack && !displayOnly && this.timelineTrackItemCount(timelineTrack) === 0
-            ? `${name} (空)` : name;
+            ? t('annotations.timeline.text.message', { name: name }) : name;
         row.append(icon, nameElement);
         if (displayOnly) return row;
         if (timelineTrack) {
             const target = document.createElement('button');
             target.type = 'button';
             target.dataset.akariPasteTarget = timelineTrack.id;
-            target.title = '貼り先（Option クリックでこのトラックだけに指定）';
-            target.setAttribute('aria-label', `${name}を貼り先に指定`);
+            target.title = t('annotations.timeline.text.pasteDestinationOptionClickToSpecifyOnlyThis');
+            target.setAttribute('aria-label', t('annotations.timeline.text.specifyAsPastingDestination', { name: name }));
             const active = this.pasteTargetTracks.has(timelineTrack.id);
             target.setAttribute('aria-pressed', String(active));
             Object.assign(target.style, { width: '12px', height: '12px', padding: '0', flexShrink: '0',
@@ -14091,27 +15014,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
             void this.toggleTimelineTrackFlag(timelineTrack ?? { id: 'beats', kind: 'audio', ref: 0 }, 'locked');
         };
         if (controls.visibility) {
-            row.append(this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility));
+            row.append(this.trackHeaderButton(t('annotations.timeline.text.show', { name: name }), 'visibility', visible, this.eyeSvg(), toggleVisibility));
         }
         if (controls.fragmentBreaks) {
             row.append(this.trackHeaderButton(
-                '字幕の区切りを表示', 'fragment-breaks', this.captionFragmentBreaksVisible(),
+                t('annotations.timeline.text.showSubtitleBreaks'), 'fragment-breaks', this.captionFragmentBreaksVisible(),
                 this.captionFragmentBreaksSvg(), () => this.toggleCaptionFragmentBreaks()
             ));
         }
         if (controls.mute) {
             const muteButton = this.trackHeaderButton(
-                `${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute
+                t('annotations.timeline.text.audio', { name: name }), 'mute', audible, this.speakerSvg(), toggleMute
             );
             if (timelineTrack?.kind === 'audio'
                 && !this.timelineTracks.some(track => track.id === timelineTrack.id)) {
                 muteButton.disabled = true;
-                muteButton.title = '自動追加された行はミュートできません（トラックを追加で確定してから）';
+                muteButton.title = t('annotations.timeline.text.autoAddedLinesCannotBeMutedAfterConfirming');
             }
             row.append(muteButton);
         }
         if (controls.lock) {
-            row.append(this.trackHeaderButton(`${name}をロック`, 'lock', locked, this.lockSvg(), toggleLock));
+            row.append(this.trackHeaderButton(t('annotations.timeline.text.lock', { name: name }), 'lock', locked, this.lockSvg(), toggleLock));
         }
         if (timelineTrack) {
             const raw = (this.editDocument?.tracks as TrackV2[] | undefined)?.find(candidate => candidate.id === timelineTrack.id);
@@ -14122,9 +15045,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 row.append(createTrackRippleControl(shownTrack, presentation,
                     this.preferences?.get<string>(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, 'tag') === 'switches' ? 'switches' : 'tag',
                     mutate => {
-                        void this.commitEditMutation('トラックの詰め方を変更', doc =>
+                        void this.commitEditMutation(t('annotations.timeline.text.changeTheWayTrucksArePacked'), doc =>
                             mutate(doc as unknown as EditV2) as unknown as EditV2Document
-                        ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+                        ).catch(error => this.showNotice(t('annotations.timeline.text.cannotChangeTrackPackingMethod', { reason: this.errorMessage(error) })));
                     }
                 ));
             }
@@ -14181,10 +15104,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             committed = true;
             const label = input.value.trim();
-            void this.commitEditMutation('トラック名を変更', doc =>
+            void this.commitEditMutation(t('annotations.timeline.text.renameTrack'), doc =>
                 renameV2Track(doc, { trackId: track.id, name: label })
-            ).then(() => { this.footer.textContent = 'トラック名を変更しました。'; }).catch(error => {
-                this.showNotice(`トラック名を変更できません: ${this.errorMessage(error)}`);
+            ).then(() => { this.footer.textContent = t('annotations.timeline.text.trackNameChanged'); }).catch(error => {
+                this.showNotice(t('annotations.timeline.text.unableToChangeTrackName', { reason: this.errorMessage(error) }));
             });
         };
         input.addEventListener('pointerdown', event => event.stopPropagation());
@@ -14249,14 +15172,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!dragged || targetId === track.id) {
                 return;
             }
-            void this.commitEditMutation('トラックを並べ替え', doc => {
+            void this.commitEditMutation(t('annotations.timeline.text.sortTracks'), doc => {
                 const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<Record<string, unknown>> : [];
                 const sourceIndex = tracks.findIndex(candidate => candidate.id === track.id);
                 const targetIndex = tracks.findIndex(candidate => candidate.id === targetId);
-                if (sourceIndex < 0 || targetIndex < 0) throw new Error('トラックを特定できません。');
+                if (sourceIndex < 0 || targetIndex < 0) throw new Error(t('annotations.timeline.text.unableToIdentifyTrack'));
                 return reorderV2Tracks(doc, { fromIndex: sourceIndex, toIndex: targetIndex });
-            }).then(() => { this.footer.textContent = 'トラックを並べ替えました。'; }).catch(error => {
-                this.showNotice(`トラックを並べ替えできません: ${this.errorMessage(error)}`);
+            }).then(() => { this.footer.textContent = t('annotations.timeline.text.iVeRearrangedTheTracks'); }).catch(error => {
+                this.showNotice(t('annotations.timeline.text.unableToSortTracks', { reason: this.errorMessage(error) }));
             });
         };
         row.addEventListener('pointermove', onMove);
@@ -14281,19 +15204,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): Promise<void> {
         const next = field === 'locked' ? !this.isTrackLocked(track.id) : !track[field];
         const label = field === 'locked'
-            ? (next ? 'トラックをロック' : 'トラックをロック解除')
+            ? (next ? t('annotations.timeline.text.lockTheTruck') : t('annotations.timeline.text.unlockTheTrack'))
             : field === 'hidden'
-            ? (next ? 'トラックを非表示に' : 'トラックを表示に')
-            : (next ? 'トラックの音声をオフに' : 'トラックの音声をオンに');
+            ? (next ? t('annotations.timeline.text.hideTrack') : t('annotations.timeline.text.showTrack'))
+            : (next ? t('annotations.timeline.text.turnOffTrackAudio') : t('annotations.timeline.text.turnOnTrackAudio'));
         if (field === 'muted') {
             try {
                 await this.commitEditMutation(label, doc => setV2TrackFlag(doc, {
                     trackId: track.id, field: 'muted', value: next
                 }));
-                this.footer.textContent = `${label}しました。`;
+                this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
             } catch (error) {
                 console.warn('[akari-annotations] track mute update failed', error);
-                this.footer.textContent = `トラックの音声を編集できません: ${this.errorMessage(error)}`;
+                this.footer.textContent = t('annotations.timeline.text.unableToEditTrackAudio', { reason: this.errorMessage(error) });
             }
             return;
         }
@@ -14309,7 +15232,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             candidate.id === track.id ? { ...candidate, [field]: next } : candidate);
         if (field !== 'locked') this.syncTimelineTrackTogglesToPreview();
         this.renderStrip();
-        this.footer.textContent = `${label}しました。`;
+        if (field === 'locked' && this.activeBoundary) this.pushSelectionSnapshot();
+        this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
     }
 
     protected openTrackContextMenu(event: MouseEvent): void {
@@ -14341,12 +15265,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             button.addEventListener('click', action);
             return button;
         };
-        popup.appendChild(menuButton('トラックを追加', () => {
+        popup.appendChild(menuButton(t('annotations.timeline.text.addTrack'), () => {
             popup.replaceChildren();
             const kinds: Array<{ kind: TimelineTrackKind; label: string }> = [
-                { kind: 'cuts', label: '映像' },
-                { kind: 'captions', label: '字幕' },
-                { kind: 'audio', label: 'オーディオ' }
+                { kind: 'cuts', label: t('annotations.timeline.text.video') },
+                { kind: 'captions', label: t('annotations.timeline.text.subtitles') },
+                { kind: 'audio', label: t('annotations.timeline.text.audioAlternate') }
             ];
             for (const option of kinds) {
                 // captions は単一トラック維持。audio は R6 契約 §1 裁定 2 により複数トラック可。
@@ -14363,11 +15287,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const raw = (this.editDocument?.tracks as TrackV2[] | undefined)?.find(track => track.id === targetId);
             if (raw) appendTrackRippleContextActions(popup, raw, this.isTrackLocked(targetId), mode => {
                 this.closeAnnotationPopup();
-                void this.commitEditMutation('トラックの詰め方を変更', doc =>
+                void this.commitEditMutation(t('annotations.timeline.text.changeTheWayTrucksArePacked'), doc =>
                     modeMutation(targetId, mode)(doc as unknown as EditV2) as unknown as EditV2Document
-                ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+                ).catch(error => this.showNotice(t('annotations.timeline.text.cannotChangeTrackPackingMethod', { reason: this.errorMessage(error) })));
             });
-            popup.appendChild(menuButton('トラックを削除', () => {
+            popup.appendChild(menuButton(t('annotations.timeline.text.deleteTrack'), () => {
                 this.closeAnnotationPopup();
                 void this.deleteTimelineTrack(targetId);
             }));
@@ -14386,7 +15310,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async addTimelineTrack(kind: TimelineTrackKind): Promise<void> {
         try {
-            await this.commitEditMutation('トラックを追加', doc => {
+            await this.commitEditMutation(t('annotations.timeline.text.addTrack'), doc => {
                 const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<Record<string, unknown>> : [];
                 if (kind === 'captions') {
                     if (tracks.some(track => 'content' in track)) return doc;
@@ -14404,9 +15328,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     lane
                 });
             });
-            this.footer.textContent = 'トラックを追加しました。';
+            this.footer.textContent = t('annotations.timeline.text.addedTrack');
         } catch (error) {
-            this.showNotice(`トラックを追加できません: ${this.errorMessage(error)}`);
+            this.showNotice(t('annotations.timeline.text.unableToAddTrack', { reason: this.errorMessage(error) }));
         }
     }
 
@@ -14478,7 +15402,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                     return next;
                 }, [...itemIds]);
-                this.footer.textContent = '選択したアイテムを削除しました。';
+                this.footer.textContent = t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
                 this.hideNotice();
             } catch (error) {
                 this.showNotice(this.errorMessage(error));
@@ -14495,7 +15419,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const removed = new Set<string>();
                 for (const id of itemIds) {
                     if (removed.has(id)) continue;
-                    if (this.rejectLockedCutAudio(id, altKey, true, next)) throw new Error(this.footer.textContent ?? 'ロック中です');
+                    if (this.rejectLockedCutAudio(id, altKey, true, next)) throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
                     const pair = this.linkedCutAudioPair(id, next);
                     if (pair) {
                         const both = itemIds.has(pair.cutId) && itemIds.has(pair.audioItemId);
@@ -14511,7 +15435,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.multiSelection = [];
             this.applySelection(undefined);
             this.hideNotice();
-            this.footer.textContent = '選択したアイテムを削除しました。';
+            this.footer.textContent = t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
             this.revealOutputPreview();
         } catch (error) {
             this.showNotice(this.errorMessage(error));
@@ -14559,7 +15483,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected showLockedTrack(trackId: string | undefined, event?: Event): void {
         const track = this.timelineTracks.find(candidate => candidate.id === trackId)
             ?? this.displayTimelineTracks.find(candidate => candidate.id === trackId);
-        const name = trackId === 'beats' ? '見せ場'
+        const name = trackId === 'beats' ? t('annotations.timeline.text.highlight')
             : track?.label || this.computeTrackAutoNames().get(trackId ?? '') || trackId || '';
         this.footer.textContent = lockedTrackMessage(name);
         event?.preventDefault();
@@ -14597,10 +15521,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const count = this.timelineTrackItemCount(track);
         if (count === 0) {
-            await this.commitEditMutation('トラックを削除', doc => removeV2Track(doc, trackId));
+            await this.commitEditMutation(t('annotations.timeline.text.deleteTrack'), doc => removeV2Track(doc, trackId));
             return;
         }
-        if (!window.confirm(`このトラックには ${count} 件のアイテムがあります。削除しますか？`)) {
+        if (!window.confirm(t('annotations.timeline.text.thisTrackHasItemsDoYouWantTo', { count: count, n: count }))) {
             return;
         }
         try {
@@ -14612,7 +15536,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const captionsAfter = track.kind === 'captions' ? '[]\n' : undefined;
             await this.writeTimelineSnapshots(editAfter, captionsAfter);
             this.pushHistory({
-                label: 'トラックを削除',
+                label: t('annotations.timeline.text.deleteTrack'),
                 undo: async () => {
                     await this.writeTimelineSnapshots(editBefore, captionsBefore);
                     await this.reloadAll();
@@ -14623,11 +15547,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             });
             await this.reloadAll();
-            this.footer.textContent = 'トラックを削除しました。';
+            this.footer.textContent = t('annotations.timeline.text.trackDeleted');
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`トラックを削除できません: ${detail}`);
-            this.messages.error(`トラックを削除できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToDeleteTrack', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToDeleteTrack', { reason: detail }));
         }
     }
 
@@ -14641,7 +15565,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected cutItemId(index: number): string {
         const itemId = this.cutItemIds[index];
-        if (!itemId) throw new Error(`クリップ ${index + 1} の id を特定できません。`);
+        if (!itemId) throw new Error(t('annotations.timeline.text.unableToDetermineIdForClip', { index: index + 1 }));
         return itemId;
     }
 
@@ -14650,6 +15574,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setTimelineRange(state: TimelineRangeState): void {
+        if (state.inFrame !== undefined || state.outFrame !== undefined) {
+            if (this.releaseTransitionBoundaryForOtherSelection()) {
+                this.pushSelectionSnapshot();
+                this.applySelectionClass();
+            }
+        }
         this.timelineRange = state;
         this.renderTimelineRangeState();
     }
@@ -14661,7 +15591,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         renderTimelineRangeOverlay(this.rangeStripOverlay, this.timelineRange, this.fps, percent, format, false);
         const range = completeTimelineRange(this.timelineRange);
         this.rangeDurationLabel.textContent = range
-            ? `範囲 ${Number(((range.end - range.start) / this.fps).toFixed(2))} 秒` : '';
+            ? t('annotations.timeline.text.rangeSeconds', { duration: Number(((range.end - range.start) / this.fps).toFixed(2)), n: pluralCountForDisplay(Number(((range.end - range.start) / this.fps).toFixed(2))) }) : '';
     }
 
     protected selectClipTimelineRange(): void {
@@ -14737,22 +15667,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
-        if (!editUri) throw new Error('edit.json がありません。');
+        if (!editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
         const diskBefore = (await this.fileService.readFile(editUri)).value.toString();
         const previousTrial = options?.trial ? this.historyService.materialTrial.entry : undefined;
         const before = previousTrial?.before ?? diskBefore;
         const raw = JSON.parse(before) as EditV2Document;
-        if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (raw.version !== 2) throw new Error(t('annotations.timeline.text.pleaseConvertToV2BeforeEditing'));
         if (options?.imageAiBinding && !imageAiBindingMatches(raw, options.imageAiBinding,
             options.imageAiBinding.inputSha256)) {
-            throw new Error('編集が変わりました。もう一度高画質化してください。');
+            throw new Error(t('annotations.timeline.text.editingHasChangedPleaseIncreaseTheQualityAgain'));
         }
         if (options?.imageAiBinding) {
             const current = await this.annotationsService.imageAiInspect(this.location!.root.toString(),
                 options.imageAiBinding.itemId);
             if (current.binding.inputSha256 !== options.imageAiBinding.inputSha256
                 || current.binding.editVersion !== options.imageAiBinding.editVersion) {
-                throw new Error('写真が変わりました。もう一度高画質化してください。');
+                throw new Error(t('annotations.timeline.text.thePhotoHasChangedPleaseIncreaseTheQuality'));
             }
         }
         const distribution = options?.trial ? { document: await mutate(raw), writes: [] }
@@ -14859,10 +15789,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         options?: { reload?: boolean; history?: boolean }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
-        if (!editUri) throw new Error('edit.json がありません。');
+        if (!editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
         const before = (await this.fileService.readFile(editUri)).value.toString();
         const raw = JSON.parse(before) as EditV2Document;
-        if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (raw.version !== 2) throw new Error(t('annotations.timeline.text.pleaseConvertToV2BeforeEditing'));
         const after = mutate(before);
         if (after === before) return { before, after, result: { committed: false } };
         await this.writeEditSnapshotGuarded(after);
@@ -14890,7 +15820,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async writeEditSnapshotGuarded(editSource?: string, captionsSource?: string): Promise<void> {
         const location = this.location;
         if (!location?.editUri) {
-            throw new Error('edit.json がありません。');
+            throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
         }
         await this.annotationsService.writeEditSnapshot({
             editUri: location.editUri.toString(),
@@ -15094,7 +16024,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected syncTimelineTrackTogglesToPreview(): void {
         const refsWhere = (kind: 'cuts' | 'layers' | 'audio', field: 'hidden' | 'muted'): number[] =>
-            this.timelineTracks.filter(t => t.kind === kind && t[field]).map(t => t.ref ?? 0);
+            this.timelineTracks.filter(timeValue18 => timeValue18.kind === kind && timeValue18[field]).map(timeValue19 => timeValue19.ref ?? 0);
         this.dispatchPreviewEvent(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, {
             cuts: { hidden: refsWhere('cuts', 'hidden'), muted: refsWhere('cuts', 'muted') },
             layers: { hidden: refsWhere('layers', 'hidden'), muted: refsWhere('layers', 'muted') },
@@ -15877,7 +16807,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (state.duplicateFragment && state.duplicateDrop) {
                 const drop = state.duplicateDrop;
                 if (!drop.rejected) void this.pasteFragment(
-                    state.duplicateFragment, drop.t, drop.target, 'クリップの複製', drop.insertIndex
+                    state.duplicateFragment, drop.t, drop.target, 'duplicate', drop.insertIndex
                 );
             } else void this.commitDrag(preview);
         });
@@ -15991,7 +16921,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (state.duplicateFragment && state.duplicateDrop) {
                 const drop = state.duplicateDrop;
                 if (!drop.rejected) void this.pasteFragment(
-                    state.duplicateFragment, drop.t, drop.target, 'クリップの複製', drop.insertIndex
+                    state.duplicateFragment, drop.t, drop.target, 'duplicate', drop.insertIndex
                 );
             } else void this.commitDrag(preview);
         });
@@ -16863,6 +17793,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const value: number | 'unavailable' = result.status === 'ready' && result.durationSeconds !== undefined
                 ? result.durationSeconds : 'unavailable';
             this.videoDurationCache.set(videoUri, value);
+            this.transitionPlanRevision++;
+            if (this.activeBoundary) this.pushSelectionSnapshot();
             if (value === 'unavailable') {
                 this.showVideoDurationUnavailableNotice();
             }
@@ -16870,6 +17802,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return value;
         }).catch((): number | 'unavailable' => {
             this.videoDurationCache.set(videoUri, 'unavailable');
+            this.transitionPlanRevision++;
+            if (this.activeBoundary) this.pushSelectionSnapshot();
             this.showVideoDurationUnavailableNotice();
             this.renderStrip();
             return 'unavailable';
@@ -16880,14 +17814,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected showVideoDurationUnavailableNotice(): void {
         if (!this.videoDurationNoticeShown && !this.notice.hasMessage()) {
-            this.showNotice('素材の実尺が取得できないため、Out のクランプは無効です。');
+            this.showNotice(t('annotations.timeline.text.outClampingIsIneffectiveBecauseTheActualSize'));
             this.videoDurationNoticeShown = true;
         }
     }
 
     protected showFfmpegMissingNotice(reason: string | undefined): void {
         if (reason === 'ffmpeg-not-found' && !this.ffmpegMissingNoticeShown && !this.notice.hasMessage()) {
-            this.showNotice('ffmpeg が見つからないため、サムネイルと波形は表示されません（他の操作は通常どおり使えます）');
+            this.showNotice(t('annotations.timeline.text.thumbnailsAndWaveformsAreNotDisplayedBecauseFfmpeg'));
             this.ffmpegMissingNoticeShown = true;
         }
     }
@@ -17195,7 +18129,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (state.duplicateFragment && state.duplicateDrop) {
                 const drop = state.duplicateDrop;
                 if (!drop.rejected) void this.pasteFragment(
-                    state.duplicateFragment, drop.t, drop.target, 'クリップの複製', drop.insertIndex
+                    state.duplicateFragment, drop.t, drop.target, 'duplicate', drop.insertIndex
                 );
             } else void this.commitDrag(preview);
         });
@@ -17225,7 +18159,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const item = fragment.items[0];
             const snap = this.snapMovingRangeInOutputSpace(fragment.anchor + delta, item.duration, showGuide,
                 [{ time: fragment.anchor }, { time: fragment.anchor + item.duration }]);
-            const t = Math.max(0, snap.time);
+            const timeValue20 = Math.max(0, snap.time);
             const hit = state.kind === 'caption' ? undefined : this.trackAtClientY(
                 item.kind === 'sfx' ? 'audio' : item.kind === 'cuts' ? 'cut' : item.kind === 'overlay' ? 'overlay' : 'layer',
                 item.kind === 'sfx' ? this.laneLayout.audioTracks : item.kind === 'cuts' ? this.laneLayout.cutTracks
@@ -17233,19 +18167,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 clientY, 'originalTrack' in state ? state.originalTrack : 0
             );
             const target = hit?.targetTrackId ? [hit.targetTrackId] : [];
-            const plan = planPaste({ fragment, playhead: t, tracks: this.clipboardTracks(), target, mode: 'duplicate' });
+            const plan = planPaste({ fragment, playhead: timeValue20, tracks: this.clipboardTracks(), target, mode: 'duplicate' });
             const rejected = !!hit?.rejected || !plan.ok;
-            state.duplicateDrop = { t, target, insertIndex: hit?.insertIndex, rejected };
-            this.setGhostRange(state.ghost, t, t + item.duration);
+            state.duplicateDrop = { t: timeValue20, target, insertIndex: hit?.insertIndex, rejected };
+            this.setGhostRange(state.ghost, timeValue20, timeValue20 + item.duration);
             if (hit) state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
-            this.updateDragFeedback(state, rejected ? plan.ok === false ? plan.reason : '種別が違うトラックには貼り付けできません。'
-                : `複製 / ${this.formatTimestamp(t)}${plan.ok && plan.newTracks.length ? ' / 上にトラックを追加' : ''}`);
+            this.updateDragFeedback(state, rejected ? plan.ok === false ? plan.reason : t('annotations.timeline.text.itCannotBePastedToTracksOfDifferent')
+                : t('annotations.timeline.text.duplicate', { time: this.formatTimestamp(timeValue20), trackNotice: plan.ok && plan.newTracks.length ? t('annotations.timeline.placement.addTrackSuffix') : '' }));
             if (hit?.insertIndex !== undefined && !rejected) this.showTrackInsertIndicatorAt(hit.top);
             else this.hideTrackInsertIndicator();
             // 複製の保存は duplicateDrop を使い、既存の移動・トリム保存へは渡さない。
-            return { kind: 'layer', id: String(item.payload.id), t, duration: item.duration,
+            return { kind: 'layer', id: String(item.payload.id), t: timeValue20, duration: item.duration,
                 track: hit?.track ?? 0, rejected };
         }
         if (state.kind === 'cut-trim') {
@@ -17275,7 +18209,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.setGhostRejected(state.ghost, rejected);
                 this.setGhostSnapped(state.ghost, snapped && !rejected);
                 this.setGhostDurationWarning(state.ghost, false);
-                this.updateDragFeedback(state, rejected ? '⚠ 重なるためトリムできません' : `長さ ${duration.toFixed(2)} 秒`);
+                this.updateDragFeedback(state, rejected ? t('annotations.timeline.text.cannotBeTrimmedBecauseTheyOverlap') : t('annotations.timeline.text.lengthSeconds', { duration: duration.toFixed(2), n: pluralCountForDisplay(duration.toFixed(2)) }));
                 this.updateGhostHeaderDuration(state.ghost, duration);
                 return { kind: 'cut-trim', index: state.index, edge: state.edge,
                     input: 0, output: duration, at, rejected };
@@ -17305,8 +18239,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const durationWarningSuffix = state.edge !== 'right'
                 ? '' : durationUnavailable
-                    ? ' ⚠ 実尺不明のため無制限'
-                    : durationPending ? ' (実尺確認中…)' : '';
+                    ? t('annotations.timeline.text.unlimitedDueToUnknownActualSize')
+                    : durationPending ? t('annotations.timeline.text.checkingActualSize') : '';
             const rawProposed = state.edge === 'left'
                 ? state.originalIn + delta : state.originalOut + delta;
             const durationClamped = maxOutSeconds !== undefined && rawProposed > maxOutSeconds;
@@ -17368,8 +18302,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.setGhostSnapped(state.ghost, snapped && !rejected);
                 this.setGhostDurationWarning(state.ghost, durationUnavailable);
                 this.updateDragFeedback(state, rejected
-                    ? '⚠ 重なるためトリムできません'
-                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒${durationWarningSuffix}`);
+                    ? t('annotations.timeline.text.cannotBeTrimmedBecauseTheyOverlap')
+                    : t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), n: pluralCountForDisplay(newDuration.toFixed(2)), warning: durationWarningSuffix }));
                 this.updateGhostHeaderDuration(state.ghost, newDuration);
                 return {
                     kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected, maxOutSeconds
@@ -17388,7 +18322,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped);
             this.setGhostDurationWarning(state.ghost, durationUnavailable);
             const newDuration = Math.max(0, output - input);
-            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒${durationWarningSuffix}`);
+            this.updateDragFeedback(state, t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), n: pluralCountForDisplay(newDuration.toFixed(2)), warning: durationWarningSuffix }));
             this.updateGhostHeaderDuration(state.ghost, newDuration);
             return {
                 kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected: false, maxOutSeconds
@@ -17415,8 +18349,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '✕ 配置できません'
-                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(at)} / 尺 ${state.duration.toFixed(2)} 秒`);
+                ? t('annotations.timeline.text.unableToPlace')
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(at), duration: state.duration.toFixed(2), n: pluralCountForDisplay(state.duration.toFixed(2)) }));
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected, altKey: state.altKey,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -17577,10 +18511,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped && !blockedByNeighbor);
             this.setGhostOutputDomain(state.ghost, timeDomain === 'output');
             const rangeText = timeDomain === 'output' && state.originalTimeDomain !== 'output'
-                ? `出力時間の字幕に変換 ${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`
+                ? t('annotations.timeline.text.convertToOutputTimeSubtitles', { startTime: this.formatTimestamp(start), endTime: this.formatTimestamp(end) })
                 : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`;
             this.updateDragFeedback(state, destinationReason ?? (blockedByNeighbor
-                ? `${rangeText}（隣の字幕で止まりました）` : rangeText));
+                ? t('annotations.timeline.text.stoppedAtTheNextSubtitle', { range: rangeText }) : rangeText));
             return {
                 kind: 'caption', id: state.id,
                 start, end, timeDomain,
@@ -17595,7 +18529,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         if (state.kind === 'layer') {
-            let t = state.originalT;
+            let timeValue21 = state.originalT;
             let itemDuration = state.originalDuration;
             let track = state.originalTrack;
             let rejected = false;
@@ -17611,9 +18545,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const snap = this.snapTimeInOutputSpaceWithResult(
                     Math.max(0, state.originalT + delta), showGuide, originalEdges
                 );
-                t = snap.time;
+                timeValue21 = snap.time;
                 snapped = snap.snapped;
-                itemDuration = state.originalDuration + (state.originalT - t);
+                itemDuration = state.originalDuration + (state.originalT - timeValue21);
             } else if (state.mode === 'end') {
                 const snap = this.snapTimeInOutputSpaceWithResult(
                     state.originalT + state.originalDuration + delta, showGuide, originalEdges
@@ -17624,7 +18558,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const snap = this.snapMovingRangeInOutputSpace(
                     state.originalT + delta, state.originalDuration, showGuide, originalEdges
                 );
-                t = Math.max(0, snap.time);
+                timeValue21 = Math.max(0, snap.time);
                 snapped = snap.snapped;
                 const hit = this.trackAtClientY(
                     'layer', this.laneLayout.layerTracks, clientY, state.originalTrack
@@ -17641,16 +18575,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 insertIndex = hit.insertIndex;
                 state.ghost.style.top = `${hit.top}px`;
             }
-            rejected ||= this.dropWouldOverlap(state.id, t, itemDuration,
+            rejected ||= this.dropWouldOverlap(state.id, timeValue21, itemDuration,
                 targetTrackId ?? this.itemLocations.get(state.id)?.trackId, insertIndex);
-            this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
+            this.setGhostRange(state.ghost, timeValue21, timeValue21 + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '✕ 配置できません'
-                : `${insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒`);
+                ? t('annotations.timeline.text.unableToPlace')
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(timeValue21), duration: itemDuration.toFixed(2), n: pluralCountForDisplay(itemDuration.toFixed(2)) }));
             return {
-                kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack,
+                kind: 'layer', id: state.id, t: timeValue21, duration: itemDuration, track, rejected, insertTrack,
                 targetTrackId, insertIndex
             };
         }
@@ -17662,22 +18596,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     { time: state.originalT + state.originalDuration }
                 ]
             );
-            const t = Math.max(0, snap.time);
+            const timeValue22 = Math.max(0, snap.time);
             const hit = this.trackAtClientY(
                 'audio', this.laneLayout.audioTracks, clientY, state.originalTrack
             );
             this.hideTrackInsertIndicator();
-            this.setGhostRange(state.ghost, t, t + state.originalDuration);
+            this.setGhostRange(state.ghost, timeValue22, timeValue22 + state.originalDuration);
             state.ghost.style.top = `${hit.top}px`;
-            const linkedRejected = this.updateLinkedDragGhost(state, t);
+            const linkedRejected = this.updateLinkedDragGhost(state, timeValue22);
             const rejected = hit.rejected || linkedRejected;
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ 映像のレーンには音を置けません'
-                : `${this.formatTimestamp(t)} / 行 ${hit.track + 1}`);
+                ? t('annotations.timeline.text.soundCannotBePlacedInTheVideoLane')
+                : t('annotations.timeline.text.messageAlternate', { time: this.formatTimestamp(timeValue22), track: hit.track + 1 }));
             return {
-                kind: 'audio', id: state.id, t, track: hit.track, rejected, altKey: state.altKey,
+                kind: 'audio', id: state.id, t: timeValue22, track: hit.track, rejected, altKey: state.altKey,
                 targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
@@ -17701,7 +18635,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             const durationWarningSuffix = state.edge !== 'right' ? '' : durationUnavailable
-                ? ' ⚠ 実尺不明のため無制限' : durationPending ? ' (実尺確認中…)' : '';
+                ? t('annotations.timeline.text.unlimitedDueToUnknownActualSize') : durationPending ? t('annotations.timeline.text.checkingActualSize') : '';
             let input = state.originalIn;
             let output = state.originalOut;
             let snapped = false;
@@ -17734,17 +18668,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const cappedOutput = maxOutSeconds !== undefined ? Math.min(rawOutput, maxOutSeconds) : rawOutput;
                 output = Math.max(cappedOutput, input + MINIMUM_SFX_TRIM_DURATION);
             }
-            const t = state.edge === 'left'
+            const timeValue23 = state.edge === 'left'
                 ? Math.max(0, state.originalT + (input - state.originalIn))
                 : state.originalT;
-            this.setGhostRange(state.ghost, t, t + Math.max(0, output - input));
+            this.setGhostRange(state.ghost, timeValue23, timeValue23 + Math.max(0, output - input));
             this.setGhostRejected(state.ghost, false);
             this.setGhostSnapped(state.ghost, snapped);
             this.updateDragFeedback(state,
                 `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} `
-                + `/ 尺 ${(output - input).toFixed(2)} 秒${durationWarningSuffix}`
+                + t('annotations.timeline.text.durationSecondsVariant3', { duration: (output - input).toFixed(2), n: pluralCountForDisplay((output - input).toFixed(2)), warning: durationWarningSuffix })
                 + this.sfxFadeFeedbackSuffix(sfx, output - input));
-            return { kind: 'audio-trim', id: state.id, edge: state.edge, t, in: input, out: output };
+            return { kind: 'audio-trim', id: state.id, edge: state.edge, t: timeValue23, in: input, out: output };
         }
         if (state.kind === 'audio-slip') {
             // 音声クリップ版 cut-slip（task 2026-08-18-audio-clip-trimmer-dblclick）。純関数部分は
@@ -17805,8 +18739,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const rejected = hit.rejected || this.dropWouldOverlap(state.id, start, state.originalDuration, hit.targetTrackId, hit.insertIndex);
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
-            this.updateDragFeedback(state, rejected ? '✕ 配置できません'
-                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
+            this.updateDragFeedback(state, rejected ? t('annotations.timeline.text.unableToPlace')
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(start), duration: state.originalDuration.toFixed(2), n: pluralCountForDisplay(state.originalDuration.toFixed(2)) }));
             return {
                 kind: 'overlay-move', id: state.id, start, track: hit.track, rejected,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -17822,7 +18756,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const end = snap.time;
         this.setGhostRange(state.ghost, state.originalStart, end);
         this.setGhostSnapped(state.ghost, snap.snapped);
-        this.updateDragFeedback(state, `尺 ${(end - state.originalStart).toFixed(2)} 秒`);
+        this.updateDragFeedback(state, t('annotations.timeline.text.durationSecondsVariant4', { duration: (end - state.originalStart).toFixed(2), n: pluralCountForDisplay((end - state.originalStart).toFixed(2)) }));
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
     }
 
@@ -17842,7 +18776,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (fadeIn <= 0 && fadeOut <= 0) {
             return '';
         }
-        return ` / fade ${fadeIn.toFixed(2)}〜${fadeOut.toFixed(2)}秒`;
+        return t('annotations.timeline.text.fadeSeconds', { fadeIn: fadeIn.toFixed(2), fadeOut: fadeOut.toFixed(2) });
     }
 
     protected updateDragFeedback(state: DragState, text: string): void {
@@ -18327,7 +19261,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const location = this.location;
         if (!location) return;
         if ("rejected" in preview && preview.rejected) {
-            this.footer.textContent = "移動できません（レーンが異なるか、同じ段の中で区間が重なります）。";
+            this.footer.textContent = t('annotations.timeline.text.unableToMoveDifferentLanesOrOverlappingSections');
             return;
         }
         if (preview.kind !== "caption") {
@@ -18335,14 +19269,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (preview.start < 0 || preview.end - preview.start < MINIMUM_ITEM_DURATION) {
-            this.showNotice("字幕が短すぎます（0.15 秒未満にはできません）");
+            this.showNotice(t('annotations.timeline.text.subtitlesAreTooShortCannotBeLessThan'));
             return;
         }
         try {
             if (preview.originalTimeDomain === 'output') {
                 const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
                 const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end, 'output', true);
-                await this.commitEditMutation('置いた文字を移動', doc => {
+                await this.commitEditMutation(t('annotations.timeline.text.movePlacedCharacters'), doc => {
                     const target = preview.destination;
                     const caption = { id: preview.id, at: this.frameAt(preview.start),
                         duration: Math.max(1, this.frameAt(preview.end - preview.start)) };
@@ -18358,26 +19292,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                                 : { placedText: true }).document;
                 }, { captions: { before, after }, optimistic: true });
                 await this.reloadCaptions();
-                this.footer.textContent = '置いた文字を移動しました。';
+                this.footer.textContent = t('annotations.timeline.text.iMovedThePlacedCharacter');
                 return;
             }
             const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
             const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end,
                 preview.storedTimeDomain ?? null, true);
-            await this.commitEditMutation('字幕タイミングの調整', doc => doc, {
+            await this.commitEditMutation(t('annotations.timeline.text.adjustSubtitleTiming'), doc => doc, {
                 captions: { before, after }, optimistic: true
             });
-            this.footer.textContent = '字幕のタイミングを調整しました。';
+            this.footer.textContent = t('annotations.timeline.text.adjustedSubtitleTiming');
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice("字幕のタイミングを更新できません: " + detail);
-            this.messages.error("字幕のタイミングを更新できません: " + detail);
+            this.showNotice(t('annotations.timeline.text.unableToUpdateSubtitleTiming') + detail);
+            this.messages.error(t('annotations.timeline.text.unableToUpdateSubtitleTiming') + detail);
         }
     }
 
     protected currentTrackId(itemId: string): string {
         const location = this.itemLocations.get(itemId);
-        if (!location) throw new Error(`クリップ ${itemId} のトラックを特定できません。`);
+        if (!location) throw new Error(t('annotations.timeline.text.unableToDetermineTrackForClip', { id: itemId }));
         return location.trackId;
     }
 
@@ -18389,15 +19323,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         insertIndex?: number,
         altKey = false
     ): { document: EditV2Document; createdTrackId?: string } {
-        if (this.rejectLockedCutAudio(itemId, altKey, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+        if (this.rejectLockedCutAudio(itemId, altKey, false, doc)) throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
         if (this.isTrackLocked(targetTrackId)) {
             this.showLockedTrack(targetTrackId);
-            throw new Error(this.footer.textContent ?? 'ロック中です');
+            throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
         }
         const pair = this.linkedCutAudioPair(itemId, doc);
         if (pair && !altKey) {
             const location = indexEditV2Items(doc).get(itemId);
-            if (!location) throw new Error('クリップが見つかりません。');
+            if (!location) throw new Error(t('annotations.timeline.text.clipNotFoundVariant3'));
             const track = (doc.tracks as Array<{ items?: Array<{ at: number }> }>)[location.trackIndex];
             const at = track.items![location.itemIndex].at;
             doc = { ...moveLinkedCutAudio(doc as unknown as EditV2, { cutId: pair.cutId, deltaFrames: atFrames - at }) };
@@ -18434,34 +19368,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
             preview.kind === 'cut-move' ? this.cutItemId(preview.index) : preview.id, preview.altKey
         )) return;
         try {
-            let label = 'タイムラインを更新';
-            let message = 'タイムラインを更新しました。';
+            let label = t('annotations.timeline.text.updateTimeline');
+            let message = t('annotations.timeline.text.theTimelineHasBeenUpdated');
             let createdTrackId: string | undefined;
             let mutate: (doc: EditV2Document) => EditV2Document;
             switch (preview.kind) {
                 case 'cut-trim': {
                     const original = this.cuts[preview.index];
                     const segment = this.segments[preview.index];
-                    if (!original || !segment) throw new Error('クリップが見つかりません。');
+                    if (!original || !segment) throw new Error(t('annotations.timeline.text.clipNotFoundVariant3'));
                     if (this.isStillImageCut(original)) {
                         const duration = clampStillCutLength(preview.output, this.fps);
                         const at = preview.at ?? segment.tlStart;
                         if (duration === undefined || this.cutWouldOverlap(preview.index, at, duration, segment.track)) {
-                            throw new Error('隣のクリップと重なるためトリムできません。');
+                            throw new Error(t('annotations.timeline.text.itCannotBeTrimmedBecauseItOverlapsWith'));
                         }
                         const itemId = this.cutItemId(preview.index);
                         mutate = doc => updateV2Item(doc, { itemId, patch: {
                             at: this.frameAt(at), duration: this.frameAt(duration), source: { in: 0, out: duration }
                         } });
-                        label = 'クリップのトリム';
-                        message = 'クリップをトリムしました。';
+                        label = t('annotations.timeline.text.clipTrim');
+                        message = t('annotations.timeline.text.trimmedTheClip');
                         break;
                     }
                     const speed = typeof original.speed === 'number' && original.speed > 0 ? original.speed : 1;
                     const out = preview.maxOutSeconds === undefined
                         ? preview.output : Math.min(preview.output, preview.maxOutSeconds);
                     if (out - preview.input < MINIMUM_ITEM_DURATION) {
-                        throw new Error('クリップが短すぎます（0.15 秒未満にはできません）。');
+                        throw new Error(t('annotations.timeline.text.clipIsTooShortCannotBeLessThan'));
                     }
                     const itemId = this.cutItemId(preview.index);
                     const at = segment.tlStart + (preview.input - original.in) / speed;
@@ -18473,8 +19407,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             source: { in: preview.input, out }
                         }
                     });
-                    label = 'クリップのトリム';
-                    message = 'クリップをトリムしました。';
+                    label = t('annotations.timeline.text.clipTrim');
+                    message = t('annotations.timeline.text.trimmedTheClip');
                     break;
                 }
                 case 'cut-move': {
@@ -18486,8 +19420,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         createdTrackId = result.createdTrackId;
                         return result.document;
                     };
-                    label = 'クリップの移動';
-                    message = 'クリップを移動しました。';
+                    label = t('annotations.timeline.text.movingClips');
+                    message = t('annotations.timeline.text.theClipHasBeenMoved');
                     break;
                 }
                 case 'layer': {
@@ -18503,8 +19437,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             patch: { at: this.frameAt(preview.t), duration: Math.max(1, this.frameAt(preview.duration)) }
                         });
                     };
-                    label = 'クリップの調整';
-                    message = 'クリップを調整しました。';
+                    label = t('annotations.timeline.text.adjustingClips');
+                    message = t('annotations.timeline.text.adjustedTheClip');
                     break;
                 }
                 case 'audio':
@@ -18519,8 +19453,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         toTrackId: preview.targetTrackId,
                         atFrames: this.frameAt(preview.t)
                     });
-                    label = '音声クリップの移動';
-                    message = '音声クリップを移動しました。';
+                    label = t('annotations.timeline.text.movingAudioClips');
+                    message = t('annotations.timeline.text.movedTheAudioClip');
                     break;
                 case 'audio-trim':
                     mutate = doc => updateAudioSfxPreferV2(doc, {
@@ -18532,8 +19466,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         },
                         legacyPatch: { t: preview.t, in: preview.in, out: preview.out }
                     });
-                    label = '音声クリップのトリム';
-                    message = '音声クリップをトリムしました。';
+                    label = t('annotations.timeline.text.trimAudioClips');
+                    message = t('annotations.timeline.text.trimmedTheAudioClip');
                     break;
                 case 'audio-slip':
                     mutate = doc => updateAudioSfxPreferV2(doc, {
@@ -18541,8 +19475,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         itemPatch: { source: { in: preview.in, out: preview.out } },
                         legacyPatch: { in: preview.in, out: preview.out }
                     });
-                    label = '音声クリップのスリップ';
-                    message = '音声クリップをスリップしました。';
+                    label = t('annotations.timeline.text.slipAudioClips');
+                    message = t('annotations.timeline.text.iSlippedTheAudioClip');
                     break;
                 case 'overlay-move':
                     mutate = doc => {
@@ -18552,28 +19486,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         createdTrackId = result.createdTrackId;
                         return result.document;
                     };
-                    label = 'クリップの移動';
-                    message = 'クリップを移動しました。';
+                    label = t('annotations.timeline.text.movingClips');
+                    message = t('annotations.timeline.text.theClipHasBeenMoved');
                     break;
                 case 'cut-slip':
                     mutate = doc => updateV2Item(doc, {
                         itemId: this.cutItemId(preview.index),
                         patch: { source: { in: preview.in, out: preview.out } }
                     });
-                    label = 'クリップのスリップ';
-                    message = 'クリップをスリップしました。';
+                    label = t('annotations.timeline.text.clipSlip');
+                    message = t('annotations.timeline.text.iSlippedTheClip');
                     break;
                 case 'overlay-resize':
-                    if (preview.duration <= 0) throw new Error('クリップの尺は正の値にしてください。');
+                    if (preview.duration <= 0) throw new Error(t('annotations.timeline.text.makeSureTheLengthOfTheClipIs'));
                     mutate = doc => updateV2Item(doc, {
                         itemId: preview.id, patch: { duration: Math.max(1, this.frameAt(preview.duration)) }
                     });
-                    label = 'クリップの尺変更';
-                    message = 'クリップの尺を変更しました。';
+                    label = t('annotations.timeline.text.changingTheLengthOfAClip');
+                    message = t('annotations.timeline.text.changedTheLengthOfTheClip');
                     break;
                 default:
                     return;
             }
+            const beforeFreeze = preview.kind === 'cut-trim'
+                ? transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds) : [];
             const movedId = preview.kind === 'cut-move' ? this.cutItemId(preview.index)
                 : preview.kind === 'layer' || preview.kind === 'audio' || preview.kind === 'overlay-move'
                     ? preview.id : undefined;
@@ -18587,16 +19523,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }, { optimistic: true });
             if (createdTrackId) {
                 const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
-                this.showNotice(`${name} を追加しました`);
+                this.showNotice(t('annotations.timeline.text.added', { name: name }));
             } else {
                 this.hideNotice();
             }
-            this.footer.textContent = message;
+            const grown = preview.kind === 'cut-trim'
+                ? transitionFreezeGrowth(beforeFreeze, this.transitionPlans().plans, this.cutItemIds)
+                    .map(entry => t('transition.fill.notice.grown',
+                        { from: entry.from, to: entry.to, seconds: entry.seconds })) : [];
+            this.footer.textContent = [message, ...grown].join(' ');
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`タイムラインを更新できません: ${detail}`);
-            this.messages.error(`タイムラインを更新できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToUpdateTimeline', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToUpdateTimeline', { reason: detail }));
         }
     }
 
@@ -18615,7 +19555,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async readEditValue(): Promise<Record<string, any>> {
         const editUri = this.location?.editUri;
         if (!editUri) {
-            throw new Error('edit.json が見つかりません。');
+            throw new Error(t('annotations.timeline.text.editJsonNotFound'));
         }
         return JSON.parse((await this.fileService.readFile(editUri)).value.toString()) as Record<string, any>;
     }
@@ -18710,18 +19650,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // 失敗理由を添える（「対象が変更されています」だけでは原因が追えなかった。2026-09-02）。
             const reason = this.errorMessage(execution.error);
             const message = execution.kind === 'undo'
-                ? `「${execution.entry.label}」を元に戻せませんでした: ${reason}`
-                : `「${execution.entry.label}」をやり直せませんでした: ${reason}`;
+                ? t('annotations.timeline.text.couldNotUndo', { action: execution.entry.label, reason: reason })
+                : t('annotations.timeline.text.couldNotRedo', { action: execution.entry.label, reason: reason });
             this.footer.textContent = message;
             this.showNotice(message);
             return;
         }
         this.hideNotice();
         this.revealOutputPreview();
-        const label = execution.entry.label.startsWith('「') ? execution.entry.label : `「${execution.entry.label}」`;
+        const label = execution.entry.label.startsWith('「') || execution.entry.label.startsWith('“')
+            ? execution.entry.label : t('annotations.timeline.history.quotedAction', { action: execution.entry.label });
         this.footer.textContent = execution.kind === 'undo'
-            ? `${label}を元に戻しました。`
-            : `${label}をやり直しました。`;
+            ? t('annotations.timeline.text.hasBeenRestored', { action: label })
+            : t('annotations.timeline.text.redoed', { action: label });
     }
 
     protected clipboardSelections(): TimelineSelectionItem[] {
@@ -18761,14 +19702,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected copySelectedItem(): boolean {
         const fragment = this.fragmentForSelection(this.clipboardSelections());
         if (!fragment) {
-            this.footer.textContent = 'コピーできるクリップまたは字幕が選択されていません。';
+            this.footer.textContent = t('annotations.timeline.text.noClipsOrSubtitlesAreSelectedForCopying');
             return false;
         }
         this.clipboard = fragment;
         // OS 側が使えなくても、このタイムラインのコピーは成立させる。
         try { void navigator.clipboard?.writeText(serializeTimelineFragment(fragment)).catch(() => undefined); }
         catch { /* ブラウザの権限・安全なコンテキストに依存するためメモリへフォールバックする。 */ }
-        this.footer.textContent = `${fragment.items.length} 件をコピーしました。`;
+        this.footer.textContent = t('annotations.timeline.text.itemsHaveBeenCopied', { count: fragment.items.length, n: fragment.items.length });
         return true;
     }
 
@@ -18777,20 +19718,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const fragment = this.clipboard!;
         await this.queueClipboardMutation(async () => {
             if (fragment.items.some(item => this.isTrackLocked(item.trackId))) {
-                throw new Error('ロック中のトラックからは切り取れません。');
+                throw new Error(t('annotations.timeline.text.youCannotCutFromALockedTrack'));
             }
             const before = await this.readClipboardSnapshot(fragment);
             const after = cutTimelineFragment(before, {
                 fragment, itemLocations: this.itemLocations, isTrackLocked: id => this.isTrackLocked(id)
             });
-            await this.commitTimelineSnapshot(before, after, 'クリップの切り取り');
+            await this.commitTimelineSnapshot(before, after, t('annotations.timeline.text.cuttingAClip'));
             this.applySelection(undefined);
         });
     }
 
     protected pasteClipboard(): Promise<void> {
         if (!this.clipboard) {
-            this.footer.textContent = '貼り付けるクリップまたは字幕がありません。';
+            this.footer.textContent = t('annotations.timeline.text.thereAreNoClipsOrSubtitlesToPaste');
             return Promise.resolve();
         }
         return this.pasteFragment(this.clipboard, this.playheadT, [...this.pasteTargetTracks]);
@@ -18798,7 +19739,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected duplicateSelectedItems(): Promise<void> {
         const fragment = this.fragmentForSelection(this.clipboardSelections());
-        return fragment ? this.pasteFragment(fragment, fragment.anchor, [], 'クリップの複製') : Promise.resolve();
+        return fragment ? this.pasteFragment(fragment, fragment.anchor, [], 'duplicate') : Promise.resolve();
     }
 
     protected queueClipboardMutation(operation: () => Promise<void>): Promise<void> {
@@ -18812,7 +19753,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async readClipboardSnapshot(fragment: TimelineFragment): Promise<TimelineClipboardSnapshot> {
-        if (!this.location?.editUri) throw new Error('edit.json がありません。');
+        if (!this.location?.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
         return {
             edit: (await this.fileService.readFile(this.location.editUri)).value.toString(),
             captions: fragment.items.some(item => item.kind === 'captions' && !('source' in item.payload))
@@ -18827,7 +19768,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.performEditMutation(label, doc => {
             if (stringifyEditV2(doc) !== stringifyEditV2(pinAutomaticBgmDuration(
                 JSON.parse(before.edit), this.frameAt(this.contentEndDuration())
-            ))) throw new Error('タイムラインが変更されたため、もう一度操作してください。');
+            ))) throw new Error(t('annotations.timeline.text.theTimelineHasChangedSoPleaseTryAgain'));
             return pinAutomaticBgmDuration(JSON.parse(after.edit), this.frameAt(this.contentEndDuration()));
         }, before.captions === undefined ? undefined : {
             captions: { before: before.captions, after: after.captions! }
@@ -18835,19 +19776,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected pasteFragment(
-        fragment: TimelineFragment, playhead: number, target: string[], label = 'クリップの貼り付け', insertIndex?: number
+        fragment: TimelineFragment, playhead: number, target: string[], mode: 'duplicate' | 'paste' = 'paste', insertIndex?: number
     ): Promise<void> {
         return this.queueClipboardMutation(async () => {
+            const label = mode === 'duplicate' ? t('annotations.timeline.text.duplicateAClip') : t('annotations.timeline.text.pasteTheClip');
             const before = await this.readClipboardSnapshot(fragment);
             const after = pasteTimelineFragment(before, {
                 fragment, playhead, target, insertIndex, getTracks: () => this.clipboardTracks(),
-                mode: label === 'クリップの複製' ? 'duplicate' : 'paste',
+                mode,
                 frameAt: seconds => this.frameAt(seconds), captions: this.captions, audioSfx: this.audioSfx,
                 displayTimelineTracks: this.displayTimelineTracks
             });
             await this.commitTimelineSnapshot(before, after, label);
             this.hideNotice();
-            this.footer.textContent = `${fragment.items.length} 件を${label === 'クリップの複製' ? '複製' : '貼り付け'}しました。`;
+            this.footer.textContent = mode === 'duplicate'
+                ? t('annotations.timeline.clipboard.duplicated', { count: fragment.items.length, n: fragment.items.length })
+                : t('annotations.timeline.clipboard.pasted', { count: fragment.items.length, n: fragment.items.length });
         });
     }
 
@@ -18856,7 +19800,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected writeResultMessage(message: string, result: WriteBackResult): string {
-        return result.committed ? `${message} 変更を記録しました。` : message;
+        return result.committed ? t('annotations.timeline.text.changeRecorded', { message: message }) : message;
     }
 
     protected percent(value: number): number {
@@ -18885,8 +19829,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return maxDuration;
         }
         const ratio = minDuration / maxDuration;
-        const t = Math.min(1, Math.max(0, sliderValue / ZOOM_SLIDER_RESOLUTION));
-        return maxDuration * Math.pow(ratio, t);
+        const timeValue24 = Math.min(1, Math.max(0, sliderValue / ZOOM_SLIDER_RESOLUTION));
+        return maxDuration * Math.pow(ratio, timeValue24);
     }
 
     protected viewDurationToSliderValue(duration: number): number {
@@ -18897,8 +19841,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const ratio = minDuration / maxDuration;
         const clamped = Math.min(maxDuration, Math.max(minDuration, duration));
-        const t = Math.log(clamped / maxDuration) / Math.log(ratio);
-        return Math.round(t * ZOOM_SLIDER_RESOLUTION);
+        const timeValue25 = Math.log(clamped / maxDuration) / Math.log(ratio);
+        return Math.round(timeValue25 * ZOOM_SLIDER_RESOLUTION);
     }
 
     protected updateZoomHud(): void {
@@ -19199,15 +20143,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * P1-b で「総尺より後ろに置ける」ようにした以上、この一言は必ず添える。
      * cuts が 0 本のプロジェクトは「ソース全体が本編」なので何も言わない。
      */
-    protected beyondCutsEndNote(t: number): string {
+    protected beyondCutsEndNote(timeValue26: number): string {
         if (this.cuts.length === 0) {
             return '';
         }
         const cutsEnd = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
-        if (!(t >= cutsEnd)) {
+        if (!(timeValue26 >= cutsEnd)) {
             return '';
         }
-        return '（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）';
+        return t('annotations.timeline.text.thisIsAfterTheEndOfTheBottom');
     }
 
     /**
@@ -19276,7 +20220,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label.className = 'akari-annotations-frame-new-track-label';
             const count = nextFrameTrackNumber(this.computeTrackAutoNames().values(), destination.lane);
             label.textContent = destination.lane === 'audio'
-                ? `新しい音声トラック A${count}` : `新しい映像トラック V${count}`;
+                ? t('annotations.timeline.text.newAudioTrackA', { count: count }) : t('annotations.timeline.text.newVideoTrackV', { count: count });
             newTrackBand.appendChild(label);
             this.timelineOverlay.appendChild(newTrackBand);
         }
@@ -19305,7 +20249,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 top: `${rect.top - overlay.top + (layout?.top ?? bandTop)}px`,
                 width: `${range.duration / fps * scale}px`, height: `${newTrackBand ? bandHeight : layout!.height}px`
             });
-            rectangle.textContent = `${(range.duration / fps).toFixed(1)} 秒`;
+            rectangle.textContent = t('annotations.timeline.text.seconds', { duration: (range.duration / fps).toFixed(1), n: pluralCountForDisplay((range.duration / fps).toFixed(1)) });
         };
         const cleanup = (): void => {
             this.strip.removeEventListener('pointermove', update);
@@ -19329,7 +20273,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const pending = document.createElement('div');
             pending.dataset.akariFramePending = 'true';
             pending.className = `akari-annotations-frame-pending${destination.lane === 'audio' ? ' akari-annotations-frame-pending-audio' : ''}`;
-            pending.textContent = destination.lane === 'audio' ? '空の枠（音） · 作成中' : '空の枠 · 作成中';
+            pending.textContent = destination.lane === 'audio' ? t('annotations.timeline.text.emptyFrameSoundUnderConstruction') : t('annotations.timeline.text.emptyFrameUnderConstruction');
             this.stripContent.appendChild(pending);
             let pendingFrame: number | undefined;
             let pendingActive = true;
@@ -19472,12 +20416,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 output: { duration_s: duration, resolution: null, aspect: null, audio_out: null }, updated_at: new Date().toISOString() };
             await this.fileService.writeFile(metaUri, BinaryBuffer.fromString(JSON.stringify(meta, null, 2) + '\n'));
             let itemId: string;
-            await this.commitEditMutation('あいだを生成の枠を置く', doc => {
-                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
+            await this.commitEditMutation(t('annotations.timeline.text.placeAGenerationFrameBetween'), doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error(t('annotations.timeline.text.theProjectHasChanged'));
                 const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === gap.trackId);
                 if (!track || track.locked || (doc.output as { fps: number })?.fps !== fps
                     || JSON.stringify(timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] }, gap.startFrames, fps)) !== JSON.stringify(gap)) {
-                    throw new Error('すき間またはトラックが変わりました。');
+                    throw new Error(t('annotations.timeline.text.theGapOrTrackHasChanged'));
                 }
                 // Reject trimmed/replaced endpoints while extraction was in flight.
                 for (const endpoint of [snapshot.previous, snapshot.next]) {
@@ -19488,7 +20432,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         ? Math.max(item?.source?.in ?? 0, (item?.source?.out ?? (item?.source?.in ?? 0) + item?.duration / fps) - 1 / fps)
                         : item?.source?.in ?? 0;
                     if (item?.source?.src !== endpoint.sourceId || source?.path !== endpoint.sourcePath
-                        || at !== endpoint.atSeconds) throw new Error('前後のクリップが変わりました。');
+                        || at !== endpoint.atSeconds) throw new Error(t('annotations.timeline.text.thePreviousAndNextClipsHaveChanged'));
                 }
                 const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
                 const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
@@ -19499,7 +20443,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 sources.push({ id: sourceId, path: image.relativePath });
                 const transform = emptyFrameTransform(doc.tracks as Array<any>, gap.trackId,
                     gap.startFrames, gap.endFrames - gap.startFrames);
-                return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: 'あいだを生成',
+                return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: t('annotations.timeline.text.generateAGap'),
                     at: gap.startFrames, duration: gap.endFrames - gap.startFrames,
                     ...(transform ? { transform } : {}),
                     source: { kind: 'media', src: sourceId, in: 0, out: duration } });
@@ -19509,9 +20453,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (index >= 0) this.applySelection({ kind: 'cut', index });
             else if (row) this.applySelection(this.selectionForTreeRow(row));
             await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, { tabId: 'generation' });
-            this.showNotice('あいだに動画予定を置きました。');
+            this.showNotice(t('annotations.timeline.text.iScheduledAVideoInTheMeantime'));
         } catch (error) {
-            this.showNotice(`あいだに枠を置けません: ${this.errorMessage(error)}`);
+            this.showNotice(t('annotations.timeline.text.cannotPlaceAFrameBetween', { reason: this.errorMessage(error) }));
         } finally { this.gapCommitting = false; }
     }
 
@@ -19530,14 +20474,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : await this.annotationsService.createEmptyGenerationFrame(request);
             if (this.location?.editUri.toString() !== location.editUri.toString()) return;
             let itemId: string;
-            await this.commitEditMutation('空の枠を置く', doc => {
-                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
-                if ((doc.output as { fps: number })?.fps !== fps) throw new Error('フレームレートが変わりました。');
+            await this.commitEditMutation(t('annotations.timeline.text.placeAnEmptyFrame'), doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error(t('annotations.timeline.text.theProjectHasChanged'));
+                if ((doc.output as { fps: number })?.fps !== fps) throw new Error(t('annotations.timeline.text.theFrameRateHasChanged'));
                 let next = doc;
                 let trackId: string;
                 if ('insertIndex' in destination) {
                     const index = destination.lane === 'visual' ? (doc.tracks as Array<unknown>).length : 0;
-                    if (destination.insertIndex !== index) throw new Error('トラックの並びが変わりました。');
+                    if (destination.insertIndex !== index) throw new Error(t('annotations.timeline.text.theArrangementOfTheTrucksHasChanged'));
                     next = insertV2Track(doc, { index, lane: destination.lane });
                     trackId = (next.tracks as Array<{ id: string }>)[index].id;
                 } else {
@@ -19545,10 +20489,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const track = (next.tracks as Array<Record<string, any>>).find(row => row.id === trackId);
                 if (!track || track.lane !== destination.lane || track.locked || this.isTrackLocked?.(track.id)) {
-                    throw new Error('トラックが変わりました。');
+                    throw new Error(t('annotations.timeline.text.theTruckHasChanged'));
                 }
                 if ((track.items ?? []).some(item => item.at < range.at + range.duration && item.at + item.duration > range.at)) {
-                    throw new Error('枠を置く場所に別のクリップがあります。');
+                    throw new Error(t('annotations.timeline.text.thereIsAnotherClipWhereYouWillPlace'));
                 }
                 const sources = [...(next.sources as Array<Record<string, unknown>> ?? [])];
                 const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(next).keys()]);
@@ -19559,7 +20503,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 sources.push({ id: sourceId, path: image.relativePath });
                 const transform = emptyFrameTransform(next.tracks as Array<any>, trackId, range.at, range.duration);
                 return insertV2Item({ ...next, sources }, trackId, {
-                    id: itemId, name: destination.lane === 'audio' ? '空の枠（音）' : '空の枠',
+                    id: itemId, name: destination.lane === 'audio' ? t('annotations.timeline.text.emptyFrameSound') : t('annotations.timeline.text.emptyFrame'),
                     ...(destination.lane === 'audio' ? { role: 'narration' } : {}),
                     at: range.at, duration: range.duration,
                     ...(transform ? { transform } : {}),
@@ -19582,10 +20526,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.playheadT = range.at / fps;
             this.playhead.style.left = `${this.percent(this.playheadT)}%`;
             await this.requestSeek(this.playheadT, { domain: 'output' });
-            this.showNotice('空の枠を置きました。');
+            this.showNotice(t('annotations.timeline.text.iPlacedAnEmptyFrame'));
         } catch (error) {
             clearPending?.();
-            this.showNotice(`空の枠を置けません: ${this.errorMessage(error)}`);
+            this.showNotice(t('annotations.timeline.text.cannotPlaceEmptyFrame', { reason: this.errorMessage(error) }));
         } finally {
             clearPending?.();
         }
@@ -19743,6 +20687,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (selected.length === 1) {
                     this.applySelection(selected[0]);
                 } else if (selected.length > 1) {
+                    this.releaseTransitionBoundaryForOtherSelection();
                     this.exitTrimmerModeUnlessSelected(undefined);
                     this.selection = undefined;
                     this.multiSelection = selected;
@@ -19836,7 +20781,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (event.clientX < rect.left || event.clientX > rect.right) return;
         this.hoverSeek.style.display = 'none';
         const time = this.timeAtClientX(event.clientX);
-        this.applySelection(undefined);
+        if (!this.focusScope?.rootId || !(event.target instanceof Node && this.rulerBar.contains(event.target))) {
+            this.applySelection(undefined);
+        }
         this.selectTimeAtClientX(event.clientX, time);
     }
 
@@ -20016,8 +20963,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     // 丸められ 0 秒などへ誤着地しうる（バグ⑳）。タイムライン widget 自身が出力秒を握っている
     // クリック/ドラッグ/矢印キー操作は往復変換を経由せずここで直接その出力秒を渡す
     protected async requestSeek(time: number, options?: { domain?: 'source' | 'output' }): Promise<void> {
+        this.setPendingPreviewKeyframes(undefined);
         if (!this.location?.editUri) {
-            this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。edit.json が見つかりません。`;
+            this.footer.textContent = t('annotations.timeline.text.selectedEditJsonNotFound', { time: this.formatTimestamp(time) });
             return;
         }
         const outputTime = options?.domain === 'output' ? time : this.sourceToOutput(time);
@@ -20030,8 +20978,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const timestamp = this.formatTimestamp(time);
         this.footer.textContent = result === 'seeked'
-            ? `${timestamp} にプレビューをシークしました。`
-            : `${timestamp} を選択しました。出力プレビューを開けませんでした。`;
+            ? t('annotations.timeline.text.seekedPreviewTo', { time: timestamp })
+            : t('annotations.timeline.text.selectedCouldNotOpenOutputPreview', { time: timestamp });
     }
 
     protected openAnnotationPopup(event: MouseEvent): void {
@@ -20047,12 +20995,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = `${this.formatTimestamp(sourceT)} に注釈`;
-        input.setAttribute('aria-label', 'タイムラインに注釈を追加');
+        input.placeholder = t('annotations.timeline.text.annotate', { time: this.formatTimestamp(sourceT) });
+        input.setAttribute('aria-label', t('annotations.timeline.text.addAnnotationsToTimeline'));
         const submit = document.createElement('button');
         submit.type = 'button';
         submit.className = 'theia-button main';
-        submit.textContent = '追加';
+        submit.textContent = t('annotations.timeline.text.add');
         const accept = (): void => {
             const text = input.value.trim();
             if (!text) {
@@ -20096,37 +21044,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     public createCanvasAt(atSeconds = this.playheadT, durationSeconds = 5): Promise<void> {
         if (this.editDocument?.version !== 2) {
-            this.showNotice('キャンバスは edit.json v2 で作れます。');
+            this.showNotice(t('annotations.timeline.text.canvasesCanBeCreatedWithEditJsonV2'));
             return Promise.resolve();
         }
         const at = Math.max(0, this.frameAt(atSeconds));
         const duration = Math.max(1, this.frameAt(durationSeconds));
         let createdId: string | undefined;
-        return this.commitEditMutation('キャンバスを作る', doc => {
+        return this.commitEditMutation(t('annotations.timeline.text.makeACanvas'), doc => {
             const result = createTreeV2Canvas(doc, { at, duration });
             createdId = result.value.id;
             return result.document;
         }).then(() => {
             const row = this.timelineTreeRows.find(candidate => candidate.id === createdId);
             if (row) this.applySelection(this.selectionForTreeRow(row));
-        }).catch(error => this.showNotice(`キャンバスを作れません: ${canvasOperationReason(error)}`));
+        }).catch(error => this.showNotice(t('annotations.timeline.text.unableToCreateCanvas', { reason: canvasOperationReason(error) })));
     }
 
     public putItemsIntoCanvas(itemIds: readonly string[], canvasId: string): Promise<void> {
-        return this.commitEditMutation('キャンバスへ入れる', doc => itemIds.reduce((next, id) => {
+        return this.commitEditMutation(t('annotations.timeline.text.putOnCanvas'), doc => itemIds.reduce((next, id) => {
             const layout = this.captionLayouts.get(id);
             if (layout && this.captions.some(caption => caption.id === id)) {
                 return putTreeV2PlacedCaptionIntoCanvas(next, { id,
                     at: this.frameAt(layout.start), duration: Math.max(1, this.frameAt(layout.end - layout.start)) }, canvasId).document;
             }
             return putTreeV2ItemsIntoCanvas(next, [id], canvasId).document;
-        }, doc)).then(() => undefined).catch(error => this.showNotice(`キャンバスへ入れられません: ${canvasOperationReason(error)}`));
+        }, doc)).then(() => undefined).catch(error => this.showNotice(t('annotations.timeline.text.cannotPutIntoCanvas', { reason: canvasOperationReason(error) })));
     }
 
     public takeItemsOutOfCanvas(itemIds: readonly string[]): Promise<void> {
-        return this.commitEditMutation('キャンバスから出す', doc =>
+        return this.commitEditMutation(t('annotations.timeline.text.removeFromCanvas'), doc =>
             takeTreeV2ItemsOutOfCanvas(doc, itemIds).document
-        ).then(() => undefined).catch(error => this.showNotice(`キャンバスから出せません: ${canvasOperationReason(error)}`));
+        ).then(() => undefined).catch(error => this.showNotice(t('annotations.timeline.text.cannotGetOutOfCanvas', { reason: canvasOperationReason(error) })));
     }
 
     protected openEmptyTimelineCanvasMenu(event: MouseEvent): void {
@@ -20134,15 +21082,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         closeTimelineContextMenu();
         const range = this.canvasRange;
         openTimelineContextMenu({ x: event.clientX, y: event.clientY,
-            items: range ? [{ id: 'create-canvas-range', label: 'キャンバスを作る' },
-                { id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
-                { id: 'annotate', label: '注釈…' }]
-                : [{ id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
-                    { id: 'annotate', label: '注釈…' },
+            items: range ? [{ id: 'create-canvas-range', label: t('annotations.timeline.text.makeACanvas') },
+                { id: 'create-canvas-here', label: t('annotations.timeline.text.createACanvasHere') },
+                { id: 'annotate', label: t('annotations.timeline.text.notes') }]
+                : [{ id: 'create-canvas-here', label: t('annotations.timeline.text.createACanvasHere') },
+                    { id: 'annotate', label: t('annotations.timeline.text.notes') },
                     ...(completeTimelineRange(this.timelineRange) ? [
-                        { id: 'ripple-delete', label: '詰めて消す (⇧Delete)' },
-                        { id: 'lift-delete', label: '隙間を残して消す (Delete)' },
-                        { id: 'split-at-playhead', label: '再生ヘッドで分割 (⌘B)' }] : [])],
+                        { id: 'ripple-delete', label: t('annotations.timeline.text.fillAndDeleteDelete') },
+                        { id: 'lift-delete', label: t('annotations.timeline.text.deleteLeavingAGapDelete') },
+                        { id: 'split-at-playhead', label: t('annotations.timeline.text.splitByPlayheadB') }] : [])],
             onSelect: id => {
                 if (id === 'create-canvas-range' && range) {
                     void this.createCanvasAt(range.at / this.fps, range.duration / this.fps);
@@ -20242,16 +21190,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && candidate.id !== ('id' in item ? item.id : '')
                 && candidate.at <= itemAt && itemAt < candidate.at + candidate.duration);
         if (targetCanvas && item.kind !== 'audio' && (rawVisualItem || item.kind === 'caption')) {
-            items.push({ id: 'put-canvas', label: 'キャンバスへ入れる' });
+            items.push({ id: 'put-canvas', label: t('annotations.timeline.text.putOnCanvas') });
         }
         const swapTarget = this.selectedMaterialSwapTarget(item);
-        if (swapTarget) items.push({ id: 'material-swap', label: '入れ替え…' });
+        if (swapTarget) items.push({ id: 'material-swap', label: t('annotations.timeline.text.replace') });
         if (swapTarget?.kind === 'visual' && /\.(png|jpe?g|webp)$/i.test(swapTarget.currentRelativePath)
-            && (item.kind === 'item' || item.kind === 'cut')) items.push({ id: 'image-ai-upscale', label: '高画質化' });
+            && (item.kind === 'item' || item.kind === 'cut')) items.push({ id: 'image-ai-upscale', label: t('annotations.timeline.text.higherImageQuality') });
         const attachItem = rawVisualItem;
         if (attachItem && (['html', 'filter'].includes(attachItem.source?.kind)
             || (item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)))) {
-            items.push({ id: 'caption-attach', label: '字幕にひも付ける…' });
+            items.push({ id: 'caption-attach', label: t('annotations.timeline.text.attachToSubtitles') });
         }
         const clientX = event.clientX;
         const clientY = event.clientY;
@@ -20281,7 +21229,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected putSelectionIntoCanvas(items: readonly TimelineSelectionItem[], canvasId: string): Promise<void> {
-        return this.commitEditMutation('キャンバスへ入れる', doc => items.reduce((next, item) => {
+        return this.commitEditMutation(t('annotations.timeline.text.putOnCanvas'), doc => items.reduce((next, item) => {
             if (item.kind === 'caption') {
                 const layout = this.captionLayouts.get(item.id);
                 if (!layout) return next;
@@ -20294,7 +21242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return putTreeV2ItemsIntoCanvas(next, [visualId], canvasId).document;
             }
             return next;
-        }, doc)).then(() => undefined).catch(error => this.showNotice(`キャンバスへ入れられません: ${canvasOperationReason(error)}`));
+        }, doc)).then(() => undefined).catch(error => this.showNotice(t('annotations.timeline.text.cannotPutIntoCanvas', { reason: canvasOperationReason(error) })));
     }
 
     protected async openCaptionAttachDialog(itemId: string, x: number, y: number): Promise<void> {
@@ -20305,7 +21253,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const layout = this.captionLayouts.get(caption.id);
             return layout && layout.start <= at && at < layout.end;
         });
-        if (!candidates.length) { this.showNotice('同じ時刻に字幕がありません。'); return; }
+        if (!candidates.length) { this.showNotice(t('annotations.timeline.text.thereAreNoSubtitlesAtTheSameTime')); return; }
         document.querySelector('[data-akari-caption-attach-dialog]')?.remove();
         const popup = document.createElement('div');
         popup.setAttribute('data-akari-caption-attach-dialog', '');
@@ -20313,7 +21261,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             top: `${Math.min(y, window.innerHeight - 150)}px`, width: '240px', padding: '10px',
             background: 'var(--theia-editor-background)', border: '1px solid var(--theia-widget-border)',
             borderRadius: '6px', boxShadow: '0 8px 24px #0008' });
-        const title = document.createElement('div'); title.textContent = 'ひも付ける字幕'; popup.appendChild(title);
+        const title = document.createElement('div'); title.textContent = t('annotations.timeline.text.subtitlesToAttach'); popup.appendChild(title);
         const captionSelect = document.createElement('select');
         for (const caption of candidates) {
             const option = document.createElement('option'); option.value = caption.id;
@@ -20322,22 +21270,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         captionSelect.style.width = '100%'; popup.appendChild(captionSelect);
         const position = document.createElement('select'); position.style.width = '100%'; position.style.marginTop = '8px';
         const positions = raw.source?.kind === 'media'
-            ? [['in', '登場'], ['out', '退場']]
-            : [['in', '登場'], ['out', '退場'], ['whole', '全体']];
+            ? [['in', t('annotations.timeline.text.appearance')], ['out', t('annotations.timeline.text.exit')]]
+            : [['in', t('annotations.timeline.text.appearance')], ['out', t('annotations.timeline.text.exit')], ['whole', t('annotations.timeline.text.whole')]];
         for (const [value, label] of positions) {
             const option = document.createElement('option'); option.value = value; option.textContent = label; position.appendChild(option);
         }
         if (raw.source?.kind === 'html' || raw.source?.kind === 'filter') position.value = 'whole';
         popup.appendChild(position);
         const button = document.createElement('button'); button.className = 'theia-button main';
-        button.textContent = 'ひも付ける'; button.style.marginTop = '8px'; popup.appendChild(button);
+        button.textContent = t('annotations.timeline.text.attachAString'); button.style.marginTop = '8px'; popup.appendChild(button);
         document.body.appendChild(popup);
         button.addEventListener('click', () => {
             const captionId = captionSelect.value;
             const edge = position.value === 'out' ? 'end' : 'start';
             const duration = position.value === 'whole' ? 'caption' : 'own';
             popup.remove();
-            void this.commitEditMutation('字幕にひも付ける', doc => {
+            void this.commitEditMutation(t('annotations.timeline.text.attachToSubtitlesAlternate'), doc => {
                 const next = structuredClone(doc);
                 for (const track of next.tracks as Array<{ items?: Array<Record<string, any>> }>) {
                     const target = track.items?.find(candidate => candidate.id === itemId);
@@ -20357,7 +21305,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected openSyncVideoDialog(audioItemId: string, x: number, y: number): void {
         const edit = this.editDocument as unknown as EditV2 | undefined;
         const audioSource = this.rawV2Item(audioItemId)?.source?.src as string | undefined;
-        if (!edit || !audioSource) { this.showNotice('音声の素材が見つかりません。'); return; }
+        if (!edit || !audioSource) { this.showNotice(t('annotations.timeline.text.audioMaterialNotFound')); return; }
         const videoIds = new Set<string>();
         for (const track of edit.tracks) {
             if (track.lane !== 'visual' || !('items' in track)) continue;
@@ -20370,7 +21318,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
-        if (!videoIds.size) { this.showNotice('同期できる映像がありません。'); return; }
+        if (!videoIds.size) { this.showNotice(t('annotations.timeline.text.thereAreNoVideosThatCanBeSynchronized')); return; }
         document.querySelector('[data-akari-sync-video-dialog]')?.remove();
         const popup = document.createElement('div');
         popup.setAttribute('data-akari-sync-video-dialog', '');
@@ -20379,9 +21327,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             boxSizing: 'border-box', overflowY: 'auto', padding: '10px',
             background: 'var(--theia-editor-background)', border: '1px solid var(--theia-widget-border)',
             borderRadius: '6px', boxShadow: '0 8px 24px #0008' });
-        const title = document.createElement('div'); title.textContent = '一緒に切る映像'; popup.append(title);
+        const title = document.createElement('div'); title.textContent = t('annotations.timeline.text.videoToCutTogether'); popup.append(title);
         const select = document.createElement('select'); select.style.width = '100%';
-        const none = document.createElement('option'); none.value = ''; none.textContent = 'なし（同期を解除）'; select.append(none);
+        const none = document.createElement('option'); none.value = ''; none.textContent = t('annotations.timeline.text.noneUnsynchronized'); select.append(none);
         for (const source of edit.sources.filter(entry => videoIds.has(entry.id))) {
             const option = document.createElement('option'); option.value = source.id;
             option.textContent = source.path.replace(/\\/gu, '/').split('/').pop() || source.id; select.append(option);
@@ -20389,12 +21337,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         select.value = edit.sync_groups?.find(group => group.members.some(member => member.source === audioSource))
             ?.members.find(member => videoIds.has(member.source))?.source ?? [...videoIds][0];
         popup.append(select);
-        const note = document.createElement('small'); note.textContent = '組にしたあと、タイムラインで声をずらして口と合わせてください。合わせた位置のまま一緒に切れます。';
+        const note = document.createElement('small'); note.textContent = t('annotations.timeline.text.afterPairingThemShiftTheVoicesOnThe');
         note.style.display = 'block'; popup.append(note);
         const button = document.createElement('button'); button.className = 'theia-button main';
-        button.textContent = '保存'; button.style.marginTop = '8px'; popup.append(button);
+        button.textContent = t('annotations.timeline.text.save'); button.style.marginTop = '8px'; popup.append(button);
         const cancel = document.createElement('button'); cancel.className = 'theia-button';
-        cancel.textContent = '取り消し'; cancel.style.marginLeft = '8px'; popup.append(cancel);
+        cancel.textContent = t('annotations.timeline.text.cancellation'); cancel.style.marginLeft = '8px'; popup.append(cancel);
         document.body.append(popup);
         const bounds = popup.getBoundingClientRect();
         popup.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
@@ -20403,7 +21351,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         button.onclick = () => {
             const videoSource = select.value || undefined;
             popup.remove();
-            void this.commitEditMutation(videoSource ? '映像と同期' : '同期を解除', doc =>
+            void this.commitEditMutation(videoSource ? t('annotations.timeline.text.syncWithVideo') : t('annotations.timeline.text.unsync'), doc =>
                 setSourceSyncGroup(doc as unknown as EditV2, audioSource, videoSource) as unknown as EditV2Document)
                 .catch(error => this.showNotice(this.errorMessage(error)));
         };
@@ -20463,24 +21411,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (this.isTrackLocked(destination)) { this.showLockedTrack(destination); return; }
                 }
             }
-            void this.commitEditMutation('音声を分離', doc => {
-                if (this.rejectLockedCutAudio(cutId, false, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+            void this.commitEditMutation(t('annotations.timeline.text.separateAudio'), doc => {
+                if (this.rejectLockedCutAudio(cutId, false, false, doc)) throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
                 const result = splitCutAudio(doc as unknown as EditV2, {
                     cutId, ...(hasAudio === undefined ? {} : { hasAudio })
                 });
                 if (this.isTrackLocked(result.audioTrackId)) {
                     this.showLockedTrack(result.audioTrackId);
-                    throw new Error(this.footer.textContent ?? 'ロック中です');
+                    throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
                 }
                 return { ...result.document };
-            }).then(() => this.showNotice('音声を分離しました'))
+            }).then(() => this.showNotice(t('annotations.timeline.text.separatedTheAudio')))
                 .catch(error => this.showNotice(this.errorMessage(error)));
             return;
         }
         if (id === 'unlink-audio' && item.kind === 'audio') {
             if (this.rejectLockedCutAudio(item.id)) return;
-            void this.commitEditMutation('リンクを解除', doc => {
-                if (this.rejectLockedCutAudio(item.id, false, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+            void this.commitEditMutation(t('annotations.timeline.text.unlink'), doc => {
+                if (this.rejectLockedCutAudio(item.id, false, false, doc)) throw new Error(this.footer.textContent ?? t('annotations.timeline.text.itSLocked'));
                 return { ...unlinkCutAudio(doc as unknown as EditV2, { audioItemId: item.id }) };
             }).catch(error => this.showNotice(this.errorMessage(error)));
             return;
@@ -20523,7 +21471,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             let createdTrackId: string | undefined;
-            void this.commitEditMutation('キャンバスから出す', doc => {
+            void this.commitEditMutation(t('annotations.timeline.text.removeFromCanvas'), doc => {
                 const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
                 const result = detachTreeV2Item(doc, itemId, row ? {
                     at: Math.round(row.at * this.fps), duration: Math.round(row.duration * this.fps)
@@ -20532,9 +21480,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return result.document;
             }).then(() => {
                 const name = createdTrackId
-                    ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : '新しい段';
-                this.showNotice(`${name} を追加しました`);
-            }).catch(error => this.showNotice(`キャンバスから出せません: ${canvasOperationReason(error)}`));
+                    ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : t('annotations.timeline.text.newStage');
+                this.showNotice(t('annotations.timeline.text.added', { name: name }));
+            }).catch(error => this.showNotice(t('annotations.timeline.text.cannotGetOutOfCanvas', { reason: canvasOperationReason(error) })));
             return;
         }
         if (id === 'group') {
@@ -20542,18 +21490,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? [this.cutItemId(selection.index)]
                 : selection.kind === 'caption' || selection.kind === 'audio' ? [] : [selection.id]);
             let changed: string[] = [];
-            void this.commitEditMutation('キャンバスにする', doc => {
+            void this.commitEditMutation(t('annotations.timeline.text.makeItACanvas'), doc => {
                 const result = groupTreeV2Items(doc, ids, { canvas: true });
                 changed = result.value.changedOrderIds;
                 return result.document;
             }).then(() => {
-                if (changed.length > 0) this.showNotice(`${changed.join('、')} の前後が変わりました`);
-            }).catch(error => this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`));
+                if (changed.length > 0) this.showNotice(t('annotations.timeline.text.hasChangedBeforeAndAfter', { names: changed.join(t('annotations.timeline.list.separator')) }));
+            }).catch(error => this.showNotice(t('annotations.timeline.text.cannotCanvas', { reason: canvasOperationReason(error) })));
             return;
         }
         if (id === 'ungroup' && item.kind === 'item') {
-            void this.commitEditMutation('キャンバスをほどく', doc => ungroupTreeV2Item(doc, item.id).document)
-                .catch(error => this.showNotice(`キャンバスをほどけません: ${canvasOperationReason(error)}`));
+            void this.commitEditMutation(t('annotations.timeline.text.unravelTheCanvas'), doc => ungroupTreeV2Item(doc, item.id).document)
+                .catch(error => this.showNotice(t('annotations.timeline.text.unableToUnwindCanvas', { reason: canvasOperationReason(error) })));
             return;
         }
         if (id === 'toggle-collapse' && item.kind === 'item') {
@@ -20591,7 +21539,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label: this.timelineTreeRows.find(row => row.id === itemId)?.label
         });
         if (!resolved) {
-            this.showNotice('このクリップの注釈対象を特定できません。');
+            this.showNotice(t('annotations.timeline.text.unableToDetermineWhatToAnnotateThisClip'));
             return;
         }
         await this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
@@ -20640,12 +21588,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideNotice();
             this.renderStrip();
             this.footer.textContent = result.committed
-                ? '注釈を追加しました。変更を記録しました。'
-                : '注釈を追加しました。';
+                ? t('annotations.timeline.text.addedAnnotationChangesHaveBeenRecorded')
+                : t('annotations.timeline.text.addedAnnotation');
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`注釈を追加できません: ${detail}`);
-            this.messages.error(`注釈を追加できません: ${detail}`);
+            this.showNotice(t('annotations.timeline.text.unableToAddAnnotation', { reason: detail }));
+            this.messages.error(t('annotations.timeline.text.unableToAddAnnotation', { reason: detail }));
         }
     }
 
@@ -20658,11 +21606,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showNotice(message: string, updateAvailable = false): void {
-        if (/^[VAT]\d+ を追加しました$/.test(message)) return;
+        const addedName = /[VAT]\d+/u.exec(message)?.[0];
+        if (addedName && (message === t('annotations.timeline.text.added', { name: addedName }, 'ja')
+            || message === t('annotations.timeline.text.added', { name: addedName }, 'en'))) return;
         this.notice.setMessage(message);
         if (updateAvailable) {
             this.updateNoticeButton.type = 'button';
-            this.updateNoticeButton.textContent = 'アップデートを確認';
+            this.updateNoticeButton.textContent = t('annotations.timeline.text.checkForUpdates');
             this.updateNoticeButton.setAttribute('data-akari-update-action', '');
             this.updateNoticeButton.onclick = () => void this.commands.executeCommand('akari.settings.open', { section: 'about' });
             this.notice.node.insertBefore(this.updateNoticeButton, this.notice.node.lastChild);

@@ -1,132 +1,122 @@
-# 2 パス目 — interpretation.json を作る
+# Pass 2 — Create interpretation.json
 
-## 目次
+## Contents
 
-- [原則](#原則)
-- [読む文脈](#読む文脈周辺プロジェクト文脈)
-- [組み立て手順](#組み立て手順)
-- [根拠必須・捏造ゼロ](#根拠必須捏造ゼロ)
-- [flags 走査義務](#flags-走査義務)
-- [open_questions は取材質問のみ](#open_questions-は取材質問のみ判断質問の禁止)
-- [停止条件（80 点ライン）](#停止条件80-点ライン)
-- [arc は内部データ（レポート非表示）](#arc-は内部データレポート非表示)
+- [Principle](#principle)
+- [Context to read](#context-to-read-surrounding-project-context)
+- [Assembly procedure](#assembly-procedure)
+- [Mandatory evidence, zero fabrication](#mandatory-evidence-zero-fabrication)
+- [Mandatory flags scan](#mandatory-flags-scan)
+- [open_questions are interview questions only](#open_questions-are-interview-questions-only-no-decision-questions)
+- [Stop condition (80-point line)](#stop-condition-80-point-line)
+- [arc is internal data (hidden from reports)](#arc-is-internal-data-hidden-from-reports)
 
-## 原則
+## Principle
 
-2 パス目は 1 パス目（analyze-footage）の出力テキストを**並べて読み直すテキスト推論**であり、
-新しい事実を作らない。1 パス目 = 素材ごと・文脈なしの事実抽出、2 パス目 = 全素材の分析結果 +
-周辺文脈を並べて読み直し、素材横断の解釈（役割・関係・浮き・構成案・取材質問）を作る。
-素材の再視聴は 2 パス目が必要と判断した箇所だけに限る。
+Pass 2 is **text reasoning by rereading pass-1 (analyze-footage) output side by side**; it creates no new facts.
+Pass 1 extracts facts per asset without context. Pass 2 rereads all asset analyses together with surrounding context,
+then produces cross-asset interpretations (roles, relations, outliers, proposed arc, interview questions).
+Rewatch only locations pass 2 determines are necessary.
 
-事実層（analysis.json）と解釈層（interpretation.json）を分離するのは、文脈が誤っていても
-事実層は無傷のまま解釈層だけ安く再生成するため。`interpretation.json` はプロジェクトあたり
-1 ファイル、[interpretation.schema.json](../../packages/schemas/interpretation.schema.json) の
-v0 に従う（未知フィールドは足さない。省略可のフィールドは値が無ければキーごと省略し、
-`null` は使わない）。
+Separate the fact layer (analysis.json) and interpretation layer (interpretation.json) so incorrect context leaves
+facts intact and only the inexpensive interpretation layer needs regeneration. There is 1 `interpretation.json`
+per project, following v0 of [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
+Add no unknown fields. Omit optional keys entirely when valueless; do not use `null`.
 
-## 読む文脈（周辺プロジェクト文脈）
+## Context to read (surrounding project context)
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-本リーフは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
+This leaf does not write. In other stages that write, Edit relevant lines or use edit-store's script API.
 
-2 パス目の入力は `collect.md` で集めた analysis.json 群だけに閉じない。**プロジェクトが
-既知の AKARI プロジェクト構造（`intake.json` や `edit.json` を持つディレクトリ）の中にある
-場合は、その周辺文脈も読みに行く**:
+Pass-2 inputs are not limited to analysis.json files gathered in `collect.md`. **If the project is within a known
+AKARI project structure (a directory containing `intake.json` or `edit.json`), also read surrounding context**:
 
-- `intake.json`（あれば要約して `inputs.context.intake` へ）
-- `edit.json`（既に編集判断が下っている場合、id で grep して判断・decision_log・章立ての該当行を文脈として読む）
-- `planning/`・`README.md`（案件の背景、企画意図、由来）
-- 過去 PJ・他社形式テンプレ参照（AKARI Video 形式に限らず、Premiere / DaVinci / CapCut 等の
-  他社プロジェクトファイルも対象。`inputs.context.past_projects[]` へ記録）
+- `intake.json` (if present, summarize into `inputs.context.intake`)
+- `edit.json` (if editing decisions already exist, grep by ID and read relevant decision, decision_log, and chapter lines as context)
+- `planning/` and `README.md` (project background, intent, provenance)
+- Past projects / third-party-format template references (not just AKARI Video: Premiere / DaVinci / CapCut project files
+  also qualify; record in `inputs.context.past_projects[]`)
 
-これは実地検証（内部リポの multiasset-dogfood 実走・2026-07-22）で確定した重要な申し送りである:
-**orphan/unclear の判定は analysis.json（keyframes の note・events）だけでは確信を持てない
-ことがある**。素材だけを見て「これが何のための素材か」が分からない場合、その素材が置かれて
-いる由来プロジェクトの `edit.json` は id で grep して該当行を読み、`planning/`・`README.md`/
-`CLAUDE.md` も読みに行って初めて
-判定が確定することがある。周辺文脈が無い・読んでも埋まらない場合は、無理に確信を書かず
-`open_questions` へ回すか、flags に確信度の低さを記録する。
+This is an important handoff confirmed by field validation (internal multiasset-dogfood run, 2026-07-22):
+**analysis.json alone (keyframe notes/events) may not support confident orphan/unclear classification**.
+If footage alone does not establish an asset's purpose, grep the originating project's `edit.json` by ID for relevant
+lines and read `planning/`, `README.md` / `CLAUDE.md`; these can establish the classification.
+If surrounding context is unavailable or still insufficient, do not force certainty: use `open_questions`
+or record low confidence in flags.
 
-読んだ文脈は必ず `inputs.context` に来歴として残す（後から「何を踏まえた解釈か」を追跡できる
-ようにする）。文脈が無い項目はキー自体を省略する（`past_projects`/`interview` は該当なしでも
-空配列を残し、「参照した上で無かった」ことを表す。§ 詳細は schema の description を見る）。
+Always retain read context as provenance in `inputs.context` so later readers can trace interpretation inputs.
+Omit keys for absent context, except retain empty `past_projects`/`interview` arrays when inapplicable to indicate
+that they were checked and absent. See schema descriptions for details.
 
-## 組み立て手順
+## Assembly procedure
 
-1. `inputs.analyses[]` を `collect.md` の ref 表からそのまま作る（`ref`/`path`/`source` 必須）。
-2. 周辺文脈を読み、`inputs.context` を埋める（無ければキー省略、`past_projects`/`interview` は
-   空配列可）。
-3. 素材ごとに `assets[]` を作る: `ref` / `role`（物語上の役割タグ、自由記述）/ `summary` /
-   任意で `sections[]`（章単位の役割分析。単素材では `arc` とほぼ同型になりうるので、複数素材
-   プロジェクトでは無理に単素材と同じ粒度にしない）/ `relations[]`（他素材との関係。無関係な
-   素材なら正直に空配列にする — 捏造して関係を作らない）/ `flags[]`（[flags 走査義務](#flags-走査義務)参照）。
-4. 全 `assets[]` を並べ、構成案 `arc[]` を組む（`order`/`title`/`refs[]`/`purpose`/`evidence`）。
-   並べ替え・複数素材の統合は 2 パス目がここで初めて行う（1 パス目は時系列のまま）。
-5. `open_questions[]` を作る（[取材質問のみ](#open_questions-は取材質問のみ判断質問の禁止)）。
-6. [validate-and-render.md](validate-and-render.md) で検証する。
+1. Build `inputs.analyses[]` directly from `collect.md`'s reference table (`ref`/`path`/`source` required).
+2. Read surrounding context and fill `inputs.context` (omit absent keys; empty `past_projects`/`interview` arrays allowed).
+3. Build `assets[]` per asset: `ref` / `role` (free-text narrative-role tag) / `summary` /
+   optional `sections[]` (chapter-level role analysis; for a single asset it can resemble `arc`, but do not force
+   that granularity on multi-asset projects) / `relations[]` (relations to other assets; honestly use an empty array
+   for unrelated assets rather than inventing relations) / `flags[]` (see [Mandatory flags scan](#mandatory-flags-scan)).
+4. Arrange all `assets[]` and build proposed `arc[]` (`order`/`title`/`refs[]`/`purpose`/`evidence`).
+   Pass 2 first reorders/integrates multiple assets here; pass 1 remains chronological.
+5. Build `open_questions[]` ([Interview questions only](#open_questions-are-interview-questions-only-no-decision-questions)).
+6. Validate using [validate-and-render.md](validate-and-render.md).
 
-## 根拠必須・捏造ゼロ
+## Mandatory evidence, zero fabrication
 
-`assets[].summary`/`role`/`relations[]`/`flags[]`、`arc[].purpose` の全主張は、根拠
-（transcript の該当区間の引用、または keyframe note 参照）を示せて初めて書く。示せない主張は
-書かない。`relations[]`/`flags[]` が実質的に空になる（本当に無関係な素材ばかりだった等）場合も、
-それが正直な結果であり、捏造して非空にしない（実地検証で確認済みの原則）。
+Write claims in `assets[].summary`/`role`/`relations[]`/`flags[]` and `arc[].purpose` only when evidence
+can be shown (quoted transcript range or keyframe-note reference). Do not write unsupported claims.
+If `relations[]`/`flags[]` are effectively empty (e.g., assets really are unrelated), that is an honest result;
+do not fabricate entries to make them nonempty (field-validated principle).
 
-`flags[].evidence` も必須（schema で強制済み）。「なんとなく浮いている気がする」のような
-根拠なし主張は書かない。
+`flags[].evidence` is mandatory too (schema-enforced). Do not write unsupported impressions such as “it somehow feels out of place”.
 
-## flags 走査義務
+## Mandatory flags scan
 
-`assets[].flags[]` の走査は 2 パス目の契約義務であり、**空配列は「未走査」ではなく
-「走査した上で該当なし」を意味する**（schema の description どおり）。全素材について
-`orphan`（本編とのつながりが確認できない）/`unclear`（つながりの手がかりはあるが編集上の
-具体的根拠が無い）/`trouble_overlap`（本筋の中で発生したトラブル・脱線）の 3 種を意識的に
-検討したことを、走査した上での結論として残す。3 種で表現しきれない状態に遭遇したら、
-既存 3 値を変更・削除せず追記のみで enum を拡張してよい（要 schema 側の追記）。
+Scanning `assets[].flags[]` is a pass-2 contractual obligation. **An empty array means checked and none found,
+not unchecked**, as the schema description states. Consciously consider all 3 types for every asset:
+`orphan` (no confirmed connection to the main story), `unclear` (connection clues exist but no concrete editing evidence),
+and `trouble_overlap` (trouble/digression within the main story). Retain the conclusion after scanning.
+If these 3 cannot describe a encountered state, the enum may be extended by addition only, without changing/deleting
+existing 3 values (requires a schema addition).
 
-## open_questions は取材質問のみ（判断質問の禁止）
+## open_questions are interview questions only (no decision questions)
 
-AI は「どうしますか」（判断質問）を聞かない。聞いてよいのは「これは何ですか / なぜ
-やっているんですか」という、**素材にもネットにも載っていない一次情報**だけ。取材は伺いでは
-なく事実収集であり、方針決定ではない。判断はチャットでの対話フェーズ（`edit-plan` 側）が
-扱う。
+The AI must not ask “What should we do?” It may ask only “What is this?” / “Why are you doing this?” for
+**primary information absent from both footage and the internet**. Interviewing collects facts; it does not seek
+permission or decide direction. Decisions belong to the chat dialogue phase (`edit-plan`).
 
-### 良い例（取材質問）
+### Good examples (interview questions)
 
-- 「公園ロケの撮影日はいつですか」（`fills`: 素材のメタデータとして記録するため）
-- 「`audio/missing.wav` は編集で使う予定だった SFX ですか、それとも配置ミスですか」
-  （`fills`: 参照が壊れている理由の事実確認）
-- 「マイクノイズ（300.0-306.5s）の発生原因は屋外の環境音ですか、収録機材由来ですか」
-  （`fills`: flags の trouble_overlap を裏付ける一次情報の有無確認）
+- “When was the park location shoot?” (`fills`: record as asset metadata)
+- “Was `audio/missing.wav` an SFX intended for the edit, or a placement error?”
+  (`fills`: establish the factual cause of a broken reference)
+- “Was the microphone noise (300.0-306.5s) caused by outdoor ambient sound or recording equipment?”
+  (`fills`: check primary information supporting flags trouble_overlap)
 
-### 悪い例（判断質問。書かない）
+### Bad examples (decision questions; do not write)
 
-- 「このトラブル区間は本編に残しますか、カットしますか」— 編集判断であり `edit-plan` の
-  チャット対話が扱う。analyze-project は事実（トラブルの内容・自己解決したか・本筋との
-  関連度）だけを `flags[]` に記録する。
-- 「章タイトルはこのままでいいですか、言い換えますか」— 構成の好みの判断。
-- 「どんな雰囲気の動画にしたいですか」— 方向性そのものであり、対話フェーズが扱う。
+- “Keep this trouble section in the main video, or cut it?” — Editing decision for `edit-plan` chat dialogue.
+  analyze-project records only facts (what happened, whether self-resolved, relevance to the main story) in `flags[]`.
+- “Keep the chapter title or rephrase it?” — Structural preference.
+- “What mood should the video have?” — Direction itself, handled in dialogue.
 
-見分け方: その質問への回答が**素材の外にある一次情報（日付・意図・経緯・固有名詞など）を
-埋めるものか**（→ 取材質問）、**複数の妥当な選択肢からどれを選ぶかを AI の代わりに人間へ
-丸投げしているか**（→ 判断質問・書かない）。
+Distinguish whether the answer **fills primary information outside the footage (date, intent, history, proper names)**
+(→ interview question), or **delegates choosing among multiple valid alternatives to the human on the AI's behalf**
+(→ decision question; do not write).
 
-## 停止条件（80 点ライン）
+## Stop condition (80-point line)
 
-取材の停止条件は数値ではなく、**「構成案（arc）が事実の捏造なしに一本通るか」**。`arc[]` の
-どのエントリも `purpose`+`evidence` を、素材の再視聴なしに transcript/keyframe note から直接
-引ける形で書ける状態になったら、取材フェーズを終える。それでもなお残る疑問（好みの分かれる
-判断、レポートの読者にとって重要でない些末な事実）は取材質問にせず、編集後の微調整
-（`edit-plan` 側のチャット対話）へ送る。
+The interview stop condition is not numeric: **can the arc form a coherent whole without fabricated facts?**
+End interviewing when every `arc[]` entry's `purpose`+`evidence` can be drawn directly from transcript/keyframe notes,
+without rewatching footage. Remaining questions (preference-sensitive choices or minor facts unimportant to report
+readers) go to post-edit refinement (`edit-plan` chat), not interview questions.
 
-自己完結度の高い素材（発表者が経緯・意図を全て語る等）では `open_questions` が 0 件のまま
-通ることが正常系である（実地検証で確認済み）。逆に、取材質問が 0 件だからといって
-2 パス目が手を抜いたことにはならない — 走査した上で穴が無かった、という結果を表す。
+For self-contained footage (e.g., presenter explains all history/intent), finishing with 0 `open_questions` is normal
+(field-validated). 0 interview questions does not mean pass 2 was careless; it means scanning found no gaps.
 
-## arc は内部データ（レポート非表示）
+## arc is internal data (hidden from reports)
 
-`arc[]` は interpretation.json のデータとしては必須（`minItems: 1`）だが、
-[analysis-report](../../packages/analysis-report/README.md) のレポート表示からは除外される
-（2026-07-22 改訂）。arc は「対話前に出す分析」ではなく編集提案そのものであり、対話フェーズで
-AI がチャットで「こんな感じはどう」と出す種、および取材質問を発生させる材料として機能する。
-2 パス目はレポートに出ないことを理由に手を抜かず、根拠必須の規律をそのまま適用する。
+`arc[]` is required in interpretation.json (`minItems: 1`) but excluded from
+[analysis-report](https://github.com/AkariLabs/akari-video/blob/main/packages/analysis-report/README.md) display (2026-07-22 revision).
+Arc is an editing proposal, not pre-dialogue analysis: it supplies seeds for the AI's chat proposals and interview questions.
+Do not lower pass 2 effort because it is hidden from the report; apply the same mandatory-evidence discipline.

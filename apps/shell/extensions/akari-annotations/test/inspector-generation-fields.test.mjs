@@ -1,9 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { generationFactLabel, generationFields } from '../lib/browser/inspector/generation-fields.js';
+
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { generationFactLabel, generationFields } = await import('../lib/browser/inspector/generation-fields.js');
+const { GENERATION_CAMERA_MOVES, generationCameraValue, generationVariety } = await import('../lib/browser/inspector/generation-fields.js');
+
 
 const actualCatalog = JSON.parse(readFileSync(
   new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8'
@@ -150,7 +157,7 @@ test('generating は「動画にする」を disabled、stale は「再取得」
   assert.equal(stale.find(action => action.name === 'resume').label, '再取得');
 });
 
-import { GENERATION_CAMERA_MOVES, generationCameraValue, generationVariety } from '../lib/browser/inspector/generation-fields.js';
+
 
 test('実カタログ 5 モデル × 最初・最後・参照・カメラ・音声・入れたくないもの', () => {
   const columns = ['first-frame', 'last_frame', 'reference_images', 'reference_audios', 'camera', 'generation-audio', 'generation-audio-always', 'negative-prompt'];

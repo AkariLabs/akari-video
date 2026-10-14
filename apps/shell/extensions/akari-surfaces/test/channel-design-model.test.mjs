@@ -1,9 +1,12 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const {
     QUESTION_KEYS, CHANNEL_QUESTIONS, CHANNEL_TYPES, rankTypes, buildChannelMarkdown,
     parseChannelMarkdown, summarizeAnswers, channelDesignPartnerPrompt
-} from '../lib/browser/channel/channel-design-model.js';
+} = await import('../lib/browser/channel/channel-design-model.js');
 
 test('6 問の構成と 12 の型', () => {
     assert.deepEqual(QUESTION_KEYS, ['genre', 'who', 'plat', 'len', 'tone', 'every']);

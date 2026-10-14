@@ -1,23 +1,24 @@
+import { t, compareText } from '@akari-video/i18n';
 export interface HomeHistoryEntry { label: string; time: number; kind: 'event' | 'export' }
 
 const EVENT_LABELS: Record<string, string> = {
-    'project-created': 'プロジェクトを作った',
-    project_created: 'プロジェクトを作った',
-    'material-transcript': '文字起こし',
-    'report-generated': '分析レポート',
-    'report-approved': 'レポートを承認',
-    'edit-completed': '編集を終えた',
-    'export-completed': '書き出し',
-    'assets-imported': '素材を入れた',
-    assets_imported: '素材を入れた',
-    'plan-created': '企画書を作った',
-    plan_created: '企画書を作った',
-    'edit-created': '編集を始めた',
-    edit_created: '編集を始めた',
-    'report-created': '分析レポートを作った',
-    report_created: '分析レポートを作った',
-    'export-created': '書き出した',
-    export_created: '書き出した'
+    'project-created': t('surfaces.home.createdProject.label'),
+    project_created: t('surfaces.home.createdProject.label'),
+    'material-transcript': t('surfaces.home.transcription.label'),
+    'report-generated': t('surfaces.home.analysisReport.label'),
+    'report-approved': t('surfaces.home.approveReport.label'),
+    'edit-completed': t('surfaces.home.finishedEditing.label'),
+    'export-completed': t('surfaces.home.export.label'),
+    'assets-imported': t('surfaces.home.assetsAdded.label'),
+    assets_imported: t('surfaces.home.assetsAdded.label'),
+    'plan-created': t('surfaces.home.madePlan.label'),
+    plan_created: t('surfaces.home.madePlan.label'),
+    'edit-created': t('surfaces.home.startedEditing.label'),
+    edit_created: t('surfaces.home.startedEditing.label'),
+    'report-created': t('surfaces.home.createdAnalysisReport.label'),
+    report_created: t('surfaces.home.createdAnalysisReport.label'),
+    'export-created': t('surfaces.home.exported.label'),
+    export_created: t('surfaces.home.exported.label')
 };
 
 export function eventHistoryEntry(value: unknown, fallbackTime = 0): HomeHistoryEntry | undefined {
@@ -26,14 +27,15 @@ export function eventHistoryEntry(value: unknown, fallbackTime = 0): HomeHistory
     if (typeof event.type !== 'string' || !event.type) return undefined;
     const rawTime = event.timestamp ?? event.at ?? event.created_at ?? event.createdAt;
     const parsedTime = typeof rawTime === 'number' ? rawTime : Date.parse(String(rawTime ?? ''));
-    const by = event.by === 'partner' ? 'パートナー: ' : event.by === 'user' ? 'あなた: ' : '';
-    return { label: by + (EVENT_LABELS[event.type] ?? event.type), time: Number.isFinite(parsedTime) ? parsedTime : fallbackTime, kind: 'event' };
+    const eventLabel = EVENT_LABELS[event.type] ?? event.type;
+    const label = event.by === 'partner' ? t('surfaces.home.partnerEvent.label', { event: eventLabel }) : event.by === 'user' ? t('surfaces.home.userEvent.label', { event: eventLabel }) : eventLabel;
+    return { label, time: Number.isFinite(parsedTime) ? parsedTime : fallbackTime, kind: 'event' };
 }
 
 export function exportHistoryEntry(name: string, time: number): HomeHistoryEntry {
-    return { label: `書き出し（${name}）`, time, kind: 'export' };
+    return { label: t('surfaces.home.exportHistoryEntryExport.label', { name: name }), time, kind: 'export' };
 }
 
 export function sortHomeHistory(entries: HomeHistoryEntry[]): HomeHistoryEntry[] {
-    return [...entries].sort((a, b) => b.time - a.time || a.label.localeCompare(b.label, 'ja'));
+    return [...entries].sort((a, b) => b.time - a.time || compareText(a.label, b.label));
 }

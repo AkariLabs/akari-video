@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { spawn } from 'child_process';
@@ -31,7 +32,7 @@ export class AkariProjectCleanServiceImpl implements AkariProjectCleanService {
     async inspect(projectRootUri: string): Promise<ProjectCleanInspectResult> {
         const result = await this.runCleanCli(this.fsPath(projectRootUri), ['--json', '--dry-run']);
         if (!result) {
-            return { ok: false, reason: 'akari clean CLI が見つかりませんでした' };
+            return { ok: false, reason: t('shell.project.cleanup.akariCleanCliNotFoundText') };
         }
         if (result.exitCode !== 0) {
             return { ok: false, reason: this.describeCliFailure(result) };
@@ -39,7 +40,7 @@ export class AkariProjectCleanServiceImpl implements AkariProjectCleanService {
         const inspection = parseInspection(result.stdout);
         return inspection
             ? { ok: true, inspection }
-            : { ok: false, reason: 'akari clean の出力を読み取れませんでした' };
+            : { ok: false, reason: t('shell.project.cleanup.couldNotReadAkariCleanOutputError') };
     }
 
     async clean(projectRootUri: string): Promise<ProjectCleanRunResult> {
@@ -49,7 +50,7 @@ export class AkariProjectCleanServiceImpl implements AkariProjectCleanService {
         // バイト数は「押した時点で CLI が使い捨てと見なしたもの」に揃える。
         const before = await this.runCleanCli(projectRoot, ['--json', '--yes']);
         if (!before) {
-            return { cleaned: false, reason: 'akari clean CLI が見つかりませんでした' };
+            return { cleaned: false, reason: t('shell.project.cleanup.akariCleanCliNotFoundText') };
         }
         const inspection = parseInspection(before.stdout);
         if (before.exitCode !== 0) {
@@ -65,7 +66,7 @@ export class AkariProjectCleanServiceImpl implements AkariProjectCleanService {
     /** `akari clean` の失敗理由。stderr の末尾数行を人が読める形にする。 */
     protected describeCliFailure(result: CliResult): string {
         const tail = result.stderr.trim().split('\n').filter(line => line.trim()).slice(-3).join(' / ');
-        return tail || `akari clean が exit code ${result.exitCode ?? '不明'} で終了しました`;
+        return tail || t('shell.project.cleanup.akariCleanExitedCodeText', { value1: result.exitCode ?? t('shell.project.cleanup.unknownLabel') });
     }
 
     protected async runCleanCli(projectRoot: string, flags: string[]): Promise<CliResult | undefined> {

@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { voiceCanNext, voiceGeminiConsentReady, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceDefaultAvatar,
-  geminiConsentCanNext, geminiConsentReady, geminiConsentStatus, GEMINI_WATERMARK_NOTICE,
-  voiceId, voiceNextStep, voiceShouldDiscardProfileForRecording, voiceStorageDisplay } from '../lib/common/voice-clone-model.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { voiceCanNext, voiceGeminiConsentReady, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceDefaultAvatar, geminiConsentCanNext, geminiConsentReady, geminiConsentStatus, GEMINI_WATERMARK_NOTICE, voiceId, voiceNextStep, voiceShouldDiscardProfileForRecording, voiceStorageDisplay } = await import('../lib/common/voice-clone-model.js');
+
+
 
 test('保存先は実ホーム配下だけ ~ にし、外部 AKARI_HOME と Windows を保持する', () => {
   assert.equal(voiceStorageDisplay('/tmp/home/.akari', '/tmp/home', 'me', 'voice'), '~/.akari/avatars/me/voice/voice/');

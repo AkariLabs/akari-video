@@ -1,11 +1,11 @@
-# interpretation.json の形（早見）
+# interpretation.json shape (quick reference)
 
-正本は [interpretation.schema.json](../../../packages/schemas/interpretation.schema.json)。
-このファイルは複製しない（drift 防止）。実例は
-[packages/schemas/test/fixtures/interpretation/valid/interpretation.json](../../../packages/schemas/test/fixtures/interpretation/valid/interpretation.json)
-を読む（2 素材・relations あり・flags 3 種・open_questions 1 open + 1 answered の実例）。
+Canonical source: [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
+Do not duplicate it here (prevents drift). Read the example
+[packages/schemas/test/fixtures/interpretation/valid/interpretation.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/test/fixtures/interpretation/valid/interpretation.json)
+(2 assets, relations, 3 flag types, open_questions with 1 open + 1 answered).
 
-## 最小の骨格
+## Minimal skeleton
 
 ```json
 {
@@ -25,18 +25,16 @@
 }
 ```
 
-`inputs.context`（`past_projects`/`interview`/`intake`/`notes`）と `assets[].sections`/
-`relations`/`flags` は省略可のフィールドを含む。値が無ければキーごと省略する（`null` は
-使わない）。詳細な必須/省略の条件は schema 本体の `description`/`$comment` を読む —
-ここでの要約より schema が常に正である。
+`inputs.context` (`past_projects`/`interview`/`intake`/`notes`) and `assets[].sections`/
+`relations`/`flags` include optional fields. Omit keys entirely when valueless; never use `null`.
+Read schema `description`/`$comment` for detailed required/optional conditions; the schema always overrides this summary.
 
-## 覚えておく制約（schema 単体では表せず CLI が検証する）
+## Constraints to remember (CLI checks beyond schema)
 
-- `assets[].ref` と `inputs.analyses[].ref` は 1:1（過不足・重複なし）。
-- `arc[].refs[].asset` / `relations[].target` はすべて `assets[].ref` に存在する（ダングリング
-  参照禁止）。`relations[].target` は自己参照不可。
-- `sections[]` は `end > start`。`flags[]` の `start`/`end` は両方指定か両方省略。
-- `open_questions[].status` が `answered` のとき `answer` 必須、`open` のとき省略。
+- `assets[].ref` and `inputs.analyses[].ref` are 1:1, with no missing/extra/duplicate entries.
+- All `arc[].refs[].asset` / `relations[].target` exist in `assets[].ref` (no dangling references).
+  `relations[].target` cannot reference itself.
+- `sections[]` requires `end > start`. `flags[]`'s `start`/`end` must both be specified or both omitted.
+- `open_questions[].status` of `answered` requires `answer`; `open` omits it.
 
-いずれも [validate-and-render.md](../validate-and-render.md) の `validate-interpretation.mjs`
-が検証する。
+[validate-and-render.md](../validate-and-render.md)'s `validate-interpretation.mjs` checks all of these.

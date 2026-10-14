@@ -1,0 +1,13 @@
+export type Language = 'ja' | 'en';
+export function normalizeLanguage(value: string | undefined): Language;
+export function osLanguage(): string;
+export function getLanguage(): Language;
+export function setLanguage(value: Language | 'auto' | undefined): Language;
+export function setChildProcessLanguage(choice: Language | 'auto'): void;
+export function childProcessEnv<T extends Record<string, string | null | undefined>>(base: T): T;
+export function childProcessEnv(): Record<string, string | undefined>;
+export function t(key: string, params?: Record<string, string | number | boolean>, language?: Language): string;
+export function formatDate(value: Date | string | number, style?: 'date' | 'time' | (Intl.DateTimeFormatOptions & { kind?: 'time' }) | { options: Intl.DateTimeFormatOptions; kind?: 'time' }): string;
+export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string;
+export function formatCurrency(amountUsd: number, options?: { yenRate?: number; yenAmount?: number; yenOnly?: boolean; precision?: number }): string;
+export function compareText(a: string, b: string, options?: Intl.CollatorOptions): number;

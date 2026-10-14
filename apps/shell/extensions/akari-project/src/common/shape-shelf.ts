@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * 図形の棚の組み立て（行・すべて表示・最近使用・検索）の純関数。
  *
@@ -38,24 +39,24 @@ export const SHAPE_SHELF_RECENT_ROW_LIMIT = 12;
 export const SHAPE_SHELF_ROW_LIMIT = 14;
 
 export const SHAPE_SHELF_CATEGORY_LABELS: Readonly<Record<string, string>> = {
-    [SHAPE_SHELF_RECENT_KEY]: '最近使用した項目',
-    line: 'ライン',
-    basic: '基本の図形',
-    polygon: '多角形',
-    star: 'スター',
-    arrow: '矢印',
-    flow: 'フローチャート',
-    bubble: '吹き出し',
-    cloud: '雲',
-    heart: 'ハート',
-    banner: '横断幕・垂れ幕',
-    drop: '雫',
-    gear: '歯車',
-    asterisk: '四角い星・アスタリスク',
-    organic: '有機的',
-    wave: '波線',
-    abstract: '抽象的',
-    manga: '漫画の吹き出し'
+    [SHAPE_SHELF_RECENT_KEY]: t('project.library.shapeShelf.recentlyUsedLabel'),
+    line: t('project.library.shapeShelf.linesLabel'),
+    basic: t('project.library.shapeShelf.basicShapesLabel'),
+    polygon: t('project.library.shapeShelf.polygonsLabel'),
+    star: t('project.library.shapeShelf.starsLabel'),
+    arrow: t('project.library.shapeShelf.arrowsLabel'),
+    flow: t('project.library.shapeShelf.flowchartsLabel'),
+    bubble: t('project.library.shapeShelf.speechBubblesLabel'),
+    cloud: t('project.library.shapeShelf.cloudsLabel'),
+    heart: t('project.library.shapeShelf.heartsLabel'),
+    banner: t('project.library.shapeShelf.bannersLabel'),
+    drop: t('project.library.shapeShelf.dropsLabel'),
+    gear: t('project.library.shapeShelf.gearsLabel'),
+    asterisk: t('project.library.shapeShelf.squareStarsAsterisksLabel'),
+    organic: t('project.library.shapeShelf.organicLabel'),
+    wave: t('project.library.shapeShelf.wavyLinesLabel'),
+    abstract: t('project.library.shapeShelf.abstractLabel'),
+    manga: t('project.library.shapeShelf.comicSpeechBubblesLabel')
 };
 
 /** 棚の「ライン」行に出す 15 本（線種 3 × よく使う端の組）。全 45 本は「すべて表示」。 */

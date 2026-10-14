@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -81,12 +82,12 @@ export class RoughCanvasCommands implements CommandContribution {
     }
     private async openNew(): Promise<{ ok: boolean; reason?: string }> {
         const workspaceRoot = this.workspace.tryGetRoots()[0]?.resource;
-        if (!workspaceRoot) { this.messages.error('プロジェクトを開いてください。'); return { ok: false, reason: 'project-not-open' }; }
+        if (!workspaceRoot) { this.messages.error(t('annotations.roughCanvasCommands.text.pleaseOpenTheProject')); return { ok: false, reason: 'project-not-open' }; }
         const project = await this.files.exists(workspaceRoot.resolve('edit.json')) ? workspaceRoot : workspaceRoot.resolve('project');
         const edit = currentTimelineEditUri(project);
-        if (!await this.files.exists(edit)) { this.messages.error('タイムラインを開いてください。'); return { ok: false, reason: 'edit-not-found' }; }
+        if (!await this.files.exists(edit)) { this.messages.error(t('annotations.roughCanvasCommands.text.pleaseOpenYourTimeline')); return { ok: false, reason: 'edit-not-found' }; }
         const editUri = edit.toString();
-        let parsed: { output?: { width?: number; height?: number }; cuts?: EditCut[] } = {};
+        let parsed: { output?: { width?: number; height?: number; fps?: number }; cuts?: EditCut[] } = {};
         try { parsed = JSON.parse((await this.files.readFile(edit)).value.toString()); } catch { /* A blank paper still opens. */ }
         const w = parsed.output?.width, h = parsed.output?.height;
         const aspect = typeof w === 'number' && w > 0 && typeof h === 'number' && h > 0
@@ -96,7 +97,7 @@ export class RoughCanvasCommands implements CommandContribution {
             const playhead = capturedTime ?? await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => 0);
             const outputT = Number.isFinite(playhead) ? playhead : 0;
             let projected: ReturnType<typeof outputToSource> = { segment: null, sourceT: null };
-            try { projected = outputToSource(buildTimelineMap(parsed.cuts ?? []).segments, outputT); }
+            try { projected = outputToSource(buildTimelineMap(parsed.cuts ?? [], { fps: parsed.output?.fps }).segments, outputT); }
             catch { /* Keep the output time if an older edit cannot be projected. */ }
             return buildRoughCanvasSubject(outputT, selectionTargets(this.selection.snapshot),
                 { src: projected.segment?.src, sourceT: projected.sourceT, cutIndex: projected.segment?.cutIndex });
@@ -117,7 +118,8 @@ export class RoughCanvasCommands implements CommandContribution {
         const previewWidth = previewRect?.width;
         const popup = new RoughCanvasPopup({ projectRootUri: project.toString(), aspect, aspectSource,
             subject, subjectAtOpen, service: this.service, capture,
-            send: async packet => this.commands.executeCommand<boolean>('akari.partner.injectPrompt', packet).catch(() => false),
+            send: async packet => this.commands.executeCommand<true | 'copied' | false>('akari.partner.injectPrompt', packet)
+                .then(result => result === true || result === 'copied', () => false),
             notify: message => this.messages.info(message), previewWidth,
             previewRect: previewRect ? { left: previewRect.left, top: previewRect.top,
                 width: previewRect.width, height: previewRect.height } : undefined, backdrop });

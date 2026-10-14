@@ -1,383 +1,265 @@
-# 見せ場マーカーを演出へ連動させる（beats → SE 発火）
+# Connect highlight markers to effects (beats → SFX triggers)
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to workspace `library/`; without a workspace use legacy `~/.akari/assets/`. Check the actual location on the first line of `akari-assets list` (or `akari assets list`). Below, `<ライブラリの置き場>` means the displayed library path; audio is under its `audio/` directory.
 
-> **v2 注記**: edit.json v2 のトップレベルは exact で `beats` / `direction` を受け付けない。
-> 見せ場候補と強度は判断記録から読み、v2 の `edit.json` へこれらのキーを書かない。
-> 両語彙は v2 で廃止済みであり、消費者側コードも畳んだため、今後も復活させない。`tracks[].items[]` に置く演出だけを出力する。
+> **v2 note**: edit.json v2 has an exact top level and rejects `beats` / `direction`. Read highlight candidates and intensity from the decision record; do not write these keys to v2 `edit.json`. Both were retired in v2 and removed from consumer code; do not restore them. Output only effects placed in `tracks[].items[]`.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
 
-承認済みの `beats[]`（見せ場マーカー）から、既存の `edit.json` 語彙だけで「見せ場で鳴って画が動く」を
-組むための翻訳規約である。[beats.md](beats.md) が「見せ場をどう**書くか**」（導出規約）を定めるのに対し、
-本リーフは「書かれた見せ場をどう**使うか**」（消費規約）を定める。
+These rules turn approved `beats[]` highlight markers into sound and motion at highlights using only existing `edit.json` vocabulary. [beats.md](beats.md) defines how to **derive and record** highlights; this leaf defines how to **consume** them.
 
-[edit.json v1 見せ場マーカー契約](../../docs/contract-2026-07-22-edit-json-v1-beats.md) §6 は、
-「beats を読んで実際にどんな演出を発火するか」を契約スコープ外＝消費側の別契約と明記している。
-本リーフはその消費側規約の v0 であり、契約が消費側に課す 2 つの不変条件（source 秒アンカーの尊重・
-劣化規約の尊重）の上に立つ。
+The [edit.json v1 highlight-marker contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md) §6 explicitly leaves actual triggered effects outside its scope for a separate consumer contract. This leaf is v0 of that consumer rule and follows the two invariants the contract imposes on consumers: source-second anchors and degradation behavior.
 
-## v0 のスコープ（オーナー裁定済み・ここで広げない）
+## v0 scope (owner-approved; do not expand here)
 
-- SE は**手持ちライブラリのみ**を使う。新規取得・外部ダウンロードをしない。
-- 視覚トランジションの `edit.json` 語彙は未契約である。v0 の同時発火は
-  **SE + カット境界 + overlay 装飾**の 3 点で構成し、専用トランジション語彙を発明しない。
-- BGM は「冒頭とエンディングのみ」の既定を尊重し、**ビート連動の BGM 操作をしない**
-  （ダッキングは narration 由来の既存機構のまま。ビート連動の BGM 変化はツマミ導入まで席）。
-- 囲い・ラメ等の専用視覚部品の新設はスコープ外である（既存 overlay 部品の選択提案までは可）。
+- Use **only the existing library** for SFX. Do not acquire or download new sounds.
+- There is no contracted visual-transition `edit.json` vocabulary. Compose v0 simultaneous events from **SFX + cut boundary + overlay decoration**; do not invent dedicated transition fields.
+- Respect the BGM default of "opening and ending only" and **do not manipulate BGM in response to beats**. Ducking remains the existing narration-driven mechanism; beat-driven BGM changes await controls.
+- Creating new dedicated visual components such as outlines or glitter is out of scope; proposing existing overlay components is allowed.
 
-## 入力
+## Input
 
-- 入力は**人間承認済みの `beats[]`** である（[beats.md](beats.md) の導出規約 — 下限 `strength`
-  0.5 と根拠必須 — を通過したもの）。**承認前の beats から演出を組まない。**
-- 密度（60 秒あたりの件数・同一 kind の間隔）は導出段では課されていない。**演出過多の抑制は
-  本リーフの責務**であり、§評価順の「密度ガードレール」で射影後の timeline 秒に対して適用する。
-- 承認の記録は `decision-log.md`（[report-guide.md](report-guide.md#decision_log)）に残っている
-  ものを指す。無操作・タイムアウト・過去の包括承認を今回の承認に読み替えない。
-- **演出の強さの入力は `decision-log.md` の `preset` / `intensity` 判断**である。
-  本リーフの演出数値はすべてここから導く（§演出プリセットと `intensity` 写像）。`direction` が
-  無ければ既定動作（`youtube-long-standard` + `intensity` 50）で従来どおりに振る舞う。
+- Input is **human-approved `beats[]`**, passing [beats.md](beats.md)'s derivation floor `strength` 0.5 and evidence requirement. **Do not build effects from unapproved beats.**
+- Density (count per 60 seconds and spacing of the same kind) is not enforced at derivation. **This leaf must control excessive effects** using the post-projection timeline-second density guardrail under §Evaluation order.
+- Approval means a record in `decision-log.md` ([report-guide.md](report-guide.md#decision_log)). Do not treat inactivity, timeout, or past blanket approval as approval now.
+- **Effect strength comes from the approved `preset` / `intensity` decision in `decision-log.md`.** Derive all effect numbers below from it (§Effect presets and `intensity` mapping). Without `direction`, use the old default behavior, `youtube-long-standard` plus `intensity` 50.
 
-## 射影 — source 秒から timeline 秒へ
+## Projection — source seconds to timeline seconds
 
-`beats[].t` は **source 秒**である（[beats.md](beats.md) §座標 / beats 契約 §3）。発火位置は毎回
-visual 段の media item から計算し、計算結果を見せ場候補へ書き戻さない。
+`beats[].t` is in **source seconds** ([beats.md](beats.md) §Coordinates / beats contract §3). Compute trigger positions from visual-track media items each time; do not write projected results back into highlight candidates.
 
-- 見せ場候補の source 秒を media item の `source.in/out` と `at` で出力フレームへ射影し、**発火位置**とする。
-- 射影式は [execution.md](execution.md) §2 と同じ:
-  source 時刻 `s` が keep-range `[in, out)` にあるとき、
-  `timeline = （それ以前の keep-range 長の合計） + (s - in)`。
-- **一対多**（同一 beat の複数出現。同じ source 区間がタイムライン上に複数回現れる場合）は、
-  **出現ごとに発火**する。
-- **射影先 0 件の beat は発火なし**（カットで落とした区間の見せ場）。これは正常であり、
-  エラーでも warning でもない（beats 契約 §4）。
+- Project a highlight candidate's source seconds through media item `source.in/out` and `at` to output frames as its **trigger position**.
+- Use [execution.md](execution.md) §2's projection formula: for source time `s` within keep range `[in, out)`, `timeline = （それ以前の keep-range 長の合計） + (s - in)` (sum of earlier keep-range lengths plus `s - in`).
+- For a **one-to-many** projection (same beat/source interval occurs more than once on the timeline), **trigger once per occurrence**.
+- A beat with **zero projected positions has no trigger** (its interval was cut). This is normal, neither error nor warning (beats contract §4).
 
-## 演出プリセットと `intensity` 写像
+## Effect presets and `intensity` mapping
 
-本リーフの演出数値（強度ゲート・密度・`gain_db` の目安・儀式スナップ窓）は固定値ではなく、
-`decision-log.md` に承認済みの `preset` / `intensity` から**決定的に**導く。
-v2 の `edit.json` へ `direction` は書かない。**本節が写像の正である。**
+Effect numbers here (strength gate, density, suggested `gain_db`, ritual snap window) are **deterministically** derived from approved `preset` / `intensity` in `decision-log.md`, not fixed. Do not write `direction` into v2 `edit.json`. **This section is authoritative for the mapping.**
 
-### プリセット実パラメータ表（`intensity` = 50 のときの値）
+### Actual preset parameters (at `intensity` = 50)
 
-| パラメータ | `youtube-long-standard` | `shorts-high-energy` | `calm-explainer` |
+| Parameter | `youtube-long-standard` | `shorts-high-energy` | `calm-explainer` |
 |---|---|---|---|
-| 強度ゲート | 0.8 | 0.7 | 0.9 |
-| 密度: 60 秒あたり最大 | 2 件 | 4 件 | 1 件 |
-| 密度: 同 kind 間隔 | 20 秒 | 10 秒 | 30 秒 |
-| `gain_db` 基準（目安表の標準行） | -6 | -4 | -8 |
-| 儀式スナップ窓 | ±1.0 秒 | ±1.0 秒 | ±0.5 秒 |
+| Strength gate | 0.8 | 0.7 | 0.9 |
+| Density: maximum per 60 seconds | 2 | 4 | 1 |
+| Density: spacing of same kind | 20 seconds | 10 seconds | 30 seconds |
+| `gain_db` reference (standard row of guideline table) | -6 | -4 | -8 |
+| Ritual snap window | ±1.0 seconds | ±1.0 seconds | ±0.5 seconds |
 
-`preset` は enum ではない（契約 §2 / §3）。上表に無い `preset`（未知のプリセット）は下記の
-**既定動作**へフォールバックする。上表の 3 プリセット以外を勝手に増やさない
-（増設はオーナー裁定・別契約の仕事である）。
+`preset` is not an enum (contract §2 / §3). An unknown `preset` not in the table falls back to **default behavior** below. Do not add presets beyond these three; expansion requires an owner ruling and separate contract.
 
-### `intensity` 写像（全プリセット共通・決定的）
+### `intensity` mapping (deterministic across all presets)
 
-`i` = 判断記録の `intensity`（整数 `[0, 100]`。50 が基準）。上表の値を `base` として次で決まる。
+Let `i` be `intensity` in the decision record (integer `[0, 100]`, reference 50), and `base` the table value above. Then:
 
-| パラメータ | 写像式 | 備考 |
+| Parameter | Mapping | Notes |
 |---|---|---|
-| 強度ゲート | `gate = base - (i - 50) * 0.002` | `i=0` で +0.1・`i=100` で -0.1。`[0.5, 0.95]` にクランプ |
-| 60 秒あたり最大件数 | `max = round(base * (0.5 + i / 100))` | `i=0` で半分・`i=100` で 1.5 倍。最小 1 |
-| 同 kind 間隔 | `interval = base * (1.5 - i / 100)` 秒 | `i=0` で 1.5 倍・`i=100` で 0.5 倍 |
-| `gain_db` 目安表の 3 値 | `各値 + (i - 50) * 0.04` dB | `i=100` で +2 dB・`i=0` で -2 dB。`[-60, 12]` にクランプ |
-| 儀式スナップ窓 | **写像しない**（プリセット固有値のまま） | 儀式は `intensity` で増減しない |
+| Strength gate | `gate = base - (i - 50) * 0.002` | +0.1 at `i=0`, -0.1 at `i=100`; clamp to `[0.5, 0.95]` |
+| Maximum per 60 seconds | `max = round(base * (0.5 + i / 100))` | Half at `i=0`, 1.5× at `i=100`; minimum 1 |
+| Same-kind interval | `interval = base * (1.5 - i / 100)` seconds | 1.5× at `i=0`, 0.5× at `i=100` |
+| Three guideline `gain_db` values | `各値 + (i - 50) * 0.04` dB (each value plus the expression) | +2 dB at `i=100`, -2 dB at `i=0`; clamp to `[-60, 12]` |
+| Ritual snap window | **No mapping**; keep preset-specific value | Ritual does not change with `intensity` |
 
-- `round` は四捨五入（`.5` は大きい方へ）。件数は写像後に最小 1 でクランプする。
-- 途中式は丸めずに計算し、レポートへ書くときだけ表示桁を落とす。
-- 写像は**単調**である。`i` を上げると強度ゲートは下がり・件数上限は増え・同 kind 間隔は縮み・
-  `gain_db` は上がる。どれも「発火を減らす方向へは動かない」ため、**同一入力（同じ `beats[]` と
-  visual media item）に対する SE 件数は `i` について単調非減少**になる（減ることはない。増えるとは限らない）。
+- `round` means round half up (`.5` goes to the larger integer). Clamp mapped count to at least 1.
+- Do not round intermediate calculations; round only display precision in the report.
+- The mapping is **monotone**: as `i` rises, the strength gate falls, maximum count rises, same-kind spacing shrinks, and `gain_db` rises. None reduces triggering, so **for identical input (same `beats[]` and visual media items), SFX count is nondecreasing in `i`**; it cannot fall, though it need not increase.
 
-### `direction` 欠落時・不正時の既定動作
+### Default when `direction` is missing or invalid
 
-`direction` フィールドが無い、または劣化規約（契約 §5）で宣言ごと無視されたときは、
-**`preset` = `youtube-long-standard` + `intensity` = 50** として本リーフを適用する
-（契約 §5 の既定動作と同文）。このときの値は上表の 1 列目 = 強度ゲート 0.8 / 60 秒あたり最大
-2 件 / 同 kind 間隔 20 秒 / `gain_db` 標準 -6 / 儀式スナップ窓 ±1.0 秒であり、**`direction` 導入前に
-本リーフが固定値として書いていた数値と一致する**（現行動作の非退行）。
+When `direction` is missing or its entire declaration is ignored under degradation rules (contract §5), apply **`preset` = `youtube-long-standard` plus `intensity` = 50** (the same default as contract §5). The first table column then yields gate 0.8, maximum 2 per 60 seconds, same-kind spacing 20 seconds, standard `gain_db` -6, and ritual snap ±1.0 seconds. **These equal the fixed values before `direction` was introduced**, preserving behavior.
 
-### `intensity` に依存しないもの
+### Values independent of `intensity`
 
-次は `intensity` を動かしても変わらない。
+The following do not change with `intensity`:
 
-- **儀式スナップ窓**（プリセット固有値のまま。写像しない）
-- **儀式が強度ゲート・密度に優先する規則**（儀式スナップが成立した `turn` を密度で落とさない）
-- **同一時刻 ±0.5 秒以内に SE は 1 個**の制限（窓幅も「`strength` の高い方を残す」優先規則も固定）
-- **評価順そのもの**（射影 → 儀式スナップ → 強度ゲート → 密度 → ±0.5 秒制限 → 昇順追記）
+- **Ritual snap window**, kept preset-specific without mapping.
+- **Ritual priority over strength gate and density**: never drop a successfully ritual-snapped `turn` for density.
+- **One SFX within ±0.5 seconds of a time**: both window and "retain higher `strength`" priority are fixed.
+- **Evaluation order itself**: projection → ritual snap → strength gate → density → ±0.5-second limit → ascending append.
 
-## 評価順（決定的に処理する）
+## Evaluation order (deterministic)
 
-同じ見せ場候補と visual media item からは常に同じ audio item が出るように、次の順で処理する。
+Process in this order so identical highlight candidates and visual media items always produce identical audio items.
 
-1. **射影**: 全 beat を timeline 秒へ射影する（0 件の beat はここで脱落）。
-2. **章転換の儀式**: `turn` の射影先がカット境界の**儀式スナップ窓**以内なら、その境界時刻へ
-   スナップする（窓幅は §演出プリセットと `intensity` 写像。既定 ±1.0 秒）。
-3. **音楽グリッドスナップ**: **宣言済み BGM を敷いているときだけ**、まだ儀式スナップしていない
-   発火を音楽のキメ・小節頭・拍へ寄せる（§音楽グリッドへのスナップ。既定窓 ±0.12 秒）。
-4. **強度ゲート**: `strength` が**強度ゲート値**以上の beat のみ SE を残す（値は同節。既定 0.8。
-   2 で儀式が成立した `turn` は儀式側が優先し、ゲートで落とさない。§章転換の儀式を見る）。
-5. **密度ガードレール**: **射影後の timeline 秒**で「60 秒あたり最大件数」「同一 kind の連続は
-   同 kind 間隔以上空ける」を適用する（値は同節。既定 2 件 / 20 秒。§密度ガードレール）。
-6. **同時多発の制限**: 同一時刻 ±0.5 秒以内に SE が 2 個以上あれば、`strength` が高い beat を残す。
-7. **書き出し**: 残った発火を `audio.sfx[]` へ timeline 秒昇順で追記する。
+1. **Project** every beat to timeline seconds (zero-occurrence beats drop here).
+2. **Chapter-turn ritual**: If a `turn` projection is within the **ritual snap window** of a cut boundary, snap to that boundary (window from §Effect presets and `intensity` mapping; default ±1.0 seconds).
+3. **Music-grid snap**: **Only when declared BGM is present**, align triggers not already ritual-snapped to musical hits, downbeats, or beats (§Music-grid snapping; default window ±0.12 seconds).
+4. **Strength gate**: Keep SFX only for beats whose `strength` is at least the **strength-gate value** (derived from §Effect presets and `intensity` mapping; default 0.8). A `turn` ritual-snapped in step 2 takes priority and must not be dropped by this gate; see §Chapter-turn ritual.
+5. **Density guardrail**: On **projected timeline seconds**, apply maximum triggers per 60 seconds and minimum spacing of successive same-kind triggers (values derived from §Effect presets and `intensity` mapping; default 2 / 20 seconds; see §Density guardrail).
+6. **Near-simultaneous limit**: For two or more SFX within ±0.5 seconds of the same time, keep the beat with higher `strength`.
+7. **Write** surviving triggers to `audio.sfx[]` in ascending timeline seconds.
 
-評価順は **射影 → 儀式スナップ → 音楽グリッドスナップ → 強度ゲート → 密度 → ±0.5 秒制限 →
-昇順追記** である。音楽グリッドスナップは儀式の**後**に置く（儀式で合わせた画と音の同時切替を、
-音楽の拍で数十 ms 動かして壊さないため）。
+The order is **projection → ritual snap → music-grid snap → strength gate → density → ±0.5-second limit → ascending append**. Music-grid snap comes **after** ritual so a beat shift of tens of milliseconds cannot break a synchronized visual/audio turn.
 
-## 音楽グリッドへのスナップ（宣言済み BGM があるときだけ）
+## Music-grid snapping (only with declared BGM)
 
-**目的**: 発火を「だいたいその辺」ではなく**曲の拍の上**へ置く。数十 ms のズレでも、音楽に
-乗っていない SE は「後から貼った音」に聞こえる。宣言（耳で確かめた BPM・頭拍・キメ）がある
-BGM を敷いているときに限り、この段で寄せる。
+**Purpose**: Put triggers **on musical beats**, not approximately nearby. Even tens of milliseconds of mismatch can make SFX sound pasted on. Apply this stage only when the BGM has ear-verified declarations of BPM, first downbeat, and accent hits.
 
-### 前提（満たさなければこの段を丸ごと飛ばす）
+### Prerequisites (skip this entire stage if unmet)
 
-- `edit.json` の `audio.bgm.path` にトラックが指定されている
-- そのトラックの**宣言がある**（`<ライブラリ>/declarations.json` のキー = ファイル名の stem）
-- **推測しない**: 宣言が無い BGM の BPM をここで解析・推定しない。ユーザーが宣言を作りたい
-  場合は [declare-audio](../declare-audio/SKILL.md)、購入済みなら
-  `akari store install sounds-declaration-pack` を案内する（勝手に推定して拍に乗せない）
-- **宣言があること = 正しいことではない**。宣言データの `tempo_flag` は**プロンプト BPM の
-  遵守度**（注文どおりの速さで生成されたか）であって、宣言と実音の一致度ではない。宣言が
-  実音と合っているかは `grid_flag` を見る（`tempo_flag: ok` を「グリッド検証済み」と取り違え、
-  579 件の宣言全滅を見逃した事故の本体だった — `2026-08-19-audio-beatgrid-declaration-audit`）。
+- A track is specified at `audio.bgm.path` in `edit.json`.
+- That track **has a declaration** (keyed by filename stem in `<ライブラリ>/declarations.json`).
+- **Do not guess**: never analyze or infer BPM here for undeclared BGM. If the user wants a declaration, point to [declare-audio](../declare-audio/SKILL.md); for purchased tracks, point to `akari store install sounds-declaration-pack`. Do not align to an invented beat.
+- **A declaration may still be wrong.** `tempo_flag` measures **compliance with requested BPM** during generation, not alignment of declaration to actual audio. Check `grid_flag` for that. Mistaking `tempo_flag: ok` for verified grid alignment caused all 579 broken declarations to go unnoticed (`2026-08-19-audio-beatgrid-declaration-audit`).
 
-### グリッドの求め方（自分で計算しない）
+### Obtain the grid (do not calculate it yourself)
 
-宣言の秒は**曲の中の秒**であり、timeline 秒ではない。`audio.bgm.in`（頭出し）とループを
-考慮した変換は CLI が持っている。**手計算しない**。
+Declaration seconds are **song-local seconds**, not timeline seconds. The CLI handles `audio.bgm.in` (cue point) and loops. **Do not calculate the conversion by hand.**
 
 ```sh
 node packages/audio-library-setup/bin/beat-grid.mjs --edit <edit.json> --timeline <全長秒> \
   --snap 12.0,20.5 --window 0.12 --json
 ```
 
-- 出力の `grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` / `grid.sections[].start_frame`・
-  `end_frame` は**すべて timeline のフレーム番号**であり、timeline 秒ではない。出力側の時刻・尺は
-  映像も音も整数フレームで扱う規約のため（単位裁定 2026-08-19「出力側は映像も音も整数フレーム」。
-  CLI は内部で秒グリッドを計算したうえで `toFrameGrid` により変換して返す）。timeline 秒の欄
-  （`audio.sfx[].t` 等）へ書くときは `fps` で割って戻す。
-- `grid.seams` は**ループの継ぎ目**（曲が末尾から先頭へ飛ぶ位置）。ここは拍が乱れるので
-  **継ぎ目の前後（目安 ±0.3 秒相当のフレーム数）には発火を置かない**（置いても音楽的に決まらない）
-- `grid.sections` は構成（サビがどこか）。**サビ区間の中は密度を厳しくしない**（見せ場だから
-  発火が集まってよい）。逆に `intro` / `break` では既定どおり抑える
+- Output `grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` / `grid.sections[].start_frame` and `end_frame` are **all timeline frame numbers**, not timeline seconds. Output timing and duration use integer frames for both video and audio (2026-08-19 unit ruling). The CLI computes a seconds grid internally, then returns `toFrameGrid` conversion. Divide by `fps` when writing timeline-second fields such as `audio.sfx[].t`.
+- `grid.seams` marks **loop seams**, where the song jumps from end to beginning. The beat becomes unstable there; **do not trigger near a seam (about ±0.3 seconds in frames)** because it will not sound musically placed.
+- `grid.sections` gives song structure, including chorus. **Do not enforce density tightly within a chorus**, where highlights may cluster. Restrain it normally in `intro` / `break`.
 
-### スナップ規則
+### Snap rules
 
-- **優先順位はキメ（`hits`）> 小節頭（`downbeats`）> 拍（`beats`）**。窓内に複数あれば近い方、
-  等距離なら早い方（決定論）
-- **窓は ±0.12 秒**（既定）。窓の外なら**動かさない**（無理に寄せない）。`shorts-high-energy` の
-  ように刻みが速い演出では ±0.08 秒まで狭めてよい
-- **儀式スナップが成立した発火は動かさない**（評価順の理由）
-- 動かすのは `audio.sfx[].t` **だけ**。`beats[].t` は source 秒アンカーのまま書き換えない
-  （契約の不変条件。儀式スナップと同じ）
-- **BGM 側は一切触らない**（v0 スコープの「ビート連動の BGM 操作をしない」は不変。ここでやるのは
-  演出側を音楽に合わせることであって、音楽を演出に合わせることではない）
+- **Priority: accent `hits` > measure `downbeats` > `beats`.** Among points in the window, choose the nearest; break ties toward the earlier one (deterministic).
+- **Default window ±0.12 seconds.** Outside it, **do not move** the trigger. For tightly paced effects such as `shorts-high-energy`, the window may narrow to ±0.08 seconds.
+- **Do not move a ritual-snapped trigger** (reason for evaluation order).
+- Move **only** `audio.sfx[].t`. Do not rewrite source-anchored `beats[].t` (contract invariant, same as ritual snap).
+- **Do not touch BGM at all.** v0's no beat-driven BGM manipulation remains in force; effects align to music, not the reverse.
 
-### カット割りを拍に乗せる（写真の入れ替え）
+### Align cuts to beats (photo changes)
 
-スライドショー系（`beatslide` 等）で「写真が拍で入れ替わる」を作るときは、同じ CLI の
-`cut_candidates` を**素材計画の提案**として使う（既定は 1 小節 = 4 拍ごと）。
+For a slideshow such as `beatslide` with photos changing on beats, use the same CLI's `cut_candidates` as **asset-plan proposals** (default: every measure, four beats).
 
-- 採用は Checkpoint 2 / 3 の承認を通す。**候補をそのまま visual item に流し込まない**
-- カットの尺は素材の実尺で決まる。拍候補に合わせて素材を切り詰める場合は、
-  [execution.md](execution.md) のカット規約に従う（拍のために存在しない素材を作らない）
+- Adoption requires Checkpoint 2 / 3 approval. **Do not pour candidates directly into visual items.**
+- Source duration limits cut length. If trimming to a beat candidate, follow [execution.md](execution.md)'s cut rules; do not invent source material to satisfy a beat.
 
-### 記録
+### Record
 
-音楽スナップした発火は、`decision-log.md` の該当行に**寄せ幅と寄せ先の種類**を残す。
+For music-snapped triggers, record **shift amount and target type** in the corresponding `decision-log.md` row.
 
 ```text
 sfx b-0003 | 射影 31.42s → 音楽スナップ 31.38s（hit / -0.04s） | 宣言: bgm-beatslide-124-001
 ```
 
-## 密度ガードレール
+## Density guardrail
 
-演出過多を防ぐための規則である。**数値は `direction { preset, intensity }` から導く**
-（§演出プリセットと `intensity` 写像）。素材ジャンル・配信先による調整は `direction` 宣言の
-仕事であり、ここで勝手に緩めない。
+These rules prevent excessive effects. **Derive numbers from `direction { preset, intensity }`** (§Effect presets and `intensity` mapping). Genre or distribution-channel adjustment belongs in the `direction` declaration; do not relax values here on your own.
 
-- **60 秒あたり最大件数**（既定 preset・`i=50` で **2 件**）
-- **同一 kind の連続は同 kind 間隔以上空ける**（既定 preset・`i=50` で **20 秒**）
+- **Maximum count per 60 seconds** (**2** at default preset and `i=50`).
+- **Successive triggers of the same kind must be at least the same-kind interval apart** (**20 seconds** at default preset and `i=50`).
 
-適用のしかたは次のとおり。
+Apply them as follows:
 
-- **数える座標は射影後の timeline 秒**である。source 秒で数えると、カットで落とした区間の beat が
-  枠を消費し、生き残るべき発火を押し出す（この取りこぼしは dogfood で実測された。だから
-  [beats.md](beats.md) の導出段から本リーフの発火段へ移した）。
-- 枠を超えたときは **`strength` が高い方を残す**。同値なら timeline 秒が早い方を残す（決定性）。
-- **儀式スナップが成立した `turn` は密度でも落とさない**（強度ゲートに優先するのと同じ理由で、
-  章転換で音と画を同時に切り替える儀式が原理的に成立しなくなるため）。密度の件数勘定には
-  含めるが、落とす対象は儀式以外の発火から選ぶ。
-- 密度で落とした発火は「不採用候補」として編集判断レポート（[decision-log.md](report-guide.md#decision_log)）
-  に残す。落ちた beat は `beats[]` から消さない（**無音の見せ場**として残る）。
+- **Count in projected timeline seconds.** Source-second counting lets beats in cut-away intervals consume capacity and displace surviving triggers (measured in dogfooding; hence the rule moved from [beats.md](beats.md)'s derivation to this trigger stage).
+- When over capacity, **retain higher `strength`**; break ties toward earlier timeline seconds for determinism.
+- **Do not drop a ritual-snapped `turn` for density**, for the same reason it bypasses the strength gate: that would prevent a synchronized chapter turn. Include it in the density count, but choose drops from non-ritual triggers.
+- Record density-dropped triggers as rejected candidates in the editing decision record ([decision-log.md](report-guide.md#decision_log)). Do not remove their beats from `beats[]`; they remain **silent highlights**.
 
-## SE 発火規則
+## SFX trigger rules
 
-- `audio.sfx[]` に `{ path, t: <射影後 timeline 秒>, gain_db }` を追記する。**`gain_db` の既定は
-  目安表の標準行**（§`gain_db` の目安。既定 preset・`i=50` で **-6**）。
-  （`audio.sfx[].t` は**タイムライン秒**である。
-  [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio.md) §1 のフィールド表を見る。
-  `gain_db` のクランプ範囲は `[-60, 12]`。）
-- **同時多発の制限**: 同一時刻 ±0.5 秒以内に SE は 1 個までとする（`strength` が高い beat を優先）。
-  この窓幅は `intensity` に依存しない。
-- **密度ガードレール**: 射影後の timeline 秒で 60 秒あたり最大件数・同一 kind の連続は同 kind
-  間隔以上空ける（§密度ガードレール。既定 2 件 / 20 秒）。
-- **`strength` が強度ゲート値以上の beat のみ SE を付ける**（既定 preset・`i=50` で 0.8。
-  それ未満は**無音の見せ場**として残す）。
-  無音の見せ場は beats から消さない。SE を付けなかったという判断であり、見せ場でなくなった
-  わけではない。
+- Append `{ path, t: <射影後 timeline 秒>, gain_db }` to `audio.sfx[]`. **Default `gain_db` is the guideline table's standard row** (§`gain_db` guidance: **-6** for default preset and `i=50`). `audio.sfx[].t` is **timeline seconds** ([audio contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md) §1); `gain_db` clamps to `[-60, 12]`.
+- **Near-simultaneous limit**: at most one SFX within ±0.5 seconds of a time; prefer higher `strength`. This window does not depend on `intensity`.
+- **Density guardrail**: apply maximum per 60 seconds and minimum same-kind interval in post-projection timeline seconds (§Density guardrail; default 2 / 20 seconds).
+- **Attach SFX only to beats with `strength` at least the strength gate** (0.8 at default preset and `i=50`). Lower beats remain **silent highlights**. Do not remove them from beats; omitting SFX is an effect decision, not a judgment that the highlight vanished.
 
-### `gain_db` の目安
+### `gain_db` guidance
 
-下表は **`youtube-long-standard` の `intensity` = 50**（= `direction` 欠落時の既定動作）の値である。
-場面に合わせて次を目安に振る。
+The table is for **`youtube-long-standard` at `intensity` = 50** (the default with missing `direction`). Choose among these scene-sensitive guidelines:
 
-| 条件 | `gain_db` |
+| Condition | `gain_db` |
 |---|---|
-| `strength >= 0.9`、または hook の儀式的な一発 | -4 |
-| 標準 | -6 |
-| `emotion` kind・静かな場面・連続発火の 2 発目 | -8 |
+| `strength >= 0.9` or a ritual impact at the hook | -4 |
+| Standard | -6 |
+| `emotion` kind, quiet scene, or second successive trigger | -8 |
 
-**プリセットが変わると標準行が変わり**（`shorts-high-energy` は -4 / `calm-explainer` は -8。
-§プリセット実パラメータ表）、上下 2 行は標準行との相対差 +2 / -2 dB を保つ。さらに `intensity`
-に応じて 3 値すべてへ `(i - 50) * 0.04` dB を加える（§`intensity` 写像）。既定 preset での例:
+**Changing preset changes the standard row** (`shorts-high-energy` -4 / `calm-explainer` -8; §Actual preset parameters). Keep the other two rows at +2 / -2 dB relative to standard. Then add `(i - 50) * 0.04` dB to all three for `intensity` (§Mapping). Examples for the default preset:
 
-| `i` | 加算 | -4 の行 | 標準行 | -8 の行 |
+| `i` | Addition | -4 row | Standard row | -8 row |
 |---|---|---|---|---|
 | 30 | -0.8 dB | -4.8 | -6.8 | -8.8 |
 | 50 | ±0 dB | -4 | -6 | -8 |
 | 80 | +1.2 dB | -2.8 | -4.8 | -6.8 |
 
-範囲は音声契約の `[-60, 12]` クランプのままである。表以外の値を使ってもよいが、その場合は
-理由を編集レポートへ 1 行で記録する（**写像後の 3 値**は理由の記録を要しない既定である）。
+The audio contract's `[-60, 12]` clamp still applies. Other values are allowed only with one-line rationale in the editing report; the **three mapped values** are defaults requiring no rationale.
 
-## 章転換の儀式（turn beat）
+## Chapter-turn ritual (turn beat)
 
-射影先が**カット境界の儀式スナップ窓以内**（§演出プリセットと `intensity` 写像。既定 preset で
-±1.0 秒 / `calm-explainer` で ±0.5 秒。**`intensity` では動かない**）にある場合、SE の `t` は
-その**境界時刻へスナップ**する（音と画の切替を同時発火させる）。**境界から遠い `turn` は通常規則**
-（射影位置そのまま・強度ゲートも通常どおり）に従う。
+If a projected `turn` lies **within the ritual snap window of a cut boundary** (§Effect presets and `intensity` mapping; ±1.0 seconds for default preset, ±0.5 for `calm-explainer`; **not changed by `intensity`**), **snap** SFX `t` to that boundary for simultaneous audio and visual change. A `turn` **farther from boundaries follows ordinary rules**: keep its projected position and apply the strength gate normally.
 
-- カット境界の集合 = 各 keep-range の開始 timeline 秒（先頭の 0 を含む）+ タイムライン終端。
-- スナップは `audio.sfx[].t` にだけ効く。`beats[].t` は書き換えない（source 秒アンカー）。
-- **儀式は強度ゲートに優先する**。「境界から遠い `turn` は通常規則」という規定は、境界に近い
-  `turn` が通常規則の外にあることを意味する。[beats.md](beats.md) の既定マッピングでは
-  `chapter` event → `turn` の `strength` は 0.5 ±0.2（最大 0.7）であり、儀式がゲートに従属すると
-  `turn` の SE は原理的に発火しない。章転換で音と画を同時に切り替えるという儀式の目的が
-  成り立たなくなるため、スナップ窓以内の `turn` は強度ゲートを通さずスナップ発火させる。
-  ここは v0 の解釈であり、`direction` 導入後も**そのまま維持する**（儀式は `intensity` 非依存 =
-  演出を最小まで絞っても残る、契約 §4 の `intensity` = 0「演出最小限（儀式のみ）」と整合する）。
-  見直しはオーナー裁定による。
+- Cut boundaries are the timeline-second starts of all keep ranges (including initial 0) plus timeline end.
+- Snapping affects only `audio.sfx[].t`; do not rewrite source-anchored `beats[].t`.
+- **Ritual takes priority over the strength gate.** Ordinary rules for a distant `turn` mean a near-boundary `turn` is exceptional. Under [beats.md](beats.md)'s default mapping, a `chapter` event gives `turn` strength 0.5 ±0.2 (at most 0.7); if ritual depended on the strength gate, `turn` SFX could never fire. To preserve synchronized sound and image at chapter changes, snap-trigger any `turn` inside the window without passing it through the strength gate. **Keep this v0 interpretation** after `direction` adoption: ritual is independent of `intensity`, surviving even minimum effects, consistent with contract §4's `intensity` = 0, "minimal effects (ritual only)." Revision requires an owner ruling.
 
-## SE 既定表（kind → 手持ち SE）
+## Default SFX table (kind → existing SFX)
 
-### 探索層と充足状況（2026-07-22 実測）
+### Search layers and availability (measured 2026-07-22)
 
-素材の探索順は [report-guide.md](report-guide.md#素材計画) の全スコープ層（プロジェクト `assets/` →
-上位ディレクトリの `.akari/assets/` → `<ライブラリの置き場>/` → 製品リポ `assets/` →
-`catalog/`）に従う。2026-07-22 時点の実測は次のとおりである。
+Follow [report-guide.md](report-guide.md#asset-plan)'s full search order: project `assets/` → parent `.akari/assets/` → `<ライブラリの置き場>/` → product repository `assets/` → `catalog/`. Measurements on 2026-07-22 were:
 
-| 層 | 実体 | 状態 |
+| Layer | Contents | Status |
 |---|---|---|
-| 製品リポ `assets/audio/` | `INDEX.md` のみ（「まだ素材なし」） | **未充足**（全 kind） |
-| `catalog/audio/`（15 パック） | `meta.json` のみ。全件 `"remote": true` | **未充足**（参照配布のみ・実体バイナリを置かない規約） |
-| ユーザーライブラリ `<ライブラリの置き場>/audio/`（10 パック・340 ファイル） | 音源実体あり | **充足**（下表はここの実体を指す） |
+| Product repository `assets/audio/` | Only `INDEX.md` (no assets yet) | **Unfilled** for every kind |
+| `catalog/audio/` (15 packs) | Only `meta.json`; all `"remote": true` | **Unfilled** (references only; no binaries by rule) |
+| User library `<ライブラリの置き場>/audio/` (10 packs, 340 files) | Actual audio files | **Filled** (paths below refer here) |
 
-したがって**製品リポジトリ内には SE の実体が 1 件も無く、リポジトリ層としては 5 kind すべてが
-未充足**である。下表の既定はユーザーライブラリ層の実在ファイルであり、この層が無い環境では
-既定表は空になる。**未充足の kind・未充足の環境に対する調達は
-[setup-audio-library](../setup-audio-library/SKILL.md) 側の仕事であり、本リーフでは代用音源を
-勝手に選ばない。**
+Thus **the product repository has zero actual SFX, and its layer leaves all five kinds unfilled**. Table defaults are real files in the user library; without that layer the default table is empty. **Acquisition for missing kinds or environments belongs to [setup-audio-library](../setup-audio-library/SKILL.md); do not choose replacement audio on your own here.**
 
-### 既定表
+### Default table
 
-パス基点は `<ライブラリの置き場>/audio/`。`catalog/audio/<pack-id>/meta.json` が
-ライセンス・クレジット要件の正であり、下表の値はそれと突き合わせ済みである。
+Paths are relative to `<ライブラリの置き場>/audio/`. `catalog/audio/<pack-id>/meta.json` is authoritative for license and credit requirements; values below were checked against it.
 
-| kind | 音の性格 | 既定 SE（実在パス・優先順） | ライセンス | クレジット | 状態 |
+| kind | Sound character | Default SFX (real paths in priority order) | License | Credit | Status |
 |---|---|---|---|---|---|
-| `hook` | インパクト系（ドン/ガツン） | `soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3`<br>`soundeffect-lab-anime-direction-pack/シャキーン1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
-| `turn` | スウィッシュ系（シュッ/whoosh） | `soundeffect-lab-anime-direction-pack/シュッ！.mp3`<br>`soundeffect-lab-anime-direction-pack/シーン切り替え1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
-| `punchline` | ポップ/決定音系（ポン/ジャン） | `soundeffect-lab-ui-signal-pack/決定ボタンを押す1.mp3`<br>`soundeffect-lab-ui-signal-pack/決定ボタンを押す26.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
-| `reveal` | キラーン/チャイム系 | `soundeffect-lab-anime-direction-pack/きらーん1.mp3`<br>`musmus-onomatope-sfx-pack/チャイム.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | 1 点目は不要<br>2 点目は**必須**（下記 MusMus） | 充足（ライブラリ層） |
-| `emotion` | 控えめなポップ系（強い衝撃音を使わない） | `otologic-motion-pop-sfx-pack/Motion-Pop19-1.mp3`<br>`soundeffect-lab-anime-direction-pack/パッ.mp3` | CC-BY-4.0<br>LicenseRef-SoundEffectLab-Free | 1 点目は**必須**（下記 OtoLogic）<br>2 点目は不要 | 充足（ライブラリ層） |
-| `fail` | やらかし・がっかり（お鈴チーン/デデーン） | `soundeffect-lab-ui-signal-pack/チーン1.mp3`<br>`pocket-se-fail-pack/deden.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-PocketSound-Free | 1 点目は不要<br>2 点目は**必須**（下記 ポケットサウンド） | 充足（ライブラリ層） |
-| `wrong` | 不正解・NG 提示（ブブー） | `soundeffect-lab-ui-signal-pack/クイズ不正解1.mp3`<br>`maoudamashii-se-onepoint-category/ワンポイント33.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MaouDamashii-Free | 1 点目は不要<br>2 点目は**必須**（下記 魔王魂） | 充足（ライブラリ層） |
-| `correct` | 正解・肯定（ピンポン） | `soundeffect-lab-ui-signal-pack/クイズ正解2.mp3`<br>`soundeffect-lab-ui-signal-pack/クイズ正解3.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
-| `question` | 疑問・はてな | `dova-syndrome-hatena-mark-se/はてなマーク.mp3` | LicenseRef-DOVA-SYNDROME-Free | 不要（任意） | 充足（ライブラリ層） |
+| `hook` | Strong impact | `soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3`<br>`soundeffect-lab-anime-direction-pack/シャキーン1.mp3` | LicenseRef-SoundEffectLab-Free | Optional | Filled (library layer) |
+| `turn` | Swish/whoosh | `soundeffect-lab-anime-direction-pack/シュッ！.mp3`<br>`soundeffect-lab-anime-direction-pack/シーン切り替え1.mp3` | LicenseRef-SoundEffectLab-Free | Optional | Filled (library layer) |
+| `punchline` | Pop/confirmation | `soundeffect-lab-ui-signal-pack/決定ボタンを押す1.mp3`<br>`soundeffect-lab-ui-signal-pack/決定ボタンを押す26.mp3` | LicenseRef-SoundEffectLab-Free | Optional | Filled (library layer) |
+| `reveal` | Sparkle/chime | `soundeffect-lab-anime-direction-pack/きらーん1.mp3`<br>`musmus-onomatope-sfx-pack/チャイム.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | First optional<br>second **required** (MusMus below) | Filled (library layer) |
+| `emotion` | Soft pop; no harsh impact | `otologic-motion-pop-sfx-pack/Motion-Pop19-1.mp3`<br>`soundeffect-lab-anime-direction-pack/パッ.mp3` | CC-BY-4.0<br>LicenseRef-SoundEffectLab-Free | First **required** (OtoLogic below)<br>second optional | Filled (library layer) |
+| `fail` | Mistake/disappointment | `soundeffect-lab-ui-signal-pack/チーン1.mp3`<br>`pocket-se-fail-pack/deden.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-PocketSound-Free | First optional<br>second **required** (Pocket Sound below) | Filled (library layer) |
+| `wrong` | Incorrect/NG | `soundeffect-lab-ui-signal-pack/クイズ不正解1.mp3`<br>`maoudamashii-se-onepoint-category/ワンポイント33.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MaouDamashii-Free | First optional<br>second **required** (Maou Damashii below) | Filled (library layer) |
+| `correct` | Correct/affirmative | `soundeffect-lab-ui-signal-pack/クイズ正解2.mp3`<br>`soundeffect-lab-ui-signal-pack/クイズ正解3.mp3` | LicenseRef-SoundEffectLab-Free | Optional | Filled (library layer) |
+| `question` | Question/uncertainty | `dova-syndrome-hatena-mark-se/はてなマーク.mp3` | LicenseRef-DOVA-SYNDROME-Free | Optional | Filled (library layer) |
 
-`kind` は enum ではない（beats 契約 §2）。上表に無い `kind` の beat は既定 SE を持たないため、
-SE を付けずに無音の見せ場として残すか、素材計画としてチャットで提案して承認を得る。
+`kind` is not an enum (beats contract §2). A beat whose `kind` is absent from the table has no default SFX; keep it as a silent highlight or propose an SFX in chat as part of the asset plan and obtain approval.
 
-2026-07-31 改定: オーナー全件試聴（sfx-review）の per-file タグを根拠に `fail` / `wrong` /
-`correct` / `question` の 4 行を追加した。`fail` 1 点目のチーン1 は配布元公式説明が
-「がっかりした時の演出に」であり、**完了・決定の合図に使ってはならない**（誤用の前例があるため
-明記。ライブラリ各パックの `index.jsonl` に per-file の使う場面 / 使わない場面が焼き込まれて
-いるので、選定時はそれを参照する）。同改定で旧 `punchline` 2 点目（MusMus ポッ）はオーナー
-判断で除却され、効果音ラボ「決定ボタンを押す26」（公式説明「ポップなイメージ」）に差し替えた。
+2026-07-31 revision: added four rows, `fail` / `wrong` / `correct` / `question`, based on per-file tags from the owner's complete listening review (sfx-review). The provider describes first-choice `fail` file `チーン1` as an effect for disappointment; **never use it to signal completion or confirmation** (a prior misuse prompted this rule). Each library pack's `index.jsonl` records per-file use and non-use contexts; consult it at selection. The same revision removed the former second `punchline` choice (MusMus pop) by owner decision and replaced it with SoundEffectLab `決定ボタンを押す26` (official description: pop image).
 
-### 文脈による選び分け（優先順は既定のまま）
+### Select by context (default priority remains)
 
-既定は**機械的固定 = 常に優先順の 1 点目**である。そのうえで、**同 kind の表内・同ライセンス
-確認済みの範囲で、文脈（場面のトーン・直前 SE との重複回避）を理由に 2 点目以降や別採用を
-選んでよい。選んだ理由は編集レポートの選択根拠に 1 行で記録する（理由なき逸脱は不可 =
-既定の 1 点目）。**
+The **mechanically fixed default is always the first item** in priority order. **Within the same kind row and among license-checked options, you may select a second or later item, or a different item, when scene tone or avoiding repetition of the previous SFX provides a reason. Record that reason in one line of editing-report selection evidence (deviation without a reason is forbidden; the first item is the default).**
 
-- 選び分けの範囲は**同 kind の行の中**に限る。別 kind の行から借りてこない。
-- 2 点目以降が `attribution_required: true` のパックなら、採用した時点でクレジット文の義務が
-  発生する（§`attribution_required: true` の採用時に必要なクレジット文）。「同ライセンス確認済み」
-  とは、この義務まで確認したうえで選ぶという意味である。
-- 理由の例: 「直前 4.4 秒で `hook` 1 点目（和太鼓）が鳴っているため、22.0 秒の `turn` は重複を
-  避けて 2 点目のシーン切り替え音を採用」「静かな独白の場面のため `emotion` は 2 点目の軽い
-  『パッ』を採用」。
+- Choose **only within the same kind row**; do not borrow from another kind.
+- If a later choice belongs to a pack with `attribution_required: true`, adoption creates a credit-text obligation (§Credit required on adoption). License-checked means this obligation was checked too.
+- Example reasons: the first `hook` taiko already sounded at 4.4 seconds, so choose the second scene-change sound for `turn` at 22.0 to avoid repetition; or choose the second light pop for `emotion` in a quiet monologue.
 
-### `attribution_required: true` の採用時に必要なクレジット文
+### Credit text required on adoption of `attribution_required: true`
 
-採用したら編集レポートのクレジット文へ次の文言をそのまま載せる（`meta.json` の `ai_usage` に
-書かれた表記をそのまま使い、要約・言い換えをしない）。
+On adoption, include the following text verbatim in the editing report's credits. Use the `meta.json` `ai_usage` wording unchanged; do not summarize or paraphrase it.
 
-| パック | クレジット文 |
+| Pack | Credit text |
 |---|---|
-| `musmus-onomatope-sfx-pack` | `BGM:MusMus`（フル表記: `フリーBGM・音楽素材 MusMus https://musmus.main.jp`） |
+| `musmus-onomatope-sfx-pack` | `BGM:MusMus` (full form: `フリーBGM・音楽素材 MusMus https://musmus.main.jp`) |
 | `otologic-motion-pop-sfx-pack` | `音：OtoLogic（https://otologic.jp/）` |
-| `pocket-se-fail-pack` | `効果音：ポケットサウンド – https://pocket-se.info/`（リンクでも可） |
-| `maoudamashii-se-onepoint-category`（他 魔王魂系パック） | `音楽：魔王魂（https://maou.audio/）` |
+| `pocket-se-fail-pack` | `効果音：ポケットサウンド – https://pocket-se.info/` (a link is also allowed) |
+| `maoudamashii-se-onepoint-category` (and other Maou Damashii packs) | `音楽：魔王魂（https://maou.audio/）` |
 
-`attribution_required: false` のパック（効果音ラボ・DOVA-SYNDROME）はクレジット任意である。
-ただし効果音ラボ・MusMus・OtoLogic はいずれも**素材単体の再配布を禁じている**。採用 SE を
-プロジェクトへ複製するのは可だが、**公開リポジトリへコミットしない**。
+Credit is optional for `attribution_required: false` packs (SoundEffectLab and DOVA-SYNDROME). However, SoundEffectLab, MusMus, and OtoLogic all **forbid redistributing assets alone**. Copying adopted SFX into the project is allowed, but **never commit them to a public repository**.
 
-### プロジェクトへの取り込みとパス
+### Import into the project and paths
 
-`audio.sfx[].path` は edit.json からの相対パスまたは絶対パスである（音声契約 §2）。可搬性のため、
-採用した SE はプロジェクトの `assets/audio/<pack-id>/<file>` へ複製し、**相対パスで参照する**ことを
-既定とする（[execution.md](execution.md) §2 の「同一ツリーでは相対を使う」に従う）。複製しない
-運用ではライブラリ層の絶対パスを書いてもよいが、プロジェクトの可搬性は失われる。
+`audio.sfx[].path` may be relative to edit.json or absolute (audio contract §2). For portability, default to copying adopted SFX to project `assets/audio/<pack-id>/<file>` and **reference them by relative path**, following [execution.md](execution.md) §2's same-tree rule. An absolute library path is allowed when not copying, but the project loses portability.
 
-## overlay 装飾の選択肢
+## Overlay decoration options
 
-見せ場での視覚は、**カット境界の切替そのもの + 既存 overlay 部品（telop / motion カテゴリ）の
-提案まで**とする。
+At a highlight, visual treatment is limited to **the cut-boundary change itself plus proposed existing overlay components** (telop / motion categories).
 
-- 既存部品の選択は [overlay-authoring](../overlay-authoring/SKILL.md) のカテゴリから行い、
-  素材計画（Checkpoint 2）としてチャットで提案・承認を得る。
-- **部品の新設・トランジション語彙の発明をしない。** `edit.json` に `transition` 系の未契約
-  フィールドを足さない。囲い・ラメ等の専用視覚部品を新設しない。
-- HTML item を置く場合の `at` は SE と同じ出力フレームで揃える
-  （儀式でスナップした `turn` では、スナップ後の境界時刻へ揃える）。
+- Select existing components from [overlay-authoring](../overlay-authoring/SKILL.md)'s categories; propose them in chat and obtain asset-plan (Checkpoint 2) approval.
+- **Do not create components or invent transition vocabulary.** Do not add uncontracted `transition` fields to `edit.json` or create dedicated outline/glitter components.
+- If placing an HTML item, align its `at` output frame with SFX (for a ritual-snapped `turn`, use the snapped boundary frame).
 
 ## worked example
 
-### 入力 1 — `beats[]`（[beats.md](beats.md) の worked example の出力そのまま）
+### Input 1 — `beats[]` (exact output of [beats.md](beats.md)'s worked example)
 
-| id | kind | `t`（source 秒） | strength |
+| id | kind | `t` (source seconds) | strength |
 |---|---|---|---|
 | `b-0001` | `hook` | 12.4 | 0.8 |
 | `b-0002` | `turn` | 48.0 | 0.7 |
@@ -385,7 +267,7 @@ SE を付けずに無音の見せ場として残すか、素材計画として�
 | `b-0004` | `punchline` | 132.0 | 0.8 |
 | `b-0005` | `emotion` | 12.4 | 0.6 |
 
-### 入力 2 — visual media item（keep-range 3 件）
+### Input 2 — Visual media items (three keep ranges)
 
 ```json
 {
@@ -402,78 +284,65 @@ SE を付けずに無音の見せ場として残すか、素材計画として�
 }
 ```
 
-keep-range 長は 22.0 / 12.8 / 6.0 秒。timeline 上の区間と境界は次のとおり。
+Keep-range lengths are 22.0 / 12.8 / 6.0 seconds. Timeline intervals and boundaries are:
 
-| item | source `[in, out)` | timeline `[開始, 終了)` |
+| item | source `[in, out)` | timeline `[開始, 終了)` (start, end) |
 |---|---|---|
 | `clip-1` | `[8.0, 30.0)` | `[0.0, 22.0)` |
 | `clip-2` | `[47.2, 60.0)` | `[22.0, 34.8)` |
 | `clip-3` | `[94.0, 100.0)` | `[34.8, 40.8)` |
 
-カット境界の集合 = `{ 0.0, 22.0, 34.8, 40.8 }`（タイムライン長 40.8 秒）。
+Cut-boundary set = `{ 0.0, 22.0, 34.8, 40.8 }` (timeline length 40.8 seconds).
 
-### 射影と儀式（`intensity` 非依存の段）
+### Projection and ritual (independent of `intensity`)
 
-射影と儀式スナップは `direction` に依存しない（儀式スナップ窓は既定 preset で ±1.0 秒であり、
-`intensity` では動かない）。ここまでは 3 通りで共通である。
+Projection and ritual snapping do not depend on `direction` (`intensity` does not change the default preset's ±1.0-second ritual window). These steps are common to all three cases.
 
-| beat | 所属 cut | 先行 keep-range 長の合計 | `t - in` | 射影後 timeline 秒 | 最近傍境界との距離 | 儀式 |
+| beat | Containing cut | Earlier keep-range total | `t - in` | Projected timeline seconds | Distance to nearest boundary | Ritual |
 |---|---|---|---|---|---|---|
-| `b-0001` `hook` 0.8 | `cuts[0]` | 0.0 | `12.4 - 8.0 = 4.4` | **4.4** | `4.4 - 0.0 = 4.4` | 対象外（`turn` ではない） |
-| `b-0002` `turn` 0.7 | `cuts[1]` | 22.0 | `48.0 - 47.2 = 0.8` | 22.8 | `22.8 - 22.0 = 0.8 ≤ 1.0` | **成立 → 22.0 へスナップ** |
-| `b-0003` `emotion` 0.7 | `cuts[2]` | 34.8 | `96.2 - 94.0 = 2.2` | **37.0** | `37.0 - 34.8 = 2.2` | 対象外（`turn` ではない） |
-| `b-0004` `punchline` 0.8 | なし（`132.0` はどの keep-range にも含まれない） | — | — | — | — | — |
-| `b-0005` `emotion` 0.6 | `cuts[0]` | 0.0 | `12.4 - 8.0 = 4.4` | **4.4** | `4.4 - 0.0 = 4.4` | 対象外（`turn` ではない） |
+| `b-0001` `hook` 0.8 | `cuts[0]` | 0.0 | `12.4 - 8.0 = 4.4` | **4.4** | `4.4 - 0.0 = 4.4` | Inapplicable (not `turn`) |
+| `b-0002` `turn` 0.7 | `cuts[1]` | 22.0 | `48.0 - 47.2 = 0.8` | 22.8 | `22.8 - 22.0 = 0.8 ≤ 1.0` | **Applies → snap to 22.0** |
+| `b-0003` `emotion` 0.7 | `cuts[2]` | 34.8 | `96.2 - 94.0 = 2.2` | **37.0** | `37.0 - 34.8 = 2.2` | Inapplicable (not `turn`) |
+| `b-0004` `punchline` 0.8 | None (`132.0` outside all keep ranges) | — | — | — | — | — |
+| `b-0005` `emotion` 0.6 | `cuts[0]` | 0.0 | `12.4 - 8.0 = 4.4` | **4.4** | `4.4 - 0.0 = 4.4` | Inapplicable (not `turn`) |
 
-`b-0004` は**射影先 0 件**であり、以降どの `intensity` でも発火しない（正常）。
+`b-0004` has **zero projections** and does not trigger at any later `intensity` (normal).
 
-### `intensity` 30 / 50 / 80 の比較（`preset` = `youtube-long-standard`）
+### Compare `intensity` 30 / 50 / 80 (`preset` = `youtube-long-standard`)
 
-適用後パラメータ（§`intensity` 写像の途中式）:
+Mapped parameters (intermediate calculations from §`intensity` mapping):
 
-| パラメータ | `i=30` | `i=50` | `i=80` |
+| Parameter | `i=30` | `i=50` | `i=80` |
 |---|---|---|---|
-| 強度ゲート `0.8 - (i-50)*0.002` | `0.8 - (-20)*0.002 =` **0.84** | `0.8 - 0*0.002 =` **0.8** | `0.8 - 30*0.002 =` **0.74** |
-| 60 秒あたり最大 `round(2*(0.5+i/100))` | `round(2*0.8) = round(1.6) =` **2 件** | `round(2*1.0) =` **2 件** | `round(2*1.3) = round(2.6) =` **3 件** |
-| 同 kind 間隔 `20*(1.5-i/100)` | `20*1.2 =` **24 秒** | `20*1.0 =` **20 秒** | `20*0.7 =` **14 秒** |
-| `gain_db` 標準行 `-6 + (i-50)*0.04` | `-6 - 0.8 =` **-6.8** | **-6** | `-6 + 1.2 =` **-4.8** |
-| 儀式スナップ窓（写像しない） | ±1.0 秒 | ±1.0 秒 | ±1.0 秒 |
+| Strength gate `0.8 - (i-50)*0.002` | `0.8 - (-20)*0.002 =` **0.84** | `0.8 - 0*0.002 =` **0.8** | `0.8 - 30*0.002 =` **0.74** |
+| Maximum per 60 seconds `round(2*(0.5+i/100))` | `round(2*0.8) = round(1.6) =` **2** | `round(2*1.0) =` **2** | `round(2*1.3) = round(2.6) =` **3** |
+| Same-kind interval `20*(1.5-i/100)` | `20*1.2 =` **24 seconds** | `20*1.0 =` **20 seconds** | `20*0.7 =` **14 seconds** |
+| Standard `gain_db` row `-6 + (i-50)*0.04` | `-6 - 0.8 =` **-6.8** | **-6** | `-6 + 1.2 =` **-4.8** |
+| Ritual snap window (not mapped) | ±1.0 seconds | ±1.0 seconds | ±1.0 seconds |
 
-各通りの強度ゲート判定と発火:
+Strength-gate outcomes and triggers in each case:
 
-| beat（射影後） | `i=30`（ゲート 0.84） | `i=50`（ゲート 0.8） | `i=80`（ゲート 0.74） |
+| Beat (projected) | `i=30` (gate 0.84) | `i=50` (gate 0.8) | `i=80` (gate 0.74) |
 |---|---|---|---|
-| `b-0001` `hook` 0.8 @ 4.4 | 0.8 < 0.84 → **不通過** | 0.8 ≥ 0.8 → 通過 | 0.8 ≥ 0.74 → 通過 |
-| `b-0002` `turn` 0.7 @ 22.0（儀式成立） | 儀式が優先 → **発火** | 儀式が優先 → **発火** | 儀式が優先 → **発火** |
-| `b-0003` `emotion` 0.7 @ 37.0 | 0.7 < 0.84 → 不通過 | 0.7 < 0.8 → 不通過 | 0.7 < 0.74 → 不通過 |
-| `b-0004` `punchline` 0.8 | 射影先 0 件 | 射影先 0 件 | 射影先 0 件 |
-| `b-0005` `emotion` 0.6 @ 4.4 | 0.6 < 0.84 → 不通過 | 0.6 < 0.8 → 不通過 | 0.6 < 0.74 → 不通過 |
-| **発火した SE** | 22.0 `turn` | 4.4 `hook` / 22.0 `turn` | 4.4 `hook` / 22.0 `turn` |
-| **件数** | **1** | **2** | **2** |
+| `b-0001` `hook` 0.8 @ 4.4 | 0.8 < 0.84 → **fail** | 0.8 ≥ 0.8 → pass | 0.8 ≥ 0.74 → pass |
+| `b-0002` `turn` 0.7 @ 22.0 (ritual applies) | Ritual priority → **trigger** | Ritual priority → **trigger** | Ritual priority → **trigger** |
+| `b-0003` `emotion` 0.7 @ 37.0 | 0.7 < 0.84 → fail | 0.7 < 0.8 → fail | 0.7 < 0.74 → fail |
+| `b-0004` `punchline` 0.8 | Zero projections | Zero projections | Zero projections |
+| `b-0005` `emotion` 0.6 @ 4.4 | 0.6 < 0.84 → fail | 0.6 < 0.8 → fail | 0.6 < 0.74 → fail |
+| **Triggered SFX** | 22.0 `turn` | 4.4 `hook` / 22.0 `turn` | 4.4 `hook` / 22.0 `turn` |
+| **Count** | **1** | **2** | **2** |
 
-密度ガードレールの検算: 発火候補は `i=30` が 1 件・`i=50` が 2 件（上限 2 ちょうど）・`i=80` が
-2 件（上限 3 に対し余裕）で、タイムライン長 40.8 秒のどの 60 秒窓を取っても上限内である。
-同一 kind の連続は 3 通りとも無い（`hook` と `turn`）ため、同 kind 間隔（24 / 20 / 14 秒）の
-規則にも触れない。落ちる発火は 3 通りとも 0 件である。
+Density check: `i=30` has one trigger, `i=50` two (exactly its cap of two), and `i=80` two (below its cap of three). Any 60-second window on this 40.8-second timeline stays within the cap. No case has successive triggers of the same kind (`hook` and `turn` differ), so intervals of 24 / 20 / 14 seconds are not violated. Zero triggers fall to density in all three cases.
 
-同時多発の制限の検算: `i=50` / `i=80` の発火は 4.4 と 22.0 の 2 件で差は 17.6 秒。±0.5 秒以内の
-重なりは無いためどちらも残る。`b-0005` は `b-0001` と同じ 4.4 へ射影されるが、3 通りとも
-その前の強度ゲートで脱落しているため ±0.5 秒の競合にはならない（仮に `b-0005` がゲート以上
-だったなら、`strength` の高い `b-0001` が残る）。
+Near-simultaneous check: at `i=50` / `i=80`, triggers at 4.4 and 22.0 are 17.6 seconds apart, so both survive the ±0.5-second rule. `b-0005` projects to 4.4 like `b-0001`, but fails the earlier strength gate in all cases. If it had passed, higher-strength `b-0001` would survive.
 
-**単調性の確認**: SE 件数は **1（`i=30`）≤ 2（`i=50`）≤ 2（`i=80`）** で単調非減少である。
-`i=50 → 80` で増えていないのは、ゲートが 0.74 まで下がってもこの入力に `[0.74, 0.8)` の
-`strength` を持つ beat が存在しない（次点が 0.7）ためであり、写像が単調でも件数が必ず増えるとは
-限らないことの実例である。逆向き（`i` を上げて件数が減る）は写像の単調性から起きない。
+**Monotonicity check**: SFX counts are **1 (`i=30`) ≤ 2 (`i=50`) ≤ 2 (`i=80`)**, nondecreasing. No increase at `i=50 → 80` occurs because there is no beat with `strength` in `[0.74, 0.8)` (next is 0.7), even though the gate falls to 0.74. A monotone mapping need not increase counts each time; increasing `i` cannot lower them.
 
-`gain_db` は各通りとも標準行の値（-6.8 / -6 / -4.8）とした（`strength` は 0.8 で 0.9 未満、
-`hook` の 4.4 秒は儀式スナップではないため -4 の行の条件に当たらない）。SE はいずれも既定表の
-1 点目であり、文脈による選び分けを行っていないため選択根拠の追記も発生しない。
+Each case uses the standard `gain_db` row (-6.8 / -6 / -4.8): strength 0.8 is below 0.9 and the 4.4-second `hook` is not ritual-snapped, so the -4 row does not apply. Every SFX uses the first item in its default row; no contextual deviation means no extra selection-rationale row.
 
-### 出力 — v2 `edit.json`（`i=50` の要点）
+### Output — v2 `edit.json` (`i=50` highlights)
 
-`preset` / `intensity` と見せ場候補は `decision-log.md` に残し、v2 のトップレベルへは書かない。
-演出結果だけを audio 段の item として書く。30fps の例:
+Keep `preset` / `intensity` and highlight candidates in `decision-log.md`, not at the v2 top level. Write only effect results as audio-track items. Example at 30fps:
 
 ```json
 {
@@ -502,13 +371,11 @@ keep-range 長は 22.0 / 12.8 / 6.0 秒。timeline 上の区間と境界は次�
 }
 ```
 
-`i=30` / `i=80` でも判断記録だけが変わり、採用された演出 item の数・位置・音量だけを v2 語彙で更新する。
+For `i=30` / `i=80`, only the decision record changes; update only the count, position, and gain of adopted effect items in v2 vocabulary.
 
-### 検証（2026-07-23 実測 / `intensity` 3 通り）
+### Validation (measured 2026-07-23 / three `intensity` values)
 
-3 通りそれぞれを `edit.json` として別々の一時プロジェクトへ置き、SE を
-`assets/audio/<pack-id>/` へ実体配置して検証した（`analysis.json` は `duration: 180` のみ、
-`source.mp4` は実ファイル。3 プロジェクトとも同じ素材構成）。
+Each of the three cases was validated in a separate temporary project's `edit.json`, with real SFX placed in `assets/audio/<pack-id>/` (`analysis.json` contained only `duration: 180`; `source.mp4` was real; all three projects used the same asset structure).
 
 ```
 $ node packages/schemas/bin/validate-edit.mjs <tmp>/proj-i30/edit.json
@@ -527,72 +394,44 @@ $ node packages/edit-lint/bin/edit-lint.mjs <tmp>/proj-i80
 PASS: <tmp>/proj-i80 (0 findings, 4 skipped)          # exit 0 / 0.104s
 ```
 
-`gain_db` の写像後の値（-6.8 / -4.8）が音声契約の `[-60, 12]` クランプ内であることも、この
-PASS で機械的に確認されている。参照解決が実際に効いていることは、SE 1 点を退避した状態で
-`[warning] audio.sfx.file: sfx path does not resolve to a regular file: ...` が 1 件出ることで確認した
-（戻すと 0 findings に復帰）。
+Those PASS results also confirm mapped `gain_db` values -6.8 / -4.8 lie within the audio contract's `[-60, 12]` clamp. Path resolution was checked by temporarily removing one SFX, producing one `[warning] audio.sfx.file: sfx path does not resolve to a regular file: ...`, then restoring it to return to zero findings.
 
-## 検証
+## Validation
 
-書いた `audio.sfx[]` は既存の検証手順（[execution.md](execution.md) §4 の
-[edit-lint](../edit-lint/SKILL.md) 実行）で `edit.json` ごと検証する。edit-lint は次を見る。
+Validate written `audio.sfx[]` with the existing `edit.json` procedure, [edit-lint](../edit-lint/SKILL.md) in [execution.md](execution.md) §4. edit-lint checks:
 
-- `audio.sfx[].t` が負・非有限ならエラー、タイムライン長を超えていれば warning。
-- `audio.sfx[].gain_db` が `[-60, 12]` の外ならエラー。
-- `audio.sfx[].path` が実ファイルへ解決できなければ warning（音声は装飾であり、映像本体の
-  書き出し成否を左右しない — 音声契約 §5 の劣化規約）。**warning でも放置しない。**
-  パス誤り・未取り込みのまま書き出すと無音で仕上がる。
+- Negative or nonfinite `audio.sfx[].t` is an error; beyond timeline length is a warning.
+- `audio.sfx[].gain_db` outside `[-60, 12]` is an error.
+- `audio.sfx[].path` failing to resolve to a real file is a warning (audio is decorative and does not determine video export success, per audio contract §5 degradation). **Do not leave even this warning unresolved**: exporting with a wrong or unfetched path yields silence.
 
-## よくある間違い
+## Common mistakes
 
-- 承認前の `beats[]` から先回りして SE を組む。
-- `audio.sfx[].t` に source 秒（`beats[].t`）をそのまま書く。SE は timeline 秒である。
-- 射影結果を `beats[].t` へ書き戻す。beats は素材の事実であり、カットを変えるたびにずれる値を
-  焼き込まない。
-- 射影先 0 件の beat を「取りこぼし」と誤認し、cuts を変えてでも鳴らそうとする
-  （カットで落とした見せ場が鳴らないのは正常）。
-- 強度ゲート未満の `strength` の beat に SE を付けて演出過多にする（既定 preset・`i=50` なら
-  0.8 未満）。無音の見せ場を残すのが既定である。
-- `decision-log.md` の `preset` / `intensity` を見ずに、強度ゲート 0.8 / 密度 2 件・20 秒 / スナップ窓 ±1.0 秒を
-  固定値として使う。これらは承認済み判断から導く値であり、既定 preset・
-  `i=50` のときだけ従来の固定値と一致する。
-- `intensity` を「なんとなく強め・弱め」と定性的に解釈する。写像式（§`intensity` 写像）で
-  数値へ落とし、途中式をレポートに残す。
-- **宣言の無い BGM の BPM を推定して拍に乗せる**（§音楽グリッドへのスナップの前提。宣言が
-  無ければこの段は丸ごと飛ばし、必要なら declare-audio / 宣言パックを案内する）。
-- **宣言の秒（曲の中の秒）を timeline 秒として扱う**。`audio.bgm.in` とループのぶんずれる。
-  変換は `bin/beat-grid.mjs` に任せ、手計算しない。
-- **`grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` を timeline 秒だと思って
-  そのまま `audio.sfx[].t` へ書く**。これらは timeline の**フレーム番号**である
-  （単位裁定 2026-08-19「出力側は映像も音も整数フレーム」）。timeline 秒の欄へ書くときは
-  `fps` で割ってから使う。
-- **ループの継ぎ目に発火を置く**（`grid.seams` 周辺 = 曲が末尾から先頭へ飛ぶ位置）。
-  拍が合っていても音楽的に決まらない。
-- **宣言データの `tempo_flag: ok` を「グリッドが正しい」と読む**。`tempo_flag` はプロンプト
-  BPM の遵守度でしかない。宣言と実音の一致度は `grid_flag` で見る。
-- 音楽スナップで `beats[].t` を動かす、または BGM 側（`audio.bgm`）を拍に合わせて操作する
-  （動かすのは `audio.sfx[].t` だけ。BGM 操作は v0 スコープ外）。
-- `intensity` で儀式スナップ窓を伸縮させる、または `intensity` を下げて儀式スナップ済みの `turn`
-  を消す。儀式は `intensity` 非依存であり、`intensity` = 0 でも残る。
-- 判断記録の値が壊れているのを理由に書き出しを止める。値を捨てて既定動作
-  （`youtube-long-standard` + `intensity` 50）へ倒すのが劣化規約である。
-- 同一時刻 ±0.5 秒に SE を重ねる（複数の beat が近接したら `strength` の高い 1 件だけを残す）。
-- `turn` のスナップで `beats[].t` を境界へ動かす（動かすのは `audio.sfx[].t` だけ）。
-- 密度ガードレールを **source 秒**（`beats[].t`）で数える。数えるのは射影後の timeline 秒であり、
-  カットで落とした区間の beat に枠を消費させない。
-- 密度を導出段（[beats.md](beats.md)）へ持ち帰って beats 自体を間引く。beats は素材の事実であり、
-  間引くのは発火の方である。
-- 密度ガードレールで儀式スナップ済みの `turn` を落とす（章転換の儀式は密度にも優先する）。
-- 密度で落とした発火を `decision-log.md` に残さず、黙って消す。
-- 評価順を入れ替える（例: ±0.5 秒制限を密度より先に効かせる）。順は
-  射影 → 儀式スナップ → 強度ゲート → 密度 → ±0.5 秒制限 → 昇順追記で固定である。
-- 既定表の 2 点目以降を採用したのに、選んだ理由を編集レポートの選択根拠へ 1 行で残さない
-  （理由なき逸脱は不可。既定は 1 点目である）。
-- 文脈の選び分けと称して**別 kind の行**から音を借りる、または表外・ライセンス未確認の音源を使う。
-- `gain_db` を目安表以外の値にしたのに理由を記録しない。逆に、**写像後の**目安表の 3 値
-  （既定 preset・`i=50` で -4 / -6 / -8）へいちいち理由を書く必要はない。
-- 既定表に無い kind へ「近そうな音」を勝手に割り当てる。未充足は未充足として残し、調達は
-  setup-audio-library に回す。
-- ビートに合わせて BGM の音量・曲を切り替える（v0 では BGM を触らない）。
-- `edit.json` に未契約のトランジションフィールドを足す、または見せ場用の新規 overlay 部品を新設する。
-- `attribution_required: true` の SE を採用したのにクレジット文を編集レポートへ載せない。
+- Building SFX from `beats[]` before approval.
+- Copying source seconds (`beats[].t`) into `audio.sfx[].t`, which requires timeline seconds.
+- Writing projected times back into `beats[].t`; beats are source facts and must not bake in a value that changes with cuts.
+- Treating a zero-projection beat as a missed trigger and changing cuts just to make it sound; a cut-away highlight normally has no trigger.
+- Adding SFX to a beat below the strength gate (below 0.8 at default preset and `i=50`), causing excessive effects. Silent highlights are the default.
+- Using gate 0.8, density 2 per 60 seconds / 20-second spacing, and ±1.0-second snap as fixed values without checking `preset` / `intensity` in `decision-log.md`. Derive them from the approved choice; they equal old fixed values only for default preset and `i=50`.
+- Interpreting `intensity` qualitatively as vaguely stronger or weaker. Apply the §`intensity` formulas and record intermediate calculations.
+- **Estimating BPM for undeclared BGM and snapping to it.** Without a declaration, skip music-grid snapping entirely and, if needed, point to declare-audio or the declaration pack.
+- **Treating declaration seconds (song-local) as timeline seconds.** `audio.bgm.in` and loops shift them. Use `bin/beat-grid.mjs`; do not calculate by hand.
+- **Writing `grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` directly into `audio.sfx[].t` as though they were timeline seconds.** They are timeline **frame numbers** (2026-08-19 unit ruling); divide by `fps` for a timeline-second field.
+- **Triggering at a loop seam** around `grid.seams`; even a nominally aligned beat will not sound right there.
+- **Reading `tempo_flag: ok` as "the grid is correct."** `tempo_flag` measures requested-BPM compliance only; use `grid_flag` for alignment with actual audio.
+- Moving `beats[].t` during music snapping or manipulating BGM (`audio.bgm`) to fit beats. Move only `audio.sfx[].t`; BGM manipulation is outside v0 scope.
+- Scaling the ritual snap window with `intensity` or dropping a ritual-snapped `turn` when `intensity` falls. Ritual is independent and survives at `intensity` = 0.
+- Stopping export because decision-record values are corrupt. Degradation discards them and uses `youtube-long-standard` plus `intensity` 50.
+- Layering SFX within ±0.5 seconds; retain only the beat with higher `strength`.
+- Moving `beats[].t` to a boundary for `turn`; move only `audio.sfx[].t`.
+- Counting density in **source seconds** (`beats[].t`), rather than projected timeline seconds; cut-away beats must not consume capacity.
+- Thinning beats at derivation in [beats.md](beats.md); beats are source facts, so thin triggers instead.
+- Dropping a ritual-snapped `turn` for density; chapter ritual takes priority.
+- Silently dropping a density-rejected trigger without recording it in `decision-log.md`.
+- Reordering evaluation (such as applying the ±0.5-second limit before density). Fixed order is projection → ritual snap → strength gate → density → ±0.5-second limit → ascending append.
+- Adopting a second or later default-table SFX without a one-line selection rationale. Unexplained deviation is forbidden; the first is default.
+- Borrowing sound from **another kind row** under cover of contextual selection, or using an unlisted or license-unchecked sound.
+- Using a `gain_db` outside the guidance table without recording why; conversely, the **mapped** three guidance values (-4 / -6 / -8 at default preset and `i=50`) need no individual rationale.
+- Assigning a "similar-sounding" SFX to a kind missing from the table. Leave it unfilled and refer acquisition to setup-audio-library.
+- Changing BGM gain or tracks on beats; v0 does not touch BGM.
+- Adding an uncontracted transition field to `edit.json` or creating a new highlight overlay component.
+- Adopting SFX with `attribution_required: true` without the required credit in the editing report.

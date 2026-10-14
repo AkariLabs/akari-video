@@ -198,6 +198,51 @@ const caption = {
   edited: false,
 };
 
+test("unresolved_runs を持つ見た目 v1 の字幕は通る", () => {
+  const executed = runValue({
+    captions: [{ ...caption, style_sources: {}, runs: [
+      { id: "r-0001", from: 0, to: 2, look: { color: "#ff0000" } },
+    ] }],
+    unresolved_runs: [{
+      run: { id: "r-0002", from: 0, to: 2 },
+      old_caption_id: caption.id,
+      old_text: caption.text,
+      old_src: null,
+      old_start: caption.start,
+      old_end: caption.end,
+      reason: "移動先を確認中",
+    }],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /u);
+});
+
+test("表示文字数を超える見た目 v1 の run は文書の意味で落ちる", () => {
+  const executed = runValue({ captions: [{ ...caption, runs: [
+    { id: "r-0001", from: 0, to: 100 },
+  ] }] });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /^NG: /u);
+  assert.match(executed.stderr, /captions\.run\.range/u);
+});
+
+test("範囲外の runs v0 は従来どおり通る", () => {
+  const executed = runValue({ captions: [{ ...caption, runs: [
+    { from: 0, to: 100, role: "emphasis" },
+  ] }] });
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /u);
+  assert.doesNotMatch(executed.stderr, /警告:/u);
+});
+
+test("字幕の runs はスキーマにあるキーとして受理し、未知のキーは拒否する", () => {
+  const withRuns = { ...caption, runs: [{ from: 0, to: 2, role: "emphasis", style: { color: "#ff0000" } }] };
+  assert.equal(runValue({ captions: [withRuns] }).status, 0);
+  const unknown = runValue({ captions: [{ ...withRuns, unknown_field: true }] });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /未知のキーがあります: unknown_field/u);
+});
+
 test("karaoke / pop の語時刻なしを警告し、語時刻ありなら警告しない", () => {
   for (const style of ["karaoke", "pop"]) {
     for (const words of [undefined, [], [{ text: caption.text, start: 0, end: 2 }]]) {

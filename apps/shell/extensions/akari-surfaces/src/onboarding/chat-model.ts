@@ -1,8 +1,8 @@
 export interface ChatLine { kind: 'text' | 'code'; text: string }
 export interface ChatMessage { role: 'user' | 'assistant'; lines: ChatLine[] }
 
-export function groupChatLines(lines: string[]): { note?: string; messages: ChatMessage[] } {
-    const note = lines[0]?.startsWith('完成例です。') ? lines[0] : undefined;
+export function groupChatLines(lines: string[], expectedNote?: string): { note?: string; messages: ChatMessage[] } {
+    const note = expectedNote && lines[0] === expectedNote ? lines[0] : undefined;
     const messages: ChatMessage[] = [];
     for (const line of note ? lines.slice(1) : lines) {
         const role = line.startsWith('> ') ? 'user' : 'assistant';

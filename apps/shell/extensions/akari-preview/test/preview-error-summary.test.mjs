@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -21,6 +25,13 @@ test('JSON.parse の SyntaxError は edit.json の文脈を付ける', () => {
         summarizePreviewError(error),
         "edit.json を JSON として読めません（Expected property name or '}' in JSON at position 1 (line 1 column 2)）"
     );
+});
+
+test('見つからない素材は、長い絶対パスではなくファイル名で伝える', () => {
+    const windows = new Error("ENOENT: no such file or directory, realpath 'c:\\work\\a long project folder name\\channels\\demo\\videos\\demo-video\\assets\\generated\\city map.png'");
+    assert.equal(summarizePreviewError(windows), '素材がまだ見つかりません（city map.png）');
+    const posix = new Error("ENOENT: no such file or directory, stat '/work/demo/assets/generated/map.png'");
+    assert.equal(summarizePreviewError(posix), '素材がまだ見つかりません（map.png）');
 });
 
 test('要旨は 160 文字以内へ省略し空なら既定文言へ落とす', () => {

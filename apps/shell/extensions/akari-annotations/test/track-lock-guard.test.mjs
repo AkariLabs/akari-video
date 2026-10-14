@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+
+
 
 const require = createRequire(import.meta.url);
 const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-guard.js');

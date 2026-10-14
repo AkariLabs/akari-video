@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import test, { afterEach, beforeEach } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+beforeEach(() => setLanguage("ja"));
+afterEach(() => setLanguage(undefined));
 
 import { lintProject } from "../src/edit-lint.mjs";
 

@@ -1,3 +1,4 @@
+import { t } from '../transcript-text';
 import { ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { CommandService } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
@@ -26,11 +27,11 @@ export async function listenTranscribeRange(commands: CommandService, shell: App
         return !preview.akariPreviewEditUri && preview.akariPreviewVideoUri?.normalizePath().toString() === videoUri;
     }) as unknown as { sendMessage(message: unknown): void; akariPreviewLastKnownPlaying?: boolean;
         akariPreviewLastKnownTime?: number; onDidDispose(callback: () => void): { dispose(): void } } | undefined;
-    if (!widget) throw new Error('対象素材のプレビューを開けませんでした');
+    if (!widget) throw new Error(t('transcript.transcript.seekDialog.couldNotOpenPreviewTargetAssetError'));
     if (end === undefined) {
         const result = await commands.executeCommand<string>(AKARI_TRANSCRIPT_SEEK_REQUESTED.id,
             { videoUri, time: start, captionId: 'transcribe-diff' });
-        if (result !== 'seeked') throw new Error('対象素材へシークできませんでした');
+        if (result !== 'seeked') throw new Error(t('transcript.transcript.seekDialog.couldNotSeekTargetAssetError'));
         return () => undefined;
     }
     await new Promise<void>((resolve, reject) => {
@@ -42,12 +43,12 @@ export async function listenTranscribeRange(commands: CommandService, shell: App
             clearTimeout(timer); window.removeEventListener('akari.preview.rawAnnotationState', ready);
             if (error) reject(error); else resolve();
         };
-        const timer = setTimeout(() => finish(new Error('プレビューのシークを確認できませんでした')), 5000);
+        const timer = setTimeout(() => finish(new Error(t('transcript.transcript.seekDialog.couldNotConfirmPreviewSeekError'))), 5000);
         window.addEventListener('akari.preview.rawAnnotationState', ready);
         if (widget.akariPreviewLastKnownPlaying) widget.sendMessage({ type: 'akari-preview-toggle-playback' });
         void commands.executeCommand<string>(AKARI_TRANSCRIPT_SEEK_REQUESTED.id,
             { videoUri, time: start, captionId: 'transcribe-diff' }).then(result => {
-            if (result !== 'seeked') finish(new Error('対象素材へシークできませんでした'));
+            if (result !== 'seeked') finish(new Error(t('transcript.transcript.seekDialog.couldNotSeekTargetAssetError')));
             else if (Math.abs((widget.akariPreviewLastKnownTime ?? -Infinity) - start) < .1) finish();
         }, error => finish(error));
     });

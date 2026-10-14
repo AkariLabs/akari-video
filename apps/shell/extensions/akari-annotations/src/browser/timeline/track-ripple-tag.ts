@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { cycleTrackRippleMode, isFollowingCaptionTrack, RippleTagPresentation, rippleSwitchValues,
     setTrackRippleSwitch } from '../../common/track-ripple-tag';
 import { setTrackRippleMode } from '@akari-video/edit-store';
@@ -44,15 +45,15 @@ export function createTrackRippleControl(
         wrap.dataset.akariRippleDisplay = 'switches';
         const values = rippleSwitchValues(track);
         for (const [field, label, iconName, title] of [
-            ['target', 'ターゲット', 'codicon-target', 'ターゲット: 範囲を消すトラック'],
-            ['sync', '同期ロック', 'codicon-link', '同期ロック: 消さないが後ろを一緒に寄せる']
+            ['target', t('annotationscommon.timelineTrackRippleTag.label.target'), 'codicon-target', t('annotationscommon.timelineTrackRippleTag.label.targetTruckTurnOffRange')],
+            ['sync', t('annotationscommon.timelineTrackRippleTag.label.synchronousLock'), 'codicon-link', t('annotationscommon.timelineTrackRippleTag.label.syncLockKeepContentShiftFollowingClips')]
         ] as const) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'akari-track-ripple-switch';
             button.dataset.akariRippleSwitch = field;
             button.title = title;
-            button.setAttribute('aria-label', `${label}: ${values[field] ? 'オン' : 'オフ'}`);
+            button.setAttribute('aria-label', `${label}: ${values[field] ? t('annotationscommon.timelineTrackRippleTag.label.message') : t('annotationscommon.timelineTrackRippleTag.label.off')}`);
             button.setAttribute('aria-pressed', String(values[field]));
             button.disabled = presentation.disabled;
             button.appendChild(icon(iconName));
@@ -104,7 +105,7 @@ export function createTrackRippleMenuButton(open: (anchor: HTMLElement) => void)
     button.type = 'button';
     button.className = 'akari-track-ripple-menu-button codicon codicon-settings-gear';
     button.dataset.akariRippleMenu = 'true';
-    button.title = 'トラックの詰め方をまとめて切り替える';
+    button.title = t('annotationscommon.timelineTrackRippleTag.title.changeRippleAllTracks');
     button.setAttribute('aria-label', button.title);
     button.addEventListener('pointerdown', event => event.stopPropagation());
     button.addEventListener('click', event => { stop(event); open(button); });
@@ -121,8 +122,8 @@ export function openTrackRipplePresetMenu(
     popup.style.left = `${rect.left}px`;
     popup.style.top = `${rect.bottom}px`;
     for (const [preset, label] of [
-        ['defaults', 'おすすめ既定に戻す（保存値を消す）'],
-        ['all-cut', '全トラックを切る'],
+        ['defaults', t('annotationscommon.timelineTrackRippleTag.label.revertRecommendedDefaultRevokeSaveValue')],
+        ['all-cut', t('annotationscommon.timelineTrackRippleTag.action.returnAllTracks')],
         ['selected-cut', selectedLabel]
     ] as const) {
         const button = document.createElement('button');
@@ -140,12 +141,12 @@ export function appendTrackRippleContextActions(
     choose: (mode: RippleMode) => void
 ): void {
     if (isFollowingCaptionTrack(track)) return;
-    for (const [mode, label] of [['cut', '切る'], ['shift', 'ずらす'], ['fixed', '固定']] as const) {
+    for (const [mode, label] of [['cut', t('annotationscommon.timelineTrackRippleTag.label.cut')], ['shift', t('annotationscommon.timelineTrackRippleTag.label.shift')], ['fixed', t('annotationscommon.timelineTrackRippleTag.label.fixed')]] as const) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'theia-button secondary';
         button.style.justifyContent = 'flex-start';
-        button.textContent = `このトラック: ${label}`;
+        button.textContent = t('annotationscommon.timelineTrackRippleTag.text.track', { label: label });
         button.disabled = locked;
         button.addEventListener('click', () => choose(mode));
         popup.appendChild(button);

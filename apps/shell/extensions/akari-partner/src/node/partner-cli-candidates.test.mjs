@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
@@ -13,11 +17,35 @@ test('設定と bootstrap に渡す候補関数は Command Code の正式名と�
     assert.ok(partnerCliCandidates('grok', { homeDir, platform: 'darwin', env }).includes(`${homeDir}/.grok/bin/grok`));
     assert.ok(partnerCliCandidates('devin', { homeDir, platform: 'win32', env: { PATH: '', LOCALAPPDATA: 'C:\\Local' } })
         .some(candidate => /devin[\\/]cli[\\/]bin[\\/]devin\.exe$/.test(candidate)));
+    assert.ok(partnerCliCandidates('muse', { homeDir, platform: 'darwin', env }).includes(`${homeDir}/.local/bin/muse`));
     assert.ok(partnerCliCandidates('pi', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })[0].endsWith('pi.com'));
     assert.ok(partnerCliCandidates('deepseek', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })
         .some(candidate => candidate.endsWith('dsh.cmd')));
     assert.ok(partnerCliCandidates('codex', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE' }, nativeOnly: true })[0].endsWith('codex.exe'));
     assert.match(bootstrapRunner.toString(), /candidatePaths\(config\.agent/);
+});
+
+test('Windows の Muse Code は PATHEXT に依存せず公式 muse.cmd を先に探す', () => {
+    const candidates = partnerCliCandidates('muse', {
+        homeDir: '/tmp/muse-home', platform: 'win32',
+        env: { PATH: '', LOCALAPPDATA: 'C:\\Local', PATHEXT: '.EXE' }
+    });
+    assert.ok(candidates.some(candidate => /Programs[\\/]muse[\\/]muse\.cmd$/.test(candidate)));
+    assert.match(candidates[0], /muse\.cmd$/);
+});
+
+test('Windows の Codex は設定から更新される管理フォルダを ~/.local/bin より先に見る', () => {
+    const homeDir = 'C:\\Users\\akari';
+    const env = { PATH: 'C:\\Tools', LOCALAPPDATA: 'C:\\Local', PATHEXT: '.EXE' };
+    const candidates = partnerCliCandidates('codex', { homeDir, platform: 'win32', env, nativeOnly: true });
+    const managed = candidates.findIndex(candidate => /AKARI Video[\\/]codex[\\/]current[\\/]bin[\\/]codex\.exe$/.test(candidate));
+    const local = candidates.findIndex(candidate => /\.local[\\/]bin[\\/]codex\.exe$/.test(candidate));
+    assert.equal(managed, 0);
+    assert.ok(local > managed);
+    assert.equal(candidates.filter(candidate => /AKARI Video/.test(candidate)).length, 1);
+    // mac は ~/.local/bin/codex が管理先へのリンクなので、従来どおり先頭
+    assert.match(partnerCliCandidates('codex', { homeDir: '/Users/akari', platform: 'darwin', env: { PATH: '' } })[0],
+        /[\\/]\.local[\\/]bin[\\/]codex$/);
 });
 
 test('Windows の Claude 候補はネイティブ、APPDATA npm、PATH の順で実行可能な拡張子だけを含む', () => {
@@ -50,7 +78,7 @@ test('Claude の拡張子制限は他エージェントの PATHEXT と候補順�
         ['.local/bin', '.local', '/tmp/akari-appdata/npm', '/tmp/akari-path'].flatMap(dir =>
             ['.ps1', '.exe', '.cmd'].map(ext => `${dir.startsWith('/') ? dir : `${homeDir}/${dir}`}/pi${ext}`)));
     assert.deepEqual(partnerCliCandidates('codex', { homeDir, platform: 'win32', env, nativeOnly: true }), [
-        `${homeDir}/.local/bin/codex.exe`, `${homeDir}/AppData/Local/AKARI Video/codex/current/bin/codex.exe`,
+        `${homeDir}/AppData/Local/AKARI Video/codex/current/bin/codex.exe`, `${homeDir}/.local/bin/codex.exe`,
         '/tmp/akari-path/codex.exe'
     ]);
 });

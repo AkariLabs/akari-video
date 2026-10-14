@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -59,6 +65,7 @@ const daihonGear = require('../lib/common/daihon-gear.js');
 const realCutCandidates = require('../lib/common/daihon-cut-candidates.js');
 const realDaihonRows = require('../lib/common/daihon-row-model.js');
 const modules = {
+    '../transcript-text': { t: globalThis.t },
     '@theia/core/lib/browser/dialogs': { AbstractDialog },
     '@theia/core/lib/common': {},
     '@theia/core/lib/common/buffer': { BinaryBuffer: { fromString: value => value } },
@@ -679,6 +686,22 @@ test('completion action reopens finish with the same selected material', async (
     assert.equal(openedDialogs.length, baseline + 1);
     assert.equal(openedDialogs.at(-1).node.dataset.step, '4');
     assert.deepEqual([...openedDialogs.at(-1).selected], ['mic']);
+});
+
+test('English completion action reopens the same finish step', async () => {
+    setLanguage('en');
+    try {
+        const pending = deferred();
+        const baseline = openedDialogs.length;
+        const { dialog, notices } = await harness({ initialPath: 'assets/mic.wav', pending,
+            notificationAction: 'Open Finish' });
+        dialog.foot.querySelector('[data-primary]').click();
+        dialog.foot.querySelector('[data-primary]').click(); await tick();
+        dialog.close(); pending.resolve(); await tick(); await tick(); await tick();
+        assert.deepEqual(notices, [['Transcription complete (not yet added to Script)', 'Open Finish']]);
+        assert.equal(openedDialogs.length, baseline + 1);
+        assert.equal(openedDialogs.at(-1).node.dataset.step, '4');
+    } finally { setLanguage('ja'); }
 });
 
 test('closing during application reports completion only after captions are saved', async () => {

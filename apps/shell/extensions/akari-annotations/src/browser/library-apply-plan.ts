@@ -1,16 +1,18 @@
+import { t } from '@akari-video/i18n';
 export type ApplyPayload = { kind: 'textanim' | 'textstyle' | 'mystyle' | 'font' | 'lut';
     id?: string; slot?: string; style?: unknown; fontFamily?: string };
 export type ApplyTarget = { kind: 'caption' | 'cut' | 'layer' | 'item'; id: string };
 
 type Part = { kind: string; text_style?: unknown; animation?: unknown };
 export type ApplyPlan = { kind: 'caption'; id: string; parts: Part[]; keepSize?: boolean;
-    catalog?: Record<string, { style: Record<string, unknown> }> }
+    catalog?: Record<string, { style: Record<string, unknown> }>;
+    style_source?: { kind: 'builtin' | 'library' | 'my'; id: string } }
     | { kind: 'lut'; id: string; lut: string };
 
 export function captionLibraryApplyFeedback(kind?: ApplyPayload['kind']): { history: string; footer: string } | undefined {
-    if (kind === 'textanim') return { history: '動きを当てる', footer: '動きを当てました。' };
-    if (kind === 'textstyle') return { history: 'スタイルを当てる', footer: 'スタイルを当てました。' };
-    if (kind === 'font') return { history: 'フォントを変える', footer: 'フォントを変えました。' };
+    if (kind === 'textanim') return { history: t('annotations.libraryApplyPlan.text.guessTheMovement'), footer: t('annotations.libraryApplyPlan.text.iGuessedTheMovement') };
+    if (kind === 'textstyle') return { history: t('annotations.libraryApplyPlan.text.guessTheStyle'), footer: t('annotations.libraryApplyPlan.text.iGuessedTheStyle') };
+    if (kind === 'font') return { history: t('annotations.libraryApplyPlan.text.changeFont'), footer: t('annotations.libraryApplyPlan.text.iChangedTheFont') };
     return undefined;
 }
 
@@ -51,8 +53,10 @@ export function planLibraryApply(payload: ApplyPayload, target?: ApplyTarget): A
         ? { kind: 'caption', id: target.id, parts: [{ kind: 'look', text_style: payload.style }],
             keepSize: true } : undefined;
     const style = payload.style as { parts?: Part[]; keepSize?: boolean;
+        style_source?: { kind: 'builtin' | 'library' | 'my'; id: string };
         catalog?: Record<string, { style: Record<string, unknown> }> } | undefined;
     return Array.isArray(style?.parts) ? { kind: 'caption', id: target.id,
         parts: style.parts.filter(part => part && ['look', 'motion', 'sfx', 'fx', 'decor'].includes(part.kind)),
-        ...(style.keepSize === true ? { keepSize: true, catalog: style.catalog } : {}) } : undefined;
+        keepSize: true, ...(style.catalog ? { catalog: style.catalog } : {}),
+        ...(style.style_source ? { style_source: style.style_source } : {}) } : undefined;
 }

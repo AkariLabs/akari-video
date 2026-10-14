@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createReadySeekResponder, requestReadyPreviewSeek } from '../lib/common/preview-ready-seek.js';

@@ -1,5 +1,13 @@
+import { t } from '../browser/transcript-text';
 import type { TranscribeArtifacts } from 'akari-project/lib/common/akari-project-protocol';
 import { normalizedCaptionPath } from './caption-source-eligibility';
+export { channelPeopleLocation, mergeSpeakerDictionary, orderChannelPeople, parseChannelPeople } from './channel-people-reader';
+export type { ChannelPerson } from './channel-people-reader';
+export { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided, mergeVoicesDecided,
+    parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady, voiceGateBlocks, voiceInstallFailure,
+    speakerFallbackMessage,
+    VOICE_ENGINE_DOWNLOAD_MB, SPEAKER_COLORS } from './caption-popup-speakers';
+export type { SpeakerCount, SpeakerReviewRow } from './caption-popup-speakers';
 
 export function popupInitialSourceIds(sources: readonly { id: string; path: string; status: string }[],
     initialPath: string | undefined, captionSourceIds: readonly string[]): string[] {
@@ -33,16 +41,16 @@ export function analysisTranscriptSummary(analysis: unknown): string | undefined
     const transcript = Array.isArray(value.transcript) ? value.transcript : undefined;
     const hasTranscript = !!transcript;
     if (!timestamp && !backend && !hasTranscript) return undefined;
-    return [timestamp, backend, ...(transcript ? [`${transcript.length} 行`] : [])].filter(Boolean).join(' · ');
+    return [timestamp, backend, ...(transcript ? [t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.length, n: transcript.length })] : [])].filter(Boolean).join(' · ');
 }
 
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
 export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>,
     alreadyTranscribed = false, fallback?: string): string[] {
     const lines = artifacts.transcripts.map(transcript =>
-        [transcript.generated_at, transcript.backend, `${transcript.segments.length} 行`].filter(Boolean).join(' · '));
-    if (!lines.length && alreadyTranscribed) lines.push(fallback ?? '文字起こし済み · 日時・エンジン・行数の記録なし');
-    if (lines.length || artifacts.diff) lines.push(`比べる組: ${artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : 'なし'}`);
+        [transcript.generated_at, transcript.backend, t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.segments.length, n: transcript.segments.length })].filter(Boolean).join(' · '));
+    if (!lines.length && alreadyTranscribed) lines.push(fallback ?? t('transcript.transcript.steps.transcribedNoDateEngineLineCountRecordedLabel'));
+    if (lines.length || artifacts.diff) lines.push(t('transcript.transcript.steps.comparisonPairsWithValueDescription', { value1: artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : t('transcript.transcript.steps.compareNone') }));
     return lines;
 }
 
@@ -54,6 +62,7 @@ export function initialEngineSelection(backend: string, compareSet: readonly str
 export interface TranscribeToolStatus {
     id: string;
     available: boolean;
+    canIdentify?: boolean;
     unsupported?: boolean;
     needs?: string[];
     executable?: string;
@@ -71,27 +80,27 @@ export interface TranscribeAvailability {
 }
 export function transcribeEngineAvailability(backend: string, tools: readonly TranscribeToolStatus[],
     connections: readonly TranscribeConnectionStatus[]): TranscribeAvailability {
-    const ready = (): TranscribeAvailability => ({ state: 'available', label: '使える', needs: [] });
-    const needs = (items: string[]): TranscribeAvailability => ({ state: 'needs', label: `準備が要る（${items.join('・')}）`, needs: items });
+    const ready = (): TranscribeAvailability => ({ state: 'available', label: t('transcript.transcript.steps.availableLabel'), needs: [] });
+    const needs = (items: string[]): TranscribeAvailability => ({ state: 'needs', label: t('transcript.transcript.steps.setupRequiredWithValueLabel', { value1: items.join(t('transcript.shared.list.separator')) }), needs: items });
     if (backend.startsWith('cloud:')) {
         const providerId = backend === 'cloud:scribe' ? 'elevenlabs' : backend.slice(6);
         const connection = connections.find(row => row.id === providerId);
-        if (!connection) { return needs(['接続状況を確認できませんでした']); }
+        if (!connection) { return needs([t('transcript.transcript.steps.couldNotCheckConnectionStatusError')]); }
         if (!connection.configured || connection.doctor.status === 'unconfigured') {
-            return { state: 'unconfigured', label: '鍵が未登録', needs: [] };
+            return { state: 'unconfigured', label: t('transcript.transcript.steps.keyNotRegisteredLabel'), needs: [] };
         }
         if (connection.doctor.status === 'ok') { return ready(); }
-        return needs([connection.doctor.status === 'unauthorized' ? '鍵の接続確認に失敗' : '接続確認が必要']);
+        return needs([connection.doctor.status === 'unauthorized' ? t('transcript.transcript.steps.keyConnectionCheckFailedLabel') : t('transcript.transcript.steps.connectionCheckRequiredLabel')]);
     }
     const tool = tools.find(row => row.id === (backend === 'whisper-cpp' ? 'whisper' : backend));
-    if (!tool) { return needs(['道具の状態を確認できませんでした']); }
-    if (tool.unsupported) { return { state: 'unsupported', label: 'この OS では使えない', needs: tool.needs ?? [] }; }
+    if (!tool) { return needs([t('transcript.transcript.steps.couldNotCheckToolStatusError')]); }
+    if (tool.unsupported) { return { state: 'unsupported', label: t('transcript.transcript.steps.unavailableOsLabel'), needs: tool.needs ?? [] }; }
     if (tool.available) { return ready(); }
     if (tool.needs?.length) { return needs(tool.needs); }
     if (backend === 'whisper-cpp') {
-        return needs([...(!tool.executable ? ['本体が無い'] : []), ...(!tool.model?.available ? ['モデルが無い'] : [])]);
+        return needs([...(!tool.executable ? [t('transcript.transcript.steps.executableMissingLabel')] : []), ...(!tool.model?.available ? [t('transcript.transcript.steps.modelMissingLabel')] : [])]);
     }
-    return needs(['利用条件の確認が必要']);
+    return needs([t('transcript.transcript.steps.licenseReviewRequiredLabel')]);
 }
 
 export interface TranscribeEngineItem {
@@ -109,12 +118,12 @@ export function transcribeEngineList(cards: readonly { id: string; label: string
     preferredBackend: string): TranscribeEngineItem[] {
     const preferred = initialEngineSelection(preferredBackend, []).backend;
     const known = preferred === 'auto' || cards.some(card => card.id === preferred);
-    const items: TranscribeEngineItem[] = [{ id: 'auto', label: 'おまかせ（ローカル優先）', place: 'ローカル優先', price: '無料',
-        availability: { state: 'available', label: '使える' }, hourlyUsd: 0, ...(!known || preferred === 'auto' ? { default: true as const } : {}) }];
+    const items: TranscribeEngineItem[] = [{ id: 'auto', label: t('transcript.transcript.steps.autoPreferLocalLabel'), place: t('transcript.transcript.steps.preferLocalLabel'), price: t('transcript.transcript.steps.freeLabel'),
+        availability: { state: 'available', label: t('transcript.transcript.steps.availableLabel') }, hourlyUsd: 0, ...(!known || preferred === 'auto' ? { default: true as const } : {}) }];
     for (const card of cards) {
         const availability = transcribeEngineAvailability(card.id, tools, connections);
         items.push({ id: card.id, label: card.label, place: card.place,
-            price: card.hourlyUsd ? `$${card.hourlyUsd.toFixed(2)} / 時` : '無料',
+            price: card.hourlyUsd ? t('transcript.transcript.steps.hrWithRateLabel', { value1: card.hourlyUsd.toFixed(2) }) : t('transcript.transcript.steps.freeLabel'),
             availability: { state: availability.state === 'available' ? 'available'
                 : availability.state === 'needs' ? 'needs' : 'unavailable', label: availability.label },
             hourlyUsd: card.hourlyUsd, ...(card.id === preferred ? { default: true as const } : {}) });

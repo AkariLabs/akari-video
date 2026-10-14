@@ -1,3 +1,4 @@
+import { t } from '../../common/project-text';
 import { AkariProjectService } from '../../common/akari-project-protocol';
 import { CommandService } from '@theia/core/lib/common';
 import {
@@ -141,9 +142,9 @@ export class VoiceRecorder {
         try {
             const ask = (window as MicrophoneWindow).electronAkariPreview?.askForMicrophoneAccess;
             if (ask && !await ask()) {
-                throw new Error('マイクの使用が許可されていません。システム設定 → プライバシーとセキュリティ → マイク で AKARI Video を許可してください');
+                throw new Error(t('project.voiceover.recorder.microphoneAccessIsDeniedAllowAKARIMessage'));
             }
-            if (!navigator.mediaDevices?.getUserMedia) throw new Error('この環境ではマイクを使えません。');
+            if (!navigator.mediaDevices?.getUserMedia) throw new Error(t('project.voiceover.recorder.microphoneIsUnavailableEnvironmentMessage'));
             stream = await navigator.mediaDevices.getUserMedia({ audio: {
                 deviceId: deviceId ? { exact: deviceId } : undefined,
                 echoCancellation: true, noiseSuppression: false, autoGainControl: false
@@ -169,7 +170,7 @@ export class VoiceRecorder {
             this.processor = processor;
             this.silentGain = silentGain;
             const devices = (await navigator.mediaDevices.enumerateDevices()).filter(item => item.kind === 'audioinput')
-                .map((item, index) => ({ deviceId: item.deviceId, label: item.label || `マイク ${index + 1}` }));
+                .map((item, index) => ({ deviceId: item.deviceId, label: item.label || t('project.voiceover.recorder.microphoneLabel', { value1: index + 1 }) }));
             const selectedDeviceId = deviceId || stream.getAudioTracks?.()[0]?.getSettings?.().deviceId || devices[0]?.deviceId;
             this.emit({ phase: 'monitoring', deviceId: selectedDeviceId, devices, error: undefined, level: 0 });
         } catch (error) {
@@ -231,7 +232,7 @@ export class VoiceRecorder {
         } catch (error) {
             if (this.activeEditUri && this.recordingId) await this.stop();
             if (this.muted && editUri) this.setProjectMuted(false, editUri);
-            this.emit({ phase: 'error', error: `アフレコを保存できませんでした: ${error instanceof Error ? error.message : String(error)}` });
+            this.emit({ phase: 'error', error: t('project.voiceover.recorder.couldNotSaveVoiceoverError', { value1: error instanceof Error ? error.message : String(error) }) });
         } finally {
             this.starting = false;
         }
@@ -301,21 +302,21 @@ export class VoiceRecorder {
                                     ...(this.current.script ? { script: this.current.script.text } : {}),
                                     ...(this.current.script?.captionId ? { captionRef: this.current.script.captionId } : {}),
                                     provenance: { provider: 'human', engine: 'microphone' } } });
-                        if (!itemId) throw new Error('項目を追加できませんでした');
+                        if (!itemId) throw new Error(t('project.voiceover.recorder.couldNotAddItemError'));
                         placed = { itemId, t: this.current.startT ?? 0 };
                     } catch (error) {
-                        placeError = `素材には保存しました。タイムラインには置けませんでした: ${error instanceof Error ? error.message : String(error)}`;
+                        placeError = t('project.voiceover.recorder.savedAsAssetButCouldNotLabel', { value1: error instanceof Error ? error.message : String(error) });
                     }
                 }
                 this.emit({ phase: 'monitoring', lastSaved: { assetPath: result.assetPath, durationSec: result.durationSec },
                     placed, placeError, error: undefined });
                 window.dispatchEvent(new CustomEvent('akari.material.added', { detail: { projectUri, assetPath: result.assetPath } }));
             } else {
-                this.emit({ phase: 'monitoring', error: '短すぎたので保存しませんでした（0.5 秒以上録ってください）' });
+                this.emit({ phase: 'monitoring', error: t('project.voiceover.recorder.recordingWasTooShortSaveRecordMessage') });
             }
         } catch (error) {
             await this.service.finishVoiceRecording({ recordingId, discard: true }).catch(() => undefined);
-            this.emit({ phase: 'monitoring', error: `アフレコを保存できませんでした: ${error instanceof Error ? error.message : String(error)}` });
+            this.emit({ phase: 'monitoring', error: t('project.voiceover.recorder.couldNotSaveVoiceoverError', { value1: error instanceof Error ? error.message : String(error) }) });
         } finally {
             this.recordingId = undefined;
             this.pending = [];

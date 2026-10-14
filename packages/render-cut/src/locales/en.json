@@ -1,0 +1,4 @@
+{
+  "render.verify.leadingGap.early": "The first visual track starts {gap}s early relative to its declared position (source-frame differences: intended {expected}, advanced {early})",
+  "render.verify.leadingGap.ok": "The first visual track keeps its {gap}s leading gap (source-frame differences: intended {expected}, advanced {early})"
+}

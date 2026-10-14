@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -15,6 +19,8 @@ test('GPU 非対応コードの日本語化と未知コードの保持', () => {
         ['caption-rich-look-fill_gradient-unsupported', 'グラデーション塗り'],
         ['caption-rich-look-extrude-unsupported', '立体押し出し'],
         ['caption-text-style-vertical-unsupported', '縦書き'],
+        ['caption-run-plate-words-native', '語ごとの表示と、選んだ文字の台紙・影・グローの同時使用'],
+        ['caption-run-effects-typewriter', '文字送りと、選んだ文字の台紙・影・グローの同時使用'],
         ['embedded-context', '埋め込みコンテンツ'],
         ['css-3d-backface-hidden', '3D の裏面非表示'],
         ['three-sampled-condition:script-runtime,media-element', '3D のサンプリングで非対応: スクリプト実行、動画・音声要素'],

@@ -38,6 +38,7 @@ export interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
         | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'caption-text' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     optionTitles?: Readonly<Record<string, string>>;
+    optionLabels?: Readonly<Record<string, string>>;
     scrubStep?: number;
     min?: number;
     max?: number;

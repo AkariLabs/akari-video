@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 import {
     CAPTION_DISPLAY_ALGORITHM,
     CAPTION_DISPLAY_MODE,
@@ -90,5 +91,5 @@ export function writeDaihonDisplayKnobs(captionsRoot: unknown, values: DaihonDis
 }
 
 export function daihonDisplayLabel(values: Pick<DaihonDisplayKnobs, 'maxLineUnits' | 'lines'>): string {
-    return `${clampDaihonMaxLineUnits(values.maxLineUnits)}字 · ${values.lines}行`;
+    return t('transcript.daihon.displaySettings.charactersLinesWithValuesLabel', { value1: clampDaihonMaxLineUnits(values.maxLineUnits), value2: values.lines });
 }

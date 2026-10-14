@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from '../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { currentTimelineEditUri, currentTimelineCaptionsUri } from './active-timeline';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
@@ -11,7 +13,8 @@ import { INSPECTOR_WIDGET_CSS } from './style/inspector-widget-style';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
 import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
-import { captionPanelChangedDetail, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelChangedDetail, captionPanelFontRows, captionPanelLookWrite, firstCaptionFontFamilies, nextCaptionPanel,
+    recentCaptionFontId, renderableCaptionFonts, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
 import { captionPanelSelection, captionPanelFontRequest } from './inspector/caption-panel-selection';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
@@ -21,7 +24,7 @@ import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, ImageRouteState } from '../common/akari-annotations-protocol';
 import type { VideoCandidate, VideoCandidateBatch } from '../common/akari-annotations-protocol';
-import { resolveGenerationState, selectGenerationSidecarForSource } from '@akari-video/edit-store';
+import { isScene3dItem, resolveGenerationState, selectGenerationSidecarForSource } from '@akari-video/edit-store';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -44,9 +47,11 @@ import {
     TimelineTreeItemSnapshot,
     TimelineWorldSelection,
     TimelineGapSelection,
+    TimelineTransitionSelection,
     captionIdForTreeSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
+import { renderTransitionPanel } from './inspector/transition-panel';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
@@ -126,7 +131,10 @@ import { layerAudioControls, LAYER_SECTIONS, type LayerAudioControls } from './i
 import { CAPTION_BAG_MOTION_SECTION, CAPTION_SECTIONS, MULTI_CAPTION_SECTIONS } from './inspector/sections/caption-sections';
 import { AUDIO_SECTIONS, AUDIO_MASTER_SECTION } from './inspector/sections/audio-sections';
 import { OVERLAY_SECTIONS } from './inspector/sections/overlay-sections';
+import { isScene3dPath, scene3dScreenTextureVar, scene3dScreenVars,
+    SCENE3D_MAX_SCREEN_BYTES, type Scene3dMeta } from '../common/scene3d-item';
 import { TREE_ITEM_SECTIONS } from './inspector/sections/tree-item-sections';
+import type { Scene3dSectionContext } from './inspector/scene3d-section';
 import { shapeLiveMarkup } from './inspector/shape-live';
 import { ADJUST_SECTIONS } from './inspector/sections/adjust-sections';
 
@@ -198,7 +206,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
     protected captionPanelStyles: CaptionPanelPreset[] = [];
     protected captionPanelItemSize?: number;
-    protected captionPanelFontFaces = new Map<string, string>();
+    protected captionPanelFontFaces = Object.assign(new Map<string, string>(), { libraryIds: new Set<string>() });
+    protected captionPanelFontGeneration = 0;
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
     protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
@@ -220,10 +229,10 @@ export class AkariInspectorWidget extends BaseWidget {
         if (selection.primaryCaption) {
             const currentFamily = selection.primaryCaption.effectiveTextStyle?.fontFamily
                 ?? selection.primaryCaption.textStyle?.fontFamily;
-            const current = CAPTION_PANEL_FONTS.find(font => this.captionPanelFontFaces.get(font.id) === currentFamily
-                || font.id === 'noto-sans-jp' && currentFamily === CAPTION_FONT_FAMILY);
-            if (current && !this.captionPanelState.recentFonts.includes(current.id)) {
-                this.captionPanelState.recentFonts.unshift(current.id);
+            const currentId = recentCaptionFontId(currentFamily, captionPanelFontRows(
+                renderableCaptionFonts(CAPTION_PANEL_FONTS, this.captionPanelFontFaces), this.captionPanelFontFaces));
+            if (currentId && !this.captionPanelState.recentFonts.includes(currentId)) {
+                this.captionPanelState.recentFonts.unshift(currentId);
             }
         }
         this.captionPanel = nextCaptionPanel(this.captionPanel, panel, true);
@@ -253,8 +262,9 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async loadCaptionPanelData(): Promise<void> {
+        const fontGeneration = ++this.captionPanelFontGeneration;
         const fonts = this.captionPreviewService?.getOverlayRuntimeAssetUrls().then(assets => {
-            if (assets) this.registerCaptionPanelFonts(assets);
+            if (assets && fontGeneration === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, fontGeneration);
             if (this.captionPanel) this.render();
         }).catch(error => this.showFieldNotice(String(error)));
         const myStyles = this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles')
@@ -288,7 +298,7 @@ export class AkariInspectorWidget extends BaseWidget {
         await Promise.allSettled([fonts, myStyles, presets, itemSize]);
     }
 
-    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
+    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls, generation: number): void {
         this.captionPanelFontsLoaded = true;
         const faces = [...assets.bundledCaptionFontFaces,
             { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
@@ -301,23 +311,28 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         css.textContent = faces.filter(face => face.id !== 'noto-sans-jp').map(face => {
             const weight = face.id === 'noto-serif-jp' ? '200 900' : face.weight;
-            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('truetype');font-weight:${weight};font-style:normal;font-display:swap}`;
+            const format = face.file.toLowerCase().endsWith('.woff2') ? 'woff2'
+                : face.file.toLowerCase().endsWith('.woff') ? 'woff'
+                    : face.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype';
+            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('${format}');font-weight:${weight};font-style:normal;font-display:swap}`;
         }).join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
         void Promise.all(faces.map(async face => {
             const weight = face.id === 'noto-serif-jp' ? '200' : face.weight.split(' ')[0];
             const descriptor = face.id === 'noto-sans-jp' ? CAPTION_FONT_LOAD_DESCRIPTOR
                 : `${weight} 19px ${JSON.stringify(face.family)}`;
             try {
-                if ((await document.fonts.load(descriptor, 'Aa あいう')).length > 0) {
-                    this.captionPanelFontFaces.set(face.id, face.family);
-                }
+                return (await document.fonts.load(descriptor, 'Aa あいう')).length > 0 ? face : undefined;
             } catch { /* A failed font is not offered as an applicable row. */ }
-        })).then(() => {
+            return undefined;
+        })).then(loadedFaces => {
+            if (generation !== this.captionPanelFontGeneration) return;
+            const registered = firstCaptionFontFamilies(loadedFaces);
             const available = (window as Window & { akariFontAvailability?: Record<string,
                 { status: string; family: string }> }).akariFontAvailability ?? {};
             for (const [id, status] of Object.entries(available)) {
-                if (status?.status === 'available') this.captionPanelFontFaces.set(id, status.family);
+                if (status?.status === 'available' && !registered.has(id)) registered.set(id, status.family);
             }
+            this.captionPanelFontFaces = registered;
             if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
                 || this.model.snapshot?.kind === 'overlay'
                 || this.model.snapshot?.kind === 'multi') this.render();
@@ -327,8 +342,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected ensureCaptionRowFontFace(): void {
         if (this.captionPanelFontsLoaded || this.captionRowFontsLoading || !this.captionPreviewService) return;
         this.captionRowFontsLoading = true;
+        const generation = ++this.captionPanelFontGeneration;
         void this.captionPreviewService.getOverlayRuntimeAssetUrls()
-            .then(assets => this.registerCaptionPanelFonts(assets))
+            .then(assets => { if (generation === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, generation); })
             .catch(() => { this.captionRowFontsLoading = false; });
     }
     protected readonly fieldNotice = document.createElement('div');
@@ -336,7 +352,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected lastWriteError?: { message: string; at: number };
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
     protected readonly tabState = new InspectorTabState(window.localStorage);
-    protected editAdjustScope: '画像全体' | '選択エリア' = '画像全体';
+    protected editAdjustScope: 'whole' | 'selection' = 'whole';
     protected tabSelectionKey?: string;
     protected renderedSelectionKey?: string;
     protected lastRealSelectionKey?: string;
@@ -374,6 +390,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly generationTabLoads = new Set<string>();
     protected readonly generationTabDrafts = new Map<string, GenerationDraft>();
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
+    protected readonly scene3dMetaCache = new Map<string, Scene3dMeta>();
+    protected readonly scene3dFragmentCache = new Map<string, string | null>();
     protected lastEasingPreviewAt = -Infinity;
     protected generationCatalog: GenerationCatalogRow[] = [];
     protected aiCatalogLoaded = false;
@@ -459,20 +477,24 @@ export class AkariInspectorWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
-        this.title.label = 'インスペクター';
-        this.title.caption = 'タイムラインで選択した項目の詳細（安全なフィールドは編集可能）';
+        this.title.label = t('annotations.inspectorWidget.text.inspector');
+        this.title.caption = t('annotations.inspectorWidget.text.detailsOfSelectedItemInTimelineSecure');
         this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
         const refreshFonts = (): void => {
             if (!this.captionPreviewService) return;
+            const generation = ++this.captionPanelFontGeneration;
             void this.captionPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
-                this.registerCaptionPanelFonts(assets);
+                if (generation !== this.captionPanelFontGeneration) return;
+                this.registerCaptionPanelFonts(assets, generation);
                 this.render();
             }).catch(() => undefined);
         };
         window.addEventListener('akari.fontAvailability.changed', refreshFonts);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.fontAvailability.changed', refreshFonts) });
+        window.addEventListener('akari.library.fontsChanged', refreshFonts);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.library.fontsChanged', refreshFonts) });
         const openImageAi = (event: Event): void => {
             const itemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId;
             const selectedId = () => this.model.snapshot?.kind === 'item' ? this.model.snapshot.id
@@ -495,7 +517,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.photo.brush-end', onPhotoBrushEnd) });
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:inspector');
-        this.node.setAttribute('data-akari-ui-label', '編集パネル');
+        this.node.setAttribute('data-akari-ui-label', t('annotations.inspectorWidget.text.editPanel'));
         Object.assign(this.node.style, {
             height: '100%',
             overflowX: 'hidden',
@@ -703,7 +725,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return false;
         }
         const snapshot = this.model.snapshot;
-        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap') {
+        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap' || snapshot.kind === 'transition') {
             if (clearedSolo) this.render();
             return false;
         }
@@ -834,23 +856,23 @@ export class AkariInspectorWidget extends BaseWidget {
                 identity = this.generationIdentity(this.model.snapshot);
             }
             if (this.isDisposed) return;
-            if (!identity) { this.showFieldNotice('再試行するクリップの生成情報を読み込めませんでした。'); return; }
+            if (!identity) { this.showFieldNotice(t('annotations.inspectorWidget.text.theGenerationInformationForTheClipTo')); return; }
             this.focusField({ tabId: 'edit', sectionId: 'generation' });
             await this.loadGeneration(identity);
             if (this.isDisposed) return;
             if (this.generationIdentity(this.model.snapshot)?.key !== identity.key) {
-                this.showFieldNotice('選択が変わったため再試行を取り消しました。');
+                this.showFieldNotice(t('annotations.inspectorWidget.text.retryCanceledBecauseSelectionHasChanged'));
                 return;
             }
             this.focusField({ tabId: 'edit', sectionId: 'generation' });
             if (this.generationStates.get(identity.key) !== 'failed') {
-                this.showFieldNotice('このクリップは再試行できる失敗状態ではありません。');
+                this.showFieldNotice(t('annotations.inspectorWidget.text.thisClipIsNotInAFailed'));
                 return;
             }
             const result = await this.confirmAndStartGeneration(identity);
-            if (!result.ok) this.showFieldNotice(result.message ?? '再試行できませんでした。');
+            if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.couldNotRetry'));
         } catch (error) {
-            this.showFieldNotice(`再試行を開けませんでした: ${String(error)}`);
+            this.showFieldNotice(t('annotations.inspectorWidget.text.failedToOpenRetry', { reason: String(error) }));
         } finally { this.generationRetryPending = false; }
     }
 
@@ -877,6 +899,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const snapshot = this.model.snapshot;
         if (!snapshot) return undefined;
         if (snapshot.kind === 'gap') return `gap:${snapshot.trackId}:${snapshot.startSeconds}:${snapshot.endSeconds}`;
+        if (snapshot.kind === 'transition') return `transition:${snapshot.ref.earlierItemId}:${snapshot.ref.laterItemId}`;
         const itemKey = (item: InspectorSnapshot): string => item.kind === 'cut'
             ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`;
         const selectionKey = snapshot.kind === 'multi'
@@ -909,20 +932,20 @@ export class AkariInspectorWidget extends BaseWidget {
         const panel = document.createElement('section');
         panel.className = 'akari-inspector-generation-gap';
         const title = document.createElement('h3');
-        title.textContent = `すき間 · ${(snapshot.endSeconds - snapshot.startSeconds).toFixed(1)} 秒`;
+        title.textContent = t('annotations.inspectorWidget.text.gapSeconds', { duration: (snapshot.endSeconds - snapshot.startSeconds).toFixed(1), n: pluralCountForDisplay((snapshot.endSeconds - snapshot.startSeconds).toFixed(1)) });
         const range = document.createElement('p');
-        range.textContent = `${snapshot.startSeconds.toFixed(2)} → ${snapshot.endSeconds.toFixed(2)} 秒`;
+        range.textContent = t('annotations.inspectorWidget.text.seconds', { startTime: snapshot.startSeconds.toFixed(2), endTime: snapshot.endSeconds.toFixed(2) });
         const ends = document.createElement('div');
         ends.className = 'akari-inspector-generation-gap-ends';
-        for (const [label, endpoint] of [['最初', snapshot.previous], ['最後', snapshot.next]] as const) {
+        for (const [label, endpoint] of [[t('annotations.inspectorWidget.text.first'), snapshot.previous], [t('annotations.inspectorWidget.text.last'), snapshot.next]] as const) {
             const end = document.createElement('div');
             end.className = 'akari-inspector-generation-gap-end';
             const name = document.createElement('span');
-            name.textContent = `${label} = ${endpoint?.label ?? '絵なし'}`;
+            name.textContent = `${label} = ${endpoint?.label ?? t('annotations.inspectorWidget.text.noPicture')}`;
             end.appendChild(name);
             if (endpoint) {
                 const img = document.createElement('img');
-                img.alt = `${label}の絵`;
+                img.alt = t('annotations.inspectorWidget.text.picture', { label: label });
                 end.appendChild(img);
                 const root = this.workspaceService.tryGetRoots()[0]?.resource;
                 if (root) void this.layerAudioService.getClipThumbnail({ projectRootUri: root.toString(),
@@ -930,11 +953,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 }).then(result => {
                     if (this.model.snapshot !== snapshot) return;
                     if (result.dataUri) img.src = result.dataUri;
-                    else img.alt = 'コマを表示できません';
-                }).catch(() => { img.alt = 'コマを表示できません'; });
+                    else img.alt = t('annotations.inspectorWidget.text.canTDisplayFrame');
+                }).catch(() => { img.alt = t('annotations.inspectorWidget.text.canTDisplayFrame'); });
             } else {
                 const note = document.createElement('span');
-                note.textContent = 'この端には画像・動画がないため、枠を空にします。';
+                note.textContent = t('annotations.inspectorWidget.text.thereAreNoImagesOrVideosAt');
                 end.appendChild(note);
             }
             ends.appendChild(end);
@@ -960,6 +983,12 @@ export class AkariInspectorWidget extends BaseWidget {
             });
         });
         this.body.appendChild(panel);
+    }
+
+    protected renderTransitionSelection(snapshot: TimelineTransitionSelection): void {
+        this.body.append(renderTransitionPanel(snapshot,
+            request => this.commitWrite(request),
+            id => this.commandRegistry.executeCommand(id), this.node));
     }
 
     protected matchesGapAiFrame(selection: TimelineSelectionModel['snapshot'], gap: TimelineGapSelection): boolean {
@@ -1134,7 +1163,9 @@ export class AkariInspectorWidget extends BaseWidget {
             values.scale = Math.sqrt(values.scaleX * values.scaleY);
         }
         for (const [name, raw] of Object.entries(values)) {
-            const field = this.body.querySelector(`[data-akari-field="transform-${name}"]`);
+            const fieldName = name.startsWith('--akari-3d-rot-')
+                ? `rotation3d-${name.slice('--akari-3d-rot-'.length)}` : `transform-${name}`;
+            const field = this.body.querySelector(`[data-akari-field="${fieldName}"]`);
             const input = field?.querySelector<HTMLInputElement>('.akari-inspector-number-input');
             if (!input || document.activeElement === input) continue;
             input.value = String(name.startsWith('scale') ? Math.round(raw * 1000) / 10 : Math.round(raw * 100) / 100);
@@ -1164,15 +1195,15 @@ export class AkariInspectorWidget extends BaseWidget {
                     const currentImageAction = fields?.flatMap(field => (field as GenerationFieldDef<TimelineCutSelection>).generationChildren ?? [field])
                         .find(field => field.name === 'first-frame')?.actions?.find(action => action.name === 'current');
                     if (currentImageAction) {
-                        currentImageAction.label = 'この素材の絵';
-                        currentImageAction.title = 'この素材の絵';
+                        currentImageAction.label = t('annotations.inspectorWidget.text.pictureOfThisMaterial');
+                        currentImageAction.title = t('annotations.inspectorWidget.text.pictureOfThisMaterial');
                     }
-                    if (fields) this.appendSection({ id: 'generation', label: '動画にする', fields }, snapshot, 'cut');
+                    if (fields) this.appendSection({ id: 'generation', label: t('annotations.inspectorWidget.text.makeAVideo'), fields }, snapshot, 'cut');
                     else {
                         const status = document.createElement('p');
                         status.className = 'akari-inspector-ai-material-status';
                         const state = this.materialGenerationStatus?.get(key);
-                        status.textContent = state?.state === 'error' ? state.reason ?? 'フォームを読み込めませんでした。' : '読み込み中';
+                        status.textContent = state?.state === 'error' ? state.reason ?? t('annotations.inspectorWidget.text.theFormCouldNotBeLoaded') : t('annotations.inspectorWidget.text.loading');
                         this.body.appendChild(status);
                     }
                 },
@@ -1215,8 +1246,16 @@ export class AkariInspectorWidget extends BaseWidget {
             this.explicitTabId = undefined;
             const empty = document.createElement('div');
             empty.className = 'akari-inspector-empty';
-            empty.textContent = 'タイムラインで項目を選択してください。';
+            empty.textContent = t('annotations.inspectorWidget.text.selectAnItemOnTheTimeline');
             this.body.appendChild(empty);
+            return;
+        }
+        if (snapshot.kind === 'transition') {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
+            this.explicitTabId = undefined;
+            this.syncAdjustCompare(undefined, '');
+            this.renderTransitionSelection(snapshot);
             return;
         }
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
@@ -1401,7 +1440,7 @@ export class AkariInspectorWidget extends BaseWidget {
                                 store.readEditV2(doc);
                                 store.attachEditHelpers(doc);
                                 const item = doc.find(snapshot.id);
-                                if (!item || item.source?.kind !== 'media') throw new Error('動画クリップが見つかりません。');
+                                if (!item || item.source?.kind !== 'media') throw new Error(t('annotations.inspectorWidget.text.videoClipNotFound'));
                                 return { doc, item };
                             };
                             const { item } = await read();
@@ -1448,18 +1487,36 @@ export class AkariInspectorWidget extends BaseWidget {
                 case 'audio':
                     sections = AUDIO_SECTIONS(snapshot as AudioInspectorSnapshot, request => this.commitWrite(request));
                     break;
-                case 'overlay':
+                case 'overlay': {
                     this.ensureCaptionRowFontFace();
+                    const source3d = snapshot.payload.source as { html?: string; path?: string; vars?: Record<string, string> } | undefined;
+                    const htmlPath = source3d?.html ?? source3d?.path
+                        ?? (typeof snapshot.payload.html === 'string' ? snapshot.payload.html : undefined);
+                    const scene3dOverlay = htmlPath && isScene3dItem({
+                        source: { kind: 'html', path: htmlPath,
+                            vars: source3d?.vars ?? snapshot.payload.vars as Record<string, string> | undefined },
+                        keyframes: snapshot.keyframes as import('@akari-video/edit-store').ItemV2['keyframes']
+                    });
                     sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion,
-                        this.captionPanelFontFaces);
+                        this.captionPanelFontFaces, scene3dOverlay ? this.scene3dContext(htmlPath, snapshot.id) : undefined);
                     break;
+                }
                 case 'item':
                     sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion,
-                        request => this.model.requestLivePreview?.(request));
+                        request => this.model.requestLivePreview?.(request),
+                        snapshot.source?.kind === 'html' && isScene3dItem({
+                            source: snapshot.source,
+                            keyframes: snapshot.keyframes as import('@akari-video/edit-store').ItemV2['keyframes']
+                        }) ? this.scene3dContext(snapshot.source.path, snapshot.id) : undefined);
+                    if (snapshot.source?.kind === 'html' && isScene3dPath(snapshot.source.path)) this.overlayKnobs({
+                        kind: 'overlay', id: snapshot.id, outputStart: snapshot.outputStart,
+                        duration: snapshot.duration, trackName: snapshot.trackName,
+                        clipName: snapshot.clipName, payload: { html: snapshot.source.path }
+                    });
                     if (snapshot.itemKind === 'captions') sections = composeInspectorSections([...sections, CAPTION_BAG_MOTION_SECTION(
                         async () => {
                             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-                            if (!root) throw new Error('プロジェクトを開いてください。');
+                            if (!root) throw new Error(t('annotations.inspectorWidget.text.pleaseOpenTheProject'));
                             const [edit, captions] = await Promise.all([
                                 this.fileService.readFile(currentTimelineEditUri(root)),
                                 this.fileService.readFile(currentTimelineCaptionsUri(root))
@@ -1471,7 +1528,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (snapshot.kind === 'item' && snapshot.sourceKind === 'media'
                 && this.generationDone?.get(snapshot.id)?.meta) {
                 const fields = this.generationSectionFields(snapshot);
-                if (fields) sections = [...sections, { id: GENERATION_SECTION_ID, label: '生成', fields }];
+                if (fields) sections = [...sections, { id: GENERATION_SECTION_ID, label: t('annotations.inspectorWidget.text.generation'), fields }];
             }
         }
         if (sectionKind === 'caption') {
@@ -1651,7 +1708,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
             if (!this.aiCatalogLoaded) {
-                appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
+                appendAiTiles(this.body, [], () => undefined, false, t('annotations.inspectorWidget.text.loadingAnotherProposal'));
                 this.appendSoloBanner();
                 return;
             }
@@ -1726,7 +1783,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if ((this.aiView === 'cutout' && this.photoMaskAvailable === true || this.aiView === 'eraser') && photoTools.enabled
                 && (rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item')) {
                 const view = this.aiView;
-                appendAiBack(this.body, view === 'cutout' ? '背景を消す' : '消しゴム', () => {
+                appendAiBack(this.body, view === 'cutout' ? t('annotations.inspectorWidget.text.eraseTheBackground') : t('annotations.inspectorWidget.text.eraser'), () => {
                     this.aiView = 'tiles';
                     this.render();
                 });
@@ -1747,7 +1804,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         ...(rowSnapshot.kind === 'cut' ? [] : maskFields.filter(field => names.includes(field.name)))]
                     : brushFields.filter(field => names.includes(field.name));
                 this.appendSection({ id: view === 'cutout' ? 'photo-cutout' : 'photo-eraser',
-                    label: view === 'cutout' ? '背景を消す' : '消しゴム', fields }, rowSnapshot, sectionKind);
+                    label: view === 'cutout' ? t('annotations.inspectorWidget.text.eraseTheBackground') : t('annotations.inspectorWidget.text.eraser'), fields }, rowSnapshot, sectionKind);
                 return;
             }
             if (this.aiView === 'still-result' && generationIdentity) {
@@ -1755,7 +1812,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
-                appendAiBack(this.body, '静止画', () => {
+                appendAiBack(this.body, t('annotations.inspectorWidget.text.stillImage'), () => {
                     this.aiView = 'tiles';
                     this.transcribePolling = false;
                     this.render();
@@ -1763,8 +1820,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.appendStillPanel(generationIdentity);
                 return;
             }
-            appendAiBack(this.body, this.aiView === 'transcribe' ? '文字起こし'
-                : this.aiView === 'narration' ? 'ナレーション' : '動画にする', () => {
+            appendAiBack(this.body, this.aiView === 'transcribe' ? t('annotations.inspectorWidget.text.transcription')
+                : this.aiView === 'narration' ? t('annotations.inspectorWidget.text.narration') : t('annotations.inspectorWidget.text.makeAVideo'), () => {
                 this.aiView = 'tiles';
                 this.transcribePolling = false;
                 this.render();
@@ -1834,16 +1891,16 @@ export class AkariInspectorWidget extends BaseWidget {
             const easingOptions = KEYFRAME_EASING_OPTIONS.includes(easing as typeof KEYFRAME_EASING_OPTIONS[number])
                 ? KEYFRAME_EASING_OPTIONS : [...KEYFRAME_EASING_OPTIONS, easing];
             keyframeSection = {
-                id: 'easing', label: 'イージング', fields: [{
-                    name: 'segment-easing', label: 'プリセット', getValue: () => easing,
+                id: 'easing', label: t('annotations.inspectorWidget.text.easing'), fields: [{
+                    name: 'segment-easing', label: t('annotations.inspectorWidget.text.preset'), getValue: () => easing,
                     getEditValue: () => easing, inputKind: 'select', options: easingOptions,
                     previewOption: value => this.previewEasing(rowSnapshot, selectedKeyframe, value),
                     write: async (_snapshot, easing) => this.model.requestKeyframe?.({
                         action: 'easing', itemId: selectedKeyframe.itemId,
                         property: selectedKeyframe.property, easing
-                    }) ?? { ok: false, message: 'キーフレーム編集を利用できません。' }
+                    }) ?? { ok: false, message: t('annotations.inspectorWidget.text.keyframeEditingIsNotAvailable') }
                 }, {
-                    name: 'segment-cubic-bezier', label: 'ベジェ',
+                    name: 'segment-cubic-bezier', label: t('annotations.inspectorWidget.text.bezier'),
                     getValue: () => easing.startsWith('cubic-bezier(') ? easing : 'cubic-bezier(0.42,0,0.58,1)',
                     getEditValue: () => easing.startsWith('cubic-bezier(') ? easing : 'cubic-bezier(0.42,0,0.58,1)',
                     inputKind: 'text',
@@ -1851,23 +1908,23 @@ export class AkariInspectorWidget extends BaseWidget {
                         ? this.model.requestKeyframe?.({
                             action: 'easing', itemId: selectedKeyframe.itemId,
                             property: selectedKeyframe.property, easing
-                        }) ?? { ok: false, message: 'キーフレーム編集を利用できません。' }
-                        : { ok: false, message: 'cubic-bezier(x1,y1,x2,y2) の形で入力してください。' }
+                        }) ?? { ok: false, message: t('annotations.inspectorWidget.text.keyframeEditingIsNotAvailable') }
+                        : { ok: false, message: t('annotations.inspectorWidget.text.pleaseEnterItInTheFormCubic') }
                 }]
             };
         }
         if (activeTab === 'adjust' && photoTools.enabled) {
             const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                 ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite, this.photoMaskAvailable === true) : [];
-            this.appendSection({ id: 'adjust-scope', label: '範囲', fields: [{
-                name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
-                options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
+            this.appendSection({ id: 'adjust-scope', label: t('annotations.inspectorWidget.text.range'), fields: [{
+                name: 'edit-adjust-scope', label: t('annotations.inspectorWidget.text.target'), inputKind: 'select',
+                options: [t('annotations.inspectorWidget.text.wholeImage'), t('annotations.inspectorWidget.text.selectionArea')], getValue: () => this.editAdjustScope === 'selection' ? t('annotations.inspectorWidget.text.selectionArea') : t('annotations.inspectorWidget.text.wholeImage'),
                 write: async (_snapshot, value) => {
-                    this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
+                    this.editAdjustScope = value === t('annotations.inspectorWidget.text.selectionArea') ? 'selection' : 'whole';
                     this.render();
                     return { ok: true };
                 }
-            }, ...(this.editAdjustScope === '選択エリア'
+            }, ...(this.editAdjustScope === 'selection'
                 ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
         }
         if (activeTab === 'adjust' && compareTarget) {
@@ -1877,7 +1934,7 @@ export class AkariInspectorWidget extends BaseWidget {
             button.hidden = this.solo !== undefined;
             button.setAttribute('data-akari-ui', 'toggle:inspector-adjust-compare');
             button.setAttribute('aria-pressed', String(this.adjustCompare?.enabled === true));
-            button.textContent = 'A/B 比較';
+            button.textContent = t('annotations.inspectorWidget.text.aBComparison');
             button.addEventListener('click', () => {
                 this.adjustCompare = { target: compareTarget, enabled: !this.adjustCompare?.enabled };
                 this.model.requestAdjustBypass?.(this.adjustCompare);
@@ -1890,7 +1947,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         if (activeTab === 'adjust') {
             this.refreshAdjustLuts();
-            (photoTools.enabled && this.editAdjustScope === '選択エリア' ? [] : ADJUST_SECTIONS(rowSnapshot, requestWrite, {
+            (photoTools.enabled && this.editAdjustScope === 'selection' ? [] : ADJUST_SECTIONS(rowSnapshot, requestWrite, {
                 projectLutRefs: this.projectLutRefs,
                 importLut: () => this.importAdjustLut(rowSnapshot)
             }))
@@ -1915,10 +1972,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     row.dataset.akariMaterialSwap = 'entry';
                     row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 10px';
                     const label = document.createElement('span');
-                    label.textContent = '入れ替え';
+                    label.textContent = t('annotations.inspectorWidget.text.replacement');
                     const button = document.createElement('button');
                     button.className = 'theia-button secondary';
-                    button.textContent = '候補を見る';
+                    button.textContent = t('annotations.inspectorWidget.text.seeSuggestions');
                     button.onclick = () => this.model.requestMaterialSwap?.();
                     row.append(label, button);
                     this.body.appendChild(row);
@@ -1951,15 +2008,15 @@ export class AkariInspectorWidget extends BaseWidget {
         const fieldLabel = field?.querySelector('.akari-inspector-row-label')?.textContent?.trim();
         const sectionLabel = section?.querySelector('.akari-inspector-section-toggle')?.textContent
             ?.trim();
-        const label = fieldLabel || sectionLabel || this.solo.fieldName || this.solo.sectionId || 'この項目';
+        const label = fieldLabel || sectionLabel || this.solo.fieldName || this.solo.sectionId || t('annotations.inspectorWidget.text.thisItem');
         const banner = document.createElement('div');
         banner.className = 'akari-inspector-solo-banner';
         banner.setAttribute('data-akari-ui', 'notice:inspector-solo');
-        banner.appendChild(document.createTextNode(`${label} だけを表示中 — `));
+        banner.appendChild(document.createTextNode(t('annotations.inspectorWidget.text.displayingOnly', { label: label })));
         const reset = document.createElement('button');
         reset.type = 'button';
         reset.className = 'akari-inspector-solo-reset';
-        reset.textContent = 'すべて表示';
+        reset.textContent = t('annotations.inspectorWidget.text.showAll');
         reset.addEventListener('click', () => {
             this.clearSolo();
             this.render();
@@ -1973,11 +2030,11 @@ export class AkariInspectorWidget extends BaseWidget {
         const active = this.tabState.activeTab('world', tabs);
         this.appendTabStrip('world', tabs, active);
         const values: Array<[string, unknown]> = snapshot.stop ? [
-            ['world', `${snapshot.world.label} (${snapshot.world.id})`], ['停留所', snapshot.stop.id],
+            ['world', `${snapshot.world.label} (${snapshot.world.id})`], [t('annotations.inspectorWidget.text.stop'), snapshot.stop.id],
             ['c (x, y, scale)', snapshot.stop.c.join(', ')], ['at', `${snapshot.stop.at} s`], ['leave', `${snapshot.stop.leave} s`]
         ] : snapshot.edge ? [
-            ['world', `${snapshot.world.label} (${snapshot.world.id})`], ['辺', snapshot.edge.id],
-            ['接続', `${snapshot.edge.from} → ${snapshot.edge.to}`], ['type', snapshot.edge.type],
+            ['world', `${snapshot.world.label} (${snapshot.world.id})`], [t('annotations.inspectorWidget.text.side'), snapshot.edge.id],
+            [t('annotations.inspectorWidget.text.connection'), `${snapshot.edge.from} → ${snapshot.edge.to}`], ['type', snapshot.edge.type],
             ['transition', snapshot.edge.transition?.kind ?? '-'], ['cover', `${snapshot.edge.transition?.cover ?? '-'} s`],
             ['via', snapshot.edge.via ?? '-'], ['carry', snapshot.edge.carry?.join(', ') || '-']
         ] : [];
@@ -1991,7 +2048,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.appendChild(list);
         if (active === 'world') {
             const button = document.createElement('button');
-            button.type = 'button'; button.className = 'theia-button'; button.textContent = '編集の指示をコピー';
+            button.type = 'button'; button.className = 'theia-button'; button.textContent = t('annotations.inspectorWidget.text.copyEditingInstructions');
             button.addEventListener('click', () => void navigator.clipboard.writeText(worldInstructionCopy(snapshot as any)));
             this.body.appendChild(button);
         }
@@ -2029,13 +2086,13 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async importAdjustLut(snapshot: InspectorSnapshot): Promise<InspectorWriteResult> {
-        if (snapshot.kind === 'caption' || snapshot.kind === 'audio') return { ok: false, message: '映像を選択してください。' };
+        if (snapshot.kind === 'caption' || snapshot.kind === 'audio') return { ok: false, message: t('annotations.inspectorWidget.text.pleaseSelectAVideo') };
         try {
-            const uri = await this.fileDialogService.showOpenDialog({ title: 'LUT を読み込む',
+            const uri = await this.fileDialogService.showOpenDialog({ title: t('annotations.inspectorWidget.text.loadLut'),
                 canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
                 filters: { 'LUT (*.cube)': ['cube'] } });
             if (!uri) return { ok: true };
-            if (!this.model.requestAdjustLutImport) throw new Error('LUT の取り込みを利用できません。');
+            if (!this.model.requestAdjustLutImport) throw new Error(t('annotations.inspectorWidget.text.lutIngestIsNotAvailable'));
             const ref = await this.model.requestAdjustLutImport(uri.path.fsPath());
             const itemId = snapshot.kind === 'cut' ? snapshot.itemId ?? `cut:${snapshot.index}` : snapshot.id;
             const result = await this.commitWrite(createInspectorAdjustWriteRequest(itemId, 'adjust.lut.lut', ref));
@@ -2043,7 +2100,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.refreshAdjustLuts();
             return result;
         } catch (error) {
-            return { ok: false, message: 'LUT を取り込めませんでした: ' + (error instanceof Error ? error.message : String(error)) };
+            return { ok: false, message: t('annotations.inspectorWidget.text.failedToImportLut') + (error instanceof Error ? error.message : String(error)) };
         }
     }
 
@@ -2063,7 +2120,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const strip = document.createElement('div');
         strip.className = 'akari-inspector-tab-strip';
         strip.setAttribute('role', 'tablist');
-        strip.setAttribute('aria-label', '編集パネル');
+        strip.setAttribute('aria-label', t('annotations.inspectorWidget.text.editPanel'));
         strip.setAttribute('data-akari-ui', 'tabs:inspector');
         for (const tab of tabs) {
             const button = document.createElement('button');
@@ -2076,11 +2133,11 @@ export class AkariInspectorWidget extends BaseWidget {
             button.setAttribute('aria-disabled', String(!tab.enabled));
             button.setAttribute('data-akari-ui', `tab:inspector-${tab.id}`);
             if (tab.id === activeTab) button.classList.add('is-active');
-            if (!tab.enabled) button.title = tab.disabledTitle ?? 'この要素では使えません';
+            if (!tab.enabled) button.title = tab.disabledTitle ?? t('annotations.inspectorWidget.text.notAvailableForThisElement');
             if (tab.id === 'edit' && generationTodo) {
                 const todo = document.createElement('span');
                 todo.setAttribute('data-akari-generation-todo', 'true');
-                todo.setAttribute('aria-label', '生成でやることがあります');
+                todo.setAttribute('aria-label', t('annotations.inspectorWidget.text.thereAreThingsToDoWhenGenerating'));
                 button.appendChild(todo);
             }
             button.addEventListener('click', () => {
@@ -2111,8 +2168,27 @@ export class AkariInspectorWidget extends BaseWidget {
         void section; void kind; void previewKind;
     }
 
+    protected scene3dContext(htmlPath: string | undefined, id: string): Scene3dSectionContext {
+        const scene3dPath = isScene3dPath(htmlPath) ? htmlPath : undefined;
+        const metaPath = scene3dPath ? overlayMetaPath(scene3dPath) : undefined;
+        const screenVar = scene3dPath
+            ? scene3dScreenTextureVar(this.scene3dFragmentCache.get(scene3dPath) ?? undefined) : undefined;
+        if (scene3dPath && !this.scene3dFragmentCache.has(scene3dPath)) {
+            this.scene3dFragmentCache.set(scene3dPath, null);
+            void this.loadScene3dFragment(scene3dPath, id);
+        }
+        return {
+            fps: this.model.fps,
+            meta: metaPath ? this.scene3dMetaCache.get(metaPath) : undefined,
+            screenVar,
+            pickScreen: screenVar ? () => this.pickScene3dScreen(id, screenVar) : undefined,
+            writeScreen: screenVar ? path => this.writeScene3dScreen(id, screenVar, path) : undefined
+        };
+    }
+
     protected overlayKnobs(snapshot: TimelineOverlaySelection): readonly InspectorKnob[] {
-        const html = typeof snapshot.payload.html === 'string' ? snapshot.payload.html : undefined;
+        const source = snapshot.payload.source as { html?: string; path?: string } | undefined;
+        const html = typeof snapshot.payload.html === 'string' ? snapshot.payload.html : source?.html ?? source?.path;
         const metaPath = html ? overlayMetaPath(html) : undefined;
         if (!metaPath) return [];
         const cached = this.knobCache.get(metaPath);
@@ -2130,15 +2206,64 @@ export class AkariInspectorWidget extends BaseWidget {
             const uri = /^[a-z][a-z0-9+.-]*:/iu.test(metaPath)
                 ? new URI(metaPath) : root.resource.resolve(metaPath);
             const source = (await this.fileService.readFile(uri)).value.toString();
-            this.knobCache.set(metaPath, parseInspectorKnobs(JSON.parse(source)));
+            const meta = JSON.parse(source) as Scene3dMeta;
+            this.scene3dMetaCache.set(metaPath, meta);
+            this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         } catch {
-            const match = /^assets\/(overlay\/[^/]+)\/meta\.json$/u.exec(metaPath);
+            const match = /^assets\/((?:overlay|scene3d)\/[^/]+)\/meta\.json$/u.exec(metaPath);
             const meta = match ? await this.commandRegistry.executeCommand<unknown>(
                 'akari.catalog.readOverlayMeta', match[1]).catch(() => undefined) : undefined;
+            // ライブラリを参照して置いた 3D でも、動きの選択肢・画面系ツマミの除外に同じメタを使う
+            if (meta && typeof meta === 'object') this.scene3dMetaCache.set(metaPath, meta as Scene3dMeta);
             this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         }
         const current = this.model.snapshot;
-        if (current?.kind === 'overlay' && current.id === overlayId) this.render();
+        if ((current?.kind === 'overlay' || current?.kind === 'item') && current.id === overlayId) this.render();
+    }
+
+    protected async loadScene3dFragment(path: string, overlayId: string): Promise<void> {
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) return;
+            const uri = /^[a-z][a-z0-9+.-]*:/iu.test(path) ? new URI(path) : root.resolve(path);
+            this.scene3dFragmentCache.set(path, (await this.fileService.readFile(uri)).value.toString());
+        } catch {
+            // ライブラリを参照して置いた素材はプロジェクトに実体が無い。カタログからライブラリの断片を読む
+            const match = /^assets\/(scene3d\/[^/]+)\/[^/]+\.html?$/u.exec(path);
+            const fragment = match ? await this.commandRegistry.executeCommand<unknown>(
+                'akari.catalog.readOverlayFragment', match[1]).catch(() => undefined) : undefined;
+            this.scene3dFragmentCache.set(path, typeof fragment === 'string' ? fragment : null);
+        }
+        if ((this.model.snapshot?.kind === 'overlay' || this.model.snapshot?.kind === 'item')
+            && this.model.snapshot.id === overlayId) this.render();
+    }
+
+    protected async writeScene3dScreen(id: string, screenVar: string, path: string): Promise<InspectorWriteResult> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const vars = scene3dScreenVars(screenVar, path);
+        if (!root || !vars) return { ok: false, message: t('inspector.scene3d.message.selectProjectAsset') };
+        try {
+            const stat = await this.fileService.resolve(root.resolve(path));
+            if (stat.size > SCENE3D_MAX_SCREEN_BYTES) this.showFieldNotice(t('inspector.scene3d.message.screenTooLarge'));
+            return await this.model.requestWrite!({ kind: 'item-field', id,
+                path: `source.vars.${screenVar}`, value: vars[screenVar] });
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : t('inspector.scene3d.message.cannotReadAsset') };
+        }
+    }
+
+    protected async pickScene3dScreen(id: string, screenVar: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        const uri = await this.fileDialogService.showOpenDialog({
+            title: t('inspector.scene3d.dialog.pickScreenTitle'), canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+            filters: { [t('inspector.scene3d.dialog.videoImageFilter')]: ['mp4', 'mov', 'webm', 'm4v', 'png', 'jpg', 'jpeg', 'webp'] }
+        }, await this.fileService.resolve(root));
+        if (!uri) return;
+        const relative = root.relative(uri)?.toString();
+        const result = await this.writeScene3dScreen(id, screenVar, relative ?? '');
+        if (!result.ok) this.showFieldNotice(result.message ?? t('inspector.scene3d.message.couldNotChangeScreen'));
     }
 
     protected appendSection(
@@ -2191,7 +2316,7 @@ export class AkariInspectorWidget extends BaseWidget {
             checkbox.setAttribute('data-akari-ui', `field:inspector-${enable.name}`);
             checkbox.setAttribute('data-akari-field', enable.name);
             const caption = document.createElement('span');
-            caption.textContent = '有効';
+            caption.textContent = t('annotations.inspectorWidget.text.valid');
             checkbox.addEventListener('change', () => {
                 const next = checkbox.checked;
                 checkbox.disabled = true;
@@ -2199,7 +2324,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     checkbox.disabled = false;
                     if (!result.ok) {
                         checkbox.checked = !next;
-                        this.showFieldNotice(result.message ?? '有効状態を変更できませんでした。');
+                        this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.failedToChangeEnabledState'));
                     }
                 });
             });
@@ -2221,8 +2346,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 add.type = 'button';
                 add.className = 'akari-inspector-section-add';
                 add.appendChild(createInspectorIcon('plus'));
-                add.setAttribute('aria-label', '項目を追加');
-                add.title = '変形の行を追加';
+                add.setAttribute('aria-label', t('annotations.inspectorWidget.text.addItem'));
+                add.title = t('annotations.inspectorWidget.text.addTransformRow');
                 add.setAttribute('data-akari-ui', 'menu:inspector-transform-add');
                 add.addEventListener('click', event => {
                     const hidden = section.optionalFields!.filter(field => !this.isOptionalFieldVisible(kind, field, snapshot));
@@ -2328,7 +2453,7 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) throw new Error('プロジェクトが開かれていません。');
+            if (!root) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
             for (const item of items) {
                 if (revision !== this.batchLoadRevision || this.isDisposed) return;
                 const row = this.batchBaseItem(item);
@@ -2339,7 +2464,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     await this.loadGeneration(identity);
                     row.draft = this.generationDrafts.get(identity.key);
                     row.validation = this.generationValidations.get(identity.key) ?? {
-                        ok: false, messages: [{ level: 'error', text: '入力・見積を読み込めませんでした' }]
+                        ok: false, messages: [{ level: 'error', text: t('annotations.inspectorWidget.text.failedToLoadInputEstimate') }]
                     };
                 }
                 if (row.sourcePath && row.visual) {
@@ -2384,12 +2509,19 @@ export class AkariInspectorWidget extends BaseWidget {
         }));
         const panel = document.createElement('section');
         panel.className = 'akari-generation-batch';
-        panel.setAttribute('aria-label', '複数選択');
+        panel.setAttribute('aria-label', t('annotations.inspectorWidget.text.multipleSelection'));
         const heading = document.createElement('h3');
-        heading.textContent = `${items.length} 個を選択中`;
+        heading.textContent = t('annotations.inspectorWidget.text.selectingItems', { count: items.length, n: items.length });
         panel.appendChild(heading);
         const list = document.createElement('div');
         list.className = 'akari-generation-batch-list';
+        const progressLabels: Record<GenerationBatchProgress, string> = {
+            '待ち': t('annotations.inspectorWidget.batch.queued'),
+            '生成中': t('annotations.inspectorWidget.text.generating'),
+            '完了': t('annotations.inspectorWidget.text.completed'),
+            '失敗': t('annotations.inspectorWidget.text.failure'),
+            '中止': t('annotations.inspectorWidget.batch.stopped')
+        };
         for (const row of batch.rows) {
             const element = document.createElement('div');
             element.className = 'akari-generation-batch-row';
@@ -2406,11 +2538,12 @@ export class AkariInspectorWidget extends BaseWidget {
             name.title = `${row.name || row.itemId} (${row.itemId})`;
             const duration = document.createElement('span');
             duration.className = 'akari-generation-batch-duration';
-            duration.textContent = `${row.duration.toFixed(2)} 秒`;
+            duration.textContent = t('annotations.inspectorWidget.text.secondsAlternate', { duration: row.duration.toFixed(2), n: pluralCountForDisplay(row.duration.toFixed(2)) });
             const badge = document.createElement('div');
             badge.className = 'akari-generation-batch-badge';
             const progress = run?.progress.get(row.itemId);
-            badge.textContent = progress?.state ?? (this.batchLoading && row.visual ? '見積を確認中' : row.badge);
+            badge.textContent = progress ? progressLabels[progress.state]
+                : this.batchLoading && row.visual ? t('annotations.inspectorWidget.text.checkingQuote') : row.badge;
             badge.title = progress?.reason ?? badge.textContent;
             element.append(thumbnail, name, duration, badge);
             list.appendChild(element);
@@ -2418,7 +2551,7 @@ export class AkariInspectorWidget extends BaseWidget {
         panel.appendChild(list);
         const summary = document.createElement('p');
         summary.className = 'akari-generation-batch-summary';
-        summary.textContent = this.batchLoading ? '見積を確認中…' : batch.summary;
+        summary.textContent = this.batchLoading ? t('annotations.inspectorWidget.text.checkingEstimate') : batch.summary;
         panel.appendChild(summary);
         const note = (text: string): void => {
             const p = document.createElement('p');
@@ -2426,18 +2559,18 @@ export class AkariInspectorWidget extends BaseWidget {
             p.textContent = text;
             panel.appendChild(p);
         };
-        note('1 本ずつの見積の合計 · 承認は 1 回');
+        note(t('annotations.inspectorWidget.text.totalForEachQuoteApprovedOnce'));
         note(`as_of ${batch.asOf}`);
         const submit = document.createElement('button');
         submit.className = 'akari-generation-batch-submit';
-        submit.textContent = 'まとめて動画にする…';
+        submit.textContent = t('annotations.inspectorWidget.text.makeAVideoAllTogether');
         submit.disabled = this.batchLoading || batch.count === 0 || this.batchConfirming || !!this.batchRun?.active;
         submit.onclick = () => { void this.confirmGenerationBatch(batch, projectRootUri); };
         panel.appendChild(submit);
         if (this.batchRun?.active) {
             const stop = document.createElement('button');
             stop.className = 'akari-generation-batch-stop';
-            stop.textContent = this.batchRun.stopped ? '残りを中止しました' : '残りをやめる';
+            stop.textContent = this.batchRun.stopped ? t('annotations.inspectorWidget.text.canceledTheRest') : t('annotations.inspectorWidget.text.quitTheRest');
             stop.disabled = this.batchRun.stopped;
             stop.onclick = () => {
                 if (this.batchRun) this.batchRun.stopped = true;
@@ -2445,7 +2578,7 @@ export class AkariInspectorWidget extends BaseWidget {
             };
             panel.appendChild(stop);
         }
-        note('画像のまま・空の枠・生成済みは対象外。全部を自動で動画にするボタンはありません');
+        note(t('annotations.inspectorWidget.text.imagesAsTheyAreEmptyFramesAnd'));
         this.body.appendChild(panel);
     }
 
@@ -2456,10 +2589,10 @@ export class AkariInspectorWidget extends BaseWidget {
         this.batchConfirming = true;
         this.render();
         try {
-            const amount = batch.unknown ? `一部見積不可（見積可能分 $${batch.total.toFixed(2)}）` : `合計 $${batch.total.toFixed(2)}`;
-            const approved = await new ConfirmDialog({ title: '費用承認',
-                msg: `${batch.count} 本を${amount}（as_of ${batch.asOf}）で送ります。費用承認しますか`,
-                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            const amount = batch.unknown ? t('annotations.inspectorWidget.text.partiallyUnavailableForQuotationEstimateablePortion', { amount: batch.total.toFixed(2) }) : t('annotations.inspectorWidget.text.total', { amount: batch.total.toFixed(2) });
+            const approved = await new ConfirmDialog({ title: t('annotations.inspectorWidget.text.expenseApproval'),
+                msg: t('annotations.inspectorWidget.text.sendBooksForAsOfDoYou', { count: batch.count, n: batch.count, amount: amount, date: batch.asOf }),
+                ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel') }).open();
             if (!approved) return;
             const run = { projectRootUri, stopped: false, active: true,
                 progress: new Map<string, { state: GenerationBatchProgress; reason?: string }>() };
@@ -2472,7 +2605,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         const draft = drafts.get(request.itemId)!;
                         await this.layerAudioService.writeGenerationDraft({ projectRootUri,
                             ...activeEditRequest(new URI(projectRootUri)), itemId: request.itemId, ...draft });
-                        if (run.stopped) throw new Error('送信前に中止しました');
+                        if (run.stopped) throw new Error(t('annotations.inspectorWidget.text.canceledBeforeSending'));
                         // This RPC resolves on CLI process close, not on submission.
                         return { completion: this.layerAudioService.startGenerateVideo({ ...request,
                             ...activeEditRequest(new URI(projectRootUri)) }) };
@@ -2752,9 +2885,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 const location = (widget as unknown as { location?: { root?: URI } }).location;
                 return !widget.isDisposed && location?.root?.toString() === root.toString();
             }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
-            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            if (!timeline?.commitEditMutation) throw new Error(t('annotations.inspectorWidget.text.timelineEditHistoryNotFound'));
             let label = '';
-            await timeline.commitEditMutation('ナレーションを置く', doc => {
+            await timeline.commitEditMutation(t('annotations.inspectorWidget.text.putANarration'), doc => {
                 const choice = state.placementChoice ?? 'lower';
                 label = planAiNarrationPlacement(doc.tracks, itemId, adopted.durationSeconds, fps, choice).label;
                 return placeAiNarration(doc, itemId, adopted.path, adopted.durationSeconds, fps, choice);
@@ -2829,7 +2962,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.stillFalEstimateLoading = this.layerAudioService.readGenerationCatalog().then(catalog => {
             this.stillFalEstimate = catalog.stillEstimate;
             this.stillFalEstimateError = catalog.stillEstimate ? undefined
-                : catalog.stillEstimateError ?? '料金表を読めないため見積を出せません';
+                : catalog.stillEstimateError ?? t('annotations.inspectorWidget.text.iCanTGiveYouAQuote');
             const current = this.aiView === 'still' ? this.generationIdentity(this.model.snapshot) : undefined;
             const visibleState = current && this.aiStillStates.get(current.key);
             const shouldRender = !!visibleState && (!visibleState.falEstimate || !!visibleState.falEstimateError);
@@ -2840,7 +2973,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (shouldRender) this.render();
         }).catch(error => {
             console.warn('[akari-annotations] still estimate read failed:', error);
-            this.stillFalEstimateError = '料金表を読めないため見積を出せません';
+            this.stillFalEstimateError = t('annotations.inspectorWidget.text.iCanTGiveYouAQuote');
             for (const state of this.aiStillStates.values()) {
                 state.falEstimate = undefined;
                 state.falEstimateError = this.stillFalEstimateError;
@@ -2961,9 +3094,9 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!state || !root) return;
         if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path) || path.startsWith('/')
-            || path.split('/').includes('..')) { state.error = 'プロジェクト内の画像を選んでください。'; this.render(); return; }
+            || path.split('/').includes('..')) { state.error = t('annotations.inspectorWidget.text.selectAnImageInYourProject'); this.render(); return; }
         if (state.references?.some(row => row.path === path)) return;
-        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = `参照画像は ${maxStillReferences} 枚までです。`; this.render(); return; }
+        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = t('annotations.inspectorWidget.text.upToReferenceImages', { count: maxStillReferences, n: maxStillReferences }); this.render(); return; }
         try {
             const file = await this.fileService.readFile(root.resolve(path));
             const bytes = file.value.buffer;
@@ -2975,7 +3108,7 @@ export class AkariInspectorWidget extends BaseWidget {
             state.choosingReference = false;
             state.error = undefined;
             if (stillRouteAvailability(state.routeId ?? 'codex', state.references.length).disabled) state.routeId = 'codex';
-        } catch { state.error = '参照画像を読み込めませんでした。'; }
+        } catch { state.error = t('annotations.inspectorWidget.text.theReferenceImageCouldNotBeLoaded'); }
         this.render();
     }
 
@@ -2998,8 +3131,8 @@ export class AkariInspectorWidget extends BaseWidget {
             await walk(root.resolve('assets'));
             state.availableReferences = paths.sort();
             state.choosingReference = !state.choosingReference;
-            state.error = paths.length ? undefined : 'プロジェクトに画像素材がありません。';
-        } catch { state.error = '素材の一覧を読み込めませんでした。'; }
+            state.error = paths.length ? undefined : t('annotations.inspectorWidget.text.thereAreNoImageMaterialsInThe');
+        } catch { state.error = t('annotations.inspectorWidget.text.theListOfMaterialsCouldNotBe'); }
         this.render();
     }
 
@@ -3015,11 +3148,13 @@ export class AkariInspectorWidget extends BaseWidget {
                 { editUri: editUri.toString(), time: playhead, waitForReady: true });
             const saved = await this.commandRegistry.executeCommand<{ path: string }>(
                 'akari.preview.captureFrame', { editUri: editUri.toString() });
-            if (!saved?.path) throw new Error('コマを保存できませんでした。');
+            if (!saved?.path) throw new Error(t('annotations.inspectorWidget.text.theFrameCouldNotBeSaved'));
             await this.addStillReference(key, saved.path);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
-            state.error = reason.startsWith('コマを保存できませんでした') ? reason : `コマを保存できませんでした: ${reason}`;
+            const alreadyPrefixed = (['ja', 'en'] as const).some(language =>
+                reason.startsWith(t('annotations.inspectorWidget.text.couldNotSaveFrame', {}, language)));
+            state.error = alreadyPrefixed ? reason : t('annotations.inspectorWidget.text.couldNotSaveFrameAlternate', { reason: reason });
             this.render();
         }
     }
@@ -3097,9 +3232,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 const location = (widget as unknown as { location?: { root?: URI } }).location;
                 return !widget.isDisposed && location?.root?.toString() === root.toString();
             }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
-            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            if (!timeline?.commitEditMutation) throw new Error(t('annotations.inspectorWidget.text.timelineEditHistoryNotFound'));
             live.expectSource(result.relativePath, { width: result.width, height: result.height }, result.transform);
-            await timeline.commitEditMutation('空の枠の画角を変更', doc => {
+            await timeline.commitEditMutation(t('annotations.inspectorWidget.text.changeTheAngleOfViewOfThe'), doc => {
                 replaceStillInEdit(doc, identity.itemId, result.relativePath);
                 const item = doc.tracks.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
                 if (result.transform) item.transform = result.transform;
@@ -3181,11 +3316,11 @@ export class AkariInspectorWidget extends BaseWidget {
         await Promise.all(stillRouteIds.map(async id => {
             try {
                 const [route] = await this.layerAudioService.probeImageRoutes([id]);
-                if (!route || route.id !== id) throw new Error('状態を取得できませんでした');
+                if (!route || route.id !== id) throw new Error(t('annotations.inspectorWidget.text.couldNotGetStatus'));
                 state.routes = [...(state.routes ?? []).filter(row => row.id !== id), route];
             } catch {
                 state.routes = [...(state.routes ?? []).filter(row => row.id !== id),
-                    { id, state: 'missing', detail: '確かめられませんでした' }];
+                    { id, state: 'missing', detail: t('annotations.inspectorWidget.text.couldnTConfirm') }];
             } finally {
                 probingRoutes.delete(id);
                 if (!probingRoutes.size) state.probing = false;
@@ -3208,15 +3343,15 @@ export class AkariInspectorWidget extends BaseWidget {
             || routes.some(route => stillRouteAvailability(route, input.references.length).disabled
                 || !['ready', 'unknown'].includes(state.routes?.find(row => row.id === route)?.state ?? ''))) return;
         if (routes.includes('fal') && !state.falEstimate) {
-            state.falEstimateError ??= '料金表を読めないため見積を出せません';
+            state.falEstimateError ??= t('annotations.inspectorWidget.text.iCanTGiveYouAQuote');
             this.render();
             return;
         }
         const estimate = routes.includes('fal') ? state.falEstimate!.prices[input.quality] : 0;
         if (estimate > 0) {
-            const approved = await new ConfirmDialog({ title: '費用承認',
-                msg: `${routes.length} 案を同時に作ります。合計見積もり $${estimate.toFixed(3)}（as_of ${state.falEstimate!.asOf}・1024² 基準）。費用承認しますか`,
-                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            const approved = await new ConfirmDialog({ title: t('annotations.inspectorWidget.text.expenseApproval'),
+                msg: t('annotations.inspectorWidget.text.createPlansAtTheSameTimeTotal', { count: routes.length, n: routes.length, estimate: estimate.toFixed(3), date: state.falEstimate!.asOf }),
+                ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel') }).open();
             if (!approved) return;
         }
         state.running = true;
@@ -3241,7 +3376,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (!route) continue;
                 if (row.getAttribute('data-akari-inspector-ai-progress-elapsed') === String(elapsed)) continue;
                 row.setAttribute('data-akari-inspector-ai-progress-elapsed', String(elapsed));
-                row.textContent = `◌ ${stillRouteLabel(route)} · ${elapsed} 秒`;
+                row.textContent = t('annotations.inspectorWidget.text.secondsVariant', { route: stillRouteLabel(route), elapsed: elapsed, n: elapsed });
             }
             if (state.polling || Date.now() - (state.lastPolledAt ?? 0) < 1000) return;
             state.lastPolledAt = Date.now();
@@ -3326,7 +3461,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return !widget.isDisposed && location?.root?.toString() === root.toString();
         }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
         if (!timeline?.commitEditMutation) {
-            if (state) state.error = 'タイムラインの編集履歴が見つかりません。';
+            if (state) state.error = t('annotations.inspectorWidget.text.timelineEditHistoryNotFound');
             this.render();
             return;
         }
@@ -3334,7 +3469,7 @@ export class AkariInspectorWidget extends BaseWidget {
             let result: { result?: { committed?: boolean } } | undefined;
             for (let attempt = 0; attempt < 4; attempt++) {
                 try {
-                    result = (await timeline.commitEditMutation('静止画を入れる',
+                    result = (await timeline.commitEditMutation(t('annotations.inspectorWidget.text.insertAStillImage'),
                         doc => placeStillInEdit(doc, identity.itemId, relativePath))) as typeof result;
                     break;
                 } catch (error) {
@@ -3443,7 +3578,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const title = document.createElement('div');
         title.className = 'akari-inspector-section-header';
         title.style.fontWeight = '600';
-        title.textContent = '作り方';
+        title.textContent = t('annotations.inspectorWidget.text.howToMake');
         section.appendChild(title);
         for (const row of details.rows) {
             const line = document.createElement('div');
@@ -3476,7 +3611,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const redo = document.createElement('button');
         redo.type = 'button';
         redo.className = 'theia-button secondary';
-        redo.textContent = 'この作り方で作り直す';
+        redo.textContent = t('annotations.inspectorWidget.text.recreateItUsingThisMethod');
         redo.setAttribute('data-akari-generation-provenance-regenerate', details.kind);
         redo.addEventListener('click', () => {
             this.aiViewClipKey = clipKey;
@@ -3528,7 +3663,7 @@ export class AkariInspectorWidget extends BaseWidget {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) {
-                if (identity.key.startsWith('material:')) throw new Error('プロジェクトが開かれていません。');
+                if (identity.key.startsWith('material:')) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
                 return;
             }
             if (this.generationCatalog.length === 0) {
@@ -3611,7 +3746,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const model = this.generationCatalog.find(row => row.id === draft?.modelId)
                 ?? this.generationCatalog.find(row => row.id === this.generationDefaultModel)
                 ?? this.generationCatalog[0];
-            if (!model) throw new Error('動画生成モデルがカタログにありません。');
+            if (!model) throw new Error(t('annotations.inspectorWidget.text.theVideoGenerationModelIsNotIn'));
             if (identity.key.startsWith('material:') && Number(draft?.output.duration_s) > 0) {
                 identity.duration = Number(draft!.output.duration_s);
             }
@@ -3682,7 +3817,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const original = generationFields.fromMeta(done?.originalMeta);
         const row = this.generationCatalog.find(candidate => candidate.id === original?.modelId);
         if (!row || !original || !generationFields.canFinalize(done?.meta, done?.originalMeta, row)) {
-            return { ok: false, message: '元の静止画の入力が見つかりません。' };
+            return { ok: false, message: t('annotations.inspectorWidget.text.originalStillImageInputNotFound') };
         }
         const previous = this.generationQuality.get(identity.key);
         const originalResolution = typeof original.output.resolution === 'string' && row.resolutions?.includes(original.output.resolution)
@@ -3766,7 +3901,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.generationFramePickMessage = undefined;
         this.paintGenerationFramePick();
         const request: GenerationPickRequest = {
-            slot, label: slot === 'first_frame' ? '最初の絵' : '最後の絵', accepts: ['image'], multi: false,
+            slot, label: slot === 'first_frame' ? t('annotations.inspectorWidget.text.firstPicture') : t('annotations.inspectorWidget.text.lastPicture'), accepts: ['image'], multi: false,
             ...(selected ? { selected: [selected] } : {})
         };
         const isCurrent = (): boolean => this.generationFramePick === pending && !this.isDisposed
@@ -3779,7 +3914,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!isCurrent()) return;
             if (result.status === 'picked' && result.paths[0]) {
                 const updated = await this.updateGenerationDraft(identity, `inputs.${slot}`, { path: result.paths[0] });
-                if (!updated.ok) throw new Error(updated.message ?? '変更できませんでした。');
+                if (!updated.ok) throw new Error(updated.message ?? t('annotations.inspectorWidget.text.couldNotBeChanged'));
             }
         } catch (error) {
             if (isCurrent()) {
@@ -3793,15 +3928,15 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected async pickGenerationFrameFile(request: GenerationPickRequest): Promise<GenerationPickResult> {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        if (!root) throw new Error('プロジェクトが開かれていません。');
+        if (!root) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
         const uri = await this.fileDialogService.showOpenDialog({
-            title: `${request.label} に入れる画像を選ぶ`, canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
-            filters: { '画像': ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'] }
+            title: t('annotations.inspectorWidget.text.selectTheImageToPutIn', { label: request.label }), canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+            filters: { [t('annotations.inspectorWidget.text.image')]: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'] }
         }, await this.fileService.resolve(root));
         if (!uri) return { status: 'cancelled' };
         const relative = root.relative(uri)?.toString();
-        if (!relative || relative.split('/').includes('..')) throw new Error('プロジェクト内の画像を選んでください。プロジェクト外のファイルは入れられません。');
-        if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(relative)) throw new Error('画像ファイルを選んでください。');
+        if (!relative || relative.split('/').includes('..')) throw new Error(t('annotations.inspectorWidget.text.selectAnImageInYourProjectFiles'));
+        if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(relative)) throw new Error(t('annotations.inspectorWidget.text.pleaseSelectAnImageFile'));
         return { status: 'picked', paths: [relative] };
     }
 
@@ -3914,12 +4049,12 @@ export class AkariInspectorWidget extends BaseWidget {
         if (this.generationDone?.has(identity.key)) {
             const panel = this.body.querySelector<HTMLElement>('[data-akari-inspector-video-panel]');
             const create = panel?.querySelector<HTMLButtonElement>('[data-akari-inspector-video-create]');
-            if (create) create.textContent = create.textContent?.replace('案を作る', '案を作り直す') ?? '';
+            if (create) create.textContent = create.textContent?.replace(t('annotations.inspectorWidget.text.makeAPlan'), t('annotations.inspectorWidget.text.reworkThePlan')) ?? '';
             const used = Array.from(panel?.querySelectorAll<HTMLElement>('[data-akari-inspector-video-candidate]') ?? [])
                 .find(button => button.getAttribute('data-akari-inspector-video-candidate') === identity.sourcePath);
             if (used) {
                 const badge = document.createElement('span');
-                badge.textContent = '使用中';
+                badge.textContent = t('annotations.inspectorWidget.text.inUse');
                 badge.setAttribute('data-akari-inspector-video-in-use', identity.sourcePath);
                 used.appendChild(badge);
             }
@@ -4008,11 +4143,11 @@ export class AkariInspectorWidget extends BaseWidget {
             await this.refreshVideoEstimate(identity);
             const estimate = state.estimate;
             if (!estimate || models.some(id => !estimate.models.some(row => row.modelId === id && !row.error))) {
-                throw new Error('この枠で使えないモデルがあります。');
+                throw new Error(t('annotations.inspectorWidget.text.thereAreSomeModelsThatCannotBe'));
             }
-            const approved = await new ConfirmDialog({ title: '費用承認',
+            const approved = await new ConfirmDialog({ title: t('annotations.inspectorWidget.text.expenseApproval'),
                 msg: videoApprovalMessage(estimate, new Set(models), this.generationCatalog),
-                ok: '費用承認する', cancel: 'キャンセル' }).open();
+                ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel') }).open();
             if (!approved) return;
             if (!onlyModels) state.batchDraft = structuredClone(this.generationDrafts.get(identity.key)!);
             state.error = undefined; state.running = true; state.externalRunning = false; state.startedAt = Date.now();
@@ -4194,9 +4329,9 @@ export class AkariInspectorWidget extends BaseWidget {
             const location = (widget as unknown as { location?: { root?: URI } }).location;
             return !widget.isDisposed && location?.root?.toString() === root.toString();
         }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
-        if (!timeline?.commitEditMutation) { state.error = 'タイムラインの編集履歴が見つかりません。'; state.adopting = false; this.renderVideoCandidates(); return; }
+        if (!timeline?.commitEditMutation) { state.error = t('annotations.inspectorWidget.text.timelineEditHistoryNotFound'); state.adopting = false; this.renderVideoCandidates(); return; }
         try {
-            await timeline.commitEditMutation('この案を使う', doc => replaceVideoInEdit(doc, identity.itemId, candidate));
+            await timeline.commitEditMutation(t('annotations.inspectorWidget.text.useThisIdea'), doc => replaceVideoInEdit(doc, identity.itemId, candidate));
             this.generationDone.set(identity.key, { sourcePath: candidate.relativePath!, meta: { kind: 'video', status: 'done' }, originalMeta: undefined });
             this.generationStates.set(identity.key, 'done');
             clearVideoPlayer(state);
@@ -4258,7 +4393,7 @@ export class AkariInspectorWidget extends BaseWidget {
             }
         }
         if (this.generationFramePickMessage?.key === identity.key) {
-            const message = { name: 'generation-message', label: 'エラー',
+            const message = { name: 'generation-message', label: t('annotations.inspectorWidget.text.error'),
                 className: 'akari-inspector-generation-error', getValue: () => this.generationFramePickMessage!.text };
             const index = fields.findIndex(field => field.name === 'generation-message');
             if (index >= 0) fields[index] = message;
@@ -4283,16 +4418,16 @@ export class AkariInspectorWidget extends BaseWidget {
         path: string, value: unknown
     ): Promise<InspectorWriteResult> {
         const current = this.generationDrafts.get(identity.key);
-        if (!current) return { ok: false, message: '生成下書きを読み込み中です。' };
+        if (!current) return { ok: false, message: t('annotations.inspectorWidget.text.loadingGeneratedDraft') };
         if (this.generationFinal?.has(identity.key) && path !== 'output.resolution') {
-            return { ok: false, message: '本番の画質では解像度だけを変更できます。' };
+            return { ok: false, message: t('annotations.inspectorWidget.text.forProductionQualityYouCanOnlyChange') };
         }
         const next: GenerationDraft = {
             modelId: current.modelId, inputs: { ...current.inputs }, output: { ...current.output }
         };
         if (path === 'cheapDraft') {
             const row = this.generationCatalog.find(candidate => candidate.id === current.modelId);
-            if (!row || !generationFields.draftQuality(row)) return { ok: false, message: 'このモデルは下書きに対応していません。' };
+            if (!row || !generationFields.draftQuality(row)) return { ok: false, message: t('annotations.inspectorWidget.text.thisModelDoesNotSupportDrafts') };
             const previous = this.generationQuality.get(identity.key);
             const enabled = value === true;
             if (previous?.modelId === row.id && previous.enabled === enabled) return { ok: true };
@@ -4304,7 +4439,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (path === 'inputs.frames_or_refs') {
             const row = this.generationCatalog.find(candidate => candidate.id === current.modelId);
             const pair = row && generationFields.pairedModels(row, this.generationCatalog);
-            if (!pair || (value !== 'frames' && value !== 'references')) return { ok: false, message: '切り替え先がありません。' };
+            if (!pair || (value !== 'frames' && value !== 'references')) return { ok: false, message: t('annotations.inspectorWidget.text.thereIsNoPlaceToSwitchTo') };
             path = 'modelId';
             value = pair[value].id;
         }
@@ -4377,10 +4512,10 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) throw new Error('プロジェクトが開かれていません。');
+            if (!root) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
             await this.loadGenerationNeighbors(identity);
             const neighbor = this.generationNeighbors.get(identity.key);
-            if (!neighbor?.previousId || !neighbor.previousPath) return { ok: false, message: '直前の映像 item がありません。' };
+            if (!neighbor?.previousId || !neighbor.previousPath) return { ok: false, message: t('annotations.inspectorWidget.text.thePreviousVideoItemDoesNotExist') };
             let parsed: GenerationDraft | undefined;
             try {
                 parsed = generationFields.fromMeta(JSON.parse((await this.fileService.read(
@@ -4410,32 +4545,32 @@ export class AkariInspectorWidget extends BaseWidget {
     protected async confirmAndStartGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
         try {
             const selected = this.generationDrafts.get(identity.key);
-            if (!selected) return { ok: false, message: '生成下書きを読み込み中です。' };
+            if (!selected) return { ok: false, message: t('annotations.inspectorWidget.text.loadingGeneratedDraft') };
             if (this.generationFinal?.has(identity.key)) {
                 const row = this.generationCatalog.find(candidate => candidate.id === selected.modelId);
                 const quality = row && generationFields.draftQuality(row);
                 const price = row?.price?.by_resolution?.[String(selected.output.resolution)];
                 if (!quality || typeof price !== 'number' || price <= quality.unitPrice) {
-                    return { ok: false, message: '下書きより高い画質の解像度を選んでください。' };
+                    return { ok: false, message: t('annotations.inspectorWidget.text.pleaseChooseAHigherQualityResolutionThan') };
                 }
             }
             await this.persistGenerationDraft(identity);
             const draft = this.generationDrafts.get(identity.key)!;
             const validation = this.generationValidations.get(identity.key);
-            if (validation?.ok === false) return { ok: false, message: '入力エラーを直してから実行してください。' };
+            if (validation?.ok === false) return { ok: false, message: t('annotations.inspectorWidget.text.pleaseCorrectAnyInputErrorsAndTry') };
             const estimate = validation?.cost?.estimate_usd;
             const asOf = validation?.cost?.as_of
-                ?? this.generationCatalog.find(row => row.id === draft.modelId)?.as_of ?? '不明';
-            const amount = typeof estimate === 'number' ? `$${estimate.toFixed(2)}（as_of ${asOf}）` : '見積不可';
+                ?? this.generationCatalog.find(row => row.id === draft.modelId)?.as_of ?? t('annotations.inspectorWidget.text.unknown');
+            const amount = typeof estimate === 'number' ? `$${estimate.toFixed(2)}（as_of ${asOf}）` : t('annotations.inspectorWidget.text.estimateNotPossible');
             const approved = await new ConfirmDialog({
-                title: '費用承認',
-                msg: `${amount}で ${draft.modelId} に送ります。費用承認しますか`,
-                ok: '費用承認する', cancel: 'キャンセル'
+                title: t('annotations.inspectorWidget.text.expenseApproval'),
+                msg: t('annotations.inspectorWidget.text.sendToDoYouApproveTheCost', { amount: amount, model: draft.modelId }),
+                ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel')
             }).open();
             if (!approved) return { ok: true };
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) throw new Error('プロジェクトが開かれていません。');
+            if (!root) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
             this.generationStates.set(identity.key, 'generating');
             this.render();
             void this.layerAudioService.startGenerateVideo({
@@ -4445,13 +4580,13 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (!result.ok && identity.key.startsWith('material:')) {
                     this.generationStates.set(identity.key, 'failed');
                     this.render();
-                    this.showFieldNotice(result.reason ?? '生成に失敗しました。');
+                    this.showFieldNotice(result.reason ?? t('annotations.inspectorWidget.text.generationFailed'));
                     return;
                 }
-                if (!result.ok) this.showFieldNotice(result.reason ?? '生成に失敗しました。');
+                if (!result.ok) this.showFieldNotice(result.reason ?? t('annotations.inspectorWidget.text.generationFailed'));
                 if (result.ok && identity.key.startsWith('material:')) {
                     try { this.materialCreated.set(identity.sourcePath, JSON.parse(result.stdout.trim().split('\n').slice(-1)[0]).mp4); }
-                    catch { this.showFieldNotice('生成結果のパスを読み取れませんでした。'); }
+                    catch { this.showFieldNotice(t('annotations.inspectorWidget.text.theGeneratedPathCouldNotBeRead')); }
                     this.generationStates.set(identity.key, 'done');
                     this.render();
                     return;
@@ -4469,13 +4604,13 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) throw new Error('プロジェクトが開かれていません。');
+            if (!root) throw new Error(t('annotations.inspectorWidget.text.projectIsNotOpen'));
             this.generationStates.set(identity.key, 'generating');
             this.render();
             void this.layerAudioService.resumeGenerateVideo({
                 projectRootUri: root.toString(), itemId: identity.itemId
             }).then(result => {
-                if (!result.ok) this.showFieldNotice(result.reason ?? '再取得に失敗しました。');
+                if (!result.ok) this.showFieldNotice(result.reason ?? t('annotations.inspectorWidget.text.reacquisitionFailed'));
                 this.generationLoads.delete(identity.key);
                 void this.loadGeneration(identity);
             });
@@ -4490,7 +4625,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const ids = [...new Set(targetIds ?? [snapshot.id])];
         const paths = (): { root: URI; captions: URI; edit: URI } => {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) throw new Error('プロジェクトを開いてください。');
+            if (!root) throw new Error(t('annotations.inspectorWidget.text.pleaseOpenTheProject'));
             return { root, captions: currentTimelineCaptionsUri(root), edit: currentTimelineEditUri(root) };
         };
         const readCaptions = async (): Promise<string> =>
@@ -4525,7 +4660,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                 });
                 return { ok: true, ...(result.skipped ? {
-                    message: `語の時刻がない ${result.skipped} 行には当てていません`
+                    message: t('annotations.inspectorWidget.text.itDoesNotApplyToTheLine', { count: result.skipped, n: result.skipped })
                 } : {}) };
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -4539,10 +4674,10 @@ export class AkariInspectorWidget extends BaseWidget {
             ...(ids.length > 1 ? { loadCues } : {}),
             setKaraoke: (settings, selectStyle = false) => writeWords(
                 selectStyle ? 'karaoke' : undefined, settings,
-                selectStyle ? 'カラオケの選択' : 'カラオケの設定の変更'),
+                selectStyle ? t('annotations.inspectorWidget.text.karaokeSelection') : t('annotations.inspectorWidget.text.changingKaraokeSettings')),
             setWordStyle: async style => {
                 try {
-                    if (ids.length > 1) return writeWords(style, undefined, '語の表示を変更');
+                    if (ids.length > 1) return writeWords(style, undefined, t('annotations.inspectorWidget.text.changeWordDisplay'));
                     const { root, captions } = paths();
                     captionWordStyleWrite(await readCaptions(), ids, style);
                     await this.layerAudioService.setCaptionFields({
@@ -4556,7 +4691,7 @@ export class AkariInspectorWidget extends BaseWidget {
             },
             setEmphasis: async (wordIndex, style) => {
                 try {
-                    if (ids.length > 1) throw new Error('強調する語は字幕を 1 行選んで設定してください。');
+                    if (ids.length > 1) throw new Error(t('annotations.inspectorWidget.text.pleaseSelectOneLineOfSubtitlesAnd'));
                     const { root, captions, edit } = paths();
                     const source = await readCaptions();
                     const captionsSource = upsertCaptionEmphasis(source, snapshot.id, wordIndex, style);
@@ -4581,20 +4716,22 @@ export class AkariInspectorWidget extends BaseWidget {
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult> {
         if (!this.model.requestWrite) {
-            return this.reportWriteFailure('書き込み機能が利用できません。');
+            return this.reportWriteFailure(t('annotations.inspectorWidget.text.writeFunctionIsNotAvailable'));
         }
         try {
             const result = await this.model.requestWrite(request);
-            return result.ok ? result : this.reportWriteFailure(result.message ?? '書き込みに失敗しました。');
+            return result.ok ? result : this.reportWriteFailure(
+                result.message ?? t('annotations.inspectorWidget.text.writingFailed'), request.kind === 'caption-style-size');
         } catch (error) {
-            return this.reportWriteFailure(error instanceof Error ? error.message : String(error));
+            return this.reportWriteFailure(error instanceof Error ? error.message : String(error),
+                request.kind === 'caption-style-size');
         }
     }
 
-    protected reportWriteFailure(message: string): InspectorWriteResult {
+    protected reportWriteFailure(message: string, fieldOnly = false): InspectorWriteResult {
         this.showFieldNotice(message);
         const now = Date.now();
-        if (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000) {
+        if (!fieldOnly && (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000)) {
             this.messageService.error(message);
             this.lastWriteError = { message, at: now };
         }
@@ -4656,7 +4793,9 @@ export class AkariInspectorWidget extends BaseWidget {
                         : fieldName === 'transform-scaleX' ? 'transform.scaleX' as KeyframeSeatProperty
                             : fieldName === 'transform-scaleY' ? 'transform.scaleY' as KeyframeSeatProperty
                         : fieldName === 'transform-rotate' ? 'transform.rotate'
-                            : fieldName === 'opacity' ? 'opacity' : undefined;
+                            : /^rotation3d-[xyz]$/u.test(fieldName)
+                                ? fieldName.replace('-', '.') as KeyframeSeatProperty
+                                : fieldName === 'opacity' ? 'opacity' : undefined;
         if (!property) return undefined;
         const rowProperty = keyframeRowPropertyOf(property);
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
@@ -4704,7 +4843,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 details.className = 'akari-inspector-generation-details';
                 details.open = this.generationDetailsOpen;
                 const summary = document.createElement('summary');
-                summary.textContent = '詳細';
+                summary.textContent = t('annotations.inspectorWidget.text.details');
                 details.appendChild(summary);
                 details.addEventListener('toggle', () => { this.generationDetailsOpen = details!.open; });
                 parent.appendChild(details);
@@ -4746,27 +4885,27 @@ export class AkariInspectorWidget extends BaseWidget {
                 remove.type = 'button';
                 remove.className = 'akari-inspector-generation-small';
                 remove.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-                remove.setAttribute('aria-label', `${entry.badge} を外す`);
+                remove.setAttribute('aria-label', t('annotations.inspectorWidget.text.remove', { badge: entry.badge }));
                 remove.setAttribute('data-akari-generation-reference-remove', entry.badge);
                 remove.disabled = disabled;
                 remove.addEventListener('click', () => {
                     if (disabled || !identity || this.generationFramePickDisabled(identity.key)) return;
                     this.cancelGenerationFramePick();
                     void generationField.write!(snapshot, JSON.stringify({ slot: entry.slot, index: entry.index }))
-                        .then(result => { if (!result.ok) this.showFieldNotice(result.message ?? '変更できませんでした。'); });
+                        .then(result => { if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.couldNotBeChanged')); });
                 });
                 top.appendChild(remove);
                 card.appendChild(top);
                 const preview = document.createElement('div');
                 preview.className = 'akari-inspector-generation-reference-thumbnail';
-                preview.textContent = entry.slot === 'reference_audios' ? '音声' : '読み込み中…';
+                preview.textContent = entry.slot === 'reference_audios' ? t('annotations.inspectorWidget.text.audio') : t('annotations.inspectorWidget.text.loadingAlternate');
                 if (entry.slot !== 'reference_audios') void this.generationThumbnail(entry.reference.path).then(uri => {
                     if (!preview.isConnected) return;
                     if (uri) {
                         const image = document.createElement('img');
                         image.src = uri; image.alt = entry.badge;
                         preview.textContent = ''; preview.appendChild(image);
-                    } else preview.textContent = 'プレビューなし';
+                    } else preview.textContent = t('annotations.inspectorWidget.text.noPreview');
                 });
                 card.appendChild(preview);
                 const filename = document.createElement('div');
@@ -4780,7 +4919,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 const tail = document.createElement('div');
                 tail.className = 'akari-inspector-generation-reference-add';
                 const select = document.createElement('select');
-                select.setAttribute('aria-label', '追加する参照の種類');
+                select.setAttribute('aria-label', t('annotations.inspectorWidget.text.typeOfReferenceToAdd'));
                 select.disabled = disabled;
                 for (const kind of references.kinds) {
                     const option = document.createElement('option');
@@ -4789,7 +4928,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 if (references.kinds.length > 1) tail.appendChild(select);
                 const add = document.createElement('button');
-                add.type = 'button'; add.textContent = '追加';
+                add.type = 'button'; add.textContent = t('annotations.inspectorWidget.text.add');
                 add.className = 'akari-inspector-generation-secondary';
                 add.setAttribute('data-akari-generation-reference-add', 'true');
                 add.disabled = disabled;
@@ -4814,13 +4953,13 @@ export class AkariInspectorWidget extends BaseWidget {
                         && !this.generationFramePickDisabled(identity.key);
                     const selected = references.entries.filter(entry => entry.slot === kind.slot).map(entry => entry.reference.path);
                     const request: GenerationPickRequest = {
-                        slot: kind.slot, label: `参照${kind.label}`, accepts: [kind.kind], multi: true, selected, max: kind.max
+                        slot: kind.slot, label: t('annotations.inspectorWidget.text.reference', { type: kind.label }), accepts: [kind.kind], multi: true, selected, max: kind.max
                     };
                     try {
-                        if (!this.commandRegistry.getCommand(GENERATION_PICK_INTO_COMMAND_ID)) throw new Error('素材パネルを開けません。');
+                        if (!this.commandRegistry.getCommand(GENERATION_PICK_INTO_COMMAND_ID)) throw new Error(t('annotations.inspectorWidget.text.iCanTOpenTheMaterialPanel'));
                         const result = await this.commandRegistry.executeCommand<GenerationPickResult>(GENERATION_PICK_INTO_COMMAND_ID, request);
                         if (!isCurrent() || result.status !== 'picked') return;
-                        if (result.paths.some(path => generationFields.referenceSlot(path) !== kind.slot)) throw new Error('この種類には選べない素材です。');
+                        if (result.paths.some(path => generationFields.referenceSlot(path) !== kind.slot)) throw new Error(t('annotations.inspectorWidget.text.thisMaterialCannotBeSelectedForThis'));
                         const values = await Promise.all(result.paths.map(async path => {
                             const existing = references.entries.find(entry => entry.slot === kind.slot && entry.reference.path === path)?.reference;
                             if (existing) return existing;
@@ -4841,7 +4980,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         generationFields.rememberReferences(current.inputs);
                         generationFields.rememberReferences({ [kind.slot]: values });
                         const updated = await this.updateGenerationDraft(identity, `inputs.${kind.slot}`, values);
-                        if (!updated.ok) throw new Error(updated.message ?? '変更できませんでした。');
+                        if (!updated.ok) throw new Error(updated.message ?? t('annotations.inspectorWidget.text.couldNotBeChanged'));
                     } catch (error) {
                         if (this.generationFramePick === pending) {
                             this.generationFramePickMessage = { key: identity.key, text: error instanceof Error ? error.message : String(error) };
@@ -4855,7 +4994,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 tail.appendChild(add);
                 grid.appendChild(tail);
             }
-            for (const text of [...references.notes, ...(references.entries.length ? ['指示文の中で @画像1 のように名指しできます'] : [])]) {
+            for (const text of [...references.notes, ...(references.entries.length ? [t('annotations.inspectorWidget.text.youCanNameItLikeImage1In')] : [])]) {
                 const note = document.createElement('div');
                 note.className = 'akari-inspector-generation-note';
                 note.textContent = text;
@@ -4875,7 +5014,7 @@ export class AkariInspectorWidget extends BaseWidget {
             checkbox.addEventListener('change', () => {
                 checkbox.disabled = true;
                 void field.write!(snapshot, String(checkbox.checked)).then(result => {
-                    if (!result.ok) { checkbox.checked = !checkbox.checked; this.showFieldNotice(result.message ?? '変更できませんでした。'); }
+                    if (!result.ok) { checkbox.checked = !checkbox.checked; this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.couldNotBeChanged')); }
                 }).finally(() => { checkbox.disabled = !!field.disabled; });
             });
             label.appendChild(checkbox);
@@ -4899,7 +5038,7 @@ export class AkariInspectorWidget extends BaseWidget {
             label.textContent = field.label;
             cell.appendChild(label);
             const invoke = (operation: Promise<InspectorWriteResult>): void => {
-                void operation.then(result => { if (!result.ok) this.showFieldNotice(result.message ?? '変更できませんでした。'); });
+                void operation.then(result => { if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.couldNotBeChanged')); });
             };
             if (generationField.generationFrame) {
                 const preview = document.createElement('div');
@@ -4910,18 +5049,18 @@ export class AkariInspectorWidget extends BaseWidget {
                 const disabled = !!field.disabled || !identity || this.generationFramePickDisabled(identity.key);
                 preview.setAttribute('role', 'button');
                 preview.tabIndex = 0;
-                preview.setAttribute('aria-label', `${field.label}: ${path ? '差し替える' : '画像を選ぶ'}`);
+                preview.setAttribute('aria-label', `${field.label}: ${path ? t('annotations.inspectorWidget.text.replace') : t('annotations.inspectorWidget.text.chooseImage')}`);
                 preview.setAttribute('aria-disabled', String(disabled));
                 preview.setAttribute('aria-pressed', String(this.generationFramePick?.key === identity?.key
                     && this.generationFramePick?.slot === slot));
                 preview.setAttribute('data-akari-generation-pick-slot', slot);
-                preview.title = path ? '差し替える' : '画像を選ぶ';
+                preview.title = path ? t('annotations.inspectorWidget.text.replace') : t('annotations.inspectorWidget.text.chooseImage');
                 const content = document.createElement('span');
-                content.textContent = path ? '読み込み中…' : '画像を選ぶ';
+                content.textContent = path ? t('annotations.inspectorWidget.text.loadingAlternate') : t('annotations.inspectorWidget.text.chooseImage');
                 preview.appendChild(content);
                 const badge = document.createElement('span');
                 badge.className = path ? 'akari-inspector-generation-frame-replace' : 'akari-inspector-generation-frame-hint';
-                badge.textContent = path ? '差し替え' : '空なら入れなくてよい';
+                badge.textContent = path ? t('annotations.inspectorWidget.text.replacementAlternate') : t('annotations.inspectorWidget.text.ifItSEmptyYouDonT');
                 preview.appendChild(badge);
                 const pick = (): void => {
                     if (!disabled && identity) void this.pickGenerationFrame(identity, slot, path);
@@ -4941,7 +5080,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         image.src = uri;
                         image.alt = field.label;
                         content.replaceWith(image);
-                    } else content.textContent = '画像を表示できません';
+                    } else content.textContent = t('annotations.inspectorWidget.text.unableToDisplayImage');
                 });
                 for (const action of generationField.actions ?? []) {
                     const button = document.createElement('button');
@@ -5003,7 +5142,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     const revision = draftRevision();
                     void action.action(snapshot).then(result => {
                         if (result.ok) return;
-                        const message = result.message ?? '操作に失敗しました。';
+                        const message = result.message ?? t('annotations.inspectorWidget.text.operationFailed');
                         this.showFieldNotice(message);
                         if (!identity || this.generationIdentity(this.model.snapshot)?.key !== identity.key
                             || draftRevision() !== revision) return;
@@ -5062,7 +5201,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.setAttribute('data-akari-ui', `action:inspector-${fieldName}-${definition.name}`);
                 button.disabled = field.disabled === true || definition.disabled === true;
                 button.addEventListener('click', () => void definition.action(snapshot).then(result => {
-                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                    if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.operationFailed'));
                 }));
                 actions.appendChild(button);
             }
@@ -5088,7 +5227,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 action.disabled = true;
                 if (field.busyLabel) action.textContent = field.busyLabel;
                 void field.action!(snapshot).then(result => {
-                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                    if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.operationFailed'));
                 }).catch(error => this.showFieldNotice(error instanceof Error ? error.message : String(error)))
                     .finally(() => { action.disabled = field.disabled === true; action.textContent = field.actionLabel ?? field.label;
                         if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed())); });
@@ -5105,7 +5244,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     && normalized(family) !== normalized('Noto Sans JP')) {
                     const notice = document.createElement('span');
                     notice.setAttribute('data-akari-font-unavailable', '');
-                    notice.textContent = 'この書体は入っていないため代わりの書体で表示中';
+                    notice.textContent = t('annotations.inspectorWidget.text.thisFontIsNotIncludedAndIs');
                     notice.style.gridColumn = '1 / -1';
                     notice.style.display = 'block';
                     notice.style.width = '100%';
@@ -5152,7 +5291,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 else revert();
                 if (field.liveSelect) field.liveSelect(undefined);
                 if (field.liveColor) this.restoreShapePaintLive(fieldName, snapshot, editValue, field.liveColor);
-                this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
+                this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.writingFailedChangesNotSaved'));
                 return false;
             }
             return true;
@@ -5168,7 +5307,7 @@ export class AkariInspectorWidget extends BaseWidget {
             range.step = String(field.scrubStep ?? 1);
             range.value = editValue === '—' ? range.min
                 : String(Math.min(Number(range.max), Math.max(Number(range.min), Number(editValue))));
-            range.setAttribute('aria-label', `${field.label} スライダー`);
+            range.setAttribute('aria-label', t('annotations.inspectorWidget.text.slider', { label: field.label }));
             const number = document.createElement('input');
             number.type = 'number';
             number.className = 'akari-inspector-row-input';
@@ -5177,13 +5316,16 @@ export class AkariInspectorWidget extends BaseWidget {
             number.step = String(Number(range.step) * scale);
             number.value = editValue === '—' ? '' : String(Number(editValue) * scale);
             number.placeholder = editValue === '—' ? '—' : '';
-            number.setAttribute('aria-label', `${field.label} 数値`);
+            number.setAttribute('aria-label', t('annotations.inspectorWidget.text.number', { label: field.label }));
             const unit = document.createElement('span');
             unit.className = 'akari-caption-slider-unit';
             unit.textContent = field.unit ?? '';
             const defaultNote = document.createElement('span');
             defaultNote.className = 'akari-caption-default-note';
-            defaultNote.textContent = field.getValue(snapshot).includes('（既定）') ? '（既定）' : '';
+            const fieldValue = field.getValue(snapshot);
+            const isDefault = (['ja', 'en'] as const).some(language =>
+                fieldValue.includes(t('annotations.inspectorWidget.text.default', {}, language)));
+            defaultNote.textContent = isDefault ? t('annotations.inspectorWidget.text.default') : '';
             const valueGroup = document.createElement('span');
             valueGroup.className = 'akari-caption-slider-value';
             valueGroup.append(number, unit, defaultNote);
@@ -5245,8 +5387,8 @@ export class AkariInspectorWidget extends BaseWidget {
             checkbox.type = 'checkbox';
             checkbox.checked = editValue === 'true';
             checkbox.indeterminate = editValue === '—';
-            checkbox.setAttribute('aria-label', '座布団を敷く');
-            label.append(checkbox, document.createTextNode('座布団を敷く'));
+            checkbox.setAttribute('aria-label', t('annotations.inspectorWidget.text.layOutACushion'));
+            label.append(checkbox, document.createTextNode(t('annotations.inspectorWidget.text.layOutACushion')));
             checkbox.addEventListener('change', () => void commitValue(String(checkbox.checked), () => {
                 checkbox.checked = editValue === 'true';
             }));
@@ -5301,7 +5443,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     card.addEventListener('click', () => {
                         if (caption) this.runCaptionPanelPreview({ type: 'confirm', captionId: caption.id });
                         void write(snapshot, item.id).then(result => {
-                            if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
+                            if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.couldNotWriteEffect'));
                         });
                     });
                     grid.appendChild(card);
@@ -5315,9 +5457,9 @@ export class AkariInspectorWidget extends BaseWidget {
             const clear = document.createElement('button');
             clear.type = 'button';
             clear.className = 'akari-inspector-row-input';
-            clear.textContent = '効果を外す';
+            clear.textContent = t('annotations.inspectorWidget.text.removeEffect');
             clear.addEventListener('click', () => void write(snapshot, 'none').then(result => {
-                if (!result.ok) this.showFieldNotice(result.message ?? '効果を外せませんでした。');
+                if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.iCouldnTIgnoreTheEffect'));
             }));
             choices.appendChild(clear);
             row.appendChild(choices);
@@ -5331,8 +5473,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 ? 'akari-caption-mode-choices' : field.inputKind === 'caption-weight'
                     ? 'akari-caption-weight-choices' : 'akari-caption-effect-choices';
             const values = field.inputKind === 'caption-mode'
-                ? [['per-line', '行ごと'], ['block', 'まとめて']]
-                : [['400', '普通'], ['700', '太字'], ['900', '極太']];
+                ? [['per-line', t('annotations.inspectorWidget.text.lineByLine')], ['block', t('annotations.inspectorWidget.text.together')]]
+                : [['400', t('annotations.inspectorWidget.text.normal')], ['700', t('annotations.inspectorWidget.text.bold')], ['900', t('annotations.inspectorWidget.text.veryThick')]];
             for (const [value, label] of values) {
                 const button = document.createElement('button');
                 button.type = 'button';
@@ -5413,7 +5555,8 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             const numericValue = Number(editValue);
             if (Number.isFinite(numericValue)) {
-                const keyframe = this.keyframeSeatOptions(snapshot, fieldName, numericValue);
+                const keyframe = /^rotation3d-[yz]$/u.test(fieldName)
+                    ? undefined : this.keyframeSeatOptions(snapshot, fieldName, numericValue);
                 const numberField = createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
@@ -5423,9 +5566,11 @@ export class AkariInspectorWidget extends BaseWidget {
                     focusRoot: this.node,
                     onPreview: sendLive,
                     onCancel: clearLive,
+                    reserveKeyframeSeat: /^rotation3d-[yz]$/u.test(fieldName),
                     onCommit: async value => {
                         if (value === numericValue) return true;
-                        if (keyframe?.hasKeyframes && /^(crop-|perspective-|transform-)/u.test(fieldName)
+                        if ((keyframe?.hasKeyframes || fieldName.startsWith('rotation3d-'))
+                            && /^(crop-|perspective-|transform-|rotation3d-)/u.test(fieldName)
                             && this.model.requestKeyframe) {
                             const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
                             const property = fieldName.startsWith('transform-')
@@ -5443,7 +5588,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             }
                             if (!result.ok) {
                                 clearLive?.();
-                                this.showFieldNotice(result.message ?? '書き込みに失敗しました。');
+                                this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.writingFailed'));
                             }
                             return result.ok;
                         }
@@ -5506,13 +5651,13 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>'
                     : `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 20V4M6 10l6-6 6 6" transform="rotate(${angles[index] ?? 0} 12 12)" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>`;
                 button.title = zone;
-                button.setAttribute('aria-label', `字幕位置: ${zone}`);
+                button.setAttribute('aria-label', t('annotations.inspectorWidget.text.subtitlePosition', { zone: zone }));
                 if (zone === editValue) {
                     button.classList.add('is-saved');
                     button.setAttribute('aria-pressed', 'true');
                     const saved = document.createElement('span');
                     saved.className = 'akari-caption-zone-saved';
-                    saved.textContent = '保存中';
+                    saved.textContent = t('annotations.inspectorWidget.text.saving');
                     button.appendChild(saved);
                 } else {
                     button.setAttribute('aria-pressed', 'false');
@@ -5547,7 +5692,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (field.optionTitles?.[optionValue]) option.title = field.optionTitles[optionValue];
                 option.textContent = field.inputKind === 'boolean-select'
                     ? (optionValue === 'true' ? 'ON' : 'OFF')
-                    : optionValue;
+                    : field.optionLabels?.[optionValue] ?? optionValue;
                 if (field.previewOption) {
                     option.addEventListener('mouseenter', () => field.previewOption?.(optionValue));
                     option.addEventListener('focus', () => field.previewOption?.(optionValue));
@@ -5713,11 +5858,11 @@ export class AkariInspectorWidget extends BaseWidget {
             if (field.reset) {
                 const reset = document.createElement('button');
                 reset.type = 'button';
-                reset.textContent = '既定値に戻す';
+                reset.textContent = t('annotations.inspectorWidget.text.restoreDefaultValues');
                 reset.addEventListener('click', () => {
                     menu.remove();
                     void field.reset!(snapshot).then(result => {
-                        if (!result.ok) this.showFieldNotice(result.message ?? '既定値へ戻せませんでした。');
+                        if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.unableToRestoreToDefaultValue'));
                     });
                 });
                 menu.appendChild(reset);
@@ -5725,7 +5870,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (field.removable && field.name) {
                 const remove = document.createElement('button');
                 remove.type = 'button';
-                remove.textContent = '行を消す';
+                remove.textContent = t('annotations.inspectorWidget.text.eraseLine');
                 remove.addEventListener('click', () => {
                     menu.remove();
                     this.setOptionalFieldVisible(kind, field.name!, false);
@@ -5740,7 +5885,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 action.addEventListener('click', () => {
                     menu.remove();
                     void field.menuAction!.action(snapshot).then(result => {
-                        if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                        if (!result.ok) this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.text.operationFailed'));
                     });
                 });
                 menu.appendChild(action);
@@ -5780,7 +5925,7 @@ export class AkariInspectorWidget extends BaseWidget {
         fieldName: string,
         editValue: string,
         commitValue: (nextValue: string, revert: () => void) => Promise<boolean>,
-        label = '色',
+        label = t('annotations.inspectorWidget.text.color'),
         onInput?: (value: string) => void,
         currentPaint?: Paint
     ): void {
@@ -5875,7 +6020,7 @@ export class AkariInspectorWidget extends BaseWidget {
             ? { ...parsedRequest, allowGradient: true, allowTransparent: true } : parsedRequest;
         const key = this.colorPanelSelectionKey();
         if (!request || !key) {
-            if (!key) this.showFieldNotice('色を変えるものをタイムラインで選んでください。');
+            if (!key) this.showFieldNotice(t('annotations.inspectorWidget.text.selectTheItemYouWantToChange'));
             return false;
         }
         const opened = this.colorPanelHost.open(request, key);
@@ -5907,14 +6052,16 @@ export class AkariInspectorWidget extends BaseWidget {
                     const shapeSource = shapePaintKey && rowSnapshot.kind === 'item'
                         ? { itemId: rowSnapshot.id, shape: rowSnapshot.shape, params: rowSnapshot.shapeParams,
                             outputWidth: rowSnapshot.outputWidth, transform: rowSnapshot.transform } : undefined;
+                    const genericColorLabel = (['ja', 'en'] as const).some(language =>
+                        field.label === t('annotations.inspectorWidget.text.color', {}, language));
                     resolved = {
-                        title: field.label === '色' ? `${section.label}の色` : field.label,
+                        title: genericColorLabel ? t('annotations.inspectorWidget.text.colorAlternate', { section: section.label }) : field.label,
                         current: shapeSource ? parsePaint(shapeSource.params?.[shapePaintKey!]) : parsePaint(value),
                         write: async (paint: Paint) => shapeSource
                             ? this.writeItemColor(shapeSource.itemId, `source.params.${shapePaintKey}`, paint)
                             : typeof paint === 'string' && paint !== TRANSPARENT_PAINT
                                 ? write(rowSnapshot, paint)
-                                : { ok: false, message: 'この欄は単色だけです。' },
+                                : { ok: false, message: t('annotations.inspectorWidget.text.thisFieldIsForSingleColorsOnly') },
                         ...(liveColor || shapeSource ? { preview: (paint: Paint) => {
                             if (shapeSource) {
                                 const shapeHtml = shapeLiveMarkup(shapeSource, shapePaintKey!, paint);
@@ -5934,7 +6081,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     outputWidth: rowSnapshot.outputWidth, transform: rowSnapshot.transform }
                 : undefined;
             resolved = {
-                title: '色',
+                title: t('annotations.inspectorWidget.text.color'),
                 current: host.itemValue(itemId, path)
                     ?? (shapeKey ? parsePaint((selectedShapeSource ?? host.shapeSource(itemId))?.params?.[shapeKey]) : undefined),
                 write: paint => this.writeItemColor(itemId, path, paint),
@@ -5962,14 +6109,14 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) return { ok: false, message: 'プロジェクトが開かれていません。' };
+            if (!root) return { ok: false, message: t('annotations.inspectorWidget.text.projectIsNotOpen') };
             const uri = currentTimelineEditUri(root);
             const store = await import('@akari-video/edit-store');
             const doc = JSON.parse((await this.fileService.readFile(uri)).value.toString()) as import('@akari-video/edit-store').EditableEditV2;
             store.readEditV2(doc);
             store.attachEditHelpers(doc);
             const item = doc.find(itemId);
-            if (!item) return { ok: false, message: '色を変えるものが見つかりません。' };
+            if (!item) return { ok: false, message: t('annotations.inspectorWidget.text.iCanTFindAnythingToChange') };
             store.updateItem(doc, itemId, itemPathPatch(item, path, paint));
             const editSource = store.serializeEdit(doc);
             // 書く前に読み直して検査する（その項目の契約が受け付けない値で edit.json を壊さない）。
@@ -5977,7 +6124,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 store.readEditV2(JSON.parse(editSource));
             } catch {
                 return { ok: false, message: typeof paint === 'string'
-                    ? 'この色はこの項目に保存できません。' : 'この項目には、まだグラデーションを保存できません。' };
+                    ? t('annotations.inspectorWidget.text.thisColorCannotBeSavedToThis') : t('annotations.inspectorWidget.text.youCannotSaveGradientsToThisItem') };
             }
             // タイムラインが開いていれば、ほかの欄と同じ書き込み口へ（取り消しの 1 手になり、選択とインスペクターの値も保つ）
             if (this.model.requestWrite && path.startsWith('source.params.')) {

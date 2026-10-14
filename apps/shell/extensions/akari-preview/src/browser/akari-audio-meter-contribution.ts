@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -13,7 +14,7 @@ export class AkariAudioMeterContribution implements CommandContribution {
 
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({
-            id: 'akari.preview.openAudioMeter', label: '音声メーターを開く'
+            id: 'akari.preview.openAudioMeter', label: t('preview.audioMeter.command.openAudioMeterAction')
         }, { execute: () => this.open() });
     }
 

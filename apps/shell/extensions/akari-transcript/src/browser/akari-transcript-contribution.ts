@@ -1,3 +1,4 @@
+import { t } from './transcript-text';
 import URI from '@theia/core/lib/common/uri';
 import { CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, OpenHandler, QuickInputService, Widget, WidgetManager } from '@theia/core/lib/browser';
@@ -93,7 +94,7 @@ export class AkariTranscriptContribution implements OpenHandler, CommandContribu
                     label: candidate.assetPath,
                     uri: candidate.uri
                 })),
-                { placeholder: '文字起こしを開く素材を選んでください。' }
+                { placeholder: t('transcript.transcript.openAction.selectAssetOpenTranscriptPlaceholder') }
             );
             if (selected) {
                 await this.open(selected.uri);
@@ -108,7 +109,7 @@ export class AkariTranscriptContribution implements OpenHandler, CommandContribu
                 return;
             }
         }
-        this.messages.info('文字起こしデータが見つかりません。素材の分析後にもう一度開いてください。');
+        this.messages.info(t('transcript.transcript.openAction.transcriptDataNotFoundAnalyzeAssetTryAgainNotice'));
     }
 
     protected async findCanonicalAnalyses(root: URI): Promise<CanonicalAnalysis[]> {

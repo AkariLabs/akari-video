@@ -76,3 +76,31 @@ test('終了時は保留中の Git 記録を待ってから閉じる', async () 
     assert.equal(commits, 1);
   } finally { await rm(data.root, { recursive: true, force: true }); }
 });
+test('素材のない旧強調は別のプリセットで上書きされ一件だけ残る', async () => {
+  for (const removeOld of [true, false]) {
+    const data = await fixture(); try {
+      const service = new AkariAnnotationsServiceImpl();
+      const first = await service.setEmphasisWords({ ...data.request,
+        upserts: [{ t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+      await service.setEmphasisWords({ ...data.request,
+        upserts: [{ src: 'camera-a', t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'bold' }],
+        removeIds: removeOld ? first.ids : [] });
+      const records = JSON.parse(await readFile(data.captionsPath, 'utf8')).emphasis_words;
+      assert.equal(records.length, 1);
+      assert.equal(records[0].src, 'camera-a');
+      assert.equal(records[0].style_preset, 'bold');
+    } finally { await rm(data.root, { recursive: true, force: true }); }
+  }
+});
+
+test('移行済み run の出所 ID を新しい強調語に再利用しない', async () => {
+  const data = await fixture();
+  try {
+    const root = JSON.parse(await readFile(data.captionsPath, 'utf8'));
+    root.captions[0].runs = [{ id: 'r-0001', from: 0, to: 1, migrated_from: 'e-0001' }];
+    await writeFile(data.captionsPath, `${JSON.stringify(root, null, 2)}\n`);
+    const result = await new AkariAnnotationsServiceImpl().setEmphasisWords({ ...data.request,
+      upserts: [{ t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+    assert.deepEqual(result.ids, ['e-0002']);
+  } finally { await rm(data.root, { recursive: true, force: true }); }
+});

@@ -107,3 +107,11 @@ test('字幕 id が無い場合は check と path で照合する', () => {
   assert.deepEqual(splitLintBlame([finding], ['captions.json'], [lintFindingKey(finding, '[]')],
     [lintFindingKey(finding, '[]')]), { own: [], foreign: [finding] });
 });
+test('書いたファイル内でも、保存前から有った指摘は今回の保存に帰属しない', () => {
+  const preexisting = { severity: 'error', check: 'captions.cut-visibility', path: 'captions.json#[4]', preexisting: true };
+  const fresh = { severity: 'error', check: 'captions.overlap', path: 'captions.json#[0]' };
+  assert.deepEqual(splitLintBlame([preexisting, fresh], ['captions.json']), {
+    own: [fresh],
+    foreign: [preexisting]
+  });
+});

@@ -20,3 +20,15 @@ export function normalizeLegacyCutTransitions(edit) {
 export function editForPut(edit) {
   return normalizeLegacyCutTransitions(edit);
 }
+
+const LEGACY_TRANSITION_TYPES = ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up'];
+
+export function transitionTypeOptions(currentType) {
+  return currentType && !LEGACY_TRANSITION_TYPES.includes(currentType)
+    ? [...LEGACY_TRANSITION_TYPES, currentType] : LEGACY_TRANSITION_TYPES;
+}
+
+export function escapeTransitionOptionAttribute(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}

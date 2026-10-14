@@ -1,5 +1,9 @@
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
+
+before(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 
@@ -56,7 +60,7 @@ test('左レールは選択中の左端アクセント棒を消す', () => {
 test('メニューは名前だけの 200px の列として左右に動く', () => {
     const opener = readFileSync(new URL('../src/browser/akari-rail-openers.ts', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../src/browser/left-rail-style.ts', import.meta.url), 'utf8');
-    assert.match(opener, /this\.configure\(AkariRailExpandOpener\.ID, 'メニュー', 'メニュー', 'codicon-menu'\)/);
+    assert.match(opener, /this\.configure\(AkariRailExpandOpener\.ID, t\('shell\.leftRail\.menu\.menuLabel'\), t\('shell\.leftRail\.menu\.menuLabel'\), 'codicon-menu'\)/);
     assert.match(css, /translateX\(-100%\)/);
     assert.match(css, /prefers-reduced-motion/);
     assert.match(css, /width: 200px !important/);
@@ -84,6 +88,14 @@ test('開発者モードのビュー名はエクスプローラーと検索', ()
     assert.match(source, /title\.label = overriddenLabel/);
 });
 
+test('the rail uses English labels when selected', () => {
+    try {
+        setLanguage('en');
+        assert.equal(railViewLabel('explorer-view-container', 'explorer-view-container'), 'Explorer');
+        assert.equal(railViewLabel('search-view-container', 'explorer-view-container'), 'Search');
+    } finally { setLanguage('ja'); }
+});
+
 test('展開中と閉じる途中は即時ツールチップを出さない', () => {
     assert.equal(shouldShowLeftRailTooltip(null, false), true);
     assert.equal(shouldShowLeftRailTooltip('true', false), false);
@@ -98,8 +110,8 @@ test('展開中と閉じる途中は即時ツールチップを出さない', ()
 test('未オープンの無効なレールを押すと案内を一度出す', () => {
     const source = readFileSync(new URL('../src/browser/akari-activity-bar-curation.ts', import.meta.url), 'utf8');
     assert.match(source, /if \(disabled\) \{[\s\S]*?this\.messages\.info\(message\);[\s\S]*?return;/);
-    assert.match(source, /id === RAIL_SKILLS_WIDGET_ID[\s\S]*?'プロジェクトを開くと、スキルをパートナーに頼めます'/);
-    assert.match(source, /: 'プロジェクトを開くと使えます'/);
+    assert.match(source, /id === RAIL_SKILLS_WIDGET_ID[\s\S]*?t\('shell\.leftRail\.disabled\.openProjectAskPartnerUseSkillsMessage'\)/);
+    assert.match(source, /: t\('shell\.leftRail\.disabled\.openProjectUseAction'\)/);
     assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);\s*if \(disabled\)/);
 });
 

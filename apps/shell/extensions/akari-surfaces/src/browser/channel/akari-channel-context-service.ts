@@ -1,3 +1,4 @@
+import { compareText } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -121,11 +122,11 @@ export class AkariChannelContextService implements FrontendApplicationContributi
                 } catch { /* Folder metadata is optional. */ }
                 try {
                     const intake = JSON.parse((await this.files.readFile(child.resource.resolve('.akari/intake.json'))).value.toString());
-                    if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title;
+                    if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title.trim();
                 } catch { /* Folder name remains the display name. */ }
                 return { name: child.name, uri: child.resource, updatedAt, title };
             }));
-            return projects.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.name.localeCompare(b.name));
+            return projects.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || compareText(a.name, b.name));
         } catch { return []; }
     }
 
@@ -136,7 +137,7 @@ export class AkariChannelContextService implements FrontendApplicationContributi
             let title: string | undefined;
             try {
                 const intake = JSON.parse((await this.files.readFile(uri.resolve('.akari/intake.json'))).value.toString());
-                if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title;
+                if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title.trim();
             } catch { /* 題が無ければフォルダ名を使う。 */ }
             return { name: uri.path.base, uri, updatedAt: stat.mtime, title };
         } catch { return undefined; }
@@ -190,7 +191,7 @@ export class AkariChannelContextService implements FrontendApplicationContributi
             const next = change.kind === 'remove' ? undefined : await this.readProject(uri);
             if (this.rootUri?.toString() !== root.toString()) return;
             this.projects.set(change.channel, [...old.filter(item => !item.uri.isEqual(uri)), ...(next ? [next] : [])]
-                .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.name.localeCompare(b.name)));
+                .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || compareText(a.name, b.name)));
             touched.add(key);
         }
         if (touched.size) { this.projectChanged.fire(touched); this.changed.fire(); }

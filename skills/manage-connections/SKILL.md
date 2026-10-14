@@ -1,106 +1,99 @@
 ---
 name: manage-connections
-description: AKARI Video の生成プロバイダ・SNS 接続・API キー参照・モデル選択・コスト承認ポリシーを一元管理する。初回セットアップ、接続状態の確認、provider やモデルの追加、有償生成・外部公開の実行前ゲートで発動し、`.akari/connections.json` と無償・読み取り専用の doctor を扱う。
+description: Centrally manage AKARI Video generation providers, social connections, API-key references, model selection, and cost-approval policies. Use for initial setup, connection checks, adding providers/models, and gates before paid generation or external publication. Works with `.akari/connections.json` and a free, read-only doctor.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-次の規則は詳細手順より常に優先する。
+These rules always override detailed procedures.
 
-1. **キーの値を git 管理下ファイル・HTML・ログ・会話に出さない。** 表示は常にマスク
-2. **キーは環境変数と credentials.env（新しい場所 → 旧い場所）だけから探す（env が優先）。それ以外から探索せず、チャットでキーの提示を求めない。**
-   置き場と KEY 名を案内し、人間が置く
-3. **keychain / 外部 vault を必須依存にしない**（オプションバックエンドとしてのみ将来検討）
-4. **doctor は無償・読み取り専用のみ。実生成テストはしない**（保留裁定 2026-07-17）
-5. **有償操作は見積 → 費用承認まで実行しない**（edit-plan の Decision Communication
-   Contract と同型）。予算上限の超過見込みで実行前に停止する
-6. **リアルタイムフック監視（PreToolUse 等）を採用しない。** 状態は JSON、伝達は git 正味差分
-7. **connections.json に無い接続を消費側スキルが使わない**（ここでいう connections.json は
-   project → workspace → default の順で解決済みのレジストリ。本スキルが唯一の入口。
-   42・70 系の契約はこのルールを継承する）
+1. **Never expose key values in git-tracked files, HTML, logs, or conversation.** Always mask displays.
+2. **Find keys only in environment variables and credentials.env (new location → old location), with env taking priority. Never search elsewhere or ask for keys in chat.** Explain the location and KEY name; the human places them.
+3. **Do not require keychain / external vault dependencies** (consider only as optional future backends).
+4. **Doctor is free and read-only; never test actual generation** (pending ruling 2026-07-17).
+5. **Do not perform paid operations before an estimate and cost approval** (same pattern as edit-plan's Decision
+   Communication Contract). Stop before execution if the budget cap is expected to be exceeded.
+6. **Do not adopt real-time hook monitoring (PreToolUse, etc.).** State is JSON; communication is the net git diff.
+7. **Consumer skills must not use connections absent from connections.json**, meaning the resolved registry in
+   project → workspace → default order. This skill is the sole entry point; the 42/70-series contracts inherit this rule.
 
-# 実行順リーフ
+# Steps in execution order
 
-1. project `.akari/connections.json` → 作業場 `.akari/connections.json` → 製品同梱の既定、の順で
-   解決し、使う provider と `models.default / allowed`、`policy` を確認する。解決結果は
-   `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]` で確認できる。
-   レジストリに無い接続や allowed 外のモデルを使わない。
-2. 前回の `doctor` 結果を提示する。再確認を明示された場合だけ、プロジェクトルートで
-   `node <このスキルのディレクトリ>/bin/doctor.mjs` を実行する。別プロジェクトを確認する場合は
-   そのプロジェクトルート、または connections.json のパスを第 1 引数に渡す。プロジェクトルート
-   で実行した結果は provider の由来レイヤー（project / workspace / default）に対応するファイルへ
-   書き戻される。
-3. 環境変数にも新旧どちらの credentials.env にも必要な鍵が無ければ、doctor が示す
-   置き場・KEY 名・取得先 URL を人間へ案内して停止する。代理取得・代理書き込みをしない。テストで差し替える場合だけ
-   `AKARI_CREDENTIALS_FILE` にファイルパスを指定する。
-4. provider を追加する場合は、人間が credentials.env に `KEY=VALUE` を 1 行追加し、
-   `.akari/connections.json` の `providers` に値を含まない entry を 1 件追加する。
-   `auth: env-key` の `env` は `${KEY_NAME}` 形式にする。doctor に安全な adapter が無い provider は
-   `unchecked` と正直に残す。
-5. モデルを変更する場合は `models.allowed` を先に確定し、`models.default` はその中から選ぶ。
-   タスク単位の上書きは次の承認ゲートで宣言する。
-6. 有償操作の前に [承認ゲート](../edit-plan/approvals-and-generation.md) と同じ形式で対象、使う手、
-   理由、代替案、見積費用、待ち時間、外部送信、provenance を提示する。費用承認が得られるまで
-   実行せず、未設定の予算上限や超過見込みがあれば停止する。
+1. Resolve project `.akari/connections.json` → workspace `.akari/connections.json` → product-bundled defaults;
+   inspect providers, `models.default / allowed`, and `policy`. Check resolution with
+   `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]`
+   (existing placeholders: this skill's directory and project root). Never use unregistered connections or models outside allowed.
+2. Present the previous `doctor` result. Only when rechecking is explicitly requested, run
+   `node <このスキルのディレクトリ>/bin/doctor.mjs` from the project root (existing skill-directory placeholder).
+   To check another project, pass its root or connections.json path as argument 1. Results run from a project
+   root are written back to files corresponding to each provider's origin layer (project / workspace / default).
+3. If neither env nor new/old credentials.env contains the required key, explain doctor's location, KEY name,
+   and acquisition URL to the human and stop. Do not acquire or write on their behalf.
+   Use `AKARI_CREDENTIALS_FILE` to specify a replacement file only in tests.
+4. To add a provider, the human adds 1 `KEY=VALUE` line to credentials.env; add 1 value-free entry to
+   `.akari/connections.json`'s `providers`. For `auth: env-key`, `env` must use `${KEY_NAME}` form.
+   Honestly retain `unchecked` for providers lacking a safe doctor adapter.
+5. For model changes, establish `models.allowed` first, then choose `models.default` from it.
+   Declare per-task overrides at the next approval gate.
+6. Before paid operations, follow the [approval gate](../edit-plan/approvals-and-generation.md) format:
+   target, method, reason, alternatives, estimated cost, wait time, external transmission, provenance.
+   Do not execute before cost approval; stop if the budget cap is unset or expected to be exceeded.
 
-doctor は connections.json の `doctor` ブロックを書き戻し、プロジェクトルートへ読み取り専用の
-`connections-report.html` を生成する。レポートに表示する資格情報は「設定済み（マスク）」または
-「未設定」の存在有無だけとし、HTTP 応答本文やキー値を表示しない。
+Doctor writes back connections.json's `doctor` block and generates a read-only `connections-report.html` in the project root.
+Display credentials only as present (masked) or absent; never show HTTP response bodies or key values.
 
-アプリ単位の道具・サービス設定は `~/.akari/connectors.json`（`AKARI_HOME` で差し替え可）に置く。
-doctor はその「使う」・生成順・自動切り替え設定を値なしで表示する。各接続の現在の状態は
-`akari connect list --json` で確認し、利用手順は [connect](../connect/SKILL.md) に従う。
+Application-wide tool and service settings live in `~/.akari/connectors.json` (override the location with `AKARI_HOME`).
+Doctor displays the enabled state, generation order, and automatic fallback settings without credential values.
+Check each connection with `akari connect list --json`; follow [connect](../connect/SKILL.md) for usage.
 
-## 既定モデル（defaults.generate）
+## Default models (defaults.generate)
 
-- `.akari/connections.json` の任意欄 `defaults.generate.still` / `defaults.generate.video` が生成の既定モデル id
-- 解決は providers と同じ 3 層（project > workspace > 製品同梱の既定）だが、`still` / `video` の欄単位の浅いマージ
-- 製品同梱の既定値は still = `codex:image` / video = `fal:h3-i2v`
-- モデル id のカタログは `packages/schemas/gen-models.json`
-- `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]` の `effective.defaults` で確認する
+- Optional `.akari/connections.json` fields `defaults.generate.still` / `defaults.generate.video` specify default generation model IDs.
+- Resolve through the same 3 layers as providers (project > workspace > product-bundled defaults), but shallow-merge individual `still` / `video` fields.
+- Product-bundled defaults: still = `codex:image` / video = `fal:h3-i2v`.
+- Model ID catalog: `packages/schemas/gen-models.json`.
+- Check `effective.defaults` in `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]`
+  (existing placeholders: this skill's directory and project root).
 
-## 鍵の置き場（環境変数と credentials.env）
+## Key locations (environment variables and credentials.env)
 
-読み上げの追加接続は次の対応表に従う。鍵は人間が発行し、値はレジストリへ置かない。
+Follow this table for additional TTS connections. Humans issue keys; never put values in the registry.
 
-| provider | credentials.env の名前 | 取得先 | doctor の無料 GET |
+| provider | credentials.env name | Source | Doctor's free GET |
 |---|---|---|---|
 | `fish-audio` | `FISH_AUDIO_API_KEY` | https://fish.audio/app/api-keys/ | `/wallet/self/api-credit` |
-| `google-ai` | `GEMINI_API_KEY` | https://aistudio.google.com/api-keys | `/v1beta/models`（`x-goog-api-key` ヘッダ） |
+| `google-ai` | `GEMINI_API_KEY` | https://aistudio.google.com/api-keys | `/v1beta/models` (`x-goog-api-key` header) |
 
-- doctor は `auth: env-key` の provider について環境変数 → 新しい credentials.env → 旧い credentials.env の順で鍵を探す。env が優先
-- 報告は `env` / `credentials.env` / `未設定` の 3 値だけで、値も末尾 4 桁も出さない
-- `akari doctor` の `fal_key` 行でも同じ 3 値が見える。鍵が無くても判定（verdict）と終了コードは変わらない
-- テストで置き場を差し替えるときだけ `AKARI_CREDENTIALS_FILE` を使う
+- For `auth: env-key` providers, doctor searches environment variables → new credentials.env → old credentials.env; env takes priority.
+- Reports use only 3 values: `env` / `credentials.env` / `未設定` (machine output meaning unset). Show neither values nor last 4 characters.
+- `akari doctor`'s `fal_key` row shows the same 3 values. Missing keys do not change verdict or exit code.
+- Use `AKARI_CREDENTIALS_FILE` only to substitute locations in tests.
 
-## memory 接続の管理
+## Manage memory connections
 
-`.akari/connections.json` の `memory` 配列は、生成プロバイダとは別種の接続（外部参照記憶。
-[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md)
-が正本）を宣言する。資格情報・課金は発生しない読み取り専用の接続であり、本スキルが
-`providers` と同じレジストリファイルの中で一元管理する。
+The `memory` array in `.akari/connections.json` declares external reference-memory connections distinct from
+generation providers. Canonical source:
+[contract-2026-07-25-memory-connection-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-memory-connection-v0.md) (Japanese).
+They are read-only, without credentials or billing; this skill centrally manages them in the same registry as `providers`.
 
-- **追加**: `memory` 配列へ `{ "name": "<kebab-case>", "root": "<ローカルパス>" }` を最小構成として
-  1 件追加する。`entry`（省略時 `INDEX.md`）・`include`/`exclude`・`read_policy`（省略時
-  `read-only`）は任意。`root` に秘密情報（API キー等）を書かない — 経路情報のみを持つ
-- **削除**: `memory` 配列から該当エントリを取り除くだけ。対になる credentials.env の行は無い
-  （`memory` は `auth`/`env` を持たない）
-- **doctor での表示**: `memory` エントリは `providers` の疎通確認（HTTP 認証チェック等）とは
-  別の軽い確認に限る。`root`（および `root`+`entry`）のパス実在チェックのみを行う、無償・
-  読み取り専用の確認である。有償生成の doctor と同じ「無償・読み取り専用のみ」原則
-  （FORBIDDEN 級ハードルール 4）を継承するが、**`memory` は `doctor` フィールドを持たない
-  スキーマ設計**（永続化する認証状態が無いため）であり、v0 時点の `doctor.mjs` はこの
-  パスチェックを実装しない（データ契約 + スキル規約の確立が v0 の範囲。実装は次段）
-- `root` へ実際にアクセスできない場合も、読む瞬間（research-plan / edit-plan の冒頭・
-  analyze-project の文脈読み合わせ）のスキル実行そのものは止めない（劣化規約は
-  memory-connection-v0 契約 §5 を参照）
+- **Add**: Add 1 entry to `memory`, minimally `{ "name": "<kebab-case>", "root": "<ローカルパス>" }`
+  (existing placeholder: local path). Optional: `entry` (default `INDEX.md`), `include`/`exclude`, `read_policy`
+  (default `read-only`). No secrets such as API keys in `root`; it contains only routing information.
+- **Remove**: Remove the corresponding `memory` entry. There is no matching credentials.env line
+  (`memory` has no `auth`/`env`).
+- **Doctor display**: Limit `memory` checks to lightweight checks separate from `providers` HTTP/authentication tests:
+  only existence of `root` and `root`+`entry`, free and read-only. This inherits hard rule 4's free/read-only principle.
+  However, **schema design gives `memory` no `doctor` field**, since there is no persistent authentication state;
+  v0 `doctor.mjs` does not implement this path check. v0 establishes data/skill contracts; implementation is next.
+- Inaccessible `root` must not stop the consuming skill when it attempts to read (research-plan / edit-plan opening,
+  analyze-project context integration). See memory-connection-v0 §5 for degraded behavior.
 
-## 根拠
+## Sources
 
-- 正本契約: 接続・設定管理契約（2026-07-17）— 非公開の内部記録（`akari-video-internal`）にある
-- first-run・代理取得しない規律: [../setup-library/SKILL.md](../setup-library/SKILL.md)
-- 有償操作の承認ゲート: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
-- レジストリ検証: `node packages/schemas/bin/validate-connections.mjs .akari/connections.json`
-  （モノレポでのみ実行可。プロジェクト配布版には同梱されていない）
+- Canonical connection/settings management contract (2026-07-17): private internal records (`akari-video-internal`).
+- First-run / no proxy acquisition discipline: [../setup-library/SKILL.md](../setup-library/SKILL.md)
+- Paid-operation approval gates: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
+- Registry validation: `node packages/schemas/bin/validate-connections.mjs .akari/connections.json`
+  (monorepo only; not bundled with distributed projects).

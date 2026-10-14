@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { injectable } from '@theia/core/shared/inversify';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import URI from '@theia/core/lib/common/uri';
@@ -118,24 +119,24 @@ export class AkariPreviewServerServiceImpl implements AkariPreviewServerService,
         try {
             projectRoot = this.fsPath(request.projectRootUri);
         } catch (error) {
-            return this.fail(describeUnexpectedQuickExportFailure(error, 'プロジェクトルートを解決できませんでした'));
+            return this.fail(describeUnexpectedQuickExportFailure(error, t('shell.preview.server.couldNotResolveProjectRootError')));
         }
         const entry = await this.findServerEntry();
         if (!entry) {
-            return this.fail('preview-server が見つかりませんでした（packages/preview-server/src/server.mjs 不在）');
+            return this.fail(t('shell.preview.server.previewServerNotFoundPackagesPreviewServerSrcServerMjsText'));
         }
         const port = await this.findFreePort();
         if (port === undefined) {
             const first = PREVIEW_SERVER_DEFAULT_PORT;
             const last = PREVIEW_SERVER_DEFAULT_PORT + PREVIEW_SERVER_PORT_ATTEMPTS - 1;
-            return this.fail(`ポート ${first}〜${last} がすべて使用中です`);
+            return this.fail(t('shell.preview.server.allPortsUseText', { value1: first, value2: last }));
         }
         const args = buildPreviewServerArgs(projectRoot, port);
         let child: ChildProcess;
         try {
             child = this.spawnServer(entry, args);
         } catch (error) {
-            return this.fail(describeUnexpectedQuickExportFailure(error, 'プレビューサーバーを起動できませんでした'));
+            return this.fail(describeUnexpectedQuickExportFailure(error, t('shell.preview.server.couldNotStartPreviewServerError')));
         }
         const session: PreviewServerSession = {
             child,
@@ -176,7 +177,7 @@ export class AkariPreviewServerServiceImpl implements AkariPreviewServerService,
             await this.terminate(session);
             const stderrSummary = summarizeStderrTail(session.stderr);
             return this.fail(
-                `プレビューサーバーが ${this.readyTimeoutMs / 1000} 秒以内に起動しませんでした`
+                t('shell.preview.server.previewServerDidNotStartWithinSecondsText', { value1: this.readyTimeoutMs / 1000, n: this.readyTimeoutMs / 1000 })
                 + (stderrSummary ? `\n${stderrSummary}` : '')
             );
         }
@@ -237,7 +238,7 @@ export class AkariPreviewServerServiceImpl implements AkariPreviewServerService,
         }
         if (this.status.phase === 'running') {
             this.session = undefined;
-            this.fail(`プレビューサーバーが予期せず終了しました\n${describePreviewServerFailure(code, session.stderr, session.port)}`);
+            this.fail(t('shell.preview.server.previewServerExitedUnexpectedlyText', { value1: describePreviewServerFailure(code, session.stderr, session.port) }));
         }
     }
 

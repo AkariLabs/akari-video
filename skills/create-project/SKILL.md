@@ -1,87 +1,91 @@
 ---
 name: create-project
-description: AKARI Video の新規プロジェクトを headless で作成する。`templates/project-default/` を再帰コピーし、雛形バージョンを記録し、安全な場合のみ git 初期化して、作成結果レポート HTML を生成する。アプリ起動は不要。新しい動画プロジェクトを作るとき、または既存フォルダを AKARI Video プロジェクトとして補完するときに使う。
+description: Create an AKARI Video project headlessly. Recursively copy `templates/project-default/`, record the template version, initialize git only when safe, and generate an HTML creation report. No app launch is needed. Use to create a video project or fill in an existing folder as an AKARI Video project.
 ---
 
-# 新規プロジェクトを作成する
+# Create a new project
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-## ハードルール
+## Hard rules
 
-1. **雛形は解決順の 2 択のみ。** 存在しない雛形・カテゴリを捏造しない
-2. **既存ファイルを絶対に上書きしない**（`flag:'wx'`。既存フォルダへの適用は不足分の追加のみ、
-   CLAUDE.md / AGENTS.md には触れない — 自己完結契約 §5 と同じ規律）
-3. **シンボリックリンクはコピーせず警告**
-4. **F18 ガードを内蔵する**: 作成先で `git rev-parse --show-toplevel` を判定し、
-   既存リポ（`_edit` 等）の内側では git init しない。親リポを汚す経路を作らない
-   （Wave 9 `f18-parent-repo-guard` と同じ判定基準）
-5. **git 初期化が安全な場合のみ** init + 単一コミット。それ以外は理由を報告して skip
-6. **雛形バージョン（`AKARI-SKILLS-VERSION`）を記録するだけ**で、既存プロジェクトへの
-   silent update をしない
-7. **アプリ作成とスキル作成の成果物 diff ゼロを保つ**（§3 の共有実装がその手段）
+1. **There are only 2 template resolution choices, in the specified order.** Do not invent templates or categories.
+2. **Never overwrite existing files** (`flag:'wx'`). Applying to an existing folder only adds missing files;
+   leave CLAUDE.md / AGENTS.md untouched — the same discipline as self-contained contract §5.
+3. **Warn and skip symbolic links rather than copying them.**
+4. **Include the F18 guard**: evaluate `git rev-parse --show-toplevel` at the destination;
+   do not git init inside an existing repository (such as `_edit`). Do not create a route that pollutes the parent repository
+   (the same criteria as Wave 9 `f18-parent-repo-guard`).
+5. Init + a single commit **only when git initialization is safe**. Otherwise report the reason and skip.
+6. **Only record the template version (`AKARI-SKILLS-VERSION`)**; never silently update existing projects.
+7. **Keep the artifact diff between app-created and skill-created projects at zero** (the shared implementation in §3 provides this).
 
-## 実行手順
+## Procedure
 
-1. `--template <path>` があればその雛形を使い、省略時はリポ checkout の `templates/project-default/` を使う。この 2 択以外の雛形解決を行わない。
-2. 次の CLI を実行する。
+1. Use `--template <path>` if supplied; otherwise use the repository checkout's `templates/project-default/`. Do not resolve templates by any route beyond these 2 choices.
+   Determine the content language from the user's conversation and source audio, independently of the UI language.
+   If the languages appear to disagree, confirm the desired content language with 1 question. Store its BCP 47
+   value in intake.json's language field; use akari new's --lang option if available. Resolution order is explicit
+   --lang → intake.json language → analysis.json transcript.language → ja. For packs, normalize to the primary
+   subtag (en-US → en), always keep ja as ja, and fall back to en when a pack is missing.
+2. Run this CLI:
 
    ```sh
    akari new <target-dir> [--template <path>]
    ```
 
-3. 標準出力に表示された作成結果レポート HTML のパスを確認する。レポートは読み取り専用で、コピー、フォールバック補完、シンボリックリンクのスキップ、雛形バージョン、git 初期化の結果を記録する。
+3. Check the HTML creation report path printed to stdout. The read-only report records copying, fallback additions, skipped symbolic links, template version, and git initialization results.
 
-## 使い方
+## Usage
 
 ```sh
 akari new <target-dir> [--template <path>]
 ```
 
-- `<target-dir>`: 作成先ディレクトリ。新規でも既存の非空フォルダでもよい。既存ファイルは上書きしない。
-- `--template <path>`: 雛形ディレクトリを明示指定する。省略時はリポ checkout の `templates/project-default/` を使う。それ以外の解決手段はない。
+- `<target-dir>`: Destination directory, either new or an existing nonempty folder. Existing files are not overwritten.
+- `--template <path>`: Explicit template directory. Defaults to the repository checkout's `templates/project-default/`. There is no other resolution route.
 
-## 作例から始めたいと言われたとき
+## When the user wants to start from a worked example
 
-「解説ショートを作りたい」「あの縦型の解説動画みたいなやつ」のように**完成形の作例から
-始めたい**依頼は、雛形解決の 2 択（ハードルール 1）とは別の話である。本スキルは**器**を作る
-ものであり、作例は器ではない。
+Requests such as “Make a short explainer” or “Something like that vertical explainer video” ask to **start from a
+finished example**, which is separate from the 2 template resolution choices (hard rule 1). This skill creates the
+**project container**; a worked example is not a container.
 
-- 解説ショート（3 面構成の縦型・VOICEVOX ナレーション駆動・図解カードの段階表示）:
-  [`templates/kaisetsu-short/`](../../templates/kaisetsu-short/README.ja.md)
-- 使い方はディレクトリごと複製し、`sample-project/` を自分の台本 JSON に置き換える。
-  まず動作確認するなら同梱サンプル（音声同梱のため VOICEVOX 不要）:
+- Short explainer (vertical 3-panel layout, VOICEVOX narration, progressively revealed diagram cards):
+  [`templates/kaisetsu-short/`](https://github.com/AkariLabs/akari-video/blob/main/templates/kaisetsu-short/README.ja.md) (Japanese).
+- Duplicate the entire directory and replace `sample-project/` with your own script JSON.
+  To check it first, use the bundled sample (audio is included, so VOICEVOX is unnecessary):
 
   ```sh
   cd templates/kaisetsu-short && node tools/build.mjs sample-project --no-synthesize
   ```
 
-- **作例を `--template` に渡さない。** `.akari/` などの器の構造を持たないため、
-  雛形として解決すると不完全なプロジェクトになる。器が要るなら通常どおり
-  `templates/project-default/` で作成し、そのうえで作例を複製して中身を持ち込む
-- テンプレート 2 種（器 / 作例）の違いは [`templates/INDEX.md`](../../templates/INDEX.md) を参照
+- **Do not pass a worked example to `--template`.** It lacks container structure such as `.akari/`,
+  so resolving it as a template produces an incomplete project. If a container is needed, create it normally
+  with `templates/project-default/`, then duplicate the worked example and bring in its contents.
+- See [`templates/INDEX.md`](https://github.com/AkariLabs/akari-video/blob/main/templates/INDEX.md) for the 2 template types (containers / worked examples).
 
-## intake.json（進め方フォームの保存先）
+## intake.json (saved workflow form)
 
-作成直後の `.akari/intake.json` は `status: "draft"`・空 `tasks` から始まる（契約: `packages/schemas/intake.schema.json`）。プロジェクトの CLAUDE.md には intake の規律を追記する — `status: "submitted"` なら `tasks` / `target` / `autonomy` に従い、`autonomy: "checkpoint"`（既定）なら企画承認・書き出し前などの要所で人に確認し、`status: "draft"` のままなら進め方をフォームまたは対話で確定させてから進める。
+Immediately after creation, `.akari/intake.json` starts with `status: "draft"` and empty `tasks` (contract: `packages/schemas/intake.schema.json`). Add the intake discipline to the project's CLAUDE.md: with `status: "submitted"`, follow `tasks` / `target` / `autonomy`; with `autonomy: "checkpoint"` (default), check with the user at key points such as planning approval and before export; if still `status: "draft"`, settle the workflow through the form or conversation before proceeding.
 
-- `tasks` は次の固定語彙のみを使う。日本語ラベルの正本は契約正本の `x-akari-labels` とする
-  - `transcribe-captions`（文字起こし・テロップ）
-  - `silence-cut`（いらない間・NG のカット）
-  - `bgm-sfx`（BGM・効果音）
-  - `narration`（ナレーション（自分の声 / 既製の声））
-  - `3d-inserts`（3D・画面はめ込みの演出）
-- 依頼文・自由文を `tasks` に入れない。語彙に無い要望は `tasks` に書かず、
-  `target.taste`（自由記述）や `planning/` 側へ置く
-- `target.duration_s`（数値指定）と `target.keep_length: true`（尺維持）はどちらか片方にする。
-  「約60秒にする」なら `{"duration_s": 60, "keep_length": false}`、「尺は変えない」なら
-  `{"duration_s": null, "keep_length": true}` とする
-- `status` を `"submitted"` へ変える前に、リポジトリルートから edit-lint スキルと同じ CLI を
-  実行し、`intake.*` の error finding が無いことを確認する。`submitted` にするときは
-  `submitted_at` に ISO 8601 日時を必ず入れる
+- Use only this fixed vocabulary for `tasks`. The contract's `x-akari-labels` is the canonical source for Japanese labels.
+  - `transcribe-captions` (transcription and captions)
+  - `silence-cut` (cut unnecessary pauses and bad takes)
+  - `bgm-sfx` (background music and sound effects)
+  - `narration` (your own voice / a preset voice)
+  - `3d-inserts` (3D and screen inserts)
+- Do not put request text or free text in `tasks`. Put requests outside the vocabulary in
+  `target.taste` (free text) or `planning/`, rather than in `tasks`.
+- Choose either `target.duration_s` (numeric duration) or `target.keep_length: true` (retain length).
+  For “about 60 seconds”, use `{"duration_s": 60, "keep_length": false}`; for “keep the length”,
+  use `{"duration_s": null, "keep_length": true}`.
+- Before changing `status` to `"submitted"`, run the same CLI as the edit-lint skill from the repository root
+  and verify that there are no `intake.*` error findings. When setting `submitted`, always provide an
+  ISO 8601 timestamp in `submitted_at`.
 
   ```sh
   node packages/edit-lint/bin/edit-lint.mjs <project-root>
   ```
 
-フィールドの契約正本は `packages/schemas/intake.schema.json` とする。
+The canonical field contract is `packages/schemas/intake.schema.json`.

@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -5,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { transform } from 'esbuild';
+import { createRequire } from 'node:module';
 
 import {
     describeOverlay,
@@ -13,6 +18,9 @@ import {
     resolveGenerationState
 } from '../lib/common/generation-overlay-model.js';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
+
+const require = createRequire(import.meta.url);
+const { t: previewText } = require('../lib/common/preview-text.js');
 
 const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'generation-overlays');
 const nowMs = Date.parse('2026-09-13T09:50:00.000Z');
@@ -287,8 +295,9 @@ test('describeOverlay と next helper の toString 注入は外部スコープ�
     const file = join(dir, 'injected.mjs');
     await writeFile(file, `const injectedHelper = (${generationNextDraftHelperV1.toString()});
         const describe = (${describeOverlay.toString()});
-        export default (state, meta, label, options) => describe(state, meta, label, options, injectedHelper);`);
-    const injected = (await import(pathToFileURL(file).href)).default;
+        export default (state, meta, label, options, text) => describe(state, meta, label, options, injectedHelper, text);`);
+    const injectedRaw = (await import(pathToFileURL(file).href)).default;
+    const injected = (state, meta, label, options) => injectedRaw(state, meta, label, options, previewText);
     const meta = { kind: 'still', next: nextDraft({ last_frame: { path: 'last.png' } }) };
     assert.equal(injected('done', meta, 'clip').tag, '▶ 動画予定 · 最初→最後');
     assert.equal(injected('done', meta, 'clip').pip, 'last.png');
@@ -299,6 +308,23 @@ test('describeOverlay と next helper の toString 注入は外部スコープ�
     const doneCandidate = injected('done', { status: 'done', job: { candidates: 3 } }, '空の枠');
     assert.equal(doneCandidate.tag, '✦ 候補 3');
     assert.equal(doneCandidate.aurora, null);
+});
+
+test('planned-video and elapsed-time classification is independent of UI language', () => {
+    const planned = { status: 'done', kind: 'still', next: nextDraft({ last_frame: { path: 'last.png' } }) };
+    const elapsed = { status: 'generating', job: { started_at: '2026-10-11T00:00:00.000Z' } };
+    const nowMs = Date.parse('2026-10-11T00:00:32.000Z');
+    try {
+        for (const language of ['ja', 'en']) {
+            setLanguage(language);
+            const plannedDescription = describeOverlay('done', planned, 'clip');
+            const elapsedDescription = describeOverlay('generating', elapsed, 'clip', { nowMs });
+            assert.equal(plannedDescription.plannedVideo, true);
+            assert.equal(elapsedDescription.elapsedSeconds, true);
+            assert.equal(plannedDescription.tag, language === 'ja' ? '▶ 動画予定 · 最初→最後' : '▶ Planned video · First → last');
+            assert.equal(elapsedDescription.band.text, language === 'ja' ? '生成中 · 32 秒' : 'Generating · 32 seconds');
+        }
+    } finally { setLanguage('ja'); }
 });
 
 
@@ -343,7 +369,7 @@ test('production 相当の minify 後でも toString 注入へ helper を明示�
     for (const [meta, state, tag] of rows) {
         assert.equal(injectedStateHelper(meta, nowMs), state);
         assert.equal(injectedState(meta, nowMs, null, injectedStateHelper), state);
-        const description = injectedDescribe(state, meta, 'clip', { sourcePath: 'clip.png' }, injectedNextHelper);
+        const description = injectedDescribe(state, meta, 'clip', { sourcePath: 'clip.png' }, injectedNextHelper, previewText);
         assert.equal(description.tag, tag);
         if (state === 'generating') {
             assert.equal(description.shimmer, true);
@@ -360,7 +386,7 @@ test('production 相当の minify 後でも toString 注入へ helper を明示�
         const meta = { kind: 'still', status: 'done', next: nextDraft(inputs) };
         assert.equal(injectedNextHelper(meta).variety, variety);
         const state = injectedState(meta, nowMs, null, injectedStateHelper);
-        const description = injectedDescribe(state, meta, 'clip', {}, injectedNextHelper);
+        const description = injectedDescribe(state, meta, 'clip', {}, injectedNextHelper, previewText);
         assert.equal(description.tag, `▶ 動画予定 · ${label}`);
         assert.equal(description.pip, inputs.last_frame?.path ?? null);
     }

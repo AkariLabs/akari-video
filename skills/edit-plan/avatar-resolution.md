@@ -1,74 +1,58 @@
-# 人・キャラクター（アバター）を挿入する
+# Insert a person or character (avatar)
 
-## 原則
+## Principle
 
-アバターの読み出しも CLAUDE.md / SKILL.md と同じ段階制に従う。**「Ryoma 入れて」のような挿入
-要求に対して全アバターの全データを読まない**。L0（一覧）→ L1（AVATAR.md）の 2 段で日常の挿入判断
-は完結させ、L2（`persona/` `voice/` `renditions/*/rendition.json`）は下記「L2 深読みの条件」に
-明記した特定工程でしか読まない。データ形の正本は
-[アバター・レジストリ契約](../../docs/contract-2026-07-26-avatar-registry-v0.md) にある。本リーフは
-その器を挿入フローの中で**どう読み・どう質問するか**を定める。
+Read avatar data in stages, as with CLAUDE.md / SKILL.md. **Do not read every avatar's full data for an insertion request such as "add Ryoma."** Routine insertion decisions use L0 (index) → L1 (AVATAR.md) only. Read L2 (`persona/` `voice/` `renditions/*/rendition.json`) only at the stages named under "Conditions for deeper L2 reading" below. The [avatar registry contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) defines the data shape; this leaf defines **how to read it and ask questions** during insertion.
 
-## 発動条件
+## Trigger
 
-チャットで人物・キャラクター・アバターの挿入を求められたとき（例:「Ryoma のやつ入れて」
-「ずんだもんに解説させて」）。生成対象がゼロから作るキャラクターではなく、既存の登録済み
-アバターを指している場合が本リーフの対象。新規登録（音声サンプル → クローン、立ち絵取り込み等）
-は本リーフのスコープ外（登録ウィザードは将来段階）。
+Use when chat asks to insert a person, character, or avatar (for example, "add Ryoma" or "have Zundamon explain"). This leaf covers an existing registered avatar, not creating a character from scratch. New registration (voice sample → clone, importing character art, etc.) is out of scope; a registration wizard is a future stage.
 
-## 手順
+## Procedure
 
-### 1. L0 — INDEX で ID を解決する
+### 1. L0 — Resolve the ID from INDEX
 
-以下の順で `avatars/INDEX.md` を読み、要求と一致する 1 行カードを探す（4 層スコープの近い順。
-[契約](../../docs/contract-2026-07-26-avatar-registry-v0.md) §1）:
+Read `avatars/INDEX.md` in this order and look for a one-line card matching the request (nearest first among the four scope layers; [contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) §1):
 
-1. プロジェクト内 `.akari/avatars/INDEX.md`
-2. `~/.akari/avatars/INDEX.md`（個人スコープ。実在人物のアバターは通常ここにある）
-3. 公開 `catalog/avatars/INDEX.md`（`original` / `third_party` のみ）
+1. Project `.akari/avatars/INDEX.md`.
+2. `~/.akari/avatars/INDEX.md` (personal scope, usually holding real-person avatars).
+3. Public `catalog/avatars/INDEX.md` (`original` / `third_party` only).
 
-同一 ID が複数層にあれば近い層が勝つ（shadowing）。一致する ID が無ければ「該当アバターが
-見つからない」と人間に報告し、後段の登録は別スキル（将来段階）に委ねる。
+If an ID exists in several layers, the nearer one wins (shadowing). If no ID matches, tell the human no matching avatar was found; leave later registration to a separate future skill.
 
-### 2. L1 — 該当 AVATAR.md のみ読む
+### 2. L1 — Read only the matching AVATAR.md
 
-解決した ID の `AVATAR.md` **だけ**を読む。他アバターの AVATAR.md、`persona/`、`voice/`、
-`renditions/*/rendition.json` は読まない。ここで得られる情報だけで以下を判断する:
+Read **only** the resolved ID's `AVATAR.md`. Do not read another avatar's AVATAR.md, `persona/`, `voice/`, or `renditions/*/rendition.json`. Decide these points from L1 alone:
 
-- ペルソナ要約（一人称・トーン・口調・NG 上位）— 台本生成のプロンプト文脈に注入する
-- 能力一覧表 — rendition ごとの `lipsync` / `expressions` / `framing`
-- `avatar.json` の `default_rendition`
+- Persona summary (first person, tone, speech style, leading prohibited content), injected into script-generation prompt context.
+- Capability summary per rendition: `lipsync` / `expressions` / `framing`.
+- `default_rendition` from `avatar.json`.
 
-### 3. rendition 解決
+### 3. Resolve rendition
 
-`avatar.json`（L1 から参照される機械可読値）の `default_rendition` を見る:
+Inspect `default_rendition` in `avatar.json`, the machine-readable data referenced by L1:
 
-| 状態 | 動作 |
+| State | Action |
 |---|---|
-| `default_rendition` が非 null | それを採用し、選択したことのみ人間に報告する（質問しない） |
-| `default_rendition` が null かつ rendition 候補が複数 | **decision card**（§4）で「どれで入れますか？」と質問する |
-| `default_rendition` が null だが文脈で候補が一意に絞れる（§3a の判定規則を適用して残る候補が 1 件になる） | 自動選択し、選択根拠を `decision-log.md`（§6）に記録する（質問しない） |
+| `default_rendition` is non-null | Adopt it and only report the choice to the human; do not ask. |
+| `default_rendition` is null with multiple rendition candidates | Ask which to insert using the **decision card** procedure (§4). |
+| `default_rendition` is null but context uniquely narrows candidates to one under §3a | Select automatically and record evidence in `decision-log.md` (§6); do not ask. |
 
-### 3a. 自動選択の判定規則（能力宣言ベース、S2 具体化）
+### 3a. Automatic selection rules (declared capabilities, S2 details)
 
-「文脈で一意」を当てずっぽうにしない。以下の判定規則を**候補を絞るフィルタ**として順に適用し、
-適用後に残った候補が 1 件になった時点で自動選択する。複数のシグナルが同時に文脈にあれば、
-該当するフィルタを**すべて**適用してから残数を数える（例: 「口パク必須のワイプ解説」は
-lipsync フィルタ + framing フィルタの両方を適用する）。
+Do not guess that context uniquely identifies a rendition. Apply these rules in order as **candidate filters** and select automatically only when exactly one remains. If several signals are present, apply **all** matching filters before counting (for example, a picture-in-picture explanation requiring lip sync uses both lipsync and framing filters).
 
-| 文脈シグナル | フィルタ規則 | 参照する宣言 |
+| Context signal | Filter rule | Declaration checked |
 |---|---|---|
-| 口パク必須（有声の台詞・ナレーションをそのアバターに喋らせるシーン） | `capabilities.lipsync !== true` の rendition を候補から除外する | `avatar.json` の `renditions[].capabilities.lipsync` |
-| ワイプ挿入（画面占有率が低い・隅に小さく挿入する構図） | `capabilities.framing` に `"bustup"` を含む rendition を優先する（他の framing のみの候補は除外） | `renditions[].capabilities.framing` |
-| フルショット（画面占有率が高い・画面の主役として映す構図） | `capabilities.framing` に `"fullbody"` を含む rendition を優先する（他の framing のみの候補は除外） | `renditions[].capabilities.framing` |
+| Lip sync required (avatar speaks voiced dialogue or narration) | Exclude renditions with `capabilities.lipsync !== true` | `renditions[].capabilities.lipsync` in `avatar.json` |
+| Picture-in-picture insert (low screen-occupancy ratio, small in a corner) | Prefer renditions whose `capabilities.framing` includes `"bustup"`; exclude other-framing-only candidates | `renditions[].capabilities.framing` |
+| Full shot (high screen-occupancy ratio, primary image) | Prefer renditions whose `capabilities.framing` includes `"fullbody"`; exclude other-framing-only candidates | `renditions[].capabilities.framing` |
 
-- フィルタを全て適用しても候補が**複数残る**、または**文脈シグナルが読み取れない**場合は、
-  従来どおり §4 の decision card で質問する（後退させない — 自動選択は「わかるときだけ」）
-- フィルタの結果候補が **0 件**になった場合（例: 口パク必須なのに lipsync 可な rendition が
-  1 つも無い）も自動選択はせず、decision card で状況を明示して質問する
-- 自動選択したときも、質問して決めたときも、**必ず** `decision-log.md`（§6）へ根拠 1 行を記録する
+- If **multiple candidates remain** after all filters, or **no context signal can be read**, ask via §4's decision card as before. Do not weaken this; auto-selection applies only when the answer is known.
+- If **zero candidates** remain (for example, lip sync is required but none supports it), do not auto-select; explain the situation and ask via the decision card.
+- Whether selecting automatically or through a question, **always** record one evidence row in `decision-log.md` (§6).
 
-worked example（`ryoma` を想定。`2d-bustup` / `2d-fullbody` はいずれも `lipsync: true`）:
+Worked example (assuming `ryoma`; `2d-bustup` / `2d-fullbody` both have `lipsync: true`):
 
 ```
 文脈: 「口パク必須の解説シーンをワイプ挿入で使う」
@@ -78,17 +62,11 @@ worked example（`ryoma` を想定。`2d-bustup` / `2d-fullbody` はいずれも
 3. 残り candidate = 1 件（2d-bustup）→ 自動選択
 ```
 
-### 4. decision card（候補が複数 & 既定なしのとき）
+### 4. Decision card (multiple candidates and no default)
 
-edit-plan は自身の方針決定に汎用カード機構（HTML の `data-card`。
-[report-guide.md](report-guide.md#汎用カード機構他スキルが参照する仕様) 参照。research-plan 等
-他スキル向けの仕様であり edit-plan 自身は使わない）を使わない。アバター挿入も edit-plan の実行
-フロー内で起きる判断のため、同じ規律に従い**チャットで質問する**（[report-guide.md](report-guide.md#方針をチャットで決める)
-の「推奨案 + 代替案 + 利点/欠点/理由を示し、明示回答を得る」形式を rendition 選択に適用する）。
-「どうしますか」と丸投げしない。1 選択肢につき「rendition id + プレビュー（`preview.png` または
-rendition ディレクトリ内画像）+ 能力 1 行」を示す。
+edit-plan does not use the generic HTML `data-card` mechanism for its own direction decisions ([report-guide.md](report-guide.md#generic-card-mechanism-specification-used-by-other-skills); it is for other skills such as research-plan). Avatar insertion is a decision within edit-plan execution, so **ask in chat** under the same rule: show recommendation, alternatives, benefits, drawbacks, and reasons, then obtain an explicit answer ([report-guide.md](report-guide.md#decide-direction-in-chat)). Do not leave the choice at "What would you like?" For each option, show rendition id, a preview (`preview.png` or an image in the rendition directory), and one line of capabilities.
 
-worked example（`ryoma` を想定。`default_rendition: null`・候補 2 件）:
+Worked example (assuming `ryoma`, `default_rendition: null`, and two candidates):
 
 ```
 質問: Ryoma をどれで入れますか？
@@ -97,122 +75,91 @@ worked example（`ryoma` を想定。`default_rendition: null`・候補 2 件）
 推奨: 2d-bustup（ワイプ挿入で画面占有率が低いシーンのため。フルショットなら 2d-fullbody を推奨）
 ```
 
-推奨（AI 既定案）はシーンの文脈（例: 画面占有率の低いワイプ挿入ならバストアップ、フルショット
-なら全身）から選ぶが、確定は人間の明示回答を経る。
+Choose the recommendation (AI default) from scene context, for example bust-up for a small picture-in-picture insert or full-body for a full shot, but require an explicit human answer to settle it.
 
-### 5. L2 深読みの条件（このときだけ読む)
+### 5. Conditions for deeper L2 reading (only then)
 
-内部契約 §3 の条件をそのまま踏襲する。日常工程では読まない:
+Follow the conditions in internal contract §3 unchanged. Do not read these in routine work:
 
-| 工程 | 読むファイル |
+| Stage | File to read |
 |---|---|
-| 口パク prerender | 選択済み rendition の `renditions/<id>/rendition.json` のみ |
-| 掛け合い台本（複数アバター） | `persona/relationships.json`（存在する場合のみ） |
-| 音声生成 | `voice/voice.json` |
+| Lip-sync prerender | Only `renditions/<id>/rendition.json` for the selected rendition |
+| Dialogue script with multiple avatars | `persona/relationships.json`, only if present |
+| Voice generation | `voice/voice.json` |
 
-`persona/persona.md`（ペルソナ全文）は存在すれば同様に L2 として扱う。存在しない場合は
-`avatar.json` の `persona` オブジェクト（L1 と同じ内容）が唯一の出所であり、それ以上深く読む
-ファイルは無い。
+Treat `persona/persona.md` (full persona), if present, as L2 too. Otherwise the `persona` object in `avatar.json` (same content as L1) is the only source; there is no deeper file to read.
 
-### 6. `decision-log.md` への記録
+### 6. Record in `decision-log.md`
 
-rendition 選択（チャットでの質問経由・自動選択いずれも）は根拠つきで `decision-log.md`
-（[report-guide.md#decision_log](report-guide.md#decision_log)）へ追記する。[expression-selection.md](expression-selection.md#根拠の記録)
-の素材選択記録と同じ粒度・同じファイルへ、`rendition` category で 1 行積む:
+Append every rendition choice, whether reached through chat or automatically, with evidence in `decision-log.md` ([report-guide.md#decision_log](report-guide.md#decision_log)). Use the same granularity and file as asset selections in [expression-selection.md](expression-selection.md#evidence-record), adding one row in the `rendition` category:
 
 ```text
-<avatar id> @ <timeline 秒> | category: rendition | subject: <avatar id>/<選んだ rendition id> |
-決定: <採用した rendition id> | 理由: <1 文> | 決定者: human|ai-auto | checkpoint: <関連チェックポイント>
+<avatar id> @ <timeline seconds> | category: rendition | subject: <avatar id>/<selected rendition id> |
+Decision: <selected rendition id> | Reason: <one sentence> | Decided by: human|ai-auto | Related checkpoint: <checkpoint>
 ```
 
-- **自動選択も却下も 1 行を書く**（黙って決めない・黙って落とさない。expression-selection.md
-  §根拠の記録と同じ規律）
-- **自動選択（決定者: ai-auto）の理由欄は §3a のどのフィルタが効いたかを 1 文で書く**（例:
-  「口パク必須 + ワイプ挿入 → framing=bustup かつ lipsync:true が 1 件のみ」）。フィルタ名を
-  省略した曖昧な理由（「文脈から判断」等）は書かない — 後から根拠を検証できることが目的
-- decision card 経由（決定者: human）の理由欄は人間の回答・確定内容をそのまま要約する
-- 本節の記録運用自体（実装・自動化）は S2 のスコープ。本リーフは記録すべき内容の規約のみを定める
+- **Write one row for auto-selection and rejection too**; neither decide nor drop silently, as in expression-selection.md's evidence rule.
+- **For auto-selection (decider value `ai-auto`), the reason cell must name in one sentence which §3a filters applied.** For example, required lip sync plus picture-in-picture leaves only one bust-up, lip-sync-capable rendition. Do not write a vague reason such as "judged from context" without filter names; evidence must be auditable later.
+- For a chat decision (decider value `human`), summarize the human's answer and confirmed choice in the reason cell.
+- Implementation and automation of recording are in S2 scope. This leaf defines only what must be recorded.
 
-### 6a. 既定化提案（`default_rendition` への昇格、S2 新設）
+### 6a. Propose promotion to `default_rendition` (added in S2)
 
-同一アバター・同一 rendition の選択（決定者が human/ai-auto いずれでも可）が、`decision-log.md`
-の `rendition` category かつ `subject: <avatar id>/*` で**直近 3 回連続**で並んだら（間に別の
-rendition を選んだ行が挟まっていない）、`default_rendition` への昇格をチャットで**提案**する。
-勝手に書き込まない — 承認を得たときのみ書き込む（内部契約 §7-3）。
+If the same rendition was selected for the same avatar in the **latest three consecutive** `decision-log.md` rows with category `rendition` and `subject: <avatar id>/*` (no intervening choice of another rendition), **propose** promotion to `default_rendition` in chat. Deciders may be human or ai-auto. Do not write it on your own; write only after approval (internal contract §7-3).
 
-1. **検知**: `decision-log.md` を `subject` が `<avatar id>/` で始まる `rendition` category の行
-   だけ時系列に抽出し、末尾から連続する行の「決定」列が同一 rendition id かどうかを見る。3 行
-   連続で同一なら昇格提案の対象
-2. **提案文の生成**（チャットで提示。report-guide.md の「推奨案 + 理由を示し、明示回答を得る」
-   形式を踏襲）:
+1. **Detect**: Extract only `rendition` rows whose `subject` begins `<avatar id>/` from `decision-log.md` in time order. Starting at the end, check whether the decision column contains the same rendition id for three consecutive rows; if so, it qualifies for a promotion proposal.
+2. **Compose the proposal** in chat, following report-guide.md's recommendation + reason + explicit-answer format:
 
    ```
    提案: <avatar id> の rendition は直近 3 回連続で `<rendition id>` が選ばれています。
    以後は質問せずこれを既定にしますか？（`avatar.json` の default_rendition へ書き込みます）
    ```
 
-3. **承認を得たときのみ** `avatar.json` の `default_rendition` を該当 rendition id で書き込む。
-   却下された場合は書き込まず、`decision-log.md` に却下決定を 1 行記録する（§6 の規律どおり）
-4. **書き込み後は必ず `validate-avatar.mjs` を実行**し、PASS を確認する（`default_rendition` が
-   `renditions[]` に存在しない typo 等を検出できる）
-5. 昇格後の挿入は §3 の表の 1 行目（`default_rendition` 非 null）に従い、以後は質問せず採用する
+3. **Only after approval**, write the rendition id to `avatar.json` `default_rendition`. If rejected, do not write it; record one rejection row in `decision-log.md` under §6.
+4. **Always run `validate-avatar.mjs` after writing** and confirm PASS (it detects a typo where `default_rendition` is absent from `renditions[]`).
+5. After promotion, follow the first row of §3's table (non-null `default_rendition`) and adopt without asking thereafter.
 
-## 台本生成への接続（persona 注入、S2 具体化）
+## Connection to script generation (persona injection, S2 details)
 
-台本・ナレーション原稿をアバターに喋らせる工程（plan.json の対話で構成を決めた後、または
-既存台本にアバターの発話を割り当てる工程）では、原稿を生成する前に **L1（AVATAR.md /
-`avatar.json` の `persona`）のペルソナ要約を原稿生成のプロンプト文脈へ注入する**。
+When an avatar will speak a script or narration (after plan.json dialogue settles structure or while assigning avatar speech in an existing script), **inject the L1 persona summary (AVATAR.md / `avatar.json` `persona`) into the script-generation prompt context before generating text**.
 
-### 注入する項目
+### Fields to inject
 
-`persona` オブジェクトの以下 6 項目をそのまま原稿生成の指示文脈に含める（要約や意訳をせず、
-登録されている値をそのまま使う — 別の口調に脚色しない）:
+Include these six fields from the `persona` object unchanged in script-generation instructions. Do not summarize or paraphrase registered values or embellish the voice into another style:
 
-| 項目 | 使い方 |
+| Field | Use |
 |---|---|
-| `first_person` | 台詞中の一人称をこれに統一する |
-| `tone` | 全体のトーン（語り口の温度感）をこれに合わせる |
-| `speech_style` | 説明の噛み砕き方・専門用語の扱いをこれに従う |
-| `verbal_tics` | 語尾・口癖として台詞に自然に混ぜる（多用しすぎない） |
-| `energy` | 文の長さ・テンポ・感嘆符の使用頻度をこの値の高低に合わせる（0=落ち着き、100=ハイテンション） |
-| `default_role` | シーンで別の役割が明示指定されていない限り、この配役として原稿を書く |
+| `first_person` | Use this consistently as the first-person form in dialogue. |
+| `tone` | Match the overall tone and warmth of delivery. |
+| `speech_style` | Follow it for explanation detail and technical-term handling. |
+| `verbal_tics` | Incorporate naturally into wording or sentence endings without overuse; apply the content-language pack (see SKILL.md). |
+| `energy` | Match sentence length, tempo, and exclamation frequency to its level (0 = calm, 100 = highly animated). |
+| `default_role` | Write for this role unless the scene explicitly assigns another. |
 
-### NG の遵守（生成前チェック）
+### Respect prohibited content (pre-generation check)
 
-`persona.ng` に列挙された話題・言い回しに触れる原稿は**生成しない**。これは lint（生成後の
-機械検査）ではなく、**生成前の手順の規律**として扱う — 原稿を書く前に `ng` リストを読み、
-該当しそうな切り口を避けて構成する。生成後に気づいた場合は、その場で書き直す（`ng` 抵触のまま
-一度チャットに出してから修正、はしない）。
+**Do not generate** script text touching topics or phrasings listed in `persona.ng`. Treat this as a **pre-generation procedure**, not post-generation lint: read `ng` before writing and structure the script to avoid those angles. If a violation is found after generation, rewrite immediately; do not show violating text in chat first and fix later.
 
-### voice 解決への接続
+### Connection to voice resolution
 
-原稿が確定したら、話者 = アバターの `voice` 解決を行う。手順は
-[skills/generate-narration/avatar-voice.md](../generate-narration/avatar-voice.md) に従う。
-`edit.json` 側は既存契約のまま変更しない — narration provenance の `voice` にアバターの
-`voice.ref`（`speaker:3(...)` / `profile:owner-ja` 等、narration-tts 契約と同型の参照文字列）が
-そのまま入るだけであり、新しいフィールドは発明しない。
+When the script is confirmed, resolve `voice` with the avatar as speaker under [skills/generate-narration/avatar-voice.md](../generate-narration/avatar-voice.md). Do not alter the existing `edit.json` contract: narration provenance `voice` simply receives the avatar's `voice.ref` (`speaker:3(...)` / `profile:owner-ja`, etc., the same reference-string form as the narration-tts contract). Do not invent fields.
 
-## VOICEVOX プリセット提案 + 登録（S2 新設）
+## VOICEVOX preset proposal and registration (added in S2)
 
-アバター挿入を求められた工程で、L0 走査（§1）の結果**登録済みアバターが 0 体**（または
-`voice` を持つアバターが 0 体）だったとき、決め打ちのプリセット 2 体を「こういうのもあるよ」と
-提案する（内部契約 §1・オーナー裁定「同梱はしない。あるよっていうだけ」）。
+At an avatar-insertion stage, if the L0 scan (§1) finds **zero registered avatars** (or zero avatars with `voice`), mention the two fixed presets as available possibilities. Do not force a choice; the internal contract §1 and owner ruling say to mention them, not bundle them.
 
-### 前提条件
+### Prerequisite
 
-提案するのは **VOICEVOX doctor が `ok` のときだけ**（`skills/manage-connections/bin/doctor.mjs`
-の `voicevox` チェック。narration-tts 契約・[engines.md](../generate-narration/engines.md) の
-規律と同じ — 動かせないレーンを選択肢として見せない）。doctor が `ok` でなければ、この提案自体を
-省略する（他の挿入判断は通常どおり進める）。
+Propose these **only when VOICEVOX doctor reports `ok`** (the `voicevox` check in `skills/manage-connections/bin/doctor.mjs`, following the narration-tts contract and [engines.md](../generate-narration/engines.md); do not offer an unusable lane). If doctor is not `ok`, omit this proposal while continuing other insertion decisions normally.
 
-### 提案カード（2 体固定）
+### Proposal card (exactly two characters)
 
-| id | display_name | 性別 | speaker（VOICEVOX ノーマル） | 出典・クレジット条件 |
+| id | display_name | Gender | Speaker (VOICEVOX Normal) | Source and credit conditions |
 |---|---|---|---|---|
-| `zundamon` | ずんだもん | 男の子 | id 3 | [zunko.jp 音源利用規約](https://zunko.jp/con_ongen_kiyaku.html)。クレジット「VOICEVOX:ずんだもん」表記が必要（無表記商用は 1 キャラ 40 万円+税） |
-| `shikoku-metan` | 四国めたん | 女性 | id 2 | 同上規約（同一プロジェクト配下・同一条件）。クレジット「VOICEVOX:四国めたん」表記が必要 |
+| `zundamon` | `ずんだもん` | Boy | id 3 | [zunko.jp voice-use terms](https://zunko.jp/con_ongen_kiyaku.html). Credit must say `VOICEVOX:ずんだもん` (uncredited commercial use costs ¥400,000 plus tax per character). |
+| `shikoku-metan` | `四国めたん` | Woman | id 2 | Same terms (same project family and conditions). Credit must say `VOICEVOX:四国めたん`. |
 
-提示文の型（チャットで示す。「こういうのもあるよ」の温度感を保ち、選択を強制しない）:
+Presentation template (show in chat as a low-pressure suggestion, never forcing a selection; render in the user's language under the language pack, see SKILL.md):
 
 ```
 こういうのもあるよ: VOICEVOX の既製声プリセットが 2 体あります（ゼロ円・ローカル・数秒）。
@@ -221,21 +168,15 @@ rendition を選んだ行が挟まっていない）、`default_rendition` へ�
 選びますか？（選ばなくても続行できます）
 ```
 
-### 登録（選ばれたときのみ）
+### Registration (only if selected)
 
-1. `~/.akari/avatars/<id>/` を新規作成する（個人スコープ。公開 `catalog/avatars/` には置かない
-   — third_party でも本タスクでは個人スコープ登録のみを扱う）
-2. `avatar.json` を作る:
+1. Create `~/.akari/avatars/<id>/` (personal scope). Do not put it in public `catalog/avatars/`; even third-party registration here uses only personal scope.
+2. Create `avatar.json`:
    - `rights`: `{"subject": "third_party", "consent": "terms:https://zunko.jp/con_ongen_kiyaku.html", "credit_required": true, "distribution": "private"}`
    - `voice`: `{"lane": "voicevox", "ref": "speaker:<id>(<名前>/ノーマル)", "credit": "VOICEVOX:<名前>"}`
-   - `renditions`: `[]`（voice-only。S2 の schema 緩和 §該当 — 契約
-     [docs/contract-2026-07-26-avatar-registry-v0.md](../../docs/contract-2026-07-26-avatar-registry-v0.md) §13）
+   - `renditions`: `[]` (voice-only, covered by the S2 schema relaxation in [docs/contract-2026-07-26-avatar-registry-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) §13).
    - `default_rendition`: `null`
-3. `AVATAR.md` を作る: 公式キャラ設定を出典 URL つきで引用し、**創作で盛らない**（性格・特徴は
-   引用のまま。口調の細部など出典で確認できない項目は「一次情報未確認・オーナー確認事項」と
-   明記する）。加えて、**人選そのものが「オーナー追認待ちの仮採用」であることを明記する
-   1 行注記**を入れる
-4. `voice/voice.json` を作る: `lane: "voicevox"`, `speaker id`, `credit` を記録する（`avatar.json`
-   の `voice` と同内容。L2 の詳細版）
-5. 登録後、`validate-avatar.mjs ~/.akari/avatars/<id>` を実行し **PASS** を確認する
-6. `~/.akari/avatars/INDEX.md`（L0）に 1 行カードを追記する
+3. Create `AVATAR.md`: cite official character settings with source URLs and **do not embellish them**. Keep personality and traits as cited. Mark details not supported by sources, such as fine speech-style details, as "primary source unverified; owner confirmation needed." Add **one line stating the character choice itself is provisional pending owner ratification**.
+4. Create `voice/voice.json` with `lane: "voicevox"`, `speaker id`, and `credit` (same as `avatar.json` `voice`, with L2 detail).
+5. After registration, run `validate-avatar.mjs ~/.akari/avatars/<id>` and confirm **PASS**.
+6. Append a one-line card to `~/.akari/avatars/INDEX.md` (L0).

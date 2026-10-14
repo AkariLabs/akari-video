@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { homedir } from 'os';
@@ -29,12 +30,12 @@ export class GenerationCandidates<T extends CandidateResult> {
 
     async runRoute(itemId: string, route: string, run: () => Promise<Omit<T, 'route'>>): Promise<Omit<T, 'route'>> {
         const key = `${itemId}:${route}`;
-        if (this.reserved.has(key)) return { ok: false, reason: 'この枠と手段は生成中です。' } as Omit<T, 'route'>;
+        if (this.reserved.has(key)) return { ok: false, reason: t('annotationscommon.generationCandidates.reason.alreadyGenerating') } as Omit<T, 'route'>;
         this.reserved.add(key);
         const previous = this.queues.get(route);
         const work = (async () => {
             if (previous) await previous.catch(() => undefined);
-            if (this.cancelled.has(itemId)) return { ok: false, reason: '中止しました。', cancelled: true } as unknown as Omit<T, 'route'>;
+            if (this.cancelled.has(itemId)) return { ok: false, reason: t('annotationscommon.generationCandidates.reason.cancelled'), cancelled: true } as unknown as Omit<T, 'route'>;
             return run();
         })();
         this.queues.set(route, work);
@@ -48,7 +49,7 @@ export class GenerationCandidates<T extends CandidateResult> {
     async batch(itemId: string, routes: string[], prepare: () => Promise<CandidatePreparation>,
                 run: (route: string) => Promise<Omit<T, 'route'>>): Promise<CandidateBatch<T>> {
         const reserved = this.batchRoutes.get(itemId) ?? new Set<string>();
-        if (routes.some(route => reserved.has(route))) throw new Error('この枠と手段は生成中です。');
+        if (routes.some(route => reserved.has(route))) throw new Error(t('annotationscommon.generationCandidates.error.frameRouteAlreadyGenerating'));
         routes.forEach(route => reserved.add(route));
         this.batchRoutes.set(itemId, reserved);
         let contextPromise = this.contexts.get(itemId);
@@ -93,7 +94,7 @@ export class GenerationCandidates<T extends CandidateResult> {
         const write = (running: boolean): Promise<void> => {
             const snapshot = { routes: [...state.routes], completed: state.completed,
                 candidates: previousCandidates + state.candidates.filter(row => row.ok).length,
-                failed: state.candidates.filter(row => !row.ok).map(row => ({ route: row.route, reason: row.reason ?? '生成できませんでした。' })),
+                failed: state.candidates.filter(row => !row.ok).map(row => ({ route: row.route, reason: row.reason ?? t('annotationscommon.generationCandidates.reason.generationFailed') })),
                 results: state.candidates.map(row => ({ route: row.route, ok: row.ok,
                     ...(row.relativePath ? { path: row.relativePath } : {}),
                     ...(row.reason ? { reason: row.reason } : {}),
@@ -123,10 +124,10 @@ export class GenerationCandidates<T extends CandidateResult> {
 
 export async function readCandidateMeta(root: string, itemId: string, extension: '.png' | '.mp4' | '.wav' | '.mp3'):
     Promise<Array<{ name: string; meta: Record<string, any>; relativePath: string; absolutePath: string }>> {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error(t('annotationscommon.generationCandidates.error.invalidItemid'));
     const directory = join(root, 'assets', 'generated', 'candidates', itemId);
     const realDirectory = await fs.realpath(directory).catch(() => undefined);
-    if (realDirectory && !realDirectory.startsWith(`${root}${sep}`)) throw new Error('候補がプロジェクト外です。');
+    if (realDirectory && !realDirectory.startsWith(`${root}${sep}`)) throw new Error(t('annotationscommon.generationCandidates.error.candidateOutsideProject'));
     const entries = await fs.readdir(directory).catch(() => [] as string[]);
     const loaded = await Promise.all(entries.filter(name => name.endsWith(`${extension}.meta.json`)).map(async name => {
         try {

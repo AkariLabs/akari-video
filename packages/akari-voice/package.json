@@ -1,0 +1,11 @@
+{
+  "name": "@akari-video/akari-voice",
+  "version": "0.0.0",
+  "private": true,
+  "description": "話者分離と声の照合に使う依存ゼロの共有モジュール。",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

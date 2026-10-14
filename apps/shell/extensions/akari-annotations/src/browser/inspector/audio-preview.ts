@@ -1,10 +1,11 @@
+import { t } from '@akari-video/i18n';
 const AUDIO_PREVIEW_LABELS = [
-    '音量',
-    'フェード',
-    '音声強調',
-    'ダッキング',
-    'A/V リンク',
-    'ピッチ・タイム'
+    t('inspector.audioPreview.label.volume'),
+    t('inspector.audioPreview.label.fade'),
+    t('inspector.audioPreview.label.audioHighlighting'),
+    t('inspector.audioPreview.label.ducking'),
+    t('inspector.audioPreview.label.vLink'),
+    t('inspector.audioPreview.label.pitchTime')
 ] as const;
 
 export interface AudioPreviewSection {
@@ -43,8 +44,8 @@ function buildRows(id: string, rows: ReadonlyArray<readonly [string, string]>): 
 
 function buildVolume(): HTMLElement {
     return buildRows('volume', [
-        ['ゲイン', '0.0 dB'],
-        ['ミュート', 'オフ']
+        [t('inspector.audioPreview.label.gain'), '0.0 dB'],
+        [t('inspector.audioPreview.label.mute'), t('inspector.audioPreview.label.off')]
     ]);
 }
 
@@ -57,30 +58,30 @@ function buildFades(): HTMLElement {
 
 function buildEnhancement(): HTMLElement {
     return buildRows('enhancement', [
-        ['ノイズ除去（クリップ単位）', '0'],
-        ['ボイス分離', '0']
+        [t('inspector.audioPreview.label.noiseReductionPerClip'), '0'],
+        [t('inspector.audioPreview.label.voiceIsolation'), '0']
     ]);
 }
 
 function buildDucking(): HTMLElement {
     return buildRows('ducking', [
-        ['BGM を下げる', 'オフ'],
-        ['深さ', '0 dB']
+        [t('inspector.audioPreview.label.lowerBgm'), t('inspector.audioPreview.label.off')],
+        [t('inspector.audioPreview.label.depth'), '0 dB']
     ]);
 }
 
 function buildAvLink(): HTMLElement {
     return buildRows('av-link', [
-        ['リンク', '維持'],
-        ['J カット', '0.00 s'],
-        ['L カット', '0.00 s']
+        [t('inspector.audioPreview.action.link'), t('inspector.audioPreview.label.keep')],
+        [t('inspector.audioPreview.label.jCut'), '0.00 s'],
+        [t('inspector.audioPreview.label.lCut'), '0.00 s']
     ]);
 }
 
 function buildPitchTime(): HTMLElement {
     return buildRows('pitch-time', [
-        ['ピッチ保持', 'オン'],
-        ['ピッチ', '±0 st']
+        [t('inspector.audioPreview.label.pitchRetention'), t('inspector.audioPreview.label.message')],
+        [t('inspector.audioPreview.label.pitch'), '±0 st']
     ]);
 }
 

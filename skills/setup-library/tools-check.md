@@ -1,30 +1,33 @@
-# 道具チェック
+# Tool checks
 
-素材取得より前に実行する。3 つの道具の実在は宣言だけで済ませず、実際にコマンドを走らせて確認する。パスの存在を推測で報告しない。
+Run before acquiring assets. Verify the 3 tools by actually running commands, not merely declaring availability. Do not report guessed paths as existing.
 
-## 導入代行について（承認が前提）
+## Installing on the user's behalf (approval required)
 
-欠けている道具は、**ユーザーの明示承認を得た場合に限り**、提示に留めず導入まで代行してよい。承認が無ければ従来どおり導入コマンドの提示止まりとし、`brew install` 等を無断で実行しない（ハードルール・不変）。
+For missing tools, **only with explicit user approval**, you may install rather than just present instructions. Without approval, only show installation commands as before; never run `brew install` or similar without permission (hard rule, invariant).
 
-導入手段は AKARI Video アプリ本体（初回セットアップ画面）のインストールエンジンと同一の規約に揃える。**公式チャネルのみ**:
+Use the same installation conventions as the AKARI Video app's first-run installation engine. **Official channels only**:
 
-- brew が使えるなら brew（`brew install ffmpeg` / `brew install whisper-cpp`）
-- yt-dlp は公式 GitHub releases の単体バイナリを `~/.akari/tools/bin/` へ
-- whisper モデルは公式配布（Hugging Face `ggerganov/whisper.cpp`）から `~/.akari/tools/models/` へ
-- 野良ミラー・非公式配布からの取得は行わない
+- Use brew when available (`brew install ffmpeg` / `brew install whisper-cpp`).
+- Put yt-dlp's standalone binary from official GitHub releases in `~/.akari/tools/bin/`.
+- Put Whisper models from the official distribution (Hugging Face `ggerganov/whisper.cpp`) in `~/.akari/tools/models/`.
+- Never acquire from unofficial distributions or untrusted mirrors.
 
-導入先ディレクトリ（`~/.akari/tools/bin/` / `~/.akari/tools/models/`）はアプリ側の取得経路と共有している。**アプリの初回セットアップ（はじめる準備）画面からも、同じ道具をチェックボックス + インストールボタンで導入できる** — エージェント経由でもアプリ経由でも、結果は同じ置き場に揃う。
+Installation directories (`~/.akari/tools/bin/` / `~/.akari/tools/models/`) are shared with the app's acquisition route.
+**The app's first-run setup screen can also install the same tools with checkboxes + an Install button**;
+agent and app installation converge on the same location.
 
-導入を実行したら、提示だけで終わらせず**必ず再チェック**（実行確認）してから結果を報告する。brew も同梱も公式チャネルも無い場合は、AKARI Video アプリを最新版に更新すると同梱される可能性がある旨を案内し、導入コマンドの提示に留める。
+After installing, **always recheck by executing the tool** before reporting results. If neither brew, bundled tools,
+nor official channels are available, explain that updating AKARI Video may provide bundled tools and limit yourself to showing installation commands.
 
 ## ffmpeg
 
-探索順（[analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md) の ffmpeg 実体解決と揃える）:
+Search order (aligned with executable resolution in [analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md)):
 
-1. 明示指定: `$AKARI_FFMPEG_BIN`
-2. パッケージ版アプリの同梱: `Resources/media-bin/ffmpeg`（macOS 既定インストール: `/Applications/AKARI Video.app/Contents/Resources/media-bin/ffmpeg`。Windows は `Resources/media-bin/ffmpeg.exe`）
-3. リポ開発時: `packages/media-bin/vendor/<platform>-<arch>/ffmpeg`（例 `packages/media-bin/vendor/darwin-arm64/ffmpeg`）
-4. PATH 上の `ffmpeg`
+1. Explicit setting: `$AKARI_FFMPEG_BIN`
+2. Packaged app bundle: `Resources/media-bin/ffmpeg` (default macOS install: `/Applications/AKARI Video.app/Contents/Resources/media-bin/ffmpeg`; Windows: `Resources/media-bin/ffmpeg.exe`)
+3. Repository development: `packages/media-bin/vendor/<platform>-<arch>/ffmpeg` (example: `packages/media-bin/vendor/darwin-arm64/ffmpeg`)
+4. `ffmpeg` on PATH
 
 ```sh
 BUNDLED="/Applications/AKARI Video.app/Contents/Resources/media-bin/ffmpeg"
@@ -36,22 +39,22 @@ FFMPEG_BIN="${AKARI_FFMPEG_BIN:-}"
 [ -n "$FFMPEG_BIN" ] && "$FFMPEG_BIN" -version | head -1
 ```
 
-用途: 取得した broll / audio 素材の preview frame・waveform 抽出（[harvest-asset](../harvest-asset/SKILL.md) 4 節と同じ手順）、fetch した動画・音声の実体確認。
+Purpose: Extract preview frames / waveforms from acquired broll / audio assets (same procedure as [harvest-asset](../harvest-asset/SKILL.md) §4); verify fetched video/audio files.
 
-なければ: 承認前は導入コマンド（`brew install ffmpeg`）の提示に留める。承認があれば brew 経由で導入し、再チェックする。brew も同梱も無ければ、AKARI Video アプリを最新版に更新すると同梱される可能性がある旨を案内する。
+If missing: Before approval, only present the installation command (`brew install ffmpeg`). With approval, install via brew and recheck. If neither brew nor bundled tools exist, explain that updating AKARI Video may provide bundled tools.
 
-## whisper-cli（whisper.cpp）
+## whisper-cli (whisper.cpp)
 
-実行ファイルとモデルは別々に確認する。探索順は [analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md) と揃える。
+Check executable and model separately. Align search order with [analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md).
 
-実行ファイル探索順:
+Executable search order:
 
-1. 明示指定（`$AKARI_WHISPER_BIN` 等）
-2. パッケージ版アプリの同梱: `Resources/media-bin/whisper-cli`（macOS 既定インストール: `/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli`。Windows は `.exe`）— 同梱されていれば検出される。whisper-cli の media-bin 供給は並走タスクが追加中で、本スキルは存在を断定しない
-3. リポ開発時: `packages/media-bin/vendor/<platform>-<arch>/whisper-cli`
-4. `$HOME/.akari/tools/bin/whisper-cli`（アプリの導入代行・本スキルの承認付き導入代行が brew 不在時に配置する置き場。アプリ側と共有）
-5. PATH 上の `whisper-cli`
-6. リポジトリ内/隣接する whisper.cpp checkout の `build/bin/whisper-cli`
+1. Explicit setting (such as `$AKARI_WHISPER_BIN`)
+2. Packaged app bundle: `Resources/media-bin/whisper-cli` (default macOS install: `/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli`; Windows: `.exe`). Detect if bundled. A parallel task is adding media-bin supply for whisper-cli; this skill must not assert availability.
+3. Repository development: `packages/media-bin/vendor/<platform>-<arch>/whisper-cli`
+4. `$HOME/.akari/tools/bin/whisper-cli` (where the app and this skill's approved installer place it without brew; shared with the app)
+5. `whisper-cli` on PATH
+6. `build/bin/whisper-cli` in a whisper.cpp checkout within or adjacent to the repository
 
 ```sh
 BUNDLED="/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli"
@@ -65,15 +68,15 @@ WHISPER_BIN="${AKARI_WHISPER_BIN:-}"
 [ -n "$WHISPER_BIN" ] && "$WHISPER_BIN" -h | head -5
 ```
 
-モデル探索順（実行ファイルが見つかったときだけ確認する）:
+Model search order (check only after finding the executable):
 
-1. 明示指定
-2. `$HOME/.akari/tools/models/`（アプリの初回セットアップ・本スキルの承認付き導入代行が公式配布から取得する既定置き場。既定モデルは `ggml-large-v3-turbo-q5_0.bin` 約 574MB）
-3. リポジトリ内 `models/` / `whisper.cpp/models/`
+1. Explicit setting
+2. `$HOME/.akari/tools/models/` (default location for official models acquired by app first-run setup or this skill's approved installer; default model `ggml-large-v3-turbo-q5_0.bin`, about 574MB)
+3. Repository `models/` / `whisper.cpp/models/`
 4. `$HOME/.cache/whisper.cpp/`
 5. `$HOME/Library/Caches/whisper.cpp/`
-6. Homebrew `whisper-cpp` の share ディレクトリ
-7. VoiceInk の保存先: `$HOME/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/`
+6. Homebrew `whisper-cpp` share directory
+7. VoiceInk storage: `$HOME/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/`
 
 ```sh
 MODEL_ROOTS=(
@@ -94,11 +97,11 @@ for model_root in "${MODEL_ROOTS[@]}"; do
 done
 ```
 
-なければ: 実行ファイルが無ければ文字起こしが絡む確認だけ省略し、他の工程は止めない。実行ファイルはあるがモデルが無い場合は、承認を得て公式配布（Hugging Face `ggerganov/whisper.cpp` リポジトリ）から既定モデルを `~/.akari/tools/models/` へ取得できる。承認が無ければ取得元の提示に留める。取得後は sha256 を計算して報告に残す（版固定 URL・sha256 定数の一次ソースはアプリ側の取得ロジックと同一のものを使う）。
+If missing: Without the executable, skip only transcription-related checks, not other stages. If the executable exists but no model does, obtain approval to acquire the default model from the official Hugging Face `ggerganov/whisper.cpp` repository into `~/.akari/tools/models/`. Without approval, only present the source. After acquisition, calculate sha256 and retain it in the report (use the same primary source for pinned URLs and sha256 constants as the app's acquisition logic).
 
-用途: 取得した audio 素材のナレーション・歌詞有無の確認、fetch 後の内容チェック補助。素材ライブラリの主経路ではないため、無くても致命的ではない。
+Purpose: Check acquired audio assets for narration/lyrics and assist post-fetch content checks. This is not the asset library's main route, so absence is not fatal.
 
-## Blender（条件付き — 3D ベイクレシピを扱うときだけ）
+## Blender (conditional — only for 3D bake recipes)
 
 ```sh
 BLENDER="${AKARI_BLENDER_BIN:-}"
@@ -107,21 +110,21 @@ BLENDER="${AKARI_BLENDER_BIN:-}"
 test -x "$BLENDER" && "$BLENDER" --version | head -1
 ```
 
-用途: 3d ベイクレシピ（`scene.py` 実体の素材）のヘッドレスレンダー。契約は `docs/contract-2026-07-14-3d-bake-recipe.md`、手順は [bake-3d/SKILL.md](../bake-3d/SKILL.md)。
+Purpose: Headless rendering of 3d bake recipes (assets whose actual file is `scene.py`). Contract: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md`; procedure: [bake-3d/SKILL.md](../bake-3d/SKILL.md).
 
-なければ: 承認前は導入コマンド（`brew install --cask blender`）の提示に留める。承認があれば brew 経由で導入し、再チェックする。3d ベイクが絡まない工程は止めない。常設 3 道具のチェック結果にも影響させない。
+If missing: Before approval, only present the installation command (`brew install --cask blender`). With approval, install via brew and recheck. Do not stop stages unrelated to 3d baking or affect the check results for the 3 regular tools.
 
-## 結果の扱い
+## Handling results
 
-- 3 つとも見つかった場合のみ「道具チェック OK」と報告する。
-- 一部欠けている場合は、欠けている道具名と、それが後続のどの工程・どのカテゴリを制限するかを具体的に報告してから次の工程へ進む。工程全体は止めず、制限付きで進められる部分だけ進める。
-- 承認なしにインストールコマンドを実行しない。
+- Report tool checks OK only if all 3 are found.
+- If some are missing, explicitly report their names and the later stages/categories they constrain before proceeding. Do not stop the entire workflow; proceed only with what remains possible under those limits.
+- Do not run installation commands without approval.
 
-## よくある間違い
+## Common mistakes
 
-- 道具が入っているかを実行確認せず、パスの存在を推測で報告する。
-- 欠けている道具を黙って別の代替（クラウド API 等）にすり替える。
-- 承認なしに `brew install` 等を実行する。
-- whisper-cli はあるがモデルが無い状態を「OK」と報告する。
-- 承認を得て導入したのに再チェックせず「OK」と報告する。
-- 公式チャネル以外（野良ミラー等）から道具・モデルを取得する。
+- Reporting guessed paths without executing the tools to check installation.
+- Silently substituting alternatives (such as cloud APIs) for missing tools.
+- Running `brew install` or similar without approval.
+- Reporting OK when whisper-cli exists but its model does not.
+- Reporting OK after approved installation without rechecking.
+- Acquiring tools/models from unofficial channels such as untrusted mirrors.

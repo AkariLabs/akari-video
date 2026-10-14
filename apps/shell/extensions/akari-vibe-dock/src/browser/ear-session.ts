@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -167,12 +168,12 @@ export class EarSession {
             const engine = options.engine ?? resolveEarEngine(this.preferences, capabilities);
             if (!engine || !capabilities.engines.some(value => value.id === engine && value.available)) {
                 throw new Error(capabilities.engines.map(value => value.reason).filter(Boolean).join(' / ')
-                    || '使える聞き取りエンジンがありません');
+                    || t('vibe.listening.session.noListeningEngineAvailableMessage'));
             }
             const status = await this.ear.start({ purpose: options.purpose, engine });
             this.setStatus(status);
             if (status.state === 'error' || status.mic === 'denied') {
-                throw new Error(status.message ?? 'マイクの使用が許可されていません');
+                throw new Error(status.message ?? t('vibe.listening.session.microphoneAccessNotAllowedError'));
             }
             if (engine === 'record-then-transcribe' && !capabilities.testInput) {
                 this.recorder = this.createRecorder();
@@ -187,7 +188,7 @@ export class EarSession {
             try { await this.ear.stop(); } catch { /* 元の理由を優先する。 */ }
             this.busy = false;
             return this.setStatus({ state: 'error', mic: denied ? 'denied' : 'unknown',
-                purpose: options.purpose, message: error instanceof Error ? error.message : '聞き取りを始められませんでした' });
+                purpose: options.purpose, message: error instanceof Error ? error.message : t('vibe.listening.session.couldNotStartListeningError') });
         }
     }
 
@@ -206,7 +207,7 @@ export class EarSession {
             } catch (error) {
                 this.busy = false;
                 return this.setStatus({ state: 'error', mic: 'unknown',
-                    message: error instanceof Error ? error.message : '聞き取りを止められませんでした' });
+                    message: error instanceof Error ? error.message : t('vibe.listening.session.couldNotStopListeningError') });
             } finally { this.stopping = undefined; }
         })();
         return this.stopping;

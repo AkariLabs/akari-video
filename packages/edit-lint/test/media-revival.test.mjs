@@ -1,3 +1,15 @@
+import { after } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = "ja";
+setLanguage("ja");
+after(() => {
+  setLanguage(undefined);
+  if (previousAkariLang === undefined) delete process.env.AKARI_LANG;
+  else process.env.AKARI_LANG = previousAkariLang;
+});
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -49,6 +61,7 @@ function baseEdit() {
 async function makeProject(edit = baseEdit()) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-media-revival-"));
   await mkdir(join(root, "assets"), { recursive: true });
+  await mkdir(join(root, ".akari"), { recursive: true });
   await writeFile(join(root, "assets", "clip.mp4"), "fixture", "utf8");
   await writeFile(join(root, "assets", "vo.m4a"), "fixture", "utf8");
   await writeFile(join(root, "edit.json"), `${JSON.stringify(edit, null, 2)}\n`, "utf8");
@@ -58,7 +71,7 @@ async function makeProject(edit = baseEdit()) {
 function run(project, args = [], env = {}) {
   return spawnSync(process.execPath, [cliPath, project, "--json", ...args], {
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, AKARI_LANG: 'ja', ...env },
   });
 }
 
@@ -323,7 +336,7 @@ test("all existing fixtures keep their normalized default results", async () => 
     "utf8",
   ));
   const actual = await collectFixtureDefaultSnapshot(join(packageRoot, "fixtures"));
-  assert.equal(actual.fixture_count, 116);
+  assert.equal(actual.fixture_count, 117);
   assert.deepEqual(
     Object.keys(actual.fixtures),
     Object.keys(expected.fixtures),
@@ -336,5 +349,5 @@ test("all existing fixtures keep their normalized default results", async () => 
       `default lint result changed for fixture ${fixtureName}\nexpected=${JSON.stringify(expected.fixtures[fixtureName], null, 2)}\nactual=${JSON.stringify(actual.fixtures[fixtureName], null, 2)}`,
     );
   }
-  assert.equal(expected.fixture_count, 116);
+  assert.equal(expected.fixture_count, 117);
 });

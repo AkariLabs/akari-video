@@ -6,8 +6,14 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { promisify } from 'node:util';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
 import { appendAnnotationsAtomic } from '../../../../../skills/compile-review-session/bin/core/review-store.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 
 const execFileAsync = promisify(execFile);
 

@@ -1,11 +1,12 @@
-# 静止画で仮枠を作る
 
-仮枠は edit.json v2 のタイムライン上に置く静止画 media item と、その素材の隣の `<path>.meta.json` の組である。尺は item の cuts が持つ。動画化しないまま完成品として残してもよい。
+
+# Build timeline placeholders with still images
+
+A placeholder consists of a still-image media item on the edit.json v2 timeline and an adjacent `<path>.meta.json` file. The item's cuts determine its duration. A still can remain the final visual; conversion to video is optional.
 
 ## beats.json
 
-構成の各ビートを、順序・ラベル・静止画 prompt・目標尺・出力名へ落とす。最小構成の例:
-
+Describe each structural beat with its order, label, still-image prompt, target duration, and output filename. Minimal example:
 ```json
 {
   "version": 1,
@@ -34,46 +35,41 @@
   ]
 }
 ```
+- `version`: Format version of beats.json.
+- `beats`: Placeholder definitions in timeline order. Array order is recorded; start times are not.
+- `item_id`: Matching edit.json v2 item ID, one per beat.
+- `label`: A human-readable beat name.
+- `prompt`: Visual content to generate when using an image rather than a text card.
+- `duration_s`: Placeholder duration in seconds, matching the item's cut duration.
+- `output`: Filename under `assets/generated/`.
 
-- `version`: beats.json の形式バージョン
-- `beats`: タイムライン順の仮枠定義。配列順は持つが、開始秒は持たない
-- `item_id`: 対応する edit.json v2 の item id。各 beat と 1:1 で結ぶ
-- `label`: 人間が識別するビート名
-- `prompt`: 文字カードではなく静止画を生成するときの画面内容
-- `duration_s`: 仮枠の秒数。対応 item の cuts の尺と一致させる
-- `output`: `assets/generated/` 配下へ保存するファイル名
+Do not duplicate start times in beats.json and edit.json. Take position from the timeline and match duration to the cuts. Check `akari generate still --help` or `--dry-run --json` for the exact schema accepted by the CLI.
 
-開始秒を beats.json と edit.json の両方に持たせない。位置はタイムラインから決まり、尺は cuts と一致させる。CLI が受理する正確なスキーマは `akari generate still --help` / `--dry-run --json` で確認する。
-
-まず送信内容と変更予定だけを見る場合:
-
+To inspect the request and planned changes without generating:
 ```sh
 akari generate still <projectDir> --spec <beats.json> --dry-run --json
 ```
-
-静止画を作る場合:
-
+To generate still images:
 ```sh
 akari generate still <projectDir> --spec <beats.json> --parallel N --json
 ```
 
-## 文字カード
 
-絵が未決、生成接続が無い、または尺と並びだけを先に確認したい場合は `--placeholder` を使う。
+## Text cards
 
+Use `--placeholder` when the visual is undecided, no generation connection is available, or only timing and order need review.
 ```sh
 akari generate still <projectDir> --spec <beats.json> --placeholder --json
 ```
+The text-card PNG is created locally at no cost. Its adjacent metadata records `kind: "still"` and `status: "planned"`. It is not sent to a video model. Replace it later with an image or video if needed, or export the text card as the final visual.
 
-文字カード png は無料でその場に作られ、隣の meta は `kind: "still"`、`status: "planned"` になる。動画モデルへは送らない。後で静止画や動画へ差し替えられるが、文字カードのまま書き出すこともできる。
+## Check the metadata
 
-## meta の確認
+Confirm that the output and `<file>.meta.json` both exist under `assets/generated/`, then check:
 
-生成物と `<file>.meta.json` がともに `assets/generated/` にあり、次を満たすことを確認する。
+- `kind` is `still`; `planned` denotes a text card and `done` a generated still.
+- `inputs` retains the prompt and reference images; `output` retains the requested output settings.
+- Provenance traces `result.path`, SHA-256, dimensions, creation time, and the method used.
+- The edit.json item ID, track, and duration are preserved without generation-only fields.
 
-- `kind` が `still`、状態が文字カードなら `planned`、生成済みなら `done`
-- `inputs` に prompt と参照画像、`output` に要求した出力条件が残る
-- `result.path`、sha256、寸法、作成時刻、使用した手を provenance から追える
-- edit.json の item id・トラック・尺は保たれ、生成専用フィールドが追加されていない
-
-仮枠は「未完成」の印ではない。静止画として意図どおりなら、そのまま最終成果物として扱う。
+A placeholder is not a mark of unfinished work. If the still image achieves the intended result, keep it as the final asset.

@@ -238,6 +238,7 @@ ${S} .akari-set-partner-tile { width: 30px; height: 30px; box-sizing: border-box
 ${S} .akari-set-partner-name { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 ${S} .akari-set-partner-name b { font-weight: 500; }
 ${S} .akari-set-partner-chip { font-size: 10.5px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--akari-line); color: var(--akari-faint); font-weight: 400; }
+${S} .akari-set-partner-actions { display: flex; align-items: center; gap: 8px; }
 ${S} .akari-set-partner-sub { font-size: 11.5px; color: var(--akari-faint); }
 ${S} .akari-set-caution { margin: 0 16px 12px; padding: 8px 10px; border-radius: 8px; background: var(--akari-bg); border: 1px solid var(--akari-line-inner); color: var(--akari-muted); font-size: 12px; display: flex; align-items: flex-start; gap: 8px; }
 ${S} .akari-set-caution .akari-set-icon { color: var(--akari-faint); margin-top: 1px; }

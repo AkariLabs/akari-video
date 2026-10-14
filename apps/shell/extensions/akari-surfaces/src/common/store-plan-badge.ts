@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import { storeReconnectRequired } from './store-entitlements-visibility';
 
@@ -55,14 +56,14 @@ export function resolveStorePlanBadge(input: StorePlanBadgeInput): StorePlanBadg
     const connected = input.email !== null;
     if (!connected) {
         return {
-            state: 'disconnected', label: '未接続', tone: 'neutral', icon: 'codicon-account',
-            tooltip: 'AKARI アカウントに接続していません。クリックすると接続設定を開きます。', lifetime: false
+            state: 'disconnected', label: t('surfaces.store.resolveStorePlanBadgeConnected.label'), tone: 'neutral', icon: 'codicon-account',
+            tooltip: t('surfaces.store.resolveStorePlanBadgeConnectedAkariAccountClickOpenConnectionSettings.tooltip'), lifetime: false
         };
     }
     if (storeReconnectRequired(connected, input.entitlementsStatus)) {
         return {
-            state: 'reconnect-required', label: '再接続が必要', tone: 'warn', icon: 'codicon-warning',
-            tooltip: '別の端末で接続されたため解除された可能性があります。クリックすると接続設定を開きます。',
+            state: 'reconnect-required', label: t('surfaces.store.resolveStorePlanBadgeReconnectionRequired.label'), tone: 'warn', icon: 'codicon-warning',
+            tooltip: t('surfaces.store.resolveStorePlanBadgeHaveDisconnectedBecauseConnectedAnotherDeviceClick.tooltip'),
             lifetime: false
         };
     }
@@ -71,10 +72,10 @@ export function resolveStorePlanBadge(input: StorePlanBadgeInput): StorePlanBadg
     return lifetime
         ? {
             state: 'connected', label: email, plan: 'Lifetime', tone: 'gold', icon: 'codicon-star-full',
-            tooltip: `AKARI Video Lab — Lifetime プラン\n${email}`, lifetime: true
+            tooltip: t('surfaces.storePlanBadge.lifetime.tooltip', { email }), lifetime: true
         }
         : {
             state: 'connected', label: email, tone: 'neutral', icon: 'codicon-account',
-            tooltip: `AKARI アカウントに接続しています\n${email}`, lifetime: false
+            tooltip: t('surfaces.storePlanBadge.connected.tooltip', { email }), lifetime: false
         };
 }

@@ -1,3 +1,5 @@
+import { t } from '@akari-video/i18n';
+import { formatDate } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { ProjectPresence, stageSummary } from './project-progress-model';
@@ -33,9 +35,11 @@ export interface ProjectListViewProps {
     onOpen: (row: ProjectListRow, rect: DOMRect) => void;
     readPresence: (uri: URI) => Promise<ProjectPresence>;
     loadThumbnails: (uri: URI) => Promise<string[]>;
+    /** 右クリック（パスをコピー・開く）。 */
+    onContextMenu?: (row: ProjectListRow, x: number, y: number) => void;
 }
 
-export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'active'> & { row: ProjectListRow; compact?: boolean; rowVersion?: number; onSettled?: () => void }): React.ReactElement {
+export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'onContextMenu' | 'active'> & { row: ProjectListRow; compact?: boolean; rowVersion?: number; onSettled?: () => void }): React.ReactElement {
     const { row } = props;
     const initial = projectCardCache.get(row.uri.toString());
     const [badge, setBadge] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.badge : undefined);
@@ -51,18 +55,11 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
             projectCardCache.set(key, cached);
         }
         const entry = cached;
-        setBadge(entry.badge); setThumbnail(entry.thumbnail);
-        setSettled(entry.complete);
+        setBadge(entry.badge); setThumbnail(entry.thumbnail); setSettled(entry.complete);
         if (!entry.complete && !entry.pending) {
             entry.pending = Promise.all([
-                props.readPresence(row.uri).then(presence => {
-                    entry.badge = stageSummary(presence);
-                    if (active) setBadge(entry.badge);
-                }).catch(() => undefined),
-                props.loadThumbnails(row.uri).then(frames => {
-                    entry.thumbnail = frames[0];
-                    if (active) setThumbnail(entry.thumbnail);
-                }).catch(() => undefined)
+                props.readPresence(row.uri).then(presence => { entry.badge = stageSummary(presence); if (active) setBadge(entry.badge); }).catch(() => undefined),
+                props.loadThumbnails(row.uri).then(frames => { entry.thumbnail = frames[0]; if (active) setThumbnail(entry.thumbnail); }).catch(() => undefined)
             ]).then(() => { entry.complete = true; entry.pending = undefined; });
         }
         void entry.pending?.then(() => { if (active) { setBadge(entry.badge); setThumbnail(entry.thumbnail); setSettled(true); } });
@@ -71,10 +68,11 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
     React.useEffect(() => { if (settled) props.onSettled?.(); }, [settled, props.onSettled]);
     return <button type='button' className={`akari-os-card${props.compact ? ' compact' : ''}`}
         data-akari-project-card='true' aria-current={row.current ? 'true' : undefined}
-        onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}>
+        onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}
+        onContextMenu={event => { if (!props.onContextMenu) return; event.preventDefault(); props.onContextMenu(row, event.clientX, event.clientY); }}>
         <span className='akari-os-thumb'>{thumbnail
             ? <img src={thumbnail} alt='' /> : <span className='codicon codicon-device-camera-video' aria-hidden='true' />}</span>
-        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? '開いています · ' : ''}{row.updatedAt ? new Date(row.updatedAt).toLocaleString('ja-JP') : '更新日なし'}</small>
+        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? t('surfaces.projects.currentProjectUpdatedAt.label', { date: row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label') }) : row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label')}</small>
             {badge && <span className='akari-os-stage'>{badge}</span>}</span>
     </button>;
 }
@@ -82,27 +80,27 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
 export function ProjectListView(props: ProjectListViewProps): React.ReactElement {
     const rows = [...props.rows].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
     return <div className='akari-os-list-view'>
-        {props.currentName && <p className='akari-os-note'>{props.channel} のプロジェクトです。押すと、開くか確かめます（いま開いている「{props.currentName}」はそのまま）。</p>}
+        {props.currentName && <p className='akari-os-note'>{t('surfaces.projects.channelProjectNote.description', { channel: props.channel, name: props.currentName })}</p>}
         <div className='akari-os-list-actions'>
-            <button type='button' className='theia-button main' onClick={event => props.onNew(event.currentTarget.getBoundingClientRect())}>＋ 新しいプロジェクトを始める</button>
-            {!props.currentName && <span>名前は日時が先に入ります。あとで変えられます</span>}
-            <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>チャンネルに入れずに作る…</button>
+            <button type='button' className='theia-button main' onClick={event => props.onNew(event.currentTarget.getBoundingClientRect())}>{t('surfaces.projects.projectListViewStartNewProject.button')}</button>
+            {!props.currentName && <span>{t('surfaces.projects.projectListViewDateTimeEnteredFirstNameChangeLater.label')}</span>}
+            <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>{t('surfaces.projects.projectListViewCreateWithoutEnteringChannel.button')}</button>
         </div>
         <section>
-            <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
-                <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>チャンネルを開く</button>
-                <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>更新</button></div>
+            <div className='akari-os-section-heading'><h3>{t('surfaces.projects.channelProjects.heading', { channel: props.channel })}</h3><small>{t('surfaces.projects.projectCount.label', { count: rows.length, n: rows.length })}</small>
+                <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>{t('surfaces.projects.projectListViewOpenChannel.button')}</button>
+                <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>{t('surfaces.projects.projectListViewUpdate.button')}</button></div>
             {rows.length ? <VisibleCardGrid rows={rows} rowKey={row => row.key} rowLabel={row => row.name} className='akari-os-card-grid' initialHeight={183}
                 isSettled={row => isProjectCardSettled(row, props.rowVersion?.(row.uri))}
                 renderCard={(row, onSettled) => <ProjectCard row={row} rowVersion={props.rowVersion?.(row.uri)} active={props.active} onSettled={onSettled}
-                    onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} />
-                : <p className='akari-os-note'>まだプロジェクトがありません。</p>}
+                    onOpen={props.onOpen} onContextMenu={props.onContextMenu} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} />
+                : <p className='akari-os-note'>{t('surfaces.projects.projectListViewNoProjectsYet.message')}</p>}
         </section>
-        {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>ほかの場所のプロジェクト</h3></div>
+        {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>{t('surfaces.projects.projectListViewProjectsElsewhere.heading')}</h3></div>
             <VisibleCardGrid rows={props.standalone} rowKey={row => row.key} rowLabel={row => row.name} className='akari-os-card-grid akari-os-compact-grid' initialHeight={69}
                 isSettled={row => isProjectCardSettled(row, props.rowVersion?.(row.uri))}
                 renderCard={(row, onSettled) => <ProjectCard row={row} compact rowVersion={props.rowVersion?.(row.uri)} active={props.active} onSettled={onSettled}
-                    onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} /></section>}
+                    onOpen={props.onOpen} onContextMenu={props.onContextMenu} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} /></section>}
     </div>;
 }
 

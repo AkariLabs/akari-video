@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { getLanguage } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -27,8 +29,8 @@ const IMAGE_MIME_TYPES = new Map<string, string>([
 // （実測は report.md 参照）。上限自体は「壊れたパスへ streaming server を延々張り続けない」
 // ための保険として残す。
 const MAX_INLINE_BYTES = 200 * 1024 * 1024;
-const TOO_LARGE_MESSAGE = 'この画像はサイズが大きすぎるためプレビューできません。';
-const READ_ERROR_MESSAGE = '画像を読み込めませんでした。';
+const TOO_LARGE_MESSAGE = () => t('preview.imagePreview.window.imageTooLargePreview');
+const READ_ERROR_MESSAGE = () => t('preview.imagePreview.window.couldNotLoadImageError');
 
 @injectable()
 export class AkariImageOpenHandler implements OpenHandler {
@@ -80,7 +82,7 @@ export class AkariImageOpenHandler implements OpenHandler {
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         const marker = widget as ImageWidgetMarker;
         widget.viewType = 'akari.image';
-        widget.title.label = '素材プレビュー';
+        widget.title.label = t('preview.audioPreview.window.assetPreviewLabel');
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-file-media';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
@@ -96,7 +98,7 @@ export class AkariImageOpenHandler implements OpenHandler {
         try {
             const stat = await this.fileService.resolve(uri, { resolveMetadata: true });
             if (typeof stat.size === 'number' && stat.size > MAX_INLINE_BYTES) {
-                widget.setHTML(this.messageHtml(TOO_LARGE_MESSAGE));
+                widget.setHTML(this.messageHtml(TOO_LARGE_MESSAGE()));
                 return;
             }
             const stream = await this.previewService.createAssetStream({
@@ -111,7 +113,7 @@ export class AkariImageOpenHandler implements OpenHandler {
             widget.setHTML(this.imageHtml(uri, stream.url));
         } catch (error) {
             console.warn(`[akari-preview] failed to open image ${uri.toString()}`, error);
-            widget.setHTML(this.messageHtml(READ_ERROR_MESSAGE));
+            widget.setHTML(this.messageHtml(READ_ERROR_MESSAGE()));
         }
     }
 
@@ -142,7 +144,7 @@ export class AkariImageOpenHandler implements OpenHandler {
     protected imageHtml(uri: URI, sourceUrl: string): string {
         const origin = new URL(sourceUrl).origin;
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -165,7 +167,7 @@ img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
     protected messageHtml(message: string): string {
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

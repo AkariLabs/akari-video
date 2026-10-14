@@ -1,19 +1,35 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import test from 'node:test';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { MaterialTrialHistory } from '../lib/common/material-trial-history.js';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import * as replacement from '../lib/common/material-replacement.js';
+
+
+
 import * as playback from '../../akari-preview/lib/common/swap-trial-playback.js';
-import * as trialWindow from '../lib/common/material-trial-window.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { MaterialTrialHistory } = await import('../lib/common/material-trial-history.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const replacement = await import('../lib/common/material-replacement.js');
+const trialWindow = await import('../lib/common/material-trial-window.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const source = readCompiledSource('widget').text;
 function method(name) {
  const start = source.search(new RegExp('    (async )?' + name + '\\(')); assert.notEqual(start, -1, name);
  const rest = source.slice(start); return rest.slice(0, rest.indexOf('\n    }') + 6);
 }
 const Widget = new Function('edit_v2_mutations_1', 'material_replacement_1', 'timeline_empty_state_1', 'PLAYHEAD_FOLLOW_THRESHOLD', 'swap_trial_playback_1', 'material_trial_window_1', `return class {
- ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
+ ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','releaseTransitionBoundaryForOtherSelection','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
 }`)(mutations, replacement, { relativeTimelineMaterialPath: (_base, path) => path.replace('/project/', '') }, 0.8, playback, trialWindow);
 function fixture(at = 30, mediaKind = 'audio') {
  const visual=mediaKind!=='audio';
@@ -24,7 +40,7 @@ function fixture(at = 30, mediaKind = 'audio') {
  const trial = new MaterialTrialHistory();
  const uri = { toString: () => 'file:///project/edit.json', parent: { path: { toString: () => '/project' } } };
  const w = Object.assign(new Widget(), {
- id: 'test', materialSwapTokenSequence: 0, fps: 30, materialSwapGeneration: 0, materialSwapTail: Promise.resolve(), editMutationTail: Promise.resolve(),
+ id: 'test', materialSwapTokenSequence: 0, fps: 30, materialSwapGeneration: 0, materialSwapTail: Promise.resolve(), editMutationTail: Promise.resolve(), activeBoundary: undefined,
  materialSwap: { target: { itemId: 'item', kind: visual?'visual':'audio', currentRelativePath: path }, editUri: uri.toString() },
  location: { editUri: uri, root: { toString: () => 'file:///project', resolve: path => ({ toString: () => `file:///project/${path}`, path: { toString: () => `/project/${path}` } }) } },
  editDocument: JSON.parse(disk), fileService: { readFile: async () => ({ value: disk }) },

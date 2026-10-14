@@ -4,6 +4,7 @@ import test from "node:test";
 import { buildOsrPage } from "../src/page-builder.mjs";
 import { scopeCaptionStylesInSheet } from "../src/caption-style-scope.mjs";
 import { startStaticServer } from "../src/static-server.mjs";
+import { applyCaptionRunsToHtml, captionRenderInputFromV1 } from "../../edit-store/lib/index.js";
 
 // Read top-level CSS blocks only. Keyframe steps and declarations inside a scope
 // must not be mistaken for another rule in the shared overlay document.
@@ -42,6 +43,39 @@ function captionStyles(sheet) {
   return [...sheet.matchAll(/<div class="akari-caption[^"\n]*" data-akari-caption-scope="([^"]+)">\s*<style>([\s\S]*?)<\/style>/gu)]
     .map(match => ({ scope: match[1], css: match[2] }));
 }
+
+test('run rules are shared once and only apply to matching caption fragments', () => {
+  const rich = captionRenderInputFromV1({ captions: [{ text: 'AB', runs: [
+    { from: 0, to: 2, look: { background: { color: '#ffd948', padding_px: 5 },
+      shadow: { color: '#000000', distance_px: 2 } } }
+  ] }] }).captions[0].runs;
+  const make = runs => applyCaptionRunsToHtml(
+    '<div class="akari-caption"><style></style><p class="akari-caption__line">AB</p></div>', 'AB', runs);
+  const result = scopeCaptionStylesInSheet(make(rich) + make(rich) + make([]));
+  const styles = captionStyles(result);
+  assert.equal(styles.length, 3);
+  assert.equal((result.match(/\.akari-caption__run\[data-akari-shadow-flow\]\[data-akari-shadow-text\]::before/gu) ?? []).length, 1);
+  assert.match(result, /\.akari-caption__plate:has\(\.akari-caption__run-frag/u);
+  assert.match(result, /data-akari-plate="true"/u);
+  assert.doesNotMatch(styles[0].css, /akari-caption__run-frag/u);
+  assert.doesNotMatch(styles[1].css, /akari-caption__run-frag/u);
+  assert.doesNotMatch(styles[2].css, /akari-caption__run-frag/u);
+});
+
+test('OSR repeat resolution keeps the same run pixels', () => {
+  const edit = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [], cuts: [{ in: 0, out: 2 }], overlays: [] };
+  const captions = { captions: [{ id: 'c', start: 0, end: 2, time_domain: 'output',
+    text: 'AB', text_style: { reference_height_px: 2160 },
+    runs: [{ from: 0, to: 2, look: { background: { color: '#ffffff', padding_px: 8 } } }] }] };
+  const once = buildOsrPage({ edit, captions, projectRoot: '/unused', duration: 2,
+    frameEngineBundle: '', pageRuntime: '' }).overlaySheetHtml;
+  const resolved = captionRenderInputFromV1(captions, { output: edit.output });
+  const twice = buildOsrPage({ edit, captions: resolved, projectRoot: '/unused', duration: 2,
+    frameEngineBundle: '', pageRuntime: '' }).overlaySheetHtml;
+  assert.match(once, /data-akari-ink-outset="8"/u);
+  assert.equal(twice, once);
+});
 
 test("OSR の複数字幕では配信シートの全セレクタ規則が自分の caption root に閉じる", async (t) => {
   const animation = id => ({ in: { id }, out: { id } });

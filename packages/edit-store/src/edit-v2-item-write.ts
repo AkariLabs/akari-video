@@ -1,6 +1,6 @@
 import { EditV2, HtmlSourceV2, ItemV2, readEditV2 } from './edit-v2';
 import { effectiveScale, normalizeTransform } from './transform';
-import { normalizeItemKeyframeGroup, writeItemTransformAt } from './transform-keyframe-edit';
+import { normalizeItemKeyframeGroup, Rotation3dValues, writeItemTransformAt, writeItemVarsAt } from './transform-keyframe-edit';
 import { invertItemMotionPosition } from '../../overlay-runtime/src/item-motion.js';
 import { replaceXYKeyframes } from './motion-keyframe-replace';
 
@@ -33,6 +33,8 @@ export type PreviewItemWriteCommand = (
         itemId: string;
         patch: {
             vars?: UnknownRecord;
+            /** 3D の向き（--akari-3d-rot-x/y/z・度）。playheadSeconds があり、回転にキーがあれば再生ヘッドに自動キー。 */
+            varsAt?: Rotation3dValues;
             transform?: PreviewItemTransformPatch;
             html?: string;
             text?: string;
@@ -216,7 +218,7 @@ function resolveV2Write(
             if (item.source.kind !== 'html' || item.source.part) {
                 throw new Error(`要素の書き戻し対象ではありません: ${itemId}`);
             }
-            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'xyKeyframes']
+            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'varsAt', 'xyKeyframes']
                 .some(key => key in command.patch)
                 || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref)
                 || !/^[a-z][a-z0-9-]*$/u.test(tag)
@@ -299,7 +301,8 @@ function resolveV2Write(
             command = { ...command, patch: { ...command.patch, transform: local } };
         }
         if (item.source.kind === 'group') {
-            if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.params !== undefined) {
+            if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.varsAt !== undefined
+                || command.patch.params !== undefined) {
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
             if (command.patch.xyKeyframes) item.keyframes = normalizeItemKeyframeGroup({ ...item,
@@ -348,7 +351,18 @@ function resolveV2Write(
                 source.vars = { ...recordOf(source.vars), ...command.patch.vars };
                 editChanged = true;
             }
-        } else if (command.patch.html !== undefined || command.patch.params !== undefined || command.patch.vars !== undefined) {
+            if (command.patch.varsAt) {
+                const seconds = command.playheadSeconds;
+                const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+                const frame = Number.isFinite(seconds)
+                    ? Math.max(0, Math.min(item.duration, Math.round((seconds as number) * edit.output.fps) - start)) : 0;
+                const updated = writeItemVarsAt(item, frame, command.patch.varsAt);
+                item.source = updated.source;
+                item.keyframes = updated.keyframes;
+                editChanged = true;
+            }
+        } else if (command.patch.html !== undefined || command.patch.params !== undefined || command.patch.vars !== undefined
+            || command.patch.varsAt !== undefined) {
             throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {

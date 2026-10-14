@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { PartnerCliCatalogEntry } from './partner-catalog';
 
@@ -16,12 +17,12 @@ export interface AkariPartnerConnectDialogProps extends DialogProps {
 }
 
 const STEP_LABELS: ReadonlyArray<{ step: ConnectDialogStep; label: string }> = [
-    { step: 'preparing', label: '① CLI 準備中' },
-    { step: 'login', label: '② ログイン（ブラウザ承認）' },
-    { step: 'complete', label: '③ 接続完了' }
+    { step: 'preparing', label: t('partner.partnerPanel.connectDialog.preparingCliStep') },
+    { step: 'login', label: t('partner.partnerPanel.connectDialog.signBrowserApprovalText') },
+    { step: 'complete', label: t('partner.partnerPanel.connectDialog.connectedStep') }
 ];
 
-const STALLED_NOTE = '進まない場合はターミナルを表示して画面の案内に従ってください。';
+const STALLED_NOTE = t('partner.partnerPanel.connectDialog.setupStallsShowTerminalFollowInstructionsMessage');
 
 /**
  * 接続ガイドダイアログ（task/2026-08-06-partner-connect-popup）。
@@ -87,8 +88,8 @@ export class AkariPartnerConnectDialog extends AbstractDialog<void> {
         // 表示順は task.md「下部に『キャンセル』と『ターミナルを表示』」どおり
         // （dialogControl は flex-end で末尾寄せなので、appendChild の順が
         // そのまま左→右の並びになる — 既存 Theia ダイアログの流儀と同じ）。
-        this.appendCloseButton('キャンセル');
-        const showTerminalButton = this.appendButton('ターミナルを表示', false);
+        this.appendCloseButton(t('partner.partnerPanel.connectDialog.cancelAction'));
+        const showTerminalButton = this.appendButton(t('partner.partnerPanel.connectDialog.showTerminalAction'), false);
         showTerminalButton.addEventListener('click', () => {
             this.onShowTerminal();
             this.close();
@@ -147,16 +148,16 @@ export class AkariPartnerConnectDialog extends AbstractDialog<void> {
             : '';
 
         if (this.connected) {
-            this.statusLine.textContent = `${this.props.entry.name} 接続済み`;
-            this.detailLine.textContent = 'このダイアログを閉じて作業を始められます。';
+            this.statusLine.textContent = t('partner.partnerPanel.connectDialog.namedConnectedStatus', { value1: this.props.entry.name });
+            this.detailLine.textContent = t('partner.partnerPanel.connectDialog.closeDialogStartWorkingMessage');
         } else if (this.currentFlow.state === 'failed') {
-            this.statusLine.textContent = this.currentFlow.status || `${this.props.entry.name} のセットアップに失敗しました`;
+            this.statusLine.textContent = this.currentFlow.status || t('partner.partnerPanel.connectDialog.couldNotSetUpError', { value1: this.props.entry.name });
             this.detailLine.textContent = this.currentFlow.detail;
         } else if (this.currentFlow.state === 'complete') {
-            this.statusLine.textContent = this.currentFlow.status || `${this.props.entry.name} を開始しました`;
-            this.detailLine.textContent = 'ターミナルの案内に沿ってブラウザでログインを承認してください。承認が完了すると自動で③へ進みます。';
+            this.statusLine.textContent = this.currentFlow.status || t('partner.partnerPanel.connectDialog.startedStatus', { value1: this.props.entry.name });
+            this.detailLine.textContent = t('partner.partnerPanel.connectDialog.browserSignInInstructions');
         } else {
-            this.statusLine.textContent = this.currentFlow.status || 'CLI を準備しています…';
+            this.statusLine.textContent = this.currentFlow.status || t('partner.partnerPanel.connectDialog.preparingCliStatus');
             this.detailLine.textContent = this.currentFlow.detail;
         }
 

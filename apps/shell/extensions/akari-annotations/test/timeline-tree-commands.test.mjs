@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -9,6 +11,13 @@ import {
   moveTreeV2Item,
   ungroupTreeV2Item,
 } from '../lib/common/edit-v2-mutations.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const widgetSource = readAllSourceText();
 const interactionSource = readFileSync(
@@ -47,7 +56,8 @@ test('帯 D&D の確定は at 更新も tree-ops に委譲し、重なれば段�
     ['source-stays'], ['occupied'], ['dragged']
   ]);
   assert.match(widgetSource, /this\.moveV2PreviewItem/);
-  assert.match(widgetSource, /を追加しました/);
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.added'/);
+  assert.equal(ja['annotations.timeline.text.added'], '{name} を追加しました');
 });
 
 test('⌘G は最前面メンバーの段へ親を作り、前後変更 id と通知文を返す', () => {
@@ -58,7 +68,8 @@ test('⌘G は最前面メンバーの段へ親を作り、前後変更 id と�
   const grouped = groupTreeV2Items(doc, ['back', 'front']);
   assert.equal(grouped.value.group.source.kind, 'group');
   assert.ok(grouped.value.changedOrderIds.includes('between'));
-  assert.match(widgetSource, /の前後が変わりました/);
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.hasChangedBeforeAndAfter'/);
+  assert.equal(ja['annotations.timeline.text.hasChangedBeforeAndAfter'], '{names} の前後が変わりました');
 });
 
 test('⌘⇧G は tree-ops へ委譲し、袋拒否文を UI に固定する', () => {
@@ -71,7 +82,8 @@ test('⌘⇧G は tree-ops へ委譲し、袋拒否文を UI に固定する', (
   assert.equal(child.at, 12);
   assert.equal(child.transform.x, 5);
   assert.equal(child.opacity, 0.5);
-  assert.match(widgetSource, /キャンバスをほどけません: \$\{canvasOperationReason\(error\)\}/u);
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.unableToUnwindCanvas', \{ reason: canvasOperationReason\(error\) \}\)/u);
+  assert.equal(ja['annotations.timeline.text.unableToUnwindCanvas'], 'キャンバスをほどけません: {reason}');
 });
 
 test('写しの子のプレビュー選択は既存 selectOverlay が mount の共通 id をそのまま報告する', () => {

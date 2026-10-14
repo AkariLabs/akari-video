@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { injectable } from '@theia/core/shared/inversify';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import URI from '@theia/core/lib/common/uri';
@@ -186,7 +187,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         this.status = { phase: request.rerunLint ? 'linting' : 'rendering', logTail: '' };
         void this.run(request)
             .catch(error => {
-                const failureSummary = describeUnexpectedQuickExportFailure(error, '書き出しバックエンドで予期しないエラーが発生しました');
+                const failureSummary = describeUnexpectedQuickExportFailure(error, t('shell.export.backend.unexpectedErrorExportBackendText'));
                 this.appendLog(`${failureSummary}\n`);
                 this.updateStatus({ phase: 'failed', failureSummary });
             })
@@ -236,10 +237,10 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
      */
     async recheckLint(request: QuickExportRecheckRequest): Promise<QuickExportRecheckResult> {
         if (this.running) {
-            return { outcome: 'skipped', status: this.status, reason: '書き出しの実行中は再検査しません' };
+            return { outcome: 'skipped', status: this.status, reason: t('shell.export.backend.cannotCheckAgainExportRunningError') };
         }
         if (this.recheckRunning) {
-            return { outcome: 'skipped', status: this.status, reason: 'すでに再検査中です' };
+            return { outcome: 'skipped', status: this.status, reason: t('shell.export.backend.checkAlreadyRunningAction') };
         }
         this.recheckRunning = true;
         try {
@@ -248,7 +249,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             return {
                 outcome: 'unavailable',
                 status: this.status,
-                reason: describeUnexpectedQuickExportFailure(error, 'lint の再検査に失敗しました')
+                reason: describeUnexpectedQuickExportFailure(error, t('shell.export.backend.lintRecheckFailedError'))
             };
         } finally {
             this.recheckRunning = false;
@@ -262,7 +263,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             return {
                 outcome: 'unavailable',
                 status: this.status,
-                reason: 'edit-lint CLI が見つかりませんでした（packages/edit-lint/bin/edit-lint.mjs 不在）'
+                reason: t('shell.export.backend.editLintCliNotFoundPackagesEditLintBinEditText')
             };
         }
         const result = await this.spawnNodeScript(
@@ -272,7 +273,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             { trackActive: false }
         );
         if (this.running) {
-            return { outcome: 'skipped', status: this.status, reason: '書き出しが始まったため再検査の結果は捨てました' };
+            return { outcome: 'skipped', status: this.status, reason: t('shell.export.backend.discardedRecheckResultsBecauseExportStartedStatus') };
         }
         const outcome = determineLintOutcome(result.exitCode);
         const checkedAt = this.now();
@@ -304,7 +305,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             outcome: 'unavailable',
             status: this.status,
             reason: summarizeStderrTail(result.stderr)
-                || `edit-lint が exit code ${result.exitCode ?? '不明'} で終了しました（エラー出力はありません）`
+                || t('shell.export.backend.editLintExitedCodeNoErrorOutputText', { value1: result.exitCode ?? t('shell.export.backend.unknownLabel') })
         };
     }
 
@@ -368,12 +369,12 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
      */
     async discardCancelledLeftover(): Promise<QuickExportDiscardLeftoverResult> {
         if (this.running) {
-            return { discarded: false, reason: '書き出しの実行中は削除できません' };
+            return { discarded: false, reason: t('shell.export.backend.cannotDeleteExportRunningError') };
         }
         const leftover = this.status.cancelledLeftover;
         const projectRoot = this.currentProjectRoot;
         if (!leftover || leftover.entries.length === 0 || !projectRoot) {
-            return { discarded: false, reason: '削除する一時ファイルがありません' };
+            return { discarded: false, reason: t('shell.export.backend.noTemporaryFilesDeleteText') };
         }
         let removedBytes = 0;
         const failures: string[] = [];
@@ -395,7 +396,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         // 消し残しがあれば「まだ残っている分」を数え直して出し続ける（嘘の完了にしない）。
         this.updateStatus({ cancelledLeftover: await this.measureCancelledLeftover() });
         if (failures.length > 0) {
-            return { discarded: false, reason: `一時ファイルを削除できませんでした（${failures.length} 件）` };
+            return { discarded: false, reason: t('shell.export.backend.couldNotDeleteTemporaryFilesItemsError', { value1: failures.length, n: failures.length }) };
         }
         return { discarded: true, bytes: removedBytes };
     }
@@ -545,13 +546,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
 
     async copyArtifact(): Promise<{ copied: boolean; reason?: string }> {
         if (this.status.phase !== 'done' || !this.status.artifactPath || !this.currentProjectRoot) {
-            return { copied: false, reason: 'コピーできる書き出し済み動画がありません' };
+            return { copied: false, reason: t('shell.export.backend.noExportedVideoAvailableCopyText') };
         }
         const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
         const platform = this.platform();
         const request = copyArtifactCommand(platform, artifactPath);
         if (!request) {
-            return { copied: false, reason: 'この OS ではクリップボードへのコピーに対応していません' };
+            return { copied: false, reason: t('shell.export.backend.clipboardCopyingNotSupportedOsText') };
         }
         try {
             const exitCode = await this.spawnCopyCommand(
@@ -564,13 +565,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             }
             return {
                 copied: false,
-                reason: `コピー用コマンドが exit code ${exitCode ?? '不明'} で終了しました`
+                reason: t('shell.export.backend.copyCommandExitedCodeText', { value1: exitCode ?? t('shell.export.backend.unknownLabel') })
             };
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             return {
                 copied: false,
-                reason: `コピー用コマンドを起動できませんでした: ${message.replace(/\s+/gu, ' ')}`
+                reason: t('shell.export.backend.couldNotStartCopyCommandError', { value1: message.replace(/\s+/gu, ' ') })
             };
         }
     }
@@ -621,8 +622,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         if (!cli) {
             this.updateStatus({
                 phase: 'failed',
-                logTail: 'edit-lint CLI が見つかりませんでした',
-                failureSummary: 'edit-lint CLI が見つかりませんでした（packages/edit-lint/bin/edit-lint.mjs 不在）'
+                logTail: t('shell.export.backend.editLintCliNotFoundText'),
+                failureSummary: t('shell.export.backend.editLintCliNotFoundPackagesEditLintBinEditText')
             });
             return 'error';
         }
@@ -647,7 +648,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             return 'fail';
         }
         const failureSummary = summarizeStderrTail(result.stderr)
-            || `edit-lint が exit code ${result.exitCode ?? '不明'} で終了しました（エラー出力はありません）`;
+            || t('shell.export.backend.editLintExitedCodeNoErrorOutputText', { value1: result.exitCode ?? t('shell.export.backend.unknownLabel') });
         this.updateStatus({ phase: 'failed', failureSummary });
         return 'error';
     }
@@ -663,7 +664,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         if (!cli) {
             this.updateStatus({
                 phase: 'failed',
-                failureSummary: 'render-cut CLI が見つかりませんでした（packages/render-cut/bin/render-cut.mjs 不在）'
+                failureSummary: t('shell.export.backend.renderCutCliNotFoundPackagesRenderCutBinRenderText')
             });
             return;
         }
@@ -911,7 +912,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
                     detached: this.platform() !== 'win32'
                 });
             } catch (error) {
-                const message = describeUnexpectedQuickExportFailure(error, `${scriptPath} を起動できませんでした`);
+                const message = describeUnexpectedQuickExportFailure(error, t('shell.export.backend.couldNotStartError', { value1: scriptPath }));
                 settle({ exitCode: 2, stdout, stderr: message });
                 return;
             }

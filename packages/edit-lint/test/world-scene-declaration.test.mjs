@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +21,7 @@ async function lintCase(t, mutate = value => value) {
   const project = await mkdtemp(join(tmpdir(), "edit-lint-world-scene-"));
   t.after(() => rm(project, { recursive: true, force: true }));
   await cp(fixture, project, { recursive: true });
+  await mkdir(join(project, ".akari"), { recursive: true });
   const worldMap = JSON.parse(await readFile(mapFixture, "utf8"));
   const descriptor = mutate({
     schemaVersion: 1, kind: "flat", frame: { width: 1920, height: 1080 },

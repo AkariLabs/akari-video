@@ -1,4 +1,5 @@
 import { addFinding, isFiniteNumber, isNonEmptyString, isRecord } from "./shared.mjs";
+import { lintText } from '../i18n.mjs';
 
 // docs/contract-2026-07-22-render-basics.md #4/#2。output.look / source.chroma_key の構造検証は
 // validate-edit.mjs の validateLook/validateChromaKey と同じ手書きの流儀（edit-lint は依存ゼロの
@@ -146,12 +147,12 @@ function validateAdjustV1Sections(value, findings, path) {
   if (!isRecord(value)) return;
   const report = (section, check, at, message) => addFinding(findings, { severity: "error", check: "adjust." + section + "." + check, path: at, message });
   const object = (v, keys, section, at) => {
-    if (!isRecord(v)) { report(section, 'structure', at, 'は object である必要があります'); return false; }
-    for (const key of Object.keys(v)) if (!keys.includes(key)) report(section, 'unknown-key', at + '.' + key, 'は未知のキーです');
+    if (!isRecord(v)) { report(section, 'structure', at, lintText('lint-messages.adjust.shape.objectRequired')); return false; }
+    for (const key of Object.keys(v)) if (!keys.includes(key)) report(section, 'unknown-key', at + '.' + key, lintText('lint-messages.adjust.shape.unknownKey'));
     return true;
   };
   const number = (v, min, max, section, at) => {
-    if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
+    if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, lintText('lint-messages.adjust.value.range', { min, max }));
   };
   if (Object.hasOwn(value, 'fx')) {
     const at = path + '.fx';
@@ -201,7 +202,7 @@ function validateAdjustV1Sections(value, findings, path) {
       if (!Object.hasOwn(channels, channel)) continue;
       const points = channels[channel], channelPath = at + '.' + channel;
       if (!Array.isArray(points) || points.length < minimum || points.length > 16) {
-        report(section, 'points', channelPath, 'は ' + minimum + ' から 16 点の配列である必要があります'); continue;
+        report(section, 'points', channelPath, lintText('lint-messages.adjust.points.count', { minimum })); continue;
       }
       let previous = -Infinity;
       for (const [index, point] of points.entries()) {
@@ -210,7 +211,7 @@ function validateAdjustV1Sections(value, findings, path) {
         number(point[axis], 0, 1, section, pointPath + '.' + axis);
         number(point[output], 0, 1, section, pointPath + '.' + output);
         if (isFiniteNumber(point[axis])) {
-          if (point[axis] <= previous) report(section, 'order', pointPath + '.' + axis, 'は狭義単調増加である必要があります');
+          if (point[axis] <= previous) report(section, 'order', pointPath + '.' + axis, lintText('lint-messages.adjust.points.increasing'));
           previous = point[axis];
         }
       }

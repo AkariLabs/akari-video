@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 // 不具合メモ 第13項: WebAV 1.2.8（node_modules/@webav/internal-utils/src/log.ts）は
 // `"PressureObserver" in globalThis` の存在確認だけで `.observe("cpu")` を呼び、Promise 拒否を
 // 捕捉していない。Webview の権限ポリシーでは compute-pressure が許可されていないので

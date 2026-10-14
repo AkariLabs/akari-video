@@ -1,3 +1,5 @@
+import { t, catalogMessages } from '../common/partner-text';
+import { childProcessEnv } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import { ChildProcess, execFile, spawn, spawnSync } from 'child_process';
 import { readFileSync, appendFileSync } from 'fs';
@@ -23,6 +25,8 @@ import { buildPartnerConnectionMarker } from '../common/partner-connection-marke
 import { bootstrapRunner, partnerInstallDisclosure } from './bootstrap-runner';
 import { spawnBootstrapProcess } from './bootstrap-process';
 import { partnerCliCandidates } from './partner-cli-candidates';
+import { resolveExtensionCli } from './extension-cli-alignment';
+import { ExtensionCliAlignment } from '../common/extension-cli-alignment';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
@@ -33,8 +37,11 @@ import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPe
     PartnerPermissionMode } from '../common/partner-permissions';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
-const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
+
+export function partnerBootstrapTimeoutMs(agent: PartnerAgentId): number {
+    return (agent === 'muse' ? 30 : 10) * 60 * 1000;
+}
 
 export type PartnerCliHelpProbe = { kind: 'ok'; help: string } | { kind: 'timeout' | 'failed' };
 
@@ -72,7 +79,7 @@ export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Pla
             resolve(result);
         };
         try {
-            child = run(command, args, { env, detached: platform !== 'win32', windowsHide: true,
+            child = run(command, args, { env: childProcessEnv(env), detached: platform !== 'win32', windowsHide: true,
                 windowsVerbatimArguments: isBatch });
             const append = (chunk: Buffer | string): void => {
                 if (done) return;
@@ -105,12 +112,33 @@ export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Pla
     });
 }
 
-function hasDelimitedWord(text: string, word: string, isWordCharacter: (character: string) => boolean): boolean {
+function delimitedWordIndex(text: string, word: string, isWordCharacter: (character: string) => boolean): number {
     let index = text.indexOf(word);
     while (index !== -1) {
         const before = text[index - 1];
         const after = text[index + word.length];
-        if ((!before || !isWordCharacter(before)) && (!after || !isWordCharacter(after))) return true;
+        if ((!before || !isWordCharacter(before)) && (!after || !isWordCharacter(after))) return index;
+        index = text.indexOf(word, index + 1);
+    }
+    return -1;
+}
+
+function hasDelimitedWord(text: string, word: string, isWordCharacter: (character: string) => boolean): boolean {
+    return delimitedWordIndex(text, word, isWordCharacter) !== -1;
+}
+
+function hasPipedWord(text: string, word: string): boolean {
+    let index = text.indexOf(word);
+    while (index !== -1) {
+        const before = text[index - 1];
+        const after = text[index + word.length];
+        if ((!before || !/[a-zA-Z0-9_-]/.test(before)) && (!after || !/[a-zA-Z0-9_-]/.test(after))) {
+            let left = index - 1;
+            while (left >= 0 && /[ \t]/.test(text[left])) left--;
+            let right = index + word.length;
+            while (right < text.length && /[ \t]/.test(text[right])) right++;
+            if (text[left] === '|' || text[right] === '|') return true;
+        }
         index = text.indexOf(word, index + 1);
     }
     return false;
@@ -120,9 +148,9 @@ export function partnerHelpSupportsArgs(help: string, args: readonly string[]): 
     const [flag, value] = args;
     if (!flag || args.length > 2) return false;
     const lines = help.split(/\r?\n/);
-    const flagInLine = (line: string): boolean => hasDelimitedWord(line, flag, character => /[a-zA-Z0-9_-]/.test(character));
     for (let index = 0; index < lines.length; index++) {
-        if (!flagInLine(lines[index])) continue;
+        const flagIndex = delimitedWordIndex(lines[index], flag, character => /[a-zA-Z0-9_-]/.test(character));
+        if (flagIndex === -1) continue;
         if (!value) return true;
         const detail = [lines[index]];
         for (let next = index + 1; next < Math.min(lines.length, index + 6); next++) {
@@ -136,6 +164,15 @@ export function partnerHelpSupportsArgs(help: string, args: readonly string[]): 
             const close = listed.search(/[)\]]/);
             const values = close >= 0 ? listed.slice(0, close) : listed.split('\n', 1)[0];
             if (hasDelimitedWord(values, value, character => /[a-zA-Z0-9_-]/.test(character))) return true;
+        }
+        if (/^\s*usage\s*:/i.test(lines[index])) continue;
+        const afterFlag = lines[index].slice(flagIndex + flag.length);
+        const nextFlag = afterFlag.search(/--[a-zA-Z]|(?:^|[ \t])-[a-zA-Z](?=[ \t,]|$)/);
+        if (hasPipedWord(nextFlag === -1 ? afterFlag : afterFlag.slice(0, nextFlag), value)) return true;
+        for (let next = index + 1; next < Math.min(lines.length, index + 6); next++) {
+            const line = lines[next];
+            if (/^\s*$|^\S|^\s*(?:--[a-zA-Z]|-[a-zA-Z](?=[\s,]|$))/.test(line)) break;
+            if (hasPipedWord(line, value)) return true;
         }
     }
     return false;
@@ -234,21 +271,21 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         executablePath: string, ownerId: string, permissionMode?: PartnerPermissionMode): Promise<PartnerWebLaunch> {
         if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
         if (!ownerId?.trim()) throw new Error('Web partner owner is required');
-        if (!workspaceRootUri) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
+        if (!workspaceRootUri) throw new Error(t('partner.connection.server.openProjectStartDeepseekHarnessText'));
         if (!path.isAbsolute(executablePath) || !/^dsh(?:\.cmd|\.exe)?$/i.test(path.basename(executablePath))) {
-            throw new Error('DeepSeek Harness の実行ファイルは絶対パスの dsh / dsh.cmd / dsh.exe を指定してください');
+            throw new Error(t('partner.connection.server.specifyAbsolutePathDshDshCmdDshExeDeepseekHarnessText'));
         }
         if (!(await fs.stat(executablePath).catch(() => undefined))?.isFile()) {
-            throw new Error('DeepSeek Harness の実行ファイルが見つかりません');
+            throw new Error(t('partner.connection.server.deepseekHarnessExecutableNotFoundText'));
         }
         let cwd: string;
         try { cwd = this.toFsPath(workspaceRootUri); }
-        catch { throw new Error('プロジェクトのフォルダが不正です'); }
+        catch { throw new Error(t('partner.connection.server.invalidProjectFolderText')); }
         if (cwd.startsWith('\\\\') || cwd.startsWith('//')) {
-            throw new Error('ネットワークの場所（\\\\server\\share）を直接開いたプロジェクトでは DeepSeek Harness を起動できません。ドライブ文字を割り当てて開き直してください');
+            throw new Error(t('partner.connection.server.deepseekHarnessCannotStartDirectlyOpenedNetworkLocationServerShareMessage'));
         }
         if (!path.isAbsolute(cwd) || !(await fs.stat(cwd).catch(() => undefined))?.isDirectory()) {
-            throw new Error('プロジェクトのフォルダが見つかりません');
+            throw new Error(t('partner.connection.server.projectFolderNotFoundText'));
         }
         const cwdKey = await this.resolveWebCwdKey(cwd);
         for (const [pid, record] of this.webProcesses) {
@@ -262,7 +299,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const promise = this.launchNewWebPartner(agent, cwd, executablePath, cwdKey, normalizePartnerPermissionMode(permissionMode)).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
-                throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
+                throw new Error(t('partner.connection.server.workspaceClosedBecauseProjectChangedText'));
             }
             this.webProcesses.set(launch.pid, { cwdKey, owners, launch });
             return launch;
@@ -338,22 +375,24 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const connection = detectDeepSeekConnection({
             env: process.env, homeDir: homedir(), readFile: file => readFileSync(file, 'utf8')
         });
-        return { ...disclosure, connectionNote: connection.note };
+        return { ...disclosure, connectionNote: connection.note, connectionDetail: connection.detail };
     }
 
     async getPlatformKey(): Promise<string> {
         return `${process.platform}-${process.arch}`;
     }
 
-    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false): Promise<PartnerBootstrapOutcome> {
+    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false, forceReinstall = false): Promise<PartnerBootstrapOutcome> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
-        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`;
+        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()}, ${JSON.stringify(catalogMessages())})`;
         const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,
             ELECTRON_RUN_AS_NODE: '1',
             ...(installConsent ? { AKARI_PARTNER_INSTALL_CONSENT: '1' } : { AKARI_PARTNER_INSTALL_CONSENT: '0' }),
+            // 設定画面の更新ボタン専用。通常の接続では立てない（既存環境変数の逃げ道はそのまま引き継ぐ）。
+            ...(forceReinstall ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {}),
             // Read by bootstrap-runner.ts's claude-branch plugin wiring step
             // (task/2026-07-25-partner-plugin-autowire). Omitted when no
             // workspace is open so the runner treats wiring as skippable.
@@ -362,12 +401,13 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
 
         const output = await new Promise<string>((resolve, reject) => {
             const child = this.spawnBootstrapProcess(runtimePath, runnerSource, agent, env);
+            const timeoutMs = partnerBootstrapTimeoutMs(agent);
             let stdout = '';
             let stderr = '';
             const timer = setTimeout(() => {
                 child.kill();
-                reject(new Error(`${agent} bootstrap timed out after ${BOOTSTRAP_TIMEOUT_MS} ms`));
-            }, BOOTSTRAP_TIMEOUT_MS);
+                reject(new Error(`${agent} bootstrap timed out after ${timeoutMs} ms`));
+            }, timeoutMs);
             child.stdout.on('data', chunk => stdout += chunk.toString());
             child.stderr.on('data', chunk => stderr += chunk.toString());
             child.on('error', error => {
@@ -429,10 +469,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             const probe = resolvedExecutablePath ? await this.cliHelp(resolvedExecutablePath, { ...process.env, ...launchEnv }) : { kind: 'failed' } as const;
             if (probe.kind !== 'ok' || !partnerHelpSupportsArgs(probe.help, requestedArgs)) {
                 permissionArgs = [];
-                const reason = probe.kind === 'timeout' ? '--help の確認が時間切れのため' :
-                    probe.kind === 'failed' ? '--help の確認に失敗したため' : '--help にフラグが無いため';
-                permissionFallbackReason = probe.kind === 'timeout' ? '時間切れ' : probe.kind === 'failed' ? '確認失敗' : 'フラグ無し';
-                const line = `${agent}: ${flag} は ${reason}、権限フラグを付けずに起動します`;
+                const reason = probe.kind === 'timeout' ? t('partner.connection.server.becauseHelpTimedOutText') :
+                    probe.kind === 'failed' ? t('partner.connection.server.becauseHelpCheckFailedError') : t('partner.connection.server.becauseHelpNoFlagText');
+                permissionFallbackReason = probe.kind === 'timeout' ? t('partner.connection.server.timedOutLabel') : probe.kind === 'failed' ? t('partner.connection.server.checkFailedError') : t('partner.connection.server.noFlagLabel');
+                const line = t('partner.connection.server.startingWithoutPermissionFlagText', { value1: agent, value2: flag, value3: reason });
                 console.warn(`[akari-partner] ${line}`);
                 log.push(line);
             }
@@ -444,7 +484,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             log,
             permissionFallbackReason,
             appliedPermissionMode: appliedPartnerPermissionMode(agent, mode, permissionArgs),
-            env: launchEnv
+            env: childProcessEnv(launchEnv)
         };
     }
 
@@ -569,17 +609,39 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
 
     async verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult> {
         if (!request.packagePath) {
-            return { checked: false, found: false, reason: '拡張の配置先を取得できませんでした' };
+            return { checked: false, found: false, reason: t('partner.connection.server.couldNotGetExtensionLocationError') };
         }
         const root = this.toFsPath(request.packagePath);
         try {
             const match = await this.findExecutable(root, request, 0);
             return match
                 ? { checked: true, found: true, match }
-                : { checked: true, found: false, reason: `対象プラットフォーム用バイナリがありません (${request.platformTokens.join(', ')})` };
+                : { checked: true, found: false, reason: t('partner.connection.server.noBinaryTargetPlatformText', { value1: request.platformTokens.join(', ') }) };
         } catch (error) {
             return { checked: false, found: false, reason: this.errorMessage(error) };
         }
+    }
+
+    async resolveExtensionCli(agent: PartnerAgentId, packagePath: string): Promise<ExtensionCliAlignment> {
+        return resolveExtensionCli(agent, packagePath ? this.toFsPath(packagePath) : '', {
+            platform: process.platform,
+            arch: process.arch,
+            homeDir: homedir(),
+            env: process.env,
+            listDirectory: async directory => {
+                try { return await fs.readdir(directory); } catch { return []; }
+            },
+            isFile: async file => {
+                try { return (await fs.stat(file)).isFile(); } catch { return false; }
+            },
+            readText: async file => {
+                try { return await fs.readFile(file, 'utf8'); } catch { return undefined; }
+            },
+            readVersionOutput: executable => new Promise(resolve => {
+                execFile(executable, ['--version'], { timeout: 5000, windowsHide: true },
+                    (error, stdout) => resolve(error ? undefined : String(stdout)));
+            })
+        });
     }
 
     protected async findExecutable(

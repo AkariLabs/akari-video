@@ -137,7 +137,14 @@ window.akari.threeRuntime = (() => {
   const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
   const CSS_VAR_REFERENCE_PATTERN = /^var\(\s*(--[\w-]+)\s*\)$/;
   const CSS_CUSTOM_PROPERTY_PATTERN = /^--[A-Za-z_][A-Za-z0-9_-]*$/;
-  const FINISH_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+  // materialOverrides の差し込み先。emissive（既定・画面）は emissiveMap、mask は baseColor の
+  // 「形」（アルファ）。mask は SVG / PNG の形で切り抜く板（背面ロゴ等）を CSS 変数で差し替えるためのもの
+  const MATERIAL_OVERRIDE_KEYS = new Set(["texture", "textureVar", "brightness", "target", "fit", "fitVar"]);
+  const MATERIAL_OVERRIDE_TARGETS = new Set(["emissive", "mask"]);
+  const MASK_TEXTURE_SIZE = 1024;
+  const MASK_SVG_MAX_CHARS = 2_000_000;
+  const SVG_TEXTURE_PATTERN = /^data:image\/svg\+xml|\.svg(?:[?#]|$)/i;
+  const FINISH_NAME_PATTERN =/^[A-Za-z_][A-Za-z0-9_-]*$/;
   const FINISH_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
   const FINISH_PROPERTIES = new Set([
     "color", "metalness", "roughness", "clearcoat", "clearcoatRoughness", "emissive",
@@ -734,11 +741,35 @@ window.akari.threeRuntime = (() => {
           || typeof override !== "object"
           || Array.isArray(override)
           || Object.keys(override).some(
-            (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+            (key) => !MATERIAL_OVERRIDE_KEYS.has(key)
           )
           || typeof override.texture !== "string"
           || override.texture.length === 0) {
           throw new TypeError("materialOverrides は material 名ごとに texture URL を指定してください");
+        }
+        if (override.target !== undefined && !MATERIAL_OVERRIDE_TARGETS.has(override.target)) {
+          throw new TypeError("materialOverrides.target は emissive または mask である必要があります");
+        }
+        if (override.target !== "mask"
+          && (override.fit !== undefined || override.fitVar !== undefined)) {
+          throw new TypeError("materialOverrides.fit / fitVar は target が mask のときだけ指定できます");
+        }
+        if (override.target === "mask") {
+          if (override.brightness !== undefined) {
+            throw new TypeError("materialOverrides.brightness は target が mask のときは指定できません");
+          }
+          if (override.fit !== undefined
+            && !(typeof override.fit === "number"
+              && Number.isFinite(override.fit)
+              && override.fit >= 0
+              && override.fit <= 1)) {
+            throw new TypeError("materialOverrides.fit は 0〜1 の数値である必要があります");
+          }
+          if (override.fitVar !== undefined
+            && (typeof override.fitVar !== "string"
+              || !CSS_CUSTOM_PROPERTY_PATTERN.test(override.fitVar))) {
+            throw new TypeError("materialOverrides.fitVar は CSS カスタムプロパティ名である必要があります");
+          }
         }
         if (override.textureVar !== undefined
           && (typeof override.textureVar !== "string"
@@ -843,6 +874,123 @@ window.akari.threeRuntime = (() => {
     });
   }
 
+  // --- target: "mask"（形の差し替え）---
+  // SVG をそのまま使えるように、viewBox から width / height を補ってからラスタライズする
+  // （width / height の無い SVG は <img> の自然な大きさが決まらず、描画がぼける・欠ける）
+  function sizeSvgForRaster(text) {
+    const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) {
+      throw new Error("SVG として読めません");
+    }
+    const box = (svg.getAttribute("viewBox") ?? "").trim().split(/[\s,]+/).map(Number);
+    let width = box.length === 4 && box.every(Number.isFinite) ? box[2] : parseFloat(svg.getAttribute("width"));
+    let height = box.length === 4 && box.every(Number.isFinite) ? box[3] : parseFloat(svg.getAttribute("height"));
+    if (!(width > 0) || !(height > 0)) { width = 100; height = 100; }
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    return new XMLSerializer().serializeToString(svg);
+  }
+
+  // 画像（SVG / PNG / JPEG 等）を正方形のキャンバスへ「全体が収まる・中央寄せ」で描き、
+  // RGB = 白・アルファ = 形 の画素列にして返す。アルファのある画像はそのアルファを形とする。
+  // 不透明な画像（JPEG 等）は暗い部分を形とみなす（白地に黒のロゴ）
+  async function loadMaskPixels(url, fit) {
+    if (VIDEO_TEXTURE_PATTERN.test(url)) throw new Error("mask に動画は使えません");
+    const source = previewAssetUrl(url);
+    let imageSource = source;
+    if (SVG_TEXTURE_PATTERN.test(url)) {
+      const response = await fetch(source);
+      if (!response.ok) throw new Error(`SVG を取得できません: HTTP ${response.status}`);
+      const text = await response.text();
+      if (text.length > MASK_SVG_MAX_CHARS) throw new Error("SVG が大きすぎます");
+      imageSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sizeSvgForRaster(text))}`;
+    }
+    const size = MASK_TEXTURE_SIZE;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (fit > 0) {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error(`画像を読み込めません: ${String(url).slice(0, 96)}`));
+        image.src = imageSource;
+      });
+      const naturalWidth = image.naturalWidth || image.width;
+      const naturalHeight = image.naturalHeight || image.height;
+      if (!(naturalWidth > 0) || !(naturalHeight > 0)) throw new Error("画像の大きさが取れません");
+      const scale = (fit * size) / Math.max(naturalWidth, naturalHeight);
+      const drawWidth = naturalWidth * scale;
+      const drawHeight = naturalHeight * scale;
+      context.drawImage(image, (size - drawWidth) / 2, (size - drawHeight) / 2, drawWidth, drawHeight);
+    }
+    const pixels = context.getImageData(0, 0, size, size);
+    const data = pixels.data;
+    let translucent = false;
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] < 250) { translucent = true; break; }
+    }
+    for (let index = 0; index < data.length; index += 4) {
+      let alpha = data[index + 3];
+      if (!translucent && fit > 0) {
+        alpha = 255 - Math.round(0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2]);
+      }
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+      data[index + 3] = alpha;
+    }
+    return data;
+  }
+
+  async function applyMaskOverride(THREE, materialsByName, computedStyle, materialName, override, url, resolvedFrom) {
+    const report = (applied, from, fit) => ({
+      name: materialName, applied, resolvedFrom: from, brightness: 1, emissiveIntensity: null,
+      video: false, target: "mask", fit,
+    });
+    let fit = override.fit ?? 1;
+    if (override.fitVar !== undefined) {
+      const raw = computedStyle.getPropertyValue(override.fitVar).trim();
+      if (raw !== "") {
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed)) fit = Math.min(1, Math.max(0, parsed));
+        else console.warn(`[akari-three] materialOverrides の "${materialName}" は fit が数値でないため ${fit} を使います`);
+      }
+    }
+    const materials = materialsByName.get(materialName);
+    if (!materials?.size) {
+      console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
+      return report(false, "missing-material", fit);
+    }
+    let data;
+    try {
+      data = await loadMaskPixels(url, fit);
+    } catch (error) {
+      // 利用者が指定した SVG / 画像が読めないときはシーンごと落とさず、モデルに焼き込みの既定の形を残す
+      console.warn(`[akari-three] materialOverrides の "${materialName}" の mask を適用できません: ${error.message}`);
+      return report(false, "mask-error", fit);
+    }
+    const texture = new THREE.DataTexture(data, MASK_TEXTURE_SIZE, MASK_TEXTURE_SIZE, THREE.RGBAFormat);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+    for (const material of materials) {
+      // DataTexture の 1 行目 = v 0（glTF の画像の上端）。glTF の UV 規約と同じ向き
+      texture.channel = material.map?.channel ?? 0;
+      material.map = texture;
+      material.transparent = true;
+      material.needsUpdate = true;
+    }
+    return report(true, resolvedFrom, fit);
+  }
+
   async function applyMaterialOverrides(THREE, instance, root, overrides) {
     if (!overrides) return;
     const materialsByName = new Map();
@@ -889,6 +1037,9 @@ window.akari.threeRuntime = (() => {
           };
         }
         if (resolvedTexture !== override.texture) resolvedFrom = "cssVar";
+      }
+      if (override.target === "mask") {
+        return applyMaskOverride(THREE, materialsByName, computedStyle, materialName, override, resolvedTexture, resolvedFrom);
       }
 
       let brightness = 1;
@@ -1980,6 +2131,154 @@ window.akari.threeRuntime = (() => {
     state.height = height;
   }
 
+  // ── 標準ツマミ: モデルの姿勢（--akari-3d-rot-x/y/z）と動きのプリセット（--akari-3d-clip）──
+  // 契約: 内部リポの 3D 配置 v0 の設計契約 §2.1。
+  // pan/zoom と同じく宣言キー不要で、draw のたびに canvas の computed style から読む。
+  //  - 軸は水平を保ったカメラ基準（モデル読み込み完了時点。X = 画面の横（水平）・Y = 真上・Z = 手前。levelledCameraFrame）
+  //  - 合成は「X → Y → Z の順にカメラ基準の固定軸で回す」（行列 Rz·Ry·Rx = Euler 順 "ZYX"）
+  //  - 中心はモデルに固定した点（各 mesh の外接箱の中心を対角長で重み付けした平均）。
+  //    クリップで本体が動いても同じ物質点のまわりで回るので、回転中に位置が揺れない
+
+  // 無単位の度（"deg" 接尾辞も可）。空・不正は 0
+  function readDegrees(computedStyle, propertyName) {
+    const raw = computedStyle.getPropertyValue(propertyName).trim();
+    if (raw === "") return 0;
+    const numeric = Number.parseFloat(raw.endsWith("deg") ? raw.slice(0, -3) : raw);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function readClipKnob(computedStyle) {
+    return computedStyle.getPropertyValue("--akari-3d-clip").trim().replace(/^(["'])(.*)\1$/, "$2");
+  }
+
+  function capturePoseRest(THREE, instance) {
+    const pose = instance.pose;
+    pose.rest = [];
+    pose.anchors = [];
+    instance.scene.updateMatrixWorld(true);
+    instance.model.traverse((node) => {
+      pose.rest.push([node, node.position.clone(), node.quaternion.clone(), node.scale.clone()]);
+      if (!node.geometry || node.isSkinnedMesh) return;
+      if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+      const box = node.geometry.boundingBox;
+      if (!box || box.isEmpty()) return;
+      // 重みは世界寸法の外接箱の体積。対角長だと小さな部品（カメラの出っ張り・ボタン）が多い側へ
+      // 中心が寄って見た目の中心からずれる。平らな部品（画面の板）も消えないよう対角長の 3 乗の 1/1000 を下限に
+      const size = box.getSize(new THREE.Vector3()).multiply(node.getWorldScale(new THREE.Vector3()));
+      const diagonal = size.length();
+      const weight = Math.max(Math.abs(size.x * size.y * size.z), diagonal ** 3 * 1e-3);
+      if (weight > 0) pose.anchors.push([node, box.getCenter(new THREE.Vector3()), weight]);
+    });
+    // カメラがモデルの木の中にある（camera.fromModel）ときは、回転でカメラごと回らないよう
+    // 描画の直前に補正する（syncPoseCamera）
+    let parent = instance.camera.parent;
+    while (parent && parent !== instance.poseGroup) parent = parent.parent;
+    pose.cameraInTree = parent === instance.poseGroup;
+    instance.scene.updateMatrixWorld(true);
+    instance.camera.updateMatrixWorld(true);
+    pose.cameraQuaternion = levelledCameraFrame(THREE, instance.camera.getWorldQuaternion(new THREE.Quaternion()));
+  }
+
+  // 回転の軸の基準。カメラの右（水平へ射影）= X・世界の真上 = Y・その 2 つに直交する手前向き = Z。
+  // カメラが少し見下ろしていても Y 回転がターンテーブルになる（本体が傾かない）。
+  // カメラが真横に転がっていて右が鉛直を向くときだけ、カメラの向きそのものを使う
+  function levelledCameraFrame(THREE, cameraQuaternion) {
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraQuaternion);
+    right.y = 0;
+    if (right.lengthSq() < 1e-8) return cameraQuaternion;
+    right.normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const toward = new THREE.Vector3().crossVectors(right, up);
+    const basis = new THREE.Matrix4().makeBasis(right, up, toward);
+    return new THREE.Quaternion().setFromRotationMatrix(basis);
+  }
+
+  function warnPoseOnce(instance, key, message) {
+    if (instance.pose.warned.has(key)) return;
+    instance.pose.warned.add(key);
+    console.warn(`[akari-three] ${message}`);
+  }
+
+  // --akari-3d-clip: "" = 断片の animationClip のまま / "none" = 止めて静止姿勢 / それ以外 = クリップ名
+  function applyClipKnob(instance, computedStyle) {
+    if (!instance.model) return;
+    const raw = readClipKnob(computedStyle);
+    const pose = instance.pose;
+    if (raw === pose.clipRaw) return;
+    pose.clipRaw = raw;
+    const { THREE } = window.AkariThree;
+    let selector = instance.descriptor.animationClip;
+    if (raw === "none") selector = undefined;
+    else if (raw !== "") {
+      if (instance.animations.some((clip) => clip.name === raw)) selector = raw;
+      else warnPoseOnce(instance, `clip:${raw}`, `--akari-3d-clip の "${raw}" は glb にありません。断片の既定の動きを使います`);
+    }
+    if (instance.mixer) {
+      instance.mixer.stopAllAction();
+      instance.mixer.uncacheRoot(instance.model);
+      instance.mixer = null;
+    }
+    // 前のクリップが動かしたままの姿勢を、読み込み直後の静止姿勢へ戻してから次を掛ける
+    for (const [node, position, quaternion, scale] of pose.rest) {
+      node.position.copy(position);
+      node.quaternion.copy(quaternion);
+      node.scale.copy(scale);
+    }
+    instance.animationClips = 0;
+    pose.clip = selector === undefined ? null : selector;
+    if (selector === undefined) return;
+    const clips = selectAnimationClips(instance.animations, selector);
+    instance.mixer = new THREE.AnimationMixer(instance.model);
+    for (const clip of clips) instance.mixer.clipAction(clip).play();
+    instance.animationClips = clips.length;
+  }
+
+  // mixer.setTime の後（クリップが動かした後の位置で中心を決める）に呼ぶ
+  function applyPoseKnobs(instance, computedStyle) {
+    const group = instance.poseGroup;
+    if (!group) return;
+    const pose = instance.pose;
+    pose.rotX = readDegrees(computedStyle, "--akari-3d-rot-x");
+    pose.rotY = readDegrees(computedStyle, "--akari-3d-rot-y");
+    pose.rotZ = readDegrees(computedStyle, "--akari-3d-rot-z");
+    group.position.set(0, 0, 0);
+    group.quaternion.identity();
+    if (pose.rotX === 0 && pose.rotY === 0 && pose.rotZ === 0) return;
+    if (pose.cameraInTree && !pose.cameraQuaternion) {
+      warnPoseOnce(instance, "camera", "カメラの向きが取れないため --akari-3d-rot-* を無視します");
+      return;
+    }
+    const { THREE } = window.AkariThree;
+    const toRadians = Math.PI / 180;
+    const user = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      pose.rotX * toRadians, pose.rotY * toRadians, pose.rotZ * toRadians, "ZYX"));
+    const camera = pose.cameraQuaternion;
+    const world = camera.clone().multiply(user).multiply(camera.clone().invert());
+    group.updateMatrixWorld(true);
+    const center = new THREE.Vector3();
+    let total = 0;
+    for (const [node, local, weight] of pose.anchors) {
+      center.addScaledVector(local.clone().applyMatrix4(node.matrixWorld), weight);
+      total += weight;
+    }
+    if (total > 0) center.multiplyScalar(1 / total);
+    else new THREE.Box3().setFromObject(instance.model).getCenter(center);
+    group.quaternion.copy(world);
+    group.position.copy(center).sub(center.clone().applyQuaternion(world));
+  }
+
+  // カメラがモデルの木の中にあると、poseGroup の回転でカメラも一緒に回って見た目が変わらない。
+  // 行列を自前で更新し、カメラだけ poseGroup の変換を打ち消してから描く（renderer の自動更新を止める）
+  function syncPoseCamera(instance) {
+    const group = instance.poseGroup;
+    if (!group || !instance.pose.cameraInTree) return false;
+    instance.scene.updateMatrixWorld(true);
+    const inverse = group.matrixWorld.clone().invert();
+    instance.camera.matrixWorld.premultiply(inverse);
+    instance.camera.matrixWorldInverse.copy(instance.camera.matrixWorld).invert();
+    return true;
+  }
+
   // 動画テクスチャの時刻を overlay のローカル時刻へ合わせる。
   //
   // **呼ぶのはライブプレビューだけ**。書き出し（rasterize）は自前でフレーム精度シークを
@@ -2101,10 +2400,13 @@ window.akari.threeRuntime = (() => {
 
   // 可視メッシュだけの world bounds を現在のカメラへ投影する。正規化座標で保持し、
   // クライアント座標は参照時に換算するため、ペインの移動/ズームでも古くならない。
-  function projectContentBounds(scene, camera) {
+  function projectContentBounds(scene, camera, options) {
     const { THREE } = window.AkariThree;
-    scene.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
+    // matricesReady: 呼び出し側が行列を更新・補正済み（syncPoseCamera）。更新し直すと補正が消える
+    if (!options?.matricesReady) {
+      scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld(true);
+    }
     let left = 1, top = 1, right = -1, bottom = -1;
     let uncertain = false;
     scene.traverseVisible((node) => {
@@ -2159,6 +2461,38 @@ window.akari.threeRuntime = (() => {
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
 
+  // Return the material pivot used by applyPoseKnobs in client pixels, without changing the scene.
+  function posePivotClient(canvas) {
+    let container = canvas;
+    while (container && !instances.has(container)) container = container.parentElement;
+    const instance = container && instances.get(container);
+    if (!instance?.poseGroup || instance.canvas !== canvas || !instance.contentReady) return null;
+    const { THREE } = window.AkariThree;
+    const center = new THREE.Vector3();
+    let total = 0;
+    for (const [node, local, weight] of instance.pose.anchors) {
+      center.addScaledVector(local.clone().applyMatrix4(node.matrixWorld), weight);
+      total += weight;
+    }
+    if (total > 0) center.multiplyScalar(1 / total);
+    else {
+      const box = new THREE.Box3().setFromObject(instance.model);
+      if (box.isEmpty()) center.setFromMatrixPosition(instance.model.matrixWorld);
+      else box.getCenter(center);
+    }
+    const projected = center.applyMatrix4(instance.camera.matrixWorldInverse)
+      .applyMatrix4(instance.camera.projectionMatrix);
+    if (![projected.x, projected.y].every(Number.isFinite)) return null;
+    const box = { left: (projected.x + 1) / 2, right: (projected.x + 1) / 2,
+      top: (1 - projected.y) / 2, bottom: (1 - projected.y) / 2 };
+    if (window.akari.interaction?.canvasClientBounds) {
+      const point = window.akari.interaction.canvasClientBounds(canvas, box);
+      return { x: point.left, y: point.top };
+    }
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.left + rect.width * box.left, y: rect.top + rect.height * box.top };
+  }
+
   function draw(instance, localSeconds) {
     // texts[] のみ（model 無し）のシーンでも描く必要があるため、readiness は instance.model の
     // 有無ではなく contentReady（model 読み込み + 全 texts sync() 完了）で判定する
@@ -2166,7 +2500,10 @@ window.akari.threeRuntime = (() => {
     rendererSize(instance, instance.maxRenderSize);
     applyProjectionKnobs(instance);
     applyFinish(instance);
+    const poseStyle = instance.poseGroup ? getComputedStyle(instance.canvas) : null;
+    if (poseStyle) applyClipKnob(instance, poseStyle);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
+    if (poseStyle) applyPoseKnobs(instance, poseStyle);
     if (instance.textAnimEntries.length > 0) updateTextVisibility(instance, localSeconds);
     if (instance.textAnimEntries.length > 0) updateTextAnimations(instance, localSeconds);
     if (instance.physicsBuffer) updatePhysicsChars(instance, localSeconds);
@@ -2188,8 +2525,21 @@ window.akari.threeRuntime = (() => {
         texture.needsUpdate = true;
       }
     }
-    instance.renderer.render(instance.scene, instance.camera);
-    canvasContentBoxes.set(instance.canvas, projectContentBounds(instance.scene, instance.camera));
+    const poseCameraSynced = syncPoseCamera(instance);
+    if (poseCameraSynced) {
+      // 行列は syncPoseCamera が更新済み。renderer の自動更新で補正が消えないよう止めて描く
+      const autoUpdate = instance.scene.matrixWorldAutoUpdate;
+      instance.scene.matrixWorldAutoUpdate = false;
+      try {
+        instance.renderer.render(instance.scene, instance.camera);
+      } finally {
+        instance.scene.matrixWorldAutoUpdate = autoUpdate;
+      }
+    } else {
+      instance.renderer.render(instance.scene, instance.camera);
+    }
+    canvasContentBoxes.set(instance.canvas,
+      projectContentBounds(instance.scene, instance.camera, { matricesReady: poseCameraSynced }));
     // 内容枠申告に伴う描画直後通知。interaction 不在の書き出しではコピーしない。
     window.akari.interaction?.captureCanvasContent?.(instance.canvas);
   }
@@ -2255,6 +2605,7 @@ window.akari.threeRuntime = (() => {
     releaseVideoTextures(instance);
     instance.model = null;
     instance.mixer = null;
+    instance.poseGroup = null;
     instance.scene.environment = null;
     instance.scene.fog = null;
     instance.scene.background = null;
@@ -2545,6 +2896,12 @@ window.akari.threeRuntime = (() => {
       premountPromise: null,
       // 標準ツマミ 3 種の直近適用値（memo）。null は「まだ一度も適用していない」の意
       projection: { panX: null, panY: null, zoom: null, width: null, height: null },
+      // 標準ツマミ --akari-3d-rot-x/y/z・--akari-3d-clip の状態（loadModel で埋まる）。
+      // clipRaw は直近に適用した --akari-3d-clip の生値（"" = 断片の animationClip のまま）
+      poseGroup: null,
+      animations: [],
+      pose: { rotX: 0, rotY: 0, rotZ: 0, clipRaw: "", clip: null, cameraQuaternion: null,
+        rest: [], anchors: [], cameraInTree: false, warned: new Set() },
       renderer,
       scene,
       shadows,
@@ -2580,13 +2937,21 @@ window.akari.threeRuntime = (() => {
         if (instance.model === gltf.scene) instance.model = null;
         return;
       }
-      instance.scene.add(gltf.scene);
+      // 標準ツマミ --akari-3d-rot-x/y/z はこの Group に掛ける（mixer は従来どおり gltf.scene。
+      // クリップが root を動かしても回転と干渉しない）。回転 0 なら単位行列で従来と同じ絵
+      instance.poseGroup = new THREE.Group();
+      instance.poseGroup.name = "AkariPose";
+      instance.poseGroup.add(gltf.scene);
+      instance.scene.add(instance.poseGroup);
       adoptModelCamera(instance, gltf);
+      instance.animations = Array.isArray(gltf.animations) ? gltf.animations : [];
+      capturePoseRest(THREE, instance);
       if (descriptor.animationClip !== undefined) {
         const clips = selectAnimationClips(gltf.animations, descriptor.animationClip);
         instance.mixer = new THREE.AnimationMixer(gltf.scene);
         for (const clip of clips) instance.mixer.clipAction(clip).play();
         instance.animationClips = clips.length;
+        instance.pose.clip = descriptor.animationClip;
       }
       if (instance.shadows.enabled && instance.model) wireShadows(THREE, instance, instance.shadows);
     }
@@ -2606,10 +2971,14 @@ window.akari.threeRuntime = (() => {
     }).catch((error) => {
       if (instances.get(container) !== instance || !instance.active) return;
       if (instance.model) {
-        instance.scene.remove(instance.model);
+        instance.model.removeFromParent();
         disposeObject(instance.model);
         instance.model = null;
         instance.mixer = null;
+      }
+      if (instance.poseGroup) {
+        instance.scene.remove(instance.poseGroup);
+        instance.poseGroup = null;
       }
       instance.scene.remove(instance.textsGroup);
       disposeObject(instance.textsGroup);
@@ -2765,6 +3134,15 @@ window.akari.threeRuntime = (() => {
     draw(instance, instance.lastTime);
   }
 
+  // 直近の時刻で即座に描き直す（プレビューの 3D gizmo のライブ表示用。停止中でも次の tick を待たない）。
+  // 契約 §2.1。未マウント・読み込み中なら何もしない
+  function renderNow(container) {
+    const instance = instances.get(container);
+    if (!instance) return false;
+    draw(instance, instance.lastTime);
+    return instance.contentReady === true;
+  }
+
   function inspect(container) {
     const instance = instances.get(container);
     if (!instance) return { status: failedContainers.has(container) ? "error" : "disposed" };
@@ -2777,6 +3155,12 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // 標準ツマミ --akari-3d-rot-x/y/z・--akari-3d-clip の直近の適用値（検証・証跡用。契約 §2.1）
+      pose: { rotX: instance.pose.rotX, rotY: instance.pose.rotY, rotZ: instance.pose.rotZ,
+        clip: instance.pose.clip, clipKnob: instance.pose.clipRaw, cameraInTree: instance.pose.cameraInTree,
+        quaternion: instance.poseGroup ? instance.poseGroup.quaternion.toArray() : null,
+        position: instance.poseGroup ? instance.poseGroup.position.toArray() : null,
+        cameraMatrixWorld: instance.camera.matrixWorld.toArray() },
       // glTF physical factors after loading (diagnostics only; never infer screen materials).
       materials: (() => {
         const rows = new Map();
@@ -2912,10 +3296,12 @@ window.akari.threeRuntime = (() => {
     canvasFor: resolveSceneCanvas,
     invalidateAssets,
     contentBounds,
+    posePivotClient,
     projectContentBounds,
     dispose,
     inspect,
     render,
+    renderNow,
     prepare,
     configurePremount,
     premountTick,

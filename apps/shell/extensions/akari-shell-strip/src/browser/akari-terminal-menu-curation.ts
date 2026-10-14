@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommonMenus, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Disposable, MenuModelRegistry } from '@theia/core/lib/common';
@@ -26,7 +27,7 @@ export class AkariTerminalMenuCuration implements FrontendApplicationContributio
             if (!this.terminalMenuItem) {
                 this.terminalMenuItem = this.menus.registerMenuAction(CommonMenus.FILE_NEW, {
                     commandId: TerminalCommands.NEW.id,
-                    label: '新しいターミナル',
+                    label: t('shell.terminal.menu.newTerminalLabel'),
                     order: 'z_terminal'
                 });
                 console.info('[akari-shell-strip] developer terminal menu item shown:', TerminalCommands.NEW.id);

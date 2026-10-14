@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { LegacyEditVersionError, readInternalEdit } from '@akari-video/edit-store';
 
 export type ReviewSessionEditChangeKind = 'added' | 'removed' | 'moved' | 'resized' | 'trimmed';
@@ -41,7 +42,7 @@ export function diffReviewSessionEdit(
     currentText: string | null | undefined
 ): ReviewSessionEditDiff {
     if (!snapshotText?.trim() || !currentText?.trim()) {
-        return { status: 'unreadable', reason: '比較する edit.json を読み取れません。' };
+        return { status: 'unreadable', reason: t('annotations.reviewSessionDiff.text.unableToReadEditJsonToCompare') };
     }
     let snapshot: ReturnType<typeof readInternalEdit>;
     try {
@@ -50,38 +51,38 @@ export function diffReviewSessionEdit(
         if (error instanceof LegacyEditVersionError) {
             return { status: 'legacy-snapshot', version: error.version ?? rawVersion(snapshotText) };
         }
-        return { status: 'unreadable', reason: '録音時点の edit.snapshot.json を読み取れません。' };
+        return { status: 'unreadable', reason: t('annotations.reviewSessionDiff.text.unableToReadEditSnapshotJsonAt') };
     }
     let current: ReturnType<typeof readInternalEdit>;
     try {
         current = readInternalEdit(currentText);
     } catch {
-        return { status: 'unreadable', reason: '現在の edit.json を読み取れません。' };
+        return { status: 'unreadable', reason: t('annotations.reviewSessionDiff.text.unableToReadCurrentEditJson') };
     }
     const before = flatten(snapshot);
     const after = flatten(current);
     const changes: ReviewSessionEditChange[] = [];
     for (const [itemId, item] of after) {
         if (!before.has(itemId)) {
-            changes.push({ itemId, kind: 'added', detail: `追加（位置 ${seconds(item.at)}・尺 ${seconds(item.duration)}）` });
+            changes.push({ itemId, kind: 'added', detail: t('annotations.reviewSessionDiff.text.addPositionLength', { position: seconds(item.at), duration: seconds(item.duration) }) });
         }
     }
     for (const [itemId, item] of before) {
         const next = after.get(itemId);
         if (!next) {
-            changes.push({ itemId, kind: 'removed', detail: `削除（位置 ${seconds(item.at)}・尺 ${seconds(item.duration)}）` });
+            changes.push({ itemId, kind: 'removed', detail: t('annotations.reviewSessionDiff.text.deletePositionLength', { position: seconds(item.at), duration: seconds(item.duration) }) });
             continue;
         }
         if (changed(item.at, next.at)) {
-            changes.push({ itemId, kind: 'moved', detail: `位置 ${seconds(item.at)} → ${seconds(next.at)}` });
+            changes.push({ itemId, kind: 'moved', detail: t('annotations.reviewSessionDiff.text.position', { from: seconds(item.at), to: seconds(next.at) }) });
         }
         if (changed(item.duration, next.duration)) {
-            changes.push({ itemId, kind: 'resized', detail: `尺 ${seconds(item.duration)} → ${seconds(next.duration)}` });
+            changes.push({ itemId, kind: 'resized', detail: t('annotations.reviewSessionDiff.text.shaku', { before: seconds(item.duration), after: seconds(next.duration) }) });
         }
         if (item.source.kind === 'media' && next.source.kind === 'media'
             && (changed(item.source.in, next.source.in) || changed(item.source.out, next.source.out))) {
             changes.push({ itemId, kind: 'trimmed',
-                detail: `素材区間 ${item.source.in.toFixed(2)}–${seconds(item.source.out)} → `
+                detail: t('annotations.reviewSessionDiff.text.materialSection', { startTime: item.source.in.toFixed(2), endTime: seconds(item.source.out) })
                     + `${next.source.in.toFixed(2)}–${seconds(next.source.out)}` });
         }
     }

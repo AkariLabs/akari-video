@@ -20,10 +20,11 @@ import {
 } from './store-device-connect.mjs';
 import { readOwnVersion } from './update-check.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
+import { cliText } from './i18n.mjs';
 const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
 const creatorRoot = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
 function resolveAssetLibraryRoots(env) {
-  if (!creatorRoot) throw new Error('creator-root が見つからないため素材の置き場を解決できません。AKARI Video を再インストールしてください。');
+  if (!creatorRoot) throw new Error(cliText('cli.store.error.creatorRootMissing'));
   return creatorRoot.resolveAssetLibraryRoots(env);
 }
 import {
@@ -109,14 +110,14 @@ function pathWithin(root, ...parts) {
   const absoluteRoot = path.resolve(root);
   const candidate = path.resolve(absoluteRoot, ...parts);
   if (candidate !== absoluteRoot && !candidate.startsWith(`${absoluteRoot}${path.sep}`)) {
-    throw new Error(`PACK.json の path がパック外を指しています: ${parts.join('/')}`);
+    throw new Error(cliText('cli.store.pack.error.pathOutside', { path: parts.join('/') }));
   }
   return candidate;
 }
 
 function flattenPackContents(pack, packRoot) {
   if (!Array.isArray(pack?.contents)) {
-    throw new Error('PACK.json に contents[] がありません');
+    throw new Error(cliText('cli.store.pack.error.contentsMissing'));
   }
 
   const items = [];
@@ -125,24 +126,24 @@ function flattenPackContents(pack, packRoot) {
       ? entry.assets.map((asset) => ({ asset, parentTitle: entry.title }))
       : [{ asset: entry, parentTitle: null }];
     if (candidates.length === 0) {
-      throw new Error('PACK.json の contents[] に空の assets[] があります');
+      throw new Error(cliText('cli.store.pack.error.assetsEmpty'));
     }
 
     for (const { asset, parentTitle } of candidates) {
       if (!asset || !isSafePathSegment(asset.id)
         || typeof asset.path !== 'string' || !asset.path) {
-        throw new Error('PACK.json の contents[] に不正な id / path があります');
+        throw new Error(cliText('cli.store.pack.error.invalidAsset'));
       }
       const assetRoot = pathWithin(packRoot, asset.path);
       const meta = readAssetMeta(assetRoot);
       if (!Array.isArray(asset.files) || asset.files.length === 0) {
-        throw new Error(`PACK.json の item に files[] がありません: ${asset.id}`);
+        throw new Error(cliText('cli.store.pack.error.filesMissing', { id: asset.id }));
       }
       const files = asset.files.map((file) => {
         if (!file || typeof file.path !== 'string' || !file.path
           || !Number.isInteger(file.bytes) || file.bytes < 0
           || typeof file.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(file.sha256)) {
-          throw new Error(`PACK.json の files[] が不正です: ${asset.id}`);
+          throw new Error(cliText('cli.store.pack.error.invalidFiles', { id: asset.id }));
         }
         pathWithin(assetRoot, file.path);
         return {
@@ -153,7 +154,7 @@ function flattenPackContents(pack, packRoot) {
       });
       const version = asset.version ?? pack.version;
       if (version === undefined || version === null) {
-        throw new Error(`PACK.json の item に version がありません: ${asset.id}`);
+        throw new Error(cliText('cli.store.pack.error.itemVersionMissing', { id: asset.id }));
       }
       items.push({
         id: asset.id,
@@ -176,7 +177,7 @@ function registerInstalledPack(env, productId, packPath) {
   const packRoot = path.dirname(packPath);
   const pack = readJsonFile(packPath);
   if ((typeof pack?.version !== 'string' && typeof pack?.version !== 'number')) {
-    throw new Error('PACK.json に version がありません');
+    throw new Error(cliText('cli.store.pack.error.versionMissing'));
   }
   let index = { schema: INSTALLED_ASSETS_SCHEMA, packs: {} };
 
@@ -184,7 +185,7 @@ function registerInstalledPack(env, productId, packPath) {
     index = readJsonFile(indexPath);
     if (index?.schema !== INSTALLED_ASSETS_SCHEMA
       || !index.packs || typeof index.packs !== 'object' || Array.isArray(index.packs)) {
-      throw new Error(`導入済み素材索引の形式が想定と違います: ${indexPath}`);
+      throw new Error(cliText('cli.store.pack.error.indexInvalid', { path: indexPath }));
     }
   }
 
@@ -277,13 +278,13 @@ export async function runStoreCommand(args, options = {}) {
       return { exitCode: 1 };
     }
 
-    log('ブラウザで AKARI Video Lab を開いて、AKARI アカウントの接続を承認してください。');
-    log(`  確認コード: ${start.userCode}`);
+    log(cliText('cli.store.connect.openBrowser'));
+    log(cliText('cli.store.connect.code', { code: start.userCode }));
     log(`  URL: ${start.verificationUrl}`);
     if (!args.includes('--no-open')) {
       openBrowser(start.verificationUrl);
     }
-    log('承認を待っています…（Ctrl+C で中止）');
+    log(cliText('cli.store.connect.waiting'));
 
     while (Date.now() < start.expiresAt) {
       await sleep(start.intervalMs);
@@ -298,33 +299,33 @@ export async function runStoreCommand(args, options = {}) {
         continue;
       }
       if (claim.status === 'expired') {
-        log('コードの有効期限が切れました。もう一度 `akari store connect` を実行してください。');
+        log(cliText('cli.store.connect.expired'));
         return { exitCode: 1 };
       }
       return { exitCode: claim.status === 'approved' ? 0 : 1 };
     }
-    log('承認の待機がタイムアウトしました。もう一度 `akari store connect` を実行してください。');
+    log(cliText('cli.store.connect.timeout'));
     return { exitCode: 1 };
   }
 
   if (sub === 'status') {
     const creds = readCredentials(env);
     if (!creds) {
-      log('未接続です。`akari store connect` で接続してください。');
+      log(cliText('cli.store.status.disconnectedGuide'));
       return { exitCode: 1 };
     }
     const { data, error } = await fetchStoreEntitlements(fetchImpl, creds.url, creds.token);
     if (error) {
-      log(`接続情報はありますが確認に失敗しました: ${error}`);
+      log(cliText('cli.store.status.checkFailed', { message: error }));
       return { exitCode: 1 };
     }
-    log(`接続中: ${data.email}（${creds.url}）`);
+    log(cliText('cli.store.status.connected', { email: data.email, url: creds.url }));
     formatStoreEntitlements(data, log);
     const kits = readKitsLedger(resolveAkariHome(env)).kits;
     if (kits.length > 0) {
-      log('拡張キット:');
+      log(cliText('cli.store.status.kits'));
       for (const kit of kits) {
-        log(`  ${kit.id} v${kit.version} / スキル: ${(kit.skills ?? []).join(', ') || 'なし'} / 素材: ${(kit.assets ?? []).length} 件`);
+        log(cliText('cli.store.status.kitRow', { id: kit.id, version: kit.version, skills: (kit.skills ?? []).join(', ') || cliText('cli.store.status.none'), count: (kit.assets ?? []).length, n: (kit.assets ?? []).length }));
       }
     }
     return { exitCode: 0 };
@@ -333,26 +334,26 @@ export async function runStoreCommand(args, options = {}) {
   if (sub === 'uninstall') {
     const productId = args[1];
     if (!isSafePathSegment(productId) || productId.startsWith('--')) {
-      log('使い方: akari store uninstall <productId>');
+      log(cliText('cli.store.help.uninstallUsage'));
       return { exitCode: 1 };
     }
     if (!removeKit(resolveAkariHome(env), productId, env)) {
-      log(`導入済みの拡張キットが見つかりません: ${productId}`);
+      log(cliText('cli.store.uninstall.notFound', { id: productId }));
       return { exitCode: 1 };
     }
-    log(`拡張キットを無効化しました: ${productId}（展開済みファイルは残しています）`);
+    log(cliText('cli.store.uninstall.complete', { id: productId }));
     return { exitCode: 0 };
   }
 
   if (sub === 'download') {
     const productId = args[1];
     if (!productId || productId.startsWith('--')) {
-      log('使い方: akari store download <productId> [--dest <dir>]');
+      log(cliText('cli.store.help.downloadUsage'));
       return { exitCode: 1 };
     }
     const creds = readCredentials(env);
     if (!creds) {
-      log('未接続です。`akari store connect` で接続してください。');
+      log(cliText('cli.store.status.disconnectedGuide'));
       return { exitCode: 1 };
     }
     let res;
@@ -361,11 +362,11 @@ export async function runStoreCommand(args, options = {}) {
         headers: { authorization: `Bearer ${creds.token}` }
       });
     } catch (error) {
-      log(`ダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+      log(cliText('cli.store.download.failed', { message: error instanceof Error ? error.message : String(error) }));
       return { exitCode: 1 };
     }
     if (res.status === 403) {
-      log(`この商品の購入が確認できません: ${productId}`);
+      log(cliText('cli.store.download.notPurchased', { id: productId }));
       return { exitCode: 1 };
     }
     if (!res.ok) {
@@ -376,21 +377,21 @@ export async function runStoreCommand(args, options = {}) {
           const componentList = bundle.components.length > 0
             ? `: ${bundle.components.join(', ')}`
             : '';
-          log(`セット商品は構成商品を個別に download してください${componentList}`);
+          log(cliText('cli.store.download.bundleGuide', { components: componentList }));
           return { exitCode: 1 };
         }
       }
       if (res.status === 404 && data?.error === 'unknown_product') {
-        log(`${typeof data.message === 'string' ? data.message : '商品が見つかりません'}（${productId}）`);
+        log(cliText('cli.store.download.productMessage', { message: typeof data.message === 'string' ? data.message : cliText('cli.store.download.productMissing'), id: productId }));
         return { exitCode: 1 };
       }
       if (res.status === 404 && data?.error === 'artifact_missing') {
         log(typeof data.message === 'string'
           ? data.message
-          : '配布物が未入稿です。サポートへご連絡ください');
+          : cliText('cli.store.download.notPublished'));
         return { exitCode: 1 };
       }
-      log(`ダウンロードに失敗しました（${res.status}）`);
+      log(cliText('cli.store.download.httpFailed', { status: res.status }));
       return { exitCode: 1 };
     }
     const destDir = parseFlag(args, '--dest') ?? process.cwd();
@@ -399,20 +400,20 @@ export async function runStoreCommand(args, options = {}) {
     const fileName = nameMatch ? nameMatch[1] : `${productId}.zip`;
     const filePath = path.join(destDir, fileName);
     writeFileSync(filePath, Buffer.from(await res.arrayBuffer()));
-    log(`保存しました: ${filePath}`);
+    log(cliText('cli.store.download.saved', { path: filePath }));
     return { exitCode: 0, filePath };
   }
 
   if (sub === 'install') {
     const productId = args[1];
     if (!isSafePathSegment(productId) || productId.startsWith('--')) {
-      log('使い方: akari store install <productId> [--from <zip>]');
+      log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
     }
     const hasFrom = args.includes('--from');
     const fromZip = parseFlag(args, '--from');
     if (hasFrom && !fromZip) {
-      log('使い方: akari store install <productId> [--from <zip>]');
+      log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
     }
     const stage = mkdtempSync(path.join(tmpdir(), 'akari-store-install-'));
@@ -420,7 +421,7 @@ export async function runStoreCommand(args, options = {}) {
       const dl = fromZip
         ? { exitCode: existsSync(fromZip) ? 0 : 1, filePath: path.resolve(fromZip) }
         : await runStoreCommand(['download', productId, '--dest', stage], options);
-      if (fromZip && dl.exitCode !== 0) log(`zip が見つかりません: ${fromZip}`);
+      if (fromZip && dl.exitCode !== 0) log(cliText('cli.store.install.zipMissing', { path: fromZip }));
       if (dl.exitCode !== 0) return { exitCode: 1 };
       const extractDir = path.join(stage, 'x');
       mkdirSync(extractDir, { recursive: true });
@@ -438,7 +439,7 @@ export async function runStoreCommand(args, options = {}) {
             } catch (error) { log(error.message); return false; }
           })();
       if (!extracted) {
-        log(`zip の展開に失敗しました。手動で展開してください: ${dl.filePath}`);
+        log(cliText('cli.store.install.extractFailed', { path: dl.filePath }));
         return { exitCode: 1 };
       }
 
@@ -446,7 +447,7 @@ export async function runStoreCommand(args, options = {}) {
         // パック同梱 README の導入手順どおり「declarations.json を 1 個置くだけ」
         const found = findFile(extractDir, 'declarations.json');
         if (!found) {
-          log('パック内に declarations.json が見つかりませんでした。zip の中身を確認してください。');
+          log(cliText('cli.store.install.declarationsMissing'));
           return { exitCode: 1 };
         }
         const destDir = path.join(resolveAssetLibraryRoots(env).write, 'audio');
@@ -455,11 +456,11 @@ export async function runStoreCommand(args, options = {}) {
         if (existsSync(dest)) {
           const backup = `${dest}.bak-${Date.now()}`;
           copyFileSync(dest, backup);
-          log(`既存の declarations.json を退避しました: ${backup}`);
+          log(cliText('cli.store.install.declarationsBackedUp', { path: backup }));
         }
         copyFileSync(found, dest);
-        log(`導入しました: ${dest}`);
-        log('AKARI Video の BGM 自動提案（suggest-bgm）が収録曲を実測 BPM・サビ頭出し付きで優先提案します。');
+        log(cliText('cli.store.install.complete', { path: dest }));
+        log(cliText('cli.store.install.bgmSuggestion'));
         return { exitCode: 0 };
       }
 
@@ -468,8 +469,8 @@ export async function runStoreCommand(args, options = {}) {
       rmSync(destDir, { recursive: true, force: true });
       cpSync(extractDir, destDir, { recursive: true });
       const readme = findFile(destDir, 'README.md');
-      log(`展開しました: ${destDir}`);
-      if (readme) log(`導入手順: ${readme}`);
+      log(cliText('cli.store.install.extracted', { path: destDir }));
+      if (readme) log(cliText('cli.store.install.instructions', { path: readme }));
       // 深い階層の無関係な manifest.json をキットと誤認すると、従来成功していた素材商品の
       // install を壊す。キットの規定位置は展開ルート、または zip が単一トップディレクトリを
       // 持つ場合のその直下だけとし、JSON として読めても kind !== kit なら完全に素通りする。
@@ -486,7 +487,7 @@ export async function runStoreCommand(args, options = {}) {
         try {
           manifest = readKitManifest(path.dirname(manifestPath));
         } catch {
-          log('キットの検査に失敗しました。展開済みファイルを確認してください。');
+          log(cliText('cli.store.install.kitValidationFailed'));
           return { exitCode: 1 };
         }
       }
@@ -502,13 +503,13 @@ export async function runStoreCommand(args, options = {}) {
           if (launcherAssets.skillsSourceDir) validateArgs.push('--public-skills', launcherAssets.skillsSourceDir);
           const validation = (options.spawnSync ?? spawnSync)(process.execPath, validateArgs, { stdio: 'pipe' });
           if (validation.status !== 0) {
-            log('キットの検査に失敗しました。展開済みファイルを確認してください。');
+            log(cliText('cli.store.install.kitValidationFailed'));
             return { exitCode: 1 };
           }
         } else {
           // npm 配布物には schemas の検査 bin が無い場合がある。runtime と同じく、
           // 器の欠落で購入済みコンテンツを利用不能にしないため warning へ degrade する。
-          log('キットの検査ツールが見つからないため検査をスキップしました');
+          log(cliText('cli.store.install.kitValidatorMissing'));
         }
         const requirementWarnings = [];
         let runtimeIds;
@@ -524,7 +525,7 @@ export async function runStoreCommand(args, options = {}) {
         if (!runtimeIds) {
           // 通常の launcher 配布には overlay-runtime が入る。旧配布物や破損した
           // 配置で照合不能なら warning に落とし、要求 id を既知扱いして続行する。
-          requirementWarnings.push('runtime registry が見つからないため runtime id の照合をスキップしました。');
+          requirementWarnings.push(cliText('cli.store.install.runtimeRegistryMissing'));
           runtimeIds = manifest.requires?.runtimes ?? [];
         }
         let entitledProductIds = [];
@@ -540,11 +541,11 @@ export async function runStoreCommand(args, options = {}) {
           runtimeIds,
           entitledProductIds
         });
-        if (manifest.id !== productId) requires.blockers.push(`manifest id が商品 id と一致しません: ${manifest.id} != ${productId}`);
+        if (manifest.id !== productId) requires.blockers.push(cliText('cli.store.install.manifestMismatch', { manifestId: manifest.id, productId }));
         requires.ok = requires.blockers.length === 0;
-        for (const warning of [...requirementWarnings, ...requires.warnings]) log(`警告: ${warning}`);
+        for (const warning of [...requirementWarnings, ...requires.warnings]) log(cliText('cli.store.install.warning', { warning }));
         if (!requires.ok) {
-          for (const blocker of requires.blockers) log(`導入できません: ${blocker}`);
+          for (const blocker of requires.blockers) log(cliText('cli.store.install.blocked', { blocker }));
           return { exitCode: 1 };
         }
 
@@ -556,9 +557,9 @@ export async function runStoreCommand(args, options = {}) {
           platform: options.platform
         });
         const skillLinks = linkKitSkills(kitDir, manifest, home, { platform: options.platform });
-        for (const warning of [...assetLinks.warnings, ...skillLinks.warnings]) log(`警告: ${warning}`);
+        for (const warning of [...assetLinks.warnings, ...skillLinks.warnings]) log(cliText('cli.store.install.warning', { warning }));
         if (skillLinks.blockers.length > 0) {
-          for (const blocker of skillLinks.blockers) log(`導入できません: ${blocker}`);
+          for (const blocker of skillLinks.blockers) log(cliText('cli.store.install.blocked', { blocker }));
           return { exitCode: 1 };
         }
         registerKitAssets(home, manifest, kitDir, assetLinks.items, env);
@@ -576,8 +577,8 @@ export async function runStoreCommand(args, options = {}) {
       const packPath = findFile(destDir, 'PACK.json');
       if (packPath) {
         const items = registerInstalledPack(env, productId, packPath);
-        log(`akari assets list に ${items.length} 件を登録しました`);
-        if (items[0]) log(`次の一手: akari assets fetch ${items[0].id}`);
+        log(cliText('cli.store.install.assetsRegistered', { count: items.length, n: items.length }));
+        if (items[0]) log(cliText('cli.store.install.nextStep', { id: items[0].id }));
       }
       return { exitCode: 0 };
     } finally {
@@ -587,19 +588,15 @@ export async function runStoreCommand(args, options = {}) {
 
   if (sub === 'disconnect') {
     if (removeCredentials(env)) {
-      log('接続を解除しました（マイページ側のトークン失効もおすすめします）。');
+      log(cliText('cli.store.disconnect.complete'));
     } else {
-      log('未接続です。');
+      log(cliText('cli.store.disconnect.notConnected'));
     }
     return { exitCode: 0 };
   }
 
-  log('使い方: akari store <connect|status|install|uninstall|download|disconnect>');
-  log('  connect                              ブラウザで承認して接続（既定。--token akst_... で手動 / --no-open でブラウザを開かない / --url <base>）');
-  log('  status                               接続状態と購入済み一覧');
-  log('  install <productId> [--from <zip>]   購入済み商品の導入（--from は手元 zip / PACK.json 素材を installed 索引へ登録）');
-  log('  uninstall <productId>                拡張キットの symlink と台帳登録を解除（展開済みファイルは保持）');
-  log('  download <productId> [--dest <dir>]  購入済み配布物の取得のみ');
-  log('  disconnect                           接続解除');
+  for (const name of ['usage', 'connect', 'status', 'install', 'uninstall', 'download', 'disconnect']) {
+    log(cliText(`cli.store.help.${name}`));
+  }
   return { exitCode: sub ? 1 : 0 };
 }

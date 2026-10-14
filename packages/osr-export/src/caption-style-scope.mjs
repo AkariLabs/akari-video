@@ -99,7 +99,14 @@ function scopeCaptionStyle(html, captionIndex) {
 // 直前で限定する。style は各 caption root の直下なので、この範囲だけを置換できる。
 export function scopeCaptionStylesInSheet(sheetHtml) {
   if (typeof sheetHtml !== "string") return sheetHtml;
+  const shared = new Set();
+  const localSheet = sheetHtml.replace(/\/\*akari-run-rules:start\*\/([\s\S]*?)\/\*akari-run-rules:end\*\//gu,
+    (_whole, css) => { shared.add(css); return ""; });
   let index = 0;
-  return sheetHtml.replace(/<div class="akari-caption[^"\n]*">\s*<style>[\s\S]*?<\/style>/gu,
+  const scoped = localSheet.replace(/<div class="akari-caption[^"\n]*">\s*<style>[\s\S]*?<\/style>/gu,
     (fragment) => scopeCaptionStyle(fragment, String(index++)));
+  if (!shared.size) return scoped;
+  const sharedStyle = `<style>${[...shared].join('')}</style>`;
+  return scoped.includes('</head>') ? scoped.replace('</head>', `${sharedStyle}</head>`)
+    : `${sharedStyle}${scoped}`;
 }

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * electron-updater（U3・main プロセス。内部リポ契約 update-and-versioning §11）の
  * イベントから、ホームバナーの「DL 済み・再起動で適用されます」状態を導く純粋関数群。
@@ -207,7 +208,7 @@ export function reconcileVisibleUpdateEvent(
     offeredVersion: string | undefined
 ): ShellUpdaterEvent {
     if (event.kind === 'update-not-available' && state.checkRequestedByUser && offeredVersion) {
-        return { kind: 'error', reason: `通知に表示した v${offeredVersion} をアプリ内更新で見つけられませんでした` };
+        return { kind: 'error', reason: t('surfaces.updates.appUpdateFindVShownNotification.label', { offeredVersion: offeredVersion }) };
     }
     return event;
 }
@@ -248,13 +249,13 @@ export function formatUpdaterFallbackText(state: ShellUpdaterUiState): string {
     if (!state.fallbackReason) {
         return '';
     }
-    return 'ダウンロードページを開きます';
+    return t('surfaces.updates.openDownloadPage.label');
 }
 
-const APP_TRANSLOCATION_REASON = 'アプリを Applications フォルダへ移動してから再起動してください';
-const OFFLINE_UPDATE_REASON = 'オフラインのため更新を確認できませんでした';
-const UPDATE_DESTINATION_UNREACHABLE_REASON = '配信先に接続できませんでした。時間をおいてお試しください';
-const UPDATE_CHECK_FAILED_REASON = '更新を確認できませんでした。時間をおいてもう一度お試しください';
+const APP_TRANSLOCATION_REASON = t('surfaces.updates.moveAppApplicationsFolderRestart.label');
+const OFFLINE_UPDATE_REASON = t('surfaces.updates.unableCheckUpdatesBecauseOffline.label');
+const UPDATE_DESTINATION_UNREACHABLE_REASON = t('surfaces.updates.reachUpdateServerTryAgainLater.label');
+const UPDATE_CHECK_FAILED_REASON = t('surfaces.updates.checkUpdatesTryAgainLater.label');
 
 /** macOS App Translocation の実行パスを、OS API に依存せず判定する純粋関数。 */
 export function isAppTranslocationPath(executablePath: string | null | undefined): boolean {
@@ -285,7 +286,7 @@ export function resolveShellUpdaterErrorReason(
 
 function normalizeUpdaterReason(reason: string | null | undefined): string {
     const normalized = typeof reason === 'string' ? reason.replace(/\s+/g, ' ').trim() : '';
-    return normalized || '原因を確認できませんでした';
+    return normalized || t('surfaces.updates.normalizeUpdaterReasonConfirmCause.label');
 }
 
 /**
@@ -307,7 +308,7 @@ export function formatDownloadedBannerText(state: ShellUpdaterUiState): string {
     if (!state.downloaded || !state.downloadedVersion) {
         return '';
     }
-    return `AKARI Video v${state.downloadedVersion} をダウンロード済みです。再起動すると適用されます。`;
+    return t('surfaces.updates.akariVideoVHasDownloadedAppliedReboot.message', { downloadedVersion: state.downloadedVersion });
 }
 
 /** 「ダウンロード中」バナー本文。DL 中でなければ空文字（バナー非表示の合図）。 */
@@ -315,5 +316,5 @@ export function formatDownloadingBannerText(state: ShellUpdaterUiState): string 
     if (state.downloaded || !state.downloading || !state.downloadingVersion) {
         return '';
     }
-    return `AKARI Video v${state.downloadingVersion} をダウンロードしています。完了すると再起動ボタンが表示されます。`;
+    return t('surfaces.updates.downloadingAkariVideoVOnceCompletedRestart.message', { downloadingVersion: state.downloadingVersion });
 }

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { InspectorWriteRequest, TimelineAudioSelection } from '../timeline-selection-model';
 import {
     EditV2Document,
@@ -12,9 +13,9 @@ export type AudioClipFxField = AudioClipFxWriteRequest['field'];
 export type AudioClipFxRow = Exclude<AudioClipFxField, 'denoise'> | 'denoise-method' | 'denoise-strength';
 
 export const AUDIO_DENOISE_METHOD_OPTIONS = [
-    { label: 'オフ', method: null, legacyLabel: 'オフ' },
-    { label: 'NLM（声を保つ・おすすめ）', method: 'nlm', legacyLabel: 'NLM' },
-    { label: 'FFT（軽い・速い）', method: 'fft', legacyLabel: 'FFT' }
+    { label: t('inspector.audioClipFx.label.off'), method: null, legacyLabel: t('inspector.audioClipFx.label.off') },
+    { label: t('inspector.audioClipFx.label.nlmRecommended'), method: 'nlm', legacyLabel: 'NLM' },
+    { label: t('inspector.audioClipFx.label.fftLightFast'), method: 'fft', legacyLabel: 'FFT' }
 ] as const;
 
 export const AUDIO_CLIP_FX_RANGES = {
@@ -30,31 +31,31 @@ export function assertAudioClipFxValue(field: AudioClipFxField | 'strength', val
     if (value === null) return;
     if (field === 'formant') {
         if (value !== 'preserve' && value !== 'shift') {
-            throw new Error('フォルマントは preserve / shift で指定してください。');
+            throw new Error(t('inspector.audioClipFx.error.specifyFormatPreserveShift'));
         }
         return;
     }
     if (field === 'denoise') {
         if (value === 'off') return;
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
-            throw new Error('ノイズ除去は method と strength を対で指定してください。');
+            throw new Error(t('inspector.audioClipFx.error.specifyMethodStrengthAvoidNoise'));
         }
         const denoise = value as Record<string, unknown>;
         if ((denoise.method !== 'fft' && denoise.method !== 'nlm')
             || typeof denoise.strength !== 'number'
             || Object.keys(denoise).some(key => key !== 'method' && key !== 'strength')) {
-            throw new Error('ノイズ除去は method（fft / nlm）と strength を対で指定してください。');
+            throw new Error(t('inspector.audioClipFx.error.noiseReductionRequiresMethodStrength'));
         }
         assertAudioClipFxValue('strength', denoise.strength);
         return;
     }
     const range = AUDIO_CLIP_FX_RANGES[field];
-    const label = field === 'speed' ? '速度' : field === 'pitch_semitones' ? 'ピッチ'
-        : field === 'strength' ? 'ノイズ除去の強さ' : 'ローカット';
+    const label = field === 'speed' ? t('inspector.audioClipFx.label.speed') : field === 'pitch_semitones' ? t('inspector.audioClipFx.label.pitch')
+        : field === 'strength' ? t('inspector.audioClipFx.label.noiseReductionStrength') : t('inspector.audioClipFx.label.lowCut');
     if (typeof value !== 'number' || !Number.isFinite(value) || value > range.max
         || (field === 'speed' ? value <= range.min : value < range.min)) {
-        const bounds = field === 'speed' ? '0.25 より大きく 4 以下' : `${range.min}〜${range.max}`;
-        throw new Error(`${label}は ${bounds} の範囲で入力してください。`);
+        const bounds = field === 'speed' ? t('inspector.audioClipFx.label.speedRange') : `${range.min}〜${range.max}`;
+        throw new Error(t('inspector.audioClipFx.error.shouldBeEnteredRange', { label: label, bounds: bounds }));
     }
 }
 
@@ -65,7 +66,7 @@ export function buildAudioClipFxPatch(
 ): { itemPatch: Record<string, unknown>; legacyPatch: Record<string, unknown> } {
     const sourceField = field === 'speed' || field === 'pitch_semitones' || field === 'formant';
     if (audioKind === 'narration' && sourceField) {
-        throw new Error('ナレーションの速度・ピッチは TTS 側で調整します');
+        throw new Error(t('inspector.audioClipFx.error.narrationSpeedPitchAdjustsTtsSide'));
     }
     assertAudioClipFxValue(field, value);
     const normalized = value === AUDIO_CLIP_FX_RANGES[field].default
@@ -101,7 +102,7 @@ export function createAudioClipFxWriteRequest(
     } else {
         field = row;
         value = input === null ? null : row === 'formant'
-            ? input === '保持' ? 'preserve' : input === '移動' ? 'shift' : String(input)
+            ? input === t('inspector.audioClipFx.label.hold') ? 'preserve' : input === t('inspector.audioClipFx.action.move') ? 'shift' : String(input)
             : Number(input);
     }
     buildAudioClipFxPatch(snapshot.audioKind, field, value);
@@ -136,11 +137,11 @@ export function updateAudioClipFxDocument(doc: EditV2Document, request: AudioCli
     const itemId = Array.isArray(doc.tracks) ? findAudioItemIdByRole(doc, 'bgm') : undefined;
     if (itemId !== undefined) return updateV2Item(doc, { itemId, patch: itemPatch });
     if (!doc.audio || typeof doc.audio !== 'object' || Array.isArray(doc.audio)) {
-        throw new Error('edit.json.audio.bgm が見つかりません。');
+        throw new Error(t('inspector.audioClipFx.error.bgmNotFound'));
     }
     const audio = doc.audio as Record<string, unknown>;
     if (!audio.bgm || typeof audio.bgm !== 'object' || Array.isArray(audio.bgm)) {
-        throw new Error('edit.json.audio.bgm が見つかりません。');
+        throw new Error(t('inspector.audioClipFx.error.bgmNotFound'));
     }
     const bgm = { ...audio.bgm as Record<string, unknown> };
     for (const [key, next] of Object.entries(legacyPatch)) {

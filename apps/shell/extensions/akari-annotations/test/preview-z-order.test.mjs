@@ -1,9 +1,19 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { matchesPreviewZOrderSelection, planAdjacentVisualTrackMove, planZOrderMove }
   from '../lib/browser/inspector/keyboard-shortcuts.js';
 import { moveTreeV2Item } from '../lib/common/edit-v2-mutations.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const leaf = id => ({ id, at: 10, duration: 20, source: { kind: 'html', path: `${id}.html` } });
 const doc = () => ({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [],
@@ -98,10 +108,13 @@ test('shortcut and preview receiver share the plan, and mismatched selection exi
   const widget = readAllSourceText();
   const receiver = widget.slice(widget.indexOf('    runPreviewZOrderCommand('), widget.indexOf('    protected moveSelectedZOrder('));
   assert.match(receiver, /if \(!matchesPreviewZOrderSelection\(id, selectedIds, this\.multiSelection\.length > 0\)\) return;/u);
-  assert.match(receiver, /this\.moveSelectedZOrder\(id, op, '重なり順を変更'\)/u);
+  assert.match(receiver, /this\.moveSelectedZOrder\(id, op, t\('annotations\.timeline\.text\.changeStackingOrder'\)\)/u);
+  assert.equal(ja['annotations.timeline.text.changeStackingOrder'], '重なり順を変更');
   assert.match(widget, /this\.moveSelectedZOrder\(id, event\.key === '\]' \? 'forward' : 'backward'/u);
   assert.match(widget, /const plan = planZOrderMove\(this\.editDocument, id, op\)/u);
   assert.match(widget, /commitEditMutation\(label, doc =>/u);
-  assert.match(widget, /いちばん前面です/u);
-  assert.match(widget, /いちばん背面です/u);
+  assert.match(widget, /t\('annotations\.timeline\.text\.itSTheVeryFront'\)/u);
+  assert.equal(ja['annotations.timeline.text.itSTheVeryFront'], 'いちばん前面です');
+  assert.match(widget, /t\('annotations\.timeline\.text\.itSAtTheVeryBack'\)/u);
+  assert.equal(ja['annotations.timeline.text.itSAtTheVeryBack'], 'いちばん背面です');
 });

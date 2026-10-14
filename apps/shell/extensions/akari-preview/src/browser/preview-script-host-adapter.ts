@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { audioFadeProgress, computeDuckEnvelope, evaluateEnvelopeDb } from '@akari-video/edit-store';
@@ -30,6 +31,13 @@ import {
 
 export function hostAdapterScript(): string {
         return `(() => {
+            const uiText = JSON.parse(document.getElementById('akari-preview-text')?.textContent || '{}');
+            const t = (key, params = {}) => {
+                const language = document.documentElement.lang === 'ja' ? 'ja' : 'en';
+                const form = typeof params.n === 'number' ? (language === 'ja' ? 'other' : new Intl.PluralRules(language).select(params.n)) : null;
+                const selected = form && uiText[key + '_' + form] !== undefined ? key + '_' + form : key;
+                return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
+            };
             const initial = window.__akariPreview;
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             const buildPreviewContextMenuMessageFn = (${buildPreviewContextMenuMessage.toString()});
@@ -50,8 +58,8 @@ export function hostAdapterScript(): string {
                 }
                 if (systemVolumeDismissed || (state !== 'zero' && state !== 'muted')) return;
                 const message = state === 'zero'
-                    ? 'パソコンの音量が 0 です'
-                    : 'パソコンの音がミュートになっています';
+                    ? t('preview.previewWindow.canvas.computerVolumeZeroLabel')
+                    : t('preview.previewWindow.status.computerAudioMutedLabel');
                 systemVolumeNotice.hidden = false;
                 systemVolumeNoticeText.textContent = message;
                 systemVolumeNoticeText.title = message;
@@ -144,7 +152,7 @@ export function hostAdapterScript(): string {
                 }, 4000);
             }
             function showReloadError(message) {
-                reloadErrorDetail.textContent = String(message || '原因不明のエラーです。');
+                reloadErrorDetail.textContent = String(message || t('preview.outputPreview.errors.unknownErrorOccurredError'));
                 reloadErrorCard.hidden = false;
             }
             function hideReloadError() {
@@ -229,7 +237,7 @@ export function hostAdapterScript(): string {
             window.akari.state = { editPath: initial.editPath, summary: initial.summary, selectionFloor: initial.selectionFloor };
             window.akari.capabilities = { ...(window.akari.capabilities || {}), elementSelection: true };
             window.akari.showWriteError = error => {
-                const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
+                const reason = error instanceof Error ? error.message : String(error || t('preview.previewWindow.status.couldNotSaveError'));
                 writeErrorMessage.textContent = reason;
                 writeErrorBanner.hidden = false;
             };
@@ -1112,10 +1120,10 @@ export function hostAdapterScript(): string {
                 pending.delete(message.requestId);
                 if (!message.ok) {
                     const fallback = request.kind === 'caption-write'
-                        ? 'captions.json の書き込みに失敗しました'
+                        ? t('preview.previewWindow.canvas.couldNotWriteCaptionsJsonError')
                         : request.kind === 'hevc-fallback'
-                            ? '動画の互換変換に失敗しました'
-                            : 'edit.json の書き込みに失敗しました';
+                            ? t('preview.previewWindow.canvas.couldNotConvertVideoCompatibilityError')
+                            : t('preview.previewWindow.status.couldNotWriteEditJsonError');
                     const reason = message.error || fallback;
                     window.akari.showWriteError(reason);
                     request.reject(new Error(reason));
@@ -1684,7 +1692,7 @@ export class MaterialPreviewRangeHost {
             this.saveChain = appendMaterialRangeSave(this.saveChain,
                 () => this.commands.executeCommand('akari.materials.range.set',
                     materialRangeSetArgs(this.projectUri, this.relativePath, range)),
-                () => { void this.messages.error('範囲を保存できませんでした。'); });
+                () => { void this.messages.error(t('preview.previewWindow.status.couldNotSaveRangeError')); });
         }
         await this.saveChain;
         if (this.pendingRange !== undefined) await this.flushSave();
@@ -1700,7 +1708,7 @@ export class MaterialPreviewRangeHost {
             await this.commands.executeCommand('akari.timeline.addMaterialAtPlayhead',
                 materialPlacementArgs(this.relativePath, this.kind, this.durationSeconds, this.range));
         } catch {
-            void this.messages.error('タイムラインに素材を置けませんでした。');
+            void this.messages.error(t('preview.previewWindow.status.couldNotPlaceAssetTimelineError'));
         }
     }
 

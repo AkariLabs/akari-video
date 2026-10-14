@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandService, Disposable, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -22,24 +23,24 @@ interface NextRowsResult {
     clipboardPending?: number;
 }
 
-const sourceLabels: Record<string, string> = { annotation: '注釈', lint: 'リント', proposal: '提案', export: '書き出し' };
+const sourceLabels: Record<string, string> = { annotation: t('vibe.dock.nextTab.annotationsLabel'), lint: t('vibe.dock.nextTab.lintLabel'), proposal: t('vibe.dock.nextTab.suggestionsLabel'), export: t('vibe.dock.nextTab.exportLabel') };
 
 export function nextTargetLabel(target: unknown): string {
     if (typeof target !== 'string' || !target) return '';
-    if (/(?:^|,\s*)(?:cut:\d+|overlay:[^,\s]+)/.test(target)) return '画面';
+    if (/(?:^|,\s*)(?:cut:\d+|overlay:[^,\s]+)/.test(target)) return t('vibe.dock.nextTab.screenLabel');
     const cut = /^ui:timeline:cut:(\d+)$/.exec(target);
     if (cut) return `C${Number(cut[1]) + 1}`;
     return target.startsWith('ui:') ? target.slice(3) : target;
 }
 
 function nextRowTitle(row: NextRow): string {
-    return String(row.title || row.body || '').replace(/\s+/gu, ' ').trim() || '内容なし';
+    return String(row.title || row.body || '').replace(/\s+/gu, ' ').trim() || t('vibe.dock.nextTab.noContentLabel');
 }
 
 @injectable()
 export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplicationContribution {
     readonly id = 'next';
-    readonly label = '次';
+    readonly label = t('vibe.dock.nextTab.nextLabel');
     readonly icon = 'next';
     readonly order = 20;
     @inject(CommandService) protected readonly commands!: CommandService;
@@ -78,14 +79,14 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
     }
 
     protected async perform(action: NextAction, id: string, status?: VibeDockContext['status']): Promise<void> {
-        if (action.confirm && !window.confirm('このタスクをパートナーに頼みますか？')) return;
+        if (action.confirm && !window.confirm(t('vibe.dock.nextTab.askPartnerHandleTaskMessage'))) return;
         const command = action.id === 'send' ? 'send' : action.id;
         const result = await this.commands.executeCommand<{ sent?: string[] }>(`akari.tasks.${command}`,
             action.id === 'send' ? { ids: [id] } : { id });
         await this.load();
         if (action.id === 'send' && !result?.sent?.length) return;
-        this.showStatus(status, action.id === 'send' ? 'タスクを頼みました。'
-            : action.id === 'dismiss' ? 'タスクを無視しました。' : '確認しました。');
+        this.showStatus(status, action.id === 'send' ? t('vibe.dock.nextTab.taskSentPartnerNotice')
+            : action.id === 'dismiss' ? t('vibe.dock.nextTab.taskIgnoredMessage') : t('vibe.dock.nextTab.reviewedMessage'));
     }
 
     render(host: HTMLElement, ctx: VibeDockContext): Disposable {
@@ -122,23 +123,23 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
             const eligible = this.data.rows.filter(row => selected.has(row.id) && row.actions.some(action => action.id === 'send'));
             const batch = document.createElement('button');
             batch.className = 'theia-button secondary small';
-            batch.textContent = 'まとめて頼む';
-            batch.title = '選んだタスクをまとめて頼む';
-            batch.setAttribute('aria-label', '選んだタスクをまとめて頼む');
+            batch.textContent = t('vibe.dock.nextTab.askAllText');
+            batch.title = t('vibe.dock.nextTab.askPartnerHandleSelectedTasksTooltip');
+            batch.setAttribute('aria-label', t('vibe.dock.nextTab.askPartnerHandleSelectedTasksAriaLabel'));
             batch.addEventListener('click', () => {
                 const ids = eligible.map(row => row.id);
                 if (eligible.some(row => row.actions.find(action => action.id === 'send')?.confirm)
-                    && !window.confirm('選んだタスクをパートナーに頼みますか？')) return;
+                    && !window.confirm(t('vibe.dock.nextTab.askPartnerHandleSelectedTasksMessage'))) return;
                 void this.commands.executeCommand<{ sent?: string[] }>('akari.tasks.send', { ids }).then(async result => {
                     await this.load();
-                    if (result?.sent?.length) this.showStatus(ctx.status, '選んだタスクを頼みました。');
+                    if (result?.sent?.length) this.showStatus(ctx.status, t('vibe.dock.nextTab.selectedTasksSentPartnerNotice'));
                 });
             });
             if (eligible.length) {
                 const band = document.createElement('div');
                 band.className = 'akari-vibe-next-batch';
                 const count = document.createElement('small');
-                count.textContent = `${eligible.length} 件を選択`;
+                count.textContent = t('vibe.dock.nextTab.selectedWithCountText', { value1: eligible.length });
                 band.append(count, batch);
                 list.append(band);
             }
@@ -146,7 +147,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
             if (this.data.clipboardPending) {
                 const pending = document.createElement('button');
                 pending.className = 'theia-button quiet';
-                pending.textContent = `貼り付け待ち ${this.data.clipboardPending} 件`;
+                pending.textContent = t('vibe.dock.nextTab.waitingPasteWithValueText', { value1: this.data.clipboardPending });
                 pending.title = pending.textContent;
                 pending.setAttribute('aria-label', pending.textContent);
                 pending.addEventListener('click', () => { void this.commands.executeCommand('akari.tasks.openBoard'); });
@@ -155,7 +156,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
             if (!this.data.rows.length) {
                 const empty = document.createElement('div');
                 empty.className = 'akari-vibe-empty';
-                empty.textContent = '次にやることはありません';
+                empty.textContent = t('vibe.dock.nextTab.nothingDoNextText');
                 list.append(empty);
             }
             for (const row of this.data.rows.slice(0, 7)) {
@@ -170,7 +171,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 const check = document.createElement('button');
                 check.type = 'button';
                 check.className = 'akari-vibe-next-pick';
-                check.setAttribute('aria-label', `${Array.from(rowTitle).slice(0, 20).join('')} を選ぶ`);
+                check.setAttribute('aria-label', t('vibe.dock.nextTab.selectWithValueAriaLabel', { value1: Array.from(rowTitle).slice(0, 20).join('') }));
                 check.setAttribute('aria-pressed', String(selected.has(row.id)));
                 check.disabled = !row.actions.some(action => action.id === 'send');
                 check.addEventListener('click', () => { selected.has(row.id) ? selected.delete(row.id) : selected.add(row.id); paint(); });
@@ -185,7 +186,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 const time = typeof seconds === 'number' && Number.isFinite(seconds)
                     ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '';
                 target.textContent = [sourceLabels[row.source] ?? row.source,
-                    row.source === 'lint' && typeof row.severity === 'string' ? row.severity === 'error' ? 'エラー' : '注意' : '',
+                    row.source === 'lint' && typeof row.severity === 'string' ? row.severity === 'error' ? t('vibe.dock.nextTab.errorLabel') : t('vibe.dock.nextTab.warningLabel') : '',
                     time || nextTargetLabel(row.target)].filter(Boolean).join(' · ');
                 label.append(title, target);
                 const content = document.createElement('span');
@@ -210,9 +211,9 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
             list.scrollTop = scrollTop;
             const open = document.createElement('button');
             open.className = 'akari-vibe-nav akari-vibe-next-open';
-            open.textContent = '専用のタスクボードを開く ›';
-            open.title = '専用のタスクボードを開く';
-            open.setAttribute('aria-label', '専用のタスクボードを開く');
+            open.textContent = t('vibe.dock.nextTab.openTaskBoardText');
+            open.title = t('vibe.dock.nextTab.openTaskBoardTooltip');
+            open.setAttribute('aria-label', t('vibe.dock.nextTab.openTaskBoardAriaLabel'));
             open.addEventListener('click', () => { void this.commands.executeCommand('akari.tasks.openBoard'); });
             host.append(open);
         };

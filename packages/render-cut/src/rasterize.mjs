@@ -2,11 +2,14 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { renderText } from './i18n.mjs';
 import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
 import { setCaptionInkClipVariables } from "./caption-ink-clip.mjs";
+import { createRequire } from "node:module";
+const captionOutlineRuntime = createRequire(import.meta.url)("../../edit-store/lib/index.js").captionOutlineRuntime;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -36,6 +39,8 @@ function buildRuntimeBlocks(entry, edit) {
   }
   const title = id[0].toUpperCase() + id.slice(1);
   const sceneLabel = entry.exportSceneLabel ?? id;
+  const loadError = JSON.stringify(renderText('render.runtime.warning.loadFallback', { id, scene: sceneLabel }));
+  const initError = JSON.stringify(renderText('render.runtime.warning.initFallback', { id, scene: sceneLabel }));
   const drawOptions = entry.exportRenderOptions === false ? ""
     : typeof entry.exportRenderOptions === "function" ? `, ${entry.exportRenderOptions(edit)}`
     : ", {}";
@@ -46,7 +51,7 @@ function buildRuntimeBlocks(entry, edit) {
     ? `\n        if (window.akari.${entry.browserGlobal}.inspect(${id}Container).status !== 'ready') {\n          throw new Error('${id.toUpperCase()}-RENDER: overlay is not ready');\n        }`
     : "";
   const windowed = WINDOWED_EXPORT_RUNTIMES.has(id);
-  const readySetup = entry.prepare ? "" : `\n    const ${id}Containers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][${entry.declaration.attr}]')\n    );${windowed ? "" : `\n    for (const container of ${id}Containers) {\n      window.akari.${entry.browserGlobal}.render(container, 0);\n    }`}\n    async function waitFor${title}Container(container) {\n      while (true) {\n        const status = window.akari.${entry.browserGlobal}.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-${id}] ${sceneLabel} scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-${id}] ${sceneLabel} scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }${windowed ? `\n    window.__akariThreeWindowStats = { created: 0, disposed: 0, live: 0, liveMax: 0 };\n    async function syncThreeWindow(seconds) {\n      const inWindowContainers = [];\n      const activeContainers = [];\n      for (const container of threeContainers) {\n        const start = Number(container.parentElement.dataset.start);\n        const duration = Number(container.parentElement.dataset.duration);\n        const inWindow = seconds >= start - ${THREE_EXPORT_LEAD_SECONDS} && seconds < start + duration;\n        const active = seconds >= start && seconds < start + duration;\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (inWindow && status === 'disposed') {\n          window.akari.threeRuntime.render(container, 0);\n          window.__akariThreeWindowStats.created++;\n        } else if (!inWindow && status !== 'disposed') {\n          window.akari.threeRuntime.dispose(container);\n          window.__akariThreeWindowStats.disposed++;\n        }\n        if (inWindow) inWindowContainers.push(container);\n        if (active) activeContainers.push(container);\n      }\n      await Promise.all(activeContainers.map(waitForThreeContainer));\n      const stats = window.__akariThreeWindowStats;\n      stats.live = threeContainers.filter((container) => window.akari.threeRuntime.inspect(container).status !== 'disposed').length;\n      stats.liveMax = Math.max(stats.liveMax, stats.live);\n      return inWindowContainers;\n    }` : ""}`;
+  const readySetup = entry.prepare ? "" : `\n    const ${id}Containers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][${entry.declaration.attr}]')\n    );${windowed ? "" : `\n    for (const container of ${id}Containers) {\n      window.akari.${entry.browserGlobal}.render(container, 0);\n    }`}\n    async function waitFor${title}Container(container) {\n      while (true) {\n        const status = window.akari.${entry.browserGlobal}.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error(${loadError});\n          return;\n        }\n        if (status !== 'loading') {\n          console.error(${initError}, status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }${windowed ? `\n    window.__akariThreeWindowStats = { created: 0, disposed: 0, live: 0, liveMax: 0 };\n    async function syncThreeWindow(seconds) {\n      const inWindowContainers = [];\n      const activeContainers = [];\n      for (const container of threeContainers) {\n        const start = Number(container.parentElement.dataset.start);\n        const duration = Number(container.parentElement.dataset.duration);\n        const inWindow = seconds >= start - ${THREE_EXPORT_LEAD_SECONDS} && seconds < start + duration;\n        const active = seconds >= start && seconds < start + duration;\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (inWindow && status === 'disposed') {\n          window.akari.threeRuntime.render(container, 0);\n          window.__akariThreeWindowStats.created++;\n        } else if (!inWindow && status !== 'disposed') {\n          window.akari.threeRuntime.dispose(container);\n          window.__akariThreeWindowStats.disposed++;\n        }\n        if (inWindow) inWindowContainers.push(container);\n        if (active) activeContainers.push(container);\n      }\n      await Promise.all(activeContainers.map(waitForThreeContainer));\n      const stats = window.__akariThreeWindowStats;\n      stats.live = threeContainers.filter((container) => window.akari.threeRuntime.inspect(container).status !== 'disposed').length;\n      stats.liveMax = Math.max(stats.liveMax, stats.live);\n      return inWindowContainers;\n    }` : ""}`;
   return {
     seekCollector: `\n      const pending${title}Draws = [];`,
     seekBranch: `\n        const ${id}Container = container.querySelector(':scope > .scene-content');\n        if (active && ${id}Container?.querySelector('script[type="application/json"][${entry.declaration.attr}]')) {\n          pending${title}Draws.push([${id}Container, seconds - start]);\n        }`,
@@ -97,6 +102,10 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
     overlay.html.includes("akari-caption--single-line"),
   );
+  const hasLatinCaption = sheetOverlays.some((overlay) =>
+    overlay.vars?.['--caption-font-family']?.includes('"AKARI Noto Sans"')
+      || overlay.html.includes('font-family: "AKARI Noto Sans"'),
+  );
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index, edit.output.fps))
     .join("\n");
@@ -125,6 +134,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
           container.style.setProperty('--rotate', background ? '0deg' : state.rotate + 'deg');
           container.style.setProperty('opacity', String(state.opacity));
           container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
+          for (const [name, value] of Object.entries(window.akari.itemMotion.evaluateOverlayVars(record, seconds, ${formatNumber(edit.output.fps)}))) {
+            container.style.setProperty(name, String(value));
+          }
         }${hasItemKeyframes ? ' else ' : ''}` : "";
   const itemKeyframesSyncBranch = hasItemKeyframes
     ? `
@@ -200,6 +212,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const captionFontReadyWait = hasResolvedSingleLineCaption
     ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans JP"');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {\n        throw new Error('AKARI caption font did not load');\n      }`
     : "";
+  const latinCaptionFontReadyWait = hasLatinCaption
+    ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans"', 'English captions');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans"', 'English captions')) {\n        throw new Error('AKARI English caption font did not load');\n      }`
+    : "";
   return `<!doctype html>
 <html>
 <head>
@@ -216,6 +231,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
 ${nodes}${slotRuntimeScripts}
   </div>
+  <script>(${captionOutlineRuntime.toString()})().install(document);</script>
   <script>
     // Overlay fragments author entrance animations as plain CSS keyframes, but plain CSS
     // animations cannot survive a the retired renderer render: its producer free-runs this sheet on
@@ -401,7 +417,7 @@ ${nodes}${slotRuntimeScripts}
       return { warnings };
     };${runtimeReadySetup}
     window.__akariReady = (async function() {
-      await document.fonts.ready;${captionFontReadyWait}
+      await document.fonts.ready;${captionFontReadyWait}${latinCaptionFontReadyWait}
       await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${runtimeReadyWait}
       await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
         video.readyState >= 2

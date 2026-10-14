@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck, INITIAL_SHELL_UPDATER_UI_STATE } from '../../lib/common/shell-update-applier.js';
-import { resolveSettingsUpdateView } from '../../lib/common/settings-update-view.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck, INITIAL_SHELL_UPDATER_UI_STATE } = await import("../../lib/common/shell-update-applier.js");
+const { resolveSettingsUpdateView } = await import("../../lib/common/settings-update-view.js");
+
 
 const view = (state, lastEventKind, downloadUrl) => resolveSettingsUpdateView({
     state, lastEventKind, currentVersion: '0.1.82', lastChecked: '2026/9/26 12:00:00', downloadUrl

@@ -1,11 +1,12 @@
+import { t } from '@akari-video/i18n';
 import { AI_MODEL_KINDS, AiModel, AiModelKind, AiModelSet, AiModelPreferencesDocument } from './ai-models-protocol';
 export const INPUT_LABELS: Record<string, string> = {
-    prompt: '指示文', text: '文章', first_frame: '最初のコマ', last_frame: '最後のコマ',
-    reference_images: '参照画像', reference_videos: '参照動画', reference_audios: '参照音声',
-    source_video: '元動画', audio: '音声', video: '動画', negative_prompt: '避けたいもの', style: '言い方の指示', voice_clone: '自分の声', speed: '速さ'
+    prompt: t('surfaces.aiModels.instructions.label'), text: t('surfaces.aiModels.text.label'), first_frame: t('surfaces.aiModels.firstFrame.label'), last_frame: t('surfaces.aiModels.lastFrame.label'),
+    reference_images: t('surfaces.aiModels.referenceImage.label'), reference_videos: t('surfaces.aiModels.referenceVideo.label'), reference_audios: t('surfaces.aiModels.referenceAudio.label'),
+    source_video: t('surfaces.aiModels.originalVideo.label'), audio: t('surfaces.aiModels.audio.label'), video: t('surfaces.aiModels.video.label'), negative_prompt: t('surfaces.aiModels.thingsAvoid.label'), style: t('surfaces.aiModels.instructionsSay.label'), voice_clone: t('surfaces.aiModels.ownVoice.label'), speed: t('surfaces.aiModels.speed.label')
 };
 export const OUTPUT_LABELS: Record<string, string> = {
-    aspects: '画角', resolutions: '解像度', duration: '尺', audio_out: '音声', voices: '声の選択肢', seed: 'シード', text: '文字'
+    aspects: t('surfaces.aiModels.angleView.label'), resolutions: t('surfaces.aiModels.resolution.label'), duration: t('surfaces.aiModels.duration.label'), audio_out: t('surfaces.aiModels.audio.label'), voices: t('surfaces.aiModels.voiceOptions.label'), seed: t('surfaces.aiModels.seed.label'), text: t('surfaces.aiModels.characters.label')
 };
 
 export type CapabilityState = 'unknown' | 'unavailable' | 'available';
@@ -108,7 +109,7 @@ export function aiModelResolutionText(model: AiModel): string {
         const [aspect, dimensions] = entries.find(([key]) => key === '16:9') || entries[0] || [];
         if (aspect && typeof dimensions === 'string') {
             const limit = maximumResolution(model.outputs.resolutions);
-            return `${aspect} で ${dimensions.replace('x', '×')}${limit ? `（モデルの上限 ${limit}）` : ''}`;
+            return t('surfaces.aiModels.aiModelResolutionText.message', { aspect: aspect, dimensions: dimensions.replace('x', '×'), limit: limit ? t('surfaces.aiModels.resolutionLimit.label', { limit: limit }) : '' });
         }
     }
     return capabilityText('resolutions', model.outputs.resolutions);
@@ -117,10 +118,10 @@ export function aiModelResolutionText(model: AiModel): string {
 export function capabilityText(key: string, value: unknown, model?: AiModel): string {
     const state = capabilityState(value);
     if (state === 'unknown') {
-        return '未確認';
+        return t('surfaces.aiModels.capabilityTextUnknown.label');
     }
     if (state === 'unavailable') {
-        return '不可';
+        return t('surfaces.aiModels.capabilityTextPossible.label');
     }
     if (key === 'duration' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const duration = value as { min?: unknown; max?: unknown; values?: unknown };
@@ -128,14 +129,14 @@ export function capabilityText(key: string, value: unknown, model?: AiModel): st
         const min = typeof duration.min === 'number' ? duration.min : values.length ? Math.min(...values) : null;
         const max = typeof duration.max === 'number' ? duration.max : values.length ? Math.max(...values) : null;
         if (min !== null && max !== null) {
-            return min === max ? `${max} 秒` : `${min}〜${max} 秒`;
+            return min === max ? t('surfaces.aiModels.durationSingle.message', { max: max, n: max }) : t('surfaces.aiModels.durationRange.message', { min: min, max: max, n: max });
         }
     }
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const maximum = (value as { max?: unknown }).max;
         if (typeof maximum === 'number') {
-            const unit = key === 'reference_videos' ? '本' : key === 'reference_audios' ? '件' : '枚';
-            return `${maximum} ${unit}まで`;
+            const unit = key === 'reference_videos' ? t('surfaces.aiModels.videoUnit.label') : key === 'reference_audios' ? t('surfaces.aiModels.itemUnit.label') : t('surfaces.aiModels.capabilityTextSheet.label');
+            return t('surfaces.aiModels.capabilityTextUp.message', { maximum: maximum, unit: unit });
         }
     }
     if (key === 'resolutions') {
@@ -143,12 +144,12 @@ export function capabilityText(key: string, value: unknown, model?: AiModel): st
             return aiModelResolutionText(model);
         }
         const maximum = maximumResolution(value);
-        return maximum ? `〜${maximum}` : '可';
+        return maximum ? `〜${maximum}` : t('surfaces.aiModels.capabilityTextAvailable.label');
     }
     if (Array.isArray(value)) {
-        return `${value.length} 種類`;
+        return t('surfaces.aiModels.capabilityTypeCount.label', { n: value.length });
     }
-    return '可';
+    return t('surfaces.aiModels.fieldPillsAvailable.label');
 }
 
 export function applyAiModelSet(set: AiModelSet, models: readonly AiModel[]): AiModelPreferencesDocument {
@@ -211,24 +212,29 @@ export function aiModelPriceValue(model: AiModel): number | null {
 
 export function formatAiModelPrice(model: AiModel): string {
     if (model.via !== 'api') {
-        return '追加料金 ¥0';
+        return t('common.currency.price.extraFree');
     }
     const value = aiModelPriceValue(model);
     if (value === null) {
-        return '料金 未確認';
+        return t('surfaces.aiModels.formatAiModelPricePriceConfirmed.label');
     }
-    const units: Record<string, string> = {
-        usd_per_image: ' / 枚',
-        usd_per_second: ' / 秒',
-        usd_per_1000_chars: ' / 1000 文字',
-        usd_per_hour: ' / 時間'
-    };
+    const unit = String(model.price?.unit ?? '');
     const quality = model.price?.default_quality;
     if (typeof quality === 'string' && model.price?.by_quality_1024) {
-        const label: Record<string, string> = { low: '低', medium: '中', high: '高' };
-        return `$${value.toFixed(3)}${units[String(model.price.unit)] || ''}（品質 ${label[quality] || quality}・1024² 基準）`;
+        const labels: Record<string, string> = { low: t('surfaces.aiModels.formatAiModelPriceLow.label'), medium: t('surfaces.aiModels.formatAiModelPriceMedium.label'), high: t('surfaces.aiModels.formatAiModelPriceHigh.label') };
+        const params = { price: value.toFixed(3), quality: labels[quality] || quality };
+        if (unit === 'usd_per_image') return t('surfaces.aiModels.pricePerImageQuality.label', params);
+        if (unit === 'usd_per_second') return t('surfaces.aiModels.pricePerSecondQuality.label', params);
+        if (unit === 'usd_per_1000_chars') return t('surfaces.aiModels.pricePerThousandCharactersQuality.label', params);
+        if (unit === 'usd_per_hour') return t('surfaces.aiModels.pricePerHourQuality.label', params);
+        return t('surfaces.aiModels.priceQualityWithoutUnit.label', params);
     }
-    return `$${value}${units[String(model.price?.unit)] || ''}`;
+    const params = { price: value };
+    if (unit === 'usd_per_image') return t('surfaces.aiModels.pricePerImage.label', params);
+    if (unit === 'usd_per_second') return t('surfaces.aiModels.pricePerSecond.label', params);
+    if (unit === 'usd_per_1000_chars') return t('surfaces.aiModels.pricePerThousandCharacters.label', params);
+    if (unit === 'usd_per_hour') return t('surfaces.aiModels.pricePerHour.label', params);
+    return `$${value}`;
 }
 
 export function formatAiModelOtherPrices(model: AiModel): string {
@@ -237,7 +243,7 @@ export function formatAiModelOtherPrices(model: AiModel): string {
     if (!rates || typeof rates !== 'object' || Array.isArray(rates) || typeof selected !== 'string') {
         return '';
     }
-    const labels: Record<string, string> = { low: '低', medium: '中', high: '高' };
+    const labels: Record<string, string> = { low: t('surfaces.aiModels.formatAiModelOtherPricesLow.label'), medium: t('surfaces.aiModels.formatAiModelOtherPricesMedium.label'), high: t('surfaces.aiModels.formatAiModelOtherPricesHigh.label') };
     return Object.entries(rates).filter(([quality, value]) => quality !== selected && number(value) !== null)
         .map(([quality, value]) => `${labels[quality] || quality} $${(value as number).toFixed(3)}`).join(' · ');
 }
@@ -283,39 +289,39 @@ function resolution(value: unknown): number | null {
 export function radarAxes(model: AiModel): RadarAxis[] {
     const axes: RadarAxis[] = [];
     const add = (key: string, label: string, raw: number | null, max: number, display?: string): void => {
-        axes.push({ key, label, value: raw === null ? null : clamp(raw / max), display: raw === null ? '未確認' : display ?? String(raw) });
+        axes.push({ key, label, value: raw === null ? null : clamp(raw / max), display: raw === null ? t('surfaces.aiModels.addUnknown.label') : display ?? String(raw) });
     };
     const cost = aiModelPriceValue(model);
-    add('cost', '安さ', cost === null ? null : 1 / (1 + cost * 10), 1, cost === null ? undefined : formatAiModelPrice(model));
+    add('cost', t('surfaces.aiModels.radarAxesCheapness.label'), cost === null ? null : 1 / (1 + cost * 10), 1, cost === null ? undefined : formatAiModelPrice(model));
     if (model.kind === 'image') {
         const speed = number(model.speed_s);
-        add('speed', '速さ', speed === null ? null : 1 / (1 + speed / 60), 1, speed === null ? undefined : `${speed} 秒`);
+        add('speed', t('surfaces.aiModels.radarAxesSpeed.label'), speed === null ? null : 1 / (1 + speed / 60), 1, speed === null ? undefined : t('surfaces.aiModels.radarAxesSeconds.message', { speed: speed, n: speed }));
         const refs = model.inputs.reference_images as {
             max?: unknown;
         } | undefined;
-        add('references', '参照画像', refs && number(refs.max) !== null ? number(refs.max) : supported(refs) ? 1 : 0, 16);
+        add('references', t('surfaces.aiModels.radarAxesReferenceImage.label'), refs && number(refs.max) !== null ? number(refs.max) : supported(refs) ? 1 : 0, 16);
         const aspects = model.outputs.measured_aspects || model.outputs.aspects;
-        add('aspects', '画角の自由度', Array.isArray(aspects) ? aspects.length : null, 8);
+        add('aspects', t('surfaces.aiModels.radarAxesDegreeFreedomViewingAngle.label'), Array.isArray(aspects) ? aspects.length : null, 8);
         const akariSizes = model.outputs.akari_sizes;
         const akariLongEdge = akariSizes && typeof akariSizes === 'object' && !Array.isArray(akariSizes)
             ? resolution(Object.values(akariSizes)) : null;
-        add('resolution', '解像度', akariLongEdge ?? resolution(model.outputs.resolutions), 3840,
-            akariLongEdge === null ? undefined : `AKARI で最大 ${akariLongEdge} px`);
+        add('resolution', t('surfaces.aiModels.radarAxesResolution.label'), akariLongEdge ?? resolution(model.outputs.resolutions), 3840,
+            akariLongEdge === null ? undefined : t('surfaces.aiModels.radarAxesUpPxAkari.message', { akariLongEdge: akariLongEdge }));
     }
     else if (model.kind === 'video') {
-        add('duration', '最長の尺', maxDuration(model.outputs.duration), 30);
-        add('inputs', '入力の幅', ['first_frame', 'last_frame', 'reference_images', 'reference_videos', 'reference_audios', 'source_video'].filter(key => supported(model.inputs[key])).length, 6);
-        add('aspects', '画角の自由度', Array.isArray(model.outputs.aspects) ? model.outputs.aspects.length : null, 8);
-        add('resolution', '解像度', resolution(model.outputs.resolutions), 3840);
+        add('duration', t('surfaces.aiModels.radarAxesLongestLength.label'), maxDuration(model.outputs.duration), 30);
+        add('inputs', t('surfaces.aiModels.radarAxesInputWidth.label'), ['first_frame', 'last_frame', 'reference_images', 'reference_videos', 'reference_audios', 'source_video'].filter(key => supported(model.inputs[key])).length, 6);
+        add('aspects', t('surfaces.aiModels.radarAxesDegreeFreedomViewingAngle.label'), Array.isArray(model.outputs.aspects) ? model.outputs.aspects.length : null, 8);
+        add('resolution', t('surfaces.aiModels.radarAxesResolution.label'), resolution(model.outputs.resolutions), 3840);
     }
     else if (model.kind === 'voice') {
-        add('voices', '声の選択肢', Array.isArray(model.outputs.voices) ? model.outputs.voices.length : null, 30);
-        add('style', '言い方の指示', supported(model.inputs.style) ? 1 : 0, 1);
-        add('clone', '自分の声', supported(model.inputs.voice_clone) ? 1 : 0, 1);
-        add('local', '手元で動く', model.via === 'local' ? 1 : 0, 1);
+        add('voices', t('surfaces.aiModels.radarAxesVoiceOptions.label'), Array.isArray(model.outputs.voices) ? model.outputs.voices.length : null, 30);
+        add('style', t('surfaces.aiModels.radarAxesInstructionsSay.label'), supported(model.inputs.style) ? 1 : 0, 1);
+        add('clone', t('surfaces.aiModels.radarAxesOwnVoice.label'), supported(model.inputs.voice_clone) ? 1 : 0, 1);
+        add('local', t('surfaces.aiModels.radarAxesMovesHand.label'), model.via === 'local' ? 1 : 0, 1);
     }
     else {
-        add('local', '手元で動く', model.via === 'local' ? 1 : 0, 1);
+        add('local', t('surfaces.aiModels.radarAxesMovesHand.label'), model.via === 'local' ? 1 : 0, 1);
     }
     return axes;
 }

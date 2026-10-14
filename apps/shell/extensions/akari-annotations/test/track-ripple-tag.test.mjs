@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { resolveTrackRippleMode } from '@akari-video/edit-store';
-import {
-  applyTrackRipplePreset, cycleTrackRippleMode, nextRippleMode, rippleSwitchValues, rippleTagPresentation,
-  setTrackRippleSwitch,
-} from '../lib/common/track-ripple-tag.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { applyTrackRipplePreset, cycleTrackRippleMode, nextRippleMode, rippleSwitchValues, rippleTagPresentation, setTrackRippleSwitch } = await import('../lib/common/track-ripple-tag.js');
+
+
 
 const item = (id, role) => ({ id, role, at: 0, duration: 30, source: { kind: 'media', src: 'source', in: 0, out: 1 } });
 const fixture = () => ({ version: 2, output: { width: 320, height: 180, fps: 30 }, sources: [], tracks: [

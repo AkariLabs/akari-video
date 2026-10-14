@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { childProcessEnv } from '@akari-video/i18n';
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -50,7 +51,7 @@ export class CompanionProcess {
         if (!bin) throw new Error('bundled executable is unavailable');
         const token = randomBytes(32).toString('hex');
         const child = this.child = spawn(process.execPath, [bin, '--serve'], {
-            env: { ...(this.options.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' },
+            env: childProcessEnv({ ...(this.options.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' }),
             stdio: ['pipe', 'pipe', 'pipe'], detached: false
         });
         // Synchronous backend exit cannot await the graceful shutdown ladder.

@@ -172,6 +172,8 @@ async function installProjectRoutes(page, project, { legacy = false } = {}) {
       filePath = path.join(REPOSITORY_ROOT, 'packages', 'preview-server', 'public', 'index.html');
     } else if (pathname === '/assets/fonts/akari-noto-sans-jp.ttf') {
       filePath = path.join(REPOSITORY_ROOT, 'assets', 'font', 'noto-sans-jp', 'NotoSansJP-Variable.ttf');
+    } else if (pathname === '/assets/fonts/akari-noto-sans.ttf') {
+      filePath = path.join(REPOSITORY_ROOT, 'assets', 'font', 'noto-sans', 'NotoSans-Variable.ttf');
     } else {
       const publicFile = path.join(REPOSITORY_ROOT, 'packages', 'preview-server', 'public', pathname.slice(1));
       const projectFile = path.join(project, pathname.slice(1));

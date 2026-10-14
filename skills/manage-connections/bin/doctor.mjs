@@ -13,31 +13,44 @@ let DEFAULT_CONNECTIONS_REGISTRY;
 let resolveConnections;
 let credentialsPaths;
 let readSharedCredentials;
+let translate;
+let getLanguage;
 
 async function loadDependencies() {
-  const [creatorRoot, connections] = await Promise.all([
+  const [creatorRoot, connections, i18n] = await Promise.all([
     importPackage("creator-root/src/index.mjs", { from: import.meta.url }),
     import("./resolve-connections.mjs"),
+    importPackage("i18n/index.mjs", { from: import.meta.url }),
   ]);
   DEFAULT_CONNECTIONS_REGISTRY = creatorRoot.DEFAULT_CONNECTIONS_REGISTRY;
   credentialsPaths = creatorRoot.credentialsPaths;
   readSharedCredentials = creatorRoot.readCredentials;
   resolveConnections = connections.resolveConnections;
+  translate = i18n.t;
+  getLanguage = i18n.getLanguage;
 }
 
 const usage = "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
+const t = (key, params) => translate?.(key, params) ?? key;
 export const timeoutMs = 5_000;
 
 async function main() {
+  // Help and argument errors precede the required package load. Keep their original
+  // Japanese fallback when an installed copy cannot find the i18n package.
+  try {
+    const i18n = await importPackage("i18n/index.mjs", { from: import.meta.url });
+    translate = i18n.t;
+    getLanguage = i18n.getLanguage;
+  } catch { /* loadDependencies reports the existing setup guide for a normal run. */ }
   const argument = process.argv[2];
 
   if (process.argv.length > 3) {
-    console.error(usage);
+    console.error(translate ? t("cli.connections.general.usage") : usage);
     process.exit(2);
   }
 
   if (argument === "--help" || argument === "-h") {
-    console.log(usage);
+    console.log(translate ? t("cli.connections.general.usage") : usage);
     process.exit(0);
   }
 
@@ -63,11 +76,11 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   const registry = readRegistry(connectionsPath);
   const credentialState = readCredentials(credentialsPath);
   warnParseWarnings(credentialState.parseWarnings);
-  console.log(`鍵の置き場: ${credentialState.location}`);
+  console.log(t("cli.connections.general.keyLocation", { location: locationLabel(credentialState.location) }));
   const checkedAt = new Date().toISOString();
 
   if (credentialState.exists && !credentialState.securePermissions) {
-    console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
+    console.warn(t("cli.connections.general.permissions", { mode: credentialState.mode, path: credentialsPath }));
   }
 
   const results = await Promise.all(
@@ -90,10 +103,10 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
   for (const result of results) {
-    console.log(`${result.id}: ${result.doctor.status} — ${result.doctor.detail}`);
+    console.log(`${result.id}: ${result.doctor.status} — ${displayDetail(result.doctor.detail)}`);
   }
   printConnectorSummary(connectors);
-  console.log(`接続レポート: ${reportPath}`);
+  console.log(t("cli.connections.general.reportPath", { path: reportPath }));
 }
 
 async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
@@ -101,11 +114,11 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   const registry = clone(resolved.effective);
   const credentialState = readCredentials(credentialsPath);
   warnParseWarnings(credentialState.parseWarnings);
-  console.log(`鍵の置き場: ${credentialState.location}`);
+  console.log(t("cli.connections.general.keyLocation", { location: locationLabel(credentialState.location) }));
   const checkedAt = new Date().toISOString();
 
   if (credentialState.exists && !credentialState.securePermissions) {
-    console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
+    console.warn(t("cli.connections.general.permissions", { mode: credentialState.mode, path: credentialsPath }));
   }
 
   const results = await Promise.all(registry.providers.map(async (provider) => ({
@@ -150,15 +163,15 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
   if (resolved.layers.workspace) {
-    console.log(`作業場: ${resolved.layers.workspace.rootDir}`);
+    console.log(t("cli.connections.general.workspace", { path: resolved.layers.workspace.rootDir }));
   } else {
-    console.log("作業場なし（プロジェクト単独）");
+    console.log(t("cli.connections.general.noWorkspace"));
   }
   for (const result of results) {
-    console.log(`${result.id} [${result.layer}]: ${result.doctor.status} — ${result.doctor.detail}`);
+    console.log(`${result.id} [${result.layer}]: ${result.doctor.status} — ${displayDetail(result.doctor.detail)}`);
   }
   printConnectorSummary(connectors);
-  console.log(`接続レポート: ${reportPath}`);
+  console.log(t("cli.connections.general.reportPath", { path: reportPath }));
 }
 
 const connectorIds = ["fal", "higgsfield", "runway", "elevenlabs", "fish-audio", "suno"];
@@ -180,15 +193,16 @@ export function readConnectorSummary(env = process.env, home = os.homedir()) {
 }
 
 function printConnectorSummary(summary) {
-  console.log("つなぐ（connectors.json）:");
+  console.log(`${t("cli.connections.connectors.title")}:`);
   if (!summary.exists) {
-    console.log("  設定なし。状態一覧: akari connect list --json");
+    console.log(`  ${t("cli.connections.connectors.noSettings")}`);
     return;
   }
-  console.log(`  使う: ${connectorIds.map(id => `${id}=${summary.enabled[id] ? "オン" : "オフ"}`).join(" / ")}`);
-  console.log(`  生成順: ${summary.generationOrder.join(" → ")}`);
-  console.log(`  失敗時の自動切り替え: ${summary.fallbackOnFailure ? "オン" : "オフ"}`);
-  console.log("  状態一覧: akari connect list --json");
+  const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
+  console.log(`  ${t("cli.connections.connectors.enabled")}: ${connectorIds.map(id => `${id}=${state(summary.enabled[id])}`).join(" / ")}`);
+  console.log(`  ${t("cli.connections.connectors.order")}: ${summary.generationOrder.join(" → ")}`);
+  console.log(`  ${t("cli.connections.connectors.fallback")}: ${state(summary.fallbackOnFailure)}`);
+  console.log(`  ${t("cli.connections.connectors.stateList")}`);
 }
 
 function readRegistry(connectionsPath) {
@@ -196,10 +210,10 @@ function readRegistry(connectionsPath) {
   try {
     value = JSON.parse(fs.readFileSync(connectionsPath, "utf8"));
   } catch {
-    throw new Error("connections.json を読めません");
+    throw new Error(t("cli.connections.error.read"));
   }
   if (!isPlainObject(value) || !Array.isArray(value.providers) || !isPlainObject(value.policy)) {
-    throw new Error("connections.json の構造が不正です");
+    throw new Error(t("cli.connections.error.structure"));
   }
   return value;
 }
@@ -209,10 +223,10 @@ function readRegistryAt(filePath) {
   try {
     value = JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
-    throw new Error(`connections.json を読めません: ${filePath}`);
+    throw new Error(t("cli.connections.error.readAt", { path: filePath }));
   }
   if (!isPlainObject(value) || !Array.isArray(value.providers) || !isPlainObject(value.policy)) {
-    throw new Error(`connections.json の構造が不正です: ${filePath}`);
+    throw new Error(t("cli.connections.error.structureAt", { path: filePath }));
   }
   return value;
 }
@@ -255,9 +269,9 @@ function readCredentials(credentialsPath) {
 
 function warnParseWarnings(warnings) {
   for (const source of ["primary", "legacy"]) {
-    const lines = warnings.filter((warning) => warning.source === source).map((warning) => `${warning.line} 行目`);
+    const lines = warnings.filter((warning) => warning.source === source).map((warning) => t("cli.connections.general.parseLine", { line: warning.line }));
     if (lines.length > 0) {
-      console.warn(`警告: credentials.env（${source === "primary" ? "新" : "旧"}）の ${lines.join("、")}を KEY=VALUE として読めませんでした。`);
+      console.warn(t("cli.connections.general.parseWarning", { source: t(`cli.connections.location.${source}`), lines: lines.join(t("cli.connections.general.parseSeparator")) }));
     }
   }
 }
@@ -416,8 +430,8 @@ function extractEnvName(value) {
 }
 
 function printCredentialGuide(registry, credentialsPath) {
-  console.log(`鍵が未設定の provider があります。credentials.env: ${credentialsPath}`);
-  console.log(`作成後に chmod 600 ${credentialsPath} を実行してください。キーは人間が取得して配置してください。`);
+  console.log(t("cli.connections.general.keysMissing", { path: credentialsPath }));
+  console.log(t("cli.connections.general.keyGuide", { path: credentialsPath }));
   for (const provider of registry.providers) {
     if (provider.auth !== "env-key") continue;
     const name = extractEnvName(provider.env) ?? "KEY_NAME";
@@ -441,9 +455,51 @@ function collectSecretValues(providers, credentialState, env) {
 function refuseSecretLeak(output, values) {
   for (const secret of values) {
     if (secret && output.includes(secret)) {
-      throw new Error("資格情報の値と一致する文字列が出力に含まれています");
+      throw new Error(t("cli.connections.error.secret"));
     }
   }
+}
+
+function locationLabel(value) {
+  return t(`cli.connections.location.${({ "両方": "both", "新": "new", "旧": "old", "なし": "none" })[value]}`);
+}
+
+// doctor.detail is persisted in Japanese for the connections.json contract. Translate only at display time.
+// This also covers results loaded from an earlier connections.json without changing its schema.
+function displayDetail(detail) {
+  if (typeof detail !== "string") return detail;
+  const exact = {
+    "未確認": "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。": "noAdapter",
+    "未対応の認証方式のため確認していません。": "unsupportedAuth",
+    "env は ${KEY_NAME} 形式で登録してください。": "envFormat",
+    "VOICEVOX エンジンが起動中です。": "voicevoxRunning",
+    "VOICEVOX アプリを起動するか、generate-narration が自動起動します。": "voicevoxStart",
+    "認証済み（無償・読み取り専用 GET で確認）。": "authenticated",
+    "ネットワーク不通のため確認できませんでした。": "network",
+  };
+  if (exact[detail]) return t(`cli.connections.detail.${exact[detail]}`);
+  const patterns = [
+    [/^(login|oauth-mcp) 認証は doctor から疎通確認しません。人間がログイン状態を確認してください。$/, "login", ["auth"]],
+    [/^(.+) は環境変数にも credentials\.env にも設定されていません。$/, "keyMissing", ["name"]],
+    [/^VOICEVOX エンジンが起動中です（version (.+)）。$/, "voicevoxVersion", ["version"]],
+    [/^認証されませんでした（HTTP (\d+)）。$/, "unauthorized", ["status"]],
+    [/^認証を判定できませんでした（HTTP (\d+)）。$/, "httpUnknown", ["status"]],
+    [/^接続確認が (\d+) 秒でタイムアウトしました。$/, "timeout", ["seconds"]],
+  ];
+  for (const [pattern, key, names] of patterns) {
+    const match = pattern.exec(detail);
+    if (match) return t(`cli.connections.detail.${key}`, Object.fromEntries(names.map((name, index) => [name, match[index + 1]])));
+  }
+  return detail;
+}
+
+function displayNote(provider, field, fallback) {
+  const value = provider.notes?.[field];
+  const original = DEFAULT_CONNECTIONS_REGISTRY.providers.find((item) => item.id === provider.id)?.notes?.[field];
+  if (getLanguage() === "en" && original !== undefined && JSON.stringify(value) === JSON.stringify(original)) {
+    return t(`cli.connections.notes.${provider.id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}.${field}`);
+  }
+  return Array.isArray(value) ? arrayText(value) : value ?? fallback;
 }
 
 function renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors) {
@@ -454,64 +510,65 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
     const notes = isPlainObject(provider.notes) ? provider.notes : {};
     const credentialLabel = provider.auth === "env-key"
       ? result?.configured
-        ? "設定済み（マスク）"
-        : "未設定"
+        ? t("cli.connections.credential.configured")
+        : t("cli.connections.general.unset")
       : provider.auth === "none"
-        ? "不要（ローカル接続）"
-        : `${provider.auth}（値なし）`;
+        ? t("cli.connections.credential.local")
+        : t("cli.connections.credential.noValue", { auth: provider.auth });
     const keySourceLabel = result?.key_source === "env"
-      ? "環境変数"
+      ? t("cli.connections.keySource.env")
       : result?.key_source === "credentials.env"
         ? "credentials.env"
         : result?.key_source === "missing"
-          ? "未設定"
-          : "不要";
+          ? t("cli.connections.general.unset")
+          : t("cli.connections.keySource.notNeeded");
     const allowed = Array.isArray(provider.models?.allowed) && provider.models.allowed.length > 0
       ? provider.models.allowed.join(", ")
-      : "未設定";
+      : t("cli.connections.general.unset");
     return `<article class="card status-${escapeHtml(provider.doctor.status)} layer-${escapeHtml(layer)}">
       <div class="card-head"><h2>${escapeHtml(provider.id)}</h2><div class="badges"><span>${escapeHtml(provider.doctor.status)}</span><span class="layer-badge">${escapeHtml(layer)}</span></div></div>
       <dl>
-        <dt>用途</dt><dd>${escapeHtml(notes.description ?? "未記入")}</dd>
-        <dt>工程</dt><dd>${escapeHtml(arrayText(notes.workflows))}</dd>
-        <dt>課金モデル</dt><dd>${escapeHtml(notes.billing ?? "未記入")}</dd>
-        <dt>quota</dt><dd>${escapeHtml(notes.quota ?? "未記入")}</dd>
-        <dt>必要スコープ</dt><dd>${escapeHtml(arrayText(notes.scopes))}</dd>
-        <dt>資格情報</dt><dd>${escapeHtml(credentialLabel)}</dd>
-        <dt>鍵の置き場</dt><dd>${escapeHtml(keySourceLabel)}</dd>
-        <dt>既定モデル</dt><dd>${escapeHtml(provider.models?.default ?? "未設定")}</dd>
-        <dt>許可モデル</dt><dd>${escapeHtml(allowed)}</dd>
-        <dt>最終確認</dt><dd>${escapeHtml(provider.doctor.last_checked ?? "未確認")}</dd>
-        <dt>結果</dt><dd>${escapeHtml(provider.doctor.detail ?? "未確認")}</dd>
+        <dt>${t("cli.connections.field.description")}</dt><dd>${escapeHtml(displayNote(provider, "description", t("cli.connections.general.blank")))}</dd>
+        <dt>${t("cli.connections.field.workflows")}</dt><dd>${escapeHtml(displayNote(provider, "workflows", t("cli.connections.general.blank")))}</dd>
+        <dt>${t("cli.connections.field.billing")}</dt><dd>${escapeHtml(displayNote(provider, "billing", t("cli.connections.general.blank")))}</dd>
+        <dt>quota</dt><dd>${escapeHtml(displayNote(provider, "quota", t("cli.connections.general.blank")))}</dd>
+        <dt>${t("cli.connections.field.scopes")}</dt><dd>${escapeHtml(displayNote(provider, "scopes", t("cli.connections.general.blank")))}</dd>
+        <dt>${t("cli.connections.field.credential")}</dt><dd>${escapeHtml(credentialLabel)}</dd>
+        <dt>${t("cli.connections.field.keySource")}</dt><dd>${escapeHtml(keySourceLabel)}</dd>
+        <dt>${t("cli.connections.field.defaultModel")}</dt><dd>${escapeHtml(provider.models?.default ?? t("cli.connections.general.unset"))}</dd>
+        <dt>${t("cli.connections.field.allowedModels")}</dt><dd>${escapeHtml(allowed)}</dd>
+        <dt>${t("cli.connections.field.lastChecked")}</dt><dd>${escapeHtml(provider.doctor.last_checked ?? t("cli.connections.detail.unchecked"))}</dd>
+        <dt>${t("cli.connections.field.result")}</dt><dd>${escapeHtml(displayDetail(provider.doctor.detail ?? "未確認"))}</dd>
       </dl>
-      ${typeof notes.setup_url === "string" ? `<p><a href="${escapeHtml(notes.setup_url)}">設定ページ</a></p>` : ""}
+      ${typeof notes.setup_url === "string" ? `<p><a href="${escapeHtml(notes.setup_url)}">${t("cli.connections.general.setupPage")}</a></p>` : ""}
     </article>`;
   }).join("\n");
   const hasMissingKey = results.some((result) => result.key_source === "missing");
-  const missingGuide = !hasMissingKey ? "" : `<section class="guide"><h2>credentials.env の準備</h2><p><code>${escapeHtml(credentialsPath)}</code> を作成し、権限を 600 にしてください。次の KEY 名だけを登録し、値はレポートや会話へ貼らないでください。</p><ul>${registry.providers.filter((provider) => provider.auth === "env-key").map((provider) => {
+  const missingGuide = !hasMissingKey ? "" : `<section class="guide"><h2>${t("cli.connections.guide.title")}</h2><p>${t("cli.connections.guide.bodyBefore")}<code>${escapeHtml(credentialsPath)}</code>${t("cli.connections.guide.bodyAfter")}</p><ul>${registry.providers.filter((provider) => provider.auth === "env-key").map((provider) => {
     const notes = isPlainObject(provider.notes) ? provider.notes : {};
-    return `<li>${escapeHtml(provider.id)}: <code>${escapeHtml(extractEnvName(provider.env) ?? "KEY_NAME")}</code>${typeof notes.setup_url === "string" ? ` — <a href="${escapeHtml(notes.setup_url)}">取得先</a>` : ""}</li>`;
+    return `<li>${escapeHtml(provider.id)}: <code>${escapeHtml(extractEnvName(provider.env) ?? "KEY_NAME")}</code>${typeof notes.setup_url === "string" ? ` — <a href="${escapeHtml(notes.setup_url)}">${t("cli.connections.guide.source")}</a>` : ""}</li>`;
   }).join("")}</ul></section>`;
   const policy = registry.policy;
+  const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
   const connectorsSection = connectors.exists
-    ? `<section class="policy"><h2>つなぐ（connectors.json）</h2><dl><dt>使う</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${connectors.enabled[id] ? "オン" : "オフ"}`).join(" / "))}</dd><dt>生成順</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>失敗時の自動切り替え</dt><dd>${connectors.fallbackOnFailure ? "オン" : "オフ"}</dd></dl><p>状態一覧: <code>akari connect list --json</code></p></section>`
-    : `<section class="policy"><h2>つなぐ（connectors.json）</h2><p>設定なし。状態一覧: <code>akari connect list --json</code></p></section>`;
+    ? `<section class="policy"><h2>${t("cli.connections.connectors.title")}</h2><dl><dt>${t("cli.connections.connectors.enabled")}</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${state(connectors.enabled[id])}`).join(" / "))}</dd><dt>${t("cli.connections.connectors.order")}</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>${t("cli.connections.connectors.fallback")}</dt><dd>${state(connectors.fallbackOnFailure)}</dd></dl><p>${t("cli.connections.connectors.stateList")}</p></section>`
+    : `<section class="policy"><h2>${t("cli.connections.connectors.title")}</h2><p>${t("cli.connections.connectors.noSettings")}</p></section>`;
   return `<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>AKARI 接続レポート</title><style>
+<html lang="${getLanguage()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${t("cli.connections.general.title")}</title><style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.card-head .layer-badge{background:#263b55}.layer-project .layer-badge{background:#4c356b}.layer-workspace .layer-badge{background:#27534c}.layer-default .layer-badge{background:#4e4930}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>
-<body><header><h1>AKARI 接続レポート</h1><p class="summary">生成日時: ${escapeHtml(checkedAt)}。資格情報は存在有無だけを表示し、値は保存していません。</p></header>
+<body><header><h1>${t("cli.connections.general.title")}</h1><p class="summary">${t("cli.connections.general.summary", { checkedAt: escapeHtml(checkedAt) })}</p></header>
 ${missingGuide}
-<section class="policy"><h2>コスト承認ポリシー</h2><dl><dt>通貨</dt><dd>${escapeHtml(policy.currency)}</dd><dt>月間予算上限</dt><dd>${escapeHtml(money(policy.monthly_budget, policy.currency))}</dd><dt>個別承認閾値</dt><dd>${escapeHtml(money(policy.approval_threshold, policy.currency))}</dd><dt>予算消化状況</dt><dd>実績データ未連携</dd></dl></section>
 ${connectorsSection}
+<section class="policy"><h2>${t("cli.connections.policy.title")}</h2><dl><dt>${t("cli.connections.policy.currency")}</dt><dd>${escapeHtml(policy.currency)}</dd><dt>${t("cli.connections.policy.monthly")}</dt><dd>${escapeHtml(money(policy.monthly_budget, policy.currency))}</dd><dt>${t("cli.connections.policy.threshold")}</dt><dd>${escapeHtml(money(policy.approval_threshold, policy.currency))}</dd><dt>${t("cli.connections.policy.spending")}</dt><dd>${t("cli.connections.policy.noData")}</dd></dl></section>
 <main class="grid">${cards}</main></body></html>\n`;
 }
 
 function money(value, currency) {
-  return typeof value === "number" ? `${value} ${currency}` : "未設定（有償操作を停止）";
+  return typeof value === "number" ? `${value} ${currency}` : t("cli.connections.policy.paidStopped");
 }
 
 function arrayText(value) {
-  return Array.isArray(value) && value.length > 0 ? value.join(" / ") : "未記入";
+  return Array.isArray(value) && value.length > 0 ? value.join(" / ") : t("cli.connections.general.blank");
 }
 
 function escapeHtml(value) {
@@ -535,7 +592,7 @@ function isMainModule() {
 
 if (isMainModule()) {
   main().catch((error) => {
-    console.error(error?.message ?? "接続確認を完了できませんでした。connections.json の形式と書き込み権限を確認してください。");
+    console.error(error?.message ?? (translate ? t("cli.connections.error.default") : "接続確認を完了できませんでした。connections.json の形式と書き込み権限を確認してください。"));
     process.exit(1);
   });
 }

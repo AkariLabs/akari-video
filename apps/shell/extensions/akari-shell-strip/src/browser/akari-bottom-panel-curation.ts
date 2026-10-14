@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -81,7 +82,7 @@ export class AkariBottomPanelCuration implements FrontendApplicationContribution
             bar.node.querySelector('.theia-tabBar-tab-row')?.appendChild(button);
             bar.addButtonEnabled = true;
             button.textContent = '+';
-            button.title = '下パネルに追加';
+            button.title = t('shell.bottomPanel.toolbar.addBottomPanelAction');
             button.setAttribute('aria-label', button.title);
             button.setAttribute('role', 'button');
             button.tabIndex = 0;

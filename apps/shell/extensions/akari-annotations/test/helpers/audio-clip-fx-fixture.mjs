@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { t } from '@akari-video/i18n';
 import {
     AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS,
     createAudioClipFxWriteRequest, updateAudioClipFxDocument
@@ -22,14 +23,14 @@ const factoryCode = ts.transpileModule(names.map(name => functions.get(name)).jo
 export const { fxSections, audioSections } = new Function(
     'createAudioClipFxWriteRequest', 'composeInspectorSections', 'AUDIO_DUCK_DEFAULTS',
     'AUDIO_KEYFRAME_EASING_OPTIONS', 'INLINE_AUDIO_SHAPES',
-    'AUDIO_CLIP_FX_RANGES', 'AUDIO_DENOISE_METHOD_OPTIONS', `${factoryCode}\nreturn {
+    'AUDIO_CLIP_FX_RANGES', 'AUDIO_DENOISE_METHOD_OPTIONS', 't', 'translate', `${factoryCode}\nreturn {
         fxSections: AUDIO_CLIP_FX_SECTIONS, audioSections: AUDIO_SECTIONS
     };`
 )(createAudioClipFxWriteRequest, composeInspectorSections,
     { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 }, ['linear', 'hold', 'ease-in-out'],
     [['linear', '直線'], ['equal_power', '等パワー'], ['s_curve', 'S 字'], ['slow', 'ゆっくり']]
         .map(([value, label]) => ({ value, label })),
-    AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS);
+    AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS, t, t);
 
 const { ast: timeline, node: handler } = findMember('handleAudioClipFxWrite', { in: 'widget' });
 const handlerCode = ts.transpileModule(`class Handler { ${handler.getText(timeline)} }`, {

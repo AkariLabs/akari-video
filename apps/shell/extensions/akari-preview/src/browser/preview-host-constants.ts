@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 // F-50: akari-preview-open-handler.ts から機械移設したモジュール直下の const（宣言は無改変で `export` を足しただけ）。
 import { Command } from '@theia/core/lib/common';
 import type { EditSummary } from './preview-host-types';
@@ -43,6 +44,8 @@ export const EDIT_STORE_DID_WRITE_EVENT = 'akari.editStore.didWrite';
 // 直接通知で処理した書き込みを、後から来る watcher イベントで二重に処理しないための窓。
 // akari-annotations 側の recentWrites（1 秒窓）と同型。
 export const RECENT_WRITE_WINDOW_MS = 1000;
+// あとから届いた素材は、書き込みの間に通知が何度も来る。最後の通知からこの間だけ待って 1 回で読み直す。
+export const WATCHED_MEDIA_SETTLE_MS = 250;
 export const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 export const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 export const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
@@ -117,8 +120,8 @@ export const SHOW_PREVIEW_ZONE_HINT_COMMAND: Command = { id: 'akari.preview.show
 export const OPEN_AKARI_REVIEW_PANEL_COMMAND_ID = 'akari.review.open';
 // akari-annotations の CLIP_ANNOTATION_REQUEST_EVENT とミラー（逆向き npm 依存を作らない）。
 export const CLIP_ANNOTATION_REQUEST_EVENT = 'akari.review.clipAnnotation.request';
-export const COMPACT_TRACKS_ACTION = '整理する';
-export const KEEP_TRACKS_ACTION = '今はしない';
+export const COMPACT_TRACKS_ACTION = t('preview.outputPreview.state.organizeAction');
+export const KEEP_TRACKS_ACTION = t('preview.outputPreview.state.notNowLabel');
 // task/2026-08-09-drop-hevc-proxy: withOpenTimeout はモデル読み込み・createVideoStream・
 // setHTML だけを包む（webview 自体の起動・レンダリングは待たない — setHTML が返れば operation は
 // 完了扱い）。resolveStreamVideoUri がもう resolveHevcProxy を呼ばなくなった今、この区間に
@@ -126,7 +129,7 @@ export const KEEP_TRACKS_ACTION = '今はしない';
 // widget が開いた後、webview からの再生失敗通知に応じて別経路で走るため、この定数の対象外。
 export const PREVIEW_OPEN_TIMEOUT_MS = 10_000;
 export const PREVIEW_OPEN_ATTEMPTS = 2;
-export const PREVIEW_OPEN_ERROR_MESSAGE = '動画プレビューを開けませんでした。しばらく待ってから、もう一度お試しください。';
+export const PREVIEW_OPEN_ERROR_MESSAGE = t('preview.outputPreview.state.couldNotOpenVideoPreviewWaitMomentTryError');
 
 export const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
@@ -154,12 +157,12 @@ export const CLAIMED_VIDEO_EXTENSIONS = new Set([
     ...PLAYABLE_VIDEO_MIME_TYPES.keys(),
     ...UNSUPPORTED_VIDEO_EXTENSIONS
 ]);
-export const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
-export const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
+export const UNSUPPORTED_FORMAT_MESSAGE = t('preview.outputPreview.state.formatCannotPreviewedAppPreviewExportedMp4Error');
+export const OUTSIDE_WORKSPACE_MESSAGE = t('preview.outputPreview.state.videosOutsideWorkspaceCannotPreviewedError');
 // 新規プロジェクトの edit.json は素材が入る前は空（`{}`）。project-scaffold が作成時点で
 // 置くようになった（2026-08-08）ため、素材を入れる前に「編集データ」を開くのが通常の順序に
 // なった。ソース未宣言は不正ではないので、エラーではなくこの案内を出す。
-export const EMPTY_PROJECT_MESSAGE = 'まだ動画が入っていません。左の「素材」に動画をドラッグして取り込むと、ここで仕上がりを確認できます。';
+export const EMPTY_PROJECT_MESSAGE = t('preview.outputPreview.state.noVideoBeenAddedYetDragVideoAssetsEmptyState');
 export const LAYER_BLEND_TO_CSS = new Map<string, string>([
     ['normal', 'normal'],
     ['screen', 'screen'],

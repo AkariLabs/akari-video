@@ -1,17 +1,18 @@
+import { t } from '../transcript-text';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import type { DaihonCutCandidate, DaihonCutKind } from '../../common/daihon-cut-candidates';
 import { chosenCandidates, confirmDaihonCutReview, DAIHON_CUT_KINDS, initialDaihonCutReview, reviewCandidates,
     setCutDecision, setKindDecision, willCut, type DaihonCutReview } from '../../common/daihon-cut-review';
 
 const LABELS: Record<DaihonCutKind, string> = {
-    silence: '無音', filler: 'フィラー', redo: '言い直し', unrecognized: '??（聞き取れなかった音）'
+    silence: t('transcript.daihon.cutDialog.silenceLabel'), filler: t('transcript.daihon.cutDialog.fillerLabel'), redo: t('transcript.daihon.cutDialog.restartLabel'), unrecognized: t('transcript.daihon.cutDialog.unrecognizedUnrecognizedSoundLabel')
 };
 const COLORS: Record<DaihonCutKind, string> = {
     silence: '#76aaff', filler: '#f2a073', redo: '#b89af5', unrecognized: '#e2c269'
 };
 const DESCRIPTION: Record<DaihonCutKind, string> = {
-    silence: '話していない間を詰める', filler: '「えー」「あの」「えっと」など',
-    redo: 'どちらを残すか確かめたいので既定ではオフ', unrecognized: '息・雑音・言葉にならなかった声'
+    silence: t('transcript.daihon.cutDialog.tightenPausesWithoutSpeechLabel'), filler: t('transcript.daihon.cutDialog.wordsSuchAsUmUhLabel'),
+    redo: t('transcript.daihon.cutDialog.offByDefaultSoCanDecideWhichVersionKeepLabel'), unrecognized: t('transcript.daihon.cutDialog.breathingNoiseUnintelligibleVoiceLabel')
 };
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
@@ -58,7 +59,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         protected minGapSec: number, protected keepSec: number, candidateId?: string,
         protected readonly sourceNames: string[] = [], protected readonly videoDuration = 0,
         protected readonly outputTime: (candidate: DaihonCutCandidate, seconds: number) => number = (_candidate, seconds) => seconds) {
-        super({ title: 'カットを整える' });
+        super({ title: t('transcript.daihon.cutDialog.refineCutsTooltip') });
         this.candidates = candidates;
         const focused = candidates.find(candidate => candidate.id === candidateId || candidate.id.endsWith(`:${candidateId}`));
         if (focused) {
@@ -85,7 +86,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
 
     protected render(): void {
         this.steps.replaceChildren();
-        ['探すもの', '見直す', '確定'].forEach((label, index) => {
+        [t('transcript.daihon.cutDialog.findLabel'), t('transcript.daihon.cutDialog.reviewLabel'), t('transcript.daihon.cutDialog.confirmLabel')].forEach((label, index) => {
             const step = button(`${index + 1} ${label}`, () => {
                 if (this.state.step !== 2 && index < this.state.step) { this.state.step = index as 0 | 1; this.render(); }
             });
@@ -95,7 +96,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         });
         this.body.replaceChildren(); this.foot.replaceChildren();
         if (this.sourceNames.length) {
-            const chip = element('span', this.sourceNames.length === 1 ? this.sourceNames[0] : `${this.sourceNames.length} 素材`);
+            const chip = element('span', this.sourceNames.length === 1 ? this.sourceNames[0] : t('transcript.daihon.cutDialog.assetsWithCountLabel', { value1: this.sourceNames.length, n: this.sourceNames.length }));
             chip.title = this.sourceNames.join('\n');
             chip.style.cssText = 'align-self:center;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:999px;padding:3px 9px;font-size:11px;color:var(--theia-descriptionForeground)';
             this.steps.append(chip);
@@ -108,7 +109,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
     }
 
     protected renderSearch(): void {
-        this.body.append(element('h3', '何を探しますか'), element('p', '台本に並ぶすべての行を対象にします。見つけたものは次の画面で 1 件ずつ見直せます。'));
+        this.body.append(element('h3', t('transcript.daihon.cutDialog.whatShouldFoundText')), element('p', t('transcript.daihon.cutDialog.allScriptLinesIncludedReviewEachCandidateNextScreenText')));
         for (const kind of DAIHON_CUT_KINDS) {
             const line = element('div');
             line.style.cssText = 'padding:12px;margin:8px 0;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:8px;display:flex;align-items:center;gap:12px';
@@ -119,7 +120,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             const copy = element('div'); copy.style.flex = '1';
             copy.append(element('strong', LABELS[kind]), element('div', DESCRIPTION[kind]));
             const count = this.candidates.filter(candidate => candidate.kind === kind).length;
-            line.append(check, dot, copy, element('strong', `${count} 件`));
+            line.append(check, dot, copy, element('strong', t('transcript.daihon.cutDialog.candidatesWithCountText', { value1: count })));
             this.body.append(line);
             if (kind === 'silence') {
                 const settings = element('div'); settings.style.cssText = 'display:flex;align-items:center;gap:6px;margin:0 0 16px 36px';
@@ -128,20 +129,20 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
                 for (const input of [min, keep]) input.style.cssText = 'width:66px;background:var(--theia-input-background);color:var(--theia-input-foreground);border:1px solid var(--theia-input-border);padding:5px';
                 const change = async () => {
                     const nextMin = Number(min.value), nextKeep = Number(keep.value);
-                    if (!(nextMin > 0 && nextKeep >= 0 && nextKeep < nextMin)) { this.notice.textContent = '無音の秒数を確認してください。'; return; }
+                    if (!(nextMin > 0 && nextKeep >= 0 && nextKeep < nextMin)) { this.notice.textContent = t('transcript.daihon.cutDialog.checkSilenceDurationText'); return; }
                     this.minGapSec = nextMin; this.keepSec = nextKeep;
                     this.candidates = await this.updateSilence(nextMin, nextKeep);
                     this.notice.textContent = ''; this.render();
                 };
                 min.onchange = () => void change(); keep.onchange = () => void change();
-                settings.append(min, element('span', '秒以上の無音を'), keep, element('span', '秒だけ残す'));
+                settings.append(min, element('span', t('transcript.daihon.cutDialog.cutSilenceLeastText')), keep, element('span', t('transcript.daihon.cutDialog.keepOnlyTheseSecondsText')));
                 this.body.append(settings);
             }
         }
         const selected = reviewCandidates(this.state, this.candidates);
-        const next = button('見直す', () => { this.state.step = 1; this.state.currentId = selected[0]?.id; this.render(); }, true);
+        const next = button(t('transcript.daihon.cutDialog.reviewAction'), () => { this.state.step = 1; this.state.currentId = selected[0]?.id; this.render(); }, true);
         next.disabled = selected.length === 0;
-        this.foot.append(element('span', `見つかった候補 ${selected.length} 件`), element('span'), next);
+        this.foot.append(element('span', t('transcript.daihon.cutDialog.foundCandidatesWithCountText', { value1: selected.length })), element('span'), next);
         this.foot.children[1].setAttribute('style', 'flex:1');
     }
 
@@ -150,10 +151,10 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         if (!candidates.some(candidate => candidate.id === this.state.currentId)) this.state.currentId = candidates[0]?.id;
         const current = candidates.find(candidate => candidate.id === this.state.currentId);
         const bulk = element('div'); bulk.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px';
-        bulk.append(element('span', 'まとめて:'));
+        bulk.append(element('span', t('transcript.daihon.cutDialog.applyAllText')));
         for (const kind of DAIHON_CUT_KINDS.filter(item => this.state.kinds[item]))
-            bulk.append(button(`${LABELS[kind]}を全部切る`, () => { this.state = setKindDecision(this.state, this.candidates, kind, true); this.render(); }));
-        bulk.append(button('全部残す', () => { this.state = setKindDecision(this.state, this.candidates, 'all', false); this.render(); }));
+            bulk.append(button(t('transcript.daihon.cutDialog.cutAllWithValueAction', { value1: LABELS[kind] }), () => { this.state = setKindDecision(this.state, this.candidates, kind, true); this.render(); }));
+        bulk.append(button(t('transcript.daihon.cutDialog.keepAllAction'), () => { this.state = setKindDecision(this.state, this.candidates, 'all', false); this.render(); }));
         this.body.append(bulk);
         const strip = element('div'); strip.style.cssText = 'height:18px;background:var(--akari-elevated, var(--theia-editorWidget-background));border-radius:5px;position:relative;margin-bottom:16px';
         const total = Math.max(this.videoDuration, .001);
@@ -179,7 +180,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             copy.append(element('small', `${formatTime(candidate.start)} · ${LABELS[candidate.kind]}`), words);
             const choices = element('div'); choices.style.cssText = 'display:flex;gap:3px';
             for (const cut of [true, false]) {
-                const choice = button(cut ? '切る' : '残す', () => { this.state = setCutDecision(this.state, candidate.id, cut); this.render(); });
+                const choice = button(cut ? t('transcript.daihon.cutDialog.cutAction') : t('transcript.daihon.cutDialog.keepAction'), () => { this.state = setCutDecision(this.state, candidate.id, cut); this.render(); });
                 choice.style.opacity = cutting === cut ? '1' : '.5';
                 choices.append(choice);
             }
@@ -187,22 +188,22 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         }
         const detail = element('div'); detail.style.cssText = 'padding:14px;background:var(--akari-card, var(--theia-editorWidget-background));border-radius:8px';
         if (current) {
-            detail.append(element('strong', `${LABELS[current.kind]} · ${formatTime(current.start)} · ${(current.end - current.start).toFixed(2)} 秒`));
+            detail.append(element('strong', t('transcript.daihon.cutDialog.secWithValuesDescription', { value1: LABELS[current.kind], value2: formatTime(current.start), value3: (current.end - current.start).toFixed(2) })));
             const context = element('p'); context.style.lineHeight = '1.8';
             const parts = this.context(current); context.append(element('span', parts[0] ?? ''));
             const marked = element(willCut(this.state, current) ? 's' : 'span', parts[1] ?? current.text);
             marked.style.textDecorationColor = COLORS[current.kind]; context.append(marked, element('span', parts[2] ?? ''));
-            detail.append(context, button('▶ 切らずに聞く', () => this.preview(current, false)),
-                button('▶ 切って聞く', () => this.preview(current, true)),
-                element('p', 'J / K で前後、Space で聞く、X で切る / 残す'));
+            detail.append(context, button(t('transcript.daihon.cutDialog.playListenWithoutCutAction'), () => this.preview(current, false)),
+                button(t('transcript.daihon.cutDialog.playListenCutAction'), () => this.preview(current, true)),
+                element('p', t('transcript.daihon.cutDialog.previousNextSpaceListenCutKeepLabel')));
         }
         columns.append(list, detail); this.body.append(columns);
         const selected = chosenCandidates(this.state, this.candidates);
         const seconds = selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
-        this.body.append(element('p', `切る ${selected.length} / ${candidates.length} 件 · 短くなる ${seconds.toFixed(1)} 秒`));
-        const submit = button(`${selected.length} 箇所を切る`, () => void this.confirm(), true);
+        this.body.append(element('p', t('transcript.daihon.cutDialog.cutShortenBySecWithValuesText', { value1: selected.length, value2: candidates.length, value3: seconds.toFixed(1) })));
+        const submit = button(t('transcript.daihon.cutDialog.cutLocationsWithCountAction', { value1: selected.length, n: selected.length }), () => void this.confirm(), true);
         submit.disabled = selected.length === 0 || this.busy;
-        this.foot.append(button('戻る', () => { this.state.step = 0; this.render(); }), element('span'), submit);
+        this.foot.append(button(t('transcript.daihon.cutDialog.backAction'), () => { this.state.step = 0; this.render(); }), element('span'), submit);
         this.foot.children[1].setAttribute('style', 'flex:1');
     }
 
@@ -219,8 +220,8 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             });
             this.notice.textContent = this.state.step === 2 ? ''
                 : this.appliedSummary?.refused
-                    ? `${this.appliedSummary.refused} 箇所は切りませんでした（${this.appliedSummary.refusal ?? '理由を確認してください'}）`
-                    : '変更はありませんでした。';
+                    ? t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, n: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })
+                    : t('transcript.daihon.cutDialog.noChangesMadeMessage');
         } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); }
         finally { this.busy = false; this.render(); }
     }
@@ -230,18 +231,18 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         const seconds = this.appliedSummary?.seconds
             ?? selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
         const count = this.appliedSummary?.count ?? selected.length;
-        this.body.append(element('h3', `${count} 箇所を切りました`));
+        this.body.append(element('h3', t('transcript.daihon.cutDialog.cutLocationsWithCountText', { value1: count, n: count })));
         if (this.appliedSummary?.refused) this.body.append(element('p',
-            `${this.appliedSummary.refused} 箇所は切りませんでした（${this.appliedSummary.refusal ?? '理由を確認してください'}）`));
-        if (this.appliedSummary?.partial) this.body.append(element('p', '映像のある部分だけ切りました'));
+            t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, n: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })));
+        if (this.appliedSummary?.partial) this.body.append(element('p', t('transcript.daihon.cutDialog.onlyPortionsVideoCutText')));
         const metrics = element('div'); metrics.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0';
-        for (const [value, label] of [[String(count), '切った箇所'], [`${seconds.toFixed(1)} 秒`, '短くなった秒'],
-            [`${Math.max(0, this.videoDuration - seconds).toFixed(1)} 秒`, '区間の長さ']] as const) {
+        for (const [value, label] of [[String(count), t('transcript.daihon.cutDialog.locationsCutLabel')], [t('transcript.daihon.cutDialog.secWithCountLabel', { value1: seconds.toFixed(1) }), t('transcript.daihon.cutDialog.timeRemovedLabel')],
+            [t('transcript.daihon.cutDialog.secWithCountLabel', { value1: Math.max(0, this.videoDuration - seconds).toFixed(1) }), t('transcript.daihon.cutDialog.segmentDurationLabel')]] as const) {
             const tile = element('div'); tile.style.cssText = 'padding:12px;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:8px;background:var(--akari-card, var(--theia-editorWidget-background))';
             const number = element('strong', value); number.style.cssText = 'display:block;font-size:22px;color:var(--akari-accent, var(--theia-focusBorder))';
             tile.append(number, element('small', label)); metrics.append(tile);
         }
-        this.body.append(metrics, element('p', '⌘Z 1 回でまとめて戻ります。'));
+        this.body.append(metrics, element('p', t('transcript.daihon.cutDialog.undoAllOneText')));
         const list = element('div'); list.style.cssText = 'max-height:320px;overflow:auto';
         for (const candidate of selected) {
             const parts = this.context(candidate);
@@ -250,8 +251,8 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             list.append(row);
         }
         this.body.append(list);
-        this.foot.append(button('まとめて戻す ⌘Z', () => void this.undo().then(() => this.close())),
-            element('span'), button('台本を見る', () => this.close(), true));
+        this.foot.append(button(t('transcript.daihon.cutDialog.undoAllAction'), () => void this.undo().then(() => this.close())),
+            element('span'), button(t('transcript.daihon.cutDialog.viewScriptAction'), () => this.close(), true));
         this.foot.children[1].setAttribute('style', 'flex:1');
     }
 

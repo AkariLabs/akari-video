@@ -1,7 +1,12 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { assertCatalogCopy } from './i18n-source-copy.mjs';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
 const model = require('../lib/browser/channel/channel-people-model.js');
@@ -97,7 +102,8 @@ test('写真は photos の先頭を優先し、声の有無を判定する', () 
 test('詳細に同意と保存導線、ローカル保存の注記がある', () => {
     const source = readFileSync(new URL('../src/browser/channel/channel-person-detail.tsx', import.meta.url), 'utf8');
     for (const text of ['写真と声はこの機械の中だけに置きます。クラウドや記憶パックには入りません。',
-        '本人の声です', '本人の同意を得た声です', 'data-akari-person-voice-add', 'canAddVoiceSample', "'narration'"]) {
+        '本人の声です', '本人の同意を得た声です']) assertCatalogCopy(source, text);
+    for (const text of ['data-akari-person-voice-add', 'canAddVoiceSample', "'narration'"]) {
         assert.ok(source.includes(text), text);
     }
 });

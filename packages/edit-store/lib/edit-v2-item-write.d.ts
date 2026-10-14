@@ -1,3 +1,4 @@
+import { Rotation3dValues } from './transform-keyframe-edit';
 type UnknownRecord = Record<string, unknown>;
 export interface PreviewItemTransformPatch {
     x?: number;
@@ -22,6 +23,8 @@ export type PreviewItemWriteCommand = ({
     itemId: string;
     patch: {
         vars?: UnknownRecord;
+        /** 3D の向き（--akari-3d-rot-x/y/z・度）。playheadSeconds があり、回転にキーがあれば再生ヘッドに自動キー。 */
+        varsAt?: Rotation3dValues;
         transform?: PreviewItemTransformPatch;
         html?: string;
         text?: string;

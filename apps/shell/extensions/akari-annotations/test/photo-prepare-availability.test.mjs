@@ -1,9 +1,24 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { inspectorSource, photoMaskFields, timelineMethod } from './helpers/perspective-transition-fixture.mjs';
-import { cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { inspectorSource, photoMaskFields, timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+const { cutoutAvailabilityFor, photoToolAvailabilityFor } = await import('../lib/browser/inspector/ai-tiles.js');
+
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const prepareSelectedPhoto = timelineMethod('prepareSelectedPhoto');
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -87,7 +102,7 @@ test('availability RPC requires macOS and an existing helper', async () => {
   assert.deepEqual(await availabilityMethod('darwin', 'helper'), { available: true });
 });
 
-test('available photo helper keeps selection preparation and notices', async () => {
+test('available photo helper prepares selected photos silently', async () => {
   const state = selection(true);
   prepareSelectedPhoto.call(state.context, 'first');
   prepareSelectedPhoto.call(state.context, 'second');
@@ -96,8 +111,20 @@ test('available photo helper keeps selection preparation and notices', async () 
   assert.deepEqual(state.calls, [
     { sourceUri: 'file:///first.jpg' }, { sourceUri: 'file:///second.png' }
   ]);
-  assert.equal(state.notices.filter(message => message.startsWith('写真の準備をしています')).length, 2);
-  assert.equal(state.notices.filter(message => message === 'hidden').length, 2);
+  assert.deepEqual(state.notices, []);
+});
+
+test('a failed warm-up on selection shows no background-removal warning', async () => {
+  const state = selection(true);
+  state.context.annotationsService.photoPrepare = async request => {
+    state.calls.push(request); return { ok: false, message: '背景透過を実行できませんでした' };
+  };
+  prepareSelectedPhoto.call(state.context, 'first');
+  await tick(); await tick();
+  prepareSelectedPhoto.call(state.context, 'first');
+  await tick();
+  assert.deepEqual(state.calls, [{ sourceUri: 'file:///first.jpg' }]);
+  assert.deepEqual(state.notices, []);
 });
 
 test('cutout is disabled with its reason while eraser remains available', () => {

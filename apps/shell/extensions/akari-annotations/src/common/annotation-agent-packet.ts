@@ -1,3 +1,6 @@
+import { t } from '@akari-video/i18n';
+import { DescribableStroke, describePenStrokes } from './pen-stroke-description';
+
 export interface AnnotationAgentPacketInput {
     id: string;
     sourceT: number | null;
@@ -7,7 +10,8 @@ export interface AnnotationAgentPacketInput {
     /** ui: 対象の人が読める表示名。呼び出し側が uiTargetLabels から解決して渡す（無ければ null）。 */
     targetLabel: string | null;
     text: string;
-    hasStrokes: boolean;
+    hasStrokes?: boolean;
+    strokes?: readonly DescribableStroke[] | null;
 }
 
 function formatAnnotationPacketSeconds(seconds: number): string {
@@ -22,15 +26,18 @@ export function composeAnnotationAgentPacket(input: AnnotationAgentPacketInput):
         ? `${formatAnnotationPacketSeconds(input.sourceRange[0])}〜${formatAnnotationPacketSeconds(input.sourceRange[1])}`
         : input.sourceT !== null
             ? formatAnnotationPacketSeconds(input.sourceT)
-            : 'ドキュメント/画像上の注釈';
+        : t('annotationscommon.annotationPacket.text.documentImage');
     const details: string[] = [];
     if (input.target) {
-        details.push(input.targetLabel ? `対象 ${input.target}（${input.targetLabel}）` : `対象 ${input.target}`);
+        details.push(t('annotationscommon.annotationPacket.text.target', {
+            target: input.target, label: input.targetLabel ? `（${input.targetLabel}）` : ''
+        }));
     }
-    if (input.hasStrokes) {
-        details.push('ペン描画あり');
+    const stroke = describePenStrokes(input.strokes);
+    if (stroke || input.hasStrokes) {
+        details.push(stroke ?? t('annotationscommon.penStrokes.text.present'));
     }
     const suffix = details.length > 0 ? `・${details.join('・')}` : '';
-    const body = input.text.trim() ? input.text.trim() : '(本文なし。ペン描画のみ)';
-    return `【注釈】${input.id}（${timeLabel}${suffix}）について: ${body}\nこの注釈に対応してください。`;
+    const body = input.text.trim() ? input.text.trim() : t('annotationscommon.annotationPacket.text.noBody');
+    return t('annotationscommon.annotationPacket.text.prompt', { id: input.id, time: timeLabel, details: suffix, body });
 }

@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -15,7 +21,7 @@ test('プロジェクトの URI からチャンネルの人物ファイルを求
 
 test('人物だけを読み、声のサンプルとプロフィールを拾う', () => {
     const people = parseChannelPeople(JSON.stringify({ version: 0, entries: [
-        { id: 'one', name: 'いずみ', kind: 'person', voice: { samples: [{ file: 'voice.wav' }], profile: 'voice-1' } },
+        { id: 'one', name: 'いずみ', kind: 'person', voice: { samples: [{ file: 'voice.wav', consent: 'self' }], profile: 'voice-1' } },
         { id: 'two', name: 'あき', kind: 'avatar' },
         { id: 'org', name: '会社', kind: 'org' }, { id: 'bad', kind: 'person' }
     ] }));
@@ -25,6 +31,14 @@ test('人物だけを読み、声のサンプルとプロフィールを拾う',
     ]);
     assert.deepEqual(orderChannelPeople(people).map(person => person.id), ['one', 'two']);
     assert.deepEqual(parseChannelPeople('{'), []);
+});
+
+test('同意のない声の見本は数えない', () => {
+    const people = parseChannelPeople(JSON.stringify({ entries: [
+        { id: 'one', name: '一', kind: 'person', voice: { samples: [{ file: 'a.wav' }] } },
+        { id: 'two', name: '二', kind: 'person', voice: { samples: [{ file: 'b.wav', consent: 'subject' }] } }
+    ] }));
+    assert.deepEqual(people.map(person => person.hasVoiceSample), [false, true]);
 });
 
 test('話者の差し替えと解除は他の辞書キーを保持する', () => {

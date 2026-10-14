@@ -1,3 +1,4 @@
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { ChildProcess, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -25,9 +26,9 @@ export class WorldCliRunner {
 
     async overview(projectRoot: string): Promise<WorldOverviewDocument> {
         const key = `overview:${projectRoot}`;
-        if (this.children.has(key)) return { html: '', error: 'ワールド俯瞰を生成中です。' };
+        if (this.children.has(key)) return { html: '', error: t('world.map.overviewGeneratingWorldOverview.error') };
         const cli = await this.resolveCli();
-        if (!cli) return { html: '', error: 'akari world CLI が見つかりません。' };
+        if (!cli) return { html: '', error: t('world.map.overviewFindAkariWorldCli.error') };
         return new Promise(resolvePromise => {
             let stdout = '', stderr = '', child: ChildProcess, settled = false;
             const finish = (result: WorldOverviewDocument): void => {
@@ -37,7 +38,7 @@ export class WorldCliRunner {
             };
             try {
                 child = this.spawnImpl(process.execPath, [cli, 'world', 'overview', projectRoot, '--json'], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: false
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }), stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) { finish({ html: '', error: error instanceof Error ? error.message : String(error) }); return; }
             this.children.set(key, child);
@@ -47,24 +48,24 @@ export class WorldCliRunner {
             child.once('close', async code => {
                 const lines = stdout.trim().split(/\r?\n/u).filter(Boolean);
                 const line = lines[lines.length - 1];
-                if (!line) { finish({ html: '', error: stderr.trim() || `akari world overview が結果を返しませんでした（exit ${code ?? '不明'}）` }); return; }
+                if (!line) { finish({ html: '', error: stderr.trim() || t('world.map.overviewAkariWorldOverviewReturnedNoResultExit.label', { exitCode: code ?? t('world.worldCli.exit.unknown') }) }); return; }
                 try {
                     const result = JSON.parse(line) as { output?: unknown; fallback?: boolean; atlas?: boolean };
-                    if (typeof result.output !== 'string') throw new Error('output がありません');
+                    if (typeof result.output !== 'string') throw new Error(t('world.map.overviewMissingOutputField.label'));
                     finish({ html: await fs.readFile(result.output, 'utf8'), fallback: result.fallback, atlas: result.atlas });
-                } catch (error) { finish({ html: '', error: `akari world overview の結果を解釈できません: ${error instanceof Error ? error.message : String(error)}` }); }
+                } catch (error) { finish({ html: '', error: t('world.map.overviewReadAkariWorldOverviewResult.error', { error: error instanceof Error ? error.message : String(error) }) }); }
             });
         });
     }
 
     async moveStop(projectRoot: string, stopId: string, c: number[]): Promise<WorldStopMoveResult> {
-        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(stopId)) return { ok: false, code: 'ARG', reason: '停留所 id が不正です。' };
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(stopId)) return { ok: false, code: 'ARG', reason: t('world.map.moveStopInvalidStopId.message') };
         if (!Array.isArray(c) || c.length < 2 || c.length > 3 || !c.every(value => typeof value === 'number' && Number.isFinite(value))) {
-            return { ok: false, code: 'ARG', reason: 'c は 2〜3 要素の有限数配列である必要があります。' };
+            return { ok: false, code: 'ARG', reason: t('world.map.moveStopCMustArrayTwoThreeFiniteNumbers.message') };
         }
-        if (this.children.has(stopId)) return { ok: false, code: 'BUSY', reason: `停留所 ${stopId} は移動処理中です。` };
+        if (this.children.has(stopId)) return { ok: false, code: 'BUSY', reason: t('world.map.moveStopStopMoving.message', { stopId: stopId }) };
         const cli = await this.resolveCli();
-        if (!cli) return { ok: false, code: 'CLI', reason: 'akari world CLI が見つかりません。' };
+        if (!cli) return { ok: false, code: 'CLI', reason: t('world.map.moveStopFindAkariWorldCli.message') };
         return new Promise(resolvePromise => {
             let stdout = '';
             let stderr = '';
@@ -78,7 +79,7 @@ export class WorldCliRunner {
             };
             try {
                 child = this.spawnImpl(process.execPath, [cli, 'world', 'move-stop', projectRoot, '--stop', stopId, '--c', c.join(','), '--json'], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' },
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }),
                     stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) {
@@ -92,13 +93,13 @@ export class WorldCliRunner {
             child.once('close', code => {
                 const lines = stdout.trim().split(/\r?\n/u).filter(Boolean);
                 const line = lines[lines.length - 1];
-                if (!line) { finish({ ok: false, code: 'OUTPUT', reason: stderr.trim() || `akari world move-stop が結果を返しませんでした（exit ${code ?? '不明'}）` }); return; }
+                if (!line) { finish({ ok: false, code: 'OUTPUT', reason: stderr.trim() || t('world.map.moveStopAkariWorldMoveStopReturnedNoResult.label', { exitCode: code ?? t('world.worldCli.exit.unknown') }) }); return; }
                 try {
                     const result = JSON.parse(line) as WorldStopMoveResult;
-                    if (!result || typeof result.ok !== 'boolean') throw new Error('ok がありません');
+                    if (!result || typeof result.ok !== 'boolean') throw new Error(t('world.map.moveStopMissingOkField.label'));
                     finish(result);
                 } catch (error) {
-                    finish({ ok: false, code: 'OUTPUT', reason: `akari world move-stop の結果を解釈できません: ${error instanceof Error ? error.message : String(error)}` });
+                    finish({ ok: false, code: 'OUTPUT', reason: t('world.map.moveStopReadAkariWorldMoveStopResult.label', { error: error instanceof Error ? error.message : String(error) }) });
                 }
             });
         });

@@ -37,7 +37,8 @@ const extract = names => new Function(`${karaokeEpsilonDeclaration}\n${names.map
 const { karaokeSmoothTilesAt, karaokeWordMixAt, tokenRole, tokenTiming } = extract(
   ['karaokeSmoothTilesAt', 'karaokeWordMixAt', 'karaokeDelayReached', 'tokenRole', 'tokenTiming', 'cssSeconds']);
 const measureCaptionUnit = new Function('getComputedStyle',
-  `${['measureCaptionUnit', 'relativeRect', 'tokenRole', 'tokenStyle', 'tokenTiming', 'cssSeconds']
+  `${['measureCaptionRunEffectRects', 'measureCaptionUnit', 'relativeRect', 'tokenRole',
+    'tokenStyle', 'tokenTiming', 'cssSeconds']
     .map(name => functions.get(name)).join('\n')}\nreturn measureCaptionUnit;`)(() => ({ fontSize: '40px' }));
 
 test('all three fills, start_index, and done_color stay GPU eligible', () => {

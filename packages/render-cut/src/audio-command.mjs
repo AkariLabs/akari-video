@@ -1,4 +1,5 @@
 import { basename, isAbsolute, relative } from 'node:path';
+import { renderText } from './i18n.mjs';
 import { parseAudioToolVersion } from './audio-qc.mjs';
 
 export function parseFfmpegMajorVersion(line) {
@@ -53,7 +54,7 @@ export function prepareAudioMixExecution(audioPlan, { ffmpegVersion, graphPath, 
   }
   const length = audioCommandLength(audioPlan.command, args);
   if (length >= limit) {
-    throw new Error(`音声アイテム ${audioItemCount} 個でコマンドが ${length} 文字になり上限 ${limit} 文字を超えた。効果音をステムにまとめてください`);
+    throw new Error(renderText('render.audio.error.commandTooLong', { count: audioItemCount, n: audioItemCount, length, limit }));
   }
   return { args, filterGraph, graphFilename: filterGraph === null ? null : basename(graphPath), commandLength: length };
 }

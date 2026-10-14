@@ -1,3 +1,4 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -5,11 +6,18 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { StillGenerationManager } from '../lib/node/still-generation.js';
-import { imageRouteBadgeText, imageRouteNextText, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
+
+
+
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { StillGenerationManager } = await import('../lib/node/still-generation.js');
+const { imageRouteBadgeText, imageRouteNextText, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice } = await import('../lib/browser/inspector/ai-still-panel.js');
+
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const fixture = fileURLToPath(new URL('./fixtures/fake-codex.mjs', import.meta.url));
@@ -28,10 +36,12 @@ test('カタログの順序と対象ごとの押下可否', () => {
   for (const target of ['empty-frame', 'still']) {
     assert.equal(describeAiTiles(catalog, target)[0].tiles[0].enabled, true);
   }
-  for (const target of ['video', 'generated-video']) {
-    assert.deepEqual(describeAiTiles(catalog, target)[0].tiles[0], {
-      id: 'still', label: '静止画', image: 'still', enabled: false, reason: '空の枠か静止画で使えます'
-    });
+  assert.deepEqual(describeAiTiles(catalog, 'generated-video')[0].tiles[0], {
+    id: 'still', label: '静止画', image: 'still', enabled: false, reason: '空の枠か静止画で使えます'
+  });
+  // ふつうの動画・画像には「作る」を出さない（仮枠のときだけ）
+  for (const target of ['video', 'image']) {
+    assert.equal(describeAiTiles(catalog, target).some(group => group.group === 'make'), false);
   }
 });
 

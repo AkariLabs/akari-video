@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aggregateKeyframeDiamonds, deriveTimelineKeyframeRows, keyframeRowPropertyOf } = await import('../lib/browser/timeline/timeline-keyframe-rows.js');
 
-import {
-  aggregateKeyframeDiamonds,
-  deriveTimelineKeyframeRows,
-  keyframeRowPropertyOf,
-} from '../lib/browser/timeline/timeline-keyframe-rows.js';
+
+
 
 test('既定プロパティ行を導出し、両端白抜き・中間塗りを判定する', () => {
   const rows = deriveTimelineKeyframeRows({

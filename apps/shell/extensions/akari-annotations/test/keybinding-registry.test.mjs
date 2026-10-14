@@ -3,14 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
 
 const require = createRequire(import.meta.url);
 const { KeySequence } = require('@theia/core/lib/common/keys');
 const source = readFileSync(new URL('../src/browser/akari-shortcuts.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
 const exports = {};
-new Function('exports', compiled)(exports);
+new Function('exports', 'require', compiled)(exports, require);
 const shortcuts = exports.AKARI_SHORTCUTS;
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 test('全ショートカットは日本語ラベル・分類・有効な Theia キー・when を持つ', () => {
     assert.ok(shortcuts.length >= 35);

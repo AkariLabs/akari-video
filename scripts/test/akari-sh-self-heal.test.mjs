@@ -79,7 +79,7 @@ function runNonInteractive(scriptPath, { env }) {
 
 function runInteractive(scriptPath, { env, input }) {
   const result = spawnSync('python3', [ptyRunner, input, '--', 'bash', scriptPath], {
-    env,
+    env: { ...env, AKARI_LANG: env.AKARI_LANG ?? 'ja' },
     encoding: 'utf8',
     timeout: 45_000
   });

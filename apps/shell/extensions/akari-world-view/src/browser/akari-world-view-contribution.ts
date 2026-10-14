@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -7,9 +8,9 @@ import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-ser
 import { AkariWorldViewService } from '../common/akari-world-view-protocol';
 import { errorHtml } from '../common/error-html';
 
-export const OPEN_WORLD_MAP: Command = { id: 'akari.world.openMap', label: '地図を開く' };
+export const OPEN_WORLD_MAP: Command = { id: 'akari.world.openMap', label: t('world.map.openMap.label') };
 export const SEEK_WORLD_MAP: Command = { id: 'akari.world.seek' };
-export const OPEN_WORLD_MAP_BESIDE_PREVIEW: Command = { id: 'akari.world.openBesidePreview', label: 'プレビューと並べる' };
+export const OPEN_WORLD_MAP_BESIDE_PREVIEW: Command = { id: 'akari.world.openBesidePreview', label: t('world.map.showNextPreview.label') };
 const IDENTIFIER = { id: 'akari-world-map', viewId: 'akari-world-map' };
 
 @injectable()
@@ -43,7 +44,7 @@ export class AkariWorldViewContribution implements CommandContribution {
         this.widget = widget;
         this.subscribeToWidget(widget);
         widget.viewType = 'akari.world';
-        widget.title.label = '地図'; widget.title.caption = 'ワールド地図'; widget.title.iconClass = 'codicon codicon-map';
+        widget.title.label = t('world.map.title.label'); widget.title.caption = t('world.map.openWorldMap.label'); widget.title.iconClass = 'codicon codicon-map';
         widget.setContentOptions({ allowScripts: true });
         const initial = await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => 0);
         this.currentTime = typeof initial === 'number' && Number.isFinite(initial) ? initial : 0;
@@ -69,15 +70,15 @@ export class AkariWorldViewContribution implements CommandContribution {
                 && Array.isArray(request.c) && request.c.length >= 2 && request.c.length <= 3
                 && request.c.every(value => typeof value === 'number' && Number.isFinite(value));
             if (!valid) {
-                widget.sendMessage({ type: 'akari-world-move-failed', reason: '停留所の移動引数が不正です。', requestId });
+                widget.sendMessage({ type: 'akari-world-move-failed', reason: t('world.map.subscribeToWidgetInvalidStopMovementArguments.message'), requestId });
                 return;
             }
             try {
                 const root = (await this.workspace.roots)[0]?.resource;
-                if (!root) throw new Error('プロジェクトルートが見つかりません。');
+                if (!root) throw new Error(t('world.map.subscribeToWidgetFindProjectRoot.message'));
                 const result = await this.service.moveCameraStop(root.toString(), request.stopId as string, request.c as number[]);
                 if (!result.ok) {
-                    widget.sendMessage({ type: 'akari-world-move-failed', reason: result.reason ?? '停留所を移動できませんでした。', requestId });
+                    widget.sendMessage({ type: 'akari-world-move-failed', reason: result.reason ?? t('world.map.subscribeToWidgetMoveStop.message'), requestId });
                     return;
                 }
                 const document = await this.service.readWorldOverviewHtml(root.toString());

@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -6,6 +8,12 @@ import test from 'node:test';
 import ts from 'typescript';
 import { withCaptionPreviewFailure } from '../lib/browser/inspector/caption-preview-write.js';
 import { CoalescedCaptionWrites } from '../lib/common/coalesced-caption-writes.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 function extractClass(source, className, names) {
     const ast = ts.createSourceFile(`${className}.ts`, source, ts.ScriptTarget.Latest, true);
@@ -25,7 +33,7 @@ const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
     'captionStyleWrites', 'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',
     'inspectorRequestAdjustLutList', 'inspectorRequestAdjustLutImport', 'inspectorRequestKeyframe',
     'inspectorRequestMaterialSwap', 'claimInspectorOwner', 'activateInspectorSelection',
-    'releaseInspectorOwner', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
+    'releaseInspectorOwner', 'releaseTransitionBoundaryForOtherSelection', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
     'remapCaptionSelections'
 ]);
 const timelineCode = ts.transpileModule(`class Timeline { ${timelineMembers} }`, {
@@ -189,4 +197,16 @@ test('write failures show a field notice and one MessageService error per repeat
     now += 4000;
     await inspector.commitWrite(request);
     assert.equal(errors.filter(message => message === '保存できません。').length, 2);
+});
+
+test('字幕サイズの競合は欄の一か所にだけ知らせる', async () => {
+    const notices = [];
+    const errors = [];
+    const inspector = new Inspector();
+    inspector.model = { requestWrite: async () => ({ ok: false, message: '読み直しました。' }) };
+    inspector.showFieldNotice = message => notices.push(message);
+    inspector.messageService = { error: message => errors.push(message) };
+    await inspector.commitWrite({ kind: 'caption-style-size', id: 'c-0001', value: 72 });
+    assert.deepEqual(notices, ['読み直しました。']);
+    assert.deepEqual(errors, []);
 });

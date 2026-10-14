@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { renderText } from './i18n.mjs';
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -8,6 +9,7 @@ import { BUNDLED_CAPTION_FONT_FACES, captionFontFaceCss, captionFontFaces, capti
 import { predictedDuration } from "./plan.mjs";
 import { decorateTypewriterHtml, isTypewriterOnlyAnimation, stripAnimationOnlyLookVars } from "./caption-typewriter.mjs";
 import { captionInkClipRecipe } from "./caption-ink-clip.mjs";
+import { captionLanguageDefaults, normalizeLanguage } from "../../content-language/src/index.mjs";
 
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
 // packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
@@ -36,24 +38,6 @@ const {
   TEXTSTYLE_CATALOG,
   usesExtendedPerLineBackground,
 } = require("../../edit-store/lib/index.js");
-
-/** A CSS text stroke paints half its width outside the glyph. Round shadows keep that radius. */
-export function roundedCaptionStrokeShadows(stroke, originalShadow) {
-  const match = /^\s*([\d.]+)px\s+(.+?)\s*$/u.exec(stroke ?? '');
-  if (!match) return null;
-  const width = Number(match[1]);
-  if (!Number.isFinite(width) || width <= 0 || width > 1000) return null;
-  const radius = width / 2;
-  const color = match[2];
-  const circle = Array.from({ length: 32 }, (_, index) => {
-    const angle = index * Math.PI / 16;
-    const x = Number((Math.cos(angle) * radius).toFixed(3));
-    const y = Number((Math.sin(angle) * radius).toFixed(3));
-    return `${x}px ${y}px 0 ${color}`;
-  }).join(',');
-  return originalShadow && originalShadow !== 'none' ? `${circle},${originalShadow}` : circle;
-}
-
 
 /** Apply only after runs have been projected, so aria-hidden copies cannot change indices. */
 export function applyCaptionRichLayers(html, style, output) {
@@ -94,10 +78,10 @@ export function applyCaptionRichLayers(html, style, output) {
   return close < 0 ? decorated : decorated.slice(0, close) + script + decorated.slice(close);
 }
 
-const DEFAULT_MAX_CHARACTERS = 20;
+const DEFAULT_MAX_CHARACTERS = captionLanguageDefaults('ja').landscapeCharacters;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
 // （オーナー裁定 2026-08-03: 縦は 5〜10 文字級のチャンクを大きく順送りで見せる）。
-const PORTRAIT_MAX_CHARACTERS = 10;
+const PORTRAIT_MAX_CHARACTERS = captionLanguageDefaults('ja').portraitCharacters;
 // 縦長の既定フォントサイズは出力幅比で決める（1080px 幅 → 65px）。
 
 function captionPlateMarginVars(style, includeZone = false) {
@@ -132,6 +116,7 @@ const CAPTION_DEFAULT_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 const CAPTION_FONT_FACE_CSS = BUNDLED_CAPTION_FONT_FACES
+  .filter(font => font.id !== 'noto-sans')
   .map(font => `@font-face {
       font-family: "${font.family}";
       src: url("${pathToFileURL(resolve(CAPTION_FONT_DIR, font.id, font.file)).href}") format("${font.variable ? "truetype-variations" : "truetype"}");
@@ -240,9 +225,12 @@ const JUMBLE_MAX_OFFSET_EM = 0.1;
 const JUMBLE_MAX_SCALE_AMP = 0.12;
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
+  const language = normalizeLanguage(options.locale) ?? 'ja';
+  const languageDefaults = captionLanguageDefaults(language);
   const hasFamily = Boolean(options.defaultTextStyle?.font_family)
     || captions.some(cue => Boolean(cue?.text_style?.font_family));
-  const fontFaceCss = hasFamily ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
+  const fontFaceCss = hasFamily || language !== 'ja'
+    ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
   // output（edit.output の {width,height}）が縦長なら、行を短く・文字を大きくする既定へ切り替える。
   // 明示指定（maxCharacters / text_style.size_px）は常に既定より優先。
   const output = options.output;
@@ -300,10 +288,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
     const maximum = textStyle?.vertical && !textStyle?.max_characters ? Number.MAX_SAFE_INTEGER : textStyle?.max_characters
       ?? options.maxCharacters
-      ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
+      ?? (portrait ? languageDefaults.portraitCharacters : languageDefaults.landscapeCharacters);
     const textStyleVars = captionTextStyleVars(textStyle, output);
-    const roundedStroke = caption.time_domain === 'output'
-      ? roundedCaptionStrokeShadows(textStyleVars['--caption-stroke'], textStyleVars['--caption-text-shadow']) : null;
     const allWords = clipWordsToRange(projectedCaption.words, window.start, window.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
@@ -312,7 +298,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       && !textStyle?.vertical
       && style === null
       && allWords.length > 0
-      && splitCaptionLines(displayText, maximum).length > 1
+      && splitCaptionLines(displayText, maximum, false, language).length > 1
     ) {
       style = REVEAL_STYLE;
     }
@@ -357,7 +343,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     if ((style === "karaoke" || style === "pop") && allWords.length === 0) {
       warn(
         `${style}-without-words`,
-        `[${style}-without-words] 字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        renderText('render.captions.warning.wordsMissing', { style, id: caption.id ?? "(unknown)", display: style === "karaoke" ? renderText('render.captions.style.karaoke') : renderText('render.captions.style.pop') }),
       );
     }
     for (const [index, range] of ranges.entries()) {
@@ -382,6 +368,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         words.length > 0 && (style || hasEmphasis)
           ? renderStyledCaptionFragment(words, style, {
               maximum,
+              locale: language,
+              fontStack: languageDefaults.fontStack,
               baseFontSize,
               rangeStart: range.sourceStart,
               rangeEnd: range.sourceEnd,
@@ -391,7 +379,6 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               textStyleActive: textStyle !== null,
               fontFaceCss,
               contextStyle: textStyle,
-              roundedStroke: Boolean(roundedStroke),
               displayText,
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
@@ -405,11 +392,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
             })
           : renderCaptionFragment(displayText, {
               maximum,
+              locale: language,
+              fontStack: languageDefaults.fontStack,
               baseFontSize,
               textStyleActive: textStyle !== null,
               fontFaceCss,
               contextStyle: textStyle,
-              roundedStroke: Boolean(roundedStroke),
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
@@ -424,7 +412,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               output,
             });
       if (runs?.length) {
-        html = applyCaptionRunsToHtml(html, displayText, runs);
+        html = applyCaptionRunsToHtml(html, displayText, runs, false,
+          textStyle?.fill !== undefined || textStyle?.strokes !== undefined);
       }
       html = decorateTypewriterHtml(html, textStyle?.animation, range.duration);
       html = applyCaptionRichLayers(html, textStyle, output);
@@ -434,7 +423,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         start: range.start,
         duration: range.duration,
         transform: captionTransform(),
-        vars: { ...textStyleVars, ...(roundedStroke ? { '--caption-rounded-stroke': roundedStroke } : {}), ...(sizeToInk || textStyle?.wrap_width_pct
+        vars: { ...textStyleVars, ...(sizeToInk || textStyle?.wrap_width_pct
           ? captionPlateMarginVars(textStyle, Boolean(textStyle?.wrap_width_pct)) : {}), ...captionTransformVars(textStyle) },
         generatedFrom: caption.id,
       });
@@ -472,12 +461,6 @@ function renderUntimedEmphasisLine(line, words, start = -Infinity, end = Infinit
   return markup + plain(line.slice(cursor));
 }
 
-function resolvedCaptionRoundedStrokeVars(cue) {
-  const stroke = cue?.cut_index === -1
-    ? roundedCaptionStrokeShadows(cue.style_vars?.['--caption-stroke'], cue.style_vars?.['--caption-text-shadow']) : null;
-  return stroke ? { '--caption-rounded-stroke': stroke } : {};
-}
-
 /**
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
@@ -492,7 +475,7 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
-    vars: { ...(stripAnimationOnlyLookVars(cue.text_style, cue.style_vars) ?? {}), ...resolvedCaptionRoundedStrokeVars(cue), ...(cue.style_vars?.['--caption-wrap-width']
+    vars: { ...(stripAnimationOnlyLookVars(cue.text_style, cue.style_vars) ?? {}), ...(cue.style_vars?.['--caption-wrap-width']
       || cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
       ? captionPlateMarginVars(cue.text_style, Boolean(cue.style_vars?.['--caption-wrap-width'])) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
@@ -565,7 +548,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
     .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
     .akari-caption__tok--karaoke-done { color:var(--caption-highlight-color,#ffd94a); }
     .akari-caption__tok--karaoke-smooth { position:relative;animation:none; }
-    .akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+    .akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 ` : '';
   const framePlateCss = cue?.style_vars?.['--caption-plate-fit'] === 'frame'
     ? `    .akari-caption--single-line .akari-caption__plate { left: 4%; right: 4%; width: auto; box-sizing: border-box; }
@@ -602,7 +585,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
       text-align:center;
       animation:none;
       transform:none;
-    }${resolvedCaptionRoundedStrokeVars(cue)['--caption-rounded-stroke'] ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
+    }
     .akari-caption--single-line .akari-caption__plate {
       position:absolute;
       top:var(--caption-top,auto);
@@ -952,9 +935,10 @@ export function renderCaptionFragment(text, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive || options.fontStack?.includes('"AKARI Noto Sans"')
+    ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
-    ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
+    ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: var(--caption-font-weight, 700);
       font-style: var(--caption-font-style, normal);
@@ -962,7 +946,7 @@ export function renderCaptionFragment(text, options = {}) {
       letter-spacing: var(--caption-letter-spacing, normal);
       text-transform: var(--caption-text-transform, none);
       line-height: var(--caption-line-height, 1.42);`
-    : `      font-family: ${CAPTION_FONT_STACK};
+    : `      font-family: ${options.fontStack ?? CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;`;
@@ -976,7 +960,7 @@ export function renderCaptionFragment(text, options = {}) {
     ? `\n${options.captionAnimation.keyframesCss}`
     : "";
   const charText = captionCharRenderer(options.animator);
-  const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText));
+  const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText), options.locale);
   const markup = lines
     .map((line) => `<p class="akari-caption__line">${options.untimedEmphasisWords?.length
       ? renderUntimedEmphasisLine(line, options.untimedEmphasisWords,
@@ -1062,7 +1046,7 @@ export function renderCaptionFragment(text, options = {}) {
       text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
 ${typographyCss}
       text-align: center;
-    }${options.roundedStroke ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
+    }
     .akari-caption__plate {
       position: absolute;
 ${platePlacementCss}
@@ -1130,9 +1114,10 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive || options.fontStack?.includes('"AKARI Noto Sans"')
+    ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
-    ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
+    ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: var(--caption-font-weight, 700);
       font-style: var(--caption-font-style, normal);
@@ -1140,7 +1125,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       letter-spacing: var(--caption-letter-spacing, normal);
       text-transform: var(--caption-text-transform, none);
       line-height: var(--caption-line-height, 1.42);`
-    : `      font-family: ${CAPTION_FONT_STACK};
+    : `      font-family: ${options.fontStack ?? CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;`;
@@ -1175,7 +1160,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const lines = options.vertical
     ? [useMappedLines ? renderTokens : words]
     : useMappedLines
-      ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
+      ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText), options.locale)
       : groupWordsIntoLines(words, maximum);
   const karaokeDisplay = options.displayText ?? words.map(word => word.text).join('');
   let karaokeCursor = 0;
@@ -1281,7 +1266,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
 ${typographyCss}
       text-align: center;
-    }${options.roundedStroke ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
+    }
     .akari-caption__plate {
       position: absolute;
 ${platePlacementCss}
@@ -1336,7 +1321,7 @@ ${options.contextStyle?.karaoke ? `    @keyframes akari-caption-karaoke-wipe {
 ${options.contextStyle?.karaoke ? `    .akari-caption__tok--karaoke-done { color: var(--caption-highlight-color, #ffd94a); }
     .akari-caption__tok--karaoke-smooth { position: relative; animation: none; }
     .akari-caption__tok--karaoke-smooth::after {
-      content: attr(data-karaoke-text); position: absolute; inset: 0; white-space: pre;
+      content: attr(data-karaoke-text); position: absolute; inset: 0; white-space: pre; -webkit-text-stroke: 0 transparent;
       color: var(--caption-highlight-color, #ffd94a);
       animation: akari-caption-karaoke-wipe var(--akari-tok-dur, 0.2s) var(--akari-tok-delay, 0s) linear both paused;
     }
@@ -1507,11 +1492,11 @@ function clipDisplayTokensToRange(tokens, rangeStart, rangeEnd) {
 // splitCaptionLines を唯一の優先順位（明示改行 → 句点 → 上限超過時は読点・空白・文節境界・文字上限）として使い、
 // その分割点が発話 word の中なら最寄りの word 境界へスナップする。通常は 20±2 字に収まり、
 // それを超える単一 word だけは表示完全性を優先して分割しない。
-function groupDisplayTokensIntoLines(tokens, maximum, graphemes = false) {
+function groupDisplayTokensIntoLines(tokens, maximum, graphemes = false, locale = 'ja') {
   if (tokens.length === 0) return [];
   const charactersOf = graphemes ? captionGraphemes : Array.from;
   const text = tokens.map((token) => token.text).join("");
-  const desiredLines = splitCaptionLines(text, maximum, graphemes);
+  const desiredLines = splitCaptionLines(text, maximum, graphemes, locale);
   const desiredBoundaries = [];
   let desiredOffset = 0;
   for (const line of desiredLines.slice(0, -1)) {
@@ -1926,8 +1911,11 @@ function captionPlainWords(text, words) {
   return result;
 }
 
-export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphemes = false) {
+export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphemes = false, locale = 'ja') {
   const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : DEFAULT_MAX_CHARACTERS;
+  if (normalizeLanguage(locale) !== 'ja' && normalizeLanguage(locale) !== 'zh') {
+    return String(text).split(/\r?\n/u).flatMap(value => splitSpaceDelimitedLines(value, limit));
+  }
   const explicit = String(text).split(/\r?\n/u);
   const lines = [];
   for (const value of explicit) {
@@ -1939,6 +1927,28 @@ export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphe
       lines.push(...splitAtNaturalBoundaries(segment, limit, graphemes));
     }
   }
+  return lines;
+}
+
+const ENGLISH_FUNCTION_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'of', 'to', 'in', 'on', 'at', 'with', 'by']);
+
+function splitSpaceDelimitedLines(value, limit) {
+  const words = value.trim().split(/\s+/u).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let current = [];
+  for (const word of words) {
+    if (current.length && [...current, word].join(' ').length > limit) {
+      const moved = [];
+      while (current.length > 1 && ENGLISH_FUNCTION_WORDS.has(current.at(-1).toLowerCase())) {
+        moved.unshift(current.pop());
+      }
+      lines.push(current.join(' '));
+      current = moved;
+    }
+    current.push(word);
+  }
+  if (current.length) lines.push(current.join(' '));
   return lines;
 }
 

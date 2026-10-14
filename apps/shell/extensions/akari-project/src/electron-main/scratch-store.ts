@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { createHash, randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
@@ -8,7 +9,7 @@ import { renderScratchThumbnail, ScratchThumbnail } from './scratch-thumbnail';
 
 export interface ScratchListItem {
     ref: string; id: string; kind: 'scratch-image'; origin: 'external'; label: string;
-    badges: ['外', '利用条件: 不明']; status: 'ready' | 'url_only'; path?: string; thumb?: string;
+    badges: [string, string]; status: 'ready' | 'url_only'; path?: string; thumb?: string;
     quality: 'thumbnail' | 'full' | 'unknown'; capturedAt: string; flags: string[];
 }
 export function scratchRoot(): string { return join(resolve(process.env.AKARI_HOME ?? join(homedir(), '.akari')), 'scratch'); }
@@ -135,7 +136,7 @@ export async function listScratch(root = scratchRoot(), engineName?: (id: string
             const thumb = thumbBytes ? listThumbnailDataUri(thumbBytes, decodeThumb) : undefined;
             return { ref: `scratch:${source.id}`, id: source.id, kind: 'scratch-image' as const, origin: 'external' as const,
                 label: scratchLabel(source.app, source.app.search ? engineName?.(source.app.search.engine) : undefined),
-                badges: ['外', '利用条件: 不明'] as ['外', '利用条件: 不明'],
+                badges: [t('project.handoff.item.externalLabel'), t('project.handoff.scratch.usageTermsUnknownLabel')] as [string, string],
                 status: source.status, path, thumb, quality: source.app.quality, capturedAt: source.captured_at,
                 flags: source.flags.length ? ['injection-suspect'] : [] };
         }));

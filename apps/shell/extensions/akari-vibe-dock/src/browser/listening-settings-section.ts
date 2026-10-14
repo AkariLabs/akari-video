@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
@@ -18,9 +19,9 @@ import { EarSession } from './ear-session';
 import { ensureCorrectedTextStyles } from './corrected-text';
 import { lastKnownListeningMic, rememberListeningMic } from './listening-preferences';
 
-const DISCLOSURE = '話した内容と編集中の動画の構成（字幕は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります';
+const DISCLOSURE = t('vibe.listening.settings.cloudSpeechDataDisclosure');
 const HISTORY_KEY = 'akari.listening.history';
-const TRIAL_HINT = '「試し聞き」を押して、何か話してください。聞き取った文がここに出ます。';
+const TRIAL_HINT = t('vibe.listening.settings.testListeningInstruction');
 
 function ensureStyles(): void {
     if (document.getElementById('akari-listening-settings-style')) return;
@@ -97,7 +98,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         const trialHead = el('div', 'akari-listening-trial-head');
         const mark = el('span', 'akari-listening-mark');
         mark.setAttribute('aria-hidden', 'true');
-        const trialStatus = el('span', 'akari-listening-trial-state', '待機中');
+        const trialStatus = el('span', 'akari-listening-trial-state', t('vibe.listening.settings.idleLabel'));
         trialStatus.setAttribute('role', 'status');
         const micLabel = el('span', 'akari-listening-mic');
         const levelTrack = el('div', 'akari-listening-meter');
@@ -105,14 +106,14 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         levelTrack.append(levelFill);
         const output = el('div', 'akari-listening-output', TRIAL_HINT);
         output.setAttribute('aria-live', 'polite');
-        const foot = el('p', 'akari-listening-trial-foot', '何も保存しません');
+        const foot = el('p', 'akari-listening-trial-foot', t('vibe.listening.settings.nothingSavedMessage'));
         root.append(listeningCard, modeCard, dictionaryCard);
         host.append(root);
 
         const paintMic = (): void => {
-            micLabel.textContent = mic === 'denied' ? 'マイク: 許可がありません'
-                : mic === 'unsupported' ? 'マイク: この環境では使えません'
-                    : micName ? `マイク: ${micName}` : 'マイク: 未確認（許可後に名前を表示）';
+            micLabel.textContent = mic === 'denied' ? t('vibe.listening.settings.microphonePermissionDeniedText')
+                : mic === 'unsupported' ? t('vibe.listening.settings.microphoneUnavailableEnvironmentLabel')
+                    : micName ? t('vibe.listening.settings.microphoneWithValueLabel', { value1: micName }) : t('vibe.listening.settings.microphoneNotCheckedNameAppearsAfterPermissionGrantedLabel');
         };
         const findMic = async (): Promise<void> => {
             try {
@@ -127,25 +128,25 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
             for (const segment of buildCorrectedSegments(utterance.text, utterance.applied)) {
                 if (!segment.applied) { output.append(document.createTextNode(segment.text)); continue; }
                 const word = el('span', 'akari-corrected-word', segment.text);
-                word.title = `聞こえたまま: ${segment.applied.from}`;
+                word.title = t('vibe.listening.settings.asHeardWithOriginalTooltip', { value1: segment.applied.from });
                 output.append(word);
             }
         };
         const stopTrial = async (): Promise<void> => {
             if (stopping || !running) return;
             stopping = true;
-            trialStatus.textContent = currentEngine === 'record-then-transcribe' ? '文字にしています…' : '停止しています…';
+            trialStatus.textContent = currentEngine === 'record-then-transcribe' ? t('vibe.listening.settings.ongoingTranscribingText') : t('vibe.listening.settings.ongoingStoppingText');
             try {
                 await session.stop();
-                if (!disposed) trialStatus.textContent = '待機中';
-            } catch { if (!disposed) trialStatus.textContent = '試し聞きを止められませんでした'; }
+                if (!disposed) trialStatus.textContent = t('vibe.listening.settings.idleText');
+            } catch { if (!disposed) trialStatus.textContent = t('vibe.listening.settings.couldNotStopTestListeningError'); }
             running = false;
             stopping = false;
             if (!disposed) paintTrialButton();
         };
-        const trialButton = button('試し聞き', () => { if (!stopping) void (running ? stopTrial() : startTrial()); });
+        const trialButton = button(t('vibe.listening.settings.testListeningAction'), () => { if (!stopping) void (running ? stopTrial() : startTrial()); });
         const paintTrialButton = (): void => {
-            trialButton.textContent = running ? '止める' : '試し聞き';
+            trialButton.textContent = running ? t('vibe.listening.settings.stopText') : t('vibe.listening.settings.testListeningText');
             trialButton.disabled = stopping;
             mark.dataset.on = String(running);
             if (!running) levelFill.style.transform = 'scaleX(0)';
@@ -153,52 +154,52 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         const startTrial = async (): Promise<void> => {
             if (running || disposed) return;
             if (session.state.state === 'listening' && session.state.purpose !== 'trial') {
-                trialStatus.textContent = '区画で聞き取り中です';
+                trialStatus.textContent = t('vibe.listening.settings.listeningPanelText');
                 return;
             }
             currentEngine = resolveEarEngine(this.preferences, capabilities);
-            if (!currentEngine) { trialStatus.textContent = '使える聞き取りエンジンがありません'; return; }
+            if (!currentEngine) { trialStatus.textContent = t('vibe.listening.settings.noListeningEngineAvailableText'); return; }
             running = true;
             voiceAt = undefined;
             latency = undefined;
-            output.textContent = '聞いています…';
-            trialStatus.textContent = currentEngine === 'record-then-transcribe' ? '止めたあとで文字にします' : '聞いています';
+            output.textContent = t('vibe.listening.settings.ongoingListeningText');
+            trialStatus.textContent = currentEngine === 'record-then-transcribe' ? t('vibe.listening.settings.transcriptionStartsAfterStopText') : t('vibe.listening.settings.listeningText');
             paintTrialButton();
             try {
                 const status = await session.start({ purpose: 'trial', engine: currentEngine });
                 if (status.mic === 'ok' || status.mic === 'denied') {
                     mic = status.mic; rememberListeningMic(mic); void findMic();
                 }
-                if (status.state === 'error') throw new Error(status.message ?? '聞き取りを始められませんでした');
+                if (status.state === 'error') throw new Error(status.message ?? t('vibe.listening.settings.couldNotStartListeningError'));
                 if (disposed) { await session.stop(); return; }
             } catch (error) {
                 if (error instanceof DOMException && error.name === 'NotAllowedError') {
                     mic = 'denied'; micName = ''; rememberListeningMic(mic); paintMic();
                 }
-                const message = error instanceof Error ? error.message : '試し聞きを始められませんでした';
+                const message = error instanceof Error ? error.message : t('vibe.listening.settings.couldNotStartTestListeningError');
                 await stopTrial();
                 trialStatus.textContent = message;
             }
         };
         trialHead.append(trialButton, mark, trialStatus, micLabel);
         trial.append(trialHead, levelTrack, output, foot);
-        listeningCard.replaceChildren(groupCard('話したことの聞き取り',
-            el('p', 'akari-listening-lead', '注釈と AKARI バイブが使う耳。端末内で動くものを優先します。'), engines, trial));
+        listeningCard.replaceChildren(groupCard(t('vibe.listening.settings.speechRecognitionLabel'),
+            el('p', 'akari-listening-lead', t('vibe.listening.settings.earsUsedByAnnotationsAkariVibeDeviceEnginesPreferredMessage')), engines, trial));
 
         const paintEngine = (): void => {
             engines.replaceChildren();
             const selected = readEngine(this.preferences);
             const selectedEngine = selected === 'auto' ? resolveEarEngine(this.preferences, capabilities) : selected;
             const definitions = [
-                { id: 'auto', label: 'この Mac で聞き取る（Speech Analyzer）', detail: '無料 · 端末内 · macOS 26 以降 · 日本語', badge: '使えます', engine: 'speechanalyzer-live' },
-                { id: 'record-then-transcribe', label: '録音して後で起こす（whisper）', detail: '無料 · 端末内 · 少し遅い · 古い OS / Windows はこちら', badge: '予備', engine: 'record-then-transcribe' },
-                { id: 'cloud', label: 'クラウド（要 API キー）', detail: '有料 · 承認したときだけ', badge: '未設定', engine: undefined }
+                { id: 'auto', label: t('vibe.listening.settings.recognizeMacSpeechAnalyzerDescription'), detail: t('vibe.listening.settings.freeDeviceMacos26LaterJapaneseDescription'), badge: t('vibe.listening.settings.availableDescription'), engine: 'speechanalyzer-live' },
+                { id: 'record-then-transcribe', label: t('vibe.listening.settings.recordTranscribeLaterWhisperDescription'), detail: t('vibe.listening.settings.freeDeviceSlowerOlderOsVersionsWindowsDescription'), badge: t('vibe.listening.settings.fallbackDescription'), engine: 'record-then-transcribe' },
+                { id: 'cloud', label: t('vibe.listening.settings.cloudApiKeyRequiredDescription'), detail: t('vibe.listening.settings.paidOnlyApprovalDescription'), badge: t('vibe.listening.settings.notConfiguredDescription'), engine: undefined }
             ] as const;
             const cards: HTMLButtonElement[] = [];
             for (const choice of definitions) {
                 const capability = capabilities.engines.find(engine => engine.id === choice.engine);
-                const reason = choice.id === 'cloud' ? 'クラウドの聞き取りはまだ設定できません'
-                    : capability?.available ? '' : capability?.reason ?? 'この環境では使えません';
+                const reason = choice.id === 'cloud' ? t('vibe.listening.settings.cloudListeningCannotConfiguredYetMessage')
+                    : capability?.available ? '' : capability?.reason ?? t('vibe.listening.settings.unavailableEnvironmentLabel');
                 const card = el('button', 'akari-listening-engine');
                 card.type = 'button';
                 card.setAttribute('role', 'radio');
@@ -210,7 +211,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
                 text.append(el('span', 'akari-listening-engine-name', choice.label),
                     el('span', 'akari-listening-engine-detail', reason ? `${choice.detail} · ${reason}` : choice.detail));
                 card.append(el('span', 'akari-listening-radio'), text,
-                    statusPill(reason && choice.id !== 'cloud' ? '使えません' : choice.badge,
+                    statusPill(reason && choice.id !== 'cloud' ? t('vibe.listening.settings.unavailableLabel') : choice.badge,
                         reason ? 'neutral' : choice.id === 'auto' ? 'ok' : 'neutral'));
                 card.addEventListener('click', () => {
                     void this.preferences.set(LISTENING_ENGINE_KEY, choice.id, PreferenceScope.User);
@@ -225,7 +226,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
                 engines.append(card); cards.push(card);
             }
             engines.setAttribute('role', 'radiogroup');
-            engines.setAttribute('aria-label', '聞き取りのやり方');
+            engines.setAttribute('aria-label', t('vibe.listening.settings.listeningMethodAriaLabel'));
         };
         const paintMode = (): void => {
             const stored = readVibeMode(this.preferences);
@@ -235,29 +236,29 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
             const choices = (['off', 'screen', 'full'] as const).map(value => ({
                 value, label: VIBE_MODE_LABELS[value], title: effective.reason ?? VIBE_MODE_DESCRIPTIONS[value], disabled: effective.locked
             }));
-            const segment = segmentedControl({ label: '声でできること', options: choices, value: effective.mode,
+            const segment = segmentedControl({ label: t('vibe.listening.settings.voiceControlsLabel'), options: choices, value: effective.mode,
                 onChange: value => { void this.selectMode(stored, value).then(() => { if (!disposed) paintMode(); }); }
             });
             const note = settingsNote(effective.reason ?? VIBE_MODE_DESCRIPTIONS[effective.mode]);
             note.classList.add('akari-listening-mode-note');
-            modeCard.replaceChildren(groupCard('話したことの行き先', settingRow('声でできること', undefined, segment), note));
+            modeCard.replaceChildren(groupCard(t('vibe.listening.settings.whereSpokenWordsGoLabel'), settingRow(t('vibe.listening.settings.voiceControlsLabel'), undefined, segment), note));
         };
         const paintDictionary = (): void => {
-            const open = button('辞書を開く', () => { void this.commands.executeCommand('akari.voiceDictionary.open'); });
+            const open = button(t('vibe.listening.settings.openDictionaryAction'), () => { void this.commands.executeCommand('akari.voiceDictionary.open'); });
             const available = !!this.commandRegistry.getCommand('akari.voiceDictionary.open');
             open.disabled = !available;
-            if (!available) open.title = '辞書を開く準備ができていません';
-            const count = el('span', 'akari-set-row-desc', '件数を確認中…');
+            if (!available) open.title = t('vibe.listening.settings.dictionaryNotReadyOpenTooltip');
+            const count = el('span', 'akari-set-row-desc', t('vibe.listening.settings.ongoingCheckingItemCountLabel'));
             void this.dictionary.list().then(listed => {
-                if (!disposed) count.textContent = `同梱 ${listed.builtin.length} / 自分 ${listed.user.length}`;
-            }).catch(() => { if (!disposed) count.textContent = '件数を確認できません'; });
+                if (!disposed) count.textContent = t('vibe.listening.settings.builtYoursWithValuesText', { value1: listed.builtin.length, value2: listed.user.length });
+            }).catch(() => { if (!disposed) count.textContent = t('vibe.listening.settings.couldNotCheckItemCountError'); });
             const history = switchControl({
-                label: '聞き取りの履歴を残す', checked: this.preferences.get<boolean>(HISTORY_KEY, false),
+                label: t('vibe.listening.settings.saveListeningHistoryLabel'), checked: this.preferences.get<boolean>(HISTORY_KEY, false),
                 onChange: checked => { void this.preferences.set(HISTORY_KEY, checked, PreferenceScope.User); }
             });
-            dictionaryCard.replaceChildren(groupCard('辞書',
-                settingRow('辞書', undefined, count, open),
-                settingRow('聞き取りの履歴を残す', 'この Mac の中だけ・200 件か 7 日', history)));
+            dictionaryCard.replaceChildren(groupCard(t('vibe.listening.settings.dictionaryLabel'),
+                settingRow(t('vibe.listening.settings.dictionaryLabel'), undefined, count, open),
+                settingRow(t('vibe.listening.settings.saveListeningHistoryLabel'), t('vibe.listening.settings.onlyMacUp200EntriesDaysLabel'), history)));
         };
 
         paintMic(); void findMic(); paintEngine(); paintMode(); paintDictionary();
@@ -268,7 +269,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
                 rememberListeningMic(mic); void findMic();
             }
             if (status.state === 'error' && running) {
-                const message = status.message ?? '聞き取りが止まりました';
+                const message = status.message ?? t('vibe.listening.settings.listeningStoppedMessage');
                 void stopTrial().then(() => { if (!disposed) trialStatus.textContent = message; });
             }
         }));
@@ -279,9 +280,9 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         }));
         disposables.push(session.onUtterance(utterance => {
             if ((!running && !stopping) || disposed) return;
-            if (latency === undefined && voiceAt !== undefined) latency = `${((performance.now() - voiceAt) / 1000).toFixed(2)} 秒`;
+            if (latency === undefined && voiceAt !== undefined) latency = t('vibe.listening.settings.secWithCountLabel', { value1: ((performance.now() - voiceAt) / 1000).toFixed(2) });
             paintUtterance(utterance);
-            foot.textContent = `何も保存しません · ${EAR_ENGINE_LABELS[currentEngine ?? 'auto']}${latency ? ` · 声から文字まで ${latency}` : ''}`;
+            foot.textContent = t('vibe.listening.settings.nothingSavedWithValuesText', { value1: EAR_ENGINE_LABELS[currentEngine ?? 'auto'], value2: latency ? t('vibe.listening.settings.trialLatency', { latency }) : '' });
         }));
         disposables.push(this.preferences.onPreferenceChanged(change => {
             if (disposed) return;
@@ -292,7 +293,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         void this.ear.capabilities().then(value => {
             if (disposed) return;
             capabilities = value; paintEngine(); paintMode();
-        }).catch(() => { if (!disposed) trialStatus.textContent = '聞き取りエンジンを確認できませんでした'; });
+        }).catch(() => { if (!disposed) trialStatus.textContent = t('vibe.listening.settings.couldNotCheckListeningEngineError'); });
         return Disposable.create(() => {
             disposed = true;
             disposables.dispose();
@@ -304,7 +305,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
     protected async selectMode(previous: VibeMode, next: VibeMode): Promise<void> {
         if (needsVibeModeConfirmation(previous, next)) {
             const confirmed = await new ConfirmDialog({
-                title: 'Jev をオンにしますか？', msg: DISCLOSURE, ok: 'オンにする', cancel: 'キャンセル'
+                title: t('vibe.listening.settings.turnJevTooltip'), msg: DISCLOSURE, ok: t('vibe.listening.settings.turnTooltip'), cancel: t('vibe.listening.settings.cancelTooltip')
             }).open();
             if (!confirmed) return;
         }

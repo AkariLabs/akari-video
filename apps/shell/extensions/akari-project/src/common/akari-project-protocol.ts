@@ -317,6 +317,10 @@ export interface TranscribeOptions {
     backend?: string;
     compareSet?: string[];
     autoCuts?: boolean;
+    diarize?: boolean;
+    speakers?: 'auto' | '1' | '2' | '3' | '4';
+    identify?: boolean;
+    people?: string[];
     /** One UI confirmation, before any audio is sent to the selected cloud engines. */
     approved?: boolean;
 }

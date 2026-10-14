@@ -68,6 +68,7 @@ function response(path, summary) {
   if (path === '/') file = new URL('index.html', publicRoot);
   else if (path === manifest.registry) file = new URL('src/runtime-registry.js', runtimeRoot);
   else if (path === '/assets/fonts/akari-noto-sans-jp.ttf') file = new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url);
+  else if (path === '/assets/fonts/akari-noto-sans.ttf') file = new URL('../../../assets/font/noto-sans/NotoSans-Variable.ttf', import.meta.url);
   for (const [i, runtime] of manifest.runtimes.entries()) for (const [j, script] of runtime.scripts.entries()) {
     if (path === script.url) file = new URL(runtimes[i].scripts[j].path, runtimeRoot);
   }

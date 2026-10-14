@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readCompiledSource, readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -6,13 +8,28 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
 import { plannedStillMeta, withNextVideoDraft } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
-import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
-import { timelineGapAt } from '../lib/common/timeline-gap.js';
-import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
+
+
+
 import { describeNextDraft } from '@akari-video/edit-store';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { insertItem, indexEditV2Items } = await import('../lib/common/edit-v2-mutations.js');
+const { timelineGapAt } = await import('../lib/common/timeline-gap.js');
+const { emptyFrameTransform } = await import('../lib/browser/inspector/frame-geometry.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const source = readCompiledSource('widget').text;
 const widgetSource = readSourceFile('widget').text;
 test('gap menu opens the selected-gap inspector without creating a frame', () => {
@@ -161,10 +178,12 @@ test('model duration rounding is available to existing validator without stretch
   assert.equal(f.doc.tracks[0].items.find(i => i.id.startsWith('gap-')).duration, 120);
 });
 const selectStart = source.indexOf('    applySelection('), selectEnd = source.indexOf('    publishPrimaryPreviewSelection(', selectStart);
-const SelectionWidget = new Function(`return class { ${source.slice(selectStart, selectEnd)} }`)();
+const boundaryStart = source.indexOf('    releaseTransitionBoundaryForOtherSelection() {');
+const boundaryEnd = source.indexOf('\n    }', boundaryStart) + 6;
+const SelectionWidget = new Function(`return class { ${source.slice(selectStart, selectEnd)} ${source.slice(boundaryStart, boundaryEnd)} }`)();
 for (const selection of [undefined, { kind: 'cut', index: 0 }]) test(`normal selection clears gap and band: ${selection?.kind ?? 'empty/Esc'}`, () => {
   let removed = 0, pushed = 0;
-  const widget = Object.assign(new SelectionWidget(), { selectedGap: {}, gapBand: { remove() { removed++; } }, multiSelection: [],
+  const widget = Object.assign(new SelectionWidget(), { selectedGap: {}, gapBand: { remove() { removed++; } }, multiSelection: [], activeBoundary: undefined,
     exitTrimmerModeUnlessSelected() {}, selectionKey: x => x ? `${x.kind}:${x.index}` : '',
     pushSelectionSnapshot() { pushed++; }, applySelectionClass() {}, publishPrimaryPreviewSelection() {}, syncRightPane() {}, revealOutputPreview() {} });
   widget.applySelection(selection); assert.equal(widget.selectedGap, undefined); assert.equal(removed, 1); assert.equal(pushed, 1);

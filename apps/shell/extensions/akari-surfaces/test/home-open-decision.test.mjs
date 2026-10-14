@@ -8,6 +8,11 @@ test('確認を省く設定は作業中でない場合だけ有効', () => {
     assert.equal(decideOpenFlow({ ask: true, busy: false, hasOrigin: false, reducedMotion: true }), 'confirm');
 });
 
+test('ガイドからの切り替えは作業中でなければ直接開く', () => {
+    assert.equal(decideOpenFlow({ ask: true, busy: false, reason: 'onboarding', hasOrigin: false, reducedMotion: false }), 'direct');
+    assert.equal(decideOpenFlow({ ask: true, busy: true, reason: 'onboarding', hasOrigin: false, reducedMotion: false }), 'confirm');
+});
+
 test('作業中は予約を先頭に置き、動きは押した位置がある場合だけ', () => {
     assert.deepEqual(openChoices(true), ['after-work', 'here', 'new-window']);
     assert.deepEqual(openChoices(false), ['here', 'new-window']);

@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
@@ -31,6 +36,7 @@ function isolatedEnv({ home, pathDir }) {
     HOME: home,
     USERPROFILE: home,
     AKARI_HOME: home,
+    AKARI_LANG: 'ja',
     PATH: pathDir,
     AKARI_NO_AUTO_UPDATE: '1',
     AKARI_UPDATE_FEED_URL: 'http://127.0.0.1:9/latest.json',

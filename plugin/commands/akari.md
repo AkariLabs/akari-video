@@ -1,55 +1,62 @@
 ---
-description: AKARI Video の canonical status を確認し、記録された次の一手を案内する
+description: Check AKARI Video's canonical status and explain the recorded next action
 allowed-tools: Bash(node:*), Bash(akari status:*), Bash(akari capability:*), Bash(akari init:*), Bash(ls:*), Bash(test:*), Bash(mkdir:*), Read, Write
 disable-model-invocation: false
 ---
 
-AKARI Video の状態を確認し、利用者の言語で短く案内する。
+Check AKARI Video's state and give brief guidance in the user's language.
 
-## 状態取得（唯一の工程判定）
+## Retrieve status (the only workflow-stage determination)
 
-最初に次を実行する。
+Run this first:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.mjs" --status-json "$PWD"
 ```
 
-この出力が工程・review 集計・次の skill・待ち相手・release 状態の正本である。独自の工程表を
-作らず、`workflow_stage`、`next_skill`、`waiting_on`、`review`、`release`、`problems` をそのまま
-根拠にする。`state_health: inconclusive` またはコマンド失敗時は状態取得不能と明示し、旧イベント
-推測や `.akari/intake.json` だけの判定へフォールバックしない。
+This output is canonical for workflow stage, review totals, next skill, who/what is awaited, and release state.
+The legacy machine-matched cue `状態の正本である` means that this output is the authoritative status.
+Do not create a separate stage table. Base guidance directly on `workflow_stage`, `next_skill`, `waiting_on`,
+`review`, `release`, and `problems`. If `state_health: inconclusive` or the command fails, explicitly report that
+state is unavailable; do not fall back to guesses from old events or judgments based only on `.akari/intake.json`.
 
-最終受理の確認を依頼された場合は、CLI があれば次も実行する。
+If asked to check final acceptance, also run the following when the CLI is available:
 
 ```bash
 akari status "$PWD" --full --json
 ```
 
-CLI が無い copied-plugin 環境では、同じ生成 core を使う次のコマンドで full status を取得する。
+In a copied-plugin environment without the CLI, obtain full status using this command, which uses the same generated core:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.mjs" --status-json "$PWD" --full
 ```
 
-`release.accepted: true` は full status だけが返せる。fast status の受理記録表示を最終受理と解釈しない。
+Only full status can return `release.accepted: true`. Do not interpret fast status's acceptance record display as final acceptance.
 
-## 案内
+## Guidance
 
-- `project.scaffolded: false`: このフォルダーは未セットアップと伝え、`akari` ランチャーまたは
-  `akari` 入口スキルを案内する（下記の委譲先を読む）。
-- `state_health: valid`: `next_skill` があればその skill、`waiting_on` があればその人間操作を
-  次の一手として 1〜2 文で案内する。
-- `state_health: inconclusive`: `problems` を短く示し、推測で作業を進めない。
+- `project.scaffolded: false`: Explain that this folder is not set up, and point to the `akari` launcher or
+  `akari` entry skill (read the delegation target below). The machine-matched cue
+  `` `akari` 入口スキルを案内する`` refers to this guidance.
+- `state_health: valid`: If `next_skill` exists, point to that skill; if `waiting_on` exists, point to that human action.
+  Explain the next action in 1–2 sentences.
+- `state_health: inconclusive`: Briefly show `problems`; do not proceed based on guesses.
 
-`.akari/connections.json` がある場合は `manage-connections` skill の doctor を追加で実行してよい。
-キー値や HTTP 応答本文は表示しない。doctor は接続診断であり、工程判定を上書きしない。
+If `.akari/connections.json` exists, you may additionally run the `manage-connections` skill's doctor.
+Do not display key values or HTTP response bodies. Doctor diagnoses connections; it does not override workflow-stage determination.
 
 ## capability
 
-能力検索を求められた場合は `akari capability <query> --json` を使う。copied-plugin 環境で
-`akari` CLI が無い場合、capability はこの surface では unsupported と明示する。skill 一覧を
-推測して別の検索結果を作らない。
+Use `akari capability <query> --json` when capability search is requested. In a copied-plugin environment
+without the `akari` CLI, explicitly state that capability is unsupported on this surface.
+Do not guess the skill list and manufacture alternative search results.
 
-## 作業場（CreatorRoot）の検出・作成・案内
-作る・開く・続きからの手順は `skills/akari/SKILL.md` に委譲する。
-`${CLAUDE_PLUGIN_ROOT}/skills/akari/SKILL.md` をパスで直接読み、その手順に従う。
+## Detect, create, and explain a workspace (CreatorRoot)
+
+The legacy matcher `作業場（CreatorRoot）の検出・作成・案内` names this workspace procedure.
+Delegate Create, Open, and Resume procedures to `skills/akari/SKILL.md`.
+The machine-matched cue ``手順は `skills/akari/SKILL.md` に委譲する`` refers to that delegation.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/akari/SKILL.md` directly by path and follow its procedure.
+The machine-matched cue `` `${CLAUDE_PLUGIN_ROOT}/skills/akari/SKILL.md` をパスで直接読み``
+means to read that exact path directly.

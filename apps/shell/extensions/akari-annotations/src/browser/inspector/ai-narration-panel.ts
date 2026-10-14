@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 import { AkariAnnotationsService, type NarrationCandidate, type NarrationEngine, type NarrationVoice,
     type VoiceProfileSummary } from '../../common/akari-annotations-protocol';
 import { channelPeopleLocation, eligibleNarrationPeople, narrationPersonRoute, parseChannelPeople, selectNarrationPerson,
@@ -37,15 +39,15 @@ export function narrationBatchConfirm(engines: readonly NarrationEngine[], readi
     const paid = engines.filter(engine => engine.place === 'cloud');
     if (!paid.length) return undefined;
     const estimates = paid.map(engine => ({ engine, quote: narrationEstimate(engine, reading) }));
-    const total = estimates.some(row => row.quote.usd === null) ? '見積不可' :
+    const total = estimates.some(row => row.quote.usd === null) ? t('inspector.aiNarrationPanel.status.estimateUnavailable') :
         `$${estimates.reduce((sum, row) => sum + (row.quote.usd ?? 0), 0).toFixed(3)}`;
-    return { title: '費用承認', msg: `${estimates.map(row => `${row.engine.label}: ${row.quote.usd === null ? '見積不可' : `$${row.quote.usd.toFixed(3)}`}`).join(' / ')}\n合計 ${total}。読み原稿 ${reading.length} 字を送ります。費用承認しますか`, ok: '費用承認する', cancel: 'キャンセル' };
+    return { title: t('inspector.aiNarrationPanel.title.costApproval'), msg: t('inspector.aiNarrationPanel.message.totalCanUseCharactersReadWillAccept', { breakdown: estimates.map(row => `${row.engine.label}: ${row.quote.usd === null ? t('inspector.aiNarrationPanel.status.estimateUnavailable') : `$${row.quote.usd.toFixed(3)}`}`).join(' / '), amount: total, characters: reading.length, n: reading.length }), ok: t('inspector.aiNarrationPanel.label.costApproval'), cancel: t('inspector.aiNarrationPanel.action.cancel') };
 }
 
 export function narrationRowEstimate(engine: NarrationEngine, reading: string): string {
-    if (engine.place !== 'cloud') return '無料';
+    if (engine.place !== 'cloud') return t('inspector.aiNarrationPanel.estimate.free');
     const quote = narrationEstimate(engine, reading);
-    return quote.usd === null ? '見積不可' : `見積 $${quote.usd.toFixed(3)}`;
+    return quote.usd === null ? t('inspector.aiNarrationPanel.status.estimateUnavailable') : t('inspector.aiNarrationPanel.estimate.amount', { amount: quote.usd.toFixed(3) });
 }
 
 export function narrationCandidateLabel(candidate: NarrationCandidate, engines: readonly NarrationEngine[],
@@ -55,10 +57,10 @@ export function narrationCandidateLabel(candidate: NarrationCandidate, engines: 
     if (!candidate.ok) return [engineName, knownVoice].filter(Boolean).join(' · ');
     const parts = [engineName, knownVoice ?? candidate.voice].filter(Boolean);
     if (typeof candidate.durationSeconds === 'number' && Number.isFinite(candidate.durationSeconds)) {
-        parts.push(`尺 ${candidate.durationSeconds.toFixed(1)} 秒`);
+        parts.push(t('inspector.aiNarrationPanel.label.scaleSeconds', { seconds: candidate.durationSeconds.toFixed(1), n: pluralCountForDisplay(candidate.durationSeconds.toFixed(1)) }));
     }
     if (typeof candidate.elapsedSeconds === 'number' && Number.isFinite(candidate.elapsedSeconds)) {
-        parts.push(`作成 ${Math.round(candidate.elapsedSeconds)} 秒`);
+        parts.push(t('inspector.aiNarrationPanel.label.createSeconds', { seconds: Math.round(candidate.elapsedSeconds), n: Math.round(candidate.elapsedSeconds) }));
     }
     if (typeof candidate.costUsd === 'number' && Number.isFinite(candidate.costUsd)) {
         parts.push(`$${candidate.costUsd.toFixed(3)}`);
@@ -88,15 +90,15 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         return node;
     };
     const panel = make('section', 'panel');
-    const scriptLabel = make('label', 'label', '原稿');
-    const script = make('textarea', 'textarea'); script.setAttribute('aria-label', '原稿'); script.value = state.script;
+    const scriptLabel = make('label', 'label', t('inspector.aiNarrationPanel.label.script'));
+    const script = make('textarea', 'textarea'); script.setAttribute('aria-label', t('inspector.aiNarrationPanel.label.script')); script.value = state.script;
     script.addEventListener('input', () => { state.script = script.value; actions.change(); updateEstimate(); updateChoice(); });
     scriptLabel.append(script);
-    const readingLabel = make('label', 'label', '読み（任意）');
-    const reading = make('textarea', 'textarea'); reading.setAttribute('aria-label', '読み'); reading.value = state.reading;
+    const readingLabel = make('label', 'label', t('inspector.aiNarrationPanel.action.readOptional'));
+    const reading = make('textarea', 'textarea'); reading.setAttribute('aria-label', t('inspector.aiNarrationPanel.label.reading')); reading.value = state.reading;
     reading.addEventListener('input', () => { state.reading = reading.value; actions.change(); updateEstimate(); updateChoice(); });
     readingLabel.append(reading);
-    panel.append(scriptLabel, readingLabel, make('h4', 'heading', 'エンジン'));
+    panel.append(scriptLabel, readingLabel, make('h4', 'heading', t('inspector.aiNarrationPanel.label.engine')));
     const cards = make('div', 'engines');
     const rowEstimates: Array<{ engine: NarrationEngine; node: HTMLElement }> = [];
     const shown = orderedNarrationEngines(engines.filter(row => ['voicevox', 'gemini-tts', 'irodori'].includes(row.id)
@@ -104,7 +106,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     for (const place of ['free', 'paid'] as const) {
         const group = shown.filter(row => (row.place === 'cloud' ? 'paid' : 'free') === place);
         if (!group.length) continue;
-        cards.append(make('h5', 'group', place === 'free' ? '追加料金なし' : '使った分だけ'));
+        cards.append(make('h5', 'group', place === 'free' ? t('inspector.aiNarrationPanel.label.noExtraCharge') : t('inspector.aiNarrationPanel.label.onlyAmountUsed')));
         for (const engine of group) {
         const card = make('div', 'engine');
         card.setAttribute('data-akari-narration-engine', engine.id);
@@ -117,17 +119,17 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         });
         const text = make('span', 'engine-text');
         text.append(stillMakerBadge(narrationMakerId(engine.id)),
-            make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? '自声' : engine.label}`),
-            make('span', 'engine-cost', engine.place === 'local' ? 'このパソコン · 無料'
-                : engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? '接続先を確認'}`
-                    : `有料 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`),
+            make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? t('inspector.aiNarrationPanel.label.myVoice') : engine.label}`),
+            make('span', 'engine-cost', engine.place === 'local' ? t('inspector.aiNarrationPanel.label.free')
+                : engine.place === 'network' ? t('inspector.aiNarrationPanel.label.anotherPc', { url: engine.availability.detail?.url ?? t('inspector.aiNarrationPanel.action.checkConnectionDestination') })
+                    : t('inspector.aiNarrationPanel.label.pricePerThousandCharacters', { price: engine.price?.usd_per_1000_chars ?? 0, provisionalNote: engine.price?.verified === false ? t('inspector.aiNarrationPanel.hint.tentative') : '' })),
             make('span', 'engine-availability', engine.availability.label));
         const rowEstimate = make('span', 'engine-estimate', narrationRowEstimate(engine, state.reading.trim() || state.script));
         rowEstimates.push({ engine, node: rowEstimate });
         text.append(rowEstimate);
         card.append(radio, text);
-        const voiceLabel = make('label', 'label', '声');
-        const voice = make('select', 'voice'); voice.setAttribute('aria-label', `${engine.label} の声`);
+        const voiceLabel = make('label', 'label', t('inspector.aiNarrationPanel.label.voiceVoice'));
+        const voice = make('select', 'voice'); voice.setAttribute('aria-label', t('inspector.aiNarrationPanel.label.voiceWithValue', { engineName: engine.label }));
         for (const option of state.voicesByEngine?.[engine.id] ?? (engine.id === state.engineId ? state.voices : [])) {
             const row = document.createElement('option'); row.value = option.id; row.textContent = option.label; voice.append(row);
         }
@@ -144,10 +146,10 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     const showPeople = (): void => {
         const people = state.people ?? [];
         if (!people.length || panel.querySelector('[data-akari-narration-person]')) return;
-        const personLabel = make('label', 'label', '人物');
+        const personLabel = make('label', 'label', t('inspector.aiNarrationPanel.label.person'));
         personLabel.dataset.akariNarrationPerson = 'true';
-        const select = make('select', 'person'); select.setAttribute('aria-label', '人物');
-        const empty = document.createElement('option'); empty.value = ''; empty.textContent = '人物を選ぶ'; select.append(empty);
+        const select = make('select', 'person'); select.setAttribute('aria-label', t('inspector.aiNarrationPanel.label.person'));
+        const empty = document.createElement('option'); empty.value = ''; empty.textContent = t('inspector.aiNarrationPanel.text.selectPerson'); select.append(empty);
         for (const person of people) {
             const option = document.createElement('option'); option.value = person.id; option.textContent = person.name;
             option.disabled = !selectNarrationPerson(person, state.personProfiles ?? [], 'fal-qwen3',
@@ -203,11 +205,11 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     const selected = state.selectedEngineIds ?? [state.engineId];
     if (selected.includes('gemini-tts') || selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom') {
         const required = selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom';
-        const styleLabel = make('label', 'label', required ? '声の指示（必須）' : '話し方の指示（任意）');
+        const styleLabel = make('label', 'label', required ? t('inspector.aiNarrationPanel.label.voiceInstructionRequired') : t('inspector.aiNarrationPanel.label.talkingInstructionOptional'));
         const style = make('textarea', 'textarea'); style.value = state.style ?? '';
-        style.setAttribute('aria-label', required ? '声の指示（必須）' : '話し方の指示（任意）');
+        style.setAttribute('aria-label', required ? t('inspector.aiNarrationPanel.label.voiceInstructionRequired') : t('inspector.aiNarrationPanel.label.talkingInstructionOptional'));
         style.addEventListener('input', () => { state.style = style.value; actions.change(); });
-        styleLabel.append(style); panel.append(styleLabel, make('p', 'note', '話し方の指示は対応するエンジンにだけ効きます。'));
+        styleLabel.append(style); panel.append(styleLabel, make('p', 'note', t('inspector.aiNarrationPanel.message.instructionsSpeakerOnlyEffectiveCorrespondingEngine')));
     }
     let estimateNode: HTMLParagraphElement | undefined;
     const updateEstimate = (): void => {
@@ -217,17 +219,17 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         const estimates = engines.filter(row => selected.includes(row.id)).map(row => narrationEstimate(row, currentReading));
         const total = estimates.reduce((sum, row) => sum + (row.usd ?? 0), 0);
         estimateNode.textContent = estimates.some(row => row.usd === null)
-            ? '合計見積不可（従量） · 承認 1 回' : `合計 $${total.toFixed(3)} · 承認 1 回`;
+            ? t('inspector.aiNarrationPanel.estimate.unavailableApprovalOnce') : t('inspector.aiNarrationPanel.estimate.totalApproval1Time', { amount: total.toFixed(3) });
     };
     if (selected.length) {
         estimateNode = make('p', 'estimate'); updateEstimate();
         panel.append(estimateNode);
     }
     const choice = make('fieldset', 'placement-choice');
-    choice.append(make('legend', 'placement-heading', '枠より声が長いとき'));
+    choice.append(make('legend', 'placement-heading', t('inspector.aiNarrationPanel.label.whenVoiceLongerThanFrame')));
     for (const [value, label] of [
-        ['lower', '下の音声トラックに置く（既定）'],
-        ['shift', '後ろのクリップをずらして収める']
+        ['lower', t('inspector.aiNarrationPanel.action.applyAudioTrackBelowDefault')],
+        ['shift', t('inspector.aiNarrationPanel.label.shiftFollowingClips')]
     ] as const) {
         const option = make('label', 'placement-option');
         const input = make('input', 'placement-radio'); input.type = 'radio';
@@ -246,7 +248,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         }
     };
     updateChoice(); panel.append(choice);
-    const button = make('button', 'button', state.running ? '生成中…' : state.error ? '同じ入力でもう一度' : `${selected.length} 案を作る`);
+    const button = make('button', 'button', state.running ? t('inspector.aiNarrationPanel.status.generating') : state.error ? t('inspector.aiNarrationPanel.label.againSameInput') : t('inspector.aiNarrationPanel.label.makeProposal', { count: selected.length, n: selected.length }));
     button.type = 'button'; button.disabled = state.running || !state.script.trim() || !selected.length
         || selected.some(id => !state.voiceByEngine?.[id])
         || irodoriCustomVoiceMissing(selected.includes('irodori') ? 'irodori' : undefined, state.voiceByEngine?.irodori ?? '', state.style ?? '');
@@ -258,11 +260,11 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         }
         const container = (window as Window & { theia?: { container?: { get(key: unknown): unknown } } }).theia?.container;
         if (!container || !placement || !engineId) {
-            state.error = '人物の声を使う準備ができていません。'; actions.change(); return;
+            state.error = t('inspector.aiNarrationPanel.message.notReadyUseVoicePerson'); actions.change(); return;
         }
         const engine = engines.find(item => item.id === engineId);
         const item = placement.tracks.flatMap(track => track.items).find(row => row.id === placement.itemId);
-        if (!engine || !item) { state.error = '読み上げる位置を確認できません。'; actions.change(); return; }
+        if (!engine || !item) { state.error = t('inspector.aiNarrationPanel.error.cannotCheckPositionReading'); actions.change(); return; }
         const readingText = state.reading.trim() || state.script;
         const confirmation = narrationBatchConfirm([engine], readingText);
         if (confirmation) {
@@ -274,7 +276,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         ]);
         const root = (container.get(WorkspaceService) as InstanceType<typeof WorkspaceService>)
             .tryGetRoots()[0]?.resource;
-        if (!root) { state.error = 'プロジェクトを開いてください。'; actions.change(); return; }
+        if (!root) { state.error = t('inspector.aiNarrationPanel.action.openProject'); actions.change(); return; }
         const service = container.get(AkariAnnotationsService) as AkariAnnotationsService;
         state.error = undefined; state.cancelled = false; state.running = true;
         state.completed = 0; state.startedAt = Date.now(); state.runningRoutes = [engineId];
@@ -299,16 +301,16 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     button.addEventListener('click', () => void generateWithPerson()); panel.append(button);
     if (state.running) {
         const activeRoutes = state.runningRoutes ?? selected;
-        panel.append(make('p', 'progress', `${activeRoutes.length} 案作成中 · ${state.completed ?? 0}/${activeRoutes.length}`));
+        panel.append(make('p', 'progress', t('inspector.aiNarrationPanel.label.creatingOptions', { count: activeRoutes.length, n: activeRoutes.length, completed: state.completed ?? 0, total: activeRoutes.length })));
         for (const id of activeRoutes) {
             const candidate = state.candidates?.find(row => row.route === id);
-            if (!candidate) panel.append(make('p', 'route-progress', `◌ ${engines.find(row => row.id === id)?.label ?? id} · ${Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000)} 秒`));
+            if (!candidate) panel.append(make('p', 'route-progress', t('inspector.aiNarrationPanel.label.seconds', { engine: engines.find(row => row.id === id)?.label ?? id, elapsedSeconds: Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000), n: Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000) })));
         }
-        const cancel = make('button', 'button', 'キャンセル'); cancel.type = 'button';
+        const cancel = make('button', 'button', t('inspector.aiNarrationPanel.action.cancel')); cancel.type = 'button';
         cancel.addEventListener('click', () => actions.cancel()); panel.append(cancel);
     }
     if (state.candidates?.length) {
-        panel.append(make('h4', 'heading', `候補 ${state.candidates.filter(row => row.ok).length}`));
+        panel.append(make('h4', 'heading', t('inspector.aiNarrationPanel.label.candidateCount', { count: state.candidates.filter(row => row.ok).length, n: state.candidates.filter(row => row.ok).length })));
         for (const candidate of state.candidates) {
             const row = make('div', 'candidate'); row.setAttribute('data-akari-narration-candidate', candidate.route);
             const controls = make('span', 'candidate-controls');
@@ -322,16 +324,16 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
                 state.voicesByEngine));
             row.append(controls, label);
             if (candidate.ok) {
-                const adopt = make('button', 'adopt', 'この案を使う'); adopt.type = 'button';
+                const adopt = make('button', 'adopt', t('inspector.aiNarrationPanel.action.usePlan')); adopt.type = 'button';
                 adopt.addEventListener('click', () => actions.adopt?.(candidate)); row.append(adopt);
             } else {
-                label.append(make('span', 'error', `失敗 · ${candidate.reason ?? '生成できませんでした。'}`));
-                const retry = make('button', 'retry', '同じ入力でもう一度'); retry.type = 'button';
+                label.append(make('span', 'error', t('inspector.aiNarrationPanel.error.failed', { reason: candidate.reason ?? t('inspector.aiNarrationPanel.error.generationFailed') })));
+                const retry = make('button', 'retry', t('inspector.aiNarrationPanel.label.againSameInput')); retry.type = 'button';
                 retry.addEventListener('click', () => actions.retry?.(candidate)); row.append(retry);
             }
             panel.append(row);
         }
-        panel.append(make('p', 'note', 'ほかの候補は素材に残ります。'));
+        panel.append(make('p', 'note', t('inspector.aiNarrationPanel.message.otherCandidatesRemainAssets')));
     }
     if (state.error) panel.append(make('p', 'error', state.error));
     if (state.placement) panel.append(make('p', 'placement', state.placement));
@@ -361,9 +363,9 @@ export async function generateAiNarration(options: {
         style: engine.id === 'gemini-tts' || engine.id === 'irodori' && state.voiceId === 'custom' ? state.style : undefined,
         irodoriUrl: engine.id === 'irodori' ? options.irodoriUrl : undefined });
     if (state.cancelled) return undefined;
-    if (result.status !== 'ok' || !result.path || !result.duration_s) throw new Error('音声を生成できませんでした。');
+    if (result.status !== 'ok' || !result.path || !result.duration_s) throw new Error(t('inspector.aiNarrationPanel.error.generateAudio'));
     let label = '';
-    await options.commit('ナレーションを置く', doc => {
+    await options.commit(t('inspector.aiNarrationPanel.label.puttingNarration'), doc => {
         // Recalculate inside the history mutation so intervening timeline edits cannot be overwritten.
         const placement = planAiNarrationPlacement(doc.tracks, options.itemId, result.duration_s!, options.fps,
             placementChoice);

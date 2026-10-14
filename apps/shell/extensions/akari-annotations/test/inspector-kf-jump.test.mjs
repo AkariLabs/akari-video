@@ -1,3 +1,4 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import { withInspectorDom as withFakeDocument } from './helpers/inspector-dom.mjs';
@@ -5,7 +6,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { createKeyframeSeat } from '../lib/browser/inspector/number-field.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { createKeyframeSeat } = await import('../lib/browser/inspector/number-field.js');
+
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readSourceFile('widget').text;

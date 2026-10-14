@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { afterEach, beforeEach } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+beforeEach(() => setLanguage("ja"));
+afterEach(() => setLanguage(undefined));
 
 import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
 import {
@@ -100,6 +104,17 @@ test("f. devices が null: renderer 文字列だけで e 相当 + GPU 情報未�
   assert.equal(message, `この GPU（${RENDERER.renderer}）にはハードウェア H.264 エンコーダがありません。--engine osr で再実行してください（GPU 情報は取得できませんでした）（原因: ${CAUSE}）`);
   // renderer も無いときは「不明な GPU」。原因が無ければ末尾の括弧も付けない
   assert.equal(describeHardwareEncoderFailure({}), "この GPU（不明な GPU）にはハードウェア H.264 エンコーダがありません。--engine osr で再実行してください（GPU 情報は取得できませんでした）");
+});
+
+test("hardware encoder guidance follows an explicit English language override", () => {
+  try {
+    setLanguage("en");
+    const message = describeHardwareEncoderFailure({});
+    assert.equal(message, "This GPU (unknown GPU) has no hardware H.264 encoder. Retry with --engine osr (GPU information could not be retrieved)");
+    assert.doesNotMatch(message, /[\u3040-\u30ff\u3400-\u9fff]/u);
+  } finally {
+    setLanguage(undefined);
+  }
 });
 
 test("判定表に無い理由（already-high-performance 等）で iGPU のままなら設定アプリを案内する", () => {

@@ -5,7 +5,7 @@ export const ITEM_V2_KEYS = ["id","name","hidden","locked","at","duration","anch
 
 export const ITEM_SOURCE_V2_KEYS = ["kind","src","in","out","framing","transition_out","freeze","fx","speed","gain_db","mute","chroma_key","pitch_semitones","formant","path","part","style","text","elements","exclude","derivedFrom","vars","params","shape","preset","baked","from","filter","canvas","id"] as const;
 
-export const KEYFRAME_V2_KEYS = ["t","transform","crop","perspective","opacity","gain_db","animator","easing"] as const;
+export const KEYFRAME_V2_KEYS = ["t","transform","crop","perspective","opacity","gain_db","animator","vars","easing"] as const;
 
 export const MOTION_V0_KEYS = ["in","out","loop"] as const;
 

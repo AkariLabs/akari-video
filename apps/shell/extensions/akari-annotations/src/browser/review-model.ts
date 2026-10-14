@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation, SaveCanvasRequest, SaveCanvasResult } from '../common/akari-annotations-protocol';
@@ -15,6 +16,7 @@ export interface ReviewSessionSummaryLike {
     orphaned?: boolean;
     status?: ReviewSessionLifecycle | null;
     compiledAnnotations?: string[] | null;
+    strokeCount?: number;
 }
 
 export type ReviewSessionBadgeKey = ReviewSessionLifecycle | 'orphaned';
@@ -22,24 +24,24 @@ export type ReviewSessionBadgeKey = ReviewSessionLifecycle | 'orphaned';
 export interface ReviewSessionBadge {
     key: ReviewSessionBadgeKey;
     label: string;
-    /** recorded のときだけ非 undefined（パネルの 1 行ヒント） */
-    hint?: string;
 }
 
 export function reviewSessionBadge(session: ReviewSessionSummaryLike): ReviewSessionBadge {
     if (session.orphaned === true) {
-        return { key: 'orphaned', label: '未完了' };
+        return { key: 'orphaned', label: t('annotations.reviewModel.text.incomplete') };
     }
     if (session.status === 'transcribed') {
-        return { key: 'transcribed', label: '文字起こし済み' };
+        return { key: 'transcribed', label: t('annotations.reviewModel.text.transcribed') };
     }
     if (session.status === 'compiled') {
-        return { key: 'compiled', label: 'コンパイル済み' };
+        const count = session.compiledAnnotations?.length;
+        return { key: 'compiled', label: count === undefined
+            ? t('annotations.reviewModel.text.compiledWithoutCount')
+            : t('annotations.reviewModel.text.compiledWithCount', { count, n: count }) };
     }
     return {
         key: 'recorded',
-        label: '録音済み',
-        hint: 'まだチケットになっていません — コンパイルでチケット化'
+        label: t('annotations.reviewModel.text.alreadyRecorded')
     };
 }
 
@@ -179,7 +181,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -205,7 +207,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -232,7 +234,7 @@ export class ReviewModel {
     async addDocAnnotation(text: string, selection: DocBlockSelection): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -260,7 +262,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -287,7 +289,7 @@ export class ReviewModel {
     async addUiAnnotation(text: string, sourceT: number, uiTarget: string): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -312,7 +314,7 @@ export class ReviewModel {
     async saveCanvas(request: Omit<SaveCanvasRequest, 'projectRootUri'>): Promise<SaveCanvasResult> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         return this.annotationsService.saveCanvas({ ...request, projectRootUri: location.root.toString() });
     }
@@ -320,7 +322,7 @@ export class ReviewModel {
     async resolveAnnotation(annotationId: string): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.resolveAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -336,7 +338,7 @@ export class ReviewModel {
     async deleteAnnotation(annotationId: string): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.deleteAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -350,7 +352,7 @@ export class ReviewModel {
     async restoreAnnotation(annotation: Annotation): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.restoreAnnotation({
             reviewUri: location.reviewUri.toString(),

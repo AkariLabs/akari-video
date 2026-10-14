@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
+import { computeCutTrackSegments } from '../../edit-store/lib/index.js';
 
 // page-runtime.js はブラウザ用 IIFE（inline 前提・import 不可）なので、normalizedCuts の本体だけを
 // 切り出して node:vm で評価する。関数の形が変わったらここで気づく（issue #31 の回帰検知）。
@@ -22,6 +23,42 @@ const RUNTIMES = [
 ];
 
 for (const [name, url] of RUNTIMES) {
+  test(`${name} places all three projected transition alignments at the planned start and duration`, async () => {
+    const normalizedCuts = await loadNormalizedCuts(url);
+    for (const [align, outgoingOut, incomingAt, incomingIn] of [
+      ['before-cut', 6, 3, 1],
+      ['center', 6.5, 3.5, 1.5],
+      ['after-cut', 7, 4, 2]
+    ]) {
+      const cuts = normalizedCuts({ cuts: [
+        { id: 'a', src: 'a', at: 0, in: 2, out: outgoingOut,
+          transition_out: { type: 'dissolve', duration: 1 } },
+        { id: 'b', src: 'b', at: incomingAt, in: incomingIn, out: 6 }
+      ] });
+      assert.equal('at' in cuts[1], false, align);
+      const positioned = computeCutTrackSegments(cuts.map(cut => ({
+        ...cut, transitionOut: cut.transition_out
+      })));
+      assert.equal(positioned[1].at, incomingAt, align);
+      assert.equal(positioned[1].end, 8, align);
+    }
+  });
+  test(`${name} keeps leading and middle gaps without converting freeze or overlap to absolute placement`, async () => {
+    const normalizedCuts = await loadNormalizedCuts(url);
+    const cuts = normalizedCuts({ cuts: [
+      { id: "first", src: "s", track: 0, at: 2, in: 0, out: 2,
+        freeze: { at_sec: 1, duration_sec: 1 }, transition_out: { type: "dissolve", duration: 0.5 } },
+      { id: "overlap", src: "s", track: 0, at: 4.5, in: 2, out: 4 },
+      { id: "middle-gap", src: "s", track: 0, at: 8, in: 4, out: 5 },
+      { id: "upper", src: "s", track: 1, at: 1, in: 0, out: 1 },
+    ] });
+    assert.equal(cuts[0].at, 2);
+    assert.equal("at" in cuts[1], false);
+    assert.equal(cuts[2].at, 8);
+    assert.equal(cuts[3].at, 1);
+    assert.equal(cuts[3].track, 1);
+  });
+
   test(`${name} normalizedCuts keeps at/track only for upper visual tracks (#31)`, async () => {
     const normalizedCuts = await loadNormalizedCuts(url);
     const cuts = normalizedCuts({

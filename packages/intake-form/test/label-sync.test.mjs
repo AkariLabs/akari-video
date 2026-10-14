@@ -39,10 +39,15 @@ test("x-akari-labels の手動ミラー 2 箇所（intake-labels.ts / intake-for
     "utf8"
   );
   const htmlMirror = await readFile(join(packageRoot, "intake-form-template.html"), "utf8");
+  const japaneseCatalog = JSON.parse(await readFile(
+    join(repoRoot, "packages", "i18n", "locales", "ja", "surfaces.json"), "utf8"
+  ));
 
   for (const [id, label] of entries) {
     assert.ok(surfacesMirror.includes(`'${id}'`), `intake-labels.ts に ID '${id}' が無い`);
-    assert.ok(surfacesMirror.includes(label), `intake-labels.ts にラベル「${label}」が無い`);
+    const key = surfacesMirror.match(new RegExp(`(?:'${id}'|${id}): t\\('([^']+)'\\)`))?.[1];
+    assert.ok(key, `intake-labels.ts に ID '${id}' の翻訳キーが無い`);
+    assert.equal(japaneseCatalog[key], label, `intake-labels.ts の ID '${id}' が schema と異なる`);
     assert.ok(htmlMirror.includes(label), `intake-form-template.html にラベル「${label}」が無い`);
   }
 });

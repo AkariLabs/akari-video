@@ -20,6 +20,15 @@ const fs={...nodeFs,existsSync(file){
     const imported=Object.values(libraryRuntimeFor().assetPaths??{}).some(value=>(value.files??[]).includes(file));
     return imported||nodeFs.existsSync(file);
 }};
+// 静止画（still）は既定で画像として置く。fragment.html は色相などのツマミを触るための包みで、
+// 画像の 1 枚（preview.png 以外）が一意に決まらないときだけ HTML へ戻る（オーナー裁定 2026-10-12）。
+export const STILL_IMAGE_SECONDS=5;
+export function stillImageFile(files, dir){
+    const base=String(dir??'').replaceAll('\\','/').replace(/\/+$/,'');
+    const images=(files??[]).map(file=>String(file).replaceAll('\\','/'))
+        .filter(file=>nodePath.posix.dirname(file)===base&&/\.(png|jpe?g|gif|webp)$/i.test(file)&&nodePath.posix.basename(file).toLowerCase()!=='preview.png');
+    return images.length===1?images[0]:null;
+}
 const blockCompanionInsert=env=>{
     const previous=env.selection,originalPush=env.log.push;
     originalPush.call(env.log,'insert_from_library_add → 未適用（シェル接続中だが取り込み済み素材の相対パスが無い）');
@@ -32,8 +41,9 @@ const writeEdit=(env,edit)=>{
         const active=libraryRuntimeFor(env),ids=Object.keys(active.assetPaths??{}),imported=active.assetPaths?.[ids[0]];
         const html=imported&&imported.files?.includes(nodePath.posix.join(imported.dir,'fragment.html'))
             ?nodePath.posix.join(imported.dir,'fragment.html'):null;
-        if(ids.length!==1||!html){blockCompanionInsert(env);return;}
         const item=edit.tracks.find(track=>track.id==='w11-library')?.items?.at(-1);
+        if(ids.length===1&&item?.source?.kind==='media'){writeEditBase(env,edit);return;}
+        if(ids.length!==1||!html){blockCompanionInsert(env);return;}
         // 置く時刻を書き込んだ写しがあればそれを指す（公開側の検査が data-start の一致を求める）
         if(item?.source?.kind==='html')item.source.path=typeof active.fragmentPath==='string'&&active.fragmentPath?active.fragmentPath:html;
         if(item&&active.placement?.assetId===ids[0]&&active.placement.transform)item.transform=active.placement.transform;
@@ -53,9 +63,39 @@ export default { id: 'insert_from_library_add', apply(env,d) {
         if (d.w11_at === 'unsupported') return stop('この位置指定には未対応');
         const at = d.w11_at === 'spoken' ? d.seconds : env.playheadT;
         if (!Number.isFinite(at) || at < 0) return stop('挿入時刻を解決できない');
+        const edit = structuredClone(env.edit);
+        if (asset.category === 'still') {
+            const imported = env.companion || libraryRuntimeFor(env).companion ? libraryRuntimeFor(env).assetPaths?.[id] : null;
+            let files = imported?.files ?? [];
+            if (!imported && asset.directory) {
+                try { files = nodeFs.readdirSync(asset.directory).map(name => nodePath.join(asset.directory, name)); } catch { files = []; }
+            }
+            const image = stillImageFile(files, imported ? imported.dir : asset.directory);
+            if (image) {
+                let track = edit.tracks.find(t=>t.id==='w11-library' && t.lane==='visual' && Array.isArray(t.items));
+                if (!track) {
+                    if (edit.tracks.some(t=>t.id==='w11-library')) return stop('挿入トラックIDの衝突');
+                    track={id:'w11-library',lane:'visual',items:[]}; edit.tracks.push(track);
+                }
+                edit.sources = Array.isArray(edit.sources) ? edit.sources : [];
+                let source = edit.sources.find(s => s.path === image);
+                if (!source) {
+                    let sourceId = id, k = 1;
+                    while (edit.sources.some(s => s.id === sourceId)) sourceId = `${id}-${k++}`;
+                    source = { id: sourceId, path: image };
+                    edit.sources.push(source);
+                }
+                let n=1; while(env.editStore.locate(edit,`w11-library-${n}`)) n++;
+                const item={id:`w11-library-${n}`,at:secondsToFrames(edit,at),duration:Math.max(1,secondsToFrames(edit,STILL_IMAGE_SECONDS)),
+                    source:{kind:'media',src:source.id,in:0,out:STILL_IMAGE_SECONDS}};
+                env.editStore.insertItem(edit,track.id,item); writeEdit(env,edit);
+                env.selection=`item:${item.id}`;
+                env.log.push(`insert_from_library_add ${id} → ${item.id} / ${at}秒から${STILL_IMAGE_SECONDS}秒 / image`);
+                return;
+            }
+        }
         const html = path.join(asset.directory,'fragment.html');
         if (!fs.existsSync(html)) return stop(`${id} の fragment.html が無い（scene3d 等のベイク・変換は未接続）`);
-        const edit = structuredClone(env.edit);
         let track = edit.tracks.find(t=>t.id==='w11-library' && t.lane==='visual' && Array.isArray(t.items));
         if (!track) {
             if (edit.tracks.some(t=>t.id==='w11-library')) return stop('挿入トラックIDの衝突');

@@ -1,5 +1,16 @@
 # Third-Party Notices
 
+## Noto Sans (Latin caption font)
+
+The bundled variable font `assets/font/noto-sans/NotoSans-Variable.ttf` is
+licensed under the SIL Open Font License 1.1. The full license and copyright
+notice are included at `assets/font/noto-sans/OFL.txt`.
+
+- Font source: https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/notosans/NotoSans%5Bwdth%2Cwght%5D.ttf
+- Font sha256: `bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d`
+- License source: https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/notosans/OFL.txt
+- License sha256: `cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a`
+
 ## FFmpeg (ffmpeg / ffprobe)
 
 This product downloads and bundles FFmpeg (ffmpeg / ffprobe), used as separate

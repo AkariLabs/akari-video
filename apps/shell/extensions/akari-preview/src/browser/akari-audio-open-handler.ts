@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { getLanguage } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
@@ -42,9 +44,9 @@ const AUDIO_MIME_TYPES = new Map<string, string>([
 ]);
 const MAX_INLINE_BYTES = 50 * 1024 * 1024;
 const TRANSCODE_FIRST_EXTENSIONS = new Set(['.aac', '.m4a']);
-const TOO_LARGE_MESSAGE = '大きすぎるためアプリ内で再生できません。';
-const PLAYBACK_ERROR_MESSAGE = 'このファイルはアプリ内で再生できません。';
-const FFMPEG_REQUIRED_MESSAGE = 'このファイルはアプリ内で再生できません。再生には ffmpeg が必要です。';
+const TOO_LARGE_MESSAGE = () => t('preview.audioPreview.window.fileTooLargePlayApp');
+const PLAYBACK_ERROR_MESSAGE = () => t('preview.audioPreview.window.fileCannotPlayedAppError');
+const FFMPEG_REQUIRED_MESSAGE = () => t('preview.audioPreview.window.fileCannotPlayedAppFfmpegRequiredError');
 // akari-annotations 側の同名イベントと文字列だけをミラーし、拡張間の import 依存を避ける。
 const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
@@ -208,7 +210,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.audio';
-        widget.title.label = '素材プレビュー';
+        widget.title.label = t('preview.audioPreview.window.assetPreviewLabel');
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-unmute';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
@@ -220,7 +222,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
             fileSize = typeof stat.size === 'number' ? stat.size : undefined;
             (widget as AudioWidgetMarker).akariAudioFileSize = fileSize;
             if (fileSize !== undefined && fileSize > MAX_INLINE_BYTES) {
-                widget.setHTML(this.messageHtml(uri, TOO_LARGE_MESSAGE, fileSize));
+                widget.setHTML(this.messageHtml(uri, TOO_LARGE_MESSAGE(), fileSize));
                 return;
             }
 
@@ -234,7 +236,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
             fileSize = bytes.length;
             (widget as AudioWidgetMarker).akariAudioFileSize = fileSize;
             if (fileSize > MAX_INLINE_BYTES) {
-                widget.setHTML(this.messageHtml(uri, TOO_LARGE_MESSAGE, fileSize));
+                widget.setHTML(this.messageHtml(uri, TOO_LARGE_MESSAGE(), fileSize));
                 return;
             }
 
@@ -242,7 +244,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
             widget.setHTML(this.audioHtml(uri, dataUri, fileSize, true, false));
         } catch (error) {
             console.warn(`[akari-preview] failed to read audio ${uri.toString()}`, error);
-            widget.setHTML(this.messageHtml(uri, PLAYBACK_ERROR_MESSAGE, fileSize));
+            widget.setHTML(this.messageHtml(uri, PLAYBACK_ERROR_MESSAGE(), fileSize));
         }
     }
 
@@ -260,7 +262,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
             });
         } catch (error) {
             console.warn(`[akari-preview] failed to convert audio ${uri.toString()}`, error);
-            widget.setHTML(this.messageHtml(uri, PLAYBACK_ERROR_MESSAGE, fileSize));
+            widget.setHTML(this.messageHtml(uri, PLAYBACK_ERROR_MESSAGE(), fileSize));
             return;
         }
         if ('error' in result) {
@@ -301,12 +303,12 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 
     protected transcodeErrorMessage(error: TranscodeAudioErrorKind): string {
         if (error === 'ffmpeg-not-found') {
-            return FFMPEG_REQUIRED_MESSAGE;
+            return FFMPEG_REQUIRED_MESSAGE();
         }
         if (error === 'input-too-large') {
-            return TOO_LARGE_MESSAGE;
+            return TOO_LARGE_MESSAGE();
         }
-        return PLAYBACK_ERROR_MESSAGE;
+        return PLAYBACK_ERROR_MESSAGE();
     }
 
     protected audioHtml(
@@ -320,7 +322,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         const materialIdentity = this.openAudioPreviews.get(uri.normalizePath().toString())?.akariAudioRangeHost?.dragIdentity;
         const materialRangeEnabled = !!materialIdentity;
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -351,16 +353,16 @@ ${materialRangeEnabled ? `.material-audio-surface { height: 120px; position: rel
 <main class="card">
 <section id="player-card" data-playback-path="${transcoded ? 'ffmpeg' : 'direct'}">
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
-<p class="metadata"><span>実尺: <span id="duration">読み込み中</span></span><span>サイズ: ${this.escapeHtml(this.formatBytes(fileSize))}</span></p>
-${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
-${materialRangeEnabled ? `<div id="material-drag-surface" class="material-audio-surface"><button id="material-range-place" type="button" title="タイムラインに置く" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>タイムラインに置く</button></div>` : ''}
+<p class="metadata"><span>${t('preview.previewWindow.controls.durationPrefix')}<span id="duration">${t('preview.previewWindow.controls.loadingLabel')}</span></span><span>${t('preview.previewWindow.controls.sizePrefix')}${this.escapeHtml(this.formatBytes(fileSize))}</span></p>
+${transcoded ? `<p class="note">${t('preview.audioPreview.controls.playingConvertedFfmpegFile')}</p>` : ''}
+${materialRangeEnabled ? `<div id="material-drag-surface" class="material-audio-surface"><button id="material-range-place" type="button" title="${t('preview.audioPreview.controls.addTimelineAction')}" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>${t('preview.materialPreview.controls.placeAction')}</button></div>` : ''}
 <audio id="audio" controls preload="metadata" data-source="${this.escapeHtml(sourceUri)}"></audio>
-${materialRangeEnabled ? `<div class="material-audio-seek"><div class="material-seek-wrap"><input id="material-audio-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置"><div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="in をここに（I）">I</button><button id="material-range-button-out" title="out をここに（O）">O</button><button id="material-range-button-clear" title="範囲をなしに">×</button></div></div>` : ''}
+${materialRangeEnabled ? `<div class="material-audio-seek"><div class="material-seek-wrap"><input id="material-audio-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="${t('preview.previewWindow.transport.seekLabel')}"><div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="${t('preview.previewWindow.transport.setInAction')}">I</button><button id="material-range-button-out" title="${t('preview.previewWindow.transport.setOutAction')}">O</button><button id="material-range-button-clear" title="${t('preview.previewWindow.transport.clearRangeAction')}">×</button></div></div>` : ''}
 </section>
 <section id="error-card" hidden>
-<p class="message">${this.escapeHtml(PLAYBACK_ERROR_MESSAGE)}</p>
+<p class="message">${this.escapeHtml(PLAYBACK_ERROR_MESSAGE())}</p>
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
-<p class="metadata"><span>サイズ: ${this.escapeHtml(this.formatBytes(fileSize))}</span></p>
+<p class="metadata"><span>${t('preview.previewWindow.controls.sizePrefix')}${this.escapeHtml(this.formatBytes(fileSize))}</span></p>
 </section>
 </main>
 <script>
@@ -388,7 +390,7 @@ ${materialRangeEnabled ? `<div class="material-audio-seek"><div class="material-
     };
     audio.addEventListener('loadedmetadata', () => {
         if (!Number.isFinite(audio.duration)) {
-            duration.textContent = '不明';
+            duration.textContent = '${t('preview.diagnostics.overlay.unknownLabel')}';
             return;
         }
         const totalSeconds = Math.max(0, Math.floor(audio.duration));
@@ -428,7 +430,7 @@ ${materialIdentity ? `<script>${materialRangeWebviewScript('audio', materialIden
 
     protected messageHtml(uri: URI, message: string, fileSize?: number): string {
         return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -450,7 +452,7 @@ body { position: relative; display: grid; place-items: center; padding: 32px; }
 <main class="card">
 <p class="message">${this.escapeHtml(message)}</p>
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
-<p class="metadata">サイズ: ${this.escapeHtml(this.formatBytes(fileSize))}</p>
+<p class="metadata">${t('preview.previewWindow.controls.sizePrefix')}${this.escapeHtml(this.formatBytes(fileSize))}</p>
 </main>
 </body>
 </html>`;
@@ -458,7 +460,7 @@ body { position: relative; display: grid; place-items: center; padding: 32px; }
 
     protected formatBytes(bytes?: number): string {
         if (bytes === undefined) {
-            return '取得できません';
+            return t('preview.audioPreview.window.unavailableError');
         }
         if (bytes < 1024) {
             return `${bytes} B`;

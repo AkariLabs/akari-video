@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 import { libraryFontLabel } from '../common/library-font-label';
@@ -38,13 +39,17 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
             opacity: card.availability?.status === 'available' ? 1 : 0.65 }}>
         <div data-akari-font-primary style={{ width: '100%', height: '32px' }}>
             <span style={{ display: 'block', width: '100%', height: '32px', overflow: 'hidden' }}>
-                {rowUrl ? <span data-akari-font-preview role='img' aria-label={`${item.title} 文字もじモジ`}
+                {rowUrl && !props.faceFamily ? <span data-akari-font-preview role='img' aria-label={t('project.library.textPage.fontPreviewTitleLabel', { title: item.title })}
                     style={{ display: 'block', width: '100%', height: '32px', backgroundColor: 'currentColor',
                         mask: `url("${rowUrl}") left center / auto 32px no-repeat`,
                         WebkitMask: `url("${rowUrl}") left center / auto 32px no-repeat` }} />
-                    : <span data-akari-font-name style={{ display: 'block', fontFamily: 'sans-serif',
+                    : <span data-akari-font-name style={{ display: 'block', fontFamily: props.faceFamily
+                        ? `${JSON.stringify(props.faceFamily)}, sans-serif` : 'sans-serif',
                         fontSize: '22px', lineHeight: '32px', whiteSpace: 'nowrap', overflow: 'hidden',
-                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}</span>}
+                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}
+                        {props.faceFamily && <span data-akari-font-specimen aria-hidden='true'
+                            style={{ marginLeft: '0.5em', opacity: 0.55 }}>{t('project.library.textPage.fontSpecimenLabel')}</span>}
+                    </span>}
             </span>
         </div>
         <div data-akari-font-secondary style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%',
@@ -52,15 +57,15 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
             <small data-akari-font-english title={label.english ?? item.title}
                 style={{ flex: '1 1 0', minWidth: 0, fontSize: '10px', opacity: 0.65,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.english ?? item.title}</small>
-            {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り'
+            {card.favorite && <span className='codicon codicon-star-full' aria-label={t('project.library.textPage.favoritesLabel')}
                 style={{ flex: '0 0 auto' }} />}
-            <small data-akari-font-status title={card.availability?.status === 'failed' ? '確認できませんでした' : undefined}
+            <small data-akari-font-status title={card.availability?.status === 'failed' ? t('project.library.visualShelf.couldNotVerifyError') : undefined}
                 style={{ flex: '0 1 auto', minWidth: 0, marginLeft: 'auto', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px', opacity: 0.8 }}>
-                {card.availability?.status === 'available' ? '使える'
-                    : card.availability?.status === 'download' ? '↓ ダウンロード'
-                        : card.availability?.status === 'source' ? '入手が必要'
-                            : card.availability?.status === 'failed' ? '確認できませんでした' : '確認中'}
+                {card.availability?.status === 'available' ? t('project.library.visualShelf.availableLabel')
+                    : card.availability?.status === 'download' ? t('project.library.visualShelf.downloadLabel')
+                        : card.availability?.status === 'source' ? t('project.library.visualShelf.downloadRequiredAction')
+                            : card.availability?.status === 'failed' ? t('project.library.visualShelf.couldNotVerifyError') : t('project.library.visualShelf.checkingLabel')}
             </small>
             <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
         </div>
@@ -76,16 +81,15 @@ export function LibraryTextLookPage(props: { onBack(): void; onPlace(): void; ta
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <button type='button' data-akari-library-back onClick={props.onBack}
                     style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)',
-                        cursor: 'pointer', fontSize: '0.8em' }}>← ライブラリ</button>
-                <strong style={{ fontSize: '0.86em' }}>テキスト</strong>
+                        cursor: 'pointer', fontSize: '0.8em' }}>{t('project.library.shelf.backToLibraryAction')}</button>
+                <strong style={{ fontSize: '0.86em' }}>{t('project.library.textPage.textLabel')}</strong>
             </div>
             <button type='button' data-akari-library-place-text onClick={props.onPlace}
                 style={{ width: '100%', margin: '10px 0 9px', padding: '7px 8px', cursor: 'pointer',
                     borderRadius: `${AKARI_RADIUS.panel}px`, border: AKARI_BORDER.ghost,
                     background: AKARI_SURFACE.raised, color: AKARI_INK, textAlign: 'left', fontWeight: 700 }}>
-                ＋ 文字を置く
-            </button>
-            <div role='tablist' aria-label='テキストの種類' data-akari-caption-panel-switch={props.tab}
+                {t('project.library.textPage.addTextLabel')}</button>
+            <div role='tablist' aria-label={t('project.library.textPage.textTypeLabel')} data-akari-caption-panel-switch={props.tab}
                 style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '3px',
                     borderRadius: '8px', background: AKARI_SURFACE.elevated, border: AKARI_BORDER.edge }}>
                 <span aria-hidden='true' style={{ position: 'absolute', top: '3px', bottom: '3px', left: '3px',
@@ -98,18 +102,18 @@ export function LibraryTextLookPage(props: { onBack(): void; onPlace(): void; ta
                     style={{ position: 'relative', border: 0, background: 'transparent', padding: '7px 4px',
                         color: props.tab === tab ? 'var(--akari-accent)' : AKARI_INK,
                         fontWeight: props.tab === tab ? 700 : 400, cursor: 'pointer', fontSize: '12px' }}>
-                    {tab === 'style' ? 'スタイル' : 'フォント'}
+                    {tab === 'style' ? t('project.library.textPage.styleLabel') : t('project.library.importSheet.fontLabel')}
                 </button>)}
             </div>
         </div>
         {props.tab === 'style' ? <div role='tabpanel' data-akari-text-look-section='style'>
-            <ShelfHeading label='テキストスタイル' hint='置く / かける' />
+            <ShelfHeading label={t('project.library.pane.textStyleLabel')} hint={t('project.library.textPage.addApplyAction')} />
             <div style={GRID}>{props.styles}</div>
             {props.myStyles}
-            <ShelfHeading label='テキストアニメ' hint='かける・ホバーで再生' />
+            <ShelfHeading label={t('project.library.pane.textAnimationLabel')} hint={t('project.library.textPage.applyHoverPreviewAction')} />
             <div style={GRID}>{props.motions}</div>
         </div> : <div role='tabpanel' data-akari-text-look-section='font'>
-            <ShelfHeading label='フォント' hint='置く / かける' />
+            <ShelfHeading label={t('project.library.importSheet.fontLabel')} hint={t('project.library.textPage.addApplyAction')} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '8px 10px 12px' }}>{props.fonts}</div>
         </div>}
     </div>;

@@ -17,6 +17,7 @@ const edit_v2_1 = require("./edit-v2");
 const tree_ops_1 = require("./tree-ops");
 const item_anchor_1 = require("./item-anchor");
 const cut_adjacency_1 = require("./cut-adjacency");
+const transition_plan_1 = require("./transition-plan");
 const error_1 = require("./migrate/error");
 const audio_ownership_1 = require("./audio-ownership");
 const shape_markup_1 = require("./shape-markup");
@@ -290,45 +291,74 @@ function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
         if (track.lane !== 'visual')
             continue;
         const cuts = track.items.filter((item) => item.legacy.collection === 'cuts' && item.source.kind === 'media');
-        for (let index = 0; index + 1 < cuts.length; index++) {
-            const outgoing = cuts[index];
-            const incoming = cuts[index + 1];
-            if ((0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.at + outgoing.duration }, { tlStart: incoming.at }, fps) !== 0)
+        const clips = cuts.map((item, index) => {
+            const still = (0, cut_adjacency_1.isStillImageSourcePath)(item.source.path);
+            const transition = item.declaration.transition_out;
+            return {
+                id: String(index),
+                startSeconds: item.at,
+                lengthSeconds: item.duration,
+                headRoomSeconds: still ? Number.POSITIVE_INFINITY : Math.max(0, item.source.in / speedOf(item)),
+                tailRoomSeconds: still ? Number.POSITIVE_INFINITY : undefined,
+                ...(isRecord(transition) && typeof transition.duration === 'number'
+                    && Number.isFinite(transition.duration) && transition.duration > 0 ? {
+                    transitionOut: {
+                        declaredSeconds: transition.duration,
+                        align: (0, transition_plan_1.readTransitionAlign)(transition.align),
+                        fill: (0, transition_plan_1.readTransitionFill)(transition.fill) === 'freeze'
+                    }
+                } : {}),
+                // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+                ...(isRecord(item.declaration.freeze) ? { holdBlocked: true } : {})
+            };
+        });
+        const plans = (0, transition_plan_1.planTrackTransitions)(clips, { fps });
+        for (const plan of plans) {
+            if (plan.legacyOverlap)
                 continue;
+            const outgoing = cuts[Number(plan.earlierId)];
+            const incoming = cuts[Number(plan.laterId)];
+            if (!outgoing || !incoming)
+                continue;
+            if (plan.state === 'none') {
+                const { transition_out: unused, ...declaration } = outgoing.declaration;
+                outgoing.declaration = declaration;
+                continue;
+            }
             const transition = outgoing.declaration.transition_out;
-            if (!isRecord(transition)
-                || typeof transition.duration !== 'number'
-                || !Number.isFinite(transition.duration)
-                || transition.duration <= 0)
+            if (!isRecord(transition))
                 continue;
+            const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
+            // 頭の余りを越える分は、後のクリップを早めずに最初のコマの前出し（transitionHold）で持つ。
+            const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+            const head = -plan.startOffsetSeconds - hold;
+            const tail = plan.endOffsetSeconds;
+            const outgoingSpeed = speedOf(outgoing);
             const incomingSpeed = speedOf(incoming);
             const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
-            const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-                declaredSeconds: transition.duration,
-                outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
-                incomingHeadRoomSeconds: incomingStill
-                    ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
-                outgoingDurationSeconds: outgoing.duration,
-                incomingDurationSeconds: incoming.duration
-            });
-            if (plan.effectiveSeconds <= 0)
-                continue;
-            const outgoingSpeed = speedOf(outgoing);
+            const currentEnd = outgoing.at + outgoing.duration;
             outgoing.declaration = {
                 ...outgoing.declaration,
-                out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
-                transition_out: { ...transition, duration: plan.effectiveSeconds }
+                out: Number(outgoing.declaration.out)
+                    + (plan.cutSeconds + tail - currentEnd) * outgoingSpeed,
+                transition_out: { ...renderTransition, duration: plan.effectiveSeconds }
             };
+            const freeze = incoming.declaration.freeze;
+            const shiftedFreeze = isRecord(freeze) && typeof freeze.at_sec === 'number'
+                ? { freeze: { ...freeze, at_sec: freeze.at_sec + head } } : {};
             incoming.declaration = incomingStill
                 ? {
                     ...incoming.declaration,
-                    at: Number(incoming.declaration.at) - plan.halfSeconds,
-                    out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+                    at: Number(incoming.declaration.at) - head,
+                    out: Number(incoming.declaration.out) + head * incomingSpeed,
+                    ...shiftedFreeze
                 }
                 : {
                     ...incoming.declaration,
-                    at: Number(incoming.declaration.at) - plan.halfSeconds,
-                    in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+                    at: Number(incoming.declaration.at) - head,
+                    in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+                    ...shiftedFreeze,
+                    ...(hold > 0 ? { transitionHold: { headSeconds: hold } } : {})
                 };
         }
     }

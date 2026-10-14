@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { AkariToolCheckResult, AkariToolId } from './akari-new-project-protocol';
 
 type ToolAvailability = Pick<AkariToolCheckResult, 'available' | 'unsupported' | 'needs'>
@@ -6,15 +7,15 @@ type ToolAvailability = Pick<AkariToolCheckResult, 'available' | 'unsupported' |
 /** 道具行の状態札。通常行は初回セットアップの既存文言を保つ。 */
 export function describeToolAvailabilityLabel(tool: ToolAvailability): string {
     if (tool.unsupported) {
-        return 'この OS では使えない';
+        return t('surfaces.tools.cannotOs.label');
     }
     if (tool.needs?.length) {
-        return `準備が要る（${tool.needs.join('・')}）`;
+        return t('surfaces.tools.preparationRequired.message', { requirements: tool.needs.join(t('surfaces.toolGuidance.list.separator')) });
     }
     if (tool.id && TOOL_UI[tool.id].osProvided) {
-        return tool.available ? '使える' : '準備が要る';
+        return tool.available ? t('surfaces.tools.describeToolAvailabilityLabel.label') : t('surfaces.tools.preparationRequired.label');
     }
-    return tool.available ? 'インストール済み' : '未インストール';
+    return tool.available ? t('surfaces.tools.installed.status') : t('surfaces.tools.notInstalled.status');
 }
 
 /** DOM に依存しない行描画の判定。unsupported は available より優先する。 */
@@ -29,7 +30,7 @@ export function shouldShowToolNote(tool: Pick<AkariToolCheckResult, 'id' | 'avai
 }
 
 export const SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE =
-    'SpeechAnalyzer を使うには macOS 26 以上が必要です。Command Line Tools が無い場合は、ターミナルで xcode-select --install を実行して手動で入れる必要があります。完了したら再チェックしてください。';
+    t('surfaces.tools.speechanalyzerRequiresMacosLaterCommandLineTools.description');
 
 export interface ToolUiInfo {
     name: string;
@@ -45,7 +46,7 @@ export interface ToolUiInfo {
 }
 
 /** whisper 行のモデルサブ行の表示用サイズ（`tool-install.ts` の `WHISPER_MODEL_FILENAME` 実測サイズ）。 */
-export const WHISPER_MODEL_SIZE_LABEL = '約574MB';
+export const WHISPER_MODEL_SIZE_LABEL = t('surfaces.tools.whisperModelDownloadSize.label');
 
 /**
  * 検知結果と分離した、UI に表示する案内の正本。
@@ -54,36 +55,42 @@ export const WHISPER_MODEL_SIZE_LABEL = '約574MB';
  */
 export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
     ffmpeg: {
-        name: 'FFmpeg', badge: '基本 · ほぼ必須', purpose: '動画・音声の変換、プレビュー、書き出しに使います。',
-        sizeLabel: '約 300MB'
+        name: 'FFmpeg', badge: t('surfaces.tools.basicAlmostRequired.label'), purpose: t('surfaces.tools.convertingPreviewingExportingVideosAudio.message'),
+        sizeLabel: t('surfaces.tools.ffmpegDownloadSize.label')
     },
     whisper: {
-        name: 'Whisper（whisper.cpp）', badge: '基本', purpose: '素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。',
-        sizeLabel: '約 20MB（+ モデル別途）'
+        name: 'Whisper（whisper.cpp）', badge: t('surfaces.tools.basic.label'), purpose: t('surfaces.tools.transcribingAssetModelRequiredSeparatelyExecutableFile.message'),
+        sizeLabel: t('surfaces.tools.whisperDownloadSize.label')
     },
     'yt-dlp': {
-        name: 'yt-dlp', badge: 'アドバンス', purpose: '許可された動画素材の取得に使います。',
-        sizeLabel: '約 35MB'
+        name: 'yt-dlp', badge: t('surfaces.tools.advance.label'), purpose: t('surfaces.tools.obtainApprovedVideoAssets.message'),
+        sizeLabel: t('surfaces.tools.ytDlpDownloadSize.label')
     },
     voicevox: {
-        name: 'VOICEVOX', badge: 'アドバンス', purpose: 'ローカルの日本語ナレーション生成に使います。',
-        sizeLabel: '約 1.5GB',
-        note: '利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。'
+        name: 'VOICEVOX', badge: t('surfaces.tools.advance.label'), purpose: t('surfaces.tools.generateLocalJapaneseNarration.message'),
+        sizeLabel: t('surfaces.tools.voicevoxDownloadSize.label'),
+        note: t('surfaces.tools.mustProvideCreditAccordingTermsConditionsAudio.message')
+    },
+    voice: {
+        name: t('surfaces.tools.voice.name.label'), badge: t('surfaces.tools.voice.badge.label'),
+        purpose: t('surfaces.tools.voice.purpose.message'),
+        sizeLabel: t('surfaces.tools.voice.size.label'),
+        note: t('surfaces.tools.voice.license.note')
     },
     blender: {
-        name: 'Blender CLI', badge: 'アドバンス', purpose: '高度な 3D 素材の事前レンダーに使います。',
-        sizeLabel: '約 700MB'
+        name: 'Blender CLI', badge: t('surfaces.tools.advance.label'), purpose: t('surfaces.tools.blenderPreRenderThreeDimensionalAssets.description'),
+        sizeLabel: t('surfaces.tools.blenderDownloadSize.label')
     },
     'speech-analyzer': {
         osProvided: true,
         hideNoteWhenAvailable: true,
-        name: 'SpeechAnalyzer', badge: '推奨', purpose: 'このパソコンで高速に文字起こしします。',
-        sizeLabel: 'macOS に付属', note: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE
+        name: 'SpeechAnalyzer', badge: t('surfaces.tools.recommended.label'), purpose: t('surfaces.tools.transcribeQuicklyComputer.message'),
+        sizeLabel: t('surfaces.tools.includedMacos.label'), note: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE
     },
     'xcode-clt': {
         hideNoteWhenAvailable: true,
-        name: 'macOS: Command Line Tools', badge: '推奨', purpose: 'プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。',
-        sizeLabel: '約 2GB',
-        note: '入れなくても動画は作れます。導入後に自動で有効になり、履歴機能と AI 分析機能で使われます。'
+        name: 'macOS: Command Line Tools', badge: t('surfaces.tools.recommended.label'), purpose: t('surfaces.tools.projectHistoryDifferencesSnapshotsHighSpeedTranscription.message'),
+        sizeLabel: t('surfaces.tools.commandLineToolsDownloadSize.label'),
+        note: t('surfaces.tools.makeVideosWithoutAutomaticallyEnabledDeploymentHistory.message')
     }
 };

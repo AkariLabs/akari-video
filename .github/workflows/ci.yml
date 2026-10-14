@@ -47,6 +47,8 @@ jobs:
         run: node apps/shell/resources/scripts/bundle-cli-node-modules.mjs
       - name: check-packaged-imports
         run: node scripts/release/check-packaged-imports.mjs
+      - name: check-distribution-import-closure
+        run: node scripts/ci/check-distribution-import-closure.mjs
 
   skills-index:
     name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML)
@@ -58,8 +60,10 @@ jobs:
           node-version: '26.3.0'
       - run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
       - run: node scripts/gen-skills-index.mjs --check --strict
+      - run: npm run lint:i18n
       - run: node scripts/check-docs-sync.mjs
       - run: node scripts/check-entry-skill.mjs
+      - run: node scripts/ci/check-cross-package-imports.mjs
       - name: "check-extension-deps (拡張間 file 依存と build:ext 順序の照合)"
         run: node scripts/ci/check-extension-deps.mjs
 

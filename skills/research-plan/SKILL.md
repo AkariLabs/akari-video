@@ -1,59 +1,63 @@
 ---
 name: research-plan
-description: 動画の企画・調査工程（ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト）を headless で一周するときに発動する router。ネタ選定と構成の確定は decision-cards 型承認ゲート（HTML レポート + decisions.json）で人間の判断を受け取る。
+description: Run the headless video planning and research workflow from ideas through audience, competitor, and trend research to a proposal, structure, storyboard, and shot list. Use decision cards in an HTML report and decisions.json to obtain human choices for the topic and final structure.
 ---
 
-# 企画・調査を一周する
+# Plan and research a video
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-> 本スキルは暫定で雛形同梱（v0）。スキルカタログ + setup インストール機構が立った時点で参照配布へ移行する。同梱は暫定運用であり、leaf を含めテキストのみ・バイナリ資産なし。
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
 
-## ハードルール
+> The bundled v0 skill is provisional. Move it to reference distribution when both the skill catalog and setup installation mechanism exist. The bundle, including its leaf files, contains only text and no binary assets.
 
-1. **有償 API を呼ぶ前に想定コストを明示し、状態ファイル（`.decisions.json` 等）の承認後にのみ実行する。** チャット上の承認だけで課金を実行しない。
-2. **接続は [manage-connections](../manage-connections/SKILL.md)（`.akari/connections.json`）経由のみを使う。** `.env` 探索・API キー直書きをしない。
-3. **出力は JSON + HTML に限定し、GUI アプリを起動しない**（headless-first 不変条件。アプリを一切インストールしなくても本工程が完結する）。
-4. **参考にした外部スキル・リポジトリのコード・文面を転記しない。** Hub/Hero/Help 分類、並列ギャップ分析、収益化ポテンシャル付きランキングといった**工程分解の型だけ**を抽出する（例外は検証済み MIT/Apache のみ）。出力スキーマは自社統一。
-5. **日本語 SNS 事情を必須調査軸に含める。** `research-plan.json` の `target.japan_sns.notes` を空にしない（無償手段で確認できない場合もその旨と理由を書く）。
-6. **CLAUDE.md / AGENTS.md に触らない。**
-7. **無償枠のみで一周が成立する既定にする。** 有償手段が使えない環境でも停止しない（結果は劣化してよいが、完走はする）。
-8. **差し戻しはチャットと `plan-comments.json` の二重経路。** 承認チェックポイントの再提示前は、チャット返信の解釈より先に `<plan-dir>/plan-comments.json`（在れば）を読む（[storyboard.md](storyboard.md) §5）。
-9. **ネタ出しの冒頭で recipe の recall を行う。** [ideate.md](ideate.md) の手順に入る前に、`workflow: "research"` のレシピ（[edit-plan/recipe.md](../edit-plan/recipe.md) の recall 手順と同じ規律）が `~/.akari/recipes/` に在るか確認し、在れば出所付きの推奨として添える。今回の依頼を上書きせず、必須調査軸（§5 の日本語 SNS 事情等）をスキップさせない。
-10. **同じ冒頭で memory connection の読み合わせを行う。** `.akari/connections.json` に `memory` 宣言（[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md)）があれば、`entry`（省略時 `INDEX.md`）起点で `include`/`exclude` の範囲だけを読み、参照したファイルパスを `research-plan.json` の `sources[]` に出所として記録する。全文投入は禁止。宣言が無ければ何もしない（error にしない）。
+## Hard rules
 
-## 実行順と目次
+1. **State expected costs before paid API calls, and execute only after approval through the state file** (`.decisions.json` or equivalent). Chat approval alone does not authorize a charge.
+2. **Use only [manage-connections](../manage-connections/SKILL.md) and registered `.akari/connections.json` entries.** Do not search `.env` files. Never hardcode API keys anywhere.
+3. **Limit outputs to JSON and HTML; never launch the GUI.** This headless process must complete without installing the app.
+4. **Do not copy code or prose from external skills or repositories.** Adapt only the process pattern (Hub/Hero/Help, parallel gap analysis, monetization ranking); only verified MIT or Apache sources are exceptions. Keep AKARI's schema.
+5. **Always investigate market-specific platform behavior.** The schema requires `target.japan_sns.notes` in `research-plan.json`. For the work's market, use the content-language pack; if free sources provide no evidence, record that fact and why. Empty or omitted notes fail validation by `validate-research-plan.mjs`.
+6. **Do not edit CLAUDE.md or AGENTS.md.**
+7. **Keep a complete free-only route.** If paid tools are unavailable, finish with explicitly limited evidence rather than stopping.
+8. **Accept revision through chat and `plan-comments.json`.** Before presenting an approval checkpoint again, first read `<plan-dir>/plan-comments.json` if it exists; see [storyboard.md](storyboard.md) §5.
+9. **Recall recipes before ideation.** Before [ideate.md](ideate.md), check `~/.akari/recipes/` for a recipe marked `workflow: "research"`, using the recall procedure in [edit-plan/recipe.md](../edit-plan/recipe.md). Present any match as a sourced suggestion; it cannot override the request or skip required research, including the platform review in rule 5.
+10. **Read a declared memory connection at the same starting point.** If `.akari/connections.json` declares `memory` ([memory connection contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-memory-connection-v0.md)), begin with `entry` (default `INDEX.md`), read only the permitted `include`/`exclude` scope, and record consulted paths as sources in `research-plan.json` `sources[]`. Never ingest the whole tree. With no declaration, continue without error.
 
-現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。
+## Execution order and leaf files
 
-1. [ideate.md](ideate.md) を読み、ネタ出し（Hub/Hero/Help 分類 + 収益化ポテンシャル軸）で候補をランキングする。`topic.candidates[]` に落とす。
-2. [competitor.md](competitor.md) を読み、ターゲットと競合を調査・構造化する（4 並列ギャップ分析 + 日本語 SNS 事情）。`target` に落とす。
-3. [trends.md](trends.md) を読み、無償手段を既定にトレンドを取得する。知見は専用フィールドを持たず、候補の `rationale` / 競合の `gap` に溶け込ませ、出典だけ `sources[]` に残す。
-4. レポートを起票し（下記「レポートと承認ゲート」）、`topic-select` 決定カードで**ネタ選定**の承認を人間から受ける。`completedAt` が入るまで次工程へ進まない。
-5. [storyboard.md](storyboard.md) を読み、承認済みネタから企画書・構成案・絵コンテのショットカードを作る（`structure.chapters[]` / `structure.shots[]`）。同じレポートに `structure-confirm` 決定カードを追加し、**構成の確定**の承認を受ける。
-6. [shotlist.md](shotlist.md) を読み、確定した絵コンテから撮影リスト・収録チェックリストを作る（`shot_list[]`）。
-7. `research-plan.json` へ確定内容を書き、`node packages/schemas/bin/validate-research-plan.mjs <パス>` で検証する（exit 0 を確認するまで完了扱いにしない）。
+Read only the leaf needed for the current stage; do not run later stages ahead of approval.
 
-## レポートと承認ゲート（decision-cards 型の再利用）
+1. Read [ideate.md](ideate.md), classify and rank ideas, and write `topic.candidates[]`.
+2. Read [competitor.md](competitor.md), research the audience and 3–5 competitors using four gap axes and the target market's platform context, and write `target`.
+3. Read [trends.md](trends.md) and research trends with free sources by default. Put findings into candidate `rationale` or competitor `gap` and retain source records in `sources[]` rather than inventing a trend field.
+4. Present the report and obtain the human's topic choice through `topic-select`. Wait for `completedAt` before proceeding.
+5. Read [storyboard.md](storyboard.md). From the approved topic, draft a proposal, chapters in `structure.chapters[]`, and shot cards in `structure.shots[]`; add the `structure-confirm` decision card to the same report and obtain approval of the structure.
+6. Read [shotlist.md](shotlist.md) and build `shot_list[]` from the confirmed storyboard.
+7. Write `research-plan.json` and run `node packages/schemas/bin/validate-research-plan.mjs <パス>`. Completion requires exit 0.
 
-新しい承認機構は作らない。[edit-plan](../edit-plan/SKILL.md) が使う仕組みをそのまま再利用する。
+## Report and approval gates
 
-- [report-template.html](../../packages/decision-cards/report-template.html) の CSP・自己完結・アクセシビリティ規律に従い、`node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> <research-plan-report.html>` で固定 5 面を生成し、`node packages/decision-cards/report-helper.mjs <レポートパス>` で提示する。絵コンテはカード面 / 構造面の読み取り専用 2 ビューを持つ。カードの data 属性・「全部おまかせ」+ 要約ビュー必須・`decision_log` 追記専用の規律は [edit-plan/report-guide.md](../edit-plan/report-guide.md) と同型（`byDefault` / `completedAt` / ポーリング / ヘルパー不通時のチャット代替も同じ）。
-- レポートは固定 5 面を順守する（空でも省略せず理由を書く）:
-  1. **候補ネタランキング表**（[ideate.md](ideate.md) の証拠。`topic-select` カードが載る）
-  2. **競合分析サマリー**（[competitor.md](competitor.md) の証拠。日本語 SNS 事情を含む。決定カードは持たない評価面）
-  3. **構成案タイムライン**（[storyboard.md](storyboard.md) の証拠。`structure-confirm` カードの一部）
-  4. **絵コンテのショットカード**（[storyboard.md](storyboard.md) の証拠。`structure-confirm` カードの一部）
-  5. **撮影チェックリスト**（[shotlist.md](shotlist.md) の証拠。決定カードは持たない評価面 — 変更したい場合は `shot_list` を直接編集し、次ラウンドの状態差分として拾う）
-- 決定カードは 2 枚のみ（契約上の判断点は「ネタ選定」「構成の確定」の 2 点で固定）。
-  - `topic-select`: `answer` は `{ "choice": "<topic.candidates[].id>", "requestMore": false, "note": null }`。AI 推奨（ランキング 1 位の候補）に `data-default="true"` を付ける。
-  - `structure-confirm`: `answer` は `{ "chapters": [{ "id": "<structure.chapters[].id>", "adopt": true }], "openingHook": "<key>" | null }`。
-- `completedAt` が非 null になるまで、当該チェックポイント以降の工程（`topic-select` なら競合/トレンド確定後の企画着手、`structure-confirm` なら撮影リスト作成）に進まない。ヘルパー不通・decisions.json 破損時はチャットの明示承認で代替し、その旨をレポート内の `decision_log` に記録する。
-- 未承認のまま `research-plan.json` の `topic.selected` / `structure.confirmed` を書かない。`decided_at` / `confirmed_at` は decision-cards の確定時刻（またはチャット承認時刻）をそのまま転記する。
+Reuse [edit-plan](../edit-plan/SKILL.md)'s decision-card mechanism. Render with `node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> <research-plan-report.html>` and present with `node packages/decision-cards/report-helper.mjs <レポートパス>`. Follow [report-template.html](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/report-template.html) for CSP, self-contained delivery, and accessibility. The storyboard has read-only card and structure views. Keep the card data attributes, the `全部おまかせ` ("leave everything to me") choice, the required summary view, and append-only `decision_log` behavior consistent with [edit-plan/report-guide.md](../edit-plan/report-guide.md), including `byDefault`, `completedAt`, polling, and explicit chat approval if the helper fails.
 
-## 成果物
+The report must contain exactly these five surfaces; never omit an empty one—state the reason:
 
-プロジェクトの `planning/` 配下に置く。
+1. **Ranked ideas:** Evidence from [ideate.md](ideate.md) and the `topic-select` card.
+2. **Competitor summary:** Evidence from [competitor.md](competitor.md), including platform context; no decision card.
+3. **Structure timeline:** Evidence from [storyboard.md](storyboard.md) and part of `structure-confirm`.
+4. **Storyboard shot cards:** Evidence from [storyboard.md](storyboard.md) and part of `structure-confirm`.
+5. **Shooting checklist:** Evidence from [shotlist.md](shotlist.md); no decision card. Edit `shot_list` directly for changes and carry the state difference into the next round.
+
+Use exactly two decision cards; the contract fixes the decision points at topic selection and structure confirmation: `topic-select` and `structure-confirm`.
+
+- `topic-select`: Its `answer` is `{ "choice": "<topic.candidates[].id>", "requestMore": false, "note": null }`. Set `data-default="true"` on the top-ranked AI recommendation.
+- `structure-confirm`: Its `answer` is `{ "chapters": [{ "id": "<structure.chapters[].id>", "adopt": true }], "openingHook": "<key>" | null }`.
+- Do not pass either checkpoint until `completedAt` is non-null. After competitor and trend findings are settled, do not begin the proposal past `topic-select`; do not create the shooting list past `structure-confirm` until the respective card completes. If the helper is unavailable or decisions.json is corrupt, obtain explicit chat approval and append the exception to `decision_log`.
+- Do not fill `topic.selected` or `structure.confirmed` in `research-plan.json` before approval. Copy `decided_at` and `confirmed_at` from the decision-card completion time or chat approval time.
+
+## Deliverables
+
+Place the output under the project's `planning/` directory.
 
 ```
 planning/
@@ -62,14 +66,14 @@ planning/
 └── research-plan.json                      # 企画の SSOT。version 必須
 ```
 
-- **由来記録**: 外部調査の出典（URL・取得日時・無償/有償の別）を `research-plan.json` の `sources[]` に残す。トレンド調査専用のフィールドは持たない。
-- **後段接続**: `research-plan.json` は撮影後の footage 突合、編集構成案の参照から読める形にする。配信後分析からの還流フィールドは `feedback`（`reserved: true`）に予約のみで、v0 では実装しない。
+- **Source record:** Put each external URL, access time, and free/paid status in `research-plan.json` `sources[]`. There is no separate trend-research field.
+- **Connection to later stages:** Keep `research-plan.json` usable for post-shoot footage matching and editorial structure. Reserve `feedback` (`reserved: true`) for future post-publication learning; v0 does not implement it.
 
-## よくある間違い
+## Common mistakes
 
-- Hub/Hero/Help や 4 並列ギャップ分析の**説明文まで**参考ソースから転記する（型だけを自分の言葉で書く）。
-- `topic.selected` を人間の承認前に埋める、または `decided_at` を確定時刻より前に記入する。
-- `target.japan_sns.notes` を空にする、または「省略」で済ませる。
-- 有償トレンド API・有償検索 API を承認前に呼ぶ。
-- レポートの 5 面のうち評価専用の面（競合分析サマリー・撮影チェックリスト）にも決定カードを追加し、承認ゲートを 2 点から増やす。
-- `research-plan.json` を書いた後に `validate-research-plan.mjs` を通さない。
+- Copying the explanatory prose of Hub/Hero/Help or four-axis gap analysis rather than expressing the pattern in your own words.
+- Writing `topic.selected` before human approval or backdating `decided_at`.
+- Leaving `target.japan_sns.notes` blank or saying only “omitted.”
+- Calling a paid trend or search API before approval.
+- Adding cards to the two review-only report surfaces—Competitor summary and Shooting checklist—and increasing the number of approval gates beyond two.
+- Skipping `validate-research-plan.mjs` after writing `research-plan.json`.

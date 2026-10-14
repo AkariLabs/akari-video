@@ -1,6 +1,16 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { planReplacement, replaceMaterial, materialSwapTarget } from '../lib/common/material-replacement.js';
+import test, { after as resetLanguageAfter } from 'node:test';
+
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { planReplacement, replaceMaterial, materialSwapTarget } = await import('../lib/common/material-replacement.js');
+
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { delete globalThis.t; delete globalThis.i18n_1; });
 const cases = [
  [6.592, 6, { out: 6, freeze: null, mismatch_s: 0.592, warn: true }],
  [4.9, 6, { out: 4.9, freeze: { at_sec: 4.9, duration_sec: 1.1 }, mismatch_s: 1.1, warn: true }],

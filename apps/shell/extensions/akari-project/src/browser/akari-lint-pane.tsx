@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { MessageService } from '@theia/core/lib/common';
 import { AkariProjectService, EditLintFinding } from '../common/akari-project-protocol';
@@ -54,11 +55,11 @@ export class AkariLintPane {
             this.lintFindings = outcome.available ? outcome.findings ?? [] : [];
             this.lintCheckedAt = outcome.available ? Date.now() : undefined;
             if (notify) {
-                if (!outcome.available) this.host.messages.warn('編集内容のチェックはこのプロジェクトでは実行できません。');
-                else if (outcome.issueCount) this.host.messages.warn(`編集内容のチェック: ${outcome.issueCount} 件の指摘があります。`);
+                if (!outcome.available) this.host.messages.warn(t('project.editCheck.pane.editCheckIsUnavailableProjectMessage'));
+                else if (outcome.issueCount) this.host.messages.warn(t('project.editCheck.pane.editCheckIssueCountIssuesFoundMessage', { issueCount: outcome.issueCount, n: outcome.issueCount }));
             }
         } catch (error) {
-            if (notify) this.host.messages.error(`編集内容をチェックできませんでした: ${this.errorMessage(error)}`);
+            if (notify) this.host.messages.error(t('project.editCheck.pane.couldNotCheckEditError', { value1: this.errorMessage(error) }));
         } finally {
             this.lintRunning = false;
             this.publish();
@@ -97,7 +98,7 @@ export class AkariLintPane {
                 <button
                     className='theia-button quiet'
                     data-akari-lint-running={this.lintRunning ? 'true' : undefined}
-                    title='編集内容のチェック結果を開く'
+                    title={t('project.editCheck.pane.openEditCheckResultsAction')}
                     onClick={() => void this.openResults()}
                     style={{ width: '100%', height: '28px', minHeight: '28px', display: 'flex',
                         justifyContent: 'space-between', alignItems: 'center', padding: '0 10px',

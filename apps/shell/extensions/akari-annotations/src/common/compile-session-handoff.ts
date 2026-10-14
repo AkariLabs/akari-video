@@ -1,3 +1,5 @@
+import { t } from '@akari-video/i18n';
+
 // 2026-09-12 裁定 A の純粋ロジック。
 // widget はこの結果を DOM へ反映するだけとする。
 
@@ -19,10 +21,10 @@ export function planCompileHandoff(
     sessions: readonly CompileSessionCandidate[], sessionId?: string
 ): CompileSessionPlan {
     if (sessionId && !sessions.some(session => session.id === sessionId)) {
-        return { kind: 'notice', notice: `指定した録音セッションが見つかりません: ${sessionId}` };
+        return { kind: 'notice', notice: t('annotationscommon.compileSessionHandoff.notice.missingSession', { sessionId }) };
     }
     if (sessions.length === 0) {
-        return { kind: 'notice', notice: '録音済みセッションがありません。先に録音してください。' };
+        return { kind: 'notice', notice: t('annotationscommon.compileSessionHandoff.notice.noRecordings') };
     }
     const session = sessionId
         ? sessions.find(candidate => candidate.id === sessionId)!
@@ -33,18 +35,18 @@ export function planCompileHandoff(
                 ? left.startedAt.localeCompare(right.startedAt)
                 : leftOrder - rightOrder;
         }).pop()!;
-    const prompt = `review セッション ${session.id} をコンパイルして`;
+    const prompt = t('annotationscommon.compileSessionHandoff.text.prompt', { id: session.id });
     return { kind: 'copy', sessionId: session.id, prompt };
 }
 
 export function compileCopiedMessage(prompt: string): string {
-    return `「${prompt}」をクリップボードにコピーしました。パートナーへ貼り付けてください。`;
+    return t('annotationscommon.compileSessionHandoff.notice.copied', { prompt });
 }
 
 export function compileClipboardFailureNotice(detail: string): string {
-    return `クリップボードにコピーできません: ${detail}`;
+    return t('annotationscommon.compileSessionHandoff.notice.copyFailed', { detail });
 }
 
 export function compileClipboardFailureFooter(prompt: string): string {
-    return `クリップボードにコピーできません。次の定型文を手動でコピーしてください: ${prompt}`;
+    return t('annotationscommon.compileSessionHandoff.notice.copyManually', { prompt });
 }

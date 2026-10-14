@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export const CUT_RANGE_PAD_SEC = 0.4;
 export const CUT_RANGE_NEIGHBOR_PAD_SEC = 0.5;
 export const CUT_RANGE_WINDOW_MIN_SEC = 4;
@@ -288,13 +289,13 @@ export function cutRangeReadout(
     if (target.kind === 'silence') {
         const keep = selection.from - target.start;
         readout = keep < 0
-            ? `切る ${cut} 秒 · 食い込み ${Math.abs(keep).toFixed(2)} 秒 · ${times}`
-            : `切る ${cut} 秒 · 残す ${keep.toFixed(2)} 秒 · ${times}`;
+            ? t('transcript.daihon.cutRange.cutSecWordOverlapSecWithValuesLabel', { value1: cut, value2: Math.abs(keep).toFixed(2), value3: times })
+            : t('transcript.daihon.cutRange.cutSecKeepSecWithValuesLabel', { value1: cut, value2: keep.toFixed(2), value3: times });
     } else {
-        readout = `切る ${cut} 秒 · ${times}`;
+        readout = t('transcript.daihon.cutRange.cutSecWithValuesLabel', { value1: cut, value2: times });
     }
     const intrusion = words ? cutRangeWordIntrusion(selection, words, silences) : 0;
-    return intrusion > 0.001 ? `${readout} · 語に食い込み ${intrusion.toFixed(2)} 秒` : readout;
+    return intrusion > 0.001 ? t('transcript.daihon.cutRange.overlapsWordsBySecWithValuesLabel', { value1: readout, value2: intrusion.toFixed(2) }) : readout;
 }
 
 export function cutRangeWordIntrusion(

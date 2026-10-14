@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 // caution は互換メタデータとして残すが、両ピッカーでは表示しない。
 // 型・カタログと、別の警告／復帰導線の契約も継続して検査する。
 import test from 'node:test';
@@ -15,7 +19,7 @@ const CAUTION_TEXT = '拡張ホストが再起動すると会話が切れます�
 
 const BASE_KEYS = ['id', 'agent', 'name', 'description', 'recommended'];
 const EXTENSION_KEYS = ['extensionId', 'viewContainerIds', 'binaryVerification'];
-const KNOWN_KEYS = new Set([...BASE_KEYS, ...EXTENSION_KEYS, 'form', 'caution']);
+const KNOWN_KEYS = new Set([...BASE_KEYS, ...EXTENSION_KEYS, 'form', 'caution', 'managedCli']);
 
 const readCatalog = async () => JSON.parse(await readFile(catalogUrl, 'utf8'));
 
@@ -73,12 +77,12 @@ test('form: extension の 2 件だけが互換用の caution 文面を持つ', a
     );
 });
 
-test('caution を持たないエントリ（CLI 10 件・Web 1 件）には注意書きの元データが無い', async () => {
+test('caution を持たないエントリ（CLI 11 件・Web 1 件）には注意書きの元データが無い', async () => {
     const catalog = await readCatalog();
     const cli = catalog.filter(entry => entry.form === 'cli');
     const web = catalog.filter(entry => entry.form === 'web');
 
-    assert.equal(cli.length, 10);
+    assert.equal(cli.length, 11);
     assert.equal(web.length, 1);
     for (const entry of [...cli, ...web]) {
         assert.equal(entry.caution, undefined, `${entry.id} に caution が付いている`);
@@ -108,10 +112,13 @@ test('FAQ（日本語）の切断と復帰の説明を維持する', async () =>
 
 test('パートナー欄の復帰導線が本票の文面と resume-session への導線を持つ', async () => {
     const source = await readFile(partnerWidgetUrl, 'utf8');
+    const ja = JSON.parse(await readFile(new URL('../../../../../packages/i18n/locales/ja/partner.json', import.meta.url), 'utf8'));
 
     assert.ok(
-        source.includes('セッションが切れたときは、パートナー欄で /akari と打つと今の状況から続けられます。ターミナルからは akari --continue です。'),
+        source.includes("t('partner.partnerPanel.widget.sessionEndsTypeAkariPartnerPanelContinueHereTerminalUseMessage')") &&
+        ja['partner.partnerPanel.widget.sessionEndsTypeAkariPartnerPanelContinueHereTerminalUseMessage'].includes('セッションが切れたときは、パートナー欄で /akari と打つと今の状況から続けられます。ターミナルからは akari --continue です。'),
         '復帰手順の文面が本票と違う'
     );
-    assert.ok(source.includes('docs/how-to/resume-session.ja.md'), '復帰手順から resume-session への導線が無い');
+    assert.ok(source.includes("t('partner.partnerPanel.widget.fullInstructionsDocsHowResumeSessionMdText')") &&
+        ja['partner.partnerPanel.widget.fullInstructionsDocsHowResumeSessionMdText'].includes('docs/how-to/resume-session.ja.md'), '復帰手順から resume-session への導線が無い');
 });

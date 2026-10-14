@@ -1,31 +1,31 @@
-# 既存プレビューを開いて確認する
+# Open and check the existing preview
 
-制作・QA では既存の出力プレビューを使う。対象はプロジェクトの `edit.json`。
-プレビュー提供だけを目的に、案件専用の再生 HTML・再生 UI・シーク・音声同期・編集データ変換を
-新規実装しない。利用者が独立した再生ページを明示的に依頼した場合は、その依頼範囲で作成する。
+For production/QA, use the existing output preview of project `edit.json`.
+Do not implement project-specific playback HTML, playback UI, seeking, audio synchronization, or edit-data conversion
+just to provide a preview. If the user explicitly requests a standalone playback page, create it within that request's scope.
 
-## 起動と接続
+## Launch and connect
 
-1. 対象プロジェクトの絶対パスを確認する。起動済みの既存プレビューが同じプロジェクトを
-   開いていれば再利用する。ポートが開いているだけでは対象プロジェクトの一致とみなさない。
-2. **デスクトップアプリ**: 対象フォルダを開き、タイムラインから「出力プレビュー」を開く。
-   ブラウザで見る場合は左の「メニュー」→「ブラウザプレビュー」を使い、起動後に表示される
-   URL を開く。アプリ同梱の機能なので `~/.akari/app` や別途 Node の導入を前提にしない。
-3. **`install.sh` / ソース版**: 実在する `akari.sh` を使い、別の端末で
-   `./akari.sh --preview /absolute/path/to/project --port 4567` を実行する。
-   `~/.akari/app` に導入した場合は、その中の `akari.sh` をフルパスで指定できる。
-   起動ログの Project と URL を確認し、その URL を開く。ポート競合時は別の空きポートを指定する。
-   存在を確認していない CLI コマンドやインストールパスを作り上げない。
-4. 画面に対象作品が表示されることを確認する。HTTP 200 やサーバー起動ログだけで完了にしない。
-   起動・読込が失敗したら、使った入口、対象パス、操作またはコマンド、エラーを記録する。
-   診断は最小限にとどめ、代替プレイヤーの開発へ進まない。
+1. Confirm the target project's absolute path. Reuse an existing preview if it has the same project open;
+   an open port alone does not establish a project match.
+2. **Desktop app**: Open the target folder and Output Preview from the timeline.
+   For the browser, use the left Menu → Browser Preview and open the URL shown after launch.
+   This is bundled functionality; do not require `~/.akari/app` or a separate Node installation.
+3. **`install.sh` / source version**: Use an existing `akari.sh`; in another terminal run
+   `./akari.sh --preview /absolute/path/to/project --port 4567`.
+   For installation into `~/.akari/app`, use its `akari.sh` by full path.
+   Check Project and URL in launch logs; open that URL. On port collision, choose another available port.
+   Never invent unverified CLI commands or installation paths.
+4. Verify the screen shows the target video. HTTP 200 or server startup logs alone do not mean completion.
+   On launch/load failure, record entry point, target path, operation/command, and error.
+   Keep diagnosis minimal; do not develop a replacement player.
 
-## 確認と報告
+## Check and report
 
-- 既存画面で再生・停止し、区間の途中へシークして表示が変わることを確認する。
-  開始・終了に加え区間中間（1/4・1/2・3/4）も見る。音声がある場合は音声再生も確認する。
-- 「プレビュー確認済み」は上記を実施した場合に限る。アプリ内か既存ブラウザか、
-  対象プロジェクト、確認時刻、再生・シーク・音声の結果と証跡を記録する。
-- `akari capture` のフレーム視認や描画部品単独の比較は、それぞれその検証として記録する。
-  別ページの描画一致をアプリの入口・素材判定・読込・再生の確認へ読み替えない。
-  未確認の経路と音声を未確認と明記する。
+- Play/stop in the existing screen; seek into intervals and verify display changes.
+  Inspect start/end and intermediate 1/4, 1/2, 3/4 times. Check audio playback if audio exists.
+- Report preview checked only after those actions. Record app versus existing browser, target project,
+  checked times, playback/seeking/audio results, and evidence.
+- Record `akari capture` frame inspection or standalone component comparison as those specific checks.
+  Do not reinterpret another page's rendering match as verification of app entry, asset classification,
+  loading, or playback. Explicitly mark unchecked routes/audio as unverified.

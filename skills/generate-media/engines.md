@@ -1,23 +1,25 @@
-# 生成エンジンを選ぶ
 
-能力と価格の正本は `packages/schemas/gen-models.json`。モデル名の記憶や provider の一般論で補わず、実行時にこのカタログの該当行を読む。
 
-## 読む欄
+# Select a generation engine
 
-- `id` / `kind` / `provider` / `endpoint`: CLI と接続レジストリで使う識別子
-- `inputs`: first / last frame の required・optional・none、参照上限、camera 表記、許可された extra
-- `duration` / `resolutions` / `aspects` / `audio_out`: 出力可否、値の範囲、provider へ送る型と書式
-- `price`: 解像度・秒数・音声倍率からの見積。`null` なら見積不可
-- `as_of` / `source_url` / `price_url` / `verified`: 情報の鮮度と根拠
-- `calibration[]`: 実測済みの較正記録。主観点数の代わりに事実帯へ出す
+`packages/schemas/gen-models.json` is authoritative for model capabilities and prices. Read the relevant catalog entry at execution time; do not rely on remembered model names or general assumptions about a provider.
 
-値のある未対応スロットは送らずに失敗する。参照上限が未知なら推測で上限を作らない。`extra` は `extra_allowed[]` の名前だけを通す。
+## Read these fields
 
-## 既定
+- `id` / `kind` / `provider` / `endpoint`: Identifiers used by the CLI and connection registry.
+- `inputs`: Whether first and last frames are required, optional, or unsupported; reference limits; camera format; and permitted extras.
+- `duration` / `resolutions` / `aspects` / `audio_out`: Supported output settings, ranges, and the types and formats sent to the provider.
+- `price`: Estimate derived from resolution, duration, and audio multiplier. `null` means no estimate is available.
+- `as_of` / `source_url` / `price_url` / `verified`: Recency and evidence for the entry.
+- `calibration[]`: Measured calibration records to show in the fact strip instead of subjective ratings.
 
-- 静止画: `codex:image`。無償扱い
-- 動画: `fal:h3-i2v`。有償かつ外部送信のため、見積と費用承認が必要
+Never send a value in an unsupported slot; fail instead. Do not invent a reference limit when the catalog does not state one. Pass only names allowed by `extra_allowed[]` through `extra`.
 
-価格行が無い、または `price: null` のモデルは「見積不可 + 明示確認」と表示し、確認なしに実行しない。価格表示には必ず `as_of` を添える。
+## Defaults
 
-H3 は音声欄がなくても音声を生成する。タイムラインへ差し替えた item は既定 `mute: true` とする。provider が返した `expanded_prompt` は送信 prompt と別の事実として `result.expanded_prompt` に保存し、較正では expanded 側も評価対象にする。
+- Still image: `codex:image`, treated as free.
+- Video: `fal:h3-i2v`, which is paid and sends data externally; estimate the cost and obtain approval first.
+
+For a model with no price entry or `price: null`, show `見積不可 + 明示確認` ("estimate unavailable + explicit confirmation") and require that confirmation before execution. Always show `as_of` with a displayed price.
+
+H3 generates audio even without an audio input field. Default the replaced timeline item to `mute: true`. Save the provider's `expanded_prompt` in `result.expanded_prompt` separately from the submitted prompt, and evaluate the expanded version during calibration too.

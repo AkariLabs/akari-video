@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import uriModule from '@theia/core/lib/common/uri.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineTabCaption } = await import('../lib/common/timeline-tab-caption.js');
 
-import { timelineTabCaption } from '../lib/common/timeline-tab-caption.js';
+
+
 
 const URI = uriModule.default;
 const root = new URI('file:///tmp/2026-08-31-object-tree-manual-test');

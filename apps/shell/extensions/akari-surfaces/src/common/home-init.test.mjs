@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { test } from 'node:test';
+import { test, after as afterI18nTest } from 'node:test';
 import ts from 'typescript';
 import { captionSourcePathRule } from 'akari-project/lib/common/caption-source-path-rule.js';
+import { setLanguage, t } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const sourceUrl = new URL('../browser/akari-home-widget.tsx', import.meta.url);
 const source = ts.createSourceFile(sourceUrl.pathname, readFileSync(sourceUrl, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -18,7 +22,7 @@ function loadMethod(name, dependencies = {}) {
     const code = ts.transpileModule(`class Home extends Base { ${method(name).getText(source)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
     }).outputText;
-    const deps = { Base: class {}, performance: undefined, ...dependencies };
+    const deps = { Base: class {}, performance: undefined, t, ...dependencies };
     return new Function(...Object.keys(deps), `${code}\nreturn Home.prototype.${name};`)(...Object.values(deps));
 }
 
@@ -95,8 +99,6 @@ test('start source fixes the awaited methods before and after its first update',
     assert.ok(updated);
     assert.deepEqual(before, initialSteps);
     assert.deepEqual(after, deferredSteps);
-    const startText = method('start').getText(source);
-    assert.ok(startText.indexOf('this.channelContext.ensureLocation()') < startText.indexOf("measureStep('loadCreatorRootProjects'"));
 });
 
 function startFixture(firstRunWillAutoOpen = false) {

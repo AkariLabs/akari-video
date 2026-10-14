@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { materialGhostRejectLabel } from '../lib/common/timeline-material-insert.js';
-import { planPlacedTextMove } from '../lib/common/placed-text-drag.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { materialGhostRejectLabel } = await import('../lib/common/timeline-material-insert.js');
+const { planPlacedTextMove } = await import('../lib/common/placed-text-drag.js');
+
+
+
 
 test('拒否の詳細理由を枠内用の短い語へ変換する', () => {
     for (const reason of ['映像のレーンには音を置けません。', '音のレーンには映像を置けません。',

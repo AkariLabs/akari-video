@@ -1,49 +1,53 @@
 ---
 name: analyze-footage
-description: 動画素材 1 本を分析レベル L0〜L3 のプル駆動で観察し、見た結果だけを analysis.json v0（帳面）に積み上げるスキル。既定は L0 メタ + L1 音（`akari media probe` → `waveform` → 喋りがあるときだけ `transcribe`。ローカル既定・クラウド文字起こしは承認制）。視認済みキーフレーム・編集イベント・フック採点（L2）と人物トラック（L3）は依頼で明示されたときだけ。新しい撮影素材を取り込むとき、素材単体の編集前分析を頼まれたとき、または edit-plan の前処理として素材ごとの分析が必要なときに使う。
+description: Analyze one footage file in pull-driven levels L0–L3 and record only observed evidence in analysis.json v0. By default, run L0 metadata and L1 audio (`akari media probe` → `waveform` → `transcribe` only when speech is likely); cloud transcription requires approval. Inspect keyframes, editing events, and hooks at L2, or person tracks at L3, only when requested. Use for new footage, pre-edit analysis of one file, or footage analysis needed before edit-plan.
 ---
 
-# 素材 1 本を分析する
+# Analyze one footage file
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-## 分析レベル
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
 
-語彙・入出力・帳面追記の正本は [`akari media` 観察コマンド契約 v0 §3 / §4](../../docs/contract-2026-08-29-media-inspect-cli-v0.md)。観察は `akari media`、所見と採点はこのスキルが担い、ある結果だけを帳面へ積み上げる。
+## Analysis levels
 
-| レベル | 1 行要約 |
+The authoritative source for terminology, inputs, outputs, and ledger updates is [`akari media` Observation Command Contract v0 §3 / §4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md). Use `akari media` to observe the source. This skill interprets and scores evidence, then records only observed results.
+
+| Level | One-line summary |
 |---|---|
-| **L0 メタ** | `probe` で尺・映像・音声など、素材の成立条件を確認する。 |
-| **L1 音** | `waveform` を先に取り、`speech_likely` のときだけ `transcribe` する。 |
-| **L2 絵** | `filmstrip` / `grab` の画像を実際に視認し、必要な keyframe・event・hook だけを記録する。 |
-| **L3 人物** | 採用する人物演出と区間に必要な人物サイドカーだけを生成する。 |
+| **L0 metadata** | Use `probe` to confirm duration and available video and audio streams. |
+| **L1 audio** | Run `waveform` first; run `transcribe` only when `speech_likely` is true. |
+| **L2 visuals** | Visually inspect `filmstrip` / `grab` images and record only needed keyframes, events, and hooks. |
+| **L3 people** | Generate only the person sidecars needed for the chosen effect and time range. |
 
-**既定は L0 + L1**。L2 / L3 は依頼で明示されたとき、または後続スキルが必要な観察を具体的に要求したときだけ追加する。レベルは上限であり、全章を埋める義務ではない。
+**Default to L0 + L1.** Add L2 or L3 only when the request explicitly calls for it or a later skill asks for a specific observation. A requested level is a ceiling, not an obligation to fill every section.
 
-## ハードルール
+## Hard rules
 
-- 1 回の実行で扱う素材は 1 本に限定し、全時刻を未カット素材の source 秒で記録する。
-- 原本を変更しない。成果物は [workflow.md](workflow.md) の正典出力先に隔離し、同名素材との衝突を避ける。
-- 観察は [`akari media` 契約 §1 / §2](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) に従って `akari media <sub> <target> [options]` を呼ぶ。stdout は JSON / JSON Lines として読み、媒体バックエンドをこの手順から直接呼ばない。
-- 720p プロキシは L2 以上の映像観察で必要な場合だけ作る。L0 / L1 は原本を `probe` / `waveform` / `transcribe` へ渡し、プロキシを作らない。
-- 文字起こしの backend 選択は契約 §2.5 に委ねる。クラウドは `.akari/connections.json` に doctor `ok` で登録済みの接続を明示し、決定カードで人間が承認した場合だけ使う。既定で音声を外部へ送らず、キーは `credentials.env` 経由だけで扱い、値をチャット・成果物・ログへ出さない。
-- 語ごとの時刻は `akari media transcribe` で取る（無音区間への吸着で語の開始を発話に合わせる）。whisper-cli を直に呼んだ結果の語の時刻を使わない — 既定の出力（`offsets`）は推定値で、先頭や文間に無音があると語の開始が発声より早く出る（#92。先頭 2 秒の無音で最初の語が 0 秒に出た）。`-dtw <preset>` は flash attention が有効な既定では黙って無効になる（`-nfa` を併用し `tokens[].t_dtw` を読む必要がある）。
-- backend が使えない、または発話が無い場合は文字を推測せず `transcript: []` のまま理由を報告する。
-- L2 で採用する画像は実際に視認してから `note` を書く。未視認画像へ所見を書かない。
-- `filler | trouble | chapter | highlight | hook` 以外の event を作らない。hook は採点対象に選んだ窓だけを帳面へ残し、その窓では 5 軸すべてを 1〜5 の整数で採点する。
-- [analysis.schema.json](../../packages/schemas/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。`keyframes: []` / `events: []` は、L2 未観察または該当なしのどちらでも妥当な最小形である。未観察かどうかは対応する `observations[]` の種類・範囲を根拠に区別する。
-- L3 は全素材で作らない。人物演出を使うと決めた素材・区間でだけ必要な種類を生成する。既定は `tracks.person_matte: null`、任意の人物トラックはキー無しである。
-- OpenMontage は構造上の参考に限り、AGPL の文章・コードを転写しない。
-- 既存の `.akari/sidecars/` 出力先規約は [project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) の「契約サイドカー（既存）」層に従う。
+- Analyze one footage file per run, recording every time in seconds from the uncut source.
+- Never modify the source. Keep outputs at the canonical destination in [workflow.md](workflow.md) to prevent collisions between files with the same name.
+- Invoke `akari media <sub> <target> [options]` under the [`akari media` contract §1 / §2](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md). Parse stdout as JSON or JSON Lines; do not call a media backend directly from this workflow.
+- Create a 720p proxy only if visual review at L2 or above needs it. At L0 and L1, pass the original file to `probe`, `waveform`, and `transcribe` without making a proxy.
+- Follow contract §2.5 for transcription backend selection. A cloud connection must be registered in `.akari/connections.json` with doctor status `ok`, explicitly selected, and approved by a person through a decision card. Never upload audio by default. Access keys only through `credentials.env` and never print their values in chat, artifacts, or logs.
+- Obtain word timing through `akari media transcribe`, which snaps word starts to speech after silence. Do not use word times from a direct whisper-cli call: its default `offsets` are estimates and place words before speech when initial or inter-sentence silence is present (#92 observed a first word at zero despite two seconds of silence). With flash attention enabled by default, `-dtw <preset>` is silently ineffective unless used with `-nfa` and read from `tokens[].t_dtw`.
+- If no backend is available or no speech is present, do not invent words. Leave `transcript: []` and report why.
+- Write `note` after actually viewing the images used in L2. Do not write findings on unseen images.
+- Create only `filler | trouble | chapter | highlight | hook` events. Record a hook only for a window chosen for scoring, and score all five axes there with integers from 1 to 5.
+- Add no fields outside [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json). Finalize only JSON that passes structural and semantic checks. `keyframes: []` and `events: []` are valid both when L2 was not observed and when nothing qualified; distinguish the cases by the type and range of `observations[]`.
+- Do not generate L3 for every file. Generate only the person-track types and intervals needed for the chosen effect. By default, `tracks.person_matte: null`; omit optional person-track keys until generated.
+- Use OpenMontage for structural reference only; do not copy AGPL text or code.
+- Follow the "existing contract sidecars" layer of the [project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) for `.akari/sidecars/` output paths.
 
-## 実行順と停止条件
+Pass --lang for the work's content language on transcription calls. The default SpeechAnalyzer backend uses that language when its locale is supported.
 
-1. [workflow.md](workflow.md) を読み、入力、出力先、要求レベルを固定する。
-2. **L0 — probe**: `akari media probe` を実行する。**ここで止まってよい条件**: 依頼が L0 のみ、または音声が無く L1 で追加観察できない。
-3. **L1 — waveform**: 音声があれば `akari media waveform` を実行する。**ここで止まってよい条件**: `speech_likely` が false、または字幕・発話内容が不要で transcribe を明示要求されていない。
-4. **L1 — transcribe**: `speech_likely` が true のときだけ `akari media transcribe` を実行する。**ここで止まってよい条件**: 既定 L0 + L1 を満たし、L2 / L3 の明示要求がない。backend 不可でも推測せず、劣化理由を添えて止まってよい。
-5. **L2 — 絵・event**: 要求がある場合だけ [keyframes-and-review.md](keyframes-and-review.md) と [events-and-hooks.md](events-and-hooks.md) を読み、必要な窓だけ視認・判定する。**ここで止まってよい条件**: keyframe / event / hook の要求を満たし、人物演出用トラックが不要。
-6. **L3 — 人物**: 要求がある場合だけ、[person-matte.md](person-matte.md) または [vision-tracks.md](vision-tracks.md) の必要な種類・区間を実行する。**ここで止まってよい条件**: 指定された人物演出の入力が揃った、またはサイドカーが利用不能で劣化理由を記録した。
-7. [analysis-json.md](analysis-json.md) を読み、既存の未対象章を保持したまま Schema 検証・意味検証し、原子的に確定する。各レベルで止まるときもこの検証は省略しない。
+## Execution order and stopping conditions
 
-詳細を先読みせず、現在の工程と要求レベルに対応するファイルだけを読む。
+1. Read [workflow.md](workflow.md) to confirm the source, output destination, and requested level.
+2. **L0 — probe:** Run `akari media probe`. You may stop if the request asks only for L0, or there is no audio for L1 to inspect.
+3. **L1 — waveform:** If audio exists, run `akari media waveform`. You may stop if `speech_likely` is false, or speech content and subtitles are not needed and transcription was not explicitly requested.
+4. **L1 — transcribe:** Run `akari media transcribe` only when `speech_likely` is true. You may stop once the default L0 + L1 work is complete and no L2 or L3 work was requested. If no backend is available, stop with an explanation of the degraded result rather than guessing.
+5. **L2 — visuals and events:** Only when requested, read [keyframes-and-review.md](keyframes-and-review.md) and [events-and-hooks.md](events-and-hooks.md), then inspect and judge the necessary windows. You may stop when the requested keyframes, events, or hooks are covered and no person track is needed.
+6. **L3 — people:** Only when requested, run the relevant type and interval from [person-matte.md](person-matte.md) or [vision-tracks.md](vision-tracks.md). You may stop when the selected effect has its inputs, or when a sidecar is unavailable and the reason is recorded.
+7. Read [analysis-json.md](analysis-json.md). Preserve untargeted existing sections, validate against the schema and semantic rules, then finalize atomically. Validation is required at every stopping level.
+
+Read only the files needed for the current step and requested level.

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
@@ -82,7 +83,7 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
         let active = true;
         void Promise.all([props.files.readWordBook(props.dir), props.files.readNotes(props.dir)]).then(([nextBook, nextFile]) => {
             if (active) { setBook(nextBook); setFile(nextFile); }
-        }).catch(() => { if (active) setError('読み込めませんでした。もう一度開いてください。'); });
+        }).catch(() => { if (active) setError(t('surfaces.channel.channelNotesSheetLoadNotesReopenThemTryAgain.error')); });
         return () => { active = false; };
     }, [props.dir.toString(), props.files]);
 
@@ -90,14 +91,14 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
         if (busy) return false;
         setBusy(true); setError('');
         try { await props.files.writeWordBook(props.dir, next); setBook(next); props.onChanged?.(); return true; }
-        catch { setError('保存できませんでした。もう一度お試しください。'); return false; }
+        catch { setError(t('surfaces.channel.saveBookSaveNotesTryAgain.error')); return false; }
         finally { setBusy(false); }
     };
     const saveNotes = async (next: NotesFile): Promise<boolean> => {
         if (busy) return false;
         setBusy(true); setError('');
         try { await props.files.writeNotes(props.dir, next); setFile(next); props.onChanged?.(); return true; }
-        catch { setError('保存できませんでした。もう一度お試しください。'); return false; }
+        catch { setError(t('surfaces.channel.saveNotesTryAgain.error')); return false; }
         finally { setBusy(false); }
     };
     const reset = (): void => { setEditing(''); setHeard(''); setSurface(''); setWordKind('term');
@@ -135,105 +136,105 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
             added = result.added; saved = await saveNotes(result.file); }
         else { const result = applyPreparedRules(file, pack as typeof PREPARED_RULES[number]);
             added = result.added; saved = await saveNotes(result.file); }
-        if (saved) setMessage(`『${pack.name}』から ${added} 件足しました。直して使えます`);
+        if (saved) setMessage(t('surfaces.channel.applyAddedItemsRepaired.message', { packName: pack.name, added: added, n: added }));
         setMenu(false);
     };
     const packs = tab === 'words' ? PREPARED_WORDS : tab === 'infos' ? PREPARED_INFOS : PREPARED_RULES;
     const options = wordSourceOptions(book);
     const shownWords = filterWordEntries(book, source);
     const tabItems: Array<{ id: Tab; label: string; count: number }> = [
-        { id: 'words', label: '言い換え', count: book.entries.length },
-        { id: 'infos', label: 'よく使う情報', count: file.infos.length },
-        { id: 'rules', label: '決まりごと', count: file.rules.length }
+        { id: 'words', label: t('surfaces.channel.channelNotesSheetParaphrase.label'), count: book.entries.length },
+        { id: 'infos', label: t('surfaces.channel.channelNotesSheetFrequentlyInformation.label'), count: file.infos.length },
+        { id: 'rules', label: t('surfaces.channel.channelNotesSheetRules.label'), count: file.rules.length }
     ];
-    const wordFields = <><label>聞こえ方（カンマ区切り）<input value={heard} onChange={event => setHeard(event.target.value)} /></label>
-        <label>直したあと<input value={surface} onChange={event => setSurface(event.target.value)} /></label>
-        <label>メモ<select value={wordKind} onChange={event => setWordKind(event.target.value as WordKind)}>
+    const wordFields = <><label>{t('surfaces.channel.channelNotesSheetSoundsSeparatedCommas.label')}<input value={heard} onChange={event => setHeard(event.target.value)} /></label>
+        <label>{t('surfaces.channel.channelNotesSheetFixing.label')}<input value={surface} onChange={event => setSurface(event.target.value)} /></label>
+        <label>{t('surfaces.channel.channelNotesSheetMemo.label')}<select value={wordKind} onChange={event => setWordKind(event.target.value as WordKind)}>
             {(['term', 'notation', 'reading-only'] as WordKind[]).map(kind => <option key={kind} value={kind}>{WORD_KIND_LABELS[kind]}</option>)}
             {wordKind === 'ng' && <option value='ng'>{WORD_KIND_LABELS.ng}</option>}</select></label></>;
-    const infoFields = <><label>種類<select value={infoKind} onChange={event => setInfoKind(event.target.value as InfoKind)}>
+    const infoFields = <><label>{t('surfaces.channel.channelNotesSheetType.label')}<select value={infoKind} onChange={event => setInfoKind(event.target.value as InfoKind)}>
         {(Object.keys(INFO_KIND_LABELS) as InfoKind[]).map(kind => <option key={kind} value={kind}>{INFO_KIND_LABELS[kind]}</option>)}</select></label>
-        <label>名前<input value={name} onChange={event => setName(event.target.value)} placeholder='公式サイト' /></label>
-        <label>中身<input value={body} onChange={event => setBody(event.target.value)} placeholder='https://…' /></label>
-        <label>いつ使う<input value={when} onChange={event => setWhen(event.target.value)} placeholder='説明欄と最後の 1 枚に入れる' /></label></>;
-    const ruleFields = <><label>どこの<select value={area} onChange={event => setArea(event.target.value as RuleArea)}>
+        <label>{t('surfaces.channel.channelNotesSheetName.label')}<input value={name} onChange={event => setName(event.target.value)} placeholder={t('surfaces.channel.channelNotesSheetOfficialWebsite.label')} /></label>
+        <label>{t('surfaces.channel.channelNotesSheetContents.label')}<input value={body} onChange={event => setBody(event.target.value)} placeholder='https://…' /></label>
+        <label>{t('surfaces.channel.noteWhenToUse.label')}<input value={when} onChange={event => setWhen(event.target.value)} placeholder={t('surfaces.channel.channelNotesSheetPutDescriptionFieldLastSheet.label')} /></label></>;
+    const ruleFields = <><label>{t('surfaces.channel.noteAppliesTo.label')}<select value={area} onChange={event => setArea(event.target.value as RuleArea)}>
         {(Object.keys(RULE_AREA_LABELS) as RuleArea[]).map(value => <option key={value} value={value}>{RULE_AREA_LABELS[value]}</option>)}</select></label>
-        <label className='akari-notes-wide'>決まり<textarea value={ruleText} onChange={event => setRuleText(event.target.value)} placeholder='1 行は 14 字まで。超えたら 2 行に' /></label></>;
+        <label className='akari-notes-wide'>{t('surfaces.channel.channelNotesSheetRule.label')}<textarea value={ruleText} onChange={event => setRuleText(event.target.value)} placeholder={t('surfaces.channel.channelNotesSheetUpCharactersPerLineExceedsBecomesLines.label')} /></label></>;
 
     return <HomeScrim kind='channel-notes' onClose={props.onClose}>
         <style>{channelSheetCss}</style>
-        <h3>辞書とメモ</h3>
-        <p>このチャンネルで、文字起こしと音声入力、AI が使う前提情報です。</p>
+        <h3>{t('surfaces.channel.channelNotesSheetDictionaryNotes.heading')}</h3>
+        <p>{t('surfaces.channel.channelNotesSheetChannelProvidesTranscriptionVoiceInputPrerequisite.message')}</p>
         <div className='akari-notes-actions'>
-            <button type='button' aria-expanded={menu} onClick={() => setMenu(!menu)}>用意されたものから足す ☆ ▾</button>
-            <button type='button' onClick={() => props.onTypePrompt('このチャンネルの動画の台本と会話から、言い換え・よく使う情報・決まりごとの候補を集めて')}>パートナーに集めてもらう</button>
+            <button type='button' aria-expanded={menu} onClick={() => setMenu(!menu)}>{t('surfaces.channel.channelNotesSheetAddPreparedItems.button')}</button>
+            <button type='button' onClick={() => props.onTypePrompt(t('surfaces.channel.channelNotesSheetCollectSuggestionsParaphrasesFrequentlyInformation.label'))}>{t('surfaces.channel.channelNotesSheetHavePartnerCollect.button')}</button>
         </div>
         {menu && <div className='akari-notes-menu'>{packs.map(pack => <button type='button' key={pack.name} disabled={busy}
             onClick={() => {
                 if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PRESET_NOTES);
                 else void apply(pack);
-            }}>{pack.name}（{pack.entries.length} 件）</button>)}<hr />
-            <button type='button' onClick={props.onOpenPacks}>記憶パック…</button></div>}
+            }}>{t('surfaces.channel.preparedPackCount.button', { name: pack.name, count: pack.entries.length, n: pack.entries.length })}</button>)}<hr />
+            <button type='button' onClick={props.onOpenPacks}>{t('surfaces.channel.channelNotesSheetMemoryPack.button')}</button></div>}
         {message && <p role='status'>{message}</p>}
-        <div className='akari-notes-tabs' role='tablist' aria-label='辞書とメモ'>
+        <div className='akari-notes-tabs' role='tablist' aria-label={t('surfaces.channel.channelNotesSheetDictionaryNotes.label')}>
             {tabItems.map(item => <button type='button' role='tab' key={item.id} aria-selected={tab === item.id}
                 onClick={() => { setTab(item.id); setMenu(false); reset(); }}>{item.label}<small>{item.count}</small></button>)}
         </div>
         <div className='akari-notes-layout'>
             <aside className='akari-notes-filters'>
-                <h4>{tab === 'words' ? '出どころ' : '種類'}</h4>
+                <h4>{tab === 'words' ? t('surfaces.channel.channelNotesSheetOrigin.label') : t('surfaces.channel.channelNotesSheetType.label')}</h4>
                 {tab === 'words' ? options.map(option => <button type='button' key={option.key} aria-pressed={source === option.key}
                     onClick={() => setSource(option.key)}><span>{option.label}</span><small>{option.count}</small></button>)
-                    : <button type='button' aria-pressed='true'><span>すべて</span><small>{tab === 'infos' ? file.infos.length : file.rules.length}</small></button>}
+                    : <button type='button' aria-pressed='true'><span>{t('surfaces.channel.channelNotesSheetAll.label')}</span><small>{tab === 'infos' ? file.infos.length : file.rules.length}</small></button>}
             </aside>
             <div className='akari-notes-list'>
                 {tab === 'words' && <>
-                    <table className='akari-notes-table'><thead><tr><th>聞こえ方</th><th>直したあと</th><th>メモ</th><th>出どころ</th><th>×</th></tr></thead><tbody>
+                    <table className='akari-notes-table'><thead><tr><th>{t('surfaces.channel.channelNotesSheetHear.label')}</th><th>{t('surfaces.channel.channelNotesSheetFixing.label')}</th><th>{t('surfaces.channel.channelNotesSheetMemo.label')}</th><th>{t('surfaces.channel.channelNotesSheetOrigin.label')}</th><th>×</th></tr></thead><tbody>
                         {shownWords.map(entry => { const index = book.entries.indexOf(entry); const label = wordEntryLabel(entry);
                             return <tr key={index} data-editable='true' onClick={() => beginWord(entry, index)}>
                                 {editing === `w:${index}` ? <td colSpan={4}><div className='akari-notes-edit' onClick={event => event.stopPropagation()}>{wordFields}<div>
-                                    <button type='button' disabled={busy || !surface.trim()} onClick={event => { event.stopPropagation(); void saveWord(index); }}>保存</button>
-                                    <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>やめる</button></div></div></td>
-                                    : <><td>{label.heard || <span className='akari-notes-muted'>聞こえ方なし</span>}</td><td>{label.fixed}</td><td>{label.memo}</td><td>{label.source}</td></>}
-                                <td><button type='button' disabled={busy} aria-label={`${entry.surface}を消す`} onClick={event => {
+                                    <button type='button' disabled={busy || !surface.trim()} onClick={event => { event.stopPropagation(); void saveWord(index); }}>{t('surfaces.channel.channelNotesSheetSave.button')}</button>
+                                    <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>{t('surfaces.channel.channelNotesSheetStop.button')}</button></div></div></td>
+                                    : <><td>{label.heard || <span className='akari-notes-muted'>{t('surfaces.channel.channelNotesSheetNoWayHear.label')}</span>}</td><td>{label.fixed}</td><td>{label.memo}</td><td>{label.source}</td></>}
+                                <td><button type='button' disabled={busy} aria-label={t('surfaces.channel.channelNotesSheetDelete.message', { surface: entry.surface })} onClick={event => {
                                     event.stopPropagation(); void saveBook(removeWordEntry(book, index)); }}>×</button></td></tr>; })}
                     </tbody></table>
                     <div className='akari-notes-form'>{editing.startsWith('w:') ? null : <>{wordFields}<div className='akari-notes-form-actions akari-notes-wide'>
-                        <button type='button' disabled={busy || !surface.trim()} onClick={() => void saveWord()}>足す</button></div></>}</div>
+                        <button type='button' disabled={busy || !surface.trim()} onClick={() => void saveWord()}>{t('surfaces.channel.channelNotesSheetAdd.button')}</button></div></>}</div>
                 </>}
                 {tab === 'infos' && <>
-                    <table className='akari-notes-table'><thead><tr><th>種類</th><th>名前</th><th>中身</th><th>いつ使う</th><th>×</th></tr></thead><tbody>
+                    <table className='akari-notes-table'><thead><tr><th>{t('surfaces.channel.channelNotesSheetType.label')}</th><th>{t('surfaces.channel.channelNotesSheetName.label')}</th><th>{t('surfaces.channel.channelNotesSheetContents.label')}</th><th>{t('surfaces.channel.noteWhenToUse.heading')}</th><th>×</th></tr></thead><tbody>
                         {file.infos.map(entry => <tr key={entry.id} data-editable='true' onClick={() => beginInfo(entry)}>
                             {editing === `i:${entry.id}` ? <td colSpan={4}><div className='akari-notes-edit' onClick={event => event.stopPropagation()}>{infoFields}<div>
-                                <button type='button' disabled={busy || !name.trim() || !body.trim()} onClick={event => { event.stopPropagation(); void saveInfo(entry.id); }}>保存</button>
-                                <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>やめる</button></div></div></td>
+                                <button type='button' disabled={busy || !name.trim() || !body.trim()} onClick={event => { event.stopPropagation(); void saveInfo(entry.id); }}>{t('surfaces.channel.channelNotesSheetSave.button')}</button>
+                                <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>{t('surfaces.channel.channelNotesSheetStop.button')}</button></div></div></td>
                                 : <><td>{INFO_KIND_LABELS[entry.kind]}</td><td>{entry.name}</td><td>{entry.body}</td><td>{entry.when}</td></>}
-                            <td><button type='button' disabled={busy} aria-label={`${entry.name}を消す`} onClick={event => {
+                            <td><button type='button' disabled={busy} aria-label={t('surfaces.channel.channelNotesSheetDelete.message', { surface: entry.name })} onClick={event => {
                                 event.stopPropagation(); void saveNotes(removeInfo(file, entry.id)); }}>×</button></td></tr>)}
                     </tbody></table>
-                    {!file.infos.length && <p>例: 締めのひとこと · それでは、また次の動画で。 · 毎回の最後</p>}
+                    {!file.infos.length && <p>{t('surfaces.channel.channelNotesSheetExampleClosingRemarksSeeNextVideoEnd.label')}</p>}
                     <div className='akari-notes-form'>{editing.startsWith('i:') ? null : <>{infoFields}<div className='akari-notes-form-actions akari-notes-wide'>
-                        <button type='button' disabled={busy || !name.trim() || !body.trim()} onClick={() => void saveInfo()}>足す</button></div></>}</div>
+                        <button type='button' disabled={busy || !name.trim() || !body.trim()} onClick={() => void saveInfo()}>{t('surfaces.channel.channelNotesSheetAdd.button')}</button></div></>}</div>
                 </>}
                 {tab === 'rules' && <>
-                    <table className='akari-notes-table'><thead><tr><th>どこの</th><th>決まり</th><th>×</th></tr></thead><tbody>
+                    <table className='akari-notes-table'><thead><tr><th>{t('surfaces.channel.noteAppliesTo.heading')}</th><th>{t('surfaces.channel.channelNotesSheetRule.label')}</th><th>×</th></tr></thead><tbody>
                         {file.rules.map(entry => <tr key={entry.id} data-editable='true' onClick={() => beginRule(entry)}>
                             {editing === `r:${entry.id}` ? <td colSpan={2}><div className='akari-notes-edit' onClick={event => event.stopPropagation()}>{ruleFields}<div>
-                                <button type='button' disabled={busy || !ruleText.trim()} onClick={event => { event.stopPropagation(); void saveRule(entry.id); }}>保存</button>
-                                <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>やめる</button></div></div></td>
+                                <button type='button' disabled={busy || !ruleText.trim()} onClick={event => { event.stopPropagation(); void saveRule(entry.id); }}>{t('surfaces.channel.channelNotesSheetSave.button')}</button>
+                                <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>{t('surfaces.channel.channelNotesSheetStop.button')}</button></div></div></td>
                                 : <><td>{RULE_AREA_LABELS[entry.area]}</td><td>{entry.text}</td></>}
-                            <td><button type='button' disabled={busy} aria-label='決まりを消す' onClick={event => {
+                            <td><button type='button' disabled={busy} aria-label={t('surfaces.channel.channelNotesSheetEraseRules.label')} onClick={event => {
                                 event.stopPropagation(); void saveNotes(removeRule(file, entry.id)); }}>×</button></td></tr>)}
                     </tbody></table>
-                    {!file.rules.length && <p>例: BGM は声より 18 dB 下げる / 冒頭 2 秒で結論を言う</p>}
+                    {!file.rules.length && <p>{t('surfaces.channel.channelNotesSheetExampleBackgroundMusicDbLowerVoiceConclude.label')}</p>}
                     <div className='akari-notes-form'>{editing.startsWith('r:') ? null : <>{ruleFields}<div className='akari-notes-form-actions akari-notes-wide'>
-                        <button type='button' disabled={busy || !ruleText.trim()} onClick={() => void saveRule()}>足す</button></div></>}</div>
+                        <button type='button' disabled={busy || !ruleText.trim()} onClick={() => void saveRule()}>{t('surfaces.channel.channelNotesSheetAdd.button')}</button></div></>}</div>
                 </>}
             </div>
         </div>
-        <small className='akari-notes-note'>{tab === 'words' ? 'このチャンネルの単語帳（.akari/memory/word-book.json）に入ります。台本パネルで直した語もここに足されます。'
-            : tab === 'infos' ? 'パートナーが説明欄・最後の 1 枚・字幕を作るときに読みます。「いつ使う」を書いておくと、その場面でだけ入ります。'
-                : '編集のたびに守ってほしいこと。パートナーと検査（edit-lint）が読みます。'}</small>
+        <small className='akari-notes-note'>{tab === 'words' ? t('surfaces.channel.channelNotesSheetEnterChannelsWordbookAkariMemoryWordBook.description')
+            : tab === 'infos' ? t('surfaces.channel.channelNotesSheetPartnerReadCreatingDescriptionSectionLastPage.message')
+                : t('surfaces.channel.channelNotesSheetThingsKeepMindTimeEditPartnerInspection.message')}</small>
         {error && <p className='akari-notes-error' role='alert'>{error}</p>}
     </HomeScrim>;
 }

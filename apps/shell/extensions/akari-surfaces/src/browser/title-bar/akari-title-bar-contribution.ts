@@ -1,6 +1,8 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, Widget } from '@theia/core/lib/browser';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
 import { CommandRegistry } from '@theia/core/lib/common/command';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -12,7 +14,7 @@ import { WindowTitleService } from '@theia/core/lib/browser/window/window-title-
 import { AkariAnnotationsClientImpl } from 'akari-annotations/lib/browser/akari-annotations-client';
 import { AkariWelcomeWindowTitleContribution } from '../akari-welcome-window-title-contribution';
 import { ProjectProgressService } from '../home/project-progress';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from './title-bar-model';
+import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, showsMenuInTitleBar, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from './title-bar-model';
 
 // この拡張には既存の限定的な electronTheiaCore 宣言があるため、Theia の
 // Window 宣言を重ねず実行時のクラスを使う。継承メソッドは Theia の .d.ts と同じ可視性。
@@ -26,7 +28,9 @@ export const AKARI_TITLE_BAR_CSS = `
 #theia-top-panel > * { -webkit-app-region: drag; }
 #theia-drag-panel { position: relative !important; inset: auto !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: grid !important; grid-template-columns: 1fr auto 1fr; align-items: center; -webkit-app-region: drag !important; font-size: 12px; user-select: none; }
 #theia-drag-panel button { -webkit-app-region: no-drag !important; }
-#theia-drag-panel .akari-title-left { padding-left: 14px; font-weight: 700; letter-spacing: .02em; }
+#theia-drag-panel .akari-title-left { padding-left: 14px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; min-width: 0; }
+#theia-drag-panel .akari-title-left .lm-MenuBar { -webkit-app-region: no-drag !important; font-weight: 400; letter-spacing: 0; }
+#theia-drag-panel .akari-title-left .lm-MenuBar-item { padding: 0 8px; line-height: var(--akari-title-height, 40px); }
 body.akari-title-mac #theia-drag-panel .akari-title-left { padding-left: var(--akari-title-leading-space, 78px); }
 #theia-drag-panel .akari-title-center { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; white-space: nowrap; }
 #theia-drag-panel .akari-title-channel { color: inherit; border: 0; padding: 3px 5px; background: transparent; font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
@@ -57,9 +61,10 @@ body.maximized #theia-top-panel { border-radius: 0; }
 
 @injectable()
 export class AkariTitleBarContribution extends ElectronMenuContribution {
-    declare protected readonly factory: { setMenuBar(): void };
+    declare protected readonly factory: { setMenuBar(): void; createMenuBar(): Widget };
     declare protected readonly preferenceService: PreferenceService;
     declare protected readonly shell: ApplicationShell;
+    declare protected readonly stateService: FrontendApplicationStateService;
     @inject(WorkspaceService) protected readonly workspace: WorkspaceService;
     @inject(FileService) protected readonly files: FileService;
     @inject(EnvVariablesServer) protected readonly environment: EnvVariablesServer;
@@ -77,7 +82,7 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
     protected renderVersion = 0;
     protected channelCache: { root: string; channel: Promise<string | undefined> } | undefined;
 
-    constructor(@inject(ElectronMainMenuFactory) factory: { setMenuBar(): void }) { super(factory); }
+    constructor(@inject(ElectronMainMenuFactory) factory: { setMenuBar(): void; createMenuBar(): Widget }) { super(factory); }
 
     onStart(app: FrontendApplication): void {
         super.onStart(app);
@@ -151,6 +156,29 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
         app.shell.addWidget(bar, { area: 'top' });
         void this.renderCenter();
         this.renderControls();
+        // Mac は OS のメニューバーがある。Windows / Linux は帯を自前で描いたためファイル・編集・ヘルプが
+        // どこにも出ず、プロジェクトの作成などに届かなかった（b8b893296 からの回帰）。帯の左へ Theia の
+        // メニューバーを埋め込む。
+        if (showsMenuInTitleBar(isOSX ? 'mac' : isWindows ? 'windows' : 'other')) {
+            void this.attachMenuBar(left);
+        }
+    }
+
+    /**
+     * onStart は Theia が画面をページへ付ける前に走る（startContributions → attachShell）。その場で
+     * Lumino の attach を呼ぶと「Host is not attached.」で落ち、プロジェクト名と窓のボタンまで描かれ
+     * なかった（Windows だけ）。画面がページに付いてから埋め込み、失敗しても帯の残りは巻き込まない。
+     */
+    protected async attachMenuBar(left: HTMLElement): Promise<void> {
+        await this.stateService.reachedState('attached_shell');
+        if (!left.isConnected) { return; }
+        try {
+            const menuBar = this.factory.createMenuBar();
+            menuBar.addClass('akari-title-menubar');
+            Widget.attach(menuBar, left);
+        } catch (error) {
+            console.error('[akari-surfaces] failed to attach the menu bar to the title bar:', error);
+        }
     }
 
     protected handleFullScreen(_menuBarVisibility: string): void {
@@ -235,7 +263,7 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             const dots = document.createElement('button');
             dots.className = 'akari-title-dots';
             dots.type = 'button';
-            dots.setAttribute('aria-label', '進み具合を開く');
+            dots.setAttribute('aria-label', t('surfaces.titleBar.centerOpenProgress.label'));
             dots.addEventListener('click', () => {
                 if (this.commands.getCommand('akari.home.open')) { void this.commands.executeCommand('akari.home.open'); }
             });

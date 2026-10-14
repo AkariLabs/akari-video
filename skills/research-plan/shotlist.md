@@ -1,46 +1,46 @@
-# 撮影リスト・収録チェックリスト
 
-[SKILL.md](SKILL.md) の実行順 6. からだけ読む。`structure-confirm` カードの `completedAt` が非 null（またはチャット明示承認）になり、`structure.confirmed` が確定した後にだけ着手する。成果物は `shot_list[]`。承認済みの絵コンテショットカード（`structure.shots[]`）を撮影実務に落とす工程であり、ここでは新しい表現判断を作らない。
 
-## 1. ショットごとに実務項目を書く
+# Shooting list and recording checklist
 
-`structure.shots[]` の各ショットに対応する実務エントリを `shot_list[]` に書く（1 ショット = 1 エントリが基本。同一ショットを複数カット割りする場合はエントリを増やしてよい）。
+Read this file only at step 6 of [SKILL.md](SKILL.md), after the `structure-confirm` card has a non-null `completedAt` (or explicit chat approval) and `structure.confirmed` is set. Produce `shot_list[]` by turning approved storyboard cards in `structure.shots[]` into practical shooting instructions. Do not make new creative choices here.
 
-- `id`: エントリを指す短い識別子
-- `ref_shot_id`: 対応する `structure.shots[].id`。企画段階に無い撮り増しカットなら `null`
-- `location`: 撮影場所。未定なら `null`
-- `equipment`: 必要機材（三脚・照明・マイク等）の配列
-- `checklist`: 収録時に確認する項目の配列（下記のたたき台を対象に応じて増減する）
-- `status`: `planned`（既定）/ `ok`（撮影済み・OK）/ `ng`（撮り直し必要）
+## 1. Write a practical entry for each shot
 
-## 2. チェックリストのたたき台
+Write an entry in `shot_list[]` for every shot in `structure.shots[]`. Normally one shot gets one entry; add entries when a shot must be divided into several recorded takes.
 
-対象の性質に応じて増減してよいが、次の観点は落とさない。
+- `id`: A short identifier for this entry.
+- `ref_shot_id`: The matching `structure.shots[].id`, or `null` for an additional shot not in the plan.
+- `location`: Shooting location, or `null` if undecided.
+- `equipment`: Array of needed equipment, such as a tripod, lights, and microphone.
+- `checklist`: Array of checks to perform while recording; adapt the starting points below.
+- `status`: `planned` by default, `ok` when shot satisfactorily, or `ng` when a retake is needed.
 
-- 音声レベル（環境音・声量が適切か）
-- 画角・水平（意図した構図で撮れているか）
-- 光量・ホワイトバランス
-- NG 時の撮り直し方針（同ポジションで撮り直すか、別カットで代替するか）
+## 2. Start the checklist
 
-外部ツール（ExifTool・ffprobe 等でメタデータを機械的に吸い上げる撮影支援）は本スキルの対象外。それらとの ID 共有は将来の別スキルの領分であり、ここでは `ref_shot_id` を安定した参照キーとして残すことだけを担う。
+Adapt the checklist to the subject, but retain these checks:
 
-## 3. `status` は撮影後の運用に委ねる
+- Audio levels, including ambient sound and speech volume.
+- Framing and horizon against the intended composition.
+- Exposure and white balance.
+- Retake plan if a take fails: use the same position or substitute another shot.
 
-v0 では `status` の初期値は常に `planned`。実際の撮影結果に応じた `ok` / `ng` への更新は、本スキルの一周が終わった後の運用（人間による直接編集、または将来の撮影支援スキル）で行う。ここで架空の撮影結果を書かない。
+Automated metadata collection with ExifTool, ffprobe, or similar tools is outside this skill. A future shooting-support skill may share IDs with those tools. Here, keep `ref_shot_id` as a stable link to the storyboard.
 
-## 4. 最終確認
+## 3. Update `status` after shooting
 
-`research-plan.json` に `topic` / `target` / `structure` / `shot_list` / `sources` / `feedback` の全フィールドを書き終えたら、必ず検証する。
+In v0, initialize every `status` to `planned`. A person, or a future shooting-support skill, can set `ok` or `ng` after the actual shoot. Do not invent shooting results during planning.
 
+## 4. Final validation
+
+After filling `topic`, `target`, `structure`, `shot_list`, `sources`, and `feedback` in `research-plan.json`, run the validator:
 ```sh
 node packages/schemas/bin/validate-research-plan.mjs <research-plan.json のパス>
 ```
+Do not mark the work complete until the exit code is `0`. Warnings are allowed, but list them in the completion report.
 
-exit code が `0` になるまで完了扱いにしない（warning は許容されるが完了報告に列挙する）。
+## Common mistakes
 
-## よくある間違い
-
-- `structure.confirmed` が確定する前に撮影リストを作り始める。
-- `status` に撮影していない結果を推測で書く。
-- `ref_shot_id` を書かず、絵コンテとの対応関係が追えなくする。
-- `validate-research-plan.mjs` を通さずに完了報告する。
+- Starting the shooting list before `structure.confirmed` is finalized.
+- Guessing a shooting outcome in `status` before any footage exists.
+- Omitting `ref_shot_id`, so entries cannot be traced to storyboard shots.
+- Reporting completion without running `validate-research-plan.mjs`.

@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
+import { renderText } from './i18n.mjs';
 import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 
 import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 import { generateCaptionOverlays } from "./captions.mjs";
+import { prepareCaptionRenderInput } from "./caption-resolve.mjs";
 
 const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible, referencedCaptionSourceCount } = require("../../edit-store/lib/index.js");
@@ -156,8 +158,11 @@ export function captionItemOverlays(
     onWarning?.("captions.json was not found; caption items were skipped");
     return [];
   }
+  const { root: prepared } = prepareCaptionRenderInput(root, { output });
   const captions = Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+  const preparedCaptions = Array.isArray(prepared) ? prepared : prepared?.captions ?? [];
   const byId = new Map(captions.map(caption => [String(caption?.id), caption]));
+  const preparedById = new Map(preparedCaptions.map(caption => [String(caption?.id), caption]));
   const defaultTextStyle = Array.isArray(root) ? undefined : root?.default_text_style;
   const emphasisWords = Array.isArray(root)
     ? editEmphasisWords
@@ -180,12 +185,15 @@ export function captionItemOverlays(
       onWarning?.(`captions.json item ${captionId} was not found; caption item ${item.id} was skipped`);
       continue;
     }
+    const renderRow = preparedById.get(String(row.id)) ?? row;
+    const renderEmphasisWords = !Array.isArray(prepared)
+      ? prepared.emphasis_words ?? editEmphasisWords : emphasisWords;
     // Output-domain caption items may live over layer-only timelines. The shared caption
     // generator clamps output cues to the cut timeline, so supply a timing-only span.
     const captionCuts = cuts.length > 0 ? cuts : [{ in: 0, out: selectedRow.at + selectedRow.duration,
       at: 0, src: "__caption_item_clock__" }];
     const generated = generateCaptionOverlays([{
-      ...row,
+      ...renderRow,
       start: selectedRow.at,
       end: selectedRow.at + selectedRow.duration,
       time_domain: "output",
@@ -194,7 +202,7 @@ export function captionItemOverlays(
       output,
       sourceCount,
       defaultTextStyle,
-      emphasisWords,
+      emphasisWords: renderEmphasisWords,
       onWarning,
     });
     for (const record of generated) {
@@ -298,8 +306,11 @@ function expandedHtmlOverlays(internal, projectRoot) {
     return htmlCache.get(reference);
   }, { keyframeUnit: "frames" }).map(overlay => {
     if (!overlay.html.trimStart().startsWith("<")) return overlay;
+    // キャンバスの背景（parts.mjs が edit.json の canvas.background から合成する中身直書きの HTML）は
+    // 図形と同じく edit.json を出どころにする。無いと書き出しが「inline overlay html requires htmlPath」で止まる
     const htmlPath = sourceById.get(String(overlay.id))
-      ?? sourceById.get(String(overlay.parentId ?? ""));
+      ?? sourceById.get(String(overlay.parentId ?? ""))
+      ?? (overlay.role === "background" ? "edit.json" : undefined);
     return htmlPath === undefined ? overlay : { ...overlay, htmlPath };
   });
 }
@@ -424,7 +435,7 @@ export function renderItemDeclaration(item, temporaryDirectory) {
       };
     case "telop":
       if (item.source.baked === undefined) {
-        throw new Error(`telop.retired: ${item.id}: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。既存の baked は再生できます。`);
+        throw new Error(renderText('render.telop.error.retired', { id: item.id }));
       }
       return {
         ...declaration,

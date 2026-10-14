@@ -1,3 +1,5 @@
+import { t } from '../common/partner-text';
+import { childProcessEnv } from '@akari-video/i18n';
 import { spawn as nodeSpawn, ChildProcessWithoutNullStreams, SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import { maskToken } from '../common/dsh-output-mask';
@@ -11,7 +13,7 @@ export class DshWebEarlyExitError extends Error {}
 
 function safeCommandArgument(value: string, label: string): string {
     if (/[&^%!"\r\n]/.test(value)) {
-        throw new Error(`Windows の .cmd/.bat 起動で使えない文字が ${label} に含まれています: ${value}`);
+        throw new Error(t('partner.partnerSetup.deepSeekWeb.containsCharacterCannotUsedLaunchCmdBatWindowsText', { value1: label, value2: value }));
     }
     return value;
 }
@@ -25,9 +27,9 @@ export function buildDshWebArgs(
     }
     const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', String(port ?? 0)];
     if (platform === 'win32' && /\.(cmd|bat)$/i.test(executablePath)) {
-        const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), 'cmd.exe のパス');
-        safeCommandArgument(executablePath, '実行ファイルのパス');
-        safeCommandArgument(patchPath, 'パッチのパス');
+        const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), t('partner.partnerSetup.deepSeekWeb.cmdExePathText'));
+        safeCommandArgument(executablePath, t('partner.partnerSetup.deepSeekWeb.executablePathLabel'));
+        safeCommandArgument(patchPath, t('partner.partnerSetup.deepSeekWeb.patchPathLabel'));
         const quoted = '"' + [executablePath, ...args].map(arg => `"${arg}"`).join(' ') + '"';
         return { command, args: ['/d', '/s', '/c', quoted], windowsVerbatimArguments: true };
     }
@@ -49,7 +51,7 @@ export async function launchDshWeb(input: {
 }): Promise<{ url: string; pid: number }> {
     const { command, args, windowsVerbatimArguments } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env, input.port);
     const options: SpawnOptionsWithoutStdio = {
-        cwd: input.cwd, env: input.env, windowsHide: true, detached: input.platform !== 'win32',
+        cwd: input.cwd, env: childProcessEnv(input.env), windowsHide: true, detached: input.platform !== 'win32',
         windowsVerbatimArguments
     };
     const child = (input.spawn ?? nodeSpawn)(command, args, options) as ChildProcessWithoutNullStreams;

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { TimelineSelectionSnapshot } from '../timeline-selection-model';
 
 function timestamp(value: number): string {
@@ -18,8 +19,8 @@ export function createSelectionHeader(
     let source: string | undefined;
     switch (snapshot.kind) {
         case 'multi': {
-            name = `${snapshot.count} 個を選択中`;
-            kind = '複数選択';
+            name = t('inspector.selectionHeader.label.selectPiece', { count: snapshot.count, n: snapshot.count });
+            kind = t('inspector.selectionHeader.label.multipleSelection');
             const ranges = snapshot.items.flatMap(item => {
                 const from = item.outputStart;
                 const to = 'outputEnd' in item ? item.outputEnd
@@ -34,24 +35,24 @@ export function createSelectionHeader(
         }
         case 'world':
             name = snapshot.world.label;
-            kind = 'ワールド';
+            kind = t('inspector.selectionHeader.label.world');
             start = snapshot.stop?.at;
             end = snapshot.stop?.leave;
             break;
         case 'gap':
-            name = 'クリップ間のすき間';
-            kind = 'すき間';
+            name = t('inspector.selectionHeader.label.gapBetweenClips');
+            kind = t('inspector.selectionHeader.label.gap');
             start = snapshot.startSeconds;
             end = snapshot.endSeconds;
             break;
         default:
             name = snapshot.kind === 'caption' ? snapshot.text : snapshot.clipName;
-            kind = snapshot.kind === 'cut' ? 'カット'
-                : snapshot.kind === 'caption' ? '字幕'
-                    : snapshot.kind === 'audio' ? '音声'
-                        : snapshot.kind === 'item' ? ({ group: 'キャンバス', bag: '袋', part: 'パート',
-                            caption: '字幕', captions: '字幕', telop: 'テロップ', filter: 'フィルター',
-                            media: '素材', item: '素材' }[snapshot.itemKind]) : '素材';
+            kind = snapshot.kind === 'cut' ? t('inspector.selectionHeader.label.cut')
+                : snapshot.kind === 'caption' ? t('inspector.selectionHeader.label.captions')
+                    : snapshot.kind === 'audio' ? t('inspector.selectionHeader.label.voice')
+                        : snapshot.kind === 'item' ? ({ group: t('inspector.selectionHeader.label.canvas'), bag: t('inspector.selectionHeader.label.group'), part: t('inspector.selectionHeader.label.parts'),
+                            caption: t('inspector.selectionHeader.label.captions'), captions: t('inspector.selectionHeader.label.captions'), telop: t('inspector.selectionHeader.label.terrorop'), filter: t('inspector.selectionHeader.label.filter'),
+                            media: t('inspector.selectionHeader.label.assets'), item: t('inspector.selectionHeader.label.assets') }[snapshot.itemKind]) : t('inspector.selectionHeader.label.assets');
             start = snapshot.outputStart;
             end = 'outputEnd' in snapshot ? snapshot.outputEnd
                 : 'duration' in snapshot && start !== undefined ? start + snapshot.duration : undefined;
@@ -84,7 +85,7 @@ export function createSelectionHeader(
         const menuButton = document.createElement('button');
         menuButton.type = 'button';
         menuButton.setAttribute('data-akari-my-style-inspector-menu', '');
-        menuButton.setAttribute('aria-label', '字幕のその他の操作');
+        menuButton.setAttribute('aria-label', t('inspector.selectionHeader.label.otherOperationsSubtitles'));
         menuButton.style.position = 'relative';
         menuButton.style.width = '24px';
         menuButton.style.height = '24px';
@@ -97,7 +98,7 @@ export function createSelectionHeader(
         menuButton.setAttribute('aria-expanded', 'false');
         menuButton.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><circle cx="3" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="13" cy="8" r="1.3"/></svg>';
         const tip = document.createElement('span');
-        tip.textContent = '字幕のその他の操作';
+        tip.textContent = t('inspector.selectionHeader.label.otherOperationsSubtitles');
         tip.setAttribute('data-akari-my-style-inspector-tip', '');
         Object.assign(tip.style, { display: 'none', position: 'absolute', bottom: '100%', right: '0',
             padding: '4px 6px', whiteSpace: 'nowrap', background: 'var(--theia-editor-background)',
@@ -107,7 +108,7 @@ export function createSelectionHeader(
         menuButton.append(tip);
         const save = document.createElement('button');
         save.type = 'button';
-        save.textContent = 'マイスタイルに保存…';
+        save.textContent = t('inspector.selectionHeader.text.saveMyStyle');
         save.setAttribute('data-akari-my-style-inspector-save', '');
         save.hidden = true;
         save.setAttribute('role', 'menuitem');

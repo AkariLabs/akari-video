@@ -9,9 +9,18 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { applyReplacement, planReplacement } from '../../../../../packages/generate/src/cli/edit-replace.mjs';
-import { resolveGenerationState } from '../lib/common/generation-sidecar.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { resolveGenerationState } = await import('../lib/common/generation-sidecar.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { generationFields } = await import('../lib/browser/inspector/generation-fields.js');
+const { generationDraftFromDone } = await import('../lib/browser/inspector/generation-provenance.js');
 
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+
+
 
 test('validateGenerationInputs は packages/generate の結果をそのまま返す', async () => {
   const service = new AkariAnnotationsServiceImpl();
@@ -121,8 +130,8 @@ test('生成済みの木 item も作り方と作り直しの対象として識�
 });
 
 import ts from 'typescript';
-import { generationFields } from '../lib/browser/inspector/generation-fields.js';
-import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
+
+
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
 const widgetSource = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);

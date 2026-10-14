@@ -1,10 +1,11 @@
 import { ENCODER_CHOICES, QUALITY_LEVELS } from "./encode-preset.mjs";
+import { renderText } from './i18n.mjs';
 import { RefusalError } from "./errors.mjs";
 
 export const RETIRED_ENGINE = "legacy";
 const ENGINE_CHOICES = ["auto", "gpu", "osr"];
-const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
-const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
+const retiredEngineMessage = () => renderText('render.engine.error.legacyRetired');
+const osrElectronRefusal = () => renderText('render.engine.error.electronMissing');
 const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
 const CODEC_CHOICES = ["h264", "hevc", "prores422", "png"];
 
@@ -105,14 +106,14 @@ function parseDecoderInteger(value, flag, allowZero) {
 }
 
 export function resolveEngineChoice(requested, platform, eligibility = null) {
-  if (requested === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
+  if (requested === RETIRED_ENGINE) throw new RefusalError(retiredEngineMessage(), 2);
   if (requested !== "auto") return requested;
   return eligibility?.eligible === true ? "gpu" : "osr";
 }
 
 export function assertCodecEngine(codec, requested) {
   if ((codec === "prores422" || codec === "png") && requested === "gpu") {
-    throw new RefusalError("この形式は GPU 直結では出せません");
+    throw new RefusalError(renderText('render.gpu.error.formatUnsupported'));
   }
 }
 
@@ -132,13 +133,13 @@ export function readForceGpu(env) {
 export function assertGpuEligibility(requested, eligibility, { force = false } = {}) {
   if (requested !== "gpu" || eligibility?.eligible === true) return;
   if (force && eligibility?.summary?.unsupported === 0) return;
-  const suffix = force ? "（AKARI_FORCE_GPU は degraded のみ対象）" : "";
+  const suffix = force ? renderText('render.gpu.error.forceSuffix') : "";
   throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}${suffix}`);
 }
 
 export function assertOsrLauncherAvailable(launcher) {
   if (launcher?.tier !== 3) return;
-  throw new RefusalError(`${OSR_ELECTRON_REFUSAL} (${launcher.reason ?? "Electron unavailable"})`, 2);
+  throw new RefusalError(`${osrElectronRefusal()} (${launcher.reason ?? "Electron unavailable"})`, 2);
 }
 
 export function formatGpuEligibilityFailures(eligibility) {
@@ -148,7 +149,7 @@ export function formatGpuEligibilityFailures(eligibility) {
 }
 
 function parseEngineValue(value) {
-  if (value === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
+  if (value === RETIRED_ENGINE) throw new RefusalError(retiredEngineMessage(), 2);
   if (!ENGINE_CHOICES.includes(value)) {
     throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
   }
@@ -245,5 +246,5 @@ export function assertHevcPresetSupported(preset) {
   const samplesPerSecond = pixels * Number(preset.fps);
   if (Number.isFinite(pixels) && Number.isFinite(samplesPerSecond)
     && pixels > 0 && pixels <= 8_912_896 && samplesPerSecond <= 1_069_547_520) return;
-  throw new RefusalError(`HEVC Main profile Level 5.2 を超える出力には対応していません: ${preset.width}x${preset.height}@${preset.fps}fps`);
+  throw new RefusalError(renderText('render.encode.error.hevcLevel', { width: preset.width, height: preset.height, fps: preset.fps }));
 }

@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from './plural-display-count';
+import { t } from '../browser/transcript-text';
 import type { DaihonRow } from './daihon-row-model';
 
 export const DAIHON_QC_THRESHOLDS = {
@@ -21,26 +23,26 @@ function visibleText(text: string): string {
 }
 
 export function visibleLength(text: string): number {
-    return text.replace(/[\s\p{P}]/gu, '').length;
+    return Array.from(visibleText(text)).reduce((units, char) => units + (char.codePointAt(0)! <= 0x7f ? 0.5 : 1), 0);
 }
 
 export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue[] {
     if (row.outStart === null) return [];
     const issues: DaihonQcIssue[] = [];
     if (typeof overflowUnits === 'number' && Number.isFinite(overflowUnits) && overflowUnits > 0) {
-        issues.push({ kind: 'overflow', label: `${overflowUnits} 字に収まらない` });
+        issues.push({ kind: 'overflow', label: t('transcript.daihon.qualityCheck.doesNotFitCharactersWithCountLabel', { value1: overflowUnits, n: overflowUnits }) });
     }
     if (row.unrecognized.length > 0) {
         const count = row.unrecognized.length;
-        issues.push({ kind: 'unrecognized', label: count > 1 ? `?? 未認識 ×${count}` : '?? 未認識' });
+        issues.push({ kind: 'unrecognized', label: count > 1 ? t('transcript.daihon.qualityCheck.unrecognizedUnrecognizedWithValueLabel', { value1: count }) : t('transcript.daihon.qualityCheck.unrecognizedUnrecognizedLabel') });
     }
     const duration = row.end - row.start;
     const cps = visibleLength(row.text) / Math.max(0.01, duration);
     if (cps > DAIHON_QC_THRESHOLDS.maxCharsPerSecond) {
-        issues.push({ kind: 'fast', label: `⚡ 速い ${cps.toFixed(1)} 字/秒` });
+        issues.push({ kind: 'fast', label: t('transcript.daihon.qualityCheck.fastCharactersSecWithCountLabel', { value1: cps.toFixed(1), n: pluralCountForDisplay(cps.toFixed(1)) }) });
     }
     if (duration < DAIHON_QC_THRESHOLDS.minDurationSec) {
-        issues.push({ kind: 'short', label: '表示 0.6 秒未満' });
+        issues.push({ kind: 'short', label: t('transcript.daihon.qualityCheck.displayedLessThan0point6SecLabel') });
     }
     if (row.words?.length) {
         let previousStart = Number.NEGATIVE_INFINITY;
@@ -53,10 +55,10 @@ export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue
         });
         const wordsText = row.words.map(word => visibleText(word.text)).join('');
         if (outside || nonMonotonic || wordsText !== visibleText(row.text)) {
-            issues.push({ kind: 'karaoke-unhealthy', label: 'カラオケ不整合' });
+            issues.push({ kind: 'karaoke-unhealthy', label: t('transcript.daihon.qualityCheck.karaokeTimingMismatchLabel') });
         }
     } else if (row.style === 'karaoke' || row.style === 'reveal-word') {
-        issues.push({ kind: 'karaoke-missing', label: 'カラオケなし' });
+        issues.push({ kind: 'karaoke-missing', label: t('transcript.daihon.qualityCheck.noKaraokeLabel') });
     }
     return issues;
 }

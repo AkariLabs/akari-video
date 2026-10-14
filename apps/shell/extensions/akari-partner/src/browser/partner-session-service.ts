@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { DisposableCollection } from '@theia/core';
@@ -141,24 +142,24 @@ export class PartnerSessionService implements FrontendApplicationContribution {
         switch (event.type) {
             case 'video-added':
                 return subject
-                    ? `${subject} が追加されました。analyze-footage スキルで分析を開始してください。`
-                    : '新しい素材が追加されました。analyze-footage スキルで分析を開始してください。';
+                    ? t('partner.conversation.session.addedStartAnalysisAnalyzeFootageSkillMessage', { value1: subject })
+                    : t('partner.conversation.session.newAssetAddedStartAnalysisAnalyzeFootageSkillMessage');
             case 'report-generated':
                 return subject
-                    ? `レポートを作成しました（${subject}）。内容を確認し、問題なければ承認してください。`
-                    : 'レポートを作成しました。内容を確認し、問題なければ承認してください。';
+                    ? t('partner.conversation.session.reportCreatedWithPathNotice', { value1: subject })
+                    : t('partner.conversation.session.reportCreatedNotice');
             case 'report-approved':
-                return 'レポートが承認されました。edit-plan スキルで編集を進めてください。';
+                return t('partner.conversation.session.reportApprovedContinueEditingEditPlanSkillMessage');
             case 'edit-completed':
-                return '編集が完了しました。プレビューで仕上がりを確認し、必要ならテロップ等を overlay-authoring スキルで調整してください。';
+                return t('partner.conversation.session.editingCompleteNextSteps');
             case 'export-completed':
                 return subject
-                    ? `書き出しが完了しました（${subject}）。exports フォルダーで最終版を確認してください。`
-                    : '書き出しが完了しました。exports フォルダーで最終版を確認してください。';
+                    ? t('partner.conversation.session.exportCompleteWithPathNotice', { value1: subject })
+                    : t('partner.conversation.session.exportCompleteNotice');
             default:
                 return subject
-                    ? `${subject} が更新されました。内容を確認し、次の一手を進めてください。`
-                    : `更新がありました（${event.type}）。内容を確認し、次の一手を進めてください。`;
+                    ? t('partner.conversation.session.updatedReviewChangesContinueStatus', { value1: subject })
+                    : t('partner.conversation.session.updateAvailableReviewContinueMessage', { value1: event.type });
         }
     }
 

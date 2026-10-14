@@ -1,18 +1,19 @@
 import { spawnSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
+import { cliText } from './i18n.mjs';
 import { assetsResolverUnavailableError } from './messages.mjs';
 
 /**
- * `akari assets <list|fetch|sync|...>` — `packages/asset-resolver` の CLI
- * （`bin/akari-assets.mjs`）への薄い委譲（タスク契約 2026-08-09-agent-assets-discovery）。
+ * `akari assets <list|fetch|sync|...>` は `packages/asset-resolver` の CLI
+ * （`bin/akari-assets.mjs`）へ委譲する。`audio` は音源補助スクリプトへ振り分ける。
  *
  * カタログ合成・entitlements 判定・取得・sha256 検証・validate-asset・fail-closed の実ロジックは
- * すべて resolver 側の責務のまま変更しない。認証（`~/.akari/store-credentials.json`）も
- * resolver がそのまま読む。ここでは引数をそのまま子プロセスへ転送し、resolver 側の usage /
- * エラー文言 / exit code をそのまま利用者に返すだけ。
+ * resolver 側の責務のまま変更しない。認証情報も
+ * resolver がそのまま読む。通常の引数はそのまま子プロセスへ転送する。
  *
  * 規約は他の launcher 委譲コマンド（`akari sounds` = sounds-setup.mjs）と同じ:
  *   - 同梱の実体解決は `resolveLauncherAssets()`（モノレポ checkout → npm 配布時の vendor/）
@@ -31,11 +32,49 @@ export async function runAssetsCommand(args, options = {}) {
   const env = options.env ?? process.env;
   const assets = options.assets ?? resolveLauncherAssets();
 
+  if (args[0] === 'audio') {
+    const sub = args[1];
+    const usage = cliText('cli.assets.audio.usage');
+    const log = options.log ?? ((line) => console.log(line));
+    if (!sub || sub === '--help' || sub === '-h') { log(usage); return { exitCode: 0 }; }
+    const scripts = { candidates: 'generate-candidates-html.mjs', drop: 'register-drop-folder.mjs', gallery: 'gallery-helper.mjs' };
+    if (!Object.hasOwn(scripts, sub)) {
+      logError(cliText('cli.assets.audio.unknownSubcommand', { value: sub }));
+      log(usage);
+      return { exitCode: 1 };
+    }
+    const script = assets?.audioFetchScriptPath && join(dirname(assets.audioFetchScriptPath), scripts[sub]);
+    if (!script || !existsSync(script)) {
+      logError(cliText('cli.assets.audio.scriptMissing'));
+      return { exitCode: 1 };
+    }
+    const cliPath = assets?.assetResolverCliPath;
+    if (!cliPath && !options.audioSetupDefaults) {
+      logError(assetsResolverUnavailableError());
+      return { exitCode: 1 };
+    }
+    const resolveDefaults = options.audioSetupDefaults
+      ?? (await import(pathToFileURL(resolve(dirname(cliPath), '../src/bundled-catalog.mjs')).href)).audioSetupDefaults;
+    const { root, candidatesPath, catalogDir, candidatesHtmlPath } = resolveDefaults(env);
+    if (!root) { logError(cliText('cli.assets.audio.catalogMissing')); return { exitCode: 1 }; }
+    const supplied = args.slice(2);
+    const extra = [];
+    function addDefault(flag, value) { if (!supplied.includes(flag)) extra.push(flag, value); }
+    if (sub !== 'gallery') {
+      addDefault('--candidates', candidatesPath);
+      addDefault('--catalog-dir', catalogDir);
+    }
+    if (sub === 'candidates') addDefault('--out', candidatesHtmlPath);
+    const spawn = options.spawnAudioCli ?? defaultSpawnAssetsCli;
+    const result = spawn(script, [...supplied, ...extra], env);
+    return { exitCode: typeof result.status === 'number' ? result.status : 1 };
+  }
+
   // These catalog pack IDs are reference entries; their tracks are distributed by the
   // first-party Sounds fetcher, while the resolver catalog contains only individual IDs.
   if (args[0] === 'fetch' && /^akari-sounds-[a-z0-9-]+$/u.test(args[1] ?? '')) {
     if (!assets?.audioFetchScriptPath) {
-      logError('AKARI Sounds の取得スクリプトが同梱されていません');
+      logError(cliText('cli.assets.error.soundsScriptMissing'));
       return { exitCode: 1 };
     }
     const spawn = options.spawnSoundsCli ?? defaultSpawnAssetsCli;

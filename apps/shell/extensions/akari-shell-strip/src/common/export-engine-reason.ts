@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { QuickExportLintFinding } from './quick-export-protocol';
 
 export interface ExportEngineReason {
@@ -23,60 +24,62 @@ declare module './quick-export-protocol' {
     }
 }
 
-const MOTION_LABELS: Readonly<Record<string, string>> = {
-    'push-left': '左へ押し出す', 'push-right': '右へ押し出す',
-    'push-up': '上へ押し出す', 'push-down': '下へ押し出す',
-    typewriter: 'タイプライター', 'wipe-left': '左へワイプ',
-    'wipe-right': '右へワイプ', glitch: 'グリッチ', swing: 'スイング'
-};
+const MOTION_LABELS = (): Readonly<Record<string, string>> => ({
+    'push-left': t('shell.export.engineReason.pushLeftLabel'), 'push-right': t('shell.export.engineReason.pushRightLabel'),
+    'push-up': t('shell.export.engineReason.pushUpLabel'), 'push-down': t('shell.export.engineReason.pushDownLabel'),
+    typewriter: t('shell.export.engineReason.typewriterLabel'), 'wipe-left': t('shell.export.engineReason.wipeLeftLabel'),
+    'wipe-right': t('shell.export.engineReason.wipeRightLabel'), glitch: t('shell.export.engineReason.glitchLabel'), swing: t('shell.export.engineReason.swingStatus')
+});
 
-const LOOK_LABELS: Readonly<Record<string, string>> = {
-    stroke_inner: '縁取り（内側）', fill_gradient: 'グラデーション塗り', extrude: '立体押し出し'
-};
+const LOOK_LABELS = (): Readonly<Record<string, string>> => ({
+    stroke_inner: t('shell.export.engineReason.innerStrokeLabel'), fill_gradient: t('shell.export.engineReason.gradientFillLabel'), extrude: t('shell.export.engineReason.extrudeLabel')
+});
 
-const OVERLAY_LABELS: Readonly<Record<string, string>> = {
-    'absolute-external-url': '外部 URL',
-    'font-face-external-resource': '外部フォント',
-    'image-external-resource': '外部画像',
-    'background-image-external-resource': '外部背景画像',
-    'embedded-context': '埋め込みコンテンツ',
-    'css-3d-transform': '3D 変形',
-    'css-3d-backface-hidden': '3D の裏面非表示',
-    'self-driving-clock': '独立した時計',
-    'media-element': '動画・音声要素',
-    'vgpu-runtime': 'GPU シーン',
-    'three-or-canvas-runtime': '3D・キャンバス描画',
-    'script-runtime': 'スクリプト実行',
-    'animation-timing': 'アニメーション時刻',
-    'advanced-css': '高度な CSS 表現',
-    'item-keyframes': 'アイテムのキーフレーム',
-    'vgpu-invalid-declaration': 'GPU シーンの宣言が無効',
-    'three-or-canvas-runtime(data-akari-3d-scene)': '3D シーンの併用'
-};
+const OVERLAY_LABELS = (): Readonly<Record<string, string>> => ({
+    'absolute-external-url': t('shell.export.engineReason.externalUrlLabel'),
+    'font-face-external-resource': t('shell.export.engineReason.externalFontLabel'),
+    'image-external-resource': t('shell.export.engineReason.externalImageLabel'),
+    'background-image-external-resource': t('shell.export.engineReason.externalBackgroundImageText'),
+    'embedded-context': t('shell.export.engineReason.embeddedContentLabel'),
+    'css-3d-transform': t('shell.export.engineReason.value3dTransformLabel'),
+    'css-3d-backface-hidden': t('shell.export.engineReason.hidden3dBackfaceText'),
+    'self-driving-clock': t('shell.export.engineReason.independentClockLabel'),
+    'media-element': t('shell.export.engineReason.videoAudioElementText'),
+    'vgpu-runtime': t('shell.export.engineReason.gpuSceneLabel'),
+    'three-or-canvas-runtime': t('shell.export.engineReason.value3dCanvasRenderingStatus'),
+    'script-runtime': t('shell.export.engineReason.scriptExecutionLabel'),
+    'animation-timing': t('shell.export.engineReason.animationTimingStatus'),
+    'advanced-css': t('shell.export.engineReason.advancedCssEffectsText'),
+    'item-keyframes': t('shell.export.engineReason.itemKeyframesLabel'),
+    'vgpu-invalid-declaration': t('shell.export.engineReason.invalidGpuSceneDeclarationText'),
+    'three-or-canvas-runtime(data-akari-3d-scene)': t('shell.export.engineReason.combined3dScenesText')
+});
 
 function japaneseOverlayReason(code: string): string {
-    const prefix = code.startsWith('three-sampled-condition:') ? '3D のサンプリングで非対応: '
-        : code.startsWith('vgpu-condition:') ? 'GPU シーンで非対応: '
-            : code.startsWith('forced-dom:') ? 'GPU 経路を使えません: ' : '';
+    const prefix = code.startsWith('three-sampled-condition:') ? t('shell.export.engineReason.unsupported3dSamplingStatus')
+        : code.startsWith('vgpu-condition:') ? t('shell.export.engineReason.unsupportedGpuSceneText')
+            : code.startsWith('forced-dom:') ? t('shell.export.engineReason.gpuPathUnavailableStatus') : '';
     const conditions = (prefix ? code.slice(code.indexOf(':') + 1) : code).split(/,\s*/u);
-    if (!conditions.every(condition => Object.prototype.hasOwnProperty.call(OVERLAY_LABELS, condition))) return code;
-    return `${prefix}${conditions.map(condition => OVERLAY_LABELS[condition]).join('、')}`;
+    if (!conditions.every(condition => Object.prototype.hasOwnProperty.call(OVERLAY_LABELS(), condition))) return code;
+    return `${prefix}${conditions.map(condition => OVERLAY_LABELS()[condition]).join(t('shell.export.engineReason.reasonSeparator'))}`;
 }
 
 export function japaneseExportReason(code: string): string {
     const motion = /^caption-motion-(.+)-unsupported$/u.exec(code)?.[1];
-    if (motion) return Object.prototype.hasOwnProperty.call(MOTION_LABELS, motion) ? `動き「${MOTION_LABELS[motion]}」` : code;
+    if (motion) return Object.prototype.hasOwnProperty.call(MOTION_LABELS(), motion) ? t('shell.export.engineReason.motionLabel', { value1: MOTION_LABELS()[motion] }) : code;
     const look = /^caption-rich-look-(.+)-unsupported$/u.exec(code)?.[1];
-    if (look) return Object.prototype.hasOwnProperty.call(LOOK_LABELS, look) ? LOOK_LABELS[look] : code;
-    if (code === 'caption-karaoke-fill-unsupported') return 'カラオケの塗り';
-    if (code === 'caption-text-style-vertical-unsupported') return '縦書き';
-    if (code === 'words-native-color-and-geometry-mixed') return '文字ごとの色と形の同時指定';
-    if (code === 'GPU Electron launcher unavailable') return 'GPU の起動環境を利用できません';
-    if (code === 'caption-measure-unstable') return '字幕の描画位置が安定しません';
-    if (code === 'hevc-unsupported') return 'この GPU は選んだ圧縮形式に対応していません';
-    if (code === 'memory-hard-stop') return 'GPU の使用メモリが上限を超えました';
-    if (code.startsWith('caption-font-unavailable:')) return `使えないフォント「${code.slice('caption-font-unavailable:'.length)}」`;
-    if (code.startsWith('caption-style-unsupported:')) return `字幕のスタイル「${code.slice('caption-style-unsupported:'.length)}」`;
+    if (look) return Object.prototype.hasOwnProperty.call(LOOK_LABELS(), look) ? LOOK_LABELS()[look] : code;
+    if (code === 'caption-karaoke-fill-unsupported') return t('shell.export.engineReason.karaokeFillLabel');
+    if (code === 'caption-text-style-vertical-unsupported') return t('shell.export.engineReason.verticalTextLabel');
+    if (code === 'caption-run-plate-words-native') return t('shell.export.engineReason.wordDisplayRunEffectsText');
+    if (code === 'caption-run-effects-typewriter') return t('shell.export.engineReason.typewriterRunEffectsText');
+    if (code === 'words-native-color-and-geometry-mixed') return t('shell.export.engineReason.perCharacterColorShapeTogetherText');
+    if (code === 'GPU Electron launcher unavailable') return t('shell.export.engineReason.gpuLaunchEnvironmentUnavailableStatus');
+    if (code === 'caption-measure-unstable') return t('shell.export.engineReason.captionPositionUnstableText');
+    if (code === 'hevc-unsupported') return t('shell.export.engineReason.gpuDoesNotSupportSelectedCodecText');
+    if (code === 'memory-hard-stop') return t('shell.export.engineReason.gpuMemoryLimitExceededText');
+    if (code.startsWith('caption-font-unavailable:')) return t('shell.export.engineReason.unavailableFontStatus', { value1: code.slice('caption-font-unavailable:'.length) });
+    if (code.startsWith('caption-style-unsupported:')) return t('shell.export.engineReason.captionStyleLabel', { value1: code.slice('caption-style-unsupported:'.length) });
     return japaneseOverlayReason(code);
 }
 
@@ -90,30 +93,30 @@ export function summarizeExportReasons(reasons: readonly ExportEngineReason[]): 
         groups.set(key, group);
     }
     return [...groups.values()].map(group => {
-        if (group.kind === 'caption') return `字幕 ${group.count} 件の${group.label}`;
-        if (group.kind === 'overlay') return `オーバーレイ ${group.count} 件の${group.label}`;
+        if (group.kind === 'caption') return t('shell.export.engineReason.captionCountReason', { value1: group.count, n: group.count, value2: group.label });
+        if (group.kind === 'overlay') return t('shell.export.engineReason.overlayCountReason', { value1: group.count, value2: group.label });
         return group.label;
     });
 }
 
 export function exportEngineSummary(event: ExportEngineEvent): string {
-    if (event.engine === 'gpu') return 'GPU で書き出しています';
+    if (event.engine === 'gpu') return t('shell.export.engineReason.exportingGpuLabel');
     const reasons = summarizeExportReasons(event.reasons);
     return reasons.length > 0
-        ? `今回は OSR で書き出しています — 理由: ${reasons.join('、')}`
-        : '今回は OSR で書き出しています';
+        ? t('shell.export.engineReason.exportingOsrTimeReasonText', { value1: reasons.join(t('shell.export.engineReason.reasonSeparator')) })
+        : t('shell.export.engineReason.exportingOsrTimeText');
 }
 
 export function exportEngineReasonCopyText(event: ExportEngineEvent): string {
     return [exportEngineSummary(event), ...event.reasons.map(reason =>
-        `${reason.kind === 'caption' ? '字幕' : reason.kind === 'overlay' ? 'オーバーレイ' : reason.kind} ${reason.id}: ${japaneseExportReason(reason.reason)}（${reason.reason}）`
+        t('shell.export.engineReason.reasonCopyLine', { kind: reason.kind === 'caption' ? t('shell.export.engineReason.captionsLabel') : reason.kind === 'overlay' ? t('shell.export.engineReason.overlaysLabel') : reason.kind, id: reason.id, reason: japaneseExportReason(reason.reason), code: reason.reason })
     )].join('\n');
 }
 
 export function lintRefusalSummary(findings: readonly QuickExportLintFinding[]): string | undefined {
     const messages = (severity: string): string[] => findings.filter(finding => finding.severity === severity)
         .map(finding => finding.message).filter((message): message is string => !!message);
-    return (messages('error').length ? messages('error') : messages('warning')).slice(0, 3).join('、') || undefined;
+    return (messages('error').length ? messages('error') : messages('warning')).slice(0, 3).join(t('shell.export.engineReason.reasonSeparator')) || undefined;
 }
 
 export function parseExportEventLine(line: string): ExportEngineEvent | ExportRefusalEvent | undefined {

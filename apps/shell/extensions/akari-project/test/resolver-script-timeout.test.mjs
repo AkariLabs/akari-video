@@ -1,8 +1,10 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { childProcessEnv } from '@akari-video/i18n';
 
 const source = ts.createSourceFile('service.ts',
     readFileSync(new URL('../src/node/akari-project-service.ts', import.meta.url), 'utf8'),
@@ -21,7 +23,8 @@ const spawn = () => {
     child.kill = () => { killed++; return true; };
     return child;
 };
-const Harness = new Function('spawn', 'process', code + '\nreturn Harness;')(spawn, process);
+const Harness = new Function('spawn', 'process', 'childProcessEnv', code + '\nreturn Harness;')
+    (spawn, process, childProcessEnv);
 
 test('取り寄せ子プロセスが止まれば上限で打ち切り理由を返す', async () => {
     const result = await new Harness().runResolverScript('pending', undefined, 20);

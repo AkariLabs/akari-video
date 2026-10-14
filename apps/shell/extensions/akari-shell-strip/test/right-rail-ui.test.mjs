@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 // 右レールの見た目と配線（task 2026-09-22-right-rail-regroup）: 4 パネルのアイコンが試作の線画
 // （紙 / 吹き出し / つまみ / レベルのバー）になっていること、レールのホバーは Theia の遅延
 // ツールチップを止めて名前（label）だけを出すこと、ハンドラーとドラッグの配線、押す / ドラッグの判別。
@@ -10,6 +14,8 @@ const require = createRequire(import.meta.url);
 const icons = require('../lib/browser/right-rail-icons.js');
 const style = require('../lib/browser/right-rail-style.js');
 const gesture = require('../lib/browser/right-rail-drag-gesture.js');
+const shellJa = require('../../../../../packages/i18n/locales/ja/shell.json');
+const annotationsJa = require('../../../../../packages/i18n/locales/ja/annotations.json');
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const WIDGETS = {
@@ -20,15 +26,16 @@ const WIDGETS = {
 };
 
 test('右の主要ラベルは短い日本語になる', () => {
-    assert.match(read(WIDGETS.inspector), /this\.title\.label = 'インスペクター'/);
-    assert.match(read('../../akari-partner/src/browser/akari-partner-widget.tsx'), /'チャット'/);
-    assert.match(read('../../akari-partner/src/browser/akari-partner-web-widget.tsx'), /'チャット（DeepSeek）'/);
+    assert.match(read(WIDGETS.inspector), /this\.title\.label = t\('annotations\.inspectorWidget\.text\.inspector'\)/);
+    assert.equal(annotationsJa['annotations.inspectorWidget.text.inspector'], 'インスペクター');
+    assert.match(read('../../akari-partner/src/browser/akari-partner-widget.tsx'), /t\('partner\.partnerPanel\.terminal\.chatLabel'\)/);
+    assert.match(read('../../akari-partner/src/browser/akari-partner-web-widget.tsx'), /t\('partner\.partnerPanel\.webWidget\.chatDeepseekLabel'\)/);
 });
 
 test('パートナーのレール名と線画アイコンを表示する', () => {
     const handler = read('../src/browser/akari-right-panel-handler.ts');
-    assert.match(handler, /id === 'akari-partner-onboarding' \? 'パートナー'/);
-    assert.match(handler, /title\.label = 'パートナー'/);
+    assert.match(handler, /id === 'akari-partner-onboarding' \? t\('shell\.rightRail\.panel\.partnerLabel'\)/);
+    assert.match(handler, /title\.label = t\('shell\.rightRail\.panel\.partnerLabel'\)/);
     assert.match(handler, /railNameForPartner\(id, title\?\.label \|\| '', title\?\.caption\)/);
     assert.match(handler, /tab\.setAttribute\('data-akari-rail-id', id\)/);
     assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-id="akari-partner-onboarding"[^\n]*\.lm-TabBar-tabIcon \{/);
@@ -40,8 +47,8 @@ test('右レール下端のモード切替に短い名前を表示する', () =>
     const switcher = read('../../akari-surfaces/src/browser/akari-mode-switch-contribution.ts');
     assert.match(switcher, /const MENU_ID = 'akari-mode-switch'/);
     assert.match(handler, /\.akari-mode-switch-icon/);
-    assert.match(handler, /name\.setAttribute\('data-akari-rail-name', 'モード'\)/);
-    assert.match(handler, /name\.textContent = 'モード'/);
+    assert.match(handler, /name\.setAttribute\('data-akari-rail-name', t\('shell\.rightRail\.panel\.modeLabel'\)\)/);
+    assert.match(handler, /name\.textContent = t\('shell\.rightRail\.panel\.modeLabel'\)/);
     assert.match(handler, /MutationObserver\(\(\) => this\.decorateModeName\(\)\)/);
 });
 
@@ -92,8 +99,16 @@ test('the right side panel handler and the drop zones are wired in the frontend 
     const app = read('../src/browser/akari-frontend-application.ts');
     assert.equal((app.match(/this\.resetRightRail\(\);/g) ?? []).length, 3, 'timeout / false / throw all reset the rail');
     const dnd = read('../src/browser/akari-right-rail-dnd.ts');
-    for (const label of ['メインへ置く', '下へ置く（タイムラインの隣）', '右の上の段に分ける', '右の下の段に分ける', '線の上へ', '線の下へ']) {
-        assert.ok(dnd.includes(`'${label}'`), label);
+    for (const [key, label] of [
+        ['shell.rightRail.dropZones.placeMainAreaText', 'メインへ置く'],
+        ['shell.rightRail.dropZones.placeBelowNextTimelineText', '下へ置く（タイムラインの隣）'],
+        ['shell.rightRail.dropZones.splitUpperRightSectionText', '右の上の段に分ける'],
+        ['shell.rightRail.dropZones.splitLowerRightSectionText', '右の下の段に分ける'],
+        ['shell.rightRail.dropZones.aboveDividerLabel', '線の上へ'],
+        ['shell.rightRail.dropZones.belowDividerLabel', '線の下へ']
+    ]) {
+        assert.ok(dnd.includes(`t('${key}')`), label);
+        assert.equal(shellJa[key], label);
     }
     assert.ok(style.RIGHT_RAIL_CSS.includes('--akari-rail-middle'), 'separator is placed at the measured middle');
     assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-name/);

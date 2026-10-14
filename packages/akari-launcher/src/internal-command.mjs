@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { FINGER_FRAME_SCRIPT_RELATIVE, resolveLauncherAssets } from './repo-assets.mjs';
+import { cliText } from './i18n.mjs';
 
 const commands = [
   'beat-sync-beatmap',
@@ -12,10 +13,10 @@ const commands = [
   'eye-bar'
 ];
 
-const usage = [
-  '使い方: akari internal <subcommand> [args...]',
+const usage = () => [
+  cliText('cli.internal.help.usage'),
   '',
-  'サブコマンド:',
+  cliText('cli.internal.help.commands'),
   ...commands.map((command) => `  ${command}`)
 ].join('\n');
 
@@ -27,7 +28,7 @@ export async function runInternalCommand(args, options = {}) {
   const subcommand = args[0];
 
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
-    log(usage);
+    log(usage());
     return { exitCode: 0 };
   }
 
@@ -49,12 +50,12 @@ export async function runInternalCommand(args, options = {}) {
   };
   const definition = definitions[subcommand];
   if (!definition) {
-    logError(`不明な internal サブコマンドです: ${subcommand}`);
-    log(usage);
+    logError(cliText('cli.internal.error.unknownCommand', { command: subcommand }));
+    log(usage());
     return { exitCode: 1 };
   }
   if (!definition.path) {
-    logError(`内部コマンド ${subcommand} の実行スクリプトが見つかりません。AKARI Video の完全な checkout または配布物を確認してください。`);
+    logError(cliText('cli.internal.error.scriptMissing', { command: subcommand }));
     return { exitCode: 1 };
   }
 

@@ -13,6 +13,7 @@ import { AkariSkillCatalogService } from '../akari-skill-catalog-service';
 import { SKILLS_PANEL_TEXT, groupSkillsByCategory, skillAskOutcomeMessage, skillPromptText } from './skills-panel-model';
 import { SkillPictogram } from './skill-pictograms';
 import { readProjectTitle } from './project-title';
+import { t } from '../../common/shell-text';
 
 export function skillDescriptionLead(description: string): string {
     // 先頭の引用符（SKILL.md の description が "…" で始まるもの）は見せない
@@ -100,7 +101,7 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
         {groupSkillsByCategory(skills).map(group => <section className='skill-group' key={group.category}>
             <h3>{group.label}</h3>
             <ul className='skill-list'>{group.skills.map(skill => <li key={skill.name}>
-                <div className='skill-card' role='button' tabIndex={0} aria-label={`${skill.name} をパートナーに頼む`}
+                <div className='skill-card' role='button' tabIndex={0} aria-label={t('shell.skills.panel.askPartnerUseAction', { name: skill.name })}
                     onMouseEnter={event => {
                         const nextTip = tipState(skill, event.currentTarget);
                         clearTimeout(timer.current);
@@ -118,7 +119,7 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
                     <span className='skill-art'><SkillPictogram name={skill.name} category={group.category} /></span>
                     <span className='skill-copy'>
                         <span className='skill-name-row'><strong className='skill-name' title={`/${skill.name}`}>/{skill.name}</strong>
-                            <button type='button' className='skill-more' aria-label={`${skill.name} のメニュー`} aria-haspopup='menu'
+                            <button type='button' className='skill-more' aria-label={t('shell.skills.panel.menuLabel', { name: skill.name })} aria-haspopup='menu'
                                 aria-expanded={menu?.skill.name === skill.name} onClick={event => {
                                     event.stopPropagation(); hideTip(); menuButtonRef.current = event.currentTarget;
                                     setMenu(menu?.skill.name === skill.name ? undefined : { skill, rect: event.currentTarget.getBoundingClientRect() });
@@ -132,13 +133,13 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
             style={{ left: Math.max(8, Math.min(tip.panelRight + 8, window.innerWidth - 288)), top: tipTop || tip.rect.top }}>
             <strong>{tip.skill.name}</strong><code>/{tip.skill.name}</code>
             <p>{tip.skill.description}</p>
-            {projectName && <p className='project'>いま開いている『{projectName}』に使います</p>}
+            {projectName && <p className='project'>{t('shell.skills.panel.usedOpenProjectText', { name: projectName })}</p>}
         </div>, document.body)}
         {menu && ReactDOM.createPortal(<div ref={menuRef} className='akari-skill-menu' role='menu'
             style={{ left: Math.max(8, Math.min(menu.rect.right - 168, window.innerWidth - 176)), top: Math.max(8, Math.min(menu.rect.bottom + 4, window.innerHeight - 112)) }}>
-            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onAsk(menu.skill.name); }}>パートナーに頼む</button>
-            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onCopy(menu.skill.name); }}>呼び名をコピー</button>
-            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onOpen(menu.skill.name); }}>SKILL.md を開く</button>
+            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onAsk(menu.skill.name); }}>{t('shell.skills.panel.askPartnerAction')}</button>
+            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onCopy(menu.skill.name); }}>{t('shell.skills.panel.copySkillNameAction')}</button>
+            <button type='button' role='menuitem' onClick={() => { setMenu(undefined); onOpen(menu.skill.name); }}>{t('shell.skills.panel.openSkillMdAction')}</button>
         </div>, document.body)}
     </>;
 }
@@ -165,8 +166,8 @@ export class AkariSkillsWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariSkillsWidget.ID;
-        this.title.label = 'スキル';
-        this.title.caption = 'パートナーに頼める決まった仕事（/呼び名）';
+        this.title.label = t('shell.skills.panel.skillsLabel');
+        this.title.caption = t('shell.skills.panel.readyMadeTasksPartnerSkillNameStatus');
         this.title.iconClass = 'codicon codicon-zap';
         this.title.closable = false;
         this.toDispose.push({ dispose: () => this.watcher.dispose() });
@@ -233,14 +234,14 @@ export class AkariSkillsWidget extends ReactWidget {
 
     protected async copySkillName(name: string): Promise<void> {
         try { await navigator.clipboard.writeText(`/${name}`); }
-        catch { void this.messages.warn('呼び名をコピーできませんでした'); }
+        catch { void this.messages.warn(t('shell.skills.panel.couldNotCopySkillNameError')); }
     }
 
     protected async openSkill(name: string): Promise<void> {
         const root = (await this.workspace.roots)[0]?.resource;
         if (!root) return;
         try { await open(this.openerService, root.resolve('.claude/skills').resolve(name).resolve('SKILL.md')); }
-        catch { void this.messages.warn('SKILL.md を開けませんでした'); }
+        catch { void this.messages.warn(t('shell.skills.panel.couldNotOpenSkillMdError')); }
     }
 
     protected override render(): React.ReactNode {
@@ -252,7 +253,7 @@ export class AkariSkillsWidget extends ReactWidget {
                 onAsk={name => void this.askSkill(name)} onCopy={name => void this.copySkillName(name)}
                 onOpen={name => void this.openSkill(name)} /> : <p>{SKILLS_PANEL_TEXT.empty}</p>}
             <section className='add-section'>
-                <h3>足す</h3>
+                <h3>{t('shell.skills.panel.addAction')}</h3>
                 <button className='theia-button secondary' onClick={() => void this.messages.info(SKILLS_PANEL_TEXT.addHint)}>{SKILLS_PANEL_TEXT.add}</button>
             </section>
         </div>;

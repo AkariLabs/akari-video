@@ -1,0 +1,16 @@
+{
+  "lint.check.cuts.trackTransitionUnsupported": "このトランジションは PiP または複数トラックの合成では書き出せません。トランジションを削除するか、映像を単一のトラックへ戻してください。",
+  "lint.check.cuts.transitionOutNonAdjacent": "トランジションの次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+  "lint.check.cuts.transitionOutUnknownType": "知らない種類のトランジションです。クロスフェードで代用して表示・書き出しします。",
+  "lint.check.cuts.transitionOutZeroOverlap": "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
+  "lint.check.cuts.transitionOutLayerEvacuated": "このクリップは PiP 経路へ退避されているため、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。",
+  "lint.check.captions.cutVisibility": "字幕が映像のカットでほとんど見えません（半分未満しか残っていません）。字幕の開始・終了を残した区間に合わせるか、字幕を消してください。",
+  "lint.check.captions.overlap": "字幕の表示時間が重なっています。タイムラインで字幕の開始・終了位置をずらしてください。",
+  "lint.check.captions.outputDomainExceedsDuration": "出力時間の字幕が動画総尺を超えています。書き出しでは動画終端までにクランプして表示されます。",
+  "lint.check.cuts.trackOverlap": "同じ映像トラック上でクリップが重なっています。クリップを重ならない位置へ移動してください。",
+  "lint.check.references.files": "参照している素材ファイルが見つかりません。素材の場所またはファイル名を確認してください。",
+  "lint.check.overlays.timeline": "オーバーレイが映像の範囲外にあります。表示位置か映像の長さを調整してください。",
+  "lint.check.audio.sfxTimeline": "効果音が映像の範囲外にあります。再生位置か映像の長さを調整してください。",
+  "lint.failure.detail.label": " 詳細: ",
+  "lint.failure.prefix.validation": "保存後の検証で問題が見つかりました"
+}

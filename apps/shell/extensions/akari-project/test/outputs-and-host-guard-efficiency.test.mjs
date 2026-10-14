@@ -5,13 +5,15 @@ import ts from 'typescript';
 
 const source = async name => readFile(new URL(`../src/browser/${name}`, import.meta.url), 'utf8');
 
-test('できたもの一覧は関係ないファイルと字幕・編集本文の更新を無視する', async () => {
+test('できたもの一覧は対象フォルダとルートのファイル名で絞り、通知をまとめる', async () => {
     const text = await source('akari-outputs-pane.tsx');
-    assert.match(text, /change\.type === FileChangeType\.UPDATED && listed\.has\(key\)/);
-    assert.match(text, /this\.pendingMetadataUris\.add\(key\)/);
+    assert.match(text, /const watchedRootNames = new Set\(/);
+    assert.match(text, /watchedRootNames\.has\(change\.resource\.path\.base\)/);
+    assert.match(text, /isEditDataFileName\(change\.resource\.path\.base\)/);
+    assert.match(text, /\/\\\.tmp\(\?:\\\.|\$\)\/iu\.test\(change\.resource\.path\.base\)/);
+    assert.match(text, /if \(!relevant\) \{\s*return;\s*\}/);
+    assert.match(text, /this\.changedOutputUris\.add\(change\.resource\.toString\(\)\)/);
     assert.match(text, /this\.outputsWatchTimer = setTimeout\(/);
-    assert.match(text, /this\.metadataTimer = setTimeout\(/);
-    assert.match(text, /refreshOutputMetadata\(root, uris\)/);
 });
 
 test('一覧の子 metadata はフォルダ解決一回で取得する', async () => {

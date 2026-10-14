@@ -114,7 +114,7 @@ test("配布先の doctor はロードでき、実行時に creator-root を解�
     await cp(source, target, { recursive: true, filter: file => !file.includes(`${path.sep}test${path.sep}`) });
     const entry = path.join(target, "doctor.mjs");
     const repo = path.resolve(source, "..", "..", "..");
-    const env = { ...process.env, HOME: scratch, AKARI_MONOREPO: repo, AKARI_INSTALL_DIR: path.join(scratch, "missing-app"), AKARI_HOME: path.join(scratch, "home") };
+    const env = { ...process.env, AKARI_LANG: 'ja', HOME: scratch, AKARI_MONOREPO: repo, AKARI_INSTALL_DIR: path.join(scratch, "missing-app"), AKARI_HOME: path.join(scratch, "home") };
     const imported = spawnSync(process.execPath, ["--input-type=module", "-e", "await import(process.argv[1])", pathToFileURL(entry).href], { env, encoding: "utf8" });
     assert.equal(imported.status, 0, imported.stderr);
     const project = path.join(scratch, "project");

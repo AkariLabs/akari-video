@@ -9,6 +9,13 @@ const base = {
   cuts: [{ in: 0, out: 5 }]
 };
 
+test('parseEdit keeps an unknown v0 transition and its align field', () => {
+  const transition = { type: 'future-kind', duration: 0.5, align: 'before-cut', x: { keep: true } };
+  const parsed = parseEdit(JSON.stringify({ ...base, cuts: [{ in: 0, out: 5, transition_out: transition }] }));
+  assert.deepEqual(parsed.cuts[0].transitionOut, transition);
+  assert.deepEqual(parsed.warnings, []);
+});
+
 test('parseEdit は audio.narration を表示用最小形で返す', () => {
   const parsed = parseEdit(JSON.stringify({
     ...base,

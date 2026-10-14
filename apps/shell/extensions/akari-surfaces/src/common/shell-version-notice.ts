@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * 「更新されました」ポップアップ（F2・task 2026-08-03-shell-quickwins-feedback）の評価ロジック。
  *
@@ -47,7 +48,7 @@ export function evaluateVersionNotice(currentVersion: string, record: ShellLastV
 
 /** ポップアップ本文（task.md 指示どおりの文言: 「AKARI Video を vX.Y.Z に更新しました」）。 */
 export function formatVersionNoticeText(currentVersion: string): string {
-    return `AKARI Video を v${currentVersion} に更新しました`;
+    return t('surfaces.updates.formatVersionNoticeTextAkariVideoUpdatedV.message', { currentVersion: currentVersion });
 }
 
 /** 今回の起動版を記録する新しいレコードを組み立てる純粋関数（書き込みは呼び出し側の責務）。 */

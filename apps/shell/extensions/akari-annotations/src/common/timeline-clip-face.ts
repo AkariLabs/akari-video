@@ -1,10 +1,11 @@
+import { t } from '@akari-video/i18n';
 import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
 
 type ClipItem = { id: string; name?: unknown; source?: { kind?: string; shape?: string; path?: string; params?: { preset?: unknown } } };
 
 const shapeNames: Record<string, string> = {
-    rect: '四角', 'rounded-rect': '角丸四角', ellipse: '円', line: '線', arrow: '矢印',
-    'speech-bubble': '吹き出し', bubble: '吹き出し', path: '図形'
+    rect: t('annotationscommon.timelineClipFace.shape.rectangle'), 'rounded-rect': t('annotationscommon.timelineClipFace.shape.roundedRectangle'), ellipse: t('annotationscommon.timelineClipFace.shape.ellipse'), line: t('annotationscommon.timelineClipFace.shape.line'), arrow: t('annotationscommon.timelineClipFace.shape.arrow'),
+    'speech-bubble': t('annotationscommon.timelineClipFace.shape.speechBubble'), bubble: t('annotationscommon.timelineClipFace.shape.speechBubble'), path: t('annotationscommon.timelineClipFace.shape.generic')
 };
 
 function userName(item: ClipItem): string | undefined {
@@ -22,7 +23,7 @@ export function clipFaceWidthPx(height: number, kind: 'shape' | 'html', svg?: st
 }
 
 export function shapeClipLabel(item: ClipItem, presetName?: string): string {
-    return userName(item) || presetName || shapeNames[item.source?.shape ?? ''] || '図形';
+    return userName(item) || presetName || shapeNames[item.source?.shape ?? ''] || t('annotationscommon.timelineClipFace.shape.generic');
 }
 
 export function shapeClipFace(item: ClipItem, presetName?: string): { label: string; svg: string } {

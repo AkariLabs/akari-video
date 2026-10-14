@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { audioSections, audioSnapshot } from './helpers/audio-clip-fx-fixture.mjs';
-import { isAudioFadeShapeWriteRequest } from '../lib/browser/inspector/audio-fade-shape-write.js';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { audioSections, audioSnapshot } = await import('./helpers/audio-clip-fx-fixture.mjs');
+const { isAudioFadeShapeWriteRequest } = await import('../lib/browser/inspector/audio-fade-shape-write.js');
+
+
 
 test('inspector shape request guard keeps the vocabulary closed', () => {
   const request = { kind: 'audio-fade-shape', id: 'clip', audioKind: 'sfx', edge: 'out', value: 'slow' };

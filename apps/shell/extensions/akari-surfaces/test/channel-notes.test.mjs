@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import {
+import { test, after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const {
     addInfo, addRule, addWordEntry, applyPreparedInfos, applyPreparedRules, applyPreparedWords,
     emptyNotesFile, filterWordEntries, newNoteId, normalizeNotesFile, notesCount, PREPARED_INFOS,
     PREPARED_RULES, PREPARED_WORDS, removeInfo, removeRule, removeWordEntry, renderNotesMarkdown,
     updateInfo, updateRule, updateWordEntry, wordEntryLabel, wordSourceOptions
-} from '../lib/browser/channel/channel-notes-model.js';
+} = await import('../lib/browser/channel/channel-notes-model.js');
 
 test('メモの読み込みは欠けたデータや不正な行に寛容', () => {
     assert.deepEqual(normalizeNotesFile(null), emptyNotesFile());

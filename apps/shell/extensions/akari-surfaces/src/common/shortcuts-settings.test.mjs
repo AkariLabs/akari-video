@@ -1,7 +1,10 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
-import { SHORTCUT_GROUPS, AKARI_SHORTCUT_ORDER, compareShortcutRows, shortcutGroup, normalizeShortcutSearch, shortcutKeyText, matchesShortcut,
-    filterShortcuts, shortcutConflicts, shortcutWhensOverlap, isAkariShortcutCommand, normalizeShortcutKey, keybindingFromKeyCode, shortcutWhen } from '../../lib/common/shortcuts-settings.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { SHORTCUT_GROUPS, AKARI_SHORTCUT_ORDER, compareShortcutRows, shortcutGroup, normalizeShortcutSearch, shortcutKeyText, matchesShortcut, filterShortcuts, shortcutConflicts, shortcutWhensOverlap, isAkariShortcutCommand, normalizeShortcutKey, keybindingFromKeyCode, shortcutWhen } = await import("../../lib/common/shortcuts-settings.js");
+
 
 test('registered AKARI command IDs map to the seven navigation groups', () => {
     assert.deepEqual(SHORTCUT_GROUPS.map(group => group.id), ['editing', 'playback', 'preview', 'script', 'panels', 'partner', 'other']);

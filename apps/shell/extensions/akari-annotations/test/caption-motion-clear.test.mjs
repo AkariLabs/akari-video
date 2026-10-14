@@ -1,8 +1,14 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { captionMotionComboClear, captionMotionOriginalAnimation,
-    captionTextAnimationClear } from '../lib/browser/inspector/caption-motion-cards.js';
-import { createCaptionMotionPanel } from '../lib/browser/inspector/caption-motion-panel.js';
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { captionMotionComboClear, captionMotionOriginalAnimation, captionTextAnimationClear } = await import('../lib/browser/inspector/caption-motion-cards.js');
+const { createCaptionMotionPanel } = await import('../lib/browser/inspector/caption-motion-panel.js');
+
 
 class Element {
     constructor(tag) {

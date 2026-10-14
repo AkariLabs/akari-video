@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 // 不具合メモ 第22項（UI 側）— 書き出し後検査の進捗が見えにくい。
 //
 // 88 分 4K の書き出しで、GPU のフレーム生成が終わった後 verify に約 63 分かかり、そのうち

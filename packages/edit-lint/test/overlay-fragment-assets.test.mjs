@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,6 +15,7 @@ async function lintCase(t, html, prepare) {
   const project = await mkdtemp(join(tmpdir(), "lint-fragment-assets-"));
   t.after(() => rm(project, { recursive: true, force: true }));
   await cp(new URL("./fixtures/overlay-fragment-assets/", import.meta.url), project, { recursive: true });
+  await mkdir(join(project, ".akari"), { recursive: true });
   if (html) await writeFile(join(project, "overlays/lower-third/fragment.html"), html);
   const options = await prepare?.(project);
   await migrateFixtureTree(project);

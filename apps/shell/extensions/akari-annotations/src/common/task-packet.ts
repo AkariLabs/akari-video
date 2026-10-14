@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { Task } from './akari-tasks-protocol';
 import { composeAnnotationAgentPacket } from './annotation-agent-packet';
 
@@ -37,11 +38,11 @@ export function composeTaskPacket(task: Task): string {
 }
 
 export function composeBatchPacket(tasks: readonly Task[], batchId: string): { relativePath: string; markdown: string; line: string } {
-    if (!/^b-\d{4,}$/.test(batchId)) throw new Error('依頼文の番号が不正です。');
-    if (!tasks.length || tasks.length > 20) throw new Error('まとめて頼めるのは 1〜20 件です。');
-    if (tasks.some(task => task.needsConfirm === true)) throw new Error('確認前のタスクはまとめられません。');
+    if (!/^b-\d{4,}$/.test(batchId)) throw new Error(t('annotationscommon.taskPacket.error.invalidRequestNumber'));
+    if (!tasks.length || tasks.length > 20) throw new Error(t('annotationscommon.taskPacket.error.batchCanContain120Requests'));
+    if (tasks.some(task => task.needsConfirm === true)) throw new Error(t('annotationscommon.taskPacket.error.tasksAwaitingConfirmationCannotBeBatched'));
     const ordered = [...tasks].sort((a, b) => a.id.localeCompare(b.id));
-    if (new Set(ordered.map(task => task.id)).size !== ordered.length) throw new Error('同じタスクが重複しています。');
+    if (new Set(ordered.map(task => task.id)).size !== ordered.length) throw new Error(t('annotationscommon.taskPacket.error.duplicateTask'));
     const relativePath = `.akari/cache/outbox/${batchId}.md`;
     const sections = ordered.map(task => {
         const anchor = object(task.anchor);

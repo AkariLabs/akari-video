@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { FileOperationResult, FileSystemProviderErrorCode } from '@theia/filesystem/lib/common/files';
 import { isUnknownKeyEditError, newerSavedByVersion, newerVersionOpenNotice } from '@akari-video/edit-store';
 
@@ -35,5 +36,5 @@ export function classifyEditLoadFailure(error: unknown, context?: {
     if (newerVersion && context?.currentVersion) {
         return { kind: 'invalid', notice: newerVersionOpenNotice(newerVersion, context.currentVersion), updateAvailable: true };
     }
-    return { kind: 'invalid', notice: `edit.json を読み込めませんでした: ${message}` };
+    return { kind: 'invalid', notice: t('annotationscommon.editLoadFailure.notice.couldNotLoadEdit', { reason: message }) };
 }

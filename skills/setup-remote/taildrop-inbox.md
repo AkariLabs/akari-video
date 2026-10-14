@@ -1,38 +1,40 @@
-# Taildrop 受信 → inbox/ 接続と疎通確認
+# Taildrop reception → inbox/ connection and connectivity checks
 
-Taildrop = Tailscale のデバイス間ファイル直送（スマホの共有シート → デバイス選択）。
-クラウドを経由せず、実用上のサイズ上限なし・画質劣化なし。撮影素材の受け渡しに使う。
+Taildrop is Tailscale's direct device-to-device file transfer (phone share sheet → choose device).
+It bypasses the cloud, has no practical size limit, and preserves image quality. Use it to hand off footage.
 
-## 1. 受信先の確認
+## 1. Check the reception destination
 
-- 受信先は環境により異なる（macOS / Windows の GUI 版は多くの環境で「ダウンロード」フォルダ。
-  アプリの設定で変更できる場合がある）。**推測で断定せず、§3 のテスト送信で実パスを確定する**
-- CLI 運用（Linux 等）では `tailscale file get <受信先ディレクトリ>` で取り出す
-- **実測（2026-08-12 / macOS スタンドアロン版 `io.tailscale.ipn.macsys` 1.98.10）**: 受信先は
-  `~/Downloads` で、`defaults read io.tailscale.ipn.macsys` に受信先を指すキーは存在しなかった。
-  この形態では受信先を `inbox/` へ直接向けられない前提で §2 の移送運用に進んでよい
-  （設定 UI に項目が見当たらない場合も同じ扱い）
+- The destination varies by environment (macOS / Windows GUI versions often use Downloads;
+  some app settings allow changing it). **Do not assert a guessed path; establish the actual path with the §3 test transfer.**
+- For CLI operation (Linux, etc.), retrieve files with `tailscale file get <受信先ディレクトリ>`
+  (the existing placeholder means reception directory).
+- **Observed (2026-08-12 / macOS standalone `io.tailscale.ipn.macsys` 1.98.10)**: destination was
+  `~/Downloads`; `defaults read io.tailscale.ipn.macsys` had no key specifying the reception destination.
+  For this distribution, you may proceed to §2's transfer workflow assuming reception cannot point directly to `inbox/`
+  (same treatment when the settings UI has no such option).
 
-## 2. 作業場 inbox/ への接続
+## 2. Connect to the workspace inbox/
 
-- 受信先を作業場の `inbox/`（creator-root v1 の投げ込み口）へ直接向けられる場合:
-  アプリ設定で変更してもらう（人間手番。変更はハードルール 4 の事前提示に従う）
-- 向けられない場合: 「受信箱 → `inbox/` へ移送」を運用に組み込む。テスト送信で受信先の
-  実パスを確定してから、着弾のたびに移送する（例: `mv <受信先>/<ファイル> <作業場>/inbox/`）。
-  移送は上書きに注意し、同名衝突時はユーザーに確認する
-- 作業場が未作成（お試しモード）の場合は、確定した受信先をそのまま素材の置き場として扱う。
-  無理に `inbox/` を作らない
+- If reception can point directly to workspace `inbox/` (creator-root v1's drop area), ask the user to change
+  the app setting (human action; present the change in advance under hard rule 4).
+- Otherwise incorporate “reception folder → `inbox/` transfer” into the workflow. Establish the actual destination
+  through a test transfer, then move each arrival (example: `mv <受信先>/<ファイル> <作業場>/inbox/`,
+  whose existing placeholders mean reception folder, file, and workspace).
+  Avoid overwriting; ask the user about same-name collisions.
+- If no workspace exists (trial mode), use the confirmed reception destination as the asset location.
+  Do not force creation of `inbox/`.
 
-## 3. 疎通確認（両方通ったら完了 — ハードルール 6）
+## 3. Connectivity checks (complete only when both pass — hard rule 6)
 
-1. **閲覧**: スマホから serve URL が開けた（[serve-preview.md](serve-preview.md) §3）
-2. **受け渡し**: スマホの共有シート → Tailscale → この PC を選んで写真 1 枚を送信 →
-   `inbox/`（または確定した受信先）にファイルが現れた
+1. **Viewing**: The serve URL opened from the phone ([serve-preview.md](serve-preview.md) §3).
+2. **Transfer**: Phone share sheet → Tailscale → select this PC → send 1 photo →
+   the file appears in `inbox/` (or the confirmed reception destination).
 
-## 4. 完了レポート
+## 4. Completion report
 
-- serve URL / 受信経路（受信先の実パスと移送の要否）/ 疎通確認 2 点の結果を提示する
-- 記録の永続化は**ユーザーが望んだ場合のみ**、作業場の `akari.md` への追記を提案する
-  （secrets は書かない — ハードルール 5）
-- 素材を自動で選ぶ規約（「直近 N 件で編集」等）は本スキルの対象外（契約 §4）。
-  `inbox/` に届いたファイルをどう使うかは、ユーザーの指示または各工程スキルに委ねる
+- Present serve URL / reception route (actual path and whether transfer is required) / results of the 2 connectivity checks.
+- Propose appending persistent records to workspace `akari.md` **only if the user wants this**
+  (no secrets — hard rule 5).
+- Automatic asset-selection rules (such as “edit the latest N files”) are outside this skill's scope (contract §4).
+  Leave how to use files arriving in `inbox/` to user instructions or the individual stage skills.

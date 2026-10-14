@@ -1,6 +1,11 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { assertCatalogCopy } from './i18n-source-copy.mjs';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const source = name => readFileSync(new URL(`../src/browser/channel/${name}.tsx`, import.meta.url), 'utf8');
 
@@ -16,8 +21,8 @@ test('widget は購入済み商品を読み、案内からアカウント設定�
     assert.match(widget, /akari\.settings\.open/);
     assert.match(widget, /onConnect=\{\(\) => \{\s*this\.proNotice = undefined;\s*this\.sheet = undefined;\s*this\.memorySheet = undefined;\s*this\.update\(\);\s*void this\.commands\.executeCommand\('akari\.settings\.open', \{ section: 'account' \}\);/);
     assert.match(sheet, /kind='channel-pro'/);
-    assert.match(sheet, /は Akari Pro の機能です/);
-    assert.match(sheet, /自分で書いて足すのは無料です/);
+    assertCatalogCopy(sheet, 'は Akari Pro の機能です');
+    assertCatalogCopy(sheet, '自分で書いて足すのは無料です');
     assert.match(sheet, /data-akari-pro-connect/);
 });
 

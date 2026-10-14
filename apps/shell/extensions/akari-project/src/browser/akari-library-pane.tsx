@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
@@ -27,12 +28,13 @@ export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
+const TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID = 'akari.transition.applyToActiveBoundary';
 
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
-const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
-const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
+const CATALOG_FETCH_FAILED_MESSAGE = t('project.library.pane.couldNotLoadAssetCatalogCheckError');
+const CATALOG_EMPTY_MESSAGE = t('project.library.pane.thereAreNoAssetsCatalogYetMessage');
 
 // 320px 前後のパネルでも左右 padding 20px を差し引いた幅へ 3 列を保証する。
 export const CATALOG_GRID_GAP = '8px';
@@ -69,6 +71,7 @@ export interface LibraryPaneHost {
 }
 
 export class AkariLibraryPane {
+    protected transitionDragEndedAt = -Infinity;
     public catalogPickError?: string;
     protected catalogPicking = false;
     /**
@@ -89,7 +92,7 @@ export class AkariLibraryPane {
      */
     protected async pickCatalogFolder(): Promise<void> {
         const destination = await this.host.dialogs.showOpenDialog({
-            title: 'カタログの場所を選ぶ',
+            title: t('project.library.pane.chooseCatalogLocationAction'),
             canSelectFiles: false,
             canSelectFolders: true
         });
@@ -121,7 +124,7 @@ export class AkariLibraryPane {
         try {
             stat = await this.host.files.resolve(uri);
         } catch {
-            return { valid: false, reason: '選んだフォルダーを読み込めませんでした。もう一度お試しください。' };
+            return { valid: false, reason: t('project.library.pane.couldNotLoadSelectedFolderTryError') };
         }
         const children = stat.children ?? [];
         const hasIndex = children.some(child => !child.isDirectory && child.resource.path.base === 'INDEX.md');
@@ -133,8 +136,8 @@ export class AkariLibraryPane {
         }
         return {
             valid: false,
-            reason: '選んだフォルダーにカタログの内容が見つかりません'
-                + '（scene3d・overlay・still・audio・broll・font・textstyle のいずれかのフォルダー、または INDEX.md が必要です）。'
+            reason: t('project.library.pane.noCatalogContentWasFoundSelectedError')
+                + t('project.library.pane.scene3dOverlayStillAudioBrollFontLabel')
         };
     }
 
@@ -149,7 +152,7 @@ export class AkariLibraryPane {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px' }}>
                 <p data-akari-catalog-root-value style={{ margin: 0, fontSize: '0.8em', opacity: 0.7 }}>
-                    現在の設定（{AKARI_CATALOG_ROOT_PREFERENCE}）: {currentValue || '未設定'}
+                    {t('project.library.pane.currentSettingLabel')}{AKARI_CATALOG_ROOT_PREFERENCE}）: {currentValue || t('project.library.pane.notSetLabel')}
                 </p>
                 <button
                     type='button'
@@ -157,8 +160,7 @@ export class AkariLibraryPane {
                     disabled={this.catalogPicking}
                     onClick={() => void this.pickCatalogFolder()}
                 >
-                    フォルダを選ぶ
-                </button>
+                    {t('project.library.pane.chooseFolderAction')}</button>
                 {this.catalogPickError && (
                     <p
                         data-akari-catalog-pick-error
@@ -194,8 +196,7 @@ export class AkariLibraryPane {
                         textDecoration: 'underline'
                     }}
                 >
-                    開発者向け: ローカルカタログ…
-                </button>
+                    {t('project.library.pane.developersLocalCatalogStatus')}</button>
                 {this.developerCatalogOpen && this.renderDeveloperCatalogPanelBody()}
             </div>
         );
@@ -221,7 +222,7 @@ export class AkariLibraryPane {
     /**
      * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
      * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
-     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
+     * では取得方法も参照情報として渡す。
      */
     public toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
         return {
@@ -232,7 +233,8 @@ export class AkariLibraryPane {
             tags: item.tags,
             when_to_use: item.whenToUse,
             license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
+            source: (item.sourceUrl || item.previewUrl || item.sourceAcquisition)
+                ? { url: item.sourceUrl, preview_url: item.previewUrl, acquisition: item.sourceAcquisition } : undefined
         };
     }
 
@@ -244,7 +246,7 @@ export class AkariLibraryPane {
     /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文（origin='local' 専用）。 */
     public async askAgentAboutCatalogItem(item: AssetCatalogViewItem): Promise<void> {
         const request = await this.host.quickInputService.input({
-            placeHolder: 'この素材で何をしますか'
+            placeHolder: t('project.library.pane.whatWouldYouLikeDoAssetQuestion')
         });
         if (!request || !request.trim()) {
             return;
@@ -303,8 +305,7 @@ export class AkariLibraryPane {
                         style={{ padding: '1px 8px', fontSize: 'inherit' }}
                         onClick={() => void this.host.loadAssetCatalogView('user')}
                     >
-                        再試行
-                    </button>
+                        {t('project.library.pane.retryAction')}</button>
                 )}
             </div>
         );
@@ -335,13 +336,12 @@ export class AkariLibraryPane {
                         disabled={!candidates.length}
                         data-akari-catalog-pack-import
                         title={candidates.length
-                            ? `未取得の無料素材 ${candidates.length} 件をまとめてエージェントに取り込ませる`
-                            : 'まとめて取り込める未取得の無料素材はありません'}
+                            ? t('project.library.pane.askAgentImportLengthFreeAssetsAction', { length: candidates.length, n: candidates.length })
+                            : t('project.library.pane.thereAreNoFreeAssetsImportMessage')}
                         style={{ fontSize: '0.78em', padding: '2px 8px', opacity: candidates.length ? 1 : 0.6 }}
                         onClick={() => void this.importCatalogPack(group)}
                     >
-                        まとめて取り込む
-                    </button>
+                        {t('project.library.pane.importAllAction')}</button>
                 </div>
                 {group.pack.summary && (
                     <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{group.pack.summary}</p>
@@ -430,9 +430,17 @@ export class AkariLibraryPane {
                                         data-akari-library-category='transition'
                                         data-akari-library-card='grid'
                                         data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
-                                        title={`${transition.labelJa} — カット境界へドラッグ`}
+                                        title={t('project.library.pane.labelJaDragCutBoundaryLabel', { labelJa: transition.labelJa })}
                                         onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
-                                        onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
+                                        onDragEnd={() => {
+                                            this.transitionDragEndedAt = performance.now();
+                                            this.host.handleLibraryTransitionDragEnd();
+                                        }}
+                                        onClick={() => {
+                                            if (performance.now() - this.transitionDragEndedAt < 400) return;
+                                            void this.host.commandService.executeCommand(
+                                                TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID, { type: transition.id });
+                                        }}
                                         onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
                                         onKeyDown={event => {
                                             if (event.key === 'Enter' && event.target === event.currentTarget) {
@@ -462,19 +470,19 @@ export class AkariLibraryPane {
                         </section>
                     );
                 })}
-                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
+                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>{t('project.library.pane.noTransitionsMatchFiltersError')}</p>}
             </div>
         );
     }
 
     public renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
         if (this.host.catalogLoading) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         }
         const labels: Readonly<Record<PresetShowcaseKind, string>> = {
             lut: 'LUT',
-            textanim: 'テキストアニメ',
-            textstyle: 'テキストスタイル'
+            textanim: t('project.library.pane.textAnimationLabel'),
+            textstyle: t('project.library.pane.textStyleLabel')
         };
         return (
             <div data-akari-library-preset-sections={kinds.length}>
@@ -541,7 +549,7 @@ export class AkariLibraryPane {
         if (target.kind === 'transition') {
             const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
             return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
-                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
+                categoryLabel: t('project.library.pane.transitionLabel'), tags: [transition.category] }, favorite);
         }
         const { preset, style } = this.host.libraryMenuTargetItem(target);
         if (preset) {
@@ -549,7 +557,7 @@ export class AkariLibraryPane {
                 categoryLabel: this.host.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
         }
         if (style) {
-            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
+            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: t('project.library.pane.myStylesLabel'),
                 tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
         }
         return undefined;
@@ -558,9 +566,9 @@ export class AkariLibraryPane {
     public async copyLibraryCredit(text: string): Promise<void> {
         try {
             await navigator.clipboard.writeText(text);
-            this.host.messages.info('クレジットをコピーしました');
+            this.host.messages.info(t('project.library.pane.creditCopiedMessage'));
         } catch (error) {
-            this.host.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.host.messages.error(t('project.library.pane.couldNotCopyCreditError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -570,12 +578,12 @@ export class AkariLibraryPane {
             const usage = await this.host.projectService.getLibraryUsage();
             const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
             const confirmed = await new ConfirmDialog({
-                title: `${item.title} をライブラリから消しますか？`, msg: warning,
-                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
+                title: t('project.library.pane.removeTitleLibraryQuestion', { title: item.title }), msg: warning,
+                ok: t('project.library.pane.moveTrashAction'), cancel: t('project.library.pane.cancelLabel')
             }).open();
             if (!confirmed) return;
             await this.host.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
             await this.host.loadAssetCatalogView('user');
-        } catch (error) { this.host.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
+        } catch (error) { this.host.messages.error(t('project.library.pane.couldNotRemoveLibraryError', { value1: String(error) })); }
     }
 }

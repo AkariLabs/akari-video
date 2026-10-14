@@ -1,7 +1,8 @@
 "use strict";
 exports.validateAnalysis = validate20;
-const schema31 = {"$schema":"https://json-schema.org/draft/2020-12/schema","title":"AKARI Video analysis.json v0","description":"素材 1 本の分析結果を表す中間契約。","$comment":"意味制約として、start/end を持つ全区間では end > start とする。Draft 2020-12 標準では兄弟プロパティ間を比較できないため、この条件は生成・検証手順で確認する。","type":"object","additionalProperties":false,"required":["version","source","transcript","keyframes","events","tracks"],"properties":{"version":{"const":0},"source":{"type":"string","minLength":1,"description":"分析対象素材へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"},"transcript":{"type":"array","items":{"$ref":"#/$defs/transcriptSegment"}},"keyframes":{"type":"array","items":{"$ref":"#/$defs/keyframe"}},"events":{"type":"array","items":{"$ref":"#/$defs/event"}},"tracks":{"$ref":"#/$defs/tracks"},"probe":{"$ref":"#/$defs/mediaProbe"},"observations":{"type":"array","items":{"$ref":"#/$defs/observation"}}},"$defs":{"seconds":{"type":"number","minimum":0},"mediaProbe":{"type":"object","additionalProperties":false,"required":["sha256","size_bytes","container","duration_s","video","audio","tool"],"properties":{"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":0},"container":{"type":"string","minLength":1},"duration_s":{"$ref":"#/$defs/seconds"},"video":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["width","height","fps","codec","rotation"],"properties":{"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"fps":{"type":"number","exclusiveMinimum":0},"codec":{"type":"string","minLength":1},"rotation":{"type":"number"}}}]},"audio":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["codec","channels","sample_rate"],"properties":{"codec":{"type":"string","minLength":1},"channels":{"type":"integer","minimum":1},"sample_rate":{"type":"integer","minimum":1}}}]},"tool":{"type":"object","additionalProperties":false,"required":["ffprobe"],"properties":{"ffprobe":{"type":"string","minLength":1}}}}},"observation":{"type":"object","additionalProperties":false,"required":["kind","at","args","outputs","tool"],"properties":{"kind":{"enum":["probe","grab","filmstrip","waveform","transcribe"]},"at":{"type":"string","minLength":1},"range":{"type":"object","additionalProperties":false,"required":["in","out"],"properties":{"in":{"$ref":"#/$defs/seconds"},"out":{"$ref":"#/$defs/seconds"}}},"args":{"type":"object","additionalProperties":true},"outputs":{"type":"array","items":{"type":"string","minLength":1}},"tool":{"type":"string","minLength":1}}},"waveformTrackPointer":{"type":"object","additionalProperties":false,"required":["path","tool","generated_at"],"properties":{"path":{"type":"string","minLength":1},"tool":{"type":"string","minLength":1},"generated_at":{"type":"string","minLength":1}}},"word":{"$comment":"M5 契約例で省略されている words の要素を、区間・本文を持つ最小形として定義する。","type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1}}},"unrecognizedSpan":{"$comment":"音はあるが文字にできなかった区間。無音ではなく、transcriptSegment.words とは重ならない。","type":"object","additionalProperties":false,"required":["start","end"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}},"transcriptSegment":{"type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1},"speaker":{"type":"string","minLength":1},"words":{"type":"array","items":{"$ref":"#/$defs/word"}},"unrecognized":{"type":"array","items":{"$ref":"#/$defs/unrecognizedSpan"}}}},"keyframe":{"type":"object","additionalProperties":false,"required":["t","path","note"],"properties":{"t":{"$ref":"#/$defs/seconds"},"path":{"type":"string","minLength":1,"description":"キーフレーム画像へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"},"note":{"type":"string","minLength":1},"origin":{"enum":["scene","interval","transcript"],"description":"採用元の抽出系統（2026-07-14 追加・任意）。scene = 映像変化検出、interval = 一定間隔、transcript = 発話由来（highlight 等の時刻から抽出）。候補と note の対応トレーサビリティにも使う。"}}},"fillerEvent":{"type":"object","additionalProperties":false,"required":["type","start","end"],"properties":{"type":{"const":"filler"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}},"troubleEvent":{"type":"object","additionalProperties":false,"required":["type","start","end","note"],"properties":{"type":{"const":"trouble"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"note":{"type":"string","minLength":1}}},"chapterEvent":{"type":"object","additionalProperties":false,"required":["type","t","title"],"properties":{"type":{"const":"chapter"},"t":{"$ref":"#/$defs/seconds"},"title":{"type":"string","minLength":1}}},"hookScore":{"type":"object","additionalProperties":false,"required":["hook","self_contained","emotion","density","punch"],"properties":{"hook":{"$ref":"#/$defs/scoreValue"},"self_contained":{"$ref":"#/$defs/scoreValue"},"emotion":{"$ref":"#/$defs/scoreValue"},"density":{"$ref":"#/$defs/scoreValue"},"punch":{"$ref":"#/$defs/scoreValue"}}},"scoreValue":{"$comment":"1〜5 の整数尺度は analysis.json v0 の運用仮定。採用閾値は M5 契約どおり運用で調整する。","type":"integer","minimum":1,"maximum":5},"hookEvent":{"type":"object","additionalProperties":false,"required":["type","start","end","score"],"properties":{"type":{"const":"hook"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"score":{"$ref":"#/$defs/hookScore"}}},"highlightEvent":{"$comment":"2026-07-14 追加（後方互換の追加語彙）。ショート向けの hook と異なり、決定事項・結論・数字・強い主張など編集判断全般の根拠になる重要発言を記録する。","type":"object","additionalProperties":false,"required":["type","start","end","quote","reason"],"properties":{"type":{"const":"highlight"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"quote":{"type":"string","minLength":1,"description":"transcript の実発言に忠実な引用。要約・創作をしない。"},"reason":{"type":"string","minLength":1,"description":"なぜ重要か（決定事項・結論・数値/実績・強い主張などの根拠カテゴリと内容）。"},"importance":{"$ref":"#/$defs/scoreValue"}}},"event":{"oneOf":[{"$ref":"#/$defs/fillerEvent"},{"$ref":"#/$defs/troubleEvent"},{"$ref":"#/$defs/chapterEvent"},{"$ref":"#/$defs/highlightEvent"},{"$ref":"#/$defs/hookEvent"}]},"speakerSpan":{"type":"array","prefixItems":[{"$ref":"#/$defs/seconds"},{"$ref":"#/$defs/seconds"}],"items":false,"minItems":2,"maxItems":2},"speakerTrack":{"type":"object","additionalProperties":false,"required":["id","spans"],"properties":{"id":{"type":"string","minLength":1},"spans":{"type":"array","items":{"$ref":"#/$defs/speakerSpan"}}}},"faceBox":{"description":"素材フレームに対する [x, y, width, height] 順の正規化座標。各要素は 0〜1。","$comment":"意味制約として x + width <= 1 かつ y + height <= 1 とする。Draft 2020-12 標準では配列要素間を加算・比較できないため、この条件は生成・検証手順で確認する。","type":"array","prefixItems":[{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1}],"items":false,"minItems":4,"maxItems":4},"faceTrackPoint":{"type":"object","additionalProperties":false,"required":["speaker","t","box"],"properties":{"speaker":{"type":"string","minLength":1},"t":{"$ref":"#/$defs/seconds"},"box":{"$ref":"#/$defs/faceBox"}}},"personMatteTrack":{"$comment":"2026-07-23 追加、2026-08-27 mask_path / mask_format を additive 追加（docs/contract-2026-07-23-analysis-person-matte.md）。path の実体は VP9 alpha WebM（コンテナに alpha_mode=1）、mask_path は追加の full-range H.264 グレースケールマスク。意味制約として、両動画の時刻 0 は素材の時刻 0 と一致し、fps は動画の実 fps と一致する。Draft 2020-12 標準では外部ファイルを参照できないため、この条件は生成・検証手順で確認する。","type":"object","additionalProperties":false,"required":["path","fps"],"properties":{"path":{"type":"string","minLength":1,"description":"マット動画（VP9 alpha WebM）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"},"mask_path":{"type":"string","minLength":1,"description":"追加のグレースケール H.264 マスクへのパス。相対パス規則は path と同じ。"},"mask_format":{"type":"string","minLength":1,"description":"マスク形式。現行の生成器は gray-h264-fullrange を書く。"},"fps":{"type":"number","exclusiveMinimum":0,"description":"マット動画の fps。元素材の fps と一致しなくてよい。"},"quality":{"type":"string","minLength":1,"description":"生成品質。fast / balanced / accurate を例示するが、enum 強制はしない（beats[].kind と同じ流儀）。"},"generated_at":{"type":"string","minLength":1,"description":"生成時刻（ISO8601）。"},"tool":{"type":"string","minLength":1,"description":"生成手段の記録。vision-person-segmentation を例示する。"}}},"visionTrackPointer":{"$comment":"2026-08-11 追加、2026-08-13 body_pose_3d、2026-08-14 face_expression を additive 追加（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）。tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression の共通形。トラック実体は本スキマではなく skills/analyze-footage/references/vision-tracks.schema.json（契約 §2）が定義する外部ファイル。optional キーであり tracks.required には入れない（真に任意）。","type":"object","additionalProperties":false,"required":["path","sample_fps"],"properties":{"path":{"type":"string","minLength":1,"description":"トラックファイル（vision-tracks v0 形式）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"},"sample_fps":{"type":"number","exclusiveMinimum":0,"description":"トラックのサンプリング fps。元素材の fps と一致しなくてよい。"},"provider":{"type":"string","minLength":1,"description":"検出プロバイダの自由文字列。apple-vision を例示するが enum 強制はしない（quality / tool と同じ流儀）。"},"tool":{"type":"string","minLength":1,"description":"生成手段の記録。vision-tracks.mjs v0 を例示する。"},"generated_at":{"type":"string","minLength":1,"description":"生成時刻（ISO8601）。"},"features":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true,"description":"トラック実体が持つ additive な任意特徴。face_landmarks の face_contour などを列挙する。省略された既存ポインタも valid。"}}},"tracks":{"type":"object","additionalProperties":false,"required":["speakers","faces","person_matte"],"properties":{"speakers":{"type":"array","items":{"$ref":"#/$defs/speakerTrack"}},"faces":{"type":"array","items":{"$ref":"#/$defs/faceTrackPoint"}},"person_matte":{"description":"生成済み人物マット。未生成なら null。object 形が正（2026-07-23 追加）。string 形は { path } の糖衣として後方互換で受ける（非推奨）。相対パスは analysis.json の所在ディレクトリを基準に解決する。","oneOf":[{"type":"null"},{"type":"string","minLength":1},{"$ref":"#/$defs/personMatteTrack"}]},"face_landmarks":{"$ref":"#/$defs/visionTrackPointer"},"hand_pose":{"$ref":"#/$defs/visionTrackPointer"},"body_pose_3d":{"$ref":"#/$defs/visionTrackPointer"},"face_expression":{"$ref":"#/$defs/visionTrackPointer"},"waveform":{"$ref":"#/$defs/waveformTrackPointer"}}}},"$id":"urn:akari-video:schema:analysis:v0"};
-const func1 = require("./runtime/ucs2length.cjs").default;
+const schema31 = {"$schema":"https://json-schema.org/draft/2020-12/schema","title":"AKARI Video analysis.json v0","description":"素材 1 本の分析結果を表す中間契約。","$comment":"意味制約として、start/end を持つ全区間では end > start とする。Draft 2020-12 標準では兄弟プロパティ間を比較できないため、この条件は生成・検証手順で確認する。","type":"object","additionalProperties":false,"required":["version","source","transcript","keyframes","events","tracks"],"properties":{"version":{"const":0},"source":{"type":"string","minLength":1,"description":"分析対象素材へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"},"transcript":{"type":"array","items":{"$ref":"#/$defs/transcriptSegment"}},"transcript_language":{"type":"string","pattern":"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$","description":"文字起こしが記録した言語（BCP 47）。transcript 配列の兄弟として置く。transcript は配列のまま。"},"keyframes":{"type":"array","items":{"$ref":"#/$defs/keyframe"}},"events":{"type":"array","items":{"$ref":"#/$defs/event"}},"tracks":{"$ref":"#/$defs/tracks"},"probe":{"$ref":"#/$defs/mediaProbe"},"observations":{"type":"array","items":{"$ref":"#/$defs/observation"}}},"$defs":{"seconds":{"type":"number","minimum":0},"mediaProbe":{"type":"object","additionalProperties":false,"required":["sha256","size_bytes","container","duration_s","video","audio","tool"],"properties":{"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":0},"container":{"type":"string","minLength":1},"duration_s":{"$ref":"#/$defs/seconds"},"video":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["width","height","fps","codec","rotation"],"properties":{"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"fps":{"type":"number","exclusiveMinimum":0},"codec":{"type":"string","minLength":1},"rotation":{"type":"number"}}}]},"audio":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["codec","channels","sample_rate"],"properties":{"codec":{"type":"string","minLength":1},"channels":{"type":"integer","minimum":1},"sample_rate":{"type":"integer","minimum":1}}}]},"tool":{"type":"object","additionalProperties":false,"required":["ffprobe"],"properties":{"ffprobe":{"type":"string","minLength":1}}}}},"observation":{"type":"object","additionalProperties":false,"required":["kind","at","args","outputs","tool"],"properties":{"kind":{"enum":["probe","grab","filmstrip","waveform","transcribe"]},"at":{"type":"string","minLength":1},"range":{"type":"object","additionalProperties":false,"required":["in","out"],"properties":{"in":{"$ref":"#/$defs/seconds"},"out":{"$ref":"#/$defs/seconds"}}},"args":{"type":"object","additionalProperties":true},"outputs":{"type":"array","items":{"type":"string","minLength":1}},"tool":{"type":"string","minLength":1}}},"waveformTrackPointer":{"type":"object","additionalProperties":false,"required":["path","tool","generated_at"],"properties":{"path":{"type":"string","minLength":1},"tool":{"type":"string","minLength":1},"generated_at":{"type":"string","minLength":1}}},"word":{"$comment":"M5 契約例で省略されている words の要素を、区間・本文を持つ最小形として定義する。","type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1}}},"unrecognizedSpan":{"$comment":"音はあるが文字にできなかった区間。無音ではなく、transcriptSegment.words とは重ならない。","type":"object","additionalProperties":false,"required":["start","end"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}},"transcriptSegment":{"type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1},"speaker":{"type":"string","minLength":1},"words":{"type":"array","items":{"$ref":"#/$defs/word"}},"unrecognized":{"type":"array","items":{"$ref":"#/$defs/unrecognizedSpan"}}}},"keyframe":{"type":"object","additionalProperties":false,"required":["t","path","note"],"properties":{"t":{"$ref":"#/$defs/seconds"},"path":{"type":"string","minLength":1,"description":"キーフレーム画像へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"},"note":{"type":"string","minLength":1},"origin":{"enum":["scene","interval","transcript"],"description":"採用元の抽出系統（2026-07-14 追加・任意）。scene = 映像変化検出、interval = 一定間隔、transcript = 発話由来（highlight 等の時刻から抽出）。候補と note の対応トレーサビリティにも使う。"}}},"fillerEvent":{"type":"object","additionalProperties":false,"required":["type","start","end"],"properties":{"type":{"const":"filler"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}},"troubleEvent":{"type":"object","additionalProperties":false,"required":["type","start","end","note"],"properties":{"type":{"const":"trouble"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"note":{"type":"string","minLength":1}}},"chapterEvent":{"type":"object","additionalProperties":false,"required":["type","t","title"],"properties":{"type":{"const":"chapter"},"t":{"$ref":"#/$defs/seconds"},"title":{"type":"string","minLength":1}}},"hookScore":{"type":"object","additionalProperties":false,"required":["hook","self_contained","emotion","density","punch"],"properties":{"hook":{"$ref":"#/$defs/scoreValue"},"self_contained":{"$ref":"#/$defs/scoreValue"},"emotion":{"$ref":"#/$defs/scoreValue"},"density":{"$ref":"#/$defs/scoreValue"},"punch":{"$ref":"#/$defs/scoreValue"}}},"scoreValue":{"$comment":"1〜5 の整数尺度は analysis.json v0 の運用仮定。採用閾値は M5 契約どおり運用で調整する。","type":"integer","minimum":1,"maximum":5},"hookEvent":{"type":"object","additionalProperties":false,"required":["type","start","end","score"],"properties":{"type":{"const":"hook"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"score":{"$ref":"#/$defs/hookScore"}}},"highlightEvent":{"$comment":"2026-07-14 追加（後方互換の追加語彙）。ショート向けの hook と異なり、決定事項・結論・数字・強い主張など編集判断全般の根拠になる重要発言を記録する。","type":"object","additionalProperties":false,"required":["type","start","end","quote","reason"],"properties":{"type":{"const":"highlight"},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"quote":{"type":"string","minLength":1,"description":"transcript の実発言に忠実な引用。要約・創作をしない。"},"reason":{"type":"string","minLength":1,"description":"なぜ重要か（決定事項・結論・数値/実績・強い主張などの根拠カテゴリと内容）。"},"importance":{"$ref":"#/$defs/scoreValue"}}},"event":{"oneOf":[{"$ref":"#/$defs/fillerEvent"},{"$ref":"#/$defs/troubleEvent"},{"$ref":"#/$defs/chapterEvent"},{"$ref":"#/$defs/highlightEvent"},{"$ref":"#/$defs/hookEvent"}]},"speakerSpan":{"type":"array","prefixItems":[{"$ref":"#/$defs/seconds"},{"$ref":"#/$defs/seconds"}],"items":false,"minItems":2,"maxItems":2},"speakerTrack":{"type":"object","additionalProperties":false,"required":["id","spans"],"properties":{"id":{"type":"string","minLength":1},"spans":{"type":"array","items":{"$ref":"#/$defs/speakerSpan"}}}},"faceBox":{"description":"素材フレームに対する [x, y, width, height] 順の正規化座標。各要素は 0〜1。","$comment":"意味制約として x + width <= 1 かつ y + height <= 1 とする。Draft 2020-12 標準では配列要素間を加算・比較できないため、この条件は生成・検証手順で確認する。","type":"array","prefixItems":[{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1}],"items":false,"minItems":4,"maxItems":4},"faceTrackPoint":{"type":"object","additionalProperties":false,"required":["speaker","t","box"],"properties":{"speaker":{"type":"string","minLength":1},"t":{"$ref":"#/$defs/seconds"},"box":{"$ref":"#/$defs/faceBox"}}},"personMatteTrack":{"$comment":"2026-07-23 追加、2026-08-27 mask_path / mask_format を additive 追加（docs/contract-2026-07-23-analysis-person-matte.md）。path の実体は VP9 alpha WebM（コンテナに alpha_mode=1）、mask_path は追加の full-range H.264 グレースケールマスク。意味制約として、両動画の時刻 0 は素材の時刻 0 と一致し、fps は動画の実 fps と一致する。Draft 2020-12 標準では外部ファイルを参照できないため、この条件は生成・検証手順で確認する。","type":"object","additionalProperties":false,"required":["path","fps"],"properties":{"path":{"type":"string","minLength":1,"description":"マット動画（VP9 alpha WebM）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"},"mask_path":{"type":"string","minLength":1,"description":"追加のグレースケール H.264 マスクへのパス。相対パス規則は path と同じ。"},"mask_format":{"type":"string","minLength":1,"description":"マスク形式。現行の生成器は gray-h264-fullrange を書く。"},"fps":{"type":"number","exclusiveMinimum":0,"description":"マット動画の fps。元素材の fps と一致しなくてよい。"},"quality":{"type":"string","minLength":1,"description":"生成品質。fast / balanced / accurate を例示するが、enum 強制はしない（beats[].kind と同じ流儀）。"},"generated_at":{"type":"string","minLength":1,"description":"生成時刻（ISO8601）。"},"tool":{"type":"string","minLength":1,"description":"生成手段の記録。vision-person-segmentation を例示する。"}}},"visionTrackPointer":{"$comment":"2026-08-11 追加、2026-08-13 body_pose_3d、2026-08-14 face_expression を additive 追加（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）。tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression の共通形。トラック実体は本スキマではなく skills/analyze-footage/references/vision-tracks.schema.json（契約 §2）が定義する外部ファイル。optional キーであり tracks.required には入れない（真に任意）。","type":"object","additionalProperties":false,"required":["path","sample_fps"],"properties":{"path":{"type":"string","minLength":1,"description":"トラックファイル（vision-tracks v0 形式）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"},"sample_fps":{"type":"number","exclusiveMinimum":0,"description":"トラックのサンプリング fps。元素材の fps と一致しなくてよい。"},"provider":{"type":"string","minLength":1,"description":"検出プロバイダの自由文字列。apple-vision を例示するが enum 強制はしない（quality / tool と同じ流儀）。"},"tool":{"type":"string","minLength":1,"description":"生成手段の記録。vision-tracks.mjs v0 を例示する。"},"generated_at":{"type":"string","minLength":1,"description":"生成時刻（ISO8601）。"},"features":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true,"description":"トラック実体が持つ additive な任意特徴。face_landmarks の face_contour などを列挙する。省略された既存ポインタも valid。"}}},"tracks":{"type":"object","additionalProperties":false,"required":["speakers","faces","person_matte"],"properties":{"speakers":{"type":"array","items":{"$ref":"#/$defs/speakerTrack"}},"faces":{"type":"array","items":{"$ref":"#/$defs/faceTrackPoint"}},"person_matte":{"description":"生成済み人物マット。未生成なら null。object 形が正（2026-07-23 追加）。string 形は { path } の糖衣として後方互換で受ける（非推奨）。相対パスは analysis.json の所在ディレクトリを基準に解決する。","oneOf":[{"type":"null"},{"type":"string","minLength":1},{"$ref":"#/$defs/personMatteTrack"}]},"face_landmarks":{"$ref":"#/$defs/visionTrackPointer"},"hand_pose":{"$ref":"#/$defs/visionTrackPointer"},"body_pose_3d":{"$ref":"#/$defs/visionTrackPointer"},"face_expression":{"$ref":"#/$defs/visionTrackPointer"},"waveform":{"$ref":"#/$defs/waveformTrackPointer"}}}},"$id":"urn:akari-video:schema:analysis:v0"};
+const func1 = Object.prototype.hasOwnProperty;
+const func2 = require("./runtime/ucs2length.cjs").default;
 const schema32 = {"type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1},"speaker":{"type":"string","minLength":1},"words":{"type":"array","items":{"$ref":"#/$defs/word"}},"unrecognized":{"type":"array","items":{"$ref":"#/$defs/unrecognizedSpan"}}}};
 const schema33 = {"type":"number","minimum":0};
 const schema35 = {"$comment":"M5 契約例で省略されている words の要素を、区間・本文を持つ最小形として定義する。","type":"object","additionalProperties":false,"required":["start","end","text"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1}}};
@@ -112,7 +113,7 @@ errors++;
 if(data.text !== undefined){
 let data2 = data.text;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err8 = {instancePath:instancePath+"/text",schemaPath:"#/properties/text/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err8];
@@ -368,7 +369,7 @@ errors++;
 if(data.text !== undefined){
 let data2 = data.text;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err8 = {instancePath:instancePath+"/text",schemaPath:"#/properties/text/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err8];
@@ -393,7 +394,7 @@ errors++;
 if(data.speaker !== undefined){
 let data3 = data.speaker;
 if(typeof data3 === "string"){
-if(func1(data3) < 1){
+if(func2(data3) < 1){
 const err10 = {instancePath:instancePath+"/speaker",schemaPath:"#/properties/speaker/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err10];
@@ -558,7 +559,7 @@ errors++;
 if(data.path !== undefined){
 let data1 = data.path;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err6 = {instancePath:instancePath+"/path",schemaPath:"#/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err6];
@@ -583,7 +584,7 @@ errors++;
 if(data.note !== undefined){
 let data2 = data.note;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err8 = {instancePath:instancePath+"/note",schemaPath:"#/properties/note/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err8];
@@ -898,7 +899,7 @@ errors++;
 if(data.note !== undefined){
 let data3 = data.note;
 if(typeof data3 === "string"){
-if(func1(data3) < 1){
+if(func2(data3) < 1){
 const err10 = {instancePath:instancePath+"/note",schemaPath:"#/properties/note/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err10];
@@ -1031,7 +1032,7 @@ errors++;
 if(data.title !== undefined){
 let data2 = data.title;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err7 = {instancePath:instancePath+"/title",schemaPath:"#/properties/title/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err7];
@@ -1210,7 +1211,7 @@ errors++;
 if(data.quote !== undefined){
 let data3 = data.quote;
 if(typeof data3 === "string"){
-if(func1(data3) < 1){
+if(func2(data3) < 1){
 const err11 = {instancePath:instancePath+"/quote",schemaPath:"#/properties/quote/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err11];
@@ -1235,7 +1236,7 @@ errors++;
 if(data.reason !== undefined){
 let data4 = data.reason;
 if(typeof data4 === "string"){
-if(func1(data4) < 1){
+if(func2(data4) < 1){
 const err13 = {instancePath:instancePath+"/reason",schemaPath:"#/properties/reason/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err13];
@@ -2014,7 +2015,7 @@ errors++;
 if(data.id !== undefined){
 let data0 = data.id;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err3 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err3];
@@ -2133,7 +2134,7 @@ errors++;
 if(data.speaker !== undefined){
 let data0 = data.speaker;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err4 = {instancePath:instancePath+"/speaker",schemaPath:"#/properties/speaker/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err4];
@@ -2504,7 +2505,7 @@ passing0 = 0;
 }
 const _errs12 = errors;
 if(typeof data4 === "string"){
-if(func1(data4) < 1){
+if(func2(data4) < 1){
 const err7 = {instancePath:instancePath+"/person_matte",schemaPath:"#/properties/person_matte/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err7];
@@ -2572,7 +2573,7 @@ errors++;
 if(data4.path !== undefined){
 let data5 = data4.path;
 if(typeof data5 === "string"){
-if(func1(data5) < 1){
+if(func2(data5) < 1){
 const err12 = {instancePath:instancePath+"/person_matte/path",schemaPath:"#/$defs/personMatteTrack/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err12];
@@ -2597,7 +2598,7 @@ errors++;
 if(data4.mask_path !== undefined){
 let data6 = data4.mask_path;
 if(typeof data6 === "string"){
-if(func1(data6) < 1){
+if(func2(data6) < 1){
 const err14 = {instancePath:instancePath+"/person_matte/mask_path",schemaPath:"#/$defs/personMatteTrack/properties/mask_path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err14];
@@ -2622,7 +2623,7 @@ errors++;
 if(data4.mask_format !== undefined){
 let data7 = data4.mask_format;
 if(typeof data7 === "string"){
-if(func1(data7) < 1){
+if(func2(data7) < 1){
 const err16 = {instancePath:instancePath+"/person_matte/mask_format",schemaPath:"#/$defs/personMatteTrack/properties/mask_format/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err16];
@@ -2672,7 +2673,7 @@ errors++;
 if(data4.quality !== undefined){
 let data9 = data4.quality;
 if(typeof data9 === "string"){
-if(func1(data9) < 1){
+if(func2(data9) < 1){
 const err20 = {instancePath:instancePath+"/person_matte/quality",schemaPath:"#/$defs/personMatteTrack/properties/quality/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err20];
@@ -2697,7 +2698,7 @@ errors++;
 if(data4.generated_at !== undefined){
 let data10 = data4.generated_at;
 if(typeof data10 === "string"){
-if(func1(data10) < 1){
+if(func2(data10) < 1){
 const err22 = {instancePath:instancePath+"/person_matte/generated_at",schemaPath:"#/$defs/personMatteTrack/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err22];
@@ -2722,7 +2723,7 @@ errors++;
 if(data4.tool !== undefined){
 let data11 = data4.tool;
 if(typeof data11 === "string"){
-if(func1(data11) < 1){
+if(func2(data11) < 1){
 const err24 = {instancePath:instancePath+"/person_matte/tool",schemaPath:"#/$defs/personMatteTrack/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err24];
@@ -2827,7 +2828,7 @@ errors++;
 if(data12.path !== undefined){
 let data13 = data12.path;
 if(typeof data13 === "string"){
-if(func1(data13) < 1){
+if(func2(data13) < 1){
 const err31 = {instancePath:instancePath+"/face_landmarks/path",schemaPath:"#/$defs/visionTrackPointer/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err31];
@@ -2877,7 +2878,7 @@ errors++;
 if(data12.provider !== undefined){
 let data15 = data12.provider;
 if(typeof data15 === "string"){
-if(func1(data15) < 1){
+if(func2(data15) < 1){
 const err35 = {instancePath:instancePath+"/face_landmarks/provider",schemaPath:"#/$defs/visionTrackPointer/properties/provider/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err35];
@@ -2902,7 +2903,7 @@ errors++;
 if(data12.tool !== undefined){
 let data16 = data12.tool;
 if(typeof data16 === "string"){
-if(func1(data16) < 1){
+if(func2(data16) < 1){
 const err37 = {instancePath:instancePath+"/face_landmarks/tool",schemaPath:"#/$defs/visionTrackPointer/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err37];
@@ -2927,7 +2928,7 @@ errors++;
 if(data12.generated_at !== undefined){
 let data17 = data12.generated_at;
 if(typeof data17 === "string"){
-if(func1(data17) < 1){
+if(func2(data17) < 1){
 const err39 = {instancePath:instancePath+"/face_landmarks/generated_at",schemaPath:"#/$defs/visionTrackPointer/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err39];
@@ -2956,7 +2957,7 @@ const len2 = data18.length;
 for(let i2=0; i2<len2; i2++){
 let data19 = data18[i2];
 if(typeof data19 === "string"){
-if(func1(data19) < 1){
+if(func2(data19) < 1){
 const err41 = {instancePath:instancePath+"/face_landmarks/features/" + i2,schemaPath:"#/$defs/visionTrackPointer/properties/features/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err41];
@@ -3064,7 +3065,7 @@ errors++;
 if(data20.path !== undefined){
 let data21 = data20.path;
 if(typeof data21 === "string"){
-if(func1(data21) < 1){
+if(func2(data21) < 1){
 const err49 = {instancePath:instancePath+"/hand_pose/path",schemaPath:"#/$defs/visionTrackPointer/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err49];
@@ -3114,7 +3115,7 @@ errors++;
 if(data20.provider !== undefined){
 let data23 = data20.provider;
 if(typeof data23 === "string"){
-if(func1(data23) < 1){
+if(func2(data23) < 1){
 const err53 = {instancePath:instancePath+"/hand_pose/provider",schemaPath:"#/$defs/visionTrackPointer/properties/provider/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err53];
@@ -3139,7 +3140,7 @@ errors++;
 if(data20.tool !== undefined){
 let data24 = data20.tool;
 if(typeof data24 === "string"){
-if(func1(data24) < 1){
+if(func2(data24) < 1){
 const err55 = {instancePath:instancePath+"/hand_pose/tool",schemaPath:"#/$defs/visionTrackPointer/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err55];
@@ -3164,7 +3165,7 @@ errors++;
 if(data20.generated_at !== undefined){
 let data25 = data20.generated_at;
 if(typeof data25 === "string"){
-if(func1(data25) < 1){
+if(func2(data25) < 1){
 const err57 = {instancePath:instancePath+"/hand_pose/generated_at",schemaPath:"#/$defs/visionTrackPointer/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err57];
@@ -3193,7 +3194,7 @@ const len3 = data26.length;
 for(let i4=0; i4<len3; i4++){
 let data27 = data26[i4];
 if(typeof data27 === "string"){
-if(func1(data27) < 1){
+if(func2(data27) < 1){
 const err59 = {instancePath:instancePath+"/hand_pose/features/" + i4,schemaPath:"#/$defs/visionTrackPointer/properties/features/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err59];
@@ -3301,7 +3302,7 @@ errors++;
 if(data28.path !== undefined){
 let data29 = data28.path;
 if(typeof data29 === "string"){
-if(func1(data29) < 1){
+if(func2(data29) < 1){
 const err67 = {instancePath:instancePath+"/body_pose_3d/path",schemaPath:"#/$defs/visionTrackPointer/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err67];
@@ -3351,7 +3352,7 @@ errors++;
 if(data28.provider !== undefined){
 let data31 = data28.provider;
 if(typeof data31 === "string"){
-if(func1(data31) < 1){
+if(func2(data31) < 1){
 const err71 = {instancePath:instancePath+"/body_pose_3d/provider",schemaPath:"#/$defs/visionTrackPointer/properties/provider/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err71];
@@ -3376,7 +3377,7 @@ errors++;
 if(data28.tool !== undefined){
 let data32 = data28.tool;
 if(typeof data32 === "string"){
-if(func1(data32) < 1){
+if(func2(data32) < 1){
 const err73 = {instancePath:instancePath+"/body_pose_3d/tool",schemaPath:"#/$defs/visionTrackPointer/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err73];
@@ -3401,7 +3402,7 @@ errors++;
 if(data28.generated_at !== undefined){
 let data33 = data28.generated_at;
 if(typeof data33 === "string"){
-if(func1(data33) < 1){
+if(func2(data33) < 1){
 const err75 = {instancePath:instancePath+"/body_pose_3d/generated_at",schemaPath:"#/$defs/visionTrackPointer/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err75];
@@ -3430,7 +3431,7 @@ const len4 = data34.length;
 for(let i6=0; i6<len4; i6++){
 let data35 = data34[i6];
 if(typeof data35 === "string"){
-if(func1(data35) < 1){
+if(func2(data35) < 1){
 const err77 = {instancePath:instancePath+"/body_pose_3d/features/" + i6,schemaPath:"#/$defs/visionTrackPointer/properties/features/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err77];
@@ -3538,7 +3539,7 @@ errors++;
 if(data36.path !== undefined){
 let data37 = data36.path;
 if(typeof data37 === "string"){
-if(func1(data37) < 1){
+if(func2(data37) < 1){
 const err85 = {instancePath:instancePath+"/face_expression/path",schemaPath:"#/$defs/visionTrackPointer/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err85];
@@ -3588,7 +3589,7 @@ errors++;
 if(data36.provider !== undefined){
 let data39 = data36.provider;
 if(typeof data39 === "string"){
-if(func1(data39) < 1){
+if(func2(data39) < 1){
 const err89 = {instancePath:instancePath+"/face_expression/provider",schemaPath:"#/$defs/visionTrackPointer/properties/provider/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err89];
@@ -3613,7 +3614,7 @@ errors++;
 if(data36.tool !== undefined){
 let data40 = data36.tool;
 if(typeof data40 === "string"){
-if(func1(data40) < 1){
+if(func2(data40) < 1){
 const err91 = {instancePath:instancePath+"/face_expression/tool",schemaPath:"#/$defs/visionTrackPointer/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err91];
@@ -3638,7 +3639,7 @@ errors++;
 if(data36.generated_at !== undefined){
 let data41 = data36.generated_at;
 if(typeof data41 === "string"){
-if(func1(data41) < 1){
+if(func2(data41) < 1){
 const err93 = {instancePath:instancePath+"/face_expression/generated_at",schemaPath:"#/$defs/visionTrackPointer/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err93];
@@ -3667,7 +3668,7 @@ const len5 = data42.length;
 for(let i8=0; i8<len5; i8++){
 let data43 = data42[i8];
 if(typeof data43 === "string"){
-if(func1(data43) < 1){
+if(func2(data43) < 1){
 const err95 = {instancePath:instancePath+"/face_expression/features/" + i8,schemaPath:"#/$defs/visionTrackPointer/properties/features/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err95];
@@ -3785,7 +3786,7 @@ errors++;
 if(data44.path !== undefined){
 let data45 = data44.path;
 if(typeof data45 === "string"){
-if(func1(data45) < 1){
+if(func2(data45) < 1){
 const err104 = {instancePath:instancePath+"/waveform/path",schemaPath:"#/$defs/waveformTrackPointer/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err104];
@@ -3810,7 +3811,7 @@ errors++;
 if(data44.tool !== undefined){
 let data46 = data44.tool;
 if(typeof data46 === "string"){
-if(func1(data46) < 1){
+if(func2(data46) < 1){
 const err106 = {instancePath:instancePath+"/waveform/tool",schemaPath:"#/$defs/waveformTrackPointer/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err106];
@@ -3835,7 +3836,7 @@ errors++;
 if(data44.generated_at !== undefined){
 let data47 = data44.generated_at;
 if(typeof data47 === "string"){
-if(func1(data47) < 1){
+if(func2(data47) < 1){
 const err108 = {instancePath:instancePath+"/waveform/generated_at",schemaPath:"#/$defs/waveformTrackPointer/properties/generated_at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err108];
@@ -3886,7 +3887,7 @@ return errors === 0;
 validate43.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema79 = {"type":"object","additionalProperties":false,"required":["sha256","size_bytes","container","duration_s","video","audio","tool"],"properties":{"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":0},"container":{"type":"string","minLength":1},"duration_s":{"$ref":"#/$defs/seconds"},"video":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["width","height","fps","codec","rotation"],"properties":{"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"fps":{"type":"number","exclusiveMinimum":0},"codec":{"type":"string","minLength":1},"rotation":{"type":"number"}}}]},"audio":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["codec","channels","sample_rate"],"properties":{"codec":{"type":"string","minLength":1},"channels":{"type":"integer","minimum":1},"sample_rate":{"type":"integer","minimum":1}}}]},"tool":{"type":"object","additionalProperties":false,"required":["ffprobe"],"properties":{"ffprobe":{"type":"string","minLength":1}}}}};
-const pattern4 = new RegExp("^[0-9a-f]{64}$", "u");
+const pattern5 = new RegExp("^[0-9a-f]{64}$", "u");
 
 function validate51(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -3984,7 +3985,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data0 = data.sha256;
 if(typeof data0 === "string"){
-if(!pattern4.test(data0)){
+if(!pattern5.test(data0)){
 const err8 = {instancePath:instancePath+"/sha256",schemaPath:"#/properties/sha256/pattern",keyword:"pattern",params:{pattern: "^[0-9a-f]{64}$"},message:"must match pattern \""+"^[0-9a-f]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err8];
@@ -4034,7 +4035,7 @@ errors++;
 if(data.container !== undefined){
 let data2 = data.container;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err12 = {instancePath:instancePath+"/container",schemaPath:"#/properties/container/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err12];
@@ -4244,7 +4245,7 @@ errors++;
 if(data4.codec !== undefined){
 let data8 = data4.codec;
 if(typeof data8 === "string"){
-if(func1(data8) < 1){
+if(func2(data8) < 1){
 const err29 = {instancePath:instancePath+"/video/codec",schemaPath:"#/properties/video/oneOf/1/properties/codec/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err29];
@@ -4390,7 +4391,7 @@ errors++;
 if(data10.codec !== undefined){
 let data11 = data10.codec;
 if(typeof data11 === "string"){
-if(func1(data11) < 1){
+if(func2(data11) < 1){
 const err39 = {instancePath:instancePath+"/audio/codec",schemaPath:"#/properties/audio/oneOf/1/properties/codec/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err39];
@@ -4534,7 +4535,7 @@ errors++;
 if(data14.ffprobe !== undefined){
 let data15 = data14.ffprobe;
 if(typeof data15 === "string"){
-if(func1(data15) < 1){
+if(func2(data15) < 1){
 const err49 = {instancePath:instancePath+"/tool/ffprobe",schemaPath:"#/properties/tool/properties/ffprobe/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err49];
@@ -4675,7 +4676,7 @@ errors++;
 if(data.at !== undefined){
 let data1 = data.at;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err7 = {instancePath:instancePath+"/at",schemaPath:"#/properties/at/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err7];
@@ -4816,7 +4817,7 @@ const len0 = data6.length;
 for(let i0=0; i0<len0; i0++){
 let data7 = data6[i0];
 if(typeof data7 === "string"){
-if(func1(data7) < 1){
+if(func2(data7) < 1){
 const err18 = {instancePath:instancePath+"/outputs/" + i0,schemaPath:"#/properties/outputs/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err18];
@@ -4853,7 +4854,7 @@ errors++;
 if(data.tool !== undefined){
 let data8 = data.tool;
 if(typeof data8 === "string"){
-if(func1(data8) < 1){
+if(func2(data8) < 1){
 const err21 = {instancePath:instancePath+"/tool",schemaPath:"#/properties/tool/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err21];
@@ -4891,6 +4892,7 @@ return errors === 0;
 }
 validate53.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
+const pattern4 = new RegExp("^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$", "u");
 
 function validate20(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="urn:akari-video:schema:analysis:v0" */;
@@ -4965,7 +4967,7 @@ vErrors.push(err5);
 errors++;
 }
 for(const key0 in data){
-if(!((((((((key0 === "version") || (key0 === "source")) || (key0 === "transcript")) || (key0 === "keyframes")) || (key0 === "events")) || (key0 === "tracks")) || (key0 === "probe")) || (key0 === "observations"))){
+if(!(func1.call(schema31.properties, key0))){
 const err6 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err6];
@@ -4991,7 +4993,7 @@ errors++;
 if(data.source !== undefined){
 let data1 = data.source;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err8 = {instancePath:instancePath+"/source",schemaPath:"#/properties/source/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err8];
@@ -5035,19 +5037,11 @@ vErrors.push(err10);
 errors++;
 }
 }
-if(data.keyframes !== undefined){
-let data4 = data.keyframes;
-if(Array.isArray(data4)){
-const len1 = data4.length;
-for(let i1=0; i1<len1; i1++){
-if(!(validate27(data4[i1], {instancePath:instancePath+"/keyframes/" + i1,parentData:data4,parentDataProperty:i1,rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
-errors = vErrors.length;
-}
-}
-}
-else {
-const err11 = {instancePath:instancePath+"/keyframes",schemaPath:"#/properties/keyframes/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data.transcript_language !== undefined){
+let data4 = data.transcript_language;
+if(typeof data4 === "string"){
+if(!pattern4.test(data4)){
+const err11 = {instancePath:instancePath+"/transcript_language",schemaPath:"#/properties/transcript_language/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"},message:"must match pattern \""+"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"+"\""};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -5057,24 +5051,57 @@ vErrors.push(err11);
 errors++;
 }
 }
+else {
+const err12 = {instancePath:instancePath+"/transcript_language",schemaPath:"#/properties/transcript_language/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+}
+if(data.keyframes !== undefined){
+let data5 = data.keyframes;
+if(Array.isArray(data5)){
+const len1 = data5.length;
+for(let i1=0; i1<len1; i1++){
+if(!(validate27(data5[i1], {instancePath:instancePath+"/keyframes/" + i1,parentData:data5,parentDataProperty:i1,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
+errors = vErrors.length;
+}
+}
+}
+else {
+const err13 = {instancePath:instancePath+"/keyframes",schemaPath:"#/properties/keyframes/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+}
 if(data.events !== undefined){
-let data6 = data.events;
-if(Array.isArray(data6)){
-const len2 = data6.length;
+let data7 = data.events;
+if(Array.isArray(data7)){
+const len2 = data7.length;
 for(let i2=0; i2<len2; i2++){
-if(!(validate29(data6[i2], {instancePath:instancePath+"/events/" + i2,parentData:data6,parentDataProperty:i2,rootData,dynamicAnchors}))){
+if(!(validate29(data7[i2], {instancePath:instancePath+"/events/" + i2,parentData:data7,parentDataProperty:i2,rootData,dynamicAnchors}))){
 vErrors = vErrors === null ? validate29.errors : vErrors.concat(validate29.errors);
 errors = vErrors.length;
 }
 }
 }
 else {
-const err12 = {instancePath:instancePath+"/events",schemaPath:"#/properties/events/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err14 = {instancePath:instancePath+"/events",schemaPath:"#/properties/events/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
-vErrors = [err12];
+vErrors = [err14];
 }
 else {
-vErrors.push(err12);
+vErrors.push(err14);
 }
 errors++;
 }
@@ -5092,35 +5119,35 @@ errors = vErrors.length;
 }
 }
 if(data.observations !== undefined){
-let data10 = data.observations;
-if(Array.isArray(data10)){
-const len3 = data10.length;
+let data11 = data.observations;
+if(Array.isArray(data11)){
+const len3 = data11.length;
 for(let i3=0; i3<len3; i3++){
-if(!(validate53(data10[i3], {instancePath:instancePath+"/observations/" + i3,parentData:data10,parentDataProperty:i3,rootData,dynamicAnchors}))){
+if(!(validate53(data11[i3], {instancePath:instancePath+"/observations/" + i3,parentData:data11,parentDataProperty:i3,rootData,dynamicAnchors}))){
 vErrors = vErrors === null ? validate53.errors : vErrors.concat(validate53.errors);
 errors = vErrors.length;
 }
 }
 }
 else {
-const err13 = {instancePath:instancePath+"/observations",schemaPath:"#/properties/observations/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err15 = {instancePath:instancePath+"/observations",schemaPath:"#/properties/observations/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
-vErrors = [err13];
+vErrors = [err15];
 }
 else {
-vErrors.push(err13);
+vErrors.push(err15);
 }
 errors++;
 }
 }
 }
 else {
-const err14 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err16 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
-vErrors = [err14];
+vErrors = [err16];
 }
 else {
-vErrors.push(err14);
+vErrors.push(err16);
 }
 errors++;
 }
@@ -5132,8 +5159,8 @@ validate20.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 exports.validateSemanticKeepPlan = validate55;
 const schema84 = {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:akari-video:schema:semantic-keep-plan:v1","title":"AKARI semantic keep plan v1","type":"object","additionalProperties":false,"required":["version","kind","intended_edit_version","candidate_frame_rate","sources","occurrences"],"properties":{"version":{"const":1},"kind":{"const":"akari-semantic-keep-plan-v1"},"intended_edit_version":{"enum":[0,1]},"candidate_frame_rate":{"const":30},"sources":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/source"}},"occurrences":{"type":"array","maxItems":100000,"items":{"$ref":"#/$defs/occurrence"}}},"$defs":{"source":{"type":"object","additionalProperties":false,"required":["id","path"],"properties":{"id":{"oneOf":[{"type":"null"},{"type":"string","minLength":1,"pattern":"\\S"}]},"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"}}},"occurrence":{"type":"object","additionalProperties":false,"required":["source_index","range"],"properties":{"source_index":{"type":"integer","minimum":0},"range":{"oneOf":[{"$ref":"#/$defs/explicitRange"},{"$ref":"#/$defs/fullSourceRange"}]}}},"explicitRange":{"type":"object","additionalProperties":false,"required":["mode","in","out"],"properties":{"mode":{"const":"explicit"},"in":{"type":"number","minimum":0},"out":{"type":"number","exclusiveMinimum":0}}},"fullSourceRange":{"type":"object","additionalProperties":false,"required":["mode"],"properties":{"mode":{"const":"full_source"}}}}};
 const schema85 = {"type":"object","additionalProperties":false,"required":["id","path"],"properties":{"id":{"oneOf":[{"type":"null"},{"type":"string","minLength":1,"pattern":"\\S"}]},"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"}}};
-const pattern5 = new RegExp("\\S", "u");
-const pattern6 = new RegExp("^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$", "u");
+const pattern6 = new RegExp("\\S", "u");
+const pattern7 = new RegExp("^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$", "u");
 const schema86 = {"type":"object","additionalProperties":false,"required":["source_index","range"],"properties":{"source_index":{"type":"integer","minimum":0},"range":{"oneOf":[{"$ref":"#/$defs/explicitRange"},{"$ref":"#/$defs/fullSourceRange"}]}}};
 const schema87 = {"type":"object","additionalProperties":false,"required":["mode","in","out"],"properties":{"mode":{"const":"explicit"},"in":{"type":"number","minimum":0},"out":{"type":"number","exclusiveMinimum":0}}};
 const schema88 = {"type":"object","additionalProperties":false,"required":["mode"],"properties":{"mode":{"const":"full_source"}}};
@@ -5649,7 +5676,7 @@ passing0 = 0;
 }
 const _errs16 = errors;
 if(typeof data6 === "string"){
-if(func1(data6) < 1){
+if(func2(data6) < 1){
 const err17 = {instancePath:instancePath+"/sources/" + i0+"/id",schemaPath:"#/$defs/source/properties/id/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err17];
@@ -5659,7 +5686,7 @@ vErrors.push(err17);
 }
 errors++;
 }
-if(!pattern5.test(data6)){
+if(!pattern6.test(data6)){
 const err18 = {instancePath:instancePath+"/sources/" + i0+"/id",schemaPath:"#/$defs/source/properties/id/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err18];
@@ -5716,7 +5743,7 @@ vErrors = null;
 if(data5.path !== undefined){
 let data7 = data5.path;
 if(typeof data7 === "string"){
-if(func1(data7) < 1){
+if(func2(data7) < 1){
 const err21 = {instancePath:instancePath+"/sources/" + i0+"/path",schemaPath:"#/$defs/source/properties/path/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err21];
@@ -5726,7 +5753,7 @@ vErrors.push(err21);
 }
 errors++;
 }
-if(!pattern6.test(data7)){
+if(!pattern7.test(data7)){
 const err22 = {instancePath:instancePath+"/sources/" + i0+"/path",schemaPath:"#/$defs/source/properties/path/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err22];
@@ -5822,13 +5849,12 @@ validate55.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 exports.validateCutCandidates = validate58;
 const schema89 = {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:akari-video:schema:cut-candidates:v1","title":"AKARI cut candidate report v1","type":"object","additionalProperties":false,"required":["version","kind","policy","inputs","tool","candidates","skipped","summary","residual_risks","approved_to_apply","edit_json_modified"],"properties":{"version":{"const":1},"kind":{"const":"akari-cut-candidates-v1"},"policy":{"$ref":"#/$defs/policy"},"inputs":{"$ref":"#/$defs/inputs"},"tool":{"$ref":"#/$defs/tool"},"candidates":{"type":"array","maxItems":1000000,"items":{"oneOf":[{"$ref":"#/$defs/semanticCandidate"},{"$ref":"#/$defs/pauseCandidate"}]}},"skipped":{"type":"array","maxItems":1000000,"items":{"$ref":"#/$defs/skipped"}},"summary":{"$ref":"#/$defs/summary"},"residual_risks":{"type":"array","minItems":3,"maxItems":3,"uniqueItems":true,"items":{"enum":["ANALYSIS_FRESHNESS_UNVERIFIED","CONCURRENT_RETARGET_NOT_PROVEN","DYNAMIC_LIBRARY_CLOSURE_UNVERIFIED"]}},"approved_to_apply":{"const":false},"edit_json_modified":{"const":false}},"$defs":{"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"bytes":{"type":"integer","minimum":0},"relativePath":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},"src":{"oneOf":[{"type":"null"},{"type":"string","minLength":1,"pattern":"\\S"}]},"seconds":{"type":"number","minimum":0},"interval":{"type":"object","additionalProperties":false,"required":["start","end"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}},"wordRef":{"type":"object","additionalProperties":false,"required":["segment_index","word_index","start","end","text"],"properties":{"segment_index":{"type":"integer","minimum":0},"word_index":{"type":"integer","minimum":0},"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"text":{"type":"string","minLength":1}}},"nullableWordRef":{"oneOf":[{"type":"null"},{"$ref":"#/$defs/wordRef"}]},"context":{"type":"object","additionalProperties":false,"required":["start","end","previous_word","next_word","chapter_event_indexes","keyframe_input_indexes"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"},"previous_word":{"$ref":"#/$defs/nullableWordRef"},"next_word":{"$ref":"#/$defs/nullableWordRef"},"chapter_event_indexes":{"type":"array","items":{"type":"integer","minimum":0}},"keyframe_input_indexes":{"type":"array","items":{"type":"integer","minimum":0}}}},"policyValues":{"type":"object","additionalProperties":false,"required":["silence_detection_db","minimum_silence_seconds","retained_pause_seconds","surrounding_context_seconds","speech_guard_seconds","frame_rate"],"properties":{"silence_detection_db":{"const":-35},"minimum_silence_seconds":{"const":0.45},"retained_pause_seconds":{"type":"object","additionalProperties":false,"required":["within_sentence","sentence_end","topic_transition"],"properties":{"within_sentence":{"const":0.1},"sentence_end":{"const":0.166667},"topic_transition":{"const":0.3}}},"surrounding_context_seconds":{"const":1},"speech_guard_seconds":{"const":0.033333},"frame_rate":{"const":30}}},"policy":{"type":"object","additionalProperties":false,"required":["id","origin","skill_relative_path","bytes","sha256","values"],"properties":{"id":{"const":"a4-conversation-v1"},"origin":{"const":"EDIT_PLAN_SKILL"},"skill_relative_path":{"const":"references/cut-candidate-policy.a4-conversation-v1.json"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"values":{"$ref":"#/$defs/policyValues"}}},"fileReceipt":{"type":"object","additionalProperties":false,"required":["path","bytes","sha256"],"properties":{"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"}}},"semanticKeepPlanReceipt":{"type":"object","additionalProperties":false,"required":["path","bytes","sha256","claim"],"properties":{"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"claim":{"const":"CALLER_SUPPLIED_SEMANTIC_KEEP_DRAFT"}}},"decisionLogReceipt":{"type":"object","additionalProperties":false,"required":["path","bytes","sha256","approval_ref","verification"],"properties":{"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"approval_ref":{"type":"string","pattern":"^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$"},"verification":{"const":"CALLER_ASSERTED_NOT_MACHINE_VERIFIED"}}},"probeStream":{"type":"object","additionalProperties":false,"required":["index","codec_type","duration_seconds"],"properties":{"index":{"type":"integer","minimum":0},"codec_type":{"type":"string","minLength":1},"duration_seconds":{"oneOf":[{"type":"null"},{"type":"number","minimum":0}]}}},"probe":{"type":"object","additionalProperties":false,"required":["format_names","format_duration_seconds","stream_count","audio_stream_count","streams","selected_audio_stream_index","selected_audio_codec_type","selected_audio_duration_seconds","audio_format_delta_seconds","normalized_sha256"],"properties":{"format_names":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"format_duration_seconds":{"type":"number","exclusiveMinimum":0},"stream_count":{"type":"integer","minimum":1},"audio_stream_count":{"const":1},"streams":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/probeStream"}},"selected_audio_stream_index":{"type":"integer","minimum":0},"selected_audio_codec_type":{"const":"audio"},"selected_audio_duration_seconds":{"oneOf":[{"type":"null"},{"type":"number","minimum":0}]},"audio_format_delta_seconds":{"oneOf":[{"type":"null"},{"type":"number","minimum":0}]},"normalized_sha256":{"$ref":"#/$defs/sha256"}}},"detector":{"type":"object","additionalProperties":false,"required":["status","silence_pair_count","stderr_bytes","argv_template_sha256"],"properties":{"status":{"enum":["COMPLETED","NOT_RUN_WORD_TIMING_UNAVAILABLE"]},"silence_pair_count":{"type":"integer","minimum":0},"stderr_bytes":{"$ref":"#/$defs/bytes"},"argv_template_sha256":{"$ref":"#/$defs/sha256"}}},"processedSource":{"type":"object","additionalProperties":false,"required":["id","path","bytes","sha256","source_order","probe","detector"],"properties":{"id":{"$ref":"#/$defs/src"},"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"source_order":{"type":"integer","minimum":0},"probe":{"$ref":"#/$defs/probe"},"detector":{"$ref":"#/$defs/detector"}}},"analysisReceipt":{"type":"object","additionalProperties":false,"required":["src","path","bytes","sha256","analysis_freshness"],"properties":{"src":{"$ref":"#/$defs/src"},"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"analysis_freshness":{"const":"UNVERIFIED_CONTRACT_LIMIT"}}},"keyframeReceipt":{"type":"object","additionalProperties":false,"required":["input_index","src","t","path","bytes","sha256","note"],"properties":{"input_index":{"type":"integer","minimum":0},"src":{"$ref":"#/$defs/src"},"t":{"$ref":"#/$defs/seconds"},"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"note":{"type":"string","minLength":1},"origin":{"enum":["scene","interval","transcript"]}}},"inputs":{"type":"object","additionalProperties":false,"required":["semantic_keep_plan","decision_log","processed_sources","analyses","keyframes"],"properties":{"semantic_keep_plan":{"$ref":"#/$defs/semanticKeepPlanReceipt"},"decision_log":{"$ref":"#/$defs/decisionLogReceipt"},"processed_sources":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/processedSource"}},"analyses":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/analysisReceipt"}},"keyframes":{"type":"array","items":{"$ref":"#/$defs/keyframeReceipt"}}}},"moduleReceipt":{"type":"object","additionalProperties":false,"required":["role","skill_relative_path","bytes","sha256"],"properties":{"role":{"enum":["entrypoint","helper","schema_validator","semantic_validator","vendor_runtime"]},"skill_relative_path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"}}},"schemaReceipt":{"type":"object","additionalProperties":false,"required":["id","canonical_source_path","sha256"],"properties":{"id":{"enum":["analysis-v0","semantic-keep-plan-v1","cut-candidates-v1"]},"canonical_source_path":{"enum":["packages/schemas/analysis.schema.json","packages/schemas/semantic-keep-plan.schema.json","packages/schemas/cut-candidates.schema.json"]},"sha256":{"$ref":"#/$defs/sha256"}}},"binaryToolReceipt":{"type":"object","additionalProperties":false,"required":["version","binary_bytes","binary_sha256"],"properties":{"version":{"type":"string","minLength":1,"maxLength":512},"binary_bytes":{"$ref":"#/$defs/bytes"},"binary_sha256":{"$ref":"#/$defs/sha256"}}},"nodeReceipt":{"type":"object","additionalProperties":false,"required":["platform","arch","node_version","v8_version","node_binary_bytes","node_binary_sha256"],"properties":{"platform":{"type":"string","minLength":1},"arch":{"type":"string","minLength":1},"node_version":{"type":"string","minLength":1},"v8_version":{"type":"string","minLength":1},"node_binary_bytes":{"$ref":"#/$defs/bytes"},"node_binary_sha256":{"$ref":"#/$defs/sha256"}}},"tool":{"type":"object","additionalProperties":false,"required":["module_source_set","module_source_set_sha256","contract_schemas","ffmpeg","ffprobe","node","detector_argv_template_sha256"],"properties":{"module_source_set":{"type":"array","minItems":4,"items":{"$ref":"#/$defs/moduleReceipt"}},"module_source_set_sha256":{"$ref":"#/$defs/sha256"},"contract_schemas":{"type":"array","minItems":3,"maxItems":3,"items":{"$ref":"#/$defs/schemaReceipt"}},"ffmpeg":{"$ref":"#/$defs/binaryToolReceipt"},"ffprobe":{"$ref":"#/$defs/binaryToolReceipt"},"node":{"$ref":"#/$defs/nodeReceipt"},"detector_argv_template_sha256":{"$ref":"#/$defs/sha256"}}},"classificationBasis":{"oneOf":[{"type":"object","additionalProperties":false,"required":["kind","event_index"],"properties":{"kind":{"const":"chapter_event"},"event_index":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["kind","segment_index","terminal"],"properties":{"kind":{"const":"sentence_terminal"},"segment_index":{"type":"integer","minimum":0},"terminal":{"type":"string","pattern":"^[。！？!?]$"}}},{"type":"object","additionalProperties":false,"required":["kind"],"properties":{"kind":{"const":"default_within_sentence"}}}]},"candidateRisk":{"enum":["UI_WAIT_UNRESOLVED","SCREEN_CONTEXT_MISSING","INFORMATION_RETENTION_REVIEW","PARTIAL_EVENT_OCCURRENCE"]},"semanticEvent":{"type":"object","additionalProperties":false,"required":["index","type","event_original_interval","projected_interval","partial_event_occurrence"],"properties":{"index":{"type":"integer","minimum":0},"type":{"enum":["filler","trouble"]},"note":{"type":"string","minLength":1},"event_original_interval":{"$ref":"#/$defs/interval"},"projected_interval":{"$ref":"#/$defs/interval"},"partial_event_occurrence":{"type":"boolean"}}},"semanticCandidate":{"type":"object","additionalProperties":false,"required":["id","family","src","occurrence_index","occurrence_origin","occurrence_interval","event","context","screen_review_required","suggested_action","risk_flags","decision"],"properties":{"id":{"type":"string","pattern":"^semantic-[0-9]{4,}$"},"family":{"const":"semantic_event_review"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"type":"integer","minimum":0},"occurrence_origin":{"enum":["explicit_range","full_source"]},"occurrence_interval":{"$ref":"#/$defs/interval"},"event":{"$ref":"#/$defs/semanticEvent"},"context":{"$ref":"#/$defs/context"},"screen_review_required":{"const":true},"suggested_action":{"const":"review_drop_or_keep"},"risk_flags":{"type":"array","minItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/candidateRisk"}},"decision":{"const":"REVIEW_REQUIRED"}}},"pauseProposal":{"type":"object","additionalProperties":false,"required":["fps","target_retained_seconds","raw_remove_start","raw_remove_end","remove_start_frame","remove_end_frame","remove_start","remove_end","actual_retained_seconds"],"properties":{"fps":{"const":30},"target_retained_seconds":{"enum":[0.1,0.166667,0.3]},"raw_remove_start":{"$ref":"#/$defs/seconds"},"raw_remove_end":{"$ref":"#/$defs/seconds"},"remove_start_frame":{"type":"integer","minimum":0},"remove_end_frame":{"type":"integer","minimum":0},"remove_start":{"$ref":"#/$defs/seconds"},"remove_end":{"$ref":"#/$defs/seconds"},"actual_retained_seconds":{"$ref":"#/$defs/seconds"}}},"pauseCandidate":{"type":"object","additionalProperties":false,"required":["id","family","src","occurrence_index","occurrence_origin","occurrence_interval","source_interval","classification","classification_basis","context","proposal","screen_review_required","risk_flags","decision"],"properties":{"id":{"type":"string","pattern":"^pause-[0-9]{4,}$"},"family":{"const":"pause_shortening_review"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"type":"integer","minimum":0},"occurrence_origin":{"enum":["explicit_range","full_source"]},"occurrence_interval":{"$ref":"#/$defs/interval"},"source_interval":{"$ref":"#/$defs/interval"},"classification":{"enum":["within_sentence","sentence_end","topic_transition"]},"classification_basis":{"$ref":"#/$defs/classificationBasis"},"context":{"$ref":"#/$defs/context"},"proposal":{"$ref":"#/$defs/pauseProposal"},"screen_review_required":{"const":true},"risk_flags":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/candidateRisk"}},"decision":{"const":"REVIEW_REQUIRED"}}},"skipCode":{"enum":["WORD_TIMING_UNAVAILABLE","MISSING_SPEECH_CONTEXT","PROTECTED_WORD_OVERLAP","OUTSIDE_KEEP_OCCURRENCE","CROSSES_OCCURRENCE_BOUNDARY","NO_FRAME_CELL","NO_EFFECTIVE_CHANGE","TARGET_NOT_REACHED"]},"skipDetail":{"oneOf":[{"type":"object","additionalProperties":false,"required":["missing_segment_indexes"],"properties":{"missing_segment_indexes":{"type":"array","items":{"type":"integer","minimum":0}}}},{"type":"object","additionalProperties":false,"required":["previous_word_available","next_word_available"],"properties":{"previous_word_available":{"type":"boolean"},"next_word_available":{"type":"boolean"}}},{"type":"object","additionalProperties":false,"required":["protected_words"],"properties":{"protected_words":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/wordRef"}}}},{"type":"object","additionalProperties":false,"required":["detector_pair_index"],"properties":{"detector_pair_index":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["detector_pair_index","occurrence_interval"],"properties":{"detector_pair_index":{"type":"integer","minimum":0},"occurrence_interval":{"$ref":"#/$defs/interval"}}},{"type":"object","additionalProperties":false,"required":["raw_remove_start","raw_remove_end","remove_start_frame","remove_end_frame"],"properties":{"raw_remove_start":{"$ref":"#/$defs/seconds"},"raw_remove_end":{"$ref":"#/$defs/seconds"},"remove_start_frame":{"type":"integer","minimum":0},"remove_end_frame":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["retained_before_seconds","target_retained_seconds","retained_after_seconds"],"properties":{"retained_before_seconds":{"$ref":"#/$defs/seconds"},"target_retained_seconds":{"$ref":"#/$defs/seconds"},"retained_after_seconds":{"$ref":"#/$defs/seconds"}}}]},"skipped":{"type":"object","additionalProperties":false,"required":["id","src","occurrence_index","occurrence_origin","source_interval","code","detail"],"properties":{"id":{"type":"string","pattern":"^skip-[0-9]{4,}$"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0}]},"occurrence_origin":{"oneOf":[{"type":"null"},{"enum":["explicit_range","full_source"]}]},"source_interval":{"$ref":"#/$defs/interval"},"code":{"$ref":"#/$defs/skipCode"},"detail":{"$ref":"#/$defs/skipDetail"}}},"sourceSummary":{"type":"object","additionalProperties":false,"required":["src","candidate_count","skipped_count"],"properties":{"src":{"$ref":"#/$defs/src"},"candidate_count":{"type":"integer","minimum":0},"skipped_count":{"type":"integer","minimum":0}}},"skippedByCode":{"type":"object","additionalProperties":false,"properties":{"WORD_TIMING_UNAVAILABLE":{"type":"integer","minimum":1},"MISSING_SPEECH_CONTEXT":{"type":"integer","minimum":1},"PROTECTED_WORD_OVERLAP":{"type":"integer","minimum":1},"OUTSIDE_KEEP_OCCURRENCE":{"type":"integer","minimum":1},"CROSSES_OCCURRENCE_BOUNDARY":{"type":"integer","minimum":1},"NO_FRAME_CELL":{"type":"integer","minimum":1},"NO_EFFECTIVE_CHANGE":{"type":"integer","minimum":1},"TARGET_NOT_REACHED":{"type":"integer","minimum":1}}},"summary":{"type":"object","additionalProperties":false,"required":["candidate_count","semantic_event_review_count","pause_shortening_review_count","skipped_count","skipped_by_code","by_source"],"properties":{"candidate_count":{"type":"integer","minimum":0},"semantic_event_review_count":{"type":"integer","minimum":0},"pause_shortening_review_count":{"type":"integer","minimum":0},"skipped_count":{"type":"integer","minimum":0},"skipped_by_code":{"$ref":"#/$defs/skippedByCode"},"by_source":{"type":"array","items":{"$ref":"#/$defs/sourceSummary"}}}}}};
-const func52 = Object.prototype.hasOwnProperty;
 const func0 = require("./runtime/equal.cjs").default;
 const schema90 = {"type":"object","additionalProperties":false,"required":["id","origin","skill_relative_path","bytes","sha256","values"],"properties":{"id":{"const":"a4-conversation-v1"},"origin":{"const":"EDIT_PLAN_SKILL"},"skill_relative_path":{"const":"references/cut-candidate-policy.a4-conversation-v1.json"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"values":{"$ref":"#/$defs/policyValues"}}};
 const schema91 = {"type":"integer","minimum":0};
 const schema92 = {"type":"string","pattern":"^[a-f0-9]{64}$"};
 const schema93 = {"type":"object","additionalProperties":false,"required":["silence_detection_db","minimum_silence_seconds","retained_pause_seconds","surrounding_context_seconds","speech_guard_seconds","frame_rate"],"properties":{"silence_detection_db":{"const":-35},"minimum_silence_seconds":{"const":0.45},"retained_pause_seconds":{"type":"object","additionalProperties":false,"required":["within_sentence","sentence_end","topic_transition"],"properties":{"within_sentence":{"const":0.1},"sentence_end":{"const":0.166667},"topic_transition":{"const":0.3}}},"surrounding_context_seconds":{"const":1},"speech_guard_seconds":{"const":0.033333},"frame_rate":{"const":30}}};
-const pattern7 = new RegExp("^[a-f0-9]{64}$", "u");
+const pattern8 = new RegExp("^[a-f0-9]{64}$", "u");
 
 function validate59(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -5977,7 +6003,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data4 = data.sha256;
 if(typeof data4 === "string"){
-if(!pattern7.test(data4)){
+if(!pattern8.test(data4)){
 const err12 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err12];
@@ -6325,7 +6351,7 @@ errors++;
 if(data.path !== undefined){
 let data0 = data.path;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err5 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err5];
@@ -6335,7 +6361,7 @@ vErrors.push(err5);
 }
 errors++;
 }
-if(!pattern6.test(data0)){
+if(!pattern7.test(data0)){
 const err6 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err6];
@@ -6385,7 +6411,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data2 = data.sha256;
 if(typeof data2 === "string"){
-if(!pattern7.test(data2)){
+if(!pattern8.test(data2)){
 const err10 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err10];
@@ -6436,7 +6462,7 @@ return errors === 0;
 validate62.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema99 = {"type":"object","additionalProperties":false,"required":["path","bytes","sha256","approval_ref","verification"],"properties":{"path":{"$ref":"#/$defs/relativePath"},"bytes":{"$ref":"#/$defs/bytes"},"sha256":{"$ref":"#/$defs/sha256"},"approval_ref":{"type":"string","pattern":"^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$"},"verification":{"const":"CALLER_ASSERTED_NOT_MACHINE_VERIFIED"}}};
-const pattern12 = new RegExp("^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$", "u");
+const pattern13 = new RegExp("^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$", "u");
 
 function validate64(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -6514,7 +6540,7 @@ errors++;
 if(data.path !== undefined){
 let data0 = data.path;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err6 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err6];
@@ -6524,7 +6550,7 @@ vErrors.push(err6);
 }
 errors++;
 }
-if(!pattern6.test(data0)){
+if(!pattern7.test(data0)){
 const err7 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err7];
@@ -6574,7 +6600,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data2 = data.sha256;
 if(typeof data2 === "string"){
-if(!pattern7.test(data2)){
+if(!pattern8.test(data2)){
 const err11 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err11];
@@ -6599,7 +6625,7 @@ errors++;
 if(data.approval_ref !== undefined){
 let data3 = data.approval_ref;
 if(typeof data3 === "string"){
-if(!pattern12.test(data3)){
+if(!pattern13.test(data3)){
 const err13 = {instancePath:instancePath+"/approval_ref",schemaPath:"#/properties/approval_ref/pattern",keyword:"pattern",params:{pattern: "^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$"},message:"must match pattern \""+"^checkpoint-1/[a-z0-9](?:[a-z0-9-]{0,62})/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?$"+"\""};
 if(vErrors === null){
 vErrors = [err13];
@@ -6766,7 +6792,7 @@ vErrors.push(err9);
 errors++;
 }
 for(const key0 in data){
-if(!(func52.call(schema108.properties, key0))){
+if(!(func1.call(schema108.properties, key0))){
 const err10 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err10];
@@ -6794,7 +6820,7 @@ const len0 = data0.length;
 for(let i0=0; i0<len0; i0++){
 let data1 = data0[i0];
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err12 = {instancePath:instancePath+"/format_names/" + i0,schemaPath:"#/properties/format_names/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err12];
@@ -6977,7 +7003,7 @@ errors++;
 if(data6.codec_type !== undefined){
 let data8 = data6.codec_type;
 if(typeof data8 === "string"){
-if(func1(data8) < 1){
+if(func2(data8) < 1){
 const err27 = {instancePath:instancePath+"/streams/" + i1+"/codec_type",schemaPath:"#/$defs/probeStream/properties/codec_type/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err27];
@@ -7294,7 +7320,7 @@ vErrors = null;
 if(data.normalized_sha256 !== undefined){
 let data14 = data.normalized_sha256;
 if(typeof data14 === "string"){
-if(!pattern7.test(data14)){
+if(!pattern8.test(data14)){
 const err46 = {instancePath:instancePath+"/normalized_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err46];
@@ -7463,7 +7489,7 @@ errors++;
 if(data.argv_template_sha256 !== undefined){
 let data3 = data.argv_template_sha256;
 if(typeof data3 === "string"){
-if(!pattern7.test(data3)){
+if(!pattern8.test(data3)){
 const err10 = {instancePath:instancePath+"/argv_template_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err10];
@@ -7618,7 +7644,7 @@ passing0 = 0;
 }
 const _errs7 = errors;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err9 = {instancePath:instancePath+"/id",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err9];
@@ -7628,7 +7654,7 @@ vErrors.push(err9);
 }
 errors++;
 }
-if(!pattern5.test(data0)){
+if(!pattern6.test(data0)){
 const err10 = {instancePath:instancePath+"/id",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err10];
@@ -7685,7 +7711,7 @@ vErrors = null;
 if(data.path !== undefined){
 let data1 = data.path;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err13 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err13];
@@ -7695,7 +7721,7 @@ vErrors.push(err13);
 }
 errors++;
 }
-if(!pattern6.test(data1)){
+if(!pattern7.test(data1)){
 const err14 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err14];
@@ -7745,7 +7771,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data3 = data.sha256;
 if(typeof data3 === "string"){
-if(!pattern7.test(data3)){
+if(!pattern8.test(data3)){
 const err18 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err18];
@@ -7918,7 +7944,7 @@ passing0 = 0;
 }
 const _errs7 = errors;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err7 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err7];
@@ -7928,7 +7954,7 @@ vErrors.push(err7);
 }
 errors++;
 }
-if(!pattern5.test(data0)){
+if(!pattern6.test(data0)){
 const err8 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err8];
@@ -7985,7 +8011,7 @@ vErrors = null;
 if(data.path !== undefined){
 let data1 = data.path;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err11 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err11];
@@ -7995,7 +8021,7 @@ vErrors.push(err11);
 }
 errors++;
 }
-if(!pattern6.test(data1)){
+if(!pattern7.test(data1)){
 const err12 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err12];
@@ -8045,7 +8071,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data3 = data.sha256;
 if(typeof data3 === "string"){
-if(!pattern7.test(data3)){
+if(!pattern8.test(data3)){
 const err16 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err16];
@@ -8239,7 +8265,7 @@ passing0 = 0;
 }
 const _errs9 = errors;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err11 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err11];
@@ -8249,7 +8275,7 @@ vErrors.push(err11);
 }
 errors++;
 }
-if(!pattern5.test(data1)){
+if(!pattern6.test(data1)){
 const err12 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err12];
@@ -8331,7 +8357,7 @@ errors++;
 if(data.path !== undefined){
 let data3 = data.path;
 if(typeof data3 === "string"){
-if(func1(data3) < 1){
+if(func2(data3) < 1){
 const err17 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err17];
@@ -8341,7 +8367,7 @@ vErrors.push(err17);
 }
 errors++;
 }
-if(!pattern6.test(data3)){
+if(!pattern7.test(data3)){
 const err18 = {instancePath:instancePath+"/path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err18];
@@ -8391,7 +8417,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data5 = data.sha256;
 if(typeof data5 === "string"){
-if(!pattern7.test(data5)){
+if(!pattern8.test(data5)){
 const err22 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err22];
@@ -8416,7 +8442,7 @@ errors++;
 if(data.note !== undefined){
 let data6 = data.note;
 if(typeof data6 === "string"){
-if(func1(data6) < 1){
+if(func2(data6) < 1){
 const err24 = {instancePath:instancePath+"/note",schemaPath:"#/properties/note/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err24];
@@ -8737,7 +8763,7 @@ errors++;
 if(data.skill_relative_path !== undefined){
 let data1 = data.skill_relative_path;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err6 = {instancePath:instancePath+"/skill_relative_path",schemaPath:"#/$defs/relativePath/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err6];
@@ -8747,7 +8773,7 @@ vErrors.push(err6);
 }
 errors++;
 }
-if(!pattern6.test(data1)){
+if(!pattern7.test(data1)){
 const err7 = {instancePath:instancePath+"/skill_relative_path",schemaPath:"#/$defs/relativePath/pattern",keyword:"pattern",params:{pattern: "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"},message:"must match pattern \""+"^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"+"\""};
 if(vErrors === null){
 vErrors = [err7];
@@ -8797,7 +8823,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data3 = data.sha256;
 if(typeof data3 === "string"){
-if(!pattern7.test(data3)){
+if(!pattern8.test(data3)){
 const err11 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err11];
@@ -8919,7 +8945,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data2 = data.sha256;
 if(typeof data2 === "string"){
-if(!pattern7.test(data2)){
+if(!pattern8.test(data2)){
 const err6 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err6];
@@ -9015,7 +9041,7 @@ errors++;
 if(data.version !== undefined){
 let data0 = data.version;
 if(typeof data0 === "string"){
-if(func1(data0) > 512){
+if(func2(data0) > 512){
 const err4 = {instancePath:instancePath+"/version",schemaPath:"#/properties/version/maxLength",keyword:"maxLength",params:{limit: 512},message:"must NOT have more than 512 characters"};
 if(vErrors === null){
 vErrors = [err4];
@@ -9025,7 +9051,7 @@ vErrors.push(err4);
 }
 errors++;
 }
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err5 = {instancePath:instancePath+"/version",schemaPath:"#/properties/version/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err5];
@@ -9075,7 +9101,7 @@ errors++;
 if(data.binary_sha256 !== undefined){
 let data2 = data.binary_sha256;
 if(typeof data2 === "string"){
-if(!pattern7.test(data2)){
+if(!pattern8.test(data2)){
 const err9 = {instancePath:instancePath+"/binary_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err9];
@@ -9201,7 +9227,7 @@ errors++;
 if(data.platform !== undefined){
 let data0 = data.platform;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err7 = {instancePath:instancePath+"/platform",schemaPath:"#/properties/platform/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err7];
@@ -9226,7 +9252,7 @@ errors++;
 if(data.arch !== undefined){
 let data1 = data.arch;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err9 = {instancePath:instancePath+"/arch",schemaPath:"#/properties/arch/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err9];
@@ -9251,7 +9277,7 @@ errors++;
 if(data.node_version !== undefined){
 let data2 = data.node_version;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err11 = {instancePath:instancePath+"/node_version",schemaPath:"#/properties/node_version/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err11];
@@ -9276,7 +9302,7 @@ errors++;
 if(data.v8_version !== undefined){
 let data3 = data.v8_version;
 if(typeof data3 === "string"){
-if(func1(data3) < 1){
+if(func2(data3) < 1){
 const err13 = {instancePath:instancePath+"/v8_version",schemaPath:"#/properties/v8_version/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err13];
@@ -9326,7 +9352,7 @@ errors++;
 if(data.node_binary_sha256 !== undefined){
 let data5 = data.node_binary_sha256;
 if(typeof data5 === "string"){
-if(!pattern7.test(data5)){
+if(!pattern8.test(data5)){
 const err17 = {instancePath:instancePath+"/node_binary_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err17];
@@ -9493,7 +9519,7 @@ errors++;
 if(data.module_source_set_sha256 !== undefined){
 let data2 = data.module_source_set_sha256;
 if(typeof data2 === "string"){
-if(!pattern7.test(data2)){
+if(!pattern8.test(data2)){
 const err10 = {instancePath:instancePath+"/module_source_set_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err10];
@@ -9578,7 +9604,7 @@ errors = vErrors.length;
 if(data.detector_argv_template_sha256 !== undefined){
 let data8 = data.detector_argv_template_sha256;
 if(typeof data8 === "string"){
-if(!pattern7.test(data8)){
+if(!pattern8.test(data8)){
 const err15 = {instancePath:instancePath+"/detector_argv_template_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^[a-f0-9]{64}$"},message:"must match pattern \""+"^[a-f0-9]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err15];
@@ -9618,7 +9644,7 @@ validate77.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema140 = {"type":"object","additionalProperties":false,"required":["id","family","src","occurrence_index","occurrence_origin","occurrence_interval","event","context","screen_review_required","suggested_action","risk_flags","decision"],"properties":{"id":{"type":"string","pattern":"^semantic-[0-9]{4,}$"},"family":{"const":"semantic_event_review"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"type":"integer","minimum":0},"occurrence_origin":{"enum":["explicit_range","full_source"]},"occurrence_interval":{"$ref":"#/$defs/interval"},"event":{"$ref":"#/$defs/semanticEvent"},"context":{"$ref":"#/$defs/context"},"screen_review_required":{"const":true},"suggested_action":{"const":"review_drop_or_keep"},"risk_flags":{"type":"array","minItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/candidateRisk"}},"decision":{"const":"REVIEW_REQUIRED"}}};
 const schema153 = {"enum":["UI_WAIT_UNRESOLVED","SCREEN_CONTEXT_MISSING","INFORMATION_RETENTION_REVIEW","PARTIAL_EVENT_OCCURRENCE"]};
-const pattern31 = new RegExp("^semantic-[0-9]{4,}$", "u");
+const pattern32 = new RegExp("^semantic-[0-9]{4,}$", "u");
 const schema142 = {"type":"object","additionalProperties":false,"required":["start","end"],"properties":{"start":{"$ref":"#/$defs/seconds"},"end":{"$ref":"#/$defs/seconds"}}};
 
 function validate89(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -9846,7 +9872,7 @@ errors++;
 if(data.note !== undefined){
 let data2 = data.note;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err9 = {instancePath:instancePath+"/note",schemaPath:"#/properties/note/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err9];
@@ -10088,7 +10114,7 @@ errors++;
 if(data.text !== undefined){
 let data4 = data.text;
 if(typeof data4 === "string"){
-if(func1(data4) < 1){
+if(func2(data4) < 1){
 const err14 = {instancePath:instancePath+"/text",schemaPath:"#/properties/text/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err14];
@@ -10577,7 +10603,7 @@ vErrors.push(err11);
 errors++;
 }
 for(const key0 in data){
-if(!(func52.call(schema140.properties, key0))){
+if(!(func1.call(schema140.properties, key0))){
 const err12 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err12];
@@ -10591,7 +10617,7 @@ errors++;
 if(data.id !== undefined){
 let data0 = data.id;
 if(typeof data0 === "string"){
-if(!pattern31.test(data0)){
+if(!pattern32.test(data0)){
 const err13 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/pattern",keyword:"pattern",params:{pattern: "^semantic-[0-9]{4,}$"},message:"must match pattern \""+"^semantic-[0-9]{4,}$"+"\""};
 if(vErrors === null){
 vErrors = [err13];
@@ -10648,7 +10674,7 @@ passing0 = 0;
 }
 const _errs10 = errors;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err17 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err17];
@@ -10658,7 +10684,7 @@ vErrors.push(err17);
 }
 errors++;
 }
-if(!pattern5.test(data2)){
+if(!pattern6.test(data2)){
 const err18 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err18];
@@ -10881,8 +10907,8 @@ validate88.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema154 = {"type":"object","additionalProperties":false,"required":["id","family","src","occurrence_index","occurrence_origin","occurrence_interval","source_interval","classification","classification_basis","context","proposal","screen_review_required","risk_flags","decision"],"properties":{"id":{"type":"string","pattern":"^pause-[0-9]{4,}$"},"family":{"const":"pause_shortening_review"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"type":"integer","minimum":0},"occurrence_origin":{"enum":["explicit_range","full_source"]},"occurrence_interval":{"$ref":"#/$defs/interval"},"source_interval":{"$ref":"#/$defs/interval"},"classification":{"enum":["within_sentence","sentence_end","topic_transition"]},"classification_basis":{"$ref":"#/$defs/classificationBasis"},"context":{"$ref":"#/$defs/context"},"proposal":{"$ref":"#/$defs/pauseProposal"},"screen_review_required":{"const":true},"risk_flags":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/candidateRisk"}},"decision":{"const":"REVIEW_REQUIRED"}}};
 const schema156 = {"oneOf":[{"type":"object","additionalProperties":false,"required":["kind","event_index"],"properties":{"kind":{"const":"chapter_event"},"event_index":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["kind","segment_index","terminal"],"properties":{"kind":{"const":"sentence_terminal"},"segment_index":{"type":"integer","minimum":0},"terminal":{"type":"string","pattern":"^[。！？!?]$"}}},{"type":"object","additionalProperties":false,"required":["kind"],"properties":{"kind":{"const":"default_within_sentence"}}}]};
-const pattern33 = new RegExp("^pause-[0-9]{4,}$", "u");
-const pattern35 = new RegExp("^[。！？!?]$", "u");
+const pattern34 = new RegExp("^pause-[0-9]{4,}$", "u");
+const pattern36 = new RegExp("^[。！？!?]$", "u");
 const schema157 = {"type":"object","additionalProperties":false,"required":["fps","target_retained_seconds","raw_remove_start","raw_remove_end","remove_start_frame","remove_end_frame","remove_start","remove_end","actual_retained_seconds"],"properties":{"fps":{"const":30},"target_retained_seconds":{"enum":[0.1,0.166667,0.3]},"raw_remove_start":{"$ref":"#/$defs/seconds"},"raw_remove_end":{"$ref":"#/$defs/seconds"},"remove_start_frame":{"type":"integer","minimum":0},"remove_end_frame":{"type":"integer","minimum":0},"remove_start":{"$ref":"#/$defs/seconds"},"remove_end":{"$ref":"#/$defs/seconds"},"actual_retained_seconds":{"$ref":"#/$defs/seconds"}}};
 
 function validate107(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -10987,7 +11013,7 @@ vErrors.push(err8);
 errors++;
 }
 for(const key0 in data){
-if(!(func52.call(schema157.properties, key0))){
+if(!(func1.call(schema157.properties, key0))){
 const err9 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err9];
@@ -11367,7 +11393,7 @@ vErrors.push(err13);
 errors++;
 }
 for(const key0 in data){
-if(!(func52.call(schema154.properties, key0))){
+if(!(func1.call(schema154.properties, key0))){
 const err14 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err14];
@@ -11381,7 +11407,7 @@ errors++;
 if(data.id !== undefined){
 let data0 = data.id;
 if(typeof data0 === "string"){
-if(!pattern33.test(data0)){
+if(!pattern34.test(data0)){
 const err15 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/pattern",keyword:"pattern",params:{pattern: "^pause-[0-9]{4,}$"},message:"must match pattern \""+"^pause-[0-9]{4,}$"+"\""};
 if(vErrors === null){
 vErrors = [err15];
@@ -11438,7 +11464,7 @@ passing0 = 0;
 }
 const _errs10 = errors;
 if(typeof data2 === "string"){
-if(func1(data2) < 1){
+if(func2(data2) < 1){
 const err19 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err19];
@@ -11448,7 +11474,7 @@ vErrors.push(err19);
 }
 errors++;
 }
-if(!pattern5.test(data2)){
+if(!pattern6.test(data2)){
 const err20 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err20];
@@ -11742,7 +11768,7 @@ errors++;
 if(data8.terminal !== undefined){
 let data13 = data8.terminal;
 if(typeof data13 === "string"){
-if(!pattern35.test(data13)){
+if(!pattern36.test(data13)){
 const err41 = {instancePath:instancePath+"/classification_basis/terminal",schemaPath:"#/$defs/classificationBasis/oneOf/1/properties/terminal/pattern",keyword:"pattern",params:{pattern: "^[。！？!?]$"},message:"must match pattern \""+"^[。！？!?]$"+"\""};
 if(vErrors === null){
 vErrors = [err41];
@@ -11985,7 +12011,7 @@ validate103.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false}
 
 const schema164 = {"type":"object","additionalProperties":false,"required":["id","src","occurrence_index","occurrence_origin","source_interval","code","detail"],"properties":{"id":{"type":"string","pattern":"^skip-[0-9]{4,}$"},"src":{"$ref":"#/$defs/src"},"occurrence_index":{"oneOf":[{"type":"null"},{"type":"integer","minimum":0}]},"occurrence_origin":{"oneOf":[{"type":"null"},{"enum":["explicit_range","full_source"]}]},"source_interval":{"$ref":"#/$defs/interval"},"code":{"$ref":"#/$defs/skipCode"},"detail":{"$ref":"#/$defs/skipDetail"}}};
 const schema166 = {"enum":["WORD_TIMING_UNAVAILABLE","MISSING_SPEECH_CONTEXT","PROTECTED_WORD_OVERLAP","OUTSIDE_KEEP_OCCURRENCE","CROSSES_OCCURRENCE_BOUNDARY","NO_FRAME_CELL","NO_EFFECTIVE_CHANGE","TARGET_NOT_REACHED"]};
-const pattern36 = new RegExp("^skip-[0-9]{4,}$", "u");
+const pattern37 = new RegExp("^skip-[0-9]{4,}$", "u");
 const schema167 = {"oneOf":[{"type":"object","additionalProperties":false,"required":["missing_segment_indexes"],"properties":{"missing_segment_indexes":{"type":"array","items":{"type":"integer","minimum":0}}}},{"type":"object","additionalProperties":false,"required":["previous_word_available","next_word_available"],"properties":{"previous_word_available":{"type":"boolean"},"next_word_available":{"type":"boolean"}}},{"type":"object","additionalProperties":false,"required":["protected_words"],"properties":{"protected_words":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/wordRef"}}}},{"type":"object","additionalProperties":false,"required":["detector_pair_index"],"properties":{"detector_pair_index":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["detector_pair_index","occurrence_interval"],"properties":{"detector_pair_index":{"type":"integer","minimum":0},"occurrence_interval":{"$ref":"#/$defs/interval"}}},{"type":"object","additionalProperties":false,"required":["raw_remove_start","raw_remove_end","remove_start_frame","remove_end_frame"],"properties":{"raw_remove_start":{"$ref":"#/$defs/seconds"},"raw_remove_end":{"$ref":"#/$defs/seconds"},"remove_start_frame":{"type":"integer","minimum":0},"remove_end_frame":{"type":"integer","minimum":0}}},{"type":"object","additionalProperties":false,"required":["retained_before_seconds","target_retained_seconds","retained_after_seconds"],"properties":{"retained_before_seconds":{"$ref":"#/$defs/seconds"},"target_retained_seconds":{"$ref":"#/$defs/seconds"},"retained_after_seconds":{"$ref":"#/$defs/seconds"}}}]};
 
 function validate112(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -12858,7 +12884,7 @@ errors++;
 if(data.id !== undefined){
 let data0 = data.id;
 if(typeof data0 === "string"){
-if(!pattern36.test(data0)){
+if(!pattern37.test(data0)){
 const err8 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/pattern",keyword:"pattern",params:{pattern: "^skip-[0-9]{4,}$"},message:"must match pattern \""+"^skip-[0-9]{4,}$"+"\""};
 if(vErrors === null){
 vErrors = [err8];
@@ -12903,7 +12929,7 @@ passing0 = 0;
 }
 const _errs9 = errors;
 if(typeof data1 === "string"){
-if(func1(data1) < 1){
+if(func2(data1) < 1){
 const err11 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err11];
@@ -12913,7 +12939,7 @@ vErrors.push(err11);
 }
 errors++;
 }
-if(!pattern5.test(data1)){
+if(!pattern6.test(data1)){
 const err12 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err12];
@@ -13230,7 +13256,7 @@ passing0 = 0;
 }
 const _errs7 = errors;
 if(typeof data0 === "string"){
-if(func1(data0) < 1){
+if(func2(data0) < 1){
 const err5 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err5];
@@ -13240,7 +13266,7 @@ vErrors.push(err5);
 }
 errors++;
 }
-if(!pattern5.test(data0)){
+if(!pattern6.test(data0)){
 const err6 = {instancePath:instancePath+"/src",schemaPath:"#/$defs/src/oneOf/1/pattern",keyword:"pattern",params:{pattern: "\\S"},message:"must match pattern \""+"\\S"+"\""};
 if(vErrors === null){
 vErrors = [err6];
@@ -13933,7 +13959,7 @@ vErrors.push(err10);
 errors++;
 }
 for(const key0 in data){
-if(!(func52.call(schema89.properties, key0))){
+if(!(func1.call(schema89.properties, key0))){
 const err11 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err11];
@@ -14216,5 +14242,5 @@ return errors === 0;
 }
 validate58.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const contractSchemas = Object.freeze([{"id":"analysis-v0","canonical_source_path":"packages/schemas/analysis.schema.json","sha256":"0d3e9f7d76378ba2861aa9de7865c538a41e16935f032c9fc59177421690cf1d"},{"id":"semantic-keep-plan-v1","canonical_source_path":"packages/schemas/semantic-keep-plan.schema.json","sha256":"d698331da3a6f4c2033639000fc034e8913d127a20fb3d6b91b75fc2f0a91805"},{"id":"cut-candidates-v1","canonical_source_path":"packages/schemas/cut-candidates.schema.json","sha256":"b29ad4aacc6b672b233e01c3569f34dd12e70d175c7a3e32954e3d6494d95f97"}]);
+const contractSchemas = Object.freeze([{"id":"analysis-v0","canonical_source_path":"packages/schemas/analysis.schema.json","sha256":"d4ba238b923769b9ff5f6dc912338b88b3f44a78ede38ed81839a149c08c386f"},{"id":"semantic-keep-plan-v1","canonical_source_path":"packages/schemas/semantic-keep-plan.schema.json","sha256":"d698331da3a6f4c2033639000fc034e8913d127a20fb3d6b91b75fc2f0a91805"},{"id":"cut-candidates-v1","canonical_source_path":"packages/schemas/cut-candidates.schema.json","sha256":"b29ad4aacc6b672b233e01c3569f34dd12e70d175c7a3e32954e3d6494d95f97"}]);
 exports.contractSchemas = contractSchemas;

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { toolsText } from '../i18n.mjs';
 import { mkdir, open, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -19,7 +20,7 @@ export async function recordEngineTranscript(target, { backend, generated_at, so
   const directory = transcriptsDirForTarget(target);
   if (!directory) return null;
   const name = backend.replace(/:/g, "-");
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(`backend 名が不正です: ${backend}`);
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(toolsText('tools.mediaRecord.error.backendInvalid', { backend }));
   await mkdir(directory, { recursive: true });
   const output = path.join(directory, `${name}.json`);
   const lockPath = `${output}.lock`;
@@ -108,11 +109,11 @@ export async function updateAnalysisTranscript(target, update) {
   const lockPath = `${analysisPath}.lock`;
   const lock = await acquireLock(lockPath);
   try {
-    if (!existsSync(analysisPath)) throw new Error(`analysis.json が見つかりません: ${analysisPath}`);
+    if (!existsSync(analysisPath)) throw new Error(toolsText('tools.mediaRecord.error.analysisMissing', { path: analysisPath }));
     const analysis = JSON.parse(readFileSync(analysisPath, "utf8"));
     const before = Array.isArray(analysis.transcript) ? analysis.transcript : [];
     const transcript = await update(before, analysis);
-    if (!Array.isArray(transcript)) throw new Error("analysis.json の transcript 更新結果は配列である必要があります");
+    if (!Array.isArray(transcript)) throw new Error(toolsText('tools.mediaRecord.error.transcriptArray'));
     if (JSON.stringify(before) === JSON.stringify(transcript)) return { path: analysisPath, changed: false };
     analysis.transcript = transcript;
     const temporaryPath = `${analysisPath}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`;
@@ -134,7 +135,7 @@ async function acquireLock(lockPath) {
       await delay(50);
     }
   }
-  throw new Error(`analysis.json の書き込みロックを取得できません: ${lockPath}`);
+  throw new Error(toolsText('tools.mediaRecord.error.lockUnavailable', { path: lockPath }));
 }
 
 function minimalAnalysis(target, analysisDirectory) {

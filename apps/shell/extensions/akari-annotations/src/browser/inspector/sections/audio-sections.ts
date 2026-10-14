@@ -1,3 +1,4 @@
+import { t as translate } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult, TimelineAudioSelection, TimelineAudioMasterSnapshot } from '../../timeline-selection-model';
 import { AUDIO_MASTER_DEFAULT_LOUDNORM, AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP } from '../audio-master';
@@ -42,7 +43,7 @@ export function duckingFields(
         write: async (_snapshot, nextValue) => {
             const parsed = Number(nextValue);
             if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
-                return { ok: false, message: `${label} は ${min}〜${max} の範囲で入力してください。` };
+                return { ok: false, message: translate('inspector.audioSections.message.enterFrom', { label: label, min: min, max: max }) };
             }
             return requestWrite(duckWriteRequest(field, parsed));
         }
@@ -63,18 +64,18 @@ export function duckingFields(
         },
         duckDb,
         {
-            name: 'audio-duck-preset', label: 'プリセット',
+            name: 'audio-duck-preset', label: translate('inspector.audioSections.label.preset'),
             getValue: () => String(snapshot.duckDb ?? AUDIO_DUCK_DEFAULTS.duckDb),
             getEditValue: () => String(snapshot.duckDb ?? AUDIO_DUCK_DEFAULTS.duckDb),
             inputKind: 'select', options: ['-3', '-6', '-12'],
             write: duckDb.write
         },
         numberField(
-            'audio-duck-attack', 'duck_attack（詳細）', 'duck-attack', snapshot.duckAttack,
+            'audio-duck-attack', translate('inspector.audioSections.label.duckAttackAdvanced'), 'duck-attack', snapshot.duckAttack,
             AUDIO_DUCK_DEFAULTS.duckAttack, 0, 2, 0.01, 's'
         ),
         numberField(
-            'audio-duck-release', 'duck_release（詳細）', 'duck-release', snapshot.duckRelease,
+            'audio-duck-release', translate('inspector.audioSections.label.duckReleaseAdvanced'), 'duck-release', snapshot.duckRelease,
             AUDIO_DUCK_DEFAULTS.duckRelease, 0, 5, 0.05, 's'
         )
     ];
@@ -112,7 +113,7 @@ export function audioKeyframeFields(
         return requestWrite(audioKeyframeRequest(snapshot, next));
     };
     const fields: InspectorFieldDef[] = [{
-        name: 'audio-keyframe-add', label: '追加', actionLabel: '再生ヘッド位置に追加',
+        name: 'audio-keyframe-add', label: translate('inspector.audioSections.action.add'), actionLabel: translate('inspector.audioSections.action.addPlayhead'),
         getValue: () => '',
         action: async () => {
             const relative = Math.max(0, Math.min(
@@ -122,8 +123,8 @@ export function audioKeyframeFields(
             const t = keyframeRawTime(snapshot, relative);
             const duplicate = points.some(point => snapshot.keyframeFrames
                 ? point.t === t : Math.abs(point.t - t) < 1e-3);
-            if (duplicate) return { ok: false, message: 'この位置には既に音量キーフレームがあります。' };
-            return requestWrite(audioKeyframeRequest(snapshot, [...points, { t, gain_db: 0 }]));
+            if (duplicate) return { ok: false, message: translate('inspector.audioSections.message.volumeKeyframeAlreadyExistsPosition') };
+            return requestWrite(audioKeyframeRequest(snapshot, [...points, { t: t, gain_db: 0 }]));
         }
     }];
     points.forEach((point, index) => {
@@ -141,13 +142,13 @@ export function audioKeyframeFields(
             write: async (_snapshot, nextValue) => {
                 const seconds = Number(nextValue);
                 if (!Number.isFinite(seconds) || seconds < 0 || seconds > snapshot.duration) {
-                    return { ok: false, message: `t は 0〜${snapshot.duration} 秒の範囲で入力してください。` };
+                    return { ok: false, message: translate('inspector.audioSections.message.enterTFrom0Seconds', { duration: snapshot.duration, n: snapshot.duration }) };
                 }
                 const t = keyframeRawTime(snapshot, seconds);
                 const duplicate = points.some((candidate, candidateIndex) => candidateIndex !== index
                     && (snapshot.keyframeFrames ? candidate.t === t : Math.abs(candidate.t - t) < 1e-3));
-                if (duplicate) return { ok: false, message: 'この位置には既に音量キーフレームがあります。' };
-                return replace(index, { ...point, t });
+                if (duplicate) return { ok: false, message: translate('inspector.audioSections.message.volumeKeyframeAlreadyExistsPosition') };
+                return replace(index, { ...point, t: t });
             }
         }, {
             name: `${prefix}-gain-db`, label: `#${index + 1} gain_db`, unit: 'dB',
@@ -156,7 +157,7 @@ export function audioKeyframeFields(
             write: async (_snapshot, nextValue) => {
                 const gainDb = Number(nextValue);
                 return !Number.isFinite(gainDb) || gainDb < -60 || gainDb > 12
-                    ? { ok: false, message: 'gain_db は -60〜12 の範囲で入力してください。' }
+                    ? { ok: false, message: translate('inspector.audioSections.message.enterGainDbFrom6012') }
                     : replace(index, { ...point, gain_db: gainDb });
             }
         }, {
@@ -165,7 +166,7 @@ export function audioKeyframeFields(
             inputKind: 'select', options: easingOptions,
             write: async (_snapshot, nextValue) => replace(index, { ...point, easing: nextValue })
         }, {
-            name: `${prefix}-delete`, label: `#${index + 1}`, actionLabel: '削除', getValue: () => '',
+            name: `${prefix}-delete`, label: `#${index + 1}`, actionLabel: translate('inspector.audioSections.action.delete'), getValue: () => '',
             action: async () => requestWrite(audioKeyframeRequest(
                 snapshot, points.filter((_candidate, candidateIndex) => candidateIndex !== index)
             ))
@@ -181,13 +182,13 @@ function fadeShapeField(
 ): InspectorFieldDef {
     const current = edge === 'in' ? snapshot.fadeInShape : snapshot.fadeOutShape;
     return {
-        name: `audio-fade-${edge}-shape`, label: edge === 'in' ? 'フェードインの形' : 'フェードアウトの形',
+        name: `audio-fade-${edge}-shape`, label: edge === 'in' ? translate('inspector.audioSections.label.fadeShape') : translate('inspector.audioSections.label.fadeOutShape'),
         inputKind: 'select', options: INLINE_AUDIO_SHAPES.map(shape => shape.value),
         optionTitles: Object.fromEntries(INLINE_AUDIO_SHAPES.map(shape => [shape.value, shape.label])),
         getValue: () => current ?? 'linear', getEditValue: () => current ?? 'linear',
         write: async (_snapshot, nextValue) => {
             const shape = INLINE_AUDIO_SHAPES.find(candidate => candidate.value === nextValue);
-            if (!shape) return { ok: false, message: 'フェードの形を選んでください。' };
+            if (!shape) return { ok: false, message: translate('inspector.audioSections.action.chooseShapeFade') };
             const request: AudioFadeShapeWriteRequest = {
                 kind: 'audio-fade-shape', id: snapshot.id, audioKind: snapshot.audioKind,
                 edge, value: shape.value
@@ -204,7 +205,7 @@ export function AUDIO_SECTIONS(
     ) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
     const autoLevelField: InspectorFieldDef = {
-        name: 'audio-auto-level', label: 'レベル', actionLabel: '自動レベル', getValue: () => '',
+        name: 'audio-auto-level', label: translate('inspector.audioSections.label.level'), actionLabel: translate('inspector.audioSections.label.autoLevel'), getValue: () => '',
         action: async () => requestWrite({
             kind: 'audio-auto-level', id: snapshot.id, audioKind: snapshot.audioKind
         })
@@ -221,7 +222,7 @@ export function AUDIO_SECTIONS(
             write: async (_snapshot, nextValue) => {
                 const parsed = Number(nextValue);
                 if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
-                    return { ok: false, message: 'gain_db は -60〜12 の範囲で入力してください。' };
+                    return { ok: false, message: translate('inspector.audioSections.message.enterGainDbFrom6012') };
                 }
                 return snapshot.audioKind === 'bgm'
                     ? requestWrite({ kind: 'bgm-gain', value: parsed })
@@ -234,16 +235,16 @@ export function AUDIO_SECTIONS(
     ];
     const tabs: InspectorSection[] = [
         {
-            id: 'time', label: '時間', fields: [
-                { name: 'audio-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-                { name: 'audio-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
+            id: 'time', label: translate('inspector.audioSections.label.time'), fields: [
+                { name: 'audio-start', label: translate('inspector.audioSections.label.outputPosition'), getValue: () => formatTimestamp(snapshot.outputStart) },
+                { name: 'audio-duration', label: translate('inspector.audioSections.label.duration'), getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'audio', label: '音声', fields: basicFields }
+        { id: 'audio', label: translate('inspector.audioSections.label.audio'), fields: basicFields }
     ];
     if (snapshot.audioKind === 'bgm') {
         tabs.push({
-            id: 'audio:fades', label: 'フェード・ダッキング',
+            id: 'audio:fades', label: translate('inspector.audioSections.section.fadesDucking'),
             fields: [
                 autoLevelField,
                 {
@@ -256,7 +257,7 @@ export function AUDIO_SECTIONS(
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: 'fadeIn は 0 以上の数値で入力してください。' };
+                            return { ok: false, message: translate('inspector.audioSections.message.enterFadeinAsNumber0Greater') };
                         }
                         return requestWrite({ kind: 'bgm-fade-in', value: parsed });
                     }
@@ -272,7 +273,7 @@ export function AUDIO_SECTIONS(
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: 'fadeOut は 0 以上の数値で入力してください。' };
+                            return { ok: false, message: translate('inspector.audioSections.message.enterFadeoutAsNumber0Greater') };
                         }
                         return requestWrite({ kind: 'bgm-fade-out', value: parsed });
                     }
@@ -283,7 +284,7 @@ export function AUDIO_SECTIONS(
         });
     } else if (snapshot.audioKind === 'sfx') {
         tabs.push({
-            id: 'audio:fades', label: 'フェード・ダッキング',
+            id: 'audio:fades', label: translate('inspector.audioSections.section.fadesDucking'),
             fields: [
                 autoLevelField,
                 {
@@ -296,7 +297,7 @@ export function AUDIO_SECTIONS(
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: 'fadeIn は 0 以上の数値で入力してください。' };
+                            return { ok: false, message: translate('inspector.audioSections.message.enterFadeinAsNumber0Greater') };
                         }
                         return requestWrite({ kind: 'sfx-fade-in', id: snapshot.id, value: parsed });
                     }
@@ -312,7 +313,7 @@ export function AUDIO_SECTIONS(
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: 'fadeOut は 0 以上の数値で入力してください。' };
+                            return { ok: false, message: translate('inspector.audioSections.message.enterFadeoutAsNumber0Greater') };
                         }
                         return requestWrite({ kind: 'sfx-fade-out', id: snapshot.id, value: parsed });
                     }
@@ -323,16 +324,16 @@ export function AUDIO_SECTIONS(
         });
     }
     tabs.push({
-        id: 'audio:keyframes', label: '音量キーフレーム',
+        id: 'audio:keyframes', label: translate('inspector.audioSections.label.volumeKeyframes'),
         fields: audioKeyframeFields(snapshot, requestWrite)
     });
     tabs.push({
-        id: 'info', label: '情報', collapsedByDefault: true,
+        id: 'info', label: translate('inspector.audioSections.label.info'), collapsedByDefault: true,
         fields: [
-            { name: 'audio-kind', label: '種別', getValue: () => formatAudioKindLabel(snapshot.audioKind) },
+            { name: 'audio-kind', label: translate('inspector.audioSections.label.type'), getValue: () => formatAudioKindLabel(snapshot.audioKind) },
             { name: 'audio-path', label: 'path', getValue: () => snapshot.label },
-            { name: 'audio-track', label: 'トラック', getValue: () => snapshot.trackName },
-            { name: 'audio-clip', label: 'クリップ', getValue: () => snapshot.clipName },
+            { name: 'audio-track', label: translate('inspector.audioSections.label.track'), getValue: () => snapshot.trackName },
+            { name: 'audio-clip', label: translate('inspector.audioSections.label.clip'), getValue: () => snapshot.clipName },
             ...(snapshot.audioKind === 'narration'
                 ? [{ name: 'audio-script', label: 'script', getValue: () => orDash(snapshot.script, value => value) }]
                 : [])
@@ -358,28 +359,28 @@ export function AUDIO_CLIP_FX_SECTIONS(
     };
     const sections: InspectorSection[] = [];
     if (snapshot.audioKind !== 'narration') {
-        const formantLabel = snapshot.formant === 'shift' ? '移動' : '保持';
+        const formantLabel = snapshot.formant === 'shift' ? translate('inspector.audioSections.action.move') : translate('inspector.audioSections.label.hold');
         sections.push({
-            id: 'audio:pitch-time', label: 'ピッチ・タイム',
-            caption: '速度はピッチを保ったまま変わります（タイムライン上の開始位置は不変・実効尺 = 素材尺 ÷ 速度）',
+            id: 'audio:pitch-time', label: translate('inspector.audioSections.label.pitchTime'),
+            caption: translate('inspector.audioSections.message.speedChangesWithoutChangingPitchClipStays'),
             fields: [{
-                name: 'audio-speed', label: '速度', unit: '×',
+                name: 'audio-speed', label: translate('inspector.audioSections.label.speed'), unit: '×',
                 getValue: () => formatDecimal2(snapshot.speed ?? 1),
                 getEditValue: () => String(snapshot.speed ?? 1),
                 inputKind: 'scrub-number', min: 0.25, max: 4, scrubStep: 0.05, displayPrecision: 2,
                 reset: () => write('speed', null),
                 write: async (_rowSnapshot, value) => write('speed', value)
             }, {
-                name: 'audio-pitch', label: 'ピッチ', unit: 'st',
+                name: 'audio-pitch', label: translate('inspector.audioSections.label.pitch'), unit: 'st',
                 getValue: () => String(snapshot.pitchSemitones ?? 0),
                 getEditValue: () => String(snapshot.pitchSemitones ?? 0),
                 inputKind: 'scrub-number', min: -24, max: 24, scrubStep: 1,
                 reset: () => write('pitch_semitones', null),
                 write: async (_rowSnapshot, value) => write('pitch_semitones', value)
             }, {
-                name: 'audio-formant', label: 'フォルマント',
+                name: 'audio-formant', label: translate('inspector.audioSections.label.formant'),
                 getValue: () => formantLabel, getEditValue: () => formantLabel,
-                inputKind: 'select', options: ['保持', '移動'],
+                inputKind: 'select', options: [translate('inspector.audioSections.label.hold'), translate('inspector.audioSections.action.move')],
                 reset: () => write('formant', null),
                 write: async (_rowSnapshot, value) => write('formant', value)
             }]
@@ -388,25 +389,25 @@ export function AUDIO_CLIP_FX_SECTIONS(
     const denoiseLabel = AUDIO_DENOISE_METHOD_OPTIONS.find(option => option.method === (snapshot.denoise?.method ?? null))?.label
         ?? AUDIO_DENOISE_METHOD_OPTIONS[0].label;
     sections.push({
-        id: 'audio:enhancement', label: '音声強調',
+        id: 'audio:enhancement', label: translate('inspector.audioSections.label.voiceEnhancement'),
         fields: [{
-            name: 'audio-denoise-method', label: 'ノイズ除去',
+            name: 'audio-denoise-method', label: translate('inspector.audioSections.label.noiseRemoval'),
             getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
             inputKind: 'select', options: AUDIO_DENOISE_METHOD_OPTIONS.map(option => option.label),
             reset: () => write('denoise-method', null),
             write: async (_rowSnapshot, value) => write('denoise-method', value)
         }, {
-            name: 'audio-denoise-strength', label: '強さ', unit: '%',
+            name: 'audio-denoise-strength', label: translate('inspector.audioSections.label.strength'), unit: '%',
             getValue: () => String(Math.round((snapshot.denoise?.strength ?? AUDIO_CLIP_FX_RANGES.strength.default) * 100)),
             getEditValue: () => String(snapshot.denoise?.strength ?? AUDIO_CLIP_FX_RANGES.strength.default),
             inputKind: 'scrub-number', min: 0, max: 1, scrubStep: 0.05,
             displayScale: 100, displayPrecision: 0,
             disabled: snapshot.denoise === undefined,
-            title: snapshot.denoise === undefined ? 'ノイズ除去をオンにすると変更できます。' : undefined,
+            title: snapshot.denoise === undefined ? translate('inspector.audioSections.message.turnNoiseReductionChangeSetting') : undefined,
             reset: () => write('denoise-strength', null),
             write: async (_rowSnapshot, value) => write('denoise-strength', value)
         }, {
-            name: 'audio-lowcut', label: 'ローカット', unit: 'Hz',
+            name: 'audio-lowcut', label: translate('inspector.audioSections.label.lowCut'), unit: 'Hz',
             getValue: () => String(snapshot.lowcutHz ?? 0),
             getEditValue: () => String(snapshot.lowcutHz ?? 0),
             inputKind: 'scrub-number', min: 0, max: 400, scrubStep: 5,
@@ -421,33 +422,33 @@ export function AUDIO_MASTER_SECTION(
     snapshot: TimelineAudioMasterSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection {
-    const denoiseLabel = snapshot.denoise === 'strong' ? '強'
-        : snapshot.denoise === 'std' ? '標準' : 'オフ';
-    const disabledTitle = snapshot.enabled ? undefined : 'マスタリングをオンにすると変更できます。';
+    const denoiseLabel = snapshot.denoise === 'strong' ? translate('inspector.audioSections.label.strong')
+        : snapshot.denoise === 'std' ? translate('inspector.audioSections.label.standard') : translate('inspector.audioSections.label.off');
+    const disabledTitle = snapshot.enabled ? undefined : translate('inspector.audioSections.message.turnMasteringChangeSetting');
     return {
         id: 'audio:master',
-        label: 'マスター（書き出し全体）',
-        caption: 'プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）',
+        label: translate('inspector.audioSections.label.masterEntireExport'),
+        caption: translate('inspector.audioSections.message.appliesEntireProjectPreviewUnavailableRunsDuring'),
         fields: [{
-            name: 'audio-master-enabled', label: 'マスタリング',
-            getValue: () => snapshot.enabled ? 'オン' : 'オフ',
-            getEditValue: () => snapshot.enabled ? 'オン' : 'オフ',
-            inputKind: 'select', options: ['オフ', 'オン'],
+            name: 'audio-master-enabled', label: translate('inspector.audioSections.label.mastering'),
+            getValue: () => snapshot.enabled ? translate('inspector.audioSections.label.message') : translate('inspector.audioSections.label.off'),
+            getEditValue: () => snapshot.enabled ? translate('inspector.audioSections.label.message') : translate('inspector.audioSections.label.off'),
+            inputKind: 'select', options: [translate('inspector.audioSections.label.off'), translate('inspector.audioSections.label.message')],
             write: async (_rowSnapshot, value) => requestWrite({
-                kind: 'audio-master-enabled', value: value === 'オン'
+                kind: 'audio-master-enabled', value: value === translate('inspector.audioSections.label.message')
             })
         }, {
-            name: 'audio-master-denoise', label: 'ノイズ除去',
+            name: 'audio-master-denoise', label: translate('inspector.audioSections.label.noiseRemoval'),
             getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
-            inputKind: 'select', options: ['オフ', '標準', '強'],
+            inputKind: 'select', options: [translate('inspector.audioSections.label.off'), translate('inspector.audioSections.label.standard'), translate('inspector.audioSections.label.strong')],
             disabled: !snapshot.enabled, title: disabledTitle,
             reset: () => requestWrite({ kind: 'audio-master-denoise', value: null }),
             write: async (_rowSnapshot, value) => requestWrite({
                 kind: 'audio-master-denoise',
-                value: value === '強' ? 'strong' : value === '標準' ? 'std' : 'off'
+                value: value === translate('inspector.audioSections.label.strong') ? 'strong' : value === translate('inspector.audioSections.label.standard') ? 'std' : 'off'
             })
         }, {
-            name: 'audio-master-loudnorm', label: 'ラウドネス目標', unit: 'LUFS',
+            name: 'audio-master-loudnorm', label: translate('inspector.audioSections.label.targetLoudness'), unit: 'LUFS',
             getValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
             getEditValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
             inputKind: 'scrub-number', scrubStep: 0.5, min: -70, max: 0,
@@ -456,11 +457,11 @@ export function AUDIO_MASTER_SECTION(
             write: async (_rowSnapshot, value) => {
                 const parsed = Number(value);
                 return !Number.isFinite(parsed) || parsed < -70 || parsed > 0
-                    ? { ok: false, message: 'ラウドネス目標は -70〜0 の範囲で入力してください。' }
+                    ? { ok: false, message: translate('inspector.audioSections.message.enterTargetLoudnessFrom700') }
                     : requestWrite({ kind: 'audio-master-loudnorm', value: parsed });
             }
         }, {
-            name: 'audio-master-true-peak', label: 'True Peak 上限', unit: 'dBTP',
+            name: 'audio-master-true-peak', label: translate('inspector.audioSections.label.truePeakLimit'), unit: 'dBTP',
             getValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
             getEditValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
             inputKind: 'scrub-number', scrubStep: 0.1, min: -9, max: 0,
@@ -469,7 +470,7 @@ export function AUDIO_MASTER_SECTION(
             write: async (_rowSnapshot, value) => {
                 const parsed = Number(value);
                 return !Number.isFinite(parsed) || parsed < -9 || parsed > 0
-                    ? { ok: false, message: 'True Peak 上限は -9〜0 の範囲で入力してください。' }
+                    ? { ok: false, message: translate('inspector.audioSections.message.enterTruePeakLimitFrom90') }
                     : requestWrite({ kind: 'audio-master-true-peak', value: parsed });
             }
         }]

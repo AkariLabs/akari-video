@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "tasks": [],
+  "target": {
+    "duration_s": null,
+    "keep_length": false,
+    "taste": null
+  },
+  "autonomy": "checkpoint",
+  "status": "submitted",
+  "submitted_at": "2026-10-10T15:57:33Z",
+  "title": null,
+  "language": "en"
+}

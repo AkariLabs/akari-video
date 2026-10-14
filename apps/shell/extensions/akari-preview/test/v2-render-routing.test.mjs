@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,7 +30,7 @@ test('unbaked telop is retired without rasterization; filters still draw', () =>
     assert.doesNotMatch(browserSource, /await this\.previewService\.rasterizeTelopPreview/);
     assert.match(browserSource, /type: 'akari-preview-model-update'/);
     assert.doesNotMatch(backendSource, /--kind', 'telop'/);
-    assert.match(backendSource, /throw new Error\('telop\.retired:/);
+    assert.match(backendSource, /throw new Error\(t\('preview\.outputPreview\.validation\.textOverlayRetiredError'\)\)/);
     // 退役前は telop ラスタだけが preview backend から Node CLI 子プロセス（bake-layer）を
     // 起こす経路だった。その経路の専用装備（bake-layer 入口の探索・runProcess・
     // 子プロセス env の ELECTRON_RUN_AS_NODE・その戻り値を作る nodeCliCommand）が

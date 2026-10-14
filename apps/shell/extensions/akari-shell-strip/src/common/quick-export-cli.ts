@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
 
 /**
@@ -34,18 +35,18 @@ export function shouldAskTemporaryGpuPreference(
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'
 ): Array<{ label: string; value: QuickExportEncoder }> {
-    const automatic = { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' as const };
-    const software = { label: 'ソフトウェア（x264）', value: 'x264' as const };
+    const automatic = { label: t('shell.export.cli.autoDefaultPrefersHardwareAvailableText'), value: 'auto' as const };
+    const software = { label: t('shell.export.cli.softwareX264Label'), value: 'x264' as const };
     if (platform === 'darwin') {
-        return [automatic, { label: 'ハードウェア（VideoToolbox）', value: 'videotoolbox' }, software];
+        return [automatic, { label: t('shell.export.cli.hardwareVideotoolboxLabel'), value: 'videotoolbox' }, software];
     }
     if (platform === 'win32') {
         return [
             automatic,
-            { label: 'ハードウェア（NVENC）', value: 'nvenc' },
-            { label: 'ハードウェア（QSV）', value: 'qsv' },
-            { label: 'ハードウェア（AMF）', value: 'amf' },
-            { label: 'ハードウェア（Media Foundation）', value: 'mf' },
+            { label: t('shell.export.cli.hardwareNvencLabel'), value: 'nvenc' },
+            { label: t('shell.export.cli.hardwareQsvLabel'), value: 'qsv' },
+            { label: t('shell.export.cli.hardwareAmfLabel'), value: 'amf' },
+            { label: t('shell.export.cli.hardwareMediaFoundationText'), value: 'mf' },
             software
         ];
     }
@@ -231,10 +232,10 @@ export function describeRenderFailure(
         return stderrSummary;
     }
     if (exitCode === 0 && (!output || output.size <= 0)) {
-        return `render-cut は正常終了を返しましたが、成果物 ${outputPath} が作成されませんでした`;
+        return t('shell.export.cli.renderCutReportedSuccessButOutputNotCreatedText', { value1: outputPath });
     }
-    const exitLabel = exitCode === null ? '終了コードを返さず' : `exit code ${exitCode} で`;
-    return `render-cut が ${exitLabel}終了しました（エラー出力はありません）`;
+    const exitLabel = exitCode === null ? t('shell.export.cli.withoutExitCodeText') : t('shell.export.cli.exitCodeLabel', { value1: exitCode });
+    return t('shell.export.cli.renderCutExitedNoErrorOutputText', { value1: exitLabel });
 }
 
 /** JSON-RPC / バックエンド境界の unknown を空でない1行へ正規化する。 */

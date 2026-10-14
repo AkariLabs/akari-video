@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import {
     GenerationMetaV1,
     describeNextDraft as describeNextDraftHelper,
@@ -24,6 +25,10 @@ export const generationNextDraftHelperV1 = describeNextDraftV1;
 
 export interface GenerationOverlayDescription {
     tag: string | null;
+    /** The next draft is a planned video; independent of the translated tag. */
+    plannedVideo?: true;
+    /** The band contains elapsed seconds from job.started_at. */
+    elapsedSeconds?: true;
     /** 動画予定の最後の絵（プロジェクト相対パス）。孤児の旧記述では省略。 */
     pip?: string | null;
     /** 生成中にぼかして表示する参照の絵。孤児の旧記述では省略。 */
@@ -83,7 +88,8 @@ export function describeOverlay(
     meta: unknown,
     beatLabel: string,
     options: DescribeOverlayOptions = {},
-    nextDraftHelper: typeof describeNextDraftHelper = describeNextDraftV1
+    nextDraftHelper: typeof describeNextDraftHelper = describeNextDraftV1,
+    translate: typeof t = t
 ): GenerationOverlayDescription {
     const empty = (): GenerationOverlayDescription => ({
         tag: null,
@@ -106,7 +112,7 @@ export function describeOverlay(
             typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
 
         if (state === 'orphan') {
-            return { tag: `孤児 · ${beatLabel}`, band: null, shimmer: false, maskRect: null };
+            return { tag: translate('preview.generationOverlay.status.orphanLabel', { beatLabel }), band: null, shimmer: false, maskRect: null };
         }
 
         if (state === 'failed') {
@@ -120,7 +126,7 @@ export function describeOverlay(
                 ? String(reasonValue) : 'unknown';
             return {
                 ...empty(),
-                tag: `失敗 · ${reason} · 再試行は右パネル`
+                tag: translate('preview.generationOverlay.status.failedRetryRightPanelError', { reason })
             };
         }
 
@@ -135,23 +141,25 @@ export function describeOverlay(
             const etaCandidate = progress.eta_s ?? jobProgress.eta_s ?? job.eta_s;
             const etaValue = finiteNumber(etaCandidate);
             const eta = etaValue !== undefined && etaValue >= 0 ? Math.round(etaValue) : undefined;
+            const startedAt = Date.parse(String(job.started_at ?? ''));
+            const elapsedSeconds = percent === undefined && eta === undefined && Number.isFinite(startedAt);
             const text = percent !== undefined && eta !== undefined
-                ? `生成中 ${percent}% · 残り約 ${eta} 秒`
+                ? translate('preview.generationOverlay.status.generatingPercentEtaStatus', { percent, eta, n: eta })
                 : percent !== undefined
-                    ? `生成中 ${percent}%`
+                    ? translate('preview.generationOverlay.status.generatingPercentStatus', { percent })
                     : eta !== undefined
-                        ? `生成中 · 残り約 ${eta} 秒`
+                        ? translate('preview.generationOverlay.status.generatingEtaStatus', { eta, n: eta })
                         : (() => {
-                            const startedAt = Date.parse(String(job.started_at ?? ''));
-                            if (!Number.isFinite(startedAt)) return '生成中';
+                            if (!elapsedSeconds) return translate('preview.generationOverlay.status.generatingStatus');
                             const seconds = Math.max(0, Math.floor(((options.nowMs ?? Date.now()) - startedAt) / 1000));
-                            return `生成中 · ${seconds} 秒`;
+                            return translate('preview.generationOverlay.status.generatingSecondsLabel', { seconds, n: seconds });
                         })();
             const firstFramePath = objectAt(value.inputs, 'first_frame').path;
             return {
                 ...empty(),
-                tag: `生成中 · ${beatLabel}`,
+                tag: translate('preview.generationOverlay.status.generatingBeatStatus', { beatLabel }),
                 band: { text, progress: percent === undefined ? null : percent / 100 },
+                ...(elapsedSeconds ? { elapsedSeconds: true as const } : {}),
                 shimmer: true,
                 aurora: 'generating',
                 blurBackground: value.kind === 'audio' ? null : typeof firstFramePath === 'string' && firstFramePath.trim()
@@ -161,17 +169,18 @@ export function describeOverlay(
         if (state === 'stale') {
             return {
                 ...empty(),
-                tag: '応答なし · 再取得は右パネル',
-                band: { text: '応答なし', progress: null }
+                tag: translate('preview.generationOverlay.status.noResponseRetryRightPanelEmptyState'),
+                band: { text: translate('preview.generationOverlay.status.noResponseEmptyState'), progress: null }
             };
         }
 
         const next = nextDraftHelper(value as unknown as GenerationMetaV1);
         if (next) {
-            const labels = { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' };
+            const labels = { prompt: translate('preview.generationOverlay.status.promptOnlyLabel'), first: translate('preview.generationOverlay.status.imageLabel'), 'first-last': translate('preview.generationOverlay.status.firstLastLabel'), references: translate('preview.generationOverlay.status.referenceLabel') };
             return {
                 ...empty(),
-                tag: `▶ 動画予定 · ${labels[next.variety]}`,
+                tag: translate('preview.generationOverlay.status.plannedVideoLabel', { variety: labels[next.variety] }),
+                plannedVideo: true,
                 pip: typeof next.lastFrame?.path === 'string' && next.lastFrame.path.trim()
                     ? next.lastFrame.path : null
             };
@@ -210,20 +219,20 @@ export function describeOverlay(
                 }
             }
             const tag = fps === undefined
-                ? `パラパラ · ${beatLabel}`
+                ? translate('preview.generationOverlay.status.flipbookLabel', { beatLabel })
                 : totalFrames === undefined
-                    ? `パラパラ ${fps}fps · コマ ${frame}`
-                    : `パラパラ ${fps}fps · コマ ${frame}/${totalFrames}`;
+                    ? translate('preview.generationOverlay.status.flipbookFrameStatus', { fps, frame })
+                    : translate('preview.generationOverlay.status.flipbookFrameTotalStatus', { fps, frame, totalFrames });
             return { ...empty(), tag, maskRect };
         }
 
         const candidates = finiteNumber(objectAt(value, 'job').candidates);
         if ((state === 'planned' || state === 'done') && candidates !== undefined && candidates > 0) {
-            return { ...empty(), tag: `✦ 候補 ${candidates}`,
+            return { ...empty(), tag: translate('preview.generationOverlay.status.candidatesLabel', { candidates }),
                 aurora: state === 'planned' ? 'planned' : null };
         }
         if (state === 'planned') {
-            return { ...empty(), tag: '✦ AI の枠', aurora: 'planned' };
+            return { ...empty(), tag: translate('preview.generationOverlay.status.aiPlaceholderLabel'), aurora: 'planned' };
         }
         return empty();
     } catch {

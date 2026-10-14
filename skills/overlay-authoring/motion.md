@@ -1,167 +1,148 @@
-# モーショングラフィックス設計
+# Motion graphics design
 
-## 原則
+## Principles
 
-表示状態を `localTime = max(0, timelineTime - start)` と公開変数から求める純粋な設計にする。同じ localTime へシークしたとき、再生経路に関係なく同じ絵を返す。
+Make display state a pure function of `localTime = max(0, timelineTime - start)` and exposed variables. Seeking to the same localTime must return the same image, regardless of playback path.
 
-- 主経路は CSS animation または WAAPI とする。ランタイムは descendant animation を pause し、`currentTime = localTime * 1000` に設定する。
-- transition は「状態を変更した瞬間」に依存するため、主タイムラインの演出には使わない。
-- animation event の発火回数や順序へ副作用を持たせない。シークはイベント区間を飛び越えうる。
-- particle や反復要素は先に DOM を確定し、index と固定 seed から値を作る。再生中に未 seed の乱数で作り直さない。
-- 外側コンテナの transform は AKARI の幾何操作用、断片内の子 transform は演出用として分離する。
+- Use CSS animation or WAAPI as the primary path. The runtime pauses descendant animations and sets `currentTime = localTime * 1000`.
+- Do not use transitions for primary timeline motion; they depend on the instant state changed.
+- Do not tie side effects to animation-event count or order. Seeking can skip an event interval.
+- Establish particle or repeated DOM elements in advance; derive values from index and a fixed seed. Never regenerate them with unseeded randomness during playback.
+- Separate outer-container transforms for AKARI geometry from child transforms for fragment motion.
 
-断片ルートには `data-start` / `data-duration` を置かない。タイムライン上の開始・長さは
-`edit.json` を正本とし、断片内部の `animation-delay` などの時刻はクリップ先頭を 0 とする
-ローカル秒で書く（タイムラインの絶対秒を入れない）。
+Do not put `data-start` / `data-duration` on the fragment root. `edit.json` is the SSOT for timeline start and duration. Write internal `animation-delay` and other times in local seconds from clip start 0, never absolute timeline seconds.
 
-## イージング語彙
+## Easing vocabulary
 
-数値の `cubic-bezier()` を断片に直書きしない。ランタイムの語彙
-（`packages/overlay-runtime/src/motion-vocab.css`。ホストが読み込み、書き出し側は
-rasterize.mjs が同じ内容をシートへ埋め込む）を **名前で** 呼ぶ。
+Do not hardcode numeric `cubic-bezier()` functions in fragments. Call the runtime vocabulary **by name** (`packages/overlay-runtime/src/motion-vocab.css`; the host loads it and rasterize.mjs embeds the same content in export sheets).
 
-| 変数 | 質感 | 使いどころ |
+| Variable | Feel | Use |
 |---|---|---|
-| `--ease-smooth` | **既定**。すっと出て長く減速 | 入場・移動・サイズ変化の第一候補。未指定の `var(--anim-easing)` はこれになる |
-| `--ease-natural` | 中庸の立ち上がり + 長い減速の尾 | リストの送り、続きものの移動 |
-| `--ease-slowdown` | 初速最大 → 匍匐して止まる | 勢いから静止へ。強い ease-out |
-| `--ease-accelerate` | 深い溜め → 加速して去る | 退場。**直後にカットが来る前提**の動き |
-| `--ease-overshoot` | バネ。目標を大きく越えてから戻る（約 +90%） | 強調の飛び込み・ポップイン |
-| `--ease-overshoot-mid` / `--ease-overshoot-soft` | 同じバネの控えめ段（約 +66% / +32%） | 移動量がやや大きいときの逃がし先 |
-| `--ease-impulse` | 突進して小さく上振れ | 高速スライドイン |
-| `--ease-linear` | 等速 | 進捗・連続回転など、速度変化に意味がない動き |
-| `--ease-snap-out` / `--ease-hard-out` / `--ease-deep-inout` / `--ease-snappy` | 切れ味系の補助語彙 | テロップの歯切れを出したいとき（telop.md） |
+| `--ease-smooth` | **Default**; quick arrival and long deceleration | First choice for entrances, moves, size changes; unspecified `var(--anim-easing)` resolves here |
+| `--ease-natural` | Moderate start with a long deceleration tail | List advances and connected moves |
+| `--ease-slowdown` | Maximum initial speed → crawls to rest | Motion settling from speed; strong ease-out |
+| `--ease-accelerate` | Deep hold → accelerates away | Exit **assuming an immediate following cut** |
+| `--ease-overshoot` | Spring overshooting target substantially (about +90%) | Emphatic leap / pop-in |
+| `--ease-overshoot-mid` / `--ease-overshoot-soft` | Milder versions of the same spring (about +66% / +32%) | Safer for somewhat larger displacement |
+| `--ease-impulse` | Rushes in and overshoots slightly | Fast slide-in |
+| `--ease-linear` | Constant speed | Progress or continuous rotation where speed change has no meaning |
+| `--ease-snap-out` / `--ease-hard-out` / `--ease-deep-inout` / `--ease-snappy` | Sharper supporting vocabulary | Crisp telop motion (`telop.md`) |
 
-`--anim-duration` に入れる尺の相場も対象別の変数がある:
+Target-specific duration variables also guide `--anim-duration`:
 
-| 変数 | 値 | 対象 |
+| Variable | Value | Target |
 |---|---|---|
-| `--anim-duration-telop` | 500ms | テロップ（1 文字 / 1 文節あたり） |
-| `--anim-duration-shape` | 800ms | 図形・帯・カード |
-| `--anim-duration-group` | 1000ms | ラッパ `<div>` ごと動かすとき |
+| `--anim-duration-telop` | 500ms | Telop (per character / Japanese phrase unit) |
+| `--anim-duration-shape` | 800ms | Shapes, bands, cards |
+| `--anim-duration-group` | 1000ms | Moving a wrapper `<div>` |
 
-**overshoot / impulse は「小さい移動・スケールのポップ」専用**。越え量は移動量に
-**比例**するため、画面幅級の搬入（数百 px の translate）に掛けると目標を数百 px
-突き抜けて画面外へ飛ぶ。長距離の搬入は `--ease-smooth` / `--ease-natural`、退場は
-`--ease-accelerate`、ポップ強調（scale 0.7→1、数十 px の移動）にだけ overshoot 系を使う。
-どうしても大きめの移動で使うときは `-mid` / `-soft` へ落とす。
+**Overshoot / impulse are only for small movements and scale pops.** Overshoot is **proportional** to travel. On a screen-width entrance (hundreds of px of translate), it can shoot hundreds of px past the target and offscreen. Use `--ease-smooth` / `--ease-natural` for long entrances, `--ease-accelerate` for exits, and the overshoot family only for small pop emphasis (scale 0.7→1, a move of tens of px). If a larger move truly needs it, switch to `-mid` / `-soft`.
 
-CSS 標準キーワード（`ease-out` 等）より上記の語彙を優先する。離散切替（カウンタの桁・
-LED・コマ送り風）だけは標準の `steps()` を使う。語彙で意図を表せない場合に限り
-`cubic-bezier()` を新設し、CSS 変数化して理由を残す。標準キーワードの定義は
-[W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) を参照する。
+Prefer this vocabulary over CSS standard keywords such as `ease-out`. Use standard `steps()` only for discrete changes (counter digits, LEDs, stop-motion style). Add a new `cubic-bezier()` only if the vocabulary cannot express the intent; expose it as a CSS variable and record why. See [W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) for standard keyword definitions.
 
-## compositor 合成の制約
+## Compositor constraints
 
-- 毎フレーム変えるのは原則 `transform` と `opacity` に限る。
-- `top`、`left`、`width`、`height`、margin、padding、grid track、DOM 挿抜をアニメーションしない。
-- 4K 映像上の `filter: blur()` と `backdrop-filter` を使わない。ぼかしが不可欠なら事前処理した画像を使う。
-- static な背景、border、shadow は必要最小限にする。重い paint が疑われる場合は実際の出力解像度で計測し、根拠のない性能閾値を発明しない。
-- `will-change` を全要素へ常設しない。対象と有効期間を限定する。
-- GPU 書き出し（`--engine gpu` / `auto`）の適格性は HTML 文字列の静的判定で決まる
-  （`packages/gpu-export/src/eligibility.mjs`、正本 `docs/contract-2026-08-28-gpu-export-v0.md` §2 / §9）。
-  `@keyframes`・WAAPI `.animate()`・アイテムの `keyframes`・要素の inline style にある奥行き変形
-  （`perspective()` / `rotateX` / `rotateY` / `rotate3d` / `matrix3d` / Z≠0 の `translateZ`・`translate3d` / `transform-style: preserve-3d`）は
-  `degraded` になり、`auto` は OSR を選ぶ。`translate3d(x, y, 0)` / `translateZ(0)` は 2D と等価で通る。
-  通常の CSS ルールにだけある静的な 3D は従来の GPU 分類を保つ。GPU を狙うアニメでは
-  `translate(x, y)` / `scale(x, y)` を使う。`url(#id)` の同一文書内参照と data URI は外部リソース扱いにならない。
-- 入場を先頭フレームから見せたい場合は、アニメーションを 1 フレーム前から始める（負の delay）。30 fps なら `animation-delay: -33.333ms`。開始時刻ちょうどは CSS の 0% 状態としてプレビュー・書き出しの両方に映る。
+- In general, change only `transform` and `opacity` every frame.
+- Do not animate `top`, `left`, `width`, `height`, margin, padding, grid tracks, or DOM insertion/removal.
+- Do not use `filter: blur()` or `backdrop-filter` over 4K video. Preprocess an image if blur is essential.
+- Minimize static backgrounds, borders, and shadows. If heavy paint is suspected, measure at actual output resolution; do not invent unsupported performance thresholds.
+- Do not leave `will-change` permanently on every element. Limit its targets and active period.
+- GPU-export eligibility (`--engine gpu` / `auto`) is a static decision on the HTML string (`packages/gpu-export/src/eligibility.mjs`; canonical `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-28-gpu-export-v0.md` §§2/9). Depth transforms in `@keyframes`, WAAPI `.animate()`, item `keyframes`, or element inline styles (`perspective()` / `rotateX` / `rotateY` / `rotate3d` / `matrix3d` / nonzero-Z `translateZ` or `translate3d` / `transform-style: preserve-3d`) become `degraded`, and `auto` chooses OSR. `translate3d(x, y, 0)` / `translateZ(0)` pass as 2D equivalents. Static 3D only in ordinary CSS rules retains its previous GPU classification. For GPU-targeted motion, use `translate(x, y)` / `scale(x, y)`. Same-document `url(#id)` references and data URIs are not external resources.
+- To show an entrance from the first frame, start the animation one frame earlier (negative delay). At 30 fps use `animation-delay: -33.333ms`. Exactly at start time, both preview and export show the CSS 0% state.
 
-## 決定性チェック
+## Determinism check
 
-次を含む場合は不合格にする。
+Fail a fragment that includes:
 
-- `Date.now()` / wall-clock 差分
-- `performance.now()` の積算
-- `setTimeout` / `setInterval` で進む状態
-- rAF の delta を足し続ける状態
-- 未 seed の `Math.random()`
-- `AnimationMixer.update(delta)` のような経路依存の積算
+- `Date.now()` / wall-clock differences
+- Accumulation from `performance.now()`
+- State advanced by `setTimeout` / `setInterval`
+- State that keeps adding rAF deltas
+- Unseeded `Math.random()`
+- Path-dependent accumulation such as `AnimationMixer.update(delta)`
 
-rAF は、外部タイムラインから既に決めた状態を再描画する用途に限る。ただし現行 fragment には汎用 JS seek hook がないため、カスタム JS 描画は **要検証** とする。WAAPI の時刻制御は [W3C Web Animations](https://www.w3.org/TR/web-animations-1/) を参照する。
+Use rAF only to redraw a state already determined by an external timeline. Current fragments have no general JS seek hook, so custom JS drawing **needs verification**. See [W3C Web Animations](https://www.w3.org/TR/web-animations-1/) for WAAPI time control.
 
-## 静的 fallback
+## Static fallback
 
-`scripts/render-overlays.mjs` の static Chrome fallback は CSS / WAAPI animation を無効化する。入場途中にしか内容が存在しない構成にせず、代表静止状態でも意味が通るようにする。書き出し時は採用された renderer method を確認する。
+The static Chrome fallback in `scripts/render-overlays.mjs` disables CSS / WAAPI animation. Ensure the meaning remains clear in a representative still; do not put all content only in an intermediate entrance state. Check the renderer method selected during export.
 
-## よくある間違い
+## Common mistakes
 
-- CSS transition を開始してから録画時間が進む前提にする。
-- `requestAnimationFrame` のフレーム差を足して位置を決める。
-- bounce 感を出すために意味のない custom easing を乱立する。
-- outer transform と inner motion を同じ要素で競合させる。
-- `filter: blur()` を入退場へ使う。
-- static fallback では文字も結論も見えない。
-- 一般名の `@keyframes fade-in` を使い、別断片と衝突する。
+- Assuming recorded time advances after starting a CSS transition.
+- Adding `requestAnimationFrame` frame differences to compute position.
+- Proliferating meaningless custom easing just to suggest bounce.
+- Making outer geometry and inner motion compete on one element.
+- Using `filter: blur()` for entrances or exits.
+- Hiding the text and conclusion in static fallback.
+- Using generic `@keyframes fade-in` and colliding with another fragment.
 
-### `box-sizing` 未指定による固定幅要素のはみ出し（2026-08-07 実測）
+### Fixed-width overflow without `box-sizing` (measured 2026-08-07)
 
-`position: absolute` な要素に固定 `inline-size`（or `width`）**と** `padding` / `padding-inline` を同時に指定し、`box-sizing` を明示していない断片は、既定の `content-box` によって padding が指定幅の**外側に加算**され、実際の描画幅が数値どおりにならない。
+A fragment that sets fixed `inline-size` (or `width`) **and** `padding` / `padding-inline` on a `position: absolute` element without specifying `box-sizing` gets default `content-box`. Padding adds **outside** the specified width, so rendered width differs from the number.
 
-- 実例: `inline-size: 892px; padding-inline: 34px;` の要素が実際には 892 + 34×2 = 960px で描画され、表示可能枠の端を約 90px 超過した
-- **目視プレビューでは気づけない**: CSS の数値だけを読むと正しく見える。実レンダリング（またはブラウザの DevTools でボックスモデルを直接確認する）でしか捕まらない
-- 直し方: 断片ルート直下へ `.foo, .foo *, .foo *::before, .foo *::after { box-sizing: border-box; }` を一括で当てる。`content-box` を意図的に使いたい場面はまず無いため、断片の定型として冒頭に入れることを推奨する
+- Example: `inline-size: 892px; padding-inline: 34px;` rendered at 892 + 34×2 = 960px and overshot the visible boundary by about 90px.
+- **Easy to miss in visual preview**: The CSS numbers look plausible; only actual rendering or direct DevTools box-model inspection reveals it.
+- Fix: Apply `.foo, .foo *, .foo *::before, .foo *::after { box-sizing: border-box; }` beneath the fragment root. Intentional `content-box` is rarely needed, so put this near the start of the fragment template.
 
-### 複数アニメーションを同一プロパティへ連鎖させるときの暗黙 0% 上書き（2026-08-07 実測）
+### Implicit 0% override when chaining animations on the same property (measured 2026-08-07)
 
-同じ要素・同じプロパティ（`transform` や `opacity` など）を触るアニメーションを 2 本以上、`animation: A .3s both, B .3s <delay> both` のように並べ、**後発（B）側が `0%` / `from` を明示していない**場合に起きる。CSS の仕様上、キーフレームに指定の無い境界値は「他のアニメーションが今どんな値を出しているか」ではなく「アニメーション一切無しの静的な base 値（= underlying value）」から合成される。後発アニメは `both`（backward fill）により**自分の `delay` が明けるまでの全期間、先発アニメより優先**されるため、先発アニメの効果が丸ごと隠れる。
+This occurs when two or more animations on the same element touch the same property (`transform`, `opacity`, etc.), as in `animation: A .3s both, B .3s <delay> both`, and **later B omits an explicit `0%` / `from`**. CSS composes the missing boundary from the static base (underlying value with no animation), **not the current value of A**. B's `both` backwards fill has **priority over A throughout its `delay`**, masking A completely.
 
-これは `telop.md`「IN/OUT を 1 本の `animation` に並べるときの fill-mode の罠」と同じ機序の一般化で、あちらが IN/OUT の 2 段に限定されているのに対し、**3 段以上の同一プロパティ連鎖**、**別要素のつもりが同一プロパティを共有していた**ケースまで踏む。
+This generalizes the two-stage trap called "Fill-mode trap when putting IN/OUT in one `animation` (measured 2026-08-04)" in `telop.md` to **3 or more stages on the same property** and cases where seemingly separate effects share a property.
 
-- 実例1: カーソルを「フェードイン → 移動 → タップ」の 3 段で動かす断片で、タップ用キーフレームが `50%` / `100%` しか指定しておらず `0%` が無い → タップの `delay` が明けるまで、カーソルが移動前の位置に**固まって見えなくなる**（実際には「移動」アニメが常に上書きされて無効化されていた）
-- 実例2: 点滅キャレット `@keyframes blink { 50% { opacity: 0; } }` — 停止点が 1 つしか無いため、0% / 100% が静的 base（`opacity: 0`）から合成され、**点滅が永久に不可視のまま**（点滅しているように見えて実は常に消えている）
-- **目視プレビューでは気づけない**: 「動いていない」「消えている」ことそのものが最終状態に見えるため、実レンダリングで複数フレームを並べて初めて気づける
-- 直し方:
-  1. 単発のループ演出（点滅など）は必ず両端を明示する（`0%, 100% { opacity: 1; } 50% { opacity: 0; }`）。片方しか書かない省略はしない
-  2. 同一プロパティを複数段でつなぐ場合、後段の `0%` / `from` に**前段の着地値を明示的に複製**する（暗黙合成に任せない）
+- Example 1: A cursor does "fade in → move → tap" in 3 stages, but tap defines only `50%` / `100%`, not `0%`. Until tap's delay ends, the cursor freezes at its pre-move position and disappears: move is actually overridden throughout.
+- Example 2: Blinking caret `@keyframes blink { 50% { opacity: 0; } }`: with only one stop, 0% / 100% come from base `opacity: 0`, so the caret **stays invisible forever** (it can look as though it is blinking, but is actually hidden at all times).
+- **Easy to miss in visual preview**: Stillness or absence may look like the final state. Compare multiple actual rendered frames.
+- Fix: (1) Always define both endpoints of a one-off loop such as blink (`0%, 100% { opacity: 1; } 50% { opacity: 0; }`), never omit one. (2) For staged effects on one property, explicitly copy the preceding stage's landing value into the next stage's `0%` / `from`; never rely on implicit composition.
 
-### 書き出しランタイムは authored の `animation-fill-mode` を尊重する（2026-08-16 実測）
+### Export runtime respects authored `animation-fill-mode` (measured 2026-08-16)
 
-書き出し時、render-cut は CSS animation を paused WAAPI クローンへ変換するが、`fill` は authored の宣言（`none` / `forwards` / `backwards` / `both`）をそのまま引き継ぐ。プレビューと書き出しで fill-mode の意味は一致する。
+During export, render-cut converts CSS animations into paused WAAPI clones and preserves the authored `fill` (`none` / `forwards` / `backwards` / `both`). Preview and export give fill-mode the same meaning.
 
-- 同一要素へ IN と遅延付き OUT を並べる場合は、`animation: intro .3s both, outro .3s 1s forwards` のように OUT へ backward fill を付けない。OUT の `0%` が delay 中の IN を上書きせず、IN → hold → OUT が順に効く
-- 遅延前から `0%` を見せたい演出だけ `backwards` / `both` を宣言する。過渡 FX を発火前に隠す場合は `forwards` / `none` を選ぶか、意図して backward fill を使うなら `0%` 自体を不可視にする
+Do not give OUT a backward fill.
 
-### 入場して留まる要素の base を隠れ状態にすると書き出しで消える（2026-08-14 実測）
+- For IN followed by delayed OUT on one element, use `animation: intro .3s both, outro .3s 1s forwards`: no backward fill on OUT, so its `0%` does not override IN during delay; IN → hold → OUT runs in order.
+- Declare `backwards` / `both` only when `0%` must be visible before delay. To hide transient FX before activation, choose `forwards` / `none`, or make `0%` itself invisible if backward fill is intentional.
+
+### Hidden base on an entering-and-holding element makes it disappear in export (measured 2026-08-14)
 
 edit-lint: `overlays.base-hidden-state`
 
-WAAPI クローン化の前に、書き出しシートは仮想クロックで free-run するセットアップ期間を持つ。delay 0 の短尺アニメはこの間に完走扱いになり**クローン化を逃す**ことがある。以後その要素は base の CSS に戻るため、base に `opacity: 0` や `transform: scaleX(0)` のような「隠れ状態」を書いていると、**一瞬正しく見えた後（または最初から）完全に消える**。
+Before WAAPI cloning, the export sheet has a setup period in which the virtual clock free-runs. A short zero-delay animation can be considered finished in that period and **miss cloning**. The element then returns to base CSS. If base is hidden with `opacity: 0` or `transform: scaleX(0)`, it **disappears completely after briefly appearing, or from the start**.
 
-- 実例1: 見出し（delay 0・0.51s の叩きつけ）の base に `opacity: 0` → t≈0.3s では見えるが t≈0.6s 以降で消滅
-- 実例2: 時間バーの base に `transform: scaleX(0)` → バーが一切伸びない。opacity に限らず transform でも同型
-- 直し方: **base（アニメ無し時のスタイル）は必ずその断片の「最終静止状態」にする**。隠れ状態は `@keyframes` の `0%` / `from` 側だけに書く（delay 中は backwards fill が処理する）。過渡 FX（最終状態も不可視）だけが base opacity: 0 を許される
+- Example 1: A heading with a zero-delay, 0.51s impact has base `opacity: 0`: visible near t≈0.3s, gone after t≈0.6s.
+- Example 2: A timer bar has base `transform: scaleX(0)` and never extends; this also affects transform, not only opacity.
+- Fix: **Base (the style without animation) must be the fragment's final still state.** Put hidden state only at keyframe `0%` / `from`; backwards fill handles the delay. Only transient FX whose final state is also invisible may use base opacity 0.
 
-### `animation` shorthand の暗黙 delay:0 が、ゲート外の `animation-delay` を詳細度で潰す（2026-08-14 実測）
+### Implicit delay:0 in `animation` shorthand beats an ungated `animation-delay` by specificity (measured 2026-08-14)
 
-`animation` shorthand は明示しないサブプロパティ（`animation-delay` 含む）を**暗黙に初期値へリセット**する。発火ゲート付きルール `[data-akari-active] .x { animation: ... }`（詳細度 0,2,0）はゲート無しのモディファイア `.x--2 { animation-delay: 2s }`（0,1,0）に**詳細度で勝つ**ため、per-要素の delay が全て捨てられ**全要素が delay 0 で同時発火**する。
+`animation` shorthand **implicitly resets** omitted subproperties, including `animation-delay`, to their initial values. A gated rule `[data-akari-active] .x { animation: ... }` (specificity 0,2,0) beats an ungated modifier `.x--2 { animation-delay: 2s }` (0,1,0), dropping every per-element delay and **starting all elements together at delay 0**.
 
-`data-akari-active` は活性区間の外側容器へプレビュー / OSR / GPU のすべてで付与される。
-したがって `[data-akari-active] .x` は経路共通の発火ゲートとして使える。非活性区間では属性が
-除去されるため、断片自身が属性を固定で持たせてはならない。
+Preview, OSR, and GPU all add `data-akari-active` to the outer container during an active interval, so `[data-akari-active] .x` is a common activation gate. They remove it outside the interval; fragments must never fix the attribute on themselves.
 
-- 実例: 3 行見出し（b0/b4/b8 の時間差入場）が書き出しで全行同時に出現。1 文字ずつの落下・回転の時間差も全損。**「速いだけ」に見えるため目視検収をすり抜けやすい**
-- 直し方: `animation-delay` は**必ず shorthand と同じゲート付きルールの中**に書く。per-要素の値は inline `style="--d: 2.043s"` + ゲート内 `animation-delay: var(--d)` が定石。モディファイアクラスで delay を上書きする設計は禁止
+- Example: Three heading rows intended to enter at b0/b4/b8 appeared together in export. Character-by-character fall/rotation staggering was also lost. It is easy to miss because it merely looks "fast".
+- Fix: **Always put `animation-delay` in the same gated rule as the shorthand.** Use inline `style="--d: 2.043s"` per element with gated `animation-delay: var(--d)`. Modifier-class delay overrides are forbidden.
 
-### 多段 keyframes はプロパティを全ステップで明示する（密化・2026-08-14 実測）
+### Declare every property at every step of multistage keyframes (densification; measured 2026-08-14)
 
 edit-lint: `overlays.keyframes-sparse`
 
-疎な keyframes（例: `transform` は全 6 ステップにあるが `opacity` は 0%/10%/55% にしか無い）は、**条件次第で WAAPI クローン化が黙って失敗**する（変換部の `catch {}` に握り潰され、元アニメも `animation-name: none` 済みのため**アニメーション丸ごと消滅**）。base が最終状態と一致していると「動かないだけで絵は正しい」ため発見が非常に難しい。
+Sparse keyframes (for example, `transform` at all six steps but `opacity` only at 0%/10%/55%) can make WAAPI cloning **silently fail under some conditions**. The converter swallows the failure with `catch {}`, while the original already has `animation-name: none`, so the **entire animation vanishes**. If base matches the final state, the image still looks correct but motion is gone, making the failure very difficult to detect.
 
-- 実測: base 隠れ状態と組み合わさった断片では完全不可視化（最小再現 6 パターンの A/B で密化により解消）。一方、別の断片では疎のまま正常動作（密化前後でレンダがピクセル同一）— **発火条件は未特定**
-- 直し方: 動作系でも無害なことが実測済みのため、**多段 keyframes では全ステップに全プロパティを明示**する（叩きつけの揺り戻しステップにも `opacity: 1` を毎回書く）。機械監査の考え方: `@keyframes` ごとに「宣言プロパティの和集合」が先頭・最終ステップに揃っているかを走査する
+- Measured: A fragment with hidden base became completely invisible; densifying fixed it in 6 minimal A/B reproductions. Another sparse fragment worked normally and rendered pixel-identically before and after densifying. **The trigger condition is unknown.**
+- Fix: Densification is measured harmless even on working cases, so **declare every property at every step of multistage keyframes** (including `opacity: 1` at every rebound step of an impact). Mechanical audit: for each `@keyframes`, compare the union of declared properties to the first and final steps.
 
-### keyframe の `transform` は base の centering translate を丸ごと上書きする（2026-08-14 実測）
+### Keyframe `transform` entirely replaces base centering translate (measured 2026-08-14)
 
-base で `transform: translate(-50%, -50%)` により中央配置した要素に、`scale()` だけの keyframe を当てると、アニメ発火中は **translate が丸ごと消えて要素が飛ぶ**（CSS animation は transform プロパティを合成せず差し替えるため）。
+If base centers an element with `transform: translate(-50%, -50%)`, applying keyframes containing only `scale()` removes the translate during animation and **makes the element jump**; CSS animation replaces the transform property rather than merging it.
 
-- 実例: 中央チップのポップイン中、接続線との間に隙間が発生（チップだけ右下へずれて拡大）
-- 直し方: keyframe の全ステップに base 分を含める（`translate(-50%,-50%) scale(0.2)` → `translate(-50%,-50%) scale(1)`）。そもそも centering は親ラッパー（grid `place-items: center`）に任せ、アニメ対象要素の base transform を空にしておくのが最安全
+- Example: During a central chip's pop-in, a gap appeared to its connecting line as the chip shifted down-right while scaling.
+- Fix: Include the base component at every keyframe step (`translate(-50%,-50%) scale(0.2)` → `translate(-50%,-50%) scale(1)`). Safest is to center with a parent wrapper (grid `place-items: center`) and leave base transform empty on the animated element.
 
-### `duration` = 1 拍の要素は拍ちょうどのフレームで必ず 0% / 100% になる（2026-09-04 実測）
+### An element with `duration` = one beat is at 0% / 100% on exact beat frames (measured 2026-09-04)
 
-拍やカット境界にぴったり合わせた要素（`duration` = ちょうど 1 拍）は、**その拍ちょうどのフレームで必ず境界値**（`0%` / `100%` = 画面外・`opacity: 0`）に当たる。拍ちょうど・カット境界ちょうどの時刻だけを抜いて眺めると、区間の中では正しく動いている要素が全コマ不在に見える。**断片の欠陥ではなく検収側のサンプリングの罠**である点が本節の他項目と異なる。
+An element aligned exactly to beat or cut boundaries (`duration` = exactly one beat) **always hits a boundary value on the exact beat frame** (`0%` / `100%` = offscreen or `opacity: 0`). Inspecting only exact beat and cut-boundary frames makes correctly moving elements look absent everywhere. **Unlike the other items in this section, this is a sampling trap in review, not a fragment defect.**
 
-- 実例: 実制作の目視検収で、拍に合わせた入退場を持つ断片について **2 名が「アニメが死んでいる」と誤認しかけた**（実体は正常動作）
-- 直し方: 目視を境界時刻だけで判定しない。`akari capture --auto` は各オーバーレイ / 字幕区間の**中点**を含む代表時刻を決定論で導出するので、**`capture --auto` の中点フレームで確認する**（`render.json` の `contact_sheet.timestamps_seconds` に中点が入っているかを先に見る）。逆に「本当に何も映っていない」区間の検出は目視に頼らず、render-cut の空フレーム走査（`verify.blank-frames`・連続 0.3 秒以上・活性 overlay / cut があれば `warning`、活性 0 件は `info`）に任せる
+- Example: During actual production inspection, **two reviewers nearly concluded "the animation is dead"** for beat-aligned entrances/exits; the motion was correct.
+- Fix: Never judge from boundary times alone. `akari capture --auto` derives representative times deterministically including the **midpoint** of each overlay / caption interval. Inspect midpoint frames from `capture --auto` (first check that `render.json` `contact_sheet.timestamps_seconds` includes the midpoint). For intervals truly showing nothing, use render-cut's blank-frame scan rather than vision (`verify.blank-frames`: at least 0.3 consecutive seconds; `warning` with active overlay / cut, `info` with zero active items).

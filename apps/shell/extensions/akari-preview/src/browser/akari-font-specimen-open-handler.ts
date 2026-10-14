@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { getLanguage } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -48,7 +50,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.fontSpecimen';
-        widget.title.label = '素材プレビュー';
+        widget.title.label = t('preview.audioPreview.window.assetPreviewLabel');
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-symbol-key';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
@@ -79,7 +81,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
             if (!widget.isDisposed) {
-                widget.setHTML(this.messageHtml('書体を読み込めませんでした。'));
+                widget.setHTML(this.messageHtml(t('preview.fontPreview.window.couldNotLoadFontError')));
             }
             this.renders.delete(widget);
         }
@@ -94,7 +96,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
     }
 
     protected messageHtml(message: string): string {
-        return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="${getLanguage()}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>:root{color-scheme:dark;font-family:system-ui,sans-serif}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#111;color:#eee}
@@ -119,7 +121,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
     protected specimenHtml(sourceUrl: string, filename = '', fontName = ''): string {
         const origin = this.escapeHtml(new URL(sourceUrl).origin);
         const rows = ['あア亜 永久 憂鬱', 'AKARI', '123'];
-        return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="${getLanguage()}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${origin}; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style>
@@ -130,7 +132,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
 input{display:block;width:100%;margin-top:8px;padding:8px;font:inherit}
 section{border-top:1px solid #444;padding:16px 0}h2{font:14px system-ui,sans-serif;color:#aaa}
 p{font-family:AkariSpecimen;margin:12px 0;line-height:1.4;overflow-wrap:anywhere;white-space:pre-wrap}
-</style></head><body><div class="akari-material-chip">${this.escapeHtml(filename)} · <span style="font-family: AkariSpecimen">${this.escapeHtml(fontName)}</span></div><label>試し打ち<input id="sample" type="text" placeholder="文字を入力してください"></label>
+</style></head><body><div class="akari-material-chip">${this.escapeHtml(filename)} · <span style="font-family: AkariSpecimen">${this.escapeHtml(fontName)}</span></div><label>${t('preview.fontPreview.sample.typeSampleLabel')}<input id="sample" type="text" placeholder="${t('preview.fontPreview.sample.fontSamplePlaceholderEmptyState')}"></label>
 ${[24, 48, 96].map(size => `<section><h2>${size}px</h2>${rows.map(row =>
             `<p style="font-size:${size}px">${row}</p>`).join('')}<p class="custom" style="font-size:${size}px" hidden></p></section>`).join('')}
 <p id="error" role="alert" hidden></p>
@@ -139,7 +141,7 @@ document.getElementById('sample').addEventListener('input',event=>{
  for(const row of document.querySelectorAll('.custom')){row.textContent=event.target.value;row.hidden=!event.target.value;}
 });
 document.fonts.load('24px AkariSpecimen').catch(()=>{
- const error=document.getElementById('error');error.textContent='書体を読み込めませんでした。';error.hidden=false;
+ const error=document.getElementById('error');error.textContent=${JSON.stringify(t('preview.fontPreview.sample.couldNotLoadFontError'))};error.hidden=false;
 });
 </script></body></html>`;
     }

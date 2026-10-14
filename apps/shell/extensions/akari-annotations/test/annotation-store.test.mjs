@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { emptyReviewSource, appendAnnotationLine, parseReview, removeAnnotationLine, updateStatusLine, isDocOrImageTarget } = await import('../lib/common/annotation-store.js');
 
-import {
-  emptyReviewSource,
-  appendAnnotationLine,
-  parseReview,
-  removeAnnotationLine,
-  updateStatusLine,
-  isDocOrImageTarget,
-} from "../lib/common/annotation-store.js";
+
+
 
 function baseAnnotation(overrides = {}) {
   return {
@@ -197,7 +196,7 @@ test("session が不正な形（confidence 未知値・recRange 欠落）なら�
   const source = badSessionSource(appendAnnotationLine(emptyReviewSource(), annotation));
   const parsed = parseReview(source);
   assert.equal(parsed.annotations[0].session, null);
-  assert.ok(parsed.warnings.some(warning => warning.includes("session")));
+  assert.ok(parsed.warnings.some(warning => warning.includes("録音参照")));
 });
 
 test("strokes が旧型（[number,number][] の素の配列）なら不正として無視する", () => {

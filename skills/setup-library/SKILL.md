@@ -1,47 +1,53 @@
 ---
 name: setup-library
-description: AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli の道具チェック（承認を得れば導入まで代行）、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。
+description: Use for first-time AKARI Video setup or when the current project needs more usable assets. This first-run skill checks ffmpeg / whisper-cli (and can install with approval), reads the bundled catalog with akari assets to propose a starter pack, obtains explicit human approval, then acquires, places, validates, and updates INDEX entries.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-次のいずれかに違反する形で素材セットアップを進めない。詳細リーフより常に優先する。
+Never proceed with asset setup in violation of any rule below. These always override detailed leaf documents.
 
-1. **人間の明示承認なしに取得・購入・ログインを実行しない。** 承認前に catalog エントリを `assets/` へ書き込まない。
-2. **在庫を捏造しない。** `catalog/` に存在しないカテゴリ・エントリ・URL・ライセンス表記を提案・記録しない。カタログが空、または該当カテゴリが未整備なら「提案できる素材がない」と正直に報告する。
-3. **license が確定しない素材を `assets/` へ入れない。** external の `source.license_at_source` を鵜呑みにせず、確認できた範囲だけを書く。akari-r2 は `source.license_at_source` を持たない。確定できなければ配置を止める。
-4. **`acquisition: login` / `purchase` はエージェントが代理取得しない。** URL を提示してユーザー自身に取得させ、置き場所を確認してから次工程へ進む。
-5. **`assets/` 配置後に `remote` フラグを残さない。** 実体が揃っていないのに `assets/` 側で「配置完了」と報告しない。
-6. **`attribution_required` が true の素材は記録を省略しない。** `assets/<category>/INDEX.md` への明記と、プロジェクト側クレジットが必要になる旨のユーザーへの明示を必須とする。
-7. **`node packages/schemas/bin/validate-asset.mjs` を通さずに「検証済み」と報告しない。**
-8. **既存の `assets/<category>/<id>/` を無断で上書きしない。** id が衝突したら内容を比較し、人間の判断を仰ぐ。
+1. **Do not acquire, purchase, or log in without explicit human approval.** Do not write catalog entries to `assets/` before approval.
+2. **Do not invent inventory.** Do not propose or record categories, entries, URLs, or license statements absent from the bundled catalog returned by `akari assets list --source site` / `akari assets show`. If the catalog is empty or the relevant category is unfinished, honestly report that no assets can be proposed.
+3. **Do not put assets with undetermined licenses into `assets/`.** Do not blindly trust external `source.license_at_source`; record only what you verified. akari-r2 has no `source.license_at_source`. Stop placement if the license cannot be established.
+4. **The agent must not acquire `acquisition: login` / `purchase` assets on the user's behalf.** Present the URL, let the user acquire them, and confirm their location before proceeding.
+5. **Do not leave the `remote` flag after placement in `assets/`.** Do not report placement complete in `assets/` while actual files are missing.
+6. **Never omit records for assets with `attribution_required` true.** Explicitly record this in `assets/<category>/INDEX.md` and tell the user that project-side credits are required.
+7. **Do not report “validated” without running `akari assets validate <dir>`.**
+8. **Do not overwrite existing `assets/<category>/<id>/` without permission.** If IDs collide, compare contents and ask for a human decision.
 
-# 実行順リーフ
+# Leaf documents in execution order
 
-1. [tools-check.md](tools-check.md) — ffmpeg / whisper-cli の実在確認
-2. [starter-pack.md](starter-pack.md) — `catalog/INDEX.md` を読み、用途を聞き、スターターパックを提案して承認を得る
-3. [fetch-and-validate.md](fetch-and-validate.md) — 承認された素材だけを取得し、`assets/` へ配置、検証、`INDEX.md` 更新
+1. [tools-check.md](tools-check.md) — Verify ffmpeg / whisper-cli actually exist
+2. [starter-pack.md](starter-pack.md) — Inspect the bundled catalog with `akari assets`, ask about intended use, propose a starter pack, and obtain approval
+3. [fetch-and-validate.md](fetch-and-validate.md) — Acquire only approved assets, place in `assets/`, validate, and update `INDEX.md`
 
-詳細を先読みせず、現在の工程に対応するファイルだけを読む。承認が得られていない工程を先に進めない。
+Read only the file for the current stage, without reading ahead. Do not proceed to a stage that has not been approved.
 
-## アカウントの素材（無料 + 購入済み）を使いたいと言われたら
+## When the request comes from the app library
 
-`catalog/` のスターターパック提案（上記 3 手順）とは別に、**そのアカウントで使える素材**
-（無料全部 + `akari store connect` 済みなら購入済みも含む）へ直接行き着く経路がある。
-「購入した素材をセットアップして」「この素材を使って」と頼まれたら、まずこちらを試す。
+For an “Import” or “Import all” request naming `category/id` values such as `font/klee-one`, inspect each named ID with `akari assets show <category/id> --json`. Show its acquisition method, license, and attribution requirement, then obtain the explicit approval required by hard rule 1 before following [fetch-and-validate.md](fetch-and-validate.md). Acquire only the named and approved IDs.
+If a named entry has a non-null `bundledAssetDir`, do not acquire it; tell the user it is already bundled with the app and ready to use (`同梱済みでそのまま使える`).
 
-- `akari assets list [--category <c>] [--json]` — 取得状態バッジ（☁ 未取得 / ✓ 取得済み /
-  🔒 Pro）付きの一覧を表示する。`akari assets list --tag <t> --query <s>` で絞り込める
-- `akari assets fetch <category/id> --project .` — sha256 検証込みで、このプロジェクトへ直接取り込む
-- Pro（Lifetime パス）も 1 件ずつ取れる。Lab の 1 件ページのコピー（`category/id`）を貼れば
-  `akari assets fetch <category/id>` で 1 件取れる
-- 未購入の有料素材は `fetch` が価格入りの `locked` を返す。**購入は代理で行わない**（ハードルール 4
-  と同じ規律）。ストア側（`akari store connect` 済みのアカウント）でユーザー自身に購入してもらう
+## When the user wants account assets (free + purchased)
 
-## 根拠
+Separate from the bundled-catalog starter-pack proposal (the 3 steps above), there is a direct route to
+**assets available to that account** (all free assets + purchased ones if `akari store connect` is complete).
+Try this first for requests such as “Set up my purchased assets” or “Use this asset”.
 
-- 契約: [`docs/contract-2026-07-13-asset-library.md`](../../docs/contract-2026-07-13-asset-library.md)「カタログと取得スキル」§
-- 素材化・meta.json v0 の詳細規律: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
-- authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- `akari assets list [--category <c>] [--json]` — Show a list with acquisition badges (☁ not acquired / ✓ acquired /
+  🔒 Pro). Filter with `akari assets list --tag <t> --query <s>`.
+- `akari assets fetch <category/id> --project .` — Import directly into this project, including sha256 verification.
+- External-site references (`state: reference`, `↗`) cannot be acquired by `akari assets fetch`; use the catalog → list → show procedure in [starter-pack.md](starter-pack.md) and its approval flow.
+- Pro (Lifetime pass) assets can also be acquired 1 at a time. Paste the copy from a Lab page for 1 asset (`category/id`)
+  and use `akari assets fetch <category/id>` to acquire 1 asset.
+- For unpurchased paid assets, `fetch` returns `locked` with the price. **Do not purchase on the user's behalf**
+  (same discipline as hard rule 4). Ask the user to purchase in the store using the account connected via `akari store connect`.
+
+## Sources
+
+- Contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
+- Asset harvesting and meta.json v0 discipline: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
+- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)

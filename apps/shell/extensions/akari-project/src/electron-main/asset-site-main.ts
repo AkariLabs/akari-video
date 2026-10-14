@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell, WebContentsView } from '@theia/core/electron-shared/electron';
 import { randomBytes } from 'crypto';
@@ -71,17 +72,17 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         });
         ipcMain.handle(CHANNEL_ASSET_SITE, async (event, operation: string, input?: any) => {
             const window = BrowserWindow.fromWebContents(event.sender);
-            if (!window) throw new Error('ウィンドウが見つかりません');
+            if (!window) throw new Error(t('project.web.assetSite.windowNotFoundMessage'));
             if (operation === 'browserConfig') return readBrowserConfig(testHttp ? process.env.AKARI_ASSET_SITE_TEST_CATALOG : undefined);
             if (operation === 'clearBrowserHistory') {
                 const data = await readBrowserConfig(testHttp ? process.env.AKARI_ASSET_SITE_TEST_CATALOG : undefined);
-                if (!data) throw new Error('ブラウザの設定ファイルが見つかりません');
+                if (!data) throw new Error(t('project.web.assetSite.browserConfigurationFileNotFoundMessage'));
                 const browserSession = session.fromPartition(data.open_web.partition);
                 await browserSession.clearStorageData(); await browserSession.clearCache(); await browserSession.clearAuthCache();
                 return;
             }
             if (operation === 'pickMode') {
-                if (typeof input?.on !== 'boolean') throw new Error('操作が不正です');
+                if (typeof input?.on !== 'boolean') throw new Error(t('project.web.engine.invalidActionError'));
                 this.pickModes.set(window.id, input.on);
                 const current = this.states.get(window.id);
                 if (current) { current.pickMode = input.on; current.view.webContents.send(CHANNEL_VIEW_MODE, viewModeMessage(input.on));
@@ -99,7 +100,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             if (operation === 'open') return this.open(window, input?.site, input?.url, input?.rect);
             const state = this.states.get(window.id);
             if (operation === 'close' && !state) { this.pickModes.delete(window.id); return; }
-            if (!state) throw new Error('素材サイトが開いていません');
+            if (!state) throw new Error(t('project.web.assetSite.assetSiteIsNotOpenMessage'));
             if (operation === 'close') return this.close(state);
             if (operation === 'guardHide') {
                 if (state.lastRect?.visible) { state.guarded = true; this.applyBounds(state); }
@@ -123,12 +124,12 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             if (operation === 'forward') { if (state.view.webContents.canGoForward()) state.view.webContents.goForward(); return; }
             if (operation === 'reload') { state.view.webContents.reload(); return; }
             if (operation === 'inspect' || operation === 'testWindowBounds') {
-                if (!testHttp) throw new Error('この検証操作は開発時のみ使用できます');
+                if (!testHttp) throw new Error(t('project.web.assetSite.testActionIsAvailableOnlyDuringMessage'));
                 if (operation === 'inspect') return { viewBounds: state.view.getBounds(), windowBounds: window.getBounds(),
                     navigationLog: state.navigationLog.slice(-12) };
                 const { x, y, width, height } = input ?? {};
                 if (![x, y, width, height].every((value: unknown) => typeof value === 'number' && Number.isFinite(value))
-                    || width < 600 || height < 450 || width > 2400 || height > 1600) throw new Error('ウィンドウ位置が不正です');
+                    || width < 600 || height < 450 || width > 2400 || height > 1600) throw new Error(t('project.web.assetSite.invalidWindowPositionError'));
                 window.setBounds({ x: Math.floor(x), y: Math.floor(y), width: Math.floor(width), height: Math.floor(height) });
                 return;
             }
@@ -147,7 +148,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             }
             if (operation === 'navigate') {
                 if (typeof input?.url !== 'string' || input.url.length > 8192 || !navigationAllowed(input.url, state.site, testHttp))
-                    throw new Error('このアドレスは開けません');
+                    throw new Error(t('project.web.assetSite.cannotOpenAddressError'));
                 await this.loadSiteUrl(state, input.url); return;
             }
             if (operation === 'highlight') {
@@ -167,7 +168,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 }
                 return;
             }
-            throw new Error('操作が不正です');
+            throw new Error(t('project.web.engine.invalidActionError'));
         });
     }
 
@@ -217,7 +218,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         state.blockedNavigation = false;
         try {
             await state.view.webContents.loadURL(url);
-            if (state.blockedNavigation) throw new Error('このアドレスは開けません');
+            if (state.blockedNavigation) throw new Error(t('project.web.assetSite.cannotOpenAddressError'));
         }
         catch (error) {
             if (!isReplacedBrowserNavigation(error, {
@@ -233,7 +234,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         const trusted = await this.readTrustedSite(site?.id);
         if (!trusted || typeof url !== 'string' || url.length > 8192 || !navigationAllowed(url, trusted, testHttp) ||
             ('entry_url' in trusted && !navigationAllowed(trusted.entry_url, trusted, testHttp)))
-            throw new Error('サイト定義または URL が不正です');
+            throw new Error(t('project.web.assetSite.invalidSiteDefinitionUrlError'));
         const previous = this.states.get(window.id);
         if (previous) await this.close(previous);
         let temporary = '';
@@ -327,14 +328,14 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         if (this.states.get(state.window.id) !== state) return;
         const menu = Menu.buildFromTemplate(contextMenuActions(Boolean(payload), Boolean(params?.srcURL), Boolean(params?.linkURL))
             .map(action => {
-                if (action === 'pick') return { label: 'AKARI に取り込む', click: () => { void this.takePick(state, payload!, 'browser:contextmenu'); } };
+                if (action === 'pick') return { label: t('project.web.assetSite.importIntoAKARIAction'), click: () => { void this.takePick(state, payload!, 'browser:contextmenu'); } };
                 if (action === 'separator') return { type: 'separator' as const };
-                if (action === 'copy-image') return { label: '画像をコピー', click: () => state.view.webContents.copyImageAt(params?.x ?? 0, params?.y ?? 0) };
-                if (action === 'copy-image-address') return { label: '画像のアドレスをコピー', click: () => clipboard.writeText(params!.srcURL!) };
-                if (action === 'copy-link-address') return { label: 'リンクのアドレスをコピー', click: () => clipboard.writeText(params!.linkURL!) };
-                if (action === 'back') return { label: '戻る', enabled: state.view.webContents.canGoBack(), click: () => state.view.webContents.goBack() };
-                if (action === 'forward') return { label: '進む', enabled: state.view.webContents.canGoForward(), click: () => state.view.webContents.goForward() };
-                if (action === 'reload') return { label: '再読み込み', click: () => state.view.webContents.reload() };
+                if (action === 'copy-image') return { label: t('project.web.assetSite.copyImageAction'), click: () => state.view.webContents.copyImageAt(params?.x ?? 0, params?.y ?? 0) };
+                if (action === 'copy-image-address') return { label: t('project.web.assetSite.copyImageAddressAction'), click: () => clipboard.writeText(params!.srcURL!) };
+                if (action === 'copy-link-address') return { label: t('project.web.assetSite.copyLinkAddressAction'), click: () => clipboard.writeText(params!.linkURL!) };
+                if (action === 'back') return { label: t('project.web.assetSite.backLabel'), enabled: state.view.webContents.canGoBack(), click: () => state.view.webContents.goBack() };
+                if (action === 'forward') return { label: t('project.web.searchBar.forwardLabel'), enabled: state.view.webContents.canGoForward(), click: () => state.view.webContents.goForward() };
+                if (action === 'reload') return { label: t('project.web.assetSite.reloadLabel'), click: () => state.view.webContents.reload() };
                 return { role: action };
             }));
         menu.popup({ window: state.window });
@@ -423,7 +424,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
 
     private emit(state: SiteState, event: AssetSiteEvent): void { if (!state.window.isDestroyed()) state.window.webContents.send(CHANNEL_ASSET_SITE_EVENT, event); }
     private rejectNavigation(state: SiteState, target: string): void {
-        if (state.site.navigation === 'open') this.emit(state, { type: 'error', message: 'このアドレスは開けません' });
+        if (state.site.navigation === 'open') this.emit(state, { type: 'error', message: t('project.web.assetSite.cannotOpenAddressError') });
         else void this.offerExternal(state, target);
     }
     private async offerExternal(state: SiteState, raw: string): Promise<void> {
@@ -432,8 +433,8 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         // file:, data:, javascript: and non-HTTPS destinations are never opened.
         if (url.protocol !== 'https:' || url.username || url.password || testHttp || state.window.isDestroyed()) return;
         const answer = await dialog.showMessageBox(state.window, { type: 'question',
-            title: '素材サイトの外へ移動', message: `${url.hostname} を既定のブラウザで開きますか？`,
-            detail: raw, buttons: ['開かない', '既定ブラウザで開く'], defaultId: 0, cancelId: 0 });
+            title: t('project.web.assetSite.leaveAssetSiteAction'), message: t('project.web.assetSite.openHostnameDefaultBrowserQuestion', { hostname: url.hostname }),
+            detail: raw, buttons: [t('project.web.assetSite.donTOpenLabel'), t('project.web.assetSite.openDefaultBrowserAction')], defaultId: 0, cancelId: 0 });
         if (answer.response === 1) await shell.openExternal(url.toString());
     }
     private async close(state: SiteState): Promise<void> {

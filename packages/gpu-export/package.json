@@ -11,7 +11,7 @@
     "bundle:frame-engine": "node ../../scripts/gen-frame-engine-bundles.mjs",
     "check:frame-engine-drift": "node ../../scripts/gen-frame-engine-bundles.mjs --check",
     "assert-zero-readback": "node scripts/assert-zero-readback.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --import ../../scripts/ci/default-test-language.mjs --test test/*.test.mjs",
     "ci:required": "npm test && npm run assert-zero-readback"
   },
   "dependencies": {

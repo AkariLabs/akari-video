@@ -1,15 +1,27 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from '../lib/browser/inspector/look-presets.js';
-import { updateInspectorAdjust } from '../lib/browser/inspector/adjust-fields.js';
-import { buildLutOptions, lutOptionLabel } from '../lib/browser/inspector/lut-options.js';
-import { nextAdjustCompareState } from '../lib/browser/inspector/adjust-compare.js';
-import * as fields from '../lib/browser/inspector/adjust-fields.js';
-import { INSPECTOR_ADJUST_FX } from '../lib/browser/inspector/adjust-fx-fields.js';
-import { ACTIVE_ADJUST_SECTIONS } from '../lib/browser/inspector/tab-model.js';
+
+
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { updateInspectorAdjust } = await import('../lib/browser/inspector/adjust-fields.js');
+const { buildLutOptions, lutOptionLabel } = await import('../lib/browser/inspector/lut-options.js');
+const { nextAdjustCompareState } = await import('../lib/browser/inspector/adjust-compare.js');
+const fields = await import('../lib/browser/inspector/adjust-fields.js');
+const { INSPECTOR_ADJUST_FX } = await import('../lib/browser/inspector/adjust-fx-fields.js');
+const { ACTIVE_ADJUST_SECTIONS } = await import('../lib/browser/inspector/tab-model.js');
+
 
 const root = new URL('../../../../../presets/looks/', import.meta.url);
 const catalog = readFileSync(new URL('index.jsonl', root), 'utf8').trim().split(/\r?\n/u)

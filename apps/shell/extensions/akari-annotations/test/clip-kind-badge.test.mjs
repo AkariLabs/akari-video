@@ -1,7 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clipKindBadge } from '../lib/common/clip-kind-badge.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { clipKindBadge } = await import('../lib/common/clip-kind-badge.js');
+
 
 for (const [kind, text] of [
     ['html', 'HTML'],

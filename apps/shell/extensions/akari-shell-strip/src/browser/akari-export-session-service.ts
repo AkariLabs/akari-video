@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { open, OpenerService, StorageService } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
@@ -138,6 +139,8 @@ export class AkariExportSessionService implements Disposable {
 
     protected settings: ExportSettings = DEFAULT_SETTINGS;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
+    protected failedVersion = 0;
+    get failureVersion(): number { return this.failedVersion; }
     protected licenseFindings: readonly QuickExportLicenseFinding[] = [];
     protected video: ThisVideoDescription = {
         orientation: 'landscape', width: undefined, height: undefined, fps: undefined
@@ -153,6 +156,8 @@ export class AkariExportSessionService implements Disposable {
     protected pollHandle: number | undefined;
     protected failureNotified = false;
     protected dialogVisible = false;
+    protected handoffNotice: string | undefined;
+    protected handoffNoticeObserver: MutationObserver | undefined;
     protected lintRechecking = false;
     protected discardingLeftover = false;
     protected lintWatch = new DisposableCollection();
@@ -189,6 +194,7 @@ export class AkariExportSessionService implements Disposable {
 
     dispose(): void {
         this.stopPolling();
+        this.handoffNoticeObserver?.disconnect();
         this.cancelPendingLintRecheck();
         this.lintWatch.dispose();
         this.toDispose.dispose();
@@ -233,6 +239,11 @@ export class AkariExportSessionService implements Disposable {
             return;
         }
         this.dialogVisible = visible;
+        if (!visible) {
+            this.handoffNotice = undefined;
+            this.handoffNoticeObserver?.disconnect();
+            this.handoffNoticeObserver = undefined;
+        }
         if (visible) void this.loadLicenseFindings();
         if (visible && this.status.phase === 'lint-failed') {
             void this.recheckLint({ auto: true });
@@ -270,7 +281,7 @@ export class AkariExportSessionService implements Disposable {
         } catch (error) {
             if (!options.auto) {
                 void this.messages.error(
-                    describeUnexpectedQuickExportFailure(error, 'lint をもう一度検査できませんでした')
+                    describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotCheckLintAgainError'))
                 );
             }
         } finally {
@@ -287,12 +298,12 @@ export class AkariExportSessionService implements Disposable {
         if (result.outcome === 'pass' && wasLintFailed) {
             this.setupRequested = true;
             this.failureNotified = false;
-            void this.messages.info('lint の問題は解消しました。そのまま書き出せます');
+            void this.messages.info(t('shell.export.session.lintIssuesResolvedExportMessage'));
             this.fireChanged();
             return;
         }
         if (result.outcome === 'unavailable' && !options.auto) {
-            void this.messages.warn(result.reason ?? 'lint をもう一度検査できませんでした');
+            void this.messages.warn(result.reason ?? t('shell.export.session.couldNotCheckLintAgainError'));
         }
     }
 
@@ -334,7 +345,7 @@ export class AkariExportSessionService implements Disposable {
 
     async chooseOutputDirectory(): Promise<void> {
         const destination = await this.fileDialogs.showOpenDialog({
-            title: '書き出し先フォルダを選ぶ',
+            title: t('shell.export.session.chooseExportFolderAction'),
             canSelectFiles: false,
             canSelectFolders: true
         });
@@ -345,7 +356,7 @@ export class AkariExportSessionService implements Disposable {
         try {
             this.outputName = await this.chooseAvailableOutputName(this.defaultOutputName(this.settings.codec));
         } catch (error) {
-            this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
+            this.fail(describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotCheckExportDestinationError')));
             return;
         }
         this.fireChanged();
@@ -357,11 +368,11 @@ export class AkariExportSessionService implements Disposable {
         }
         await this.refreshProject();
         if (this.selectedEditUri && this.selectedEditUri.path.base !== 'edit.json') {
-            void this.messages.error('この書き出しエンジンは別タイムラインをまだ指定できません。');
+            void this.messages.error(t('shell.export.session.exportEngineDoesNotSupportAnotherTimelineYetMessage'));
             return false;
         }
         if (!this.projectRoot) {
-            void this.messages.error('プロジェクトルートを取得できないため、書き出しを開始できませんでした');
+            void this.messages.error(t('shell.export.session.couldNotStartExportBecauseProjectRootUnavailableError'));
             return false;
         }
         const settings = { ...this.settings, ...overrides };
@@ -386,7 +397,7 @@ export class AkariExportSessionService implements Disposable {
         try {
             this.outputName = await this.chooseAvailableOutputName(this.defaultOutputName(settings.codec));
         } catch (error) {
-            this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
+            this.fail(describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotCheckExportDestinationError')));
             return false;
         }
         let outcome: QuickExportStartOutcome;
@@ -407,11 +418,11 @@ export class AkariExportSessionService implements Disposable {
                 gpuPreference: gpuConsent === true ? 'auto' : 'off'
             });
         } catch (error) {
-            this.fail(describeUnexpectedQuickExportFailure(error, '書き出しサービスに接続できませんでした'));
+            this.fail(describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotConnectExportServiceError')));
             return false;
         }
         if (!outcome.accepted) {
-            this.fail('別の書き出しが実行中のため、開始できませんでした');
+            this.fail(t('shell.export.session.couldNotStartBecauseAnotherExportRunningError'));
             return false;
         }
         this.setupRequested = false;
@@ -445,12 +456,12 @@ export class AkariExportSessionService implements Disposable {
     protected async notifyCancelled(): Promise<void> {
         const leftover = this.status.cancelledLeftover;
         if (!leftover || leftover.entries.length === 0) {
-            void this.messages.info('書き出しを中止しました');
+            void this.messages.info(t('shell.export.session.exportCanceledStatus'));
             return;
         }
-        const discard = '削除する';
+        const discard = t('shell.export.session.deleteAction');
         const chosen = await this.messages.info(
-            `書き出しを中止しました（一時ファイル ${formatBytes(leftover.bytes)} が残っています）`,
+            t('shell.export.session.exportCanceledTemporaryFilesRemainStatus', { value1: formatBytes(leftover.bytes) }),
             discard
         );
         if (chosen === discard) {
@@ -472,12 +483,12 @@ export class AkariExportSessionService implements Disposable {
             const result = await this.quickExportService.discardCancelledLeftover();
             this.status = await this.quickExportService.getStatus();
             if (result.discarded) {
-                void this.messages.info(`一時ファイル ${formatBytes(result.bytes)} を削除しました`);
+                void this.messages.info(t('shell.export.session.deletedTemporaryFilesText', { value1: formatBytes(result.bytes) }));
             } else {
-                void this.messages.warn(result.reason ?? '一時ファイルを削除できませんでした');
+                void this.messages.warn(result.reason ?? t('shell.export.session.couldNotDeleteTemporaryFilesError'));
             }
         } catch (error) {
-            void this.messages.error(describeUnexpectedQuickExportFailure(error, '一時ファイルを削除できませんでした'));
+            void this.messages.error(describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotDeleteTemporaryFilesError')));
         } finally {
             this.discardingLeftover = false;
             this.fireChanged();
@@ -487,14 +498,14 @@ export class AkariExportSessionService implements Disposable {
     async revealArtifact(): Promise<void> {
         const result = await this.quickExportService.revealArtifact();
         if (!result.revealed) {
-            void this.messages.error('Finder で成果物を表示できませんでした');
+            void this.messages.error(t('shell.export.session.couldNotShowOutputFinderError'));
         }
     }
 
     async copyArtifact(): Promise<boolean> {
         const result = await this.quickExportService.copyArtifact();
         if (!result.copied) {
-            void this.messages.error(result.reason ?? 'コピーできませんでした');
+            void this.messages.error(result.reason ?? t('shell.export.session.couldNotCopyError'));
         }
         return result.copied;
     }
@@ -504,7 +515,7 @@ export class AkariExportSessionService implements Disposable {
             await this.clipboard.writeText(text);
             return true;
         } catch {
-            void this.messages.warn('クレジットをコピーできませんでした');
+            void this.messages.warn(t('shell.export.session.couldNotCopyCreditsError'));
             return false;
         }
     }
@@ -534,11 +545,12 @@ export class AkariExportSessionService implements Disposable {
         const outputName = await this.chooseAvailableOutputName(this.defaultOutputName(this.settings.codec));
         const editName = this.selectedEditUri?.path.base ?? 'edit.json';
         const packet = composeExportRequestPacket({
-            resolutionLabel: `${editName} のまま`,
+            resolutionLabel: t('shell.export.session.keepAction', { value1: editName }),
             outputName,
             rerunLint: this.settings.rerunLint
         }).replaceAll('edit.json', editName);
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        this.finishPartnerHandoff(result);
     }
 
     async handOffFinished(): Promise<void> {
@@ -562,7 +574,8 @@ export class AkariExportSessionService implements Disposable {
             bytes: this.status.artifactSize,
             engine: this.status.progressEngine
         });
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        this.finishPartnerHandoff(result);
     }
 
     async handOffLintFailure(): Promise<void> {
@@ -571,14 +584,43 @@ export class AkariExportSessionService implements Disposable {
             ? findings.map(finding => {
                 const detail = `${finding.check ? `[${finding.check}] ` : ''}${finding.message ?? 'edit-lint finding'}`;
                 return formatLintFailureForUi(
-                    finding.severity === 'warning' ? 'lint 警告' : 'lint エラー',
+                    finding.severity === 'warning' ? t('shell.export.session.lintWarningStatus') : t('shell.export.session.lintErrorLabel'),
                     [detail],
                     [finding] as readonly UiLintFinding[]
                 );
             }).join('\n')
-            : '書き出し前の lint を直してください。詳しい内容は lint レポートにあります。';
-        const report = this.status.reportPath ? `\nlint レポート: ${this.status.reportPath}` : '';
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, `${formatted}${report}`);
+            : t('shell.export.session.fixLintIssuesExportingSeeLintReportDetailsMessage');
+        const report = this.status.reportPath ? t('shell.export.session.lintReportLabel', { value1: this.status.reportPath }) : '';
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, `${formatted}${report}`);
+        this.finishPartnerHandoff(result);
+    }
+
+    protected finishPartnerHandoff(result: true | 'copied' | false | undefined): void {
+        if (!this.dialogVisible) return;
+        if (!this.running) {
+            const close = document.querySelector<HTMLButtonElement>('.akari-export-dialog-host [data-akari-onboarding-target="export-close"]');
+            if (close) { close.click(); return; }
+        }
+        this.handoffNotice = result === 'copied'
+            ? t('shell.export.session.requestCopiedPastePartnerInputInfo')
+            : result === false ? t('shell.export.session.partnerNotOpenMessage') : undefined;
+        if (!this.handoffNotice) return;
+        const host = document.querySelector<HTMLElement>('.akari-export-dialog-host');
+        if (!host) return;
+        const show = (): void => {
+            const footer = host.querySelector<HTMLElement>('.popup .pf');
+            if (!footer || footer.querySelector('[data-akari-export-handoff-notice]')) return;
+            const notice = document.createElement('span');
+            notice.setAttribute('data-akari-export-handoff-notice', '');
+            notice.setAttribute('role', 'status');
+            notice.className = 'fn';
+            notice.textContent = this.handoffNotice ?? '';
+            footer.prepend(notice);
+        };
+        show();
+        this.handoffNoticeObserver?.disconnect();
+        this.handoffNoticeObserver = new MutationObserver(show);
+        this.handoffNoticeObserver.observe(host, { childList: true, subtree: true });
     }
 
     protected async refreshProject(): Promise<void> {
@@ -754,12 +796,13 @@ export class AkariExportSessionService implements Disposable {
         try {
             this.applyStatus(await this.quickExportService.getStatus());
         } catch (error) {
-            this.fail(describeUnexpectedQuickExportFailure(error, '書き出しの進捗を取得できませんでした'));
+            this.fail(describeUnexpectedQuickExportFailure(error, t('shell.export.session.couldNotGetExportProgressError')));
         }
     }
 
     protected applyStatus(status: QuickExportStatus, options: { notify?: boolean } = {}): void {
         const wasDone = this.status.phase === 'done';
+        if (status.phase === 'failed' && this.status.phase !== 'failed') this.failedVersion++;
         this.status = status;
         if (status.phase === 'linting' || status.phase === 'rendering') {
             this.beginPolling();
@@ -848,6 +891,7 @@ export class AkariExportSessionService implements Disposable {
 
     protected fail(failureSummary: string): void {
         this.stopPolling();
+        this.failedVersion++;
         this.status = { phase: 'failed', logTail: '', failureSummary };
         const notification = quickExportErrorNotification(this.status, this.failureNotified);
         if (notification) {
@@ -859,5 +903,6 @@ export class AkariExportSessionService implements Disposable {
 
     protected fireChanged(): void {
         this.changeEmitter.fire(undefined);
+        window.dispatchEvent(new CustomEvent('akari.export.phaseChanged', { detail: { phase: this.status.phase, failureVersion: this.failedVersion } }));
     }
 }

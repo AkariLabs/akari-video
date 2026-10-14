@@ -1,11 +1,15 @@
-import test from 'node:test';
+import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import ts from 'typescript';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 const { shouldShowChatCard, CHAT_ENABLED_PREFERENCE } = require('../lib/browser/partner-chat-visibility.js');
+const { t } = require('../lib/common/partner-text.js');
+before(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const catalog = JSON.parse(read('../src/common/partner-catalog.json'));
@@ -24,8 +28,8 @@ function renderer(file, className, methods) {
         compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React }
     }).outputText;
     const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }) };
-    return new (new Function('React', 'PARTNER_CATALOG', 'PARTNER_CLI_ICON_CLASSES', 'PARTNER_LAST_KEY', 'shouldShowChatCard', 'CHAT_ENABLED_PREFERENCE', `${code}\nreturn Picker;`)(
-        React, catalog, iconClasses, 'akari.partner.last', shouldShowChatCard, CHAT_ENABLED_PREFERENCE
+    return new (new Function('React', 'PARTNER_CATALOG', 'PARTNER_CLI_ICON_CLASSES', 'PARTNER_LAST_KEY', 't', 'shouldShowChatCard', 'CHAT_ENABLED_PREFERENCE', `${code}\nreturn Picker;`)(
+        React, catalog, iconClasses, 'akari.partner.last', t, shouldShowChatCard, CHAT_ENABLED_PREFERENCE
     ))();
 }
 
@@ -70,7 +74,7 @@ test('一覧の見出しは場所を取らず読み上げ可能にし、接続�
     assert.equal(picker.renderConnected().props.style.padding, '28px 22px');
     const onboarding = JSON.stringify(onboardingTree);
     assert.ok(onboarding.includes('CLI・作業画面・公式拡張を選んで、右パネルに追加します。'));
-    assert.match(read('../src/browser/akari-partner-widget.tsx'), /this.title.label = 'パートナーを追加';/);
+    assert.match(read('../src/browser/akari-partner-widget.tsx'), /this.title.label = t\('partner\.partnerPanel\.onboarding\.addPartnerAction'\);/);
 });
 
 test('caution データがあっても両ピッカーに描画せず、他の警告・復帰ヒントは残す', () => {
@@ -213,4 +217,10 @@ test('一覧の末尾の設定リンクはパートナー節を開く', async ()
     assert.equal(tree.children.at(-1), link);
     link.props.onClick();
     assert.deepEqual(calls, [['akari.settings.open', { section: 'partner' }]]);
+});
+
+test('追加パネルのタブ名はカタログの「パートナーを追加」を使う', () => {
+    assert.match(read('../src/browser/akari-partner-widget.tsx'),
+        /this\.title\.label = t\('partner\.partnerPanel\.onboarding\.addPartnerAction'\)/);
+    assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'パートナーを追加');
 });

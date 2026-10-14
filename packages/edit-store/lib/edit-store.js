@@ -328,13 +328,23 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
             throw new Error('トランジションの尺は正の数で指定してください。');
         }
+        if (transitionOut.align !== undefined && transitionOut.align !== null
+            && transitionOut.align !== 'center' && transitionOut.align !== 'before-cut'
+            && transitionOut.align !== 'after-cut') {
+            throw new Error('トランジションの位置が不正です。');
+        }
+        if (transitionOut.fill !== undefined && transitionOut.fill !== null && transitionOut.fill !== 'freeze') {
+            throw new Error('トランジションの埋め方が不正です。');
+        }
     }
     return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
         const hasTransitionOut = hasTopLevelProperty(element, 'transition_out');
         if (transitionOut === null) {
             return hasTransitionOut ? removeObjectProperty(element, 'transition_out') : element;
         }
-        const value = { type: transitionOut.type, duration: transitionOut.duration };
+        const value = { type: transitionOut.type, duration: transitionOut.duration,
+            ...(transitionOut.align && transitionOut.align !== 'center' ? { align: transitionOut.align } : {}),
+            ...(transitionOut.fill ? { fill: transitionOut.fill } : {}) };
         if (!hasTransitionOut) {
             return appendJsonProperty(element, 'transition_out', value);
         }
@@ -343,7 +353,17 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
         // 例外を投げる — 一旦除去してから追記する（結果は object 直書きと同じ）。
         try {
             const located = locateTopLevelObjectProperty(element, 'transition_out');
-            return element.slice(0, located.start) + JSON.stringify(value) + element.slice(located.end);
+            const existing = JSON.parse(element.slice(located.start, located.end));
+            const merged = { ...existing, ...value };
+            if (transitionOut.align !== undefined) {
+                if (transitionOut.align === null || transitionOut.align === 'center')
+                    delete merged.align;
+                else
+                    merged.align = transitionOut.align;
+            }
+            if (transitionOut.fill === null)
+                delete merged.fill;
+            return element.slice(0, located.start) + JSON.stringify(merged) + element.slice(located.end);
         }
         catch {
             return appendJsonProperty(removeObjectProperty(element, 'transition_out'), 'transition_out', value);

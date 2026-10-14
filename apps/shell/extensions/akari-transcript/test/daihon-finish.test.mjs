@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -91,7 +97,9 @@ test('同じエラーは 3 回でも 1 枚、異なるエラーも最大 3 枚',
 });
 
 test('隙間の案内は通常通知になり、4.5 秒で消える', () => {
-  assert.match(source, /zone\.addEventListener\('click',[\s\S]*?this\.notify\('ここには隙間がほぼ無い — 分割（⧉）でどうぞ'\)/u);
+  assert.match(source, /zone\.addEventListener\('click',[\s\S]*?this\.notify\(t\('transcript\.daihon\.editor\.almostNoGapHereTrySplitNotice'\)\)/u);
+  assert.match(source, /zone\.addEventListener\('click',[\s\S]*?this\.notify\(t\('transcript\.daihon\.editor\.almostNoGapHereTrySplitNotice'\)\)/u);
+  assert.equal(globalThis.t('transcript.daihon.editor.almostNoGapHereTrySplitNotice'), 'ここには隙間がほぼ無い — 分割（⧉）でどうぞ');
   const previousDocument = globalThis.document;
   const previousTimeout = globalThis.setTimeout;
   let callback;

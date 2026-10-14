@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readCompiledSource } from './helpers/role-buckets-source.mjs';
@@ -12,6 +13,7 @@ const modules = {
     '@theia/core/lib/common': { DisposableCollection: class {} },
     '@theia/core/shared/react': {},
     '../common/material-card-layout': { materialCardLayout: () => ({ gridGap: '8px', cardMinWidth: '100px' }) },
+    '../common/project-text': { t: globalThis.t },
     '../common/caption-source-path-rule': { captionSourcePathRule }
 };
 const exports = {};

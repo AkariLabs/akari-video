@@ -1,7 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { SkillEntry, parseFrontmatter } from '../common/skill-catalog';
+import { SkillEntry, parseFrontmatter, skillDisplay } from '../common/skill-catalog';
 
 @injectable()
 export class AkariSkillCatalogService {
@@ -19,7 +19,7 @@ export class AkariSkillCatalogService {
             try {
                 const content = await this.files.readFile(directory.resource.resolve('SKILL.md'));
                 const entry = parseFrontmatter(content.value.toString());
-                if (entry) parsed.push(entry);
+                if (entry) parsed.push({ ...entry, description: skillDisplay(entry).description });
             } catch { /* 読めない項目は飛ばす。 */ }
         }
         return parsed.sort((left, right) => left.name.localeCompare(right.name));

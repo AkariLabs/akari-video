@@ -7,8 +7,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 const exec = promisify(execFile);
 const vendor = fileURLToPath(new URL(`../../../../../packages/media-bin/vendor/${process.platform}-${process.arch}/ffmpeg`, import.meta.url));
 const ffmpeg = process.env.AKARI_FFMPEG_BIN || (await stat(vendor).catch(() => null))?.isFile() && (process.env.AKARI_FFMPEG_BIN || vendor) || 'ffmpeg';

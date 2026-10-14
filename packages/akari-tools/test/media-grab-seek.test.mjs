@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 // 不具合メモ第9項（長尺素材の静止画取得が非常に遅い）の回帰テスト。
 //   1. 引数列: 入力側 -ss が -i より前にあること（出力側シーク単独へ戻らないこと）
 //   2. 精度: 二段構えのシークが従来の出力側シーク単独と同じフレームを返すこと

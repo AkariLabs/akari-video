@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 import {
@@ -190,10 +191,10 @@ function ShapeRow(props: { row: ShapeShelfRow } & Pick<LibraryShapeShelfProps, '
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', padding: '0 2px 4px' }}>
                 <strong title={row.label} style={{ fontSize: '0.8em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</strong>
                 <button type='button' data-akari-shape-show-all={row.key}
-                    onClick={event => { event.stopPropagation(); props.onShowAll(row.key); }}>すべて表示</button>
+                    onClick={event => { event.stopPropagation(); props.onShowAll(row.key); }}>{t('project.library.shapeShelf.showAllAction')}</button>
             </div>
             <div style={{ position: 'relative' }}>
-                <button type='button' data-akari-shape-nav='prev' data-enabled={String(edges.prev)} aria-label={`${row.label}を左へ`}
+                <button type='button' data-akari-shape-nav='prev' data-enabled={String(edges.prev)} aria-label={t('project.library.shapeShelf.moveLabelLeftAction', { label: row.label })}
                     tabIndex={edges.prev ? 0 : -1} onClick={event => { event.stopPropagation(); scroll(-1); }}>
                     <span className='codicon codicon-chevron-left' aria-hidden='true' />
                 </button>
@@ -201,7 +202,7 @@ function ShapeRow(props: { row: ShapeShelfRow } & Pick<LibraryShapeShelfProps, '
                     {row.items.map(preset => <ShapeTile key={preset.id} preset={preset}
                         onPlace={props.onPlace} onDragStart={props.onDragStart} onDragEnd={props.onDragEnd} />)}
                 </div>
-                <button type='button' data-akari-shape-nav='next' data-enabled={String(edges.next)} aria-label={`${row.label}を右へ`}
+                <button type='button' data-akari-shape-nav='next' data-enabled={String(edges.next)} aria-label={t('project.library.shapeShelf.moveLabelRightAction', { label: row.label })}
                     tabIndex={edges.next ? 0 : -1} onClick={event => { event.stopPropagation(); scroll(1); }}>
                     <span className='codicon codicon-chevron-right' aria-hidden='true' />
                 </button>
@@ -214,10 +215,10 @@ export function LibraryShapeShelf(props: LibraryShapeShelfProps): React.ReactEle
     const query = props.query.trim();
     const tileHandlers = { onPlace: props.onPlace, onDragStart: props.onDragStart, onDragEnd: props.onDragEnd };
     let body: React.ReactNode;
-    let title = '図形';
+    let title = t('project.library.shapeShelf.shapesLabel');
     let count = props.presets.length;
     if (!props.presets.length) {
-        body = <p style={{ opacity: 0.7, padding: '12px 2px' }}>{props.loaded ? '図形の棚を読み込めませんでした。' : '読み込み中…'}</p>;
+        body = <p style={{ opacity: 0.7, padding: '12px 2px' }}>{props.loaded ? t('project.library.shapeShelf.couldNotLoadShapeShelfError') : t('project.library.pane.loadingStatus')}</p>;
     } else if (query) {
         const hits = searchShapeShelf(props.presets, query);
         const shapes = hits.filter(preset => preset.kind !== 'line');
@@ -228,7 +229,7 @@ export function LibraryShapeShelf(props: LibraryShapeShelfProps): React.ReactEle
                 {shapes.length > 0 && <ShapeGrid presets={shapes} {...tileHandlers} />}
                 {lines.length > 0 && <ShapeGrid presets={lines} lines {...tileHandlers} />}
             </div>
-            : <p data-akari-shape-search-results={0} style={{ opacity: 0.7, padding: '12px 2px' }}>条件に一致する図形がありません。</p>;
+            : <p data-akari-shape-search-results={0} style={{ opacity: 0.7, padding: '12px 2px' }}>{t('project.library.shapeShelf.noShapesMatchFiltersError')}</p>;
     } else if (props.view) {
         const items = shapeShelfRowItems(props.presets, props.view, props.recent);
         title = shapeShelfRowLabel(props.view);
@@ -254,7 +255,7 @@ export function LibraryShapeShelf(props: LibraryShapeShelfProps): React.ReactEle
                     <button type='button' data-akari-library-back={inside ? undefined : true} data-akari-shape-back={inside ? true : undefined}
                         onClick={event => { event.stopPropagation(); if (inside) props.onShowAll(undefined); else props.onBack(); }}
                         style={{ flex: '0 0 auto', whiteSpace: 'nowrap', padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)', cursor: 'pointer', fontSize: '0.8em' }}>
-                        {inside ? '← 図形' : '← ライブラリ'}
+                        {inside ? t('project.library.shapeShelf.backToShapesAction') : t('project.library.shelf.backToLibraryAction')}
                     </button>
                     <strong style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.86em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
                     <span data-akari-library-category-count={count} style={{ opacity: 0.6, fontSize: '0.72em' }}>{count}</span>

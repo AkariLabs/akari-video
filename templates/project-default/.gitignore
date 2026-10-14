@@ -25,9 +25,16 @@ assets/**
 .akari/cache/**
 .akari/diffs/**
 !.akari/diffs/.gitkeep
+.akari/write.lock
+.akari/write.lock.claim/
+.akari/write.lock.wait
+.akari/write-journal.json
+.akari/work/journal/
 
 # 素材の分析結果は作り直すのに手間がかかるので、変更履歴に残します。
 !.akari/sidecars/**
+# 声の特徴量（個人識別符号）は履歴に入れない
+.akari/sidecars/**/voices.json
 
 # パソコンが作る一時ファイル。
 .DS_Store

@@ -1,54 +1,38 @@
-# アバターの声を narration-tts レーンへ自動解決する（S2 新設）
 
-台本の話者がアバター（[edit-plan/avatar-resolution.md](../edit-plan/avatar-resolution.md) で
-解決済み）のとき、そのアバターの `voice/voice.json`（L2。このときだけ読む — 他のアバターの
-`voice/` は読まない）を読み、`lane` / `ref` / `credit` を [engines.md](engines.md) の 3 レーンへ
-そのまま渡す。**アバター専用の新しいエンジン・新しいフィールドは発明しない** — voice-tts
-契約の既存 3 レーンをアバターの登録値で呼び出すだけの薄い解決層である。
 
-## 解決手順
+# Resolve an avatar's voice to a narration TTS lane (S2)
 
-1. `voice/voice.json`（無ければ `avatar.json` の `voice` オブジェクト。同内容）から
-   `lane` / `ref` / `credit` を読む
-2. `lane` に応じて engines.md のコマンドへ引数を組み立てる（下表）
-3. 生成後、`credit` が非 null なら [credit の転写](#credit-の転写) の手順で `provenance.credit`
-   に反映されていることを確認する
-4. `edit.json` のスキーマは変更しない — `audio.narration[].provenance.voice` にはアバターの
-   `voice.ref`（`speaker:3(ずんだもん/ノーマル)` / `profile:owner-ja` のような narration-tts
-   契約と同型の参照文字列）がそのまま入るだけであり、アバター ID を指す新フィールドは追加しない
+When [edit-plan/avatar-resolution.md](../edit-plan/avatar-resolution.md) has resolved the script's speaker to an avatar, read that avatar's `voice/voice.json` (L2) and pass its `lane`, `ref`, and `credit` to one of the three existing lanes in [engines.md](engines.md). Read this file only for the selected avatar; do not inspect other avatars' `voice/` directories. **Do not invent avatar-specific engines or fields.** This is only a resolver from registered avatar values to the existing voice-TTS contract.
 
-## lane ごとの解決
+## Resolution steps
 
-| `voice.lane` | 解決先 | 承認ゲート | 備考 |
+1. Read `lane`, `ref`, and `credit` from `voice/voice.json`; if absent, use the equivalent `voice` object in `avatar.json`.
+2. Build the arguments for the engine command from `lane` using the table below.
+3. After generation, if `credit` is non-null, check that `provenance.credit` reflects it using [credit transfer](#credit-transfer).
+4. Do not change the `edit.json` schema. Store the avatar's `voice.ref`, such as `speaker:3(ずんだもん/ノーマル)` or `profile:owner-ja`, directly in `audio.narration[].provenance.voice`. It is the existing narration-TTS reference format; do not add a new avatar-ID field.
+
+
+## Resolve each lane
+
+| `voice.lane` | Engine arguments | Approval gate | Notes |
 |---|---|---|---|
-| `voicevox` | `--engine voicevox --speaker <ref から取り出した id>` | 不要（ゼロ円・宣言のみ。ハードルール 4 の対象外 — engines.md の voicevox アダプタと同じ） | `ref` の形式 `speaker:<id>(<名前>)` から先頭の整数を取り出して `--speaker` に渡す |
-| `fal-clone` | `--engine fal-qwen3 --profile <ref から取り出した profile 名>` | **必要**（費用宣言 → 明示承認後のみ実行。ハードルール 4） | まず `--dry-run` で見積り費用を提示し、承認を得てから `--yes --apply` 相当を実行する。本人以外の声を無断で使わない（ハードルール 1 は generate-narration 本体が担保） |
-| `recorded` | TTS 呼び出しなし | 該当なし | 人間が用意した音声ファイルをそのまま `audio.narration[].path` に置き、`provenance.provider: "human"` として記録する（`akari narration generate` は使わない） |
+| `voicevox` | `--engine voicevox --speaker <ref から取り出した id>` | None: it costs zero and is declaration only, so hard rule 4's paid gate does not apply. | Extract the leading integer from `speaker:<id>(<名前>)` and pass it to `--speaker`. |
+| `fal-clone` | `--engine fal-qwen3 --profile <ref から取り出した profile 名>` | **Required:** disclose the cost and execute only after explicit approval under hard rule 4. | Show the estimate with `--dry-run` first, then run with `--yes --apply` after approval. Hard rule 1 prohibits using another person's voice without consent. |
+| `recorded` | No TTS call | Not applicable | Put the person's supplied audio file in `audio.narration[].path` and record `provenance.provider: "human"`; do not call `akari narration generate`. |
 
-`ref` の取り出し方（正規表現の目安）:
+Extract `ref` as follows:
 
-- `voicevox`: `ref` が `speaker:3(ずんだもん/ノーマル)` の形なら `speaker:` の直後から次の `(` まで
-  の数字が `--speaker` の値
-- `fal-clone`: `ref` が `profile:owner-ja` の形なら `profile:` の直後が `--profile` の値
+- `voicevox`: For `speaker:3(ずんだもん/ノーマル)`, the digits between `speaker:` and the next `(` give `--speaker`.
+- `fal-clone`: For `profile:owner-ja`, the part after `profile:` gives `--profile`.
 
-## credit の転写
 
-`voice.credit`（非 null のとき）は narration の `provenance.credit` へ転写する。
+## Credit transfer
 
-- **`voicevox` レーン**: `akari narration generate` は生成のたびに VOICEVOX エンジンへ `/speakers`
-  を問い合わせて話者名を解決し、`credit: "VOICEVOX:<話者名>"` を自動で `provenance` に埋める
-  （[engines.md](engines.md#voicevox-アダプタ)）。通常はこの自動値がアバターの登録 `credit` と
-  一致する（同じ speaker id を指しているため）。**一致することを確認し**、値が空でないことだけ
-  検査すればよい（手で書き直す必要はない）
-- **`fal-clone` レーン**: `akari narration generate` の fal 経路は `credit` を `provenance` に
-  自動で埋めない（自声クローンには通常クレジット義務が無いため）。もしアバターの `voice.credit`
-  が非 null のまま fal-clone を使うケースがあれば（例外的な third-party クローン）、生成後の
-  `entry.provenance.credit` にアバターの `voice.credit` を手動で追記してから `edit.json` へ
-  反映し、`validate-edit.mjs` を再実行する
+Transfer a non-null `voice.credit` to the narration's `provenance.credit`.
 
-## 出力の確認
+- **`voicevox` lane:** On each call, `akari narration generate` queries `/speakers` and automatically adds `credit: "VOICEVOX:<話者名>"` to `provenance`; see [engines.md](engines.md#voicevox-adapter). It should match the avatar's registered `credit` for the same speaker ID. Verify the match and that the value is non-empty; no manual rewrite is needed.
+- **`fal-clone` lane:** The fal route does not automatically add `credit` to `provenance`, because an own-voice clone usually needs no character credit. In the exceptional case where the avatar's `voice.credit` is non-null, such as an exceptional third-party clone, add it manually to `entry.provenance.credit` before applying the entry to `edit.json`, then rerun `validate-edit.mjs`.
 
-`--apply` を付けない場合、標準出力の `entry` JSON（`provenance` 含む）で `voice` / `credit` が
-アバターの登録値と一致することを確認できる。`--apply` する場合は
-[approvals-and-generation.md](../edit-plan/approvals-and-generation.md) のチェックポイント運用に
-従う。
+## Check the output
+
+Without `--apply`, inspect `voice` and `credit` in the stdout `entry` JSON, including `provenance`, against the avatar's registered values. When using `--apply`, follow the checkpoint procedure in [approvals-and-generation.md](../edit-plan/approvals-and-generation.md).

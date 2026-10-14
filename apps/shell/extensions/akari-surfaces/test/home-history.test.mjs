@@ -1,6 +1,10 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventHistoryEntry, exportHistoryEntry, sortHomeHistory } from '../lib/browser/home/home-history.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { eventHistoryEntry, exportHistoryEntry, sortHomeHistory } = await import("../lib/browser/home/home-history.js");
+
 
 test('既知の出来事を日本語化し、不明な種類を残す', () => {
     assert.equal(eventHistoryEntry({ type: 'project-created', timestamp: '2026-10-08T10:00:00Z' })?.label, 'プロジェクトを作った');

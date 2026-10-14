@@ -1,19 +1,23 @@
+import { setLanguage, t } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  createInspectorCropWriteRequest,
-  INSPECTOR_CROP_DISPLAY_SCALE,
-  INSPECTOR_CROP_SCRUB_STEP,
-  normalizeInspectorCrop,
-  updateInspectorCrop
-} from '../lib/browser/inspector/crop-fields.js';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
-import { updateItem, updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { createInspectorCropWriteRequest, INSPECTOR_CROP_DISPLAY_SCALE, INSPECTOR_CROP_SCRUB_STEP, normalizeInspectorCrop, updateInspectorCrop } = await import('../lib/browser/inspector/crop-fields.js');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+const { updateItem, updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();
@@ -165,8 +169,11 @@ test('4 軸を既定へ戻すと layer / v2 item から crop フィールド自�
 
 test('クロップ節は layer / overlay / item の動画タブで変形直後に出て caption / audio には出ない', () => {
   const cropFieldsSource = sourceBetween(inspectorSource, 'function CROP_FIELDS', 'function CUT_SECTIONS');
-  for (const label of ['左', '上', '幅', '高さ']) {
-    assert.match(cropFieldsSource, new RegExp(`label: '${label}'`, 'u'));
+  for (const [axis, key, label] of [
+    ['x', 'left', '左'], ['y', 'up', '上'], ['w', 'width', '幅'], ['h', 'height', '高さ']
+  ]) {
+    assert.match(cropFieldsSource, new RegExp(`axis: '${axis}', label: translate\\('inspector\\.transformFields\\.label\\.${key}'\\)`, 'u'));
+    assert.equal(t(`inspector.transformFields.label.${key}`), label);
   }
   assert.match(cropFieldsSource, /displayScale: INSPECTOR_CROP_DISPLAY_SCALE/u);
   assert.match(cropFieldsSource, /scrubStep: INSPECTOR_CROP_SCRUB_STEP/u);
@@ -178,9 +185,12 @@ test('クロップ節は layer / overlay / item の動画タブで変形直後�
     sourceBetween(inspectorSource, 'function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('),
     sourceBetween(inspectorSource, 'function TREE_ITEM_SECTIONS(', '@injectable()')
   ];
-  for (const source of mediaFactories) {
+  for (const [index, source] of mediaFactories.entries()) {
+    const section = ['layerSections', 'overlaySections', 'treeItemSections'][index];
     assert.match(source, /const cropFields = CROP_FIELDS/u);
-    assert.match(source, /id: 'transform', label: '変形'[\s\S]*id: 'crop', label: '(?:クロップ|切り抜き)'/u);
+    assert.match(source, new RegExp(`id: 'transform', label: t\\('inspector\\.${section}\\.label\\.transform'\\)[\\s\\S]*id: 'crop', label: t\\('inspector\\.${section}\\.label\\.crop'\\)`, 'u'));
+    assert.equal(t(`inspector.${section}.label.transform`), '変形');
+    assert.ok(['クロップ', '切り抜き'].includes(t(`inspector.${section}.label.crop`)));
   }
   const captionFactory = sourceBetween(inspectorSource, 'function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS(');
   const audioFactory = sourceBetween(inspectorSource, 'function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS(');

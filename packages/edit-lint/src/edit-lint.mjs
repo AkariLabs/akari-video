@@ -10,6 +10,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
+import { lintText } from './i18n.mjs';
 import { collectLicenseFindings } from "./license-findings.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import {
@@ -62,12 +63,12 @@ export function loadTextstylePresetIds(repoRoot) {
   }
 }
 
-const PROVIDER_GUIDANCE = 'provenance.provider は必須です（例: {"provider":"voicevox","credit":"VOICEVOX:ずんだもん"} / "fal" / "human"）';
+const providerGuidance = () => lintText('lint-messages.provenance.provider.required');
 
 function providerGuidedMessage(error) {
   const message = messageOf(error);
-  return /\.provenance\.provider\)/u.test(message) && !message.includes(PROVIDER_GUIDANCE)
-    ? `${message}。${PROVIDER_GUIDANCE}` : message;
+  return /\.provenance\.provider\)/u.test(message) && !message.includes(providerGuidance())
+    ? `${message}${lintText('lint-messages.provenance.provider.separator')}${providerGuidance()}` : message;
 }
 
 function readEditWithProviderGuidance(edit, options) {
@@ -139,7 +140,7 @@ export async function lintProject(input, options = {}) {
   if (engineCapabilities !== null) {
     inputs.engine_capabilities_sha256 = sha256(engineCapabilities.text);
     if (!isRecord(edit) || edit.version !== 2) {
-      addSkipped(skipped, "engine.capabilities", "v2 のみ対応");
+      addSkipped(skipped, "engine.capabilities", lintText('lint-messages.engine.capability.v2Only'));
     }
   }
 
@@ -147,7 +148,7 @@ export async function lintProject(input, options = {}) {
     addFinding(findings, {
       severity: "error",
       check: "edit.version",
-      message: `edit.json version ${edit.version} は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください`,
+      message: lintText('lint-messages.edit.version.future', { version: edit.version }),
       path: "edit.json#version",
     });
     addSkipped(
@@ -303,7 +304,7 @@ export async function lintProject(input, options = {}) {
     addFinding(findings, {
       severity: "info",
       check: "timeline.duration-derived",
-      message: `尺を overlays / 字幕 / 音声の終端 ${formatNumber(timeline)} 秒から導出した`,
+      message: lintText('lint-messages.timeline.duration.derived', { seconds: formatNumber(timeline), n: timeline }),
       path: "edit.json#tracks",
     });
   }
@@ -552,8 +553,8 @@ function readEngineCapabilities(options) {
     }
   } catch (error) {
     const location = options.engineCapabilitiesPath
-      ? `指定された対応表 ${options.engineCapabilitiesPath}`
-      : "同梱漏れ: packages/edit-lint/src/engine-capabilities.json または packages/schemas/engine-capabilities.json";
+      ? lintText('lint-messages.engine.capability.selectedTable', { path: options.engineCapabilitiesPath })
+      : lintText('lint-messages.engine.capability.bundledMissing');
     throw new ExecutionError(`engine capability table cannot be read (${location}): ${messageOf(error)}`);
   }
   let value;

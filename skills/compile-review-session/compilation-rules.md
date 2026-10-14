@@ -1,147 +1,142 @@
-# コンパイル規則
+# Compilation rules
 
-## 目次
+## Contents
 
-- [時計と cut 写像](#時計と-cut-写像)
-- [文字起こしと発話区切り](#文字起こしと発話区切り)
-- [参照解決](#参照解決)
-- [ストロークペアリング](#ストロークペアリング)
-- [UI イベント解決](#ui-イベント解決)
-- [採否と正規化](#採否と正規化)
-- [着地と劣化](#着地と劣化)
+- [Clocks and cut mapping](#clocks-and-cut-mapping)
+- [Transcription and utterance segmentation](#transcription-and-utterance-segmentation)
+- [Reference resolution](#reference-resolution)
+- [Stroke pairing](#stroke-pairing)
+- [UI event resolution](#ui-event-resolution)
+- [Acceptance and normalization](#acceptance-and-normalization)
+- [Application and degradation](#application-and-degradation)
 
-## 時計と cut 写像
+## Clocks and cut mapping
 
-`events.jsonl` を recT 順に読み、`playing`、`anchorTimelineT`、`anchorRecT`、`rate` を保持する。
-停止中は anchor の timelineT、再生中は
-`anchorTimelineT + (recT - anchorRecT) * rate` とする。`tick` は anchor を実測値へ戻す
-ドリフト訂正であり、推定より常に優先する。壊れた JSONL 行だけを warning 付きで除外する。
+Read `events.jsonl` in recT order; retain `playing`, `anchorTimelineT`, `anchorRecT`, and `rate`.
+While stopped, use anchor timelineT; while playing, use `anchorTimelineT + (recT - anchorRecT) * rate`.
+`tick` corrects drift by resetting the anchor to measured values and always overrides estimates.
+Exclude only damaged JSONL lines, with warnings.
 
-`edit.snapshot.json` の最小 track をプライマリトラックとし、cut の
-`duration = (out - in) / (speed ?? 1)` を配列順に並べる。`at` がなければ直前の終了へ接続する。
-区間は `[timelineStart, timelineEnd)` とし、境界ちょうどは次の cut に属する。
-`sourceT = in + (timelineT - timelineStart) * speed` で逆写像する。snapshot がなければ拒否し、
-現在の edit.json や recT から sourceT を推測しない。
+Use the lowest track in `edit.snapshot.json` as primary. Arrange cut
+`duration = (out - in) / (speed ?? 1)` in array order. Without `at`, connect to the previous end.
+Ranges are `[timelineStart, timelineEnd)`; an exact boundary belongs to the next cut.
+Invert via `sourceT = in + (timelineT - timelineStart) * speed`.
+Reject absent snapshots; do not infer sourceT from current edit.json or recT.
 
-## 文字起こしと発話区切り
+## Transcription and utterance segmentation
 
-`analyze-footage` の 3 層に相乗りする。
+Reuse `analyze-footage`'s 3 layers:
 
-1. `skills/analyze-footage/bin/transcribe-sa.mjs` を `--check` 後に呼ぶ。
-2. 利用不能・失敗なら既存 `whisper-cli` と多言語 `ggml-*.bin` を探索し、mono 16 kHz WAV を
-   作って full JSON を正規化する。ツールやモデルを自動導入しない。
-3. `--allow-cloud-stt` があり、doctor ok の候補を decision card で確認でき、
-   `--cloud-provider ... --cloud-approved` まで明示された場合だけ
-   `transcribe-cloud.mjs` を呼ぶ。明示承認前に送信しない。
+1. Call `skills/analyze-footage/bin/transcribe-sa.mjs` after `--check`.
+2. If unavailable/failing, find existing `whisper-cli` and multilingual `ggml-*.bin`, create mono 16 kHz WAV,
+   and normalize full JSON. Do not automatically install tools/models.
+3. Call `transcribe-cloud.mjs` only with `--allow-cloud-stt`, doctor-ok candidates checked through decision cards,
+   and explicit `--cloud-provider ... --cloud-approved`. Never send before explicit approval.
 
-採用する backend は word 時刻を返すものだけとし、`transcript.json` の `backend` に provenance
-を残す。音声の長い無音で backend の先頭ずれを補正した後、隣接 segment の間隔が 0.3 秒未満なら
-結合する。結合内は word に付いた `。！？!?` の後に word が残る場合に分割する。
-全 backend が失敗したら `backend: "unavailable"`、`segments: []` と原因を保存し、発話ゼロとして
-処理を続ける。「発話なし」とは断定しない。
+Accept only backends returning word timestamps; retain provenance in `transcript.json`'s `backend`.
+Correct backend leading offsets using long audio silence, then merge adjacent segments with gaps under 0.3 seconds.
+Within merged segments, split after word-attached `。！？!?` (machine-matched punctuation) if further words remain.
+If every backend fails, save `backend: "unavailable"`, `segments: []`, and reasons; continue with zero utterances,
+without asserting no speech occurred.
 
-## 参照解決
+## Reference resolution
 
-優先順位は次のとおり。
+Priority:
 
-1. 発話区間中に seek が起きた場合は発話終端時点の着地点を第一候補とし、その位置に 1 秒以上
-   滞留していれば、発話をまたぐスクラブが停止したとみなして `confidence: high` とする。
-2. 発話開始時に停止中なら停止フレームを採用し、`confidence: high` とする。停止中の連続 seek は
-   最後の着地点が anchor になる。
-3. 再生中なら発話開始から 3 秒遡った実軌跡と開始位置の間にある cut 境界を列挙する。候補が
-   1 つならその境界、0 なら瞬時位置、複数なら候補列を残す。
-4. 0 件・複数候補は `confidence: low` とし、`[要確認]` に候補と質問を書く。黙って捨てず、
-   複数候補から機械的に 1 つを断定しない。
+1. If a seek occurs during the utterance, first candidate is the landing point at utterance end.
+   Staying there for ≥1 second means cross-utterance scrubbing stopped; set `confidence: high`.
+2. If stopped at utterance start, use the stopped frame with `confidence: high`.
+   For consecutive seeks while stopped, the final landing point is the anchor.
+3. During playback, list cut boundaries between the actual trace 3 seconds before utterance start and its start
+   position. With 1 candidate, use that boundary; with 0, use the instantaneous position; with multiple, retain candidates.
+4. For 0/multiple candidates, use `confidence: low`; put candidates and a question in `[要確認]`
+   (machine marker: needs confirmation). Never silently discard or mechanically assert 1 of multiple candidates.
 
-解決した timelineT を snapshot cuts に当て、`target: "cut:<元配列index>"` と sourceT を得る。
+Map resolved timelineT through snapshot cuts to obtain `target: "cut:<元配列index>"`
+(existing original-array-index placeholder) and sourceT.
 
-## ストロークペアリング
+## Stroke pairing
 
-`strokes.json` がある場合、発話区間と recT が重なるストローク、または区間間の距離が 3 秒以内の
-ストロークを決定的に選ぶ。重なりを最優先し、次に発話開始へ最も近いストローク端点、最後に
-recT・ID の順で tie-break する。参照解決の優先順位は **停止中発話 > ストロークペア >
-巻き戻し再生 > 再生中発話**。停止中発話では停止フレームのアンカーを保ったままストロークだけを
-添付し、それ以外ではストロークの frame を sourceT / timelineT / cut target のアンカーにする。
+If `strokes.json` exists, deterministically choose a stroke whose recT overlaps the utterance or whose interval
+is within 3 seconds. Prioritize overlap, then stroke endpoint closest to utterance start, then recT/ID to break ties.
+Reference priority: **stopped utterance > stroke pair > rewind playback > playing utterance**.
+For stopped utterances, retain the stopped-frame anchor and attach only the stroke; otherwise use the stroke frame
+as sourceT / timelineT / cut-target anchor.
 
-annotation には最大 100 点へ決定的に簡略化したポリラインを埋め込み、始点・終点を必ず残す。
-原本は `sessionRef` で参照し、`strokes.json` 自体は変更しない。ファイル欠落は正常、JSON や
-要素の破損は warning とし、壊れた要素だけを除外してストロークなしの従来経路へ劣化する。
+Embed a deterministically simplified polyline of at most 100 points, always preserving first/last points.
+Reference originals with `sessionRef`; never modify `strokes.json`. Missing files are normal; damaged JSON/elements
+produce warnings. Exclude only damaged elements and degrade to the existing no-stroke route.
 
-## UI イベント解決
+## UI event resolution
 
-`events.jsonl` の `ui.click` / `ui.tab` / `ui.panel`（`docs/contract-2026-08-11-review-session-ui-events.md`
-§1〜§2）を recT 順のトレースに束ね、上記 4 段階（停止中発話 > ストロークペア > 巻き戻し再生 >
-再生中発話）で求めた参照へ**最後に**適用する追加段。既存 4 段の意味・優先順位は変えない。
+Bundle `events.jsonl` `ui.click` / `ui.tab` / `ui.panel` (`https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-review-session-ui-events.md`
+§1–§2) into a recT-ordered trace. Apply this additional stage **last** to the reference obtained from the existing
+4 stages (stopped utterance > stroke pair > rewind playback > playing utterance). Do not change their meanings or priority.
 
-対象は `ui.click` のみ（`ui.tab` / `ui.panel` は着地させず、曖昧さ低減の文脈情報として将来
-使う余地を残すだけで本段では未使用）。target がないイベントは warning を残してスキップする
-（黙って落とさない）。
+Only `ui.click` is targeted. `ui.tab` / `ui.panel` are not applied; their possible future use as disambiguation context
+is reserved, unused here. Warn and skip events without targets; never silently drop them.
 
-### 候補の絞り込み
+### Narrow candidates
 
-発話区間 `[start, end]` の前後 5 秒（固定）を時間窓とする。窓外の `ui.click` は一切考慮しない。
+Use a fixed window of 5 seconds before/after utterance `[start, end]`. Ignore all `ui.click` outside it.
 
-1. 窓内に `intent: true`（選択ツールでの明示クリック）が 1 件だけあれば、呼称と関係なく
-   それを採用する。intent 済みクリックは受動記録より強い意図の明示であり、呼称一致を必須に
-   しない。
-2. `intent: true` が複数あれば、その中で発話文に呼称（`label`。空白除去・小文字化した部分
-   一致）が含まれるものへ絞り込む。1 件に絞れればそれを採用する。
-3. `intent: true` が 1 件もない場合は、窓内クリックのうち呼称が発話文に含まれるものだけを
-   候補にする。0 件なら黙って何もしない（受動クリックが 1 件だけでも呼称に触れていなければ
-   断定しない）。1 件なら採用する。
-4. 上記のどの段階でも複数候補のまま絞り切れなければ、対象は書き換えず `confidence` を
-   `low` へ落とし、`reference.uiCandidates`（`target` / `label` の一覧）を残す。着地時の
-   `[要確認]` 本文にも候補一覧を追記する（ハードルール 4: 断定しない）。
+1. Exactly 1 `intent: true` (explicit selection-tool click) in-window: use it regardless of naming.
+   Intent clicks express stronger intent than passive recording; label match is not required.
+2. Multiple `intent: true`: narrow to clicks whose `label` occurs in the utterance (substring match after removing
+   whitespace and lowercasing). If exactly 1 remains, use it.
+3. Not even 1 `intent: true`: consider only in-window clicks whose labels occur in the utterance.
+   With 0, silently do nothing (even 1 passive click is insufficient without mention). With 1, use it.
+4. If multiple candidates remain at any stage, leave the target unchanged, lower `confidence` to `low`, and retain
+   `reference.uiCandidates` (list of `target` / `label`). Also append the candidate list to applied `[要確認]`
+   text (machine marker: needs confirmation; hard rule 4 forbids assertions).
 
-### 着地
+### Apply
 
-一意に決まった `ui.click.target` の語彙だけを review.json の既存フィールドへ写像する
-（スキーマ変更なし）。
+Map only uniquely resolved `ui.click.target` vocabulary into existing review.json fields (no schema change).
 
-- `timeline:cut:<n>` → `target: "cut:<n>"`。`sourceT` / `timelineT` は再生位置からではなく
-  `edit.snapshot.json` の `cuts[n]` から直接算出する（`cuts[n].in` と cut map 上の
-  `timelineStart`）。`n` が primary track の cut に存在しない場合は解決不能として何もしない。
-- `timeline:item:<id>` → v2 `tracks[].items[].id` と互換射影後の `cuts[]` index の対応から
-  `target: "cut:<n>"` へ解決する。`sourceT` / `timelineT` は対応する cut から直接算出する。
-  v2 の cut item に一致しない場合は解決不能として何もしない。
-- `timeline:overlay:<id>` → `target: "overlay:<id>"`。`edit.snapshot.json` の
-  `overlays[]` から id 一致するエントリの `start`（timeline 秒）を cut map で source 秒へ
-  写像する。id が見つからない、または `start` が有限数でない場合は解決不能として何もしない。
-- `asset:<path>` → `target` / `timelineT` / `sourceT` は変えず、`refs: [{ "path": "<path>" }]`
-  だけを追加する（v1 既存フィールド。asset クリックは timeline 位置を持たないため）。
-- `panel:` / `tab:` など上記以外の語彙、または解決不能な参照は着地させず、既存の解決結果を
-  そのまま保つ（`ui:` target の着地は次段の実装契約で扱う）。
+- `timeline:cut:<n>` → `target: "cut:<n>"`. Compute `sourceT` / `timelineT` directly from
+  `edit.snapshot.json` `cuts[n]` (`cuts[n].in` and cut-map `timelineStart`), not playback position.
+  If `n` is not a primary-track cut, treat as unresolved and do nothing.
+- `timeline:item:<id>` → resolve v2 `tracks[].items[].id` through its correspondence with compatibility-projected
+  `cuts[]` index to `target: "cut:<n>"`. Compute `sourceT` / `timelineT` directly from the corresponding cut.
+  If it matches no v2 cut item, treat as unresolved and do nothing.
+- `timeline:overlay:<id>` → `target: "overlay:<id>"`. Find the matching ID in `edit.snapshot.json`
+  `overlays[]`; map `start` (timeline seconds) through the cut map to source seconds.
+  Missing ID or nonfinite `start` means unresolved; do nothing.
+- `asset:<path>` → leave `target` / `timelineT` / `sourceT` unchanged; add only
+  `refs: [{ "path": "<path>" }]` (existing v1 field; asset clicks have no timeline position).
+- Other vocabulary such as `panel:` / `tab:`, or unresolved references, is not applied; keep prior resolution
+  unchanged. Applying `ui:` targets belongs to the next implementation contract.
 
-UI イベントの無いセッション（`uiClicks` 省略時の既定値 `[]`）は候補が常に 0 件になるため、
-この段は完全な no-op であり、既存挙動を変えない（additive）。
+Sessions without UI events (`uiClicks` default `[]` when omitted) always have 0 candidates;
+this stage is entirely no-op and does not change existing behavior (additive).
 
-## 採否と正規化
+## Acceptance and normalization
 
-bin は編集語・要求語・システム確認語の保守的なヒューリスティックで暫定判定する。
-編集指示は命令形へ正規化し、原文を `transcript` に残す。テスト、音声確認、独り言、言い直し、
-雑談は annotation にせず、原文・recT・理由をレポートに残す。グレーな発話は破棄せず
-`[要確認]` に倒す。
+bin provisionally judges using conservative editing-word, request-word, and system-check heuristics.
+Normalize editing instructions to imperatives; retain originals in `transcript`. Tests, audio checks, self-talk,
+corrections, and casual conversation do not become annotations; retain original text, recT, and reasons in the report.
+Do not discard borderline utterances; fall back to `[要確認]` (machine marker: needs confirmation).
 
-実案件では `--prepare-only` で `compile-proposals.json` を作り、各 `proposals[].decision` を
-確認・記入する。参照候補、原文、音声の recRange、snapshot の構造データを先に確認し、
-データにない視覚参照だけを最後の手段としてフレーム視認する。確定後に `--apply-proposals` で
-着地する。着地前ゲートを増やすのではなく、これはコンパイラ内のエージェント判断段である。
-自動一括が必要な fixture や明示運用では、未編集の暫定判定を直接着地できる。
+For real projects, generate `compile-proposals.json` with `--prepare-only`, then inspect/fill each
+`proposals[].decision`. First inspect reference candidates, originals, audio recRange, and snapshot structural data.
+View frames only as a last resort for visual references absent from data. After finalization, apply with
+`--apply-proposals`. This is the compiler's internal agent-judgment stage, not an added pre-application approval gate.
+Fixtures or explicitly requested automatic batches may apply unedited provisional judgments directly.
 
-## 着地と劣化
+## Application and degradation
 
-既存 `transcript.json` がスキーマ不正な場合は warning を残して再生成する。
+If existing `transcript.json` violates schema, warn and regenerate.
 
-review.json の既存 annotations 行を再シリアライズしない。閉じ `]` の直前へ minified JSON を
-新しい行として加え、一時ファイルから rename する。ID は既存 `a-` 数値の最大 + 1 とし、削除済み
-ID を再利用しない。annotation は `status: "open"`、`input: "session"` とし、`timelineT` には
-解決済みタイムライン秒（参考値。正は sourceT）を書き込む。audio、transcript、session
-id・recRange・confidence を含める。
+Never reserialize existing review.json annotation lines. Add minified JSON as a new line just before closing `]`,
+then rename from a temporary file. IDs are maximum existing `a-` number +1; never reuse deleted IDs.
+Annotations use `status: "open"`, `input: "session"`; write resolved timeline seconds to `timelineT`
+(reference only; sourceT is canonical). Include audio, transcript, session ID, recRange, confidence.
 
-成功後だけ session.json を `compiled` にし、今回の ID を `compiledAnnotations` へ追記する。
-既存 ID は保持する。compiled は既定でスキップし、`--force` でも既存 annotation を消さず新 ID を
-追加する。壊れた manifest と snapshot 欠落はセッション単位で報告し、他セッションを続行する。
+Only after success, mark session.json `compiled` and append current IDs to `compiledAnnotations`; retain existing IDs.
+Skip compiled by default; even with `--force`, add new IDs without deleting existing annotations.
+Report damaged manifests/missing snapshots per session and continue others.
 
-`packages/schemas/review.schema.json` の `input` enum と `apps/shell` の annotation reader に
-`session` を追加する同期は別タスクであり、本スキルの境界外である。契約どおり
-`input: "session"` を書き、境界外実装に合わせて値を歪めない。
+Synchronizing `session` into `packages/schemas/review.schema.json`'s `input` enum and `apps/shell`'s annotation
+reader is a separate task outside this skill's boundary. Write `input: "session"` as contracted;
+do not distort values to fit out-of-boundary implementations.

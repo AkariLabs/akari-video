@@ -1,21 +1,34 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model.js';
-import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
+
+
+
 import { parseCaptions } from '@akari-video/edit-store';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
-import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../lib/browser/inspector/caption-multi-targets.js';
-import {
-    CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
-    captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch,
-    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
-    captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField,
-    captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch
-} from '../lib/browser/inspector/caption-style-effects.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+const { filterInspectorSoloSections } = await import('../lib/browser/inspector/solo-model.js');
+const { captionRunRows } = await import('../lib/browser/inspector/caption-run-rows.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+const { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } = await import('../lib/browser/inspector/caption-multi-targets.js');
+const { CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX, captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch, captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField, captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch } = await import('../lib/browser/inspector/caption-style-effects.js');
+
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
@@ -227,7 +240,7 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
             ['caption-position-x', '%'], ['caption-position-y', '%']
         ]) assert.equal(field(sections, name)?.unit, unit);
     }
-    assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);
+    assert.match(source, /inspector\.captionSections\.text\.setCornerRadiusItsMaximumCapsuleShaped/u);
     assert.match(source, /valueGroup\.append\(number, unit, defaultNote\)/u);
     assert.match(css, /\.akari-caption-slider-value\s*\{[^}]*display: inline-flex;[^}]*white-space: nowrap;/u);
 });
@@ -280,7 +293,9 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
     await field(multi, 'caption-style-bg-enabled').write(caption('one'), 'true');
     await field(multi, 'caption-style-effect').write(caption('one'), 'outline');
     assert.ok(multiWrites.every(write => write.targets?.length === 2));
-    assert.match(source, /\['per-line', '行ごと'\], \['block', 'まとめて'\]/u);
+    assert.match(source, /\['per-line', t\('annotations\.inspectorWidget\.text\.lineByLine'\)\], \['block', t\('annotations\.inspectorWidget\.text\.together'\)\]/u);
+    assert.equal(ja['annotations.inspectorWidget.text.lineByLine'], '行ごと');
+    assert.equal(ja['annotations.inspectorWidget.text.together'], 'まとめて');
 });
 
 test('帯の効果を外すと帯の不透明度も一操作で消す', async () => {

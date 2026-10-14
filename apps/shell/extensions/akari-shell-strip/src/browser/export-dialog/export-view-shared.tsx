@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { ThisVideoDescription } from '../../common/export-this-video';
 
@@ -75,7 +76,7 @@ export function ExportFrame(props: {
 
 export function VideoFacts(props: { video: ThisVideoDescription }): React.ReactNode {
     const video = props.video;
-    const orientation = video.orientation === 'portrait' ? '縦' : video.orientation === 'square' ? '正方形' : '横';
+    const orientation = video.orientation === 'portrait' ? t('shell.exportDialog.summary.portraitLabel') : video.orientation === 'square' ? t('shell.exportDialog.summary.squareLabel') : t('shell.exportDialog.summary.landscapeLabel');
     return (
         <div className='kv'>
             <span><b>{ratioLabel(video)}</b> {orientation}</span>
@@ -84,9 +85,9 @@ export function VideoFacts(props: { video: ThisVideoDescription }): React.ReactN
             <span><b>{formatDuration(video.durationSeconds)}</b></span>
             {(video.cutCount !== undefined || video.captionCount !== undefined) && (
                 <span>
-                    {video.cutCount !== undefined && <>カット <b>{video.cutCount}</b></>}
+                    {video.cutCount !== undefined && <>{t('shell.exportDialog.summary.cutsLabel')}<b>{video.cutCount}</b></>}
                     {video.cutCount !== undefined && video.captionCount !== undefined && ' · '}
-                    {video.captionCount !== undefined && <>テロップ <b>{video.captionCount}</b></>}
+                    {video.captionCount !== undefined && <>{t('shell.exportDialog.summary.textOverlaysLabel')}<b>{video.captionCount}</b></>}
                 </span>
             )}
         </div>

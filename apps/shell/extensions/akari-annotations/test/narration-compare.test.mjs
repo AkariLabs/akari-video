@@ -8,10 +8,19 @@ import ts from 'typescript';
 import { findMember } from './helpers/widget-source.mjs';
 import { pathToFileURL } from 'node:url';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/index.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { NarrationCliManager } from '../lib/node/narration-cli.js';
-import { describeGenerationChip, resolveGenerationState } from '../lib/common/generation-sidecar.js';
-import { selectedNarrationEngines, orderedNarrationEngines, narrationBatchConfirm } from '../lib/browser/inspector/ai-narration-panel.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { NarrationCliManager } = await import('../lib/node/narration-cli.js');
+const { describeGenerationChip, resolveGenerationState } = await import('../lib/common/generation-sidecar.js');
+const { selectedNarrationEngines, orderedNarrationEngines, narrationBatchConfirm } = await import('../lib/browser/inspector/ai-narration-panel.js');
+
+
+
+
+
 const engines = [
   { id: 'voicevox', label: 'VOICEVOX', place: 'local', availability: { state: 'available' }, price: { value: 0, unit: 'usd_per_1000_chars' } },
   { id: 'gemini-tts', label: 'Gemini', place: 'cloud', availability: { state: 'available' }, price: { value: 0.04, unit: 'usd_per_1000_chars' } },

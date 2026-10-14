@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { maskSourceIdForLabel, maskSourceOptionsForSources } from '../lib/browser/inspector/mask-fields.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { maskSourceIdForLabel, maskSourceOptionsForSources } = await import('../lib/browser/inspector/mask-fields.js');
+
+
 
 test('photo mask picker offers PNG while video picker keeps video masks', () => {
   const sources = new Map([

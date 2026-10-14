@@ -374,7 +374,7 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 | v1 category | 形の定義 | 判定 | 旧 category |
 |---|---|---|---|
 | `overlay` | 時間を持つ HTML 断片 | `fragment.html` を `overlays[]` から合成。断片ルートに時刻を置かず、素材本来の長さは `data-akari-natural-duration`（秒）に記録 | `telop` / `motion` |
-| `still` | 時間を持たない HTML シート | `fragment.html`。決定的スクショで画像に焼く | `thumbnail` |
+| `still` | 時間を持たない静止画（画像 1 枚 + 任意でツマミ用の HTML シート） | **既定は直下の画像（`preview.png` 以外の 1 枚）を `sources[]` の media クリップとして置く**。`fragment.html` は色相などのツマミを使うとき・画像が 1 枚に決まらないときだけ（2026-10-12 改訂）。HTML シートは決定的スクショで画像に焼ける | `thumbnail` |
 | `scene3d` | 3D モデル + 表示断片、またはベイクレシピ | `fragment.html` + glTF、または `scene.py` | `3d` |
 | `audio` | 音声トラックに載るバイナリ | `edit.json` の `audio.bgm` / `sfx` が参照 | `audio`（変更なし） |
 | `broll` | 映像トラックに載る実写バイナリ | `sources[]` が参照 | `broll`（変更なし） |

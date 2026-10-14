@@ -1,44 +1,42 @@
 ---
 name: generate-narration
-description: 原稿テキストから VOICEVOX（ローカル・無償の既製声）、Gemini（fal 経由の gemini-tts / gemini-3.1-flash-tts、または Google AI 直接の gemini-3.8-flash-tts）、Fish Audio（fish-s2.1-pro）、fal Qwen3-TTS（自声クローン）などでナレーション音声を生成し、edit.json の audio.narration[] へ書き込むスキル。ナレーションを作ってほしいと頼まれたとき、仮ナレ（下書き試聴）が欲しいとき、声プロファイルを新規に作りたいとき、または既存のナレーションをエンジンや声で差し替えたいときに使う。
+description: Generate narration from a script with VOICEVOX, Gemini TTS, Fish Audio, or fal Qwen3-TTS and add it to edit.json audio.narration[]. Use for a draft voiceover, final narration, a new voice profile, or replacing an existing voice or engine.
 ---
 
-# ナレーション音声を生成する
+# Generate narration audio
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md. Pass the work's content language to the TTS engine when its locale interface is available.
 
-# FORBIDDEN 級ハードルール
+Read only the relevant lines of `edit.json` and `captions.json` by id, following [the edit.json access guide](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write through the Edit operation or the edit-store script API.
 
-次の規則は詳細手順より常に優先する。
+# FORBIDDEN-level hard rules
 
-1. **人声クローンはプロファイル所有者本人の声のみ。** consent 記録が無いプロファイルは使用しない
-2. **参照音声を外部送信する前のローカル whisper 照合ガード必須。** スキップはオーナー明示指示時のみ、
-   かつその旨を記録する
-3. **生成には読み原稿（かな化）を使い、script / reading を該当行の Edit か edit-store のスクリプト API で両方 edit.json に記録する**
-4. **有償レーン（fal・Google AI 直接の Gemini・Fish Audio）は費用宣言 → 明示承認後のみ実行する。** 見積不可のエンジンも `--yes` なしでは送信しない（CLI は見積を出して exit 2 で止まる）
-5. **API キー直叩き禁止・manage-connections 経由のみ。** 鍵は provider ごとに異なる — fal（Qwen3-TTS・fal 経由の Gemini ほか）は `FAL_KEY`、Google AI 直接の Gemini（`gemini-3.8-flash-tts`）は `GEMINI_API_KEY`、Fish Audio は `FISH_AUDIO_API_KEY`。鍵名・取得先・doctor の正本は [manage-connections](../manage-connections/SKILL.md) の接続表。置き場は `~/.akari/credentials.env`（旧 `~/.config/akari-video/credentials.env` も読み取り可）。doctor が `ok` でないレーンは提示しない
-6. **provenance.provider は必須。** 例: `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`。fal なら `"provider": "fal"`、収録音声なら `"provider": "human"`。VOICEVOX 系の声は credit 欄も必須
-7. **fal に渡す参照音声は正本 wav の data URI。** 20 MB を超える正本は送信前に止める
-8. **読み方・話し方の指示を本文に混ぜない。** `--text` / `--reading-file` / `--script-file` には読み上げる文だけを書く（「明るく読んでください：」等を前置きしない — Gemini 3.8 では指示ごと読み上げられた報告がある）。抑揚は原稿の書き方（句読点・語順・かな化）で作り、話し方は対応エンジンだけ `--style`（API の別フィールド）で渡す。詳細は [engines.md](engines.md) の「読み方の指示を本文に混ぜない」
+These rules take precedence over detailed instructions.
 
-## 実行順と目次
+1. **Clone only the profile owner's own voice.** Never use a profile without a consent record.
+2. **Verify reference audio locally before external upload.** Run the local Whisper script-matching guard. Skip it only on the owner's explicit instruction and record that exception.
+3. **Generate from prepared reading text.** Store both the display script and the exact reading text in edit.json through Edit or the edit-store script API. Follow the content-language pack for language-specific pronunciation.
+4. **Declare the cost, then run paid lanes only after explicit approval.** This applies to fal, direct Google AI Gemini, and Fish Audio. Even when a price cannot be estimated, the CLI must stop at exit 2 unless `--yes` was authorized.
+5. **Never call an API key directly; use only [manage-connections](../manage-connections/SKILL.md).** fal (Qwen3-TTS, Gemini via fal, and other fal engines) uses `FAL_KEY`, direct Google AI Gemini (`gemini-3.8-flash-tts`) uses `GEMINI_API_KEY`, and Fish Audio uses `FISH_AUDIO_API_KEY`. [manage-connections](../manage-connections/SKILL.md) is authoritative for names, sources, and doctor status. Keys live in `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is readable). Do not offer a lane whose doctor status is not `ok`.
+6. **Record provenance.provider.** For example, `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`. Use `"provider": "fal"` for fal and `"provider": "human"` for recorded speech. VOICEVOX voices also require character credit.
+7. **Send the canonical WAV as a data URI for fal reference audio.** Stop before upload if that file exceeds 20 MB.
+8. **Never mix pronunciation or delivery instructions into spoken text.** Put only words to be spoken in `--text`, `--reading-file`, or `--script-file`; do not prefix them with an instruction such as “Read this cheerfully:”. Gemini 3.8 has read an instruction prefix aloud. Create intonation through the script's punctuation, word order, and reading-text conversion; send delivery guidance only through `--style` on engines that support a separate API field. See [engines.md](engines.md).
 
-1. [engines.md](engines.md) を読み、エンジンアダプタ（voicevox / Gemini（fal 経由・Google AI 直接）/ Fish Audio / fal-qwen3 ほか）の使い方、選び方、仮ナレ→本番の二段運用を確認する。ナレーション音声の生成そのものはここで行う。
-2. 声プロファイルがまだ無く自声クローンを使いたい場合だけ [voice-profile-setup.md](voice-profile-setup.md)
-   を読み、原稿提示 → 録音 → whisper 照合ガード → fal クローン → 保存 → 耳検収の手順を踏む。
-3. 表示原稿を読み原稿（かな化）に変換する前処理は [reading-text.md](reading-text.md) を読み、
-   規約に沿って行う。
-4. 話者がアバターのときは [avatar-voice.md](avatar-voice.md) を読み、`voice/voice.json` の `lane`/`ref` を上記エンジンへ解決する。
-5. 生成した音声の語ごとの時刻（画面の動きを語に合わせる等）が要るときは `akari media transcribe <音声>` で取る（無音への吸着を通る。analyze-footage の L1 と同じ経路）。whisper-cli を直に呼ばない。
+## Execution order and leaf files
 
-現在の工程に対応するファイルだけを読み、先読みしない。
+1. Read [engines.md](engines.md) to choose a supported adapter and generate the narration. Read the content-language pack before selecting a voice or a draft-to-final workflow.
+2. Only if an own-voice clone is requested and no profile exists, read [voice-profile-setup.md](voice-profile-setup.md). Present the fixed script, record the voice, check the script match locally, obtain any needed approval, create the clone, save it, and audition it.
+3. Read [reading-text.md](reading-text.md) to prepare the exact spoken text from the display script, using the content-language pack for pronunciation rules.
+4. For an avatar, read [avatar-voice.md](avatar-voice.md) and resolve `lane` and `ref` from `voice/voice.json` to an engine.
+5. If word timing is needed for the generated audio, for example to align screen motion with words, run `akari media transcribe <音声>` through the same silence-aligned L1 path as analyze-footage. Pass the work's language; do not call whisper-cli directly.
 
-## 根拠
+Read only the leaf for the current step.
 
-- データ契約: [docs/contract-2026-07-20-edit-json-v1-narration.md](../../docs/contract-2026-07-20-edit-json-v1-narration.md)
-- 音声契約（BGM/SFX・ducking の前提）: [docs/contract-2026-07-14-edit-json-v1-audio.md](../../docs/contract-2026-07-14-edit-json-v1-audio.md)
-- 接続・doctor・費用承認の統治: [../manage-connections/SKILL.md](../manage-connections/SKILL.md)（編集はしない）
-- クラウド送信の模範実装: [../analyze-footage/bin/transcribe-cloud.mjs](../analyze-footage/bin/transcribe-cloud.mjs)
+## References
+
+- Narration data contract: [docs/contract-2026-07-20-edit-json-v1-narration.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md)
+- Audio contract for BGM, SFX, and ducking: [docs/contract-2026-07-14-edit-json-v1-audio.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md)
+- Connections, doctor checks, and cost approval (read only; do not edit it): [manage-connections](../manage-connections/SKILL.md)
+- Existing cloud-transcription implementation: [transcribe-cloud.mjs](../analyze-footage/bin/transcribe-cloud.mjs)

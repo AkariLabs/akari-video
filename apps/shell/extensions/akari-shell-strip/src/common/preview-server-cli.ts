@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { summarizeStderrTail } from './quick-export-cli';
 
 /**
@@ -46,11 +47,11 @@ export function buildPreviewOpenUrl(baseUrl: string, variant: PreviewOpenVariant
  */
 export function describePreviewServerFailure(exitCode: number | null, stderr: string, port: number): string {
     if (stderr.includes('EADDRINUSE')) {
-        return `ポート ${port} は別のプロセスが使用中です`;
+        return t('shell.preview.cli.portUsedAnotherProcessText', { value1: port });
     }
     const summary = summarizeStderrTail(stderr);
     if (summary) {
         return summary;
     }
-    return `exit code ${exitCode ?? '不明'} で終了しました（エラー出力はありません）`;
+    return t('shell.preview.cli.exitedCodeNoErrorOutputText', { value1: exitCode ?? t('shell.preview.cli.unknownLabel') });
 }

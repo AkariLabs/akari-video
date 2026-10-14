@@ -1,12 +1,13 @@
+import { t, compareText } from '@akari-video/i18n';
 /** Settings-only grouping: command IDs mirror the owning extensions without importing them. */
 export const SHORTCUT_GROUPS = [
-    { id: 'editing', label: '編集・タイムライン' },
-    { id: 'playback', label: '再生' },
-    { id: 'preview', label: 'プレビュー' },
-    { id: 'script', label: '台本・字幕' },
-    { id: 'panels', label: 'パネル・画面' },
-    { id: 'partner', label: 'パートナー' },
-    { id: 'other', label: 'そのほか' }
+    { id: 'editing', label: t('surfaces.settings.editTimeline.label') },
+    { id: 'playback', label: t('surfaces.settings.play.label') },
+    { id: 'preview', label: t('surfaces.settings.preview.label') },
+    { id: 'script', label: t('surfaces.settings.scriptCaptions.label') },
+    { id: 'panels', label: t('surfaces.settings.panelScreen.label') },
+    { id: 'partner', label: t('surfaces.settings.shortcutsPartner.label') },
+    { id: 'other', label: t('surfaces.settings.others.label') }
 ] as const;
 export type ShortcutGroup = typeof SHORTCUT_GROUPS[number]['id'];
 export type ShortcutFilter = 'all' | 'modified' | 'unassigned' | 'conflicts';
@@ -43,7 +44,7 @@ export function compareShortcutRows(a: ShortcutRow, b: ShortcutRow): number {
         const aOrder = shortcutOrder.get(a.id) ?? Infinity; const bOrder = shortcutOrder.get(b.id) ?? Infinity;
         if (aOrder !== bOrder) { return aOrder - bOrder; }
     }
-    return a.label.localeCompare(b.label, 'ja') || a.id.localeCompare(b.id);
+    return compareText(a.label, b.label) || a.id.localeCompare(b.id);
 }
 
 export function shortcutGroup(id: string): ShortcutGroup {
@@ -270,15 +271,15 @@ export function keybindingFromKeyCode(code: ShortcutPhysicalCode, mac: boolean):
 }
 
 export function shortcutWhen(when?: string): string {
-    if (!when) { return 'いつでも'; }
+    if (!when) { return t('surfaces.settings.anytime.label'); }
     const positive = new Set([...when.matchAll(/(!?)\s*(akari[A-Za-z0-9_]+)/g)]
         .filter(match => !match[1]).map(match => match[2]));
     const parsed = parseWhen(when);
     if (/akari[A-Za-z0-9_]+/.test(when) && parsed && !hasPositiveWhenIdentifier(parsed)) { return ''; }
-    if (positive.has('akariKeyframeSelected')) { return 'キーフレームを選んでいるとき'; }
-    if (positive.has('akariNumberFieldFocus')) { return '数値の欄'; }
-    if (positive.has('akariInspectorFocus')) { return '編集パネル'; }
-    if (positive.has('akariDaihonRowsFocus')) { return '台本の一覧'; }
-    if (positive.has('akariTimelineVisible')) { return 'タイムライン'; }
+    if (positive.has('akariKeyframeSelected')) { return t('surfaces.settings.listSelectingKeyframe.label'); }
+    if (positive.has('akariNumberFieldFocus')) { return t('surfaces.settings.rowNumericalField.label'); }
+    if (positive.has('akariInspectorFocus')) { return t('surfaces.settings.shortcutWhenEditPanel.label'); }
+    if (positive.has('akariDaihonRowsFocus')) { return t('surfaces.settings.keyButtonListScripts.label'); }
+    if (positive.has('akariTimelineVisible')) { return t('surfaces.settings.keyButtonTimeline.label'); }
     return when.length > 72 ? `${when.slice(0, 69)}…` : when;
 }

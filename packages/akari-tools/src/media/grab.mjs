@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { toolsText } from '../i18n.mjs';
 
 import { renderLabeledContactSheet, splitContactSheetCounts } from "../../../render-cut/src/contact-sheet.mjs";
 import {
@@ -26,9 +27,9 @@ export async function grabMedia(targetArgument, options = {}) {
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
   const stream = value.streams?.find((item) => item.codec_type === "video");
-  if (!stream) throw new Error("映像ストリームがありません");
+  if (!stream) throw new Error(toolsText('tools.media.error.videoStreamMissing'));
   const times = (options.times ?? []).map((time) => validateTime(time, duration));
-  if (times.length === 0) throw new Error("-t は 1 個以上必要です");
+  if (times.length === 0) throw new Error(toolsText('tools.grab.error.timesRequired'));
   const outputDirectory = await createOutputDirectory({ target, kind: "grab", out: options.out, now: options.now });
   const generated_at = generatedAt(options);
   const results = options.separate

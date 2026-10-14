@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ApplicationShell, BaseWidget, FrontendApplication, FrontendApplicationContribution, WidgetManager } from '@theia/core/lib/browser';
 import { CommandService } from '@theia/core/lib/common';
@@ -38,17 +39,17 @@ abstract class AkariRailOpener extends BaseWidget {
 @injectable()
 export class AkariRailExpandOpener extends AkariRailOpener {
     static readonly ID = RAIL_EXPAND_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailExpandOpener.ID, 'メニュー', 'メニュー', 'codicon-menu'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailExpandOpener.ID, t('shell.leftRail.menu.menuLabel'), t('shell.leftRail.menu.menuLabel'), 'codicon-menu'); }
 }
 @injectable()
 export class AkariRailProjectOpener extends AkariRailOpener {
     static readonly ID = RAIL_PROJECT_OPENER_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailProjectOpener.ID, 'プロジェクト', '開いているプロジェクトの中身（素材・企画）', 'codicon-device-camera-video'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailProjectOpener.ID, t('shell.leftRail.project.projectLabel'), t('shell.leftRail.project.openProjectContentsAssetsPlanningText'), 'codicon-device-camera-video'); }
 }
 @injectable()
 export class AkariRailLibraryOpener extends AkariRailOpener {
     static readonly ID = RAIL_LIBRARY_OPENER_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailLibraryOpener.ID, 'ライブラリ', 'よく使う素材・BGM・フォント・字幕スタイル・テンプレ', 'codicon-library'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailLibraryOpener.ID, t('shell.leftRail.library.libraryLabel'), t('shell.leftRail.library.assetsBgmFontsCaptionStylesTemplatesText'), 'codicon-library'); }
 }
 @injectable()
 export class AkariRailConnectOpener extends AkariRailOpener {
@@ -58,12 +59,12 @@ export class AkariRailConnectOpener extends AkariRailOpener {
 @injectable()
 export class AkariRailExportOpener extends AkariRailOpener {
     static readonly ID = RAIL_EXPORT_OPENER_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailExportOpener.ID, '書き出し', '動画ファイルに書き出す。押すと書き出しの画面が開く', 'codicon-desktop-download'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailExportOpener.ID, t('shell.leftRail.export.exportAction'), t('shell.leftRail.export.exportVideoFileOpensExportScreenMessage'), 'codicon-desktop-download'); }
 }
 @injectable()
 export class AkariRailDeveloperOpener extends AkariRailOpener {
     static readonly ID = RAIL_DEVELOPER_OPENER_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailDeveloperOpener.ID, '開発者', '細かい設定（開発者モードのときだけ）', 'codicon-tools'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailDeveloperOpener.ID, t('shell.leftRail.developer.developerLabel'), t('shell.leftRail.developer.advancedSettingsDeveloperModeText'), 'codicon-tools'); }
 }
 
 @injectable()

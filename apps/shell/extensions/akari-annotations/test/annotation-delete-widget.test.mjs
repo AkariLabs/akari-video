@@ -47,6 +47,7 @@ function createFixture(definition) {
     context[definition.render] = () => { calls.renders++; };
     context.errorMessage = error => String(error);
     context.showNotice = () => {};
+    context.hideNotice = () => {};
     context.footer = {};
     context.messages = { error: () => {} };
     return { context, annotation, calls, timers, cleared };

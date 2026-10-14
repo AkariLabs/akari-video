@@ -202,7 +202,7 @@ export function scanRecord(record, matcher, options = {}) {
   return findPlans(tokens, matcher, false).map((plan) => ({
     surface: plan.candidate.surface,
     kind: plan.candidate.kind,
-    matched: plan.tokens.map((token) => token.text).join(""),
+    matched: plan.tokens.map((token) => token.text).join("").trimStart(),
     index: plan.tokens[0]?.index ?? plan.start,
   }));
 }
@@ -382,7 +382,7 @@ function findPlans(tokens, matcher, replaceOnly) {
     let best = null;
     let combined = "";
     for (let end = start; end < tokens.length; end += 1) {
-      combined += tokens[end].text;
+      combined += tokens[end].text.trimStart();
       const candidates = matcher?.byKey?.get(normalizeKey(combined)) ?? [];
       for (const candidate of candidates) {
         if (replaceOnly && !candidate.replace) continue;
@@ -407,14 +407,14 @@ function comparePlans(left, right) {
 }
 
 function isAlreadyCanonical(plan) {
-  return plan.count === 1 && plan.tokens[0].text === plan.candidate.surface;
+  return plan.count === 1 && plan.tokens[0].text.trimStart() === plan.candidate.surface;
 }
 
 function locatePlans(text, plans) {
   if (typeof text !== "string") return plans.map((plan) => ({ plan, location: null }));
   let cursor = 0;
   return plans.map((plan) => {
-    const pattern = plan.tokens.map((token) => escapeRegExp(token.text)).join("\\s*");
+    const pattern = plan.tokens.map((token) => escapeRegExp(token.text.trimStart())).join("\\s*");
     const match = new RegExp(pattern, "u").exec(text.slice(cursor));
     if (!match) return { plan, location: null };
     const start = cursor + match.index;
@@ -452,7 +452,7 @@ function collapseWords(words, plans) {
     output.push({
       start: words[plan.start].start,
       end: words[plan.end].end,
-      text: plan.candidate.surface,
+      text: `${words[plan.start].text.match(/^\s*/u)[0]}${plan.candidate.surface}`,
     });
     index = plan.end + 1;
   }

@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 import type { TimelineSegment } from '@akari-video/edit-store';
 import type { CutRange } from '@akari-video/edit-store';
 import type { DaihonRow } from './daihon-row-model';
@@ -104,7 +105,7 @@ export function deriveDaihonCutSpans(
                 } else if (missing.in > start + halfFrame || missing.out < end - halfFrame) return;
             }
             const restoreKind: CutRange['kind'] = kind === 'word' ? 'filler' : kind;
-            const label = kind === 'row' ? '行' : kind === 'silence' ? '無音'
+            const label = kind === 'row' ? t('transcript.daihon.cutSpans.lineLabel') : kind === 'silence' ? t('transcript.daihon.cutSpans.silenceLabel')
                 : kind === 'unrecognized' ? '??' : normalizeFillerWord(row.words?.[index ?? -1]?.text ?? '');
             spans.push({ rowId: row.id, kind, index, in: start, out: end, sourceId,
                 restoreRange: missing ? { ...missing, kind: restoreKind, captionId: sourceId ?? undefined,

@@ -1,63 +1,49 @@
 # Text behind person
 
-native 映像の上へ文字を置き、その上へアルファ付き人物動画を重ねる。視覚上の順序は必ず `base video < text < cutout video` にする。
+Place text over the native video, then layer an alpha-bearing person video above it. The visual order must be `base video < text < cutout video`.
 
-## 現在の制約を先に判定する
+## Check current limits first
 
-edit.json v1 の `<video>` 時刻同期は未実装である。現行 preview / export は CSS / WAAPI animation の `currentTime` だけを同期し、fragment 内 `<video>.currentTime` は操作しない。`data-akari-sync` を付けても現時点では効果がない。
+edit.json v1 does not implement time synchronization for fragment `<video>`. Current preview / export synchronizes only CSS / WAAPI animation `currentTime`, not a fragment `<video>.currentTime`. Adding `data-akari-sync` currently has no effect.
 
-したがって、動く人物の text-behind-person を決定的・WYSIWYG・本番対応済みと報告しない。選択肢は次のいずれかにする。
+Therefore, do not report moving-person text-behind-person as deterministic, WYSIWYG, or production-ready. Choose one:
 
-- 静止した人物 alpha PNG / matte で表現する。
-- 外部で text-behind-person を precompose して映像素材にする。
-- v1 runtime の video sync 実装を待ち、preview と export の双方で検証する。
+- Use a still person alpha PNG / matte.
+- Precompose text-behind-person externally into a video asset.
+- Wait for video sync in the v1 runtime and verify both preview and export.
 
-根拠: `docs/notes-2026-07-13-edit-json-v1.md` §4、`ui/overlay-runtime.js`、`scripts/render-overlays.mjs`
+Basis: `https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-13-edit-json-v1.md` §4, `ui/overlay-runtime.js`, `scripts/render-overlays.mjs`
 
-## マット参照規約
+## Matte reference contract
 
-人物マット（アルファ付き人物動画）を断片から参照する書き方を規約として固定する。データ契約の正本は
-[docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md)、
-生成手順は [skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md) にある。
-本節はその**消費側**（断片の書き方）だけを定める。
+Fix a convention for referencing a person matte (alpha-bearing person video) from a fragment. The data contract is [docs/contract-2026-07-23-analysis-person-matte.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-analysis-person-matte.md), and generation instructions are in [skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md). This section specifies **only the consuming side** (fragment authoring).
 
-### 1. 供給元と複製規律
+### 1. Source and copying rules
 
-マットの供給元は `analysis.json` の `tracks.person_matte`（契約 §2）が正である。断片を書く
-エージェントは authoring 時に次を行う。
+The canonical matte source is `tracks.person_matte` in `analysis.json` (contract §2). At authoring time, the fragment author must:
 
-1. `person_matte.path` を **analysis.json の所在ディレクトリ基準**で解決する（契約 §2 フィールド表）。
-   `null` や解決不能なら人物マット無しとして通常のテロップ構成に倒す（契約 §5 の劣化規約）。
-2. 解決した実体を**プロジェクト内へ複製**する。置き場は `assets/matte/<素材名>-person-matte.webm`
-   を既定とする。
-3. 断片からは複製先を **edit.json 相対（プロジェクト相対）パス**で参照する。
+1. Resolve `person_matte.path` **relative to the directory containing analysis.json** (contract §2 field table). If `null` or unresolvable, treat the matte as absent and fall back to an ordinary telop layout (contract §5 degradation rule).
+2. **Copy the resolved asset into the project.** Default destination: `assets/matte/<素材名>-person-matte.webm`.
+3. Reference that copy from the fragment by a **path relative to edit.json (project-relative)**.
 
-analysis 側のパスへ直リンクしない。マットは素材ディレクトリ側に置かれうるため、直リンクした
-プロジェクトは移動・配布・再現でリンクが切れる（プロジェクト自己完結の原則）。プレビューの
-asset 解決（3D 宣言の `resolveAsset`・`akari-preview-open-handler.ts`）も先頭 `/` と URL スキームを
-拒否しており、絶対パスや `file:` URL を書く流儀そのものが通らない。
+Do not link directly to the analysis-side path. The matte can live under the source-media directory; a directly linked project breaks when moved, distributed, or reproduced (project self-containment). Preview asset resolution (`resolveAsset` for 3D declarations and `akari-preview-open-handler.ts`) also rejects leading `/` and URL schemes, so absolute paths or `file:` URLs will not work.
 
-**複製はバイト単位のコピーで行い、再エンコードしない。** ffmpeg のデコーダに通すとアルファが
-無言で落ちる（契約 §3）。切り出し（`--ss` 相当）も禁止 — 時刻 0 の一致が壊れる（契約 §4）。
+**Copy byte for byte; do not re-encode.** Passing it through an ffmpeg decoder can silently lose alpha (contract §3). Trimming (equivalent to `--ss`) is also forbidden because it breaks time-zero alignment (contract §4).
 
-### 2. 断片内の参照は `data-akari-matte-src`
+### 2. Reference within the fragment through `data-akari-matte-src`
 
-**`<video>` の `src` を断片の HTML に直書きしない。** 外側コンテナ（ランタイムが作る
-`.akari-overlay-container` / `#overlay-stage` 直下の div）へ注入される
-**`data-akari-matte-src` 属性**を規約とし、断片はその属性の有無だけを見る。
+**Do not hardcode `<video>` `src` in fragment HTML.** The contract uses **`data-akari-matte-src`** injected into the outer container (the runtime-created div directly under `.akari-overlay-container` / `#overlay-stage`). The fragment checks only whether the attribute is present.
 
-タイミングの `data-start` / `data-duration`（ハードルール 2）と同じ「**ランタイムが所有する
-data 属性**」の流儀である。理由も同じで、実 URL は経路ごとに違うものになる:
+This follows the convention of runtime-owned timing attributes `data-start` / `data-duration` (hard rule 2). The reason is also the same: actual URLs vary by path:
 
-| 経路 | 実際に必要な URL |
+| Path | Required actual URL |
 |---|---|
-| プレビュー | `http://127.0.0.1:<port>/asset/<id>`（`createAssetStream` の払い出し。3D の `.glb` と同経路） |
-| 書き出し（render-cut） | オーバーレイシートは `<projectRoot>/.akari/render-tmp/<run>/overlay-sheet.html` に置かれる。プロジェクト相対パスをそのまま書くと 3 階層ずれて解決できない |
+| Preview | `http://127.0.0.1:<port>/asset/<id>` (issued by `createAssetStream`, the same path as a 3D `.glb`) |
+| Export (render-cut) | The overlay sheet lives at `<projectRoot>/.akari/render-tmp/<run>/overlay-sheet.html`; writing a project-relative path directly resolves three directory levels away |
 
-断片が知ってよいのはプロジェクト相対パスまでで、経路ごとの実 URL 化は外側の責務である。
+The fragment may know only the project-relative path; turning it into a path-specific actual URL is the outer layer's responsibility.
 
-属性が無いときは**マット層を出さない**。祖先属性ゲート付きセレクタで宣言する
-（`data-akari-active` と同じ手法。`packages/overlay-runtime/src/overlay-runtime.js` 参照）:
+When the attribute is absent, **do not show the matte layer**. Declare this using a selector gated by an ancestor attribute (the same approach as `data-akari-active`; see `packages/overlay-runtime/src/overlay-runtime.js`):
 
 ```html
 <div class="tbp-root">
@@ -84,87 +70,61 @@ data 属性**」の流儀である。理由も同じで、実 URL は経路ご�
 </div>
 ```
 
-**劣化は「文字が前に出るだけ」**にする。属性が無い・マットが読めない・再生できない、いずれでも
-テキストと素材映像は出続ける。人物マットは演出の入力であり、映像本体の成否を左右しない（契約 §5）。
+**Degradation must be only "text appears in front."** If the attribute is absent, the matte cannot load, or it cannot play, text and source video continue to display. A person matte is an effect input and must not determine the success of the underlying video (contract §5).
 
-### 3. 標準 3 層構造（z）
+### 3. Standard three-layer structure (z)
 
-| 層 | 実体 | 断片に含めるか |
+| Layer | Content | In fragment? |
 |---|---|---|
-| 下 | 素材映像（プレビューの `#preview-video` / 書き出しの合成土台） | **含めない** |
-| 中 | テキスト（`z-index: 1`） | 含める |
-| 上 | マット `<video>`（`z-index: 2`・`inset: 0`・`muted`・`playsinline`・`pointer-events: none`） | 含める |
+| Bottom | Source video (preview `#preview-video` / export composite base) | **No** |
+| Middle | Text (`z-index: 1`) | Yes |
+| Top | Matte `<video>` (`z-index: 2`, `inset: 0`, `muted`, `playsinline`, `pointer-events: none`) | Yes |
 
-- 断片ルートに `isolation: isolate` を置き、この 2 層の重なりをルート内へ閉じる（単一ルート =
-  ハードルール 6）。
-- テキストの `z-index` をマットより必ず小さくする。逆にすると通常のテロップに戻る。
-- マット `<video>` の `object-fit` / `object-position` を素材映像側の crop 契約に合わせる。ずれると
-  人物の輪郭が背後の素材とずれる。
-- 調整値（テキスト位置・文字サイズ・色・マットの fit / position）は CSS 変数で公開する
-  （ハードルール 1）。断片ルートで同名変数を再定義して外側からの上書きを遮らない。
+- Set `isolation: isolate` on the fragment root, keeping these two fragment layers in its stacking context (single root = hard rule 6).
+- Text `z-index` must be below the matte; reversing them makes an ordinary telop.
+- Match the matte `<video>` `object-fit` / `object-position` to the source video crop contract; otherwise the cutout outline drifts from the person behind it.
+- Expose adjustable values (text position, size, color, matte fit / position) as CSS variables (hard rule 1). Never redefine the same names on the fragment root and block outer overrides.
 
-### 4. 形式は VP9 alpha WebM が第一、HEVC alpha は fallback
+### 4. VP9 alpha WebM first; HEVC alpha fallback
 
-- **第一候補（既定）**: VP9 alpha WebM（`.webm` / `alpha_mode=1` / straight alpha）。契約 §3 の確定事項。
-  容量が HEVC alpha MOV の 1/4.8 で、**GPU デコードに依存しない**。書き出し経路のヘッドレス Chrome は
-  `--disable-gpu` で起動する（`packages/render-cut/src/rasterize.mjs`）ため、HEVC を既定にすると
-  経路ごと落ちる。
-- **fallback（第 2 形式）**: HEVC alpha MOV。Apple 系ツールへの受け渡しが要るときだけの互換形式で、
-  `analysis.json` に載せる既定ではない。本リーフの「Apple Vision → HEVC with alpha」「Robust Video
-  Matting → HEVC with alpha」は、この第 2 形式を自前で作るときの手順である。
-- 断片側は形式を判別しない。`data-akari-matte-src` が指すものを再生するだけにする。形式の選択は
-  供給側（`analysis.json`）の責務であり、断片に `<source type="...">` の分岐を書かない。
+- **First choice (default)**: VP9 alpha WebM (`.webm` / `alpha_mode=1` / straight alpha), established in contract §3. It is 1/4.8 the size of HEVC alpha MOV and **does not depend on GPU decoding**. The headless Chrome export path starts with `--disable-gpu` (`packages/render-cut/src/rasterize.mjs`), so defaulting to HEVC would fail on that path.
+- **Fallback (second format)**: HEVC alpha MOV. It is a compatibility format only when handing off to Apple tools, not the default recorded in `analysis.json`. The "Apple Vision → HEVC with alpha" and "Robust Video Matting → HEVC with alpha" sections below explain creating this second format yourself.
+- The fragment does not identify formats; it only plays what `data-akari-matte-src` points to. The supplier (`analysis.json`) chooses the format. Do not write `<source type="...">` branching in the fragment.
 
-### 5. poster フォールバック（プレビュー制約への保険）
+### 5. Poster fallback (insurance for preview limits)
 
-プレビューの webview は `default-src 'none'; media-src <stream origin>; img-src <stream origin> blob: data:`
-という CSP 下にある（`akari-preview-open-handler.ts`）。`data:` の**画像**は許されるが、`media` は
-払い出されたストリームオリジンに限られる。マットを asset stream へ載せる解決経路は現時点で未実装
-であり、断片を単体で開いた場合も含めて**プレビューでマット `<video>` が再生されない場面がある**。
+Preview webviews operate under CSP `default-src 'none'; media-src <stream origin>; img-src <stream origin> blob: data:` (`akari-preview-open-handler.ts`). A `data:` **image** is allowed, but media is limited to the issued stream origin. The resolution path that puts a matte on the asset stream is not yet implemented, so matte `<video>` can fail in preview, including when opening a fragment alone.
 
-そこで **`poster` にデータ URI の静止マット 1 枚**を置くことを任意フォールバックとして規約化する。
+An optional fallback is **one still matte as a data URI in `poster`**:
 
 ```html
 <video class="tbp-root__matte" muted playsinline preload="auto"
        poster="data:image/png;base64,iVBORw0KGgo…"></video>
 ```
 
-- 代表フレーム（そのオーバーレイ区間の中央あたり）をアルファ付き PNG で **1 枚だけ**入れる。マット
-  生成の既定解像度は 512x384（`balanced`・person-matte.md の実測表）であり、poster もその解像度で足りる。
-  data URI は断片 HTML に丸ごと載るため、桁が大きくなるなら PNG 側の解像度を落とす。
-- CSP で `media` が落ちても poster は描画されるため、**人物とテキストの前後関係**（この演出の要）は
-  プレビューで確認できる。
-- **poster は静止画である。動きはレンダで確認する。** poster が出ていることを「マットが動いている」
-  ことの確認と読み替えない。poster だけを最終成果物の代替にしない。
+- Include **only one** representative alpha PNG frame near the middle of that overlay interval. The default matte generation resolution is 512x384 (`balanced`; measured table in person-matte.md), enough for the poster. Since the entire data URI lives in fragment HTML, reduce PNG resolution if its size becomes excessive.
+- Poster still draws when CSP blocks `media`, allowing preview of the **person/text front-back relation**, the point of the effect.
+- **A poster is a still. Verify motion in the render.** Never treat seeing the poster as proof the matte moves, or use it alone in place of the final deliverable.
 
-### 6. 決定性
+### 6. Determinism
 
-- マット動画の時刻は素材（`analysis.source`）の source 秒と **1:1** で対応する（契約 §4）。
-  マット側にオフセットを持たせない。
-- **断片内で独自の時刻源を作らない**（ハードルール 2 / 4 の再確認）。`autoplay` / `loop` /
-  `setTimeout` / rAF の delta 積算でマットを進めない。`<video>` の時刻を進めるのはランタイムであり、
-  断片は宣言するだけにする。
-- 現状の実測: 書き出し経路は全 `<video>` に**コンポジション秒をそのまま**代入する
-  （`rasterize.mjs` の `__akariSeek`）。`cuts[]` を介した source 秒への射影は行わない。素材の途中区間を
-  使うカットではマットが合わない。プレビューは `<video>.currentTime` を触らない。したがって
-  **動く人物のマットは今も本番品質ではない**（冒頭「現在の制約を先に判定する」と同じ結論）。静止マット
-  （poster / 単一フレーム）は現時点でも決定的に成立する。
+- Matte time corresponds **1:1** to source seconds in `analysis.source` (contract §4). Do not put an offset on the matte.
+- **Do not create an independent time source inside the fragment** (hard rules 2 / 4). Never advance the matte with `autoplay`, `loop`, `setTimeout`, or accumulated rAF deltas. The runtime advances `<video>` time; the fragment only declares it.
+- Current measurement: Export assigns **composition seconds directly** to every `<video>` (`__akariSeek` in `rasterize.mjs`), without mapping through `cuts[]` to source seconds. A cut using a middle portion of source will misalign the matte. Preview does not touch `<video>.currentTime`. Thus **a moving-person matte is still not production quality** (same conclusion as the initial limits section). A still matte (poster / single frame) is deterministic now.
 
 ## Apple Vision → HEVC with alpha
 
-以下 2 節は**第 2 形式（HEVC alpha MOV）を自前で作る**ときの手順である。既定の生成経路は
-`analysis.json` の `tracks.person_matte`（VP9 alpha WebM）であり、手順は
-[skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md) にある。
+The next two sections describe creating the **second format (HEVC alpha MOV) yourself**. The default generation path is `tracks.person_matte` in `analysis.json` (VP9 alpha WebM), described in [skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md).
 
-1. source を presentation order で decode し、各 frame の PTS と orientation を保持する。
-2. 同じ `VNSequenceRequestHandler` へ frame を順番に渡し、`VNGeneratePersonSegmentationRequest` で person mask を得る。offline 品質では `.accurate` を候補にできるが、速度と輪郭品質を実素材で検証する。
-3. camera 固有の orientation を hardcode せず、入力 orientation を反映して mask を source extent へ合わせる。
-4. mask を alpha として RGB と合成し、alpha-bearing pixel buffer を作る。方式に迷う場合は Apple 推奨の premultiplied alpha を使う。
-5. `AVAssetWriterInput` または `VTCompressionSession` を `AVVideoCodecType.hevcWithAlpha` で構成し、元 PTS の順に append して `.mov` を出す。alpha quality は公式に 0.0〜1.0 の範囲だが、固定値は発明せず **要検証** とする。
-6. 出力 track の `.containsAlphaChannel`、duration、fps、frame count、orientation を確認し、checkerboard 上で髪、指、motion blur、半透明境界を実見する。
-7. 新シェル（Chromium ベースの Electron）の preview と、export に使う Chrome 系レンダラーの両方で当該 asset を実機再生する。codec 名だけで互換性を保証しない。（旧 Tauri 版は WKWebView 前提だったが、新シェルは Chromium 系に統一）
+1. Decode source in presentation order and preserve each frame's PTS and orientation.
+2. Pass frames sequentially through the same `VNSequenceRequestHandler` to obtain a person mask with `VNGeneratePersonSegmentationRequest`. `.accurate` is a candidate for offline quality, but verify speed and edge quality on actual footage.
+3. Do not hardcode camera-specific orientation; apply input orientation and align the mask with the source extent.
+4. Composite RGB with the mask as alpha into an alpha-bearing pixel buffer. If uncertain, use Apple's recommended premultiplied alpha.
+5. Configure `AVAssetWriterInput` or `VTCompressionSession` with `AVVideoCodecType.hevcWithAlpha`, append in original PTS order, and write `.mov`. Official alpha quality is in 0.0–1.0, but do not invent a fixed value: mark it **needs verification**.
+6. Check output-track `.containsAlphaChannel`, duration, fps, frame count, and orientation. Inspect hair, fingers, motion blur, and translucent edges on a checkerboard.
+7. Play the asset on real devices in both the new Chromium/Electron shell preview and the Chrome-based export renderer. Codec name alone does not guarantee compatibility. (Old Tauri assumed WKWebView; the new shell standardizes on Chromium.)
 
-公式:
+Official references:
 
 - [Apple Vision — VNGeneratePersonSegmentationRequest](https://developer.apple.com/documentation/vision/vngeneratepersonsegmentationrequest)
 - [Apple Vision — VNSequenceRequestHandler](https://developer.apple.com/documentation/vision/vnsequencerequesthandler)
@@ -175,18 +135,17 @@ data 属性**」の流儀である。理由も同じで、実 URL は経路ご�
 
 ## Robust Video Matting → HEVC with alpha
 
-1. RVM の license を先に確認する。公式 repository は GPL-3.0 であるため、コードや model を MIT の本リポへ同梱・転写しない。外部の「手」として使う場合も version、license、取得元を provenance に残す。
-2. frame 順を保ち、RVM の recurrent state を次 frame へ渡して foreground (`fgr`) と alpha (`pha`) を得る。各 frame を独立並列処理しない。
-3. 公式 converter の `output_foreground` / `output_alpha` は別出力であり、HEVC alpha 直出力ではないと理解する。
-4. premultiplied を使う場合は `RGB = fgr * pha`、`A = pha` として alpha-bearing frame を作り、元 fps / PTS と照合する。
-5. Apple Vision 経路と同じ AVFoundation HEVC-alpha encoder へ渡し、同じ検証を行う。
+1. Check the RVM license first. Its official repository is GPL-3.0; do not bundle or copy its code or model into this MIT repository. Even when used as an external step, record version, license, and source in provenance.
+2. Preserve frame order and pass RVM recurrent state to the next frame to obtain foreground (`fgr`) and alpha (`pha`). Do not process frames independently in parallel.
+3. The official converter's `output_foreground` / `output_alpha` are separate outputs, not direct HEVC-alpha output.
+4. For premultiplied alpha, form an alpha-bearing frame with `RGB = fgr * pha`, `A = pha`, and compare against original fps / PTS.
+5. Pass it to the same AVFoundation HEVC-alpha encoder as the Apple Vision path and perform the same verification.
 
-公式: [Robust Video Matting repository](https://github.com/PeterL1n/RobustVideoMatting)、[RVM inference guide](https://github.com/PeterL1n/RobustVideoMatting/blob/master/documentation/inference.md)
+Official references: [Robust Video Matting repository](https://github.com/PeterL1n/RobustVideoMatting), [RVM inference guide](https://github.com/PeterL1n/RobustVideoMatting/blob/master/documentation/inference.md)
 
-## DOM の z 順
+## DOM z order
 
-単一ルートの中に同じ座標系で text と cutout video を置く。以下は最小骨格であり、`src` の与え方・
-既定で隠す指定・poster フォールバックまで含めた正の書き方は上の「マット参照規約」にある。
+Put text and cutout video in the same coordinate system inside one root. This is a minimal skeleton; the canonical form, including how to provide `src`, default hiding, and poster fallback, is in "Matte reference contract" above.
 
 ```html
 <div class="tbp-root">
@@ -200,25 +159,25 @@ data 属性**」の流儀である。理由も同じで、実 URL は経路ご�
 </div>
 ```
 
-- text の z-index を cutout video より小さくする。
-- `<video>` の `object-fit` / `object-position` を base video と同じ crop 契約に合わせる。
-- `--text-x`、`--text-y`、`--font-size`、`--matte-fit`、`--matte-position` などを knob にする。
-- alpha video を autoplay / loop 任せにしない。将来は `data-akari-sync` 付き video の currentTime を overlay local timeline へ設定する runtime 契約が必要になる。
-- relative video URL の live preview 解決も現状未整備なので **要検証** とする。
+- Set text z-index below cutout video.
+- Match `<video>` `object-fit` / `object-position` to the base-video crop contract.
+- Expose `--text-x`, `--text-y`, `--font-size`, `--matte-fit`, `--matte-position`, etc. as knobs.
+- Do not entrust alpha video to autoplay / loop. A future runtime contract must set `currentTime` of a `data-akari-sync` video to the overlay local timeline.
+- Live-preview resolution of relative video URLs is not yet in place, so mark it **needs verification**.
 
-## よくある間違い
+## Common mistakes
 
-- `data-akari-sync` が既に実装済みだと書く。
-- マット `<video>` の `src` を断片へ直書きする（プレビューでも書き出しでも解決できない）。
-- `analysis.json` 側のマットへ直リンクし、プロジェクトの自己完結を壊す。
-- マットをプロジェクトへ複製するときに ffmpeg で再エンコードし、アルファを無言で落とす。
-- `data-akari-matte-src` が無いときにマット層を出したまま黒や空の矩形を人物の上に残す。
-- poster が出ていることを「マットが動いている」ことの確認と読み替える。
-- alpha video を autoplay し、映像本体と偶然合うことを期待する。
-- text を人物 layer より前へ置き、通常のテロップに戻してしまう。
-- base と cutout で crop / orientation / fps / PTS が違う。
-- Vision sample の camera orientation を全動画へ hardcode する。
-- RVM の recurrent state を捨てて frame を独立処理する。
-- RVM の foreground / alpha 出力を HEVC-alpha 完成品と思い込む。
-- GPL-3.0 の RVM コードや model を本リポへコピーする。
-- 新シェルの preview（Chromium/Electron）で見えたため、export 用のヘッドレス Chrome 系レンダラーでも同じに動くと未検証で断言する。（旧 Tauri 版は Safari / WKWebView 前提だったが、新シェルは Chromium 系に統一）
+- Claiming `data-akari-sync` is already implemented.
+- Hardcoding matte `<video>` `src` in a fragment (cannot resolve in either preview or export).
+- Linking directly to the analysis-side matte and breaking project self-containment.
+- Re-encoding a matte with ffmpeg when copying it into the project and silently losing alpha.
+- Leaving a black or empty matte rectangle over the person when `data-akari-matte-src` is absent.
+- Treating visible poster as proof that the matte moves.
+- Autoplaying alpha video and hoping it happens to align with the base video.
+- Putting text in front of the person layer, reverting to an ordinary telop.
+- Mismatching crop / orientation / fps / PTS between base and cutout.
+- Hardcoding a Vision sample's camera orientation for every video.
+- Dropping RVM recurrent state and processing frames independently.
+- Mistaking RVM foreground / alpha outputs for a finished HEVC-alpha file.
+- Copying GPL-3.0 RVM code or model into this repository.
+- Assuming that success in the new Chromium/Electron shell preview guarantees the same behavior in the headless Chrome export renderer without verifying it. (Old Tauri assumed Safari / WKWebView; the new shell standardizes on Chromium.)

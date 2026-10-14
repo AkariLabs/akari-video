@@ -1,235 +1,179 @@
-# 編集判断 — 分析レポートを読み、方針をチャットで決める
+# Editing decisions — Read the analysis report and decide direction in chat
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to workspace `library/`. Without a workspace, use the legacy `~/.akari/assets/`. Check its actual location on the first line of `akari-assets list` (or `akari assets list`). Below, `<ライブラリの置き場>` is the displayed location (the Japanese placeholder means library location); audio lives under its `audio/` directory.
 
-> **2026-07-22 改訂（縮退）**: 本スキルが固定 6 章の編集判断レポート（`editing-report.html` +
-> 決定カード）を自ら生成する役割は退いた。オーナー裁定（2026-07-22）「正式なレポート文書として
-> 残るのは分析レポートのみ。方向性の引き出しは完全にチャットへ」の帰結であり、事実 + 素材の
-> 読みは [analyze-project](../analyze-project/SKILL.md) の分析レポート（読み取り専用・
-> 決定 UI なし）が担う。edit-plan はその分析レポートを一次証拠として読み、方針・素材計画・
-> 実行の各判断をチャットで提示して人間の明示承認を得る側になった。
+> **2026-07-22 revision (reduced scope)**: This skill no longer generates its own fixed six-chapter editing decision report (`editing-report.html` plus decision cards). Under the owner's 2026-07-22 ruling, the analysis report is the only formal report and direction is developed entirely in chat. The [analyze-project](../analyze-project/SKILL.md) analysis report (read-only, without a decision UI) provides facts and interpretation of assets. edit-plan reads it as primary evidence and presents direction, asset-plan, and execution decisions in chat for explicit human approval.
 >
-> 変わらないもの: **decision_log の記録慣行**（[decision_log](#decision_log) 節。置き場所だけ
-> `decision-log.md` という独立ファイルへ変更）、**カット判断一覧・素材計画の三択という実務手順**
-> （[カット判断一覧](#カット判断一覧)・[素材計画](#素材計画)節）、**3 段階チェックポイント**
-> （[approvals-and-generation.md](approvals-and-generation.md)）。変わったのは「これらを 1 つの
-> HTML レポートへ焼き込むか、チャットで提示するか」という提示形式だけであり、記録義務・
-> 根拠提示・承認ゲートの厳格さは緩めていない。
+> Unchanged: **decision_log recording conventions** ([decision_log](#decision_log); only the location moved to standalone `decision-log.md`), **the practical cut-decision list and three-way asset plan** ([Cut decision list](#cut-decision-list) and [Asset plan](#asset-plan)), and **the three-stage checkpoints** ([approvals-and-generation.md](approvals-and-generation.md)). Only the presentation format changed, from one HTML report to chat. Recording duties, evidence, and approval-gate rigor have not weakened.
 
-## 目次
+## Contents
 
-- [分析レポートを読む](#分析レポートを読む)
-- [方針をチャットで決める](#方針をチャットで決める)
-- [サムネイル案](#サムネイル案)
-- [カット判断一覧](#カット判断一覧)
-- [素材計画](#素材計画)
+- [Read the analysis report](#read-the-analysis-report)
+- [Decide direction in chat](#decide-direction-in-chat)
+- [Thumbnail ideas](#thumbnail-ideas)
+- [Cut decision list](#cut-decision-list)
+- [Asset plan](#asset-plan)
 - [decision_log](#decision_log)
-- [汎用カード機構（他スキルが参照する仕様）](#汎用カード機構他スキルが参照する仕様)
-- [自己完結 HTML を作る場合の安全性](#自己完結-html-を作る場合の安全性)
-- [よくある間違い](#よくある間違い)
+- [Generic card mechanism (specification used by other skills)](#generic-card-mechanism-specification-used-by-other-skills)
+- [Safety for self-contained HTML](#safety-for-self-contained-html)
+- [Common mistakes](#common-mistakes)
 
-## 分析レポートを読む
+## Read the analysis report
 
-[analyze-project](../analyze-project/SKILL.md) が作る `analysis-report.html`
-（`interpretation.json` + 各素材の `analysis.json` から生成される読み取り専用レポート）を
-一次証拠として読む。レポートが無い、または対象素材が反映されていない場合は、先に
-analyze-project を実行するよう促す（analyze-project 自身は edit-plan の一部ではないため、
-別スキルとして呼び出す）。
+Read `analysis-report.html`, created by [analyze-project](../analyze-project/SKILL.md) from `interpretation.json` and each asset's `analysis.json`, as primary evidence. If the report is absent or omits target assets, request analyze-project first (it is a separate skill, not part of edit-plan).
 
-分析レポートが持つもの（事実 + 素材の読み + 客観的関係 + 取材台帳 + 来歴）はそのまま証拠として
-引用してよい。分析レポートに**構成案（arc）は表示されない**（`interpretation.json` の
-データとしては存在するが、対話フェーズでの提案の種として意図的に非表示 — analyze-project の
-設計）。編集方針・構成の組み立ては、この節以降で edit-plan がチャット上で行う。
+The report's facts, asset interpretations, objective relationships, interview ledger, and provenance may be cited directly. **The proposed arc is not displayed** in the analysis report (it exists in `interpretation.json` but is deliberately hidden as a seed for the dialogue phase by analyze-project design). edit-plan develops edit direction and structure in chat from here onward.
 
-## 方針をチャットで決める
+## Decide direction in chat
 
-方針（サムネイル案・カット強度・字幕方針・章立て採否・オープニングフック）は、分析レポートの
-根拠を踏まえて **推奨案 + 代替案 + 各案の利点/欠点/失うもの + 推奨理由** をチャットで提示し、
-人間の明示回答を得る。「どうしますか」と選択を丸投げする聞き方はしない（推奨を示した上で
-承認・修正・却下を求める）。
+For thumbnail ideas, cut intensity, caption policy, chapter inclusion, and opening hook, present **a recommendation + alternatives + the benefits, drawbacks, and losses of each + the reason for recommending one** in chat, grounded in the analysis report, and obtain an explicit human answer. Do not ask only "What would you like?"; make a recommendation and request approval, revision, or rejection. Follow the report-writing section of the language pack (see SKILL.md).
 
-カードに載せていた**決定レベル / 操作レベルの線引きは変えない**: word 単位のカット採否や
-字幕セグメントの一覧はチャットにもレポートにも出さない。それらはアプリ（ビューワー）側の
-領分であり、この線引きは
-[notes-2026-07-14](../../docs/notes-2026-07-14-captions-and-cut-editing.md) 追記部の不変条項。
+**Keep the boundary between decision level and operation level** previously used on cards: do not list word-level cut accept/reject choices or caption segments in chat or reports. Those belong in the app viewer. This boundary is an invariant in the addendum to [notes-2026-07-14](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md).
 
-チャットでの提示 → 回答は [approvals-and-generation.md](approvals-and-generation.md) の
-Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`（[decision_log](#decision_log) 節の慣行）へ追記する。
+Treat chat presentation and response as Checkpoint 1 (direction) under [approvals-and-generation.md](approvals-and-generation.md), and append the settled outcome to `decision-log.md` under the [decision_log](#decision_log) convention.
 
-Checkpoint 1 で semantic keep/drop と source occurrence 順を承認した後、会話の間を短くする必要が
-ある場合は [workflow.md](workflow.md) の cut candidate bridge を追加 review に使う。report は
-`analysis.json` の filler/trouble と、承認済み occurrence 内に完全包含された -35 dB / 0.45 秒以上の
-silence を提示する。候補は自動採用しない。特に `UI_WAIT_UNRESOLVED`、
-`INFORMATION_RETENTION_REVIEW`、`PARTIAL_EVENT_OCCURRENCE` を人間が確認し、画面 keyframe があっても
-操作待ち解決済みとは扱わない。語時刻が不完全な source は pause 検出自体を行わない。
+After semantic keep/drop and source occurrence order are approved at Checkpoint 1, use [workflow.md](workflow.md)'s cut candidate bridge for additional review if conversational pauses need shortening. The report shows filler/trouble from `analysis.json` and silence at or below -35 dB lasting at least 0.45 seconds, fully inside approved occurrences. Do not auto-accept candidates. A human must particularly inspect `UI_WAIT_UNRESOLVED`, `INFORMATION_RETENTION_REVIEW`, and `PARTIAL_EVENT_OCCURRENCE`; a screen keyframe alone does not resolve a UI wait. Do not run pause detection on sources with incomplete word times.
 
-## サムネイル案
+## Thumbnail ideas
 
-3 経路（実フレーム / Codex 生成 / 混成）の候補画像を作り、チャットで比較提示する。
+Make candidate images through three routes (real frame / Codex generation / hybrid) and compare them in chat.
 
-- **経路 A**: 視認済み実フレーム + [thumbnail authoring](../overlay-authoring/thumbnail.md) に従う HTML 文字組。source と時刻を記す。
-- **経路 B**: Codex 画像生成。手、prompt、生成日時を記す。
-- **混成**: B で背景を作り、A の HTML 文字組で日本語タイトルを載せる。両工程の provenance を分ける。
+- **Route A**: Visually checked real frame plus HTML typography under [thumbnail authoring](../overlay-authoring/thumbnail.md). Record source and time.
+- **Route B**: Codex image generation. Record method, prompt, and generation time.
+- **Hybrid**: Make the background with B and add a title using A's HTML typography. For Japanese title composition, follow the language pack (see SKILL.md). Keep the two stages' provenance separate.
 
-可能なら 3 経路を 1 案以上ずつ比較する。経路 B または混成が利用不能でも架空画像を置かず、複数の A 案を提示して利用不能理由を記す。この `3` は M5 契約の 2 経路 + 混成から導く比較数で、プラットフォームの成功閾値ではない。
+If possible, compare at least one candidate from each of the three routes. If B or hybrid is unavailable, do not insert fictional images; present multiple A candidates and explain unavailability. The `3` is the comparison count from the M5 contract's two routes plus hybrid, not a platform success threshold.
 
-上位タスクの指示で経路 A/B/混成の一部にしかスコープが与えられていない場合は、**未実施**と**利用不能**を区別して記録する。「利用不能」は経路を試みたが実行できなかった場合に使い、「未実施（スコープ外）」は上位タスクの指示によって最初からその経路を対象外にした場合に使う。両者を区別しないと、後続工程が「生成を試みて失敗した」のか「そもそも指示されていない」のかを判別できない。
+If the parent task scopes only some of A/B/hybrid, distinguish **not performed** from **unavailable** in the record. Use "unavailable" when a route was attempted but could not run; use "not performed (out of scope)" when the parent task excluded it from the outset. Later stages must be able to tell a failed attempt from a route never requested.
 
-対象外の経路は、チャット提示でも比較の枠自体は残したまま架空画像を置かず、`未実施（スコープ外: <上位タスクが指定した範囲の要約>）` の 1 行に置き換える。`decision-log.md` には `(thumbnail, route-a)` / `(thumbnail, route-b)` / `(thumbnail, route-mixed)` のうち対象外の経路をキーに、決定を `未実施（スコープ外）`、理由に上位タスクの指示文またはその要約を記録する。
+For an excluded route, retain the comparison slot in chat but replace any image with one line, `未実施（スコープ外: <上位タスクが指定した範囲の要約>）` in Japanese (not performed; the placeholder summarizes the parent task's scope). In `decision-log.md`, key the excluded route as `(thumbnail, route-a)` / `(thumbnail, route-b)` / `(thumbnail, route-mixed)`, set the decision to "not performed (out of scope)" in the user's language (Japanese form: `未実施（スコープ外）`), and use the parent task's instruction or its summary as the reason.
 
-画像生成の前には [approvals-and-generation.md](approvals-and-generation.md) の宣言を行う。
+Before image generation, make the declaration required by [approvals-and-generation.md](approvals-and-generation.md).
 
-## カット判断一覧
+## Cut decision list
 
-各行に素材 ID、source の `start/end`、`keep` または `drop`、根拠 event、根拠 anchor、理由を書く。keep range は source ごとに昇順・非重複にする。カット後 timeline 時刻と source 時刻を混ぜない。ここに並ぶのは決定レベルの keep/drop であり、word 単位の採否はアプリ側で操作する。
+Each row must contain the asset ID, source `start/end`, `keep` or `drop`, supporting event, evidence anchor, and reason. Keep ranges must be ascending and non-overlapping per source. Do not mix post-cut timeline times with source times. This list contains decision-level keep/drop choices; operate on word-level choices in the app.
 
-この一覧はチャットでの提示に使うと同時に、v2 の visual media item を組み立てる直接の一次証拠になる。`decision-log.md` の `cut` category にまとめて記録する（1 行 1 区間、または要約 + 詳細は生成物として別途保存してもよい）。トレーラー・オープニングフックなどの**切り出し・先出しクリップの `source.in/out` は、見せ場スコア位置の機械窓のままにせず、クリップ内発話へスナップして呼吸 0.5s を残す**（発話スナップの規則は [execution.md](execution.md) §2）。
+The list both supports chat presentation and serves as direct primary evidence for constructing v2 visual media items. Record it under the `cut` category in `decision-log.md` (one row per interval, or a summary with details saved separately as an output). For trailers, opening hooks, and other extracted or moved-ahead clips, **do not leave `source.in/out` at a machine window around the highlight score; snap to speech inside the clip and preserve 0.5s of breathing room** (see [execution.md](execution.md) §2 for speech-snapping rules).
 
-## 素材計画
+## Asset plan
 
-全体枠とシーン枠を分ける。
+Separate global and scene-level slots.
 
-- **全体**: BGM（全編ベッド）、字幕（全文字幕の方針）。目的、入り・抜け、ライセンスまたは生成可否を扱う。
-- **シーン単位**: 音声クリップ（効果音・部分区間の音楽）、B ロール、テロップスタイル、特殊表現。対象 scene と時刻を付ける。曲の一部だけを場面に敷きたい音楽もここに入る（`audio.sfx[]` のクリップとして扱う。書き方は [execution.md](execution.md) §1 音楽の配置）。
+- **Global**: BGM (whole-video bed) and captions (full-caption policy). Address purpose, entrance and exit, license, or generation feasibility.
+- **Per scene**: Audio clips (SFX and partial music), B-roll, text-overlay style, and special expression. Identify target scene and time. Music used for only part of a scene also belongs here (as an `audio.sfx[]` clip; see music placement in [execution.md](execution.md) §1).
 
-**字幕枠は方針レベルだけを扱う**（セグメント単位の内容一覧はチャットにもレポートにも載せない。確認・修正はアプリの字幕リストと contenteditable で行う）。字幕枠の方針としてチャットで提示・決定する事項:
+**The caption slot covers policy only** (do not put segment-level content lists in chat or reports; review and edit them in the app's caption list and contenteditable). Present and decide these caption-policy points in chat:
 
-- 付ける / 付けない / 選択的（重要箇所のみ）の別と理由
-- スタイル（配置・行数・1 行文字数目安・地と文字色。telop.md の字幕原則に従う）
-- **カットとの従属関係**: 字幕はカット後タイムラインに従属し、カットで除去された発話は字幕ごと消える（字幕を理由にカットを変えない。変えたい場合はカット判断の修正として扱う）
-- 長文の分割・時間按分の規則（word タイムスタンプがある場合はそれを優先）。**表示区間は実発話区間に一致させ、segment 境界を敷き詰めない**（隙間の原則。実発話が終われば字幕も終わる。区間の作り方は [execution.md](execution.md) §4）
-- 修正の運用: ASR 生テキストの誤りはアプリ内で直す前提（将来のエージェント整え機能はスコープ外なら明記）
-- カラオケ表示・強調ポップの採否（既定は不使用）
+- Whether to use captions, omit them, or use them selectively at important points, with reasons.
+- Style: placement, line count, approximate characters per line, background and text colors. Follow telop.md's caption principles and the language pack (see SKILL.md) for content-language typography.
+- **Dependence on cuts**: Captions follow the post-cut timeline; speech removed by a cut loses its caption. Do not change a cut for a caption; if needed, treat it as a revision to the cut decision.
+- Long-text splitting and duration apportionment (prefer word timestamps if available). **Match display intervals to actual speech, never tile segment boundaries**: gaps stay empty, and captions end when speech ends. See [execution.md](execution.md) §4 for interval creation.
+- Correction workflow: correct raw ASR errors in the app (explicitly state if future agent cleanup is out of scope).
+- Whether to use karaoke display or emphasis pops (default: neither).
 
-各枠は次の三択から **1 つ**を明記する。この `3` は M5 契約の判断肢であり、運用上の推測値ではない。
+Each slot must state **one** of the following three choices. The `3` comes from the M5 contract's decision options, not an operational estimate.
 
-1. **あれば提案**: 実際のライブラリ検索結果、権利条件、プレビュー画像または試聴参照を示す。検索は全スコープ層を近い順（プロジェクト `assets/` → 上位ディレクトリの `.akari/assets/` → `<ライブラリの置き場>/` → 製品リポ `assets/` → `catalog/`）に行い、提案にはどの層のヒットかを明記する。同一 id は近い層を採る。
-2. **なければ生成**: prompt、生成する手、生成済み静止プレビュー、provenance を示す。動画 B ロールはまず静止画だけを作る。
-3. **使わない**: 無理に埋めず、非採用理由を示す。
+1. **Propose if available**: Show actual library hits, rights conditions, and a preview image or listening reference. Search every scope layer from nearest to farthest (project `assets/` → parent directory `.akari/assets/` → `<ライブラリの置き場>/` → product repository `assets/` → `catalog/`), and identify the hit's layer in the proposal. For duplicate ids, use the nearer layer.
+2. **Generate if absent**: Show prompt, generation method, generated still preview, and provenance. For video B-roll, first create only a still.
+3. **Do not use**: Do not fill the slot artificially; explain why it was rejected.
 
-**BGM の「あれば提案」は自動提案 CLI が既定の起点**（2026-08-03 導入。BGM の既定ソースは
-自社ライブラリ AKARI Sounds — [catalog/audio/INDEX.md](../../catalog/audio/INDEX.md)）:
+**The automated suggestion CLI is the default starting point for "propose if available" BGM** (introduced 2026-08-03; the default BGM source is the first-party AKARI Sounds library, [catalog/audio/INDEX.md](https://github.com/AkariLabs/akari-video/blob/main/catalog/audio/INDEX.md)):
 
 ```sh
 node packages/audio-library-setup/bin/suggest-bgm.mjs --from-decision-log <プロジェクト>/decision-log.md [--json]
 ```
 
-- 方針で確定した作品トーン（表現選定と同じ 8 語彙:
-  真面目/親しみ/高級感/勢い/かわいい/無機質/エモい/シネマ。複合トーンは複数指定）。
-  `decision-log.md` の最新の `(direction, tone)` 行から `--from-decision-log` でそのまま渡す。
-  一時的に人が上書きするときだけ `--tone <トーン>`（複数可）または
-  `--tempo ゆったり|標準|高速` を併記し、これらの明示指定を decision-log より優先する。
-  出力の `path` はローカル実体（`<ライブラリの置き場>/audio/akari-sounds-bgm/`）で、
-  そのまま `audio.bgm.path` に書ける。**未導入（`akari sounds` 未実行）なら CLI が案内を出す** —
-  その場合は導入を促すか、従来どおりの手動検索に切り替える
-- これは**候補の提示まで**。上位候補から試聴参照つきで提示し、採用は Checkpoint 2 の承認で
-  決める（自動提案の結果を無承認で `edit.json` に書かない）。提示には
-  「suggest-bgm の第 N 候補（tone: ◯◯）」と根拠を書き、別の候補や手動選定へ逸脱するときは
-  理由を 1 行残す
-- 耳検証済みの宣言データがある環境（宣言パック導入時、または `--declarations` /
-  env `AKARI_SOUNDS_DECLARATIONS`）では、該当トラックが優先表示され、**サビ頭出し
-  （`audio.bgm.in` にそのまま書ける推奨秒）**・実測 BPM・曲構成（intro/サビ/outro）付きで
-  提案される。サビから敷きたい・見せ場に合わせたい場面ではこの値を使う
-  - 宣言がまだ無い曲でユーザーが「サビから敷きたい」と言ったときは、
-    [declare-audio](../declare-audio/SKILL.md) で自分で付けられることを案内する
-    （画面で 1 曲 1〜2 分。付けた宣言は以後の提案すべてに効く）
-- AKARI Sounds に合う系統が無い（該当なし・トーンが特殊）ときだけ、従来のスコープ層検索と
-  外部補完（`catalog/audio/` の SFX 補完・候補リスト）へ広げる
+- Use the approved content tone (the same eight fixed vocabulary values as expression selection: `真面目` / `親しみ` / `高級感` / `勢い` / `かわいい` / `無機質` / `エモい` / `シネマ`; specify several for a compound tone). Pass the latest `(direction, tone)` row of `decision-log.md` through `--from-decision-log` unchanged. Only for a temporary human override, add `--tone <トーン>` (multiple allowed) or `--tempo ゆったり|標準|高速`; these explicit options take priority over the decision log. The output `path` is a local asset under `<ライブラリの置き場>/audio/akari-sounds-bgm/` and can be written directly to `audio.bgm.path`. **If AKARI Sounds is not installed (`akari sounds` has not run), the CLI gives instructions**; then prompt for installation or switch to the former manual search.
+- This goes **only as far as presenting candidates**. Present top candidates with listening references; adoption is decided by Checkpoint 2 approval (do not write automated suggestions to `edit.json` without approval). Identify the candidate number N from suggest-bgm, its tone, and evidence. Record one line explaining any switch to another candidate or manual selection.
+- When ear-verified declarations are available (an installed declaration pack, `--declarations`, or env `AKARI_SOUNDS_DECLARATIONS`), declared tracks appear first with **a chorus-start recommendation in seconds (directly usable as `audio.bgm.in`)**, measured BPM, and song structure (intro/chorus/outro). Use it when the music should start at the chorus or align to a highlight.
+  - If a track has no declaration and the user wants to start at the chorus, explain that they can mark it with [declare-audio](../declare-audio/SKILL.md) (1–2 minutes per track in the UI; the declaration affects all later suggestions).
+- Only when AKARI Sounds has no suitable family (no match or an unusual tone), expand to the former scope-layer search and external supplements (`catalog/audio/` SFX supplements and candidate lists).
 
-**効果音・ジングルの「あれば提案」は「場面の意味」から引く**（BGM の tone と違い、SFX は
-イベント級。語彙は 14 語固定 — 一覧は `--list`）:
+**Retrieve "propose if available" SFX and jingles by scene meaning** (unlike BGM tone, SFX is event-level; vocabulary is fixed at 14 terms, listed by `--list`):
 
 ```sh
 node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning 場面転換 [--json]
 ```
 
-- 候補順がそのまま優先順（宣言表 `shared/sfx-suggest.mjs` の `MEANING_RULES`）。AKARI Sounds に
-  無い意味（拍手・失敗音の日本のお約束・和太鼓）は外部補完（`catalog/audio/` の存続エントリ）へ
-  正直に落ち、取得済みかどうかも表示される。行を発明せず、無い意味は最も近い行を借りて根拠に書く
-- 出力の `duration_sec` は発火タイミング設計（[beat-sync.md](beat-sync.md)）の入力である。
-  採用は同じく Checkpoint 2 の承認で決める
+- Candidate order is priority order (the `MEANING_RULES` declaration table in `shared/sfx-suggest.mjs`). Meanings absent from AKARI Sounds (applause, conventional Japanese failure sounds, and Japanese drums) fall back honestly to external supplements (remaining `catalog/audio/` entries), which show whether they have been acquired. Do not invent a row; borrow the nearest existing meaning and record why.
+- Output `duration_sec` feeds trigger-timing design in [beat-sync.md](beat-sync.md). Adoption still requires Checkpoint 2 approval.
 
-候補が見つからないことを「あれば提案」と記録しない。BGM / SFX / B ロールは v2 の `sources[]` + `tracks[].items[]` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
+Do not record "propose if available" when no candidate was found. BGM / SFX / B-roll fit in v2 `sources[]` + `tracks[].items[]` ([execution.md](execution.md) §1). Only for an effect no public-contract field can represent, present plan adoption separately from `edit.json` storage feasibility. Baking into one intermediate master requires execution approval.
 
-ナレーションの話者がアバターのときは、原稿を書く前に [avatar-resolution.md](avatar-resolution.md#台本生成への接続persona-注入s2-具体化) の persona 注入手順（ペルソナ要約の反映・NG 遵守）に従う。
+When an avatar narrates, follow persona injection (incorporate the persona summary and respect prohibited content) in [avatar-resolution.md](avatar-resolution.md#connection-to-script-generation-persona-injection-s2-details) before writing the script.
 
-このチャット提示は Checkpoint 2（素材計画）として運用し（[approvals-and-generation.md](approvals-and-generation.md)）、確定内容を `decision-log.md` の `material` category に記録する。
+Treat this chat presentation as Checkpoint 2 (asset plan) under [approvals-and-generation.md](approvals-and-generation.md), and record the settled outcome in the `material` category of `decision-log.md`.
 
 ## decision_log
 
-`(category, subject)` を判断対象のキーとして、時刻順に追記する。各行に ISO 8601 日時、category、subject、決定、理由、決定者、関連 checkpoint を持たせる。同じキーの方針が変わっても過去行を直さず、新しい行を追加して以前の決定を参照する。
+Append chronologically, keyed by `(category, subject)`. Each row carries ISO 8601 time, category, subject, decision, reason, decider, and related checkpoint. If a decision for the same key changes, never revise the old row; append a new one referencing the earlier decision. Write decision and reason cell contents in the user's language. For a new `decision-log.md`, use the exact header for the user's language:
 
-**置き場所**（2026-07-22 改訂）: 固定 6 章 HTML の 1 節として埋め込む運用は retired。プロジェクト直下の独立ファイル `decision-log.md` に追記する（[analyze-project の decision-record.md](../analyze-project/decision-record.md) と共有する単一 SSOT — analyze-project の 2 パス目判断・取材 Q&A と、edit-plan の承認・生成判断が同じファイルへ時系列に積み重なる）。フィールド構成・追記専用の規律はここで変えていない。
+- English: `| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |`
+- Japanese: `| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |`
 
-**派生描画（2026-08-27）**: 追記の直後に次の CLI を実行して判断記録レポートを再生成する。
-HTML は手で編集しない派生物で、決定 UI を持たず、SSOT は `decision-log.md` のままである。
-出力は一般モードのレポート一覧へ自動で並ぶ。
+When appending to an existing file, preserve its header language and append rows beneath that header. Do not translate or replace existing headers or rows.
+
+**Location** (2026-07-22 revision): Embedding this as a section of fixed six-chapter HTML is retired. Append to standalone `decision-log.md` directly under the project. This single SSOT is shared with [analyze-project's decision-record.md](../analyze-project/decision-record.md): analyze-project pass-2 decisions and interview Q&A accumulate chronologically with edit-plan approvals and generation decisions. Field structure and append-only discipline are unchanged.
+
+**Derived rendering (2026-08-27)**: Immediately after appending, run the following CLI to regenerate the decision-record report. The HTML is a derived artifact, must not be hand-edited, and has no decision UI; `decision-log.md` remains the SSOT. The output appears automatically in the general-mode report list.
 
 ```sh
 node packages/decision-log-report/render-decision-log-report.mjs --log <project>/decision-log.md --out <project>/.akari/reports/decision-log-report.html
 ```
 
-### 機械可読の方針行
+### Machine-readable direction row
 
-`(category, subject) = (direction, tone)` の行だけは、決定セルの先頭にインラインコード 1 個で
-JSON を置く。`tone` は表現選定と共通の 8 語彙から 1 個以上の配列、`tempo` は任意で
-`ゆったり` / `標準` / `高速` のいずれかとする。JSON の後ろには空白区切りで自由記述の補足を
-続けてよい。同じキーを更新するときも過去行は変えず、最後に追記した行を有効とする。
+Only in the `(category, subject) = (direction, tone)` row, put one inline-code JSON object at the start of the decision cell. `tone` is an array of one or more of the eight shared expression-selection vocabulary values; optional `tempo` is one of `ゆったり` / `標準` / `高速` (fixed machine-read values). Free-form explanatory text may follow the JSON after a space. When updating the same key, keep past rows unchanged; the last appended row takes effect.
 
 ```markdown
-| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |
+| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |
 |---|---|---|---|---|---|---|
-| 2026-08-05T10:00:00+09:00 | direction | tone | `{"tone":["勢い"],"tempo":"高速"}` テンポ感を出したい | 冒頭で視聴者を引き込むため | オーナー | Checkpoint 1 |
+| 2026-08-05T10:00:00+09:00 | direction | tone | `{"tone":["勢い"],"tempo":"高速"}` Keep the pace energetic | To engage viewers from the opening | Owner | Checkpoint 1 |
 ```
 
-次を決定として記録する。
+Record the following as decisions:
 
-- 方針、素材計画、実行の承認・却下・修正要求
-- 生成手の選択と fallback
-- `使わない` を含む明示的な非採用
-- source 構成の選択（v1 マルチソース / v0 単一 source / 中間マスターへ conform）
-- overlay-authoring 不在時の CLAUDE.md fallback
-- 上位タスクの指示によるサムネ経路 A/B/混成の未実施（スコープ限定）
-- チャットでの方針確定内容（推奨どおりか、修正が入ったか。差分を記録する）
+- Approvals, rejections, and revision requests for direction, asset plan, and execution.
+- Generation-method selection and fallback.
+- Explicit rejection, including "do not use" in the user's language (Japanese form: `使わない`).
+- Source-structure choice (v1 multi-source / v0 single source / conform to an intermediate master).
+- CLAUDE.md fallback when overlay-authoring is absent.
+- Thumbnail routes A/B/hybrid left unperformed due to parent-task scope.
+- Settled direction from chat, including whether it followed the recommendation or was revised; record the difference.
 
-決定者列には、機械が書く予測行の決定者として `machine:director` も使える。提案をタイムラインに入れるのと同じターンで、足した物 1 件ごとに `category = proposal` の予測行を追記する（[autonomy.md](autonomy.md) §3-(4)）。subject は item id または caption id、決定は何を入れたか、理由はなぜ良さそうかとその根拠（`analysis.json` の箇所・akari.md の行）、関連 checkpoint 列は出所（素材 id・手段）とする。頼まれた物そのものには予測行を書かない。予測行の欠落は warning 止まりで、人間が消した / 直した / そのまま出した の結果行は書き出し時に機械が追記する。既存行は変更・削除しない。
+The decider column may use `machine:director` for machine-written prediction rows. Append one `category = proposal` prediction row per added item in the same turn as putting it on the timeline ([autonomy.md](autonomy.md) §3-(4)). Subject is an item id or caption id; the decision says what was added; the reason says why it is useful and cites an `analysis.json` location or akari.md line; the related checkpoint cell gives the source asset id and means. Do not write a prediction row for an item directly requested. Missing prediction rows yield only a warning. At export time the machine appends outcome rows for human deletion, revision, or unchanged export. Never change or delete existing rows.
 
-| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |
+| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |
 |---|---|---|---|---|---|---|
-| 2026-09-06T10:00:00+09:00 | proposal | diagram-01 | 処理の流れを示す図解を追加 | analysis.json の transcript[3] が説明する 3 工程を見比べやすくするため。akari.md の調達の好み表「図解」行に従う | machine:director | source-01 / HTML overlay |
+| 2026-09-06T10:00:00+09:00 | proposal | diagram-01 | Added a diagram of the process | Makes the three stages described in analysis.json transcript[3] easier to compare; follows the diagram row in akari.md's procurement preferences | machine:director | source-01 / HTML overlay |
 
-## 汎用カード機構（他スキルが参照する仕様）
+## Generic card mechanism (specification used by other skills)
 
-以下は選択肢式の質問対話に使う汎用カード機構の仕様である。**edit-plan は自身の方針決定に
-この機構を使わない**（方針はチャットで決める。上の各節を参照）。ただし
-[research-plan](../research-plan/SKILL.md) の候補選定カードや [plan-json.md](plan-json.md) の
-質問対話（素材ゼロからの企画起点フロー）はこの機構をそのまま使い続けるため、仕様は SSOT として
-維持する。
+This is the generic card mechanism for multiple-choice dialogue. **edit-plan must not use it for its own direction decisions** (decide direction in chat, as above). [research-plan](../research-plan/SKILL.md) candidate cards and [plan-json.md](plan-json.md) question dialogue for planning from zero media still use it; therefore retain this specification as their SSOT.
 
-### カードの data 属性
+### Card data attributes
 
-カードの DOM は [report-template.html](../../packages/decision-cards/report-template.html) に従う。ランタイム（ヘルパーが注入する JS）が次の data 属性だけを解釈して UI 化する。カード種別のハードコードはしない。
+Follow [report-template.html](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/report-template.html) for the card DOM. The runtime (JS injected by the helper) interprets only these data attributes to build the UI. Do not hard-code card types.
 
-| 属性 | 置く要素 | 意味 |
+| Attribute | Element | Meaning |
 |---|---|---|
-| `data-card="<id>"` | カードコンテナ | 1 決定。id は decisions[].id と一致 |
-| `data-question="<文>"` | カードコンテナ | 質問文（要約画面で使う） |
-| `data-option="<key>"` | 選択肢要素 | 単選の選択肢 |
-| `data-default="true"` | 選択肢要素 | AI 推奨（初期選択）。カード内に必ず 1 個 |
-| `data-check="<key>"` | チェック要素 | 追加の複数選択（任意） |
-| `data-note` | textarea 等 | 自由記入（任意） |
-| `data-action="accept-all"` | ボタン | 全カード既定値のまま要約画面へ |
-| `data-action="commit"` | ボタン | 確定 → completedAt 記入 |
-| `data-view="summary"` | コンテナ | 確定内容の要約画面 |
+| `data-card="<id>"` | Card container | One decision; id matches decisions[].id |
+| `data-question="<文>"` | Card container | Question text, used in the summary view |
+| `data-option="<key>"` | Option element | Single-choice option |
+| `data-default="true"` | Option element | AI recommendation (initial selection); exactly one per card |
+| `data-check="<key>"` | Checkbox element | Optional additional multiple choice |
+| `data-note` | textarea or similar | Optional free-form entry |
+| `data-action="accept-all"` | Button | Go to summary with every card at its default |
+| `data-action="commit"` | Button | Confirm and fill completedAt |
+| `data-view="summary"` | Container | Summary view of confirmed choices |
 
-- 上記以外の見た目・構成は自由 HTML。エンジンが解釈するのは data 属性だけ。
-- 根拠・証拠・詳細は `<details>` の折りたたみに置く。カード表面には質問と選択肢だけを残す。
+- Other appearance and structure may use arbitrary HTML. The engine interprets only data attributes.
+- Put rationale, evidence, and detail in collapsible `<details>`; leave only the question and options on the card face.
 
-### decisions.json 雛形
+### decisions.json template
 
-カードを使うスキルは、レポートと対になる `<レポートパス>.decisions.json` の雛形を併せて書く。雛形は全カードの `answer` に AI 推奨の既定値を入れ、`byDefault: true` / `answeredAt: null`、トップレベルの `completedAt: null` とする。
+Skills using cards must also write a `<レポートパス>.decisions.json` template paired with the report (the Japanese placeholder means report path). Set every card's `answer` to the AI-recommended default, `byDefault: true` / `answeredAt: null`, and top-level `completedAt: null`.
 
 ```jsonc
 {
@@ -243,30 +187,30 @@ JSON を置く。`tone` は表現選定と共通の 8 語彙から 1 個以上�
 }
 ```
 
-- `answer` の形はカード種別ごとに使用側スキルが宣言する（HTML と decisions 雛形が SSOT）。
-- 人間の操作はヘルパーが `answer` / `byDefault: false` / `answeredAt` を更新する。雛形を上書きせず、ラウンドごとにレポート + decisions の組を増やす。
-- decisions.json が無い・破損している場合、使用側スキルはチャットの明示承認で代替する。
+- The consuming skill declares the shape of `answer` per card type (HTML and the decisions template are the SSOT).
+- The helper updates `answer` / `byDefault: false` / `answeredAt` after human action. Do not overwrite the template; add a report + decisions pair for each round.
+- If decisions.json is absent or corrupt, the consuming skill substitutes explicit chat approval.
 
-### おまかせと要約ビュー
+### Accept-all and summary view
 
-「全部おまかせ」ボタン（`data-action="accept-all"`）と要約ビュー（`data-view="summary"`）は必須。おまかせでも即開始は禁止。必ず要約 1 画面を挟んでから確定する。確定（commit）でヘルパーが `completedAt` を記入し、使用側スキルはそれをもって進行してよい。
+An "accept all defaults" button (`data-action="accept-all"`) and summary view (`data-view="summary"`) are mandatory. Even when accepting all defaults, starting immediately is forbidden. Always show one summary screen before confirmation. On commit, the helper writes `completedAt`, after which the consuming skill may proceed.
 
-## 自己完結 HTML を作る場合の安全性
+## Safety for self-contained HTML
 
-edit-plan がサムネイル候補シートなど自己完結 HTML を作る場合は次を守る。
+When edit-plan creates self-contained HTML, such as a thumbnail candidate sheet, follow these rules:
 
-- CSS、画像、根拠 transcript を HTML 内へ入れ、外部 CSS、font、script、remote image を参照しない。
-- 実フレームと生成画像は `data:image/...;base64,...` として埋め、意味のある `alt` を付ける。
-- transcript、所見、タイトル、prompt、path を文脈に合わせてエスケープする。未検証 HTML、`javascript:` URL、event handler を挿入しない。
-- 状態を色だけで表現せず、`未承認`、`承認`、`却下` を文字で表示する。
+- Include CSS, images, and evidentiary transcript in the HTML; do not reference external CSS, fonts, scripts, or remote images.
+- Embed real frames and generated images as `data:image/...;base64,...`, with meaningful `alt` text.
+- Escape transcript, observations, titles, prompts, and paths for their context. Do not insert unvalidated HTML, `javascript:` URLs, or event handlers.
+- Do not convey state by color alone; display "unapproved," "approved," and "rejected" in the user's language as text (Japanese forms: `未承認`, `承認`, `却下`).
 
-## よくある間違い
+## Common mistakes
 
-- analyze-project の分析レポートを読まずに方針を組み立てる（根拠のない推奨案を作る）。
-- ライブラリの実ヒットがないのにプレビューを捏造する。
-- 生成画像へ prompt は残すが、手や日時を残さない。
-- 最新判断で `decision-log.md` の過去行を上書きする。
-- remote image を貼り、自己完結成果物に見せる。
-- スコープ外で未実施の経路を「利用不能」と書き、試みて失敗したかのように見せる。
-- word 単位のカット採否や字幕セグメント一覧をチャットに載せる（決定レベル/操作レベルの線引き違反）。
-- 「どうしますか」と選択を丸投げし、推奨案・代替案・理由を示さない。
+- Building a direction without the analyze-project analysis report, producing unsupported recommendations.
+- Inventing a preview without a real library hit.
+- Keeping the prompt for a generated image but omitting method or time.
+- Overwriting old `decision-log.md` rows with the latest judgment.
+- Referencing a remote image while presenting the artifact as self-contained.
+- Labeling an out-of-scope, unperformed route as "unavailable," suggesting a failed attempt.
+- Listing word-level cut choices or caption segments in chat, violating the decision/operation boundary.
+- Asking only "What would you like?" without a recommendation, alternatives, and reasons.

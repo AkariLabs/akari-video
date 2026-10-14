@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
+import { captionFontLabel } from '../../akari-preview/lib/common/caption-font-label.js';
 import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
+
+setLanguage('ja');
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
 
 const readSource = relativePath => readFile(new URL(relativePath, import.meta.url), 'utf8');
 const stateSource = await readSource('../../akari-annotations/src/common/caption-panel-state.ts');
@@ -24,7 +31,7 @@ const declaration = ast.statements.find(statement => ts.isFunctionDeclaration(st
     && statement.name.text === 'captionFontFamilyField');
 assert.ok(declaration);
 const code = ts.transpileModule(declaration.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const captionFontFamilyField = new Function('CAPTION_FONT_FAMILY', `${code}\nreturn captionFontFamilyField;`)(CAPTION_FONT_FAMILY);
+const captionFontFamilyField = new Function('CAPTION_FONT_FAMILY', 'captionFontLabel', `${code}\nreturn captionFontFamilyField;`)(CAPTION_FONT_FAMILY, captionFontLabel);
 const faceDeclaration = ast.statements.find(statement => ts.isFunctionDeclaration(statement)
     && statement.name.text === 'captionRowFontFace');
 assert.ok(faceDeclaration);
@@ -55,4 +62,12 @@ test('字幕と置いた文字のフォント行は書体名を示し、フォ�
     assert.equal(captionRowFontFace('Noto Serif JP', new Map([['noto-serif-jp', 'Noto Serif JP']])), 'Noto Serif JP');
     assert.equal(captionFontFamilyField({ effectiveTextStyle: { fontFamily: CAPTION_FONT_FAMILY } }, async () => true)
         .getValue(), 'Noto Sans JP');
+    assert.equal(captionFontFamilyField({ captionLocale: 'en', effectiveTextStyle: { fontFamily: CAPTION_FONT_FAMILY } }, async () => true)
+        .getValue(), 'Noto Sans');
+    assert.equal(captionFontFamilyField({ captionLocale: 'ja', effectiveTextStyle: { fontFamily: CAPTION_FONT_FAMILY } }, async () => true)
+        .getValue(), 'Noto Sans JP');
+    assert.equal(captionFontFamilyField({ captionLocale: 'ja', effectiveTextStyle: { fontFamily: 'AKARI Custom Face' } }, async () => true)
+        .getValue(), 'AKARI Custom Face');
+    assert.equal(captionFontFamilyField({ captionLocale: 'en', effectiveTextStyle: { fontFamily: 'AKARI Custom Face' } }, async () => true)
+        .getValue(), 'AKARI Custom Face');
 });

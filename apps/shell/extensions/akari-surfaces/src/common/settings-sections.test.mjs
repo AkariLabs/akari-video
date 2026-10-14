@@ -11,6 +11,9 @@ import {
     showTemporaryGpuPreferenceSetting,
     QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, QUALITY_TIER_RESERVED_NOTE
 } from '../../lib/common/settings-sections.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 

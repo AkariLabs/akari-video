@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { deriveStoreLabBaseUrl } from 'akari-project/lib/common/asset-catalog-view';
 import * as React from '@theia/core/shared/react';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
@@ -34,20 +35,19 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
     return <section data-akari-store-settings='true' style={{ borderTop: '1px solid var(--theia-widget-border)', paddingTop: 14, display: 'grid', gap: 10 }}>
         <strong>AKARI Video Lab</strong>
         <p data-akari-store-description='true' style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'var(--theia-descriptionForeground)' }}>
-            動画に使える素材や演出パックを探して購入できます。接続すると、購入済みの素材をAKARI Videoで使えます。
-        </p>
+            {t('surfaces.store.akariStoreSettingsFindBuyAssetsEffectsVideosConnectPurchases.message')}</p>
         <span role='status' style={{ color: 'var(--theia-descriptionForeground)', overflowWrap: 'anywhere' }}>
-            {state.connectionLoading ? '接続を確認しています…' : state.phase === 'starting' ? '接続を開始しています…'
-                : state.phase === 'pending' ? `ブラウザで承認してください${state.userCode ? ` · 確認コード: ${state.userCode}` : ''}`
-                    : reconnect ? '再接続が必要です' : state.connection.connected ? `接続中 · ${state.connection.email ?? state.connection.identifier ?? ''}` : '未接続'}
+            {state.connectionLoading ? t('surfaces.store.akariStoreSettingsCheckingConnection.label') : state.phase === 'starting' ? t('surfaces.store.akariStoreSettingsStartingConnection.label')
+                : state.phase === 'pending' ? state.userCode ? t('surfaces.store.pendingWithCode.status', { code: state.userCode }) : t('surfaces.store.pending.status')
+                    : reconnect ? t('surfaces.store.akariStoreSettingsReconnectionRequired.label') : state.connection.connected ? t('surfaces.store.akariStoreSettingsConnecting.message', { account: state.connection.email ?? state.connection.identifier ?? '' }) : t('surfaces.store.accountDisconnected.status')}
         </span>
         {state.error && <small role='alert' style={{ color: 'var(--theia-errorForeground)' }}>{state.error}</small>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button type='button' className='theia-button secondary' onClick={() => windows.openNewWindow(url, { external: true })}>AKARI Video Lab を開く</button>
-            {busy ? <button type='button' className='theia-button secondary' onClick={() => { userConnectPending.current = false; controller.cancel(); }}>キャンセル</button>
+            <button type='button' className='theia-button secondary' onClick={() => windows.openNewWindow(url, { external: true })}>{t('surfaces.store.akariStoreSettingsOpenAkariVideoLab.button')}</button>
+            {busy ? <button type='button' className='theia-button secondary' onClick={() => { userConnectPending.current = false; controller.cancel(); }}>{t('surfaces.store.akariStoreSettingsCancel.button')}</button>
                 : (!state.connection.connected || reconnect || state.phase === 'error' || state.phase === 'expired') &&
                 <button type='button' className='theia-button main' disabled={state.connectionLoading} onClick={() => { userConnectPending.current = true; void controller.start(); }}>
-                    {reconnect ? '再接続する' : state.phase === 'error' || state.phase === 'expired' ? 'もう一度試す' : '接続する'}
+                    {reconnect ? t('surfaces.store.akariStoreSettingsReconnect.label') : state.phase === 'error' || state.phase === 'expired' ? t('surfaces.store.akariStoreSettingsTryAgain.label') : t('surfaces.store.akariStoreSettingsConnect.label')}
                 </button>}
         </div>
     </section>;

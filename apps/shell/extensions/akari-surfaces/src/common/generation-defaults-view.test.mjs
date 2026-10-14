@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { formatGenerationAudio, formatGenerationPrice, generationOptionLabel, generationOptions, generationSourceLabel } = await import("../../lib/common/generation-defaults-view.js");
 
-import {
-    formatGenerationAudio, formatGenerationPrice, generationOptionLabel, generationOptions, generationSourceLabel
-} from '../../lib/common/generation-defaults-view.js';
 
 function findCatalog() {
     let directory = path.dirname(fileURLToPath(import.meta.url));

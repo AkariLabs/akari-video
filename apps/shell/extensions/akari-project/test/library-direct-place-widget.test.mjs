@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { findMember } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
@@ -6,12 +7,13 @@ import ts from 'typescript';
 import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../lib/common/library-asset-placement.js';
 import { isPremiumLocked } from '../lib/common/library-filter.js';
 import { isPlaceableLibraryCategory } from '../lib/common/library-card-menu.js';
+import { fontFamily } from '../lib/common/font-apply-flow.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead', 'useAssetCatalogItem', 'refreshAfterAssetCatalogImport'];
 const code = ts.transpileModule(`class Handler { ${names.map(name => findMember(name, { in: 'widget' }).text).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const events = [];
-const Handler = new Function('URI', 'canPlaceLibraryAsset', 'canPlaceOverlay', 'libraryDragKind', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', 'isPremiumLocked', 'isPlaceableLibraryCategory', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, isPremiumLocked, isPlaceableLibraryCategory);
+const Handler = new Function('URI', 'canPlaceLibraryAsset', 'canPlaceOverlay', 'libraryDragKind', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', 'isPremiumLocked', 'isPlaceableLibraryCategory', 'fontFamily', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, isPremiumLocked, isPlaceableLibraryCategory, fontFamily);
 const item = { origin: 'resolver', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材', state: 'available', mediaUrl: 'https://example.test/b.mp3' };
 function fixture() {
     const handler = new Handler(), calls = [], messages = [];

@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
@@ -21,12 +22,12 @@ interface ZoneBox {
 
 /** 置き場所の文言（試作の .drop と同じ）。 */
 export const RIGHT_RAIL_ZONE_LABELS: Record<RightRailZone, string> = {
-    main: 'メインへ置く',
-    bottom: '下へ置く（タイムラインの隣）',
-    rtop: '右の上の段に分ける',
-    rbottom: '右の下の段に分ける',
-    railtop: '線の上へ',
-    railbottom: '線の下へ'
+    get main() { return t('shell.rightRail.dropZones.placeMainAreaText'); },
+    get bottom() { return t('shell.rightRail.dropZones.placeBelowNextTimelineText'); },
+    get rtop() { return t('shell.rightRail.dropZones.splitUpperRightSectionText'); },
+    get rbottom() { return t('shell.rightRail.dropZones.splitLowerRightSectionText'); },
+    get railtop() { return t('shell.rightRail.dropZones.aboveDividerLabel'); },
+    get railbottom() { return t('shell.rightRail.dropZones.belowDividerLabel'); }
 };
 
 /**

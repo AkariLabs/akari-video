@@ -6,10 +6,17 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { StillGenerationManager } from '../lib/node/still-generation.js';
-import { replaceStillInEdit } from '../lib/browser/inspector/ai-still-panel.js';
+
+
 import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { StillGenerationManager } = await import('../lib/node/still-generation.js');
+const { replaceStillInEdit } = await import('../lib/browser/inspector/ai-still-panel.js');
+
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const findAsset = async relativePath => join(repo, relativePath);

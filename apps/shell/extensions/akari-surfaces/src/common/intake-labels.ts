@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * 進め方フォーム（intake サーフェス）の表示ラベル定数。
  *
@@ -23,20 +24,20 @@ export const INTAKE_TASK_IDS: readonly IntakeTaskId[] = [
 ];
 
 export const INTAKE_TASK_LABELS: Readonly<Record<IntakeTaskId, string>> = {
-    'transcribe-captions': '文字起こし・テロップ',
-    'silence-cut': 'いらない間・NG のカット',
-    'bgm-sfx': 'BGM・効果音',
-    narration: 'ナレーション（自分の声 / 既製の声）',
-    '3d-inserts': '3D・画面はめ込みの演出'
+    'transcribe-captions': t('surfaces.intake.transcriptionTextOverlay.label'),
+    'silence-cut': t('surfaces.intake.unnecessaryNgCuts.label'),
+    'bgm-sfx': t('surfaces.intake.bgmSoundEffects.label'),
+    narration: t('surfaces.intake.narrationOwnVoiceReadyMadeVoice.label'),
+    '3d-inserts': t('surfaces.intake.threeDimensionalInset.label')
 };
 
 /** モックの説明文（`<small>`）。schema には無い UI コピーなのでここが正。 */
 export const INTAKE_TASK_DESCRIPTIONS: Readonly<Record<IntakeTaskId, string>> = {
-    'transcribe-captions': '話した内容を自動で字幕に。日本語の座布団・改行も整える',
-    'silence-cut': '無音・言い直しを検出して詰める。カット位置は後から直せる',
-    'bgm-sfx': 'ライブラリから雰囲気に合う曲を。ナレーション中は自動で音量ダウン',
-    narration: '原稿から音声を生成。自分の声のクローンも使える',
-    '3d-inserts': 'スマホや PC の画面に映像をはめ込むショットなど'
+    'transcribe-captions': t('surfaces.intake.automaticallyConvertSayCaptionsAdjustJapaneseCushions.label'),
+    'silence-cut': t('surfaces.intake.detectsFillsSilenceRestatementsCutPositionAdjusted.label'),
+    'bgm-sfx': t('surfaces.intake.chooseSongLibraryFitsMoodAutomaticallyLowers.label'),
+    narration: t('surfaces.intake.generateAudioManuscriptAlsoCloneOwnVoice.label'),
+    '3d-inserts': t('surfaces.intake.shotsFitImagesOntoSmartphonePcScreens.label')
 };
 
 /** 既定でチェック済みにする 2 件（モックの初期状態）。 */
@@ -45,11 +46,11 @@ export const INTAKE_TASK_DEFAULTS: readonly IntakeTaskId[] = ['transcribe-captio
 export type IntakeDurationChoice = '15' | '30' | '60' | '180' | 'keep';
 
 export const INTAKE_DURATION_LABELS: Readonly<Record<IntakeDurationChoice, string>> = {
-    '15': '15 秒',
-    '30': '30 秒',
-    '60': '60 秒',
-    '180': '3 分まで',
-    keep: '切らずにそのまま'
+    '15': t('surfaces.intake.fifteenSeconds.option'),
+    '30': t('surfaces.intake.thirtySeconds.option'),
+    '60': t('surfaces.intake.sixtySeconds.option'),
+    '180': t('surfaces.intake.upMinutes.label'),
+    keep: t('surfaces.intake.leaveWithoutCutting.label')
 };
 
 export const INTAKE_DURATION_ORDER: readonly IntakeDurationChoice[] = ['15', '30', '60', '180', 'keep'];
@@ -66,15 +67,15 @@ export function durationChoiceToTarget(choice: IntakeDurationChoice): { duration
 export type IntakeAutonomy = 'full-auto' | 'checkpoint' | 'collaborative';
 
 export const INTAKE_AUTONOMY_LABELS: Readonly<Record<IntakeAutonomy, string>> = {
-    'full-auto': 'そのまま',
-    checkpoint: '提案つき',
-    collaborative: '一緒に作る'
+    'full-auto': t('surfaces.intake.fullauto.label'),
+    checkpoint: t('surfaces.intake.suggestions.label'),
+    collaborative: t('surfaces.intake.makeTogether.label')
 };
 
 export const INTAKE_AUTONOMY_DESCRIPTIONS: Readonly<Record<IntakeAutonomy, string>> = {
-    'full-auto': '言った通りに入れて、見ずに書き出す',
-    checkpoint: '良さそうな物も入れて見せる。要らなければ消す。確認は書き出しの 1 回',
-    collaborative: '方針・素材・実行の要所で確認する'
+    'full-auto': t('surfaces.intake.followInstructionsExactlyExportWithoutReview.label'),
+    checkpoint: t('surfaces.intake.includePromisingOptionsReviewRemoveNeedReview.label'),
+    collaborative: t('surfaces.intake.checkKeyPointsPolicyAssetsImplementation.label')
 };
 
 export const INTAKE_AUTONOMY_ORDER: readonly IntakeAutonomy[] = ['full-auto', 'checkpoint', 'collaborative'];

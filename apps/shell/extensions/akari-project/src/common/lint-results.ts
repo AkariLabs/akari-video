@@ -1,7 +1,8 @@
+import { t } from '../common/project-text';
 import { EditLintFinding } from './akari-project-protocol';
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const;
-const SEVERITY_LABEL = { error: 'エラー', warning: '注意', info: '情報' } as const;
+const SEVERITY_LABEL = { error: t('project.library.importSheet.errorLabel'), warning: t('project.library.importSheet.warningLabel'), info: t('project.editCheck.resultDialog.infoLabel') } as const;
 
 export function summarizeLintFindings(findings: readonly EditLintFinding[]): {
     ordered: EditLintFinding[];
@@ -18,14 +19,14 @@ export function summarizeLintFindings(findings: readonly EditLintFinding[]): {
 }
 
 export function lintStatusLabel(running: boolean, count?: number): string {
-    if (running) return '確認中…';
-    if (count === undefined) return 'チェック: 未実行';
-    return count === 0 ? 'チェック: 問題なし' : `チェック: 指摘 ${count} 件`;
+    if (running) return t('project.editCheck.result.checkingStatus');
+    if (count === undefined) return t('project.editCheck.result.checkNotRunAction');
+    return count === 0 ? t('project.editCheck.result.checkNoIssuesAction') : t('project.editCheck.result.checkCountIssuesAction', { count: count, n: count });
 }
 
 export function lintPartnerPrompt(findings: readonly EditLintFinding[]): string {
     const ordered = summarizeLintFindings(findings).ordered;
-    return `【編集内容のチェック】${ordered.length} 件の指摘:\n${ordered.map(finding =>
+    return t('project.editCheck.result.editCheckLengthIssuesLabel', { length: ordered.length, n: ordered.length, value2: ordered.map(finding =>
         `- [${SEVERITY_LABEL[finding.severity]}] ${finding.message}${finding.path ? ` (${finding.path})` : ''}`
-    ).join('\n')}`;
+    ).join('\n') });
 }

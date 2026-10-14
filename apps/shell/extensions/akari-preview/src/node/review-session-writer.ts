@@ -1,13 +1,16 @@
+import { t } from '../common/preview-text';
 import { createHash, randomBytes } from 'crypto';
 import { constants } from 'fs';
 import {
     access,
+    lstat,
     mkdir,
     open,
     readFile,
     readdir,
     realpath,
     rename,
+    rm,
     stat,
     unlink,
     writeFile
@@ -19,6 +22,7 @@ import {
     AppendReviewSessionEventRequest,
     AppendReviewSessionStrokeRequest,
     EndReviewSessionRequest,
+    DeleteReviewSessionRequest,
     ListReviewSessionsRequest,
     ReadReviewSessionBundleRequest,
     ReadReviewSessionBundleResult,
@@ -54,6 +58,7 @@ interface SessionManifest {
 }
 
 export class ReviewSessionWriter {
+    protected readonly activeSessions = new Set<string>();
     constructor(protected readonly workspaceRoots: () => Promise<string[]>) {}
 
     async start(request: StartReviewSessionRequest): Promise<StartReviewSessionResult> {
@@ -82,6 +87,10 @@ export class ReviewSessionWriter {
             timelineT: request.timelineT,
             playing: request.playing
         })}\n`);
+        for (const active of this.activeSessions) {
+            if (dirname(active) === sessionsRoot) this.activeSessions.delete(active);
+        }
+        this.activeSessions.add(sessionDirectory);
 
         return {
             id,
@@ -215,7 +224,7 @@ export class ReviewSessionWriter {
             return {
                 sessionId: request.sessionId,
                 strokes: [],
-                warnings: ['strokes.json を読み取れないため描線なしとして扱いました。']
+                warnings: [t('preview.reviewSession.warning.couldNotReadStrokesJsonProceedingWithoutStrokesError')]
             };
         }
 
@@ -223,18 +232,18 @@ export class ReviewSessionWriter {
         let candidates: unknown[];
         if (Array.isArray(parsed)) {
             candidates = parsed;
-            warnings.push('旧形式（配列ルート）の strokes.json を互換読み込みしました。');
+            warnings.push(t('preview.reviewSession.warning.loadedLegacyStrokesJsonArrayRootCompatibility'));
         } else if (parsed && typeof parsed === 'object'
             && Array.isArray((parsed as { strokes?: unknown }).strokes)) {
             candidates = (parsed as { strokes: unknown[] }).strokes;
             if ((parsed as { version?: unknown }).version !== 1) {
-                warnings.push('旧形式（version 1 以外）の strokes.json を互換読み込みしました。');
+                warnings.push(t('preview.reviewSession.warning.loadedLegacyStrokesJsonVersionOtherOneCompatibility'));
             }
         } else {
             return {
                 sessionId: request.sessionId,
                 strokes: [],
-                warnings: ['strokes.json の形式を認識できないため描線なしとして扱いました。']
+                warnings: [t('preview.reviewSession.warning.unrecognizedStrokesJsonFormatProceedingWithoutStrokes')]
             };
         }
 
@@ -250,7 +259,7 @@ export class ReviewSessionWriter {
                 || (stroke.frame?.cutIndex !== null
                     && (!Number.isInteger(stroke.frame?.cutIndex) || stroke.frame.cutIndex < 0))
                 || !this.isValidStrokeShape(stroke)) {
-                warnings.push(`strokes[${index}] は不正なため再表示から除外しました。`);
+                warnings.push(t('preview.reviewSession.warning.excludedInvalidStrokesRedisplayError', { p1: (index) }));
                 continue;
             }
             strokes.push(stroke);
@@ -287,14 +296,14 @@ export class ReviewSessionWriter {
                         order: index
                     });
                 } catch {
-                    warnings.push(`events.jsonl ${index + 1} 行目を読み飛ばしました。`);
+                    warnings.push(t('preview.reviewSession.warning.skippedLineEventsJsonl', { p1: (index + 1) }));
                 }
             });
             events.sort((left, right) => left.event.recT - right.event.recT || left.order - right.order);
         } catch (error) {
             warnings.push((error as { code?: string }).code === 'ENOENT'
-                ? 'events.jsonl が見つかりません。'
-                : 'events.jsonl を読み取れませんでした。');
+                ? t('preview.reviewSession.warning.eventsJsonlNotFoundError')
+                : t('preview.reviewSession.warning.couldNotReadEventsJsonlError'));
         }
 
         let transcript: ReviewSessionTranscriptSegment[] | null = null;
@@ -313,7 +322,7 @@ export class ReviewSessionWriter {
             }).sort((left, right) => left.start - right.start);
         } catch (error) {
             if ((error as { code?: string }).code !== 'ENOENT') {
-                warnings.push('transcript.json を読み取れないため文字起こしなしとして扱いました。');
+                warnings.push(t('preview.reviewSession.warning.couldNotReadTranscriptJsonProceedingWithoutTranscriptError'));
             }
         }
 
@@ -344,7 +353,7 @@ export class ReviewSessionWriter {
             });
         } catch (error) {
             if ((error as { code?: string }).code !== 'ENOENT') {
-                warnings.push('compile-proposals.json を読み取れないため対象情報なしとして扱いました。');
+                warnings.push(t('preview.reviewSession.warning.couldNotReadCompileProposalsJsonProceedingWithoutError'));
             }
         }
 
@@ -352,12 +361,12 @@ export class ReviewSessionWriter {
         try {
             const snapshotPath = join(sessionDirectory, 'edit.snapshot.json');
             if ((await stat(snapshotPath)).size > 8 * 1024 * 1024) {
-                warnings.push('edit.snapshot.json が 8 MiB を超えるため読み飛ばしました。');
+                warnings.push(t('preview.reviewSession.warning.skippedEditSnapshotJsonBecauseExceedsEightMib'));
             } else {
                 editSnapshotText = await readFile(snapshotPath, 'utf8');
             }
         } catch {
-            warnings.push('edit.snapshot.json を読み取れませんでした。');
+            warnings.push(t('preview.reviewSession.warning.couldNotReadEditSnapshotJsonError'));
         }
 
         let audioUri: string | null = null;
@@ -382,33 +391,37 @@ export class ReviewSessionWriter {
 
     async end(request: EndReviewSessionRequest): Promise<void> {
         const sessionDirectory = await this.resolveSessionDirectory(request?.sessionDir);
-        if (!this.isIsoDate(request?.startedAt) || !this.isIsoDate(request?.endedAt)
-            || typeof request?.editHash !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(request.editHash)
-            || !Number.isFinite(request?.recT) || request.recT < 0
-            || !Number.isFinite(request?.timelineT)) {
-            throw new Error('Invalid review session end request');
+        try {
+            if (!this.isIsoDate(request?.startedAt) || !this.isIsoDate(request?.endedAt)
+                || typeof request?.editHash !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(request.editHash)
+                || !Number.isFinite(request?.recT) || request.recT < 0
+                || !Number.isFinite(request?.timelineT)) {
+                throw new Error('Invalid review session end request');
+            }
+            await this.appendAndSync(join(sessionDirectory, 'events.jsonl'), `${JSON.stringify({
+                recT: request.recT,
+                type: 'end',
+                timelineT: request.timelineT
+            })}\n`);
+            const id = basename(sessionDirectory);
+            const manifest: SessionManifest = {
+                version: 1,
+                id,
+                startedAt: request.startedAt,
+                endedAt: request.endedAt,
+                audio: 'audio.wav',
+                editSnapshot: 'edit.snapshot.json',
+                editHash: request.editHash,
+                status: 'recorded',
+                compiledAnnotations: null
+            };
+            await this.writeAtomic(
+                join(sessionDirectory, 'session.json'),
+                Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+            );
+        } finally {
+            this.activeSessions.delete(sessionDirectory);
         }
-        await this.appendAndSync(join(sessionDirectory, 'events.jsonl'), `${JSON.stringify({
-            recT: request.recT,
-            type: 'end',
-            timelineT: request.timelineT
-        })}\n`);
-        const id = basename(sessionDirectory);
-        const manifest: SessionManifest = {
-            version: 1,
-            id,
-            startedAt: request.startedAt,
-            endedAt: request.endedAt,
-            audio: 'audio.wav',
-            editSnapshot: 'edit.snapshot.json',
-            editHash: request.editHash,
-            status: 'recorded',
-            compiledAnnotations: null
-        };
-        await this.writeAtomic(
-            join(sessionDirectory, 'session.json'),
-            Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-        );
     }
 
     async list(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {
@@ -456,13 +469,56 @@ export class ReviewSessionWriter {
                     compiledAnnotations: Array.isArray(parsed.compiledAnnotations)
                         && parsed.compiledAnnotations.every(value => typeof value === 'string')
                         ? parsed.compiledAnnotations as string[]
-                        : null
+                        : null,
+                    strokeCount: await this.strokeCount(sessionDirectory)
                 });
             } catch (error) {
                 console.warn(`[akari-preview] skipping damaged review session ${entry.name}`, error);
             }
         }
         return summaries;
+    }
+
+    async delete(request: DeleteReviewSessionRequest): Promise<boolean> {
+        if (typeof request?.sessionId !== 'string' || !SESSION_DIRECTORY_PATTERN.test(request.sessionId)) {
+            throw new Error('Invalid review session id');
+        }
+        const projectRoot = await this.resolveProjectRoot(request.projectRootUri);
+        const sessionsRoot = join(projectRoot, 'review', 'sessions');
+        let actualRoot: string;
+        try {
+            actualRoot = await realpath(sessionsRoot);
+        } catch (error) {
+            if ((error as { code?: string }).code === 'ENOENT') return false;
+            throw error;
+        }
+        if (actualRoot !== sessionsRoot) throw new Error('Review sessions must be inside the project');
+        const candidate = join(actualRoot, request.sessionId);
+        let actual: string;
+        try {
+            actual = await realpath(candidate);
+        } catch (error) {
+            if ((error as { code?: string }).code === 'ENOENT') return false;
+            throw error;
+        }
+        if (dirname(actual) !== actualRoot || (await lstat(candidate)).isSymbolicLink()
+            || !(await stat(actual)).isDirectory()) {
+            throw new Error('Invalid review session directory');
+        }
+        if (this.activeSessions.has(actual)) throw new Error('Recording is still in progress');
+        await rm(candidate, { recursive: true });
+        return true;
+    }
+
+    protected async strokeCount(directory: string): Promise<number> {
+        try {
+            const parsed = JSON.parse(await readFile(join(directory, 'strokes.json'), 'utf8')) as unknown;
+            if (Array.isArray(parsed)) return parsed.length;
+            if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { strokes?: unknown }).strokes)) {
+                return (parsed as { strokes: unknown[] }).strokes.length;
+            }
+        } catch { /* Missing or damaged strokes do not block the recording list. */ }
+        return 0;
     }
 
     protected async resolveProjectRoot(uri: string | undefined): Promise<string> {
@@ -570,7 +626,8 @@ export class ReviewSessionWriter {
             orphaned: true,
             ranges: await this.readRanges(sessionDirectory),
             status: null,
-            compiledAnnotations: null
+            compiledAnnotations: null,
+            strokeCount: await this.strokeCount(sessionDirectory)
         };
     }
 

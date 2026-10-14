@@ -1,3 +1,4 @@
+import { renderText } from './i18n.mjs';
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,7 +19,7 @@ export function renderReport(state, reportPath, projectRoot) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AKARI render-cut report</title>
+  <title>${renderText('render.report.head.title')}</title>
   <style>
     :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
     body { margin: 0; background: #0b1020; color: #e7ecf7; }
@@ -42,46 +43,46 @@ export function renderReport(state, reportPath, projectRoot) {
 </head>
 <body>
 <main>
-  <h1>render-cut report</h1>
-  <div class="meta">State version ${escapeHtml(state.version)} · phase ${escapeHtml(state.phase)}</div>
-  ${state.gpu_forced === true ? '<p class="warning">検証用（GPU 強制）</p>' : ""}
+  <h1>${renderText('render.report.heading.title')}</h1>
+  <div class="meta">${renderText('render.report.meta.version')}${escapeHtml(state.version)}${renderText('render.report.meta.phase')}${escapeHtml(state.phase)}</div>
+  ${state.gpu_forced === true ? `<p class="warning">${renderText('render.report.warning.gpuForced')}</p>` : ""}
   <div class="summary">
     <span class="badge ${escapeHtml(state.verify?.verdict ?? "planned")}">${escapeHtml(state.verify?.verdict ?? "planned")}</span>
-    <span class="badge">${escapeHtml(state.plan.predicted_duration_seconds)}s predicted</span>
+    <span class="badge">${escapeHtml(state.plan.predicted_duration_seconds)}${renderText('render.report.summary.predicted')}</span>
     <span class="badge">${escapeHtml(state.plan.preset.width)}×${escapeHtml(state.plan.preset.height)} @ ${escapeHtml(state.plan.preset.fps)}fps</span>
   </div>
 
-  <h2>Plan</h2>
-  <p>Output: <code>${escapeHtml(state.plan.output)}</code></p>
-  <p>Rasterizer planned: <code>${escapeHtml(state.plan.rasterizer.selected)}</code>; adopted: <code>${escapeHtml(state.provenance?.rasterizer?.adopted ?? "pending")}</code></p>
-  <p>Intermediates: ${state.plan.intermediates.map((path) => `<code>${escapeHtml(path)}</code>`).join(", ")}</p>
+  <h2>${renderText('render.report.section.plan')}</h2>
+  <p>${renderText('render.report.plan.output')}<code>${escapeHtml(state.plan.output)}</code></p>
+  <p>${renderText('render.report.plan.rasterizer')}<code>${escapeHtml(state.plan.rasterizer.selected)}</code>${renderText('render.report.plan.adopted')}<code>${escapeHtml(state.provenance?.rasterizer?.adopted ?? "pending")}</code></p>
+  <p>${renderText('render.report.plan.intermediates')}${state.plan.intermediates.map((path) => `<code>${escapeHtml(path)}</code>`).join(", ")}</p>
   <pre><code>${escapeHtml(JSON.stringify(state.plan.commands, null, 2))}</code></pre>
 
-  <h2>Warnings</h2>
-  <ul>${warnings.length ? warnings.map((warning) => `<li class="fail">${escapeHtml(warning)}</li>`).join("") : "<li>None</li>"}</ul>
+  <h2>${renderText('render.report.section.warnings')}</h2>
+  <ul>${warnings.length ? warnings.map((warning) => `<li class="fail">${escapeHtml(warning)}</li>`).join("") : `<li>${renderText('render.report.empty.none')}</li>`}</ul>
 
-  <h2>Rasterizer attempts</h2>
-  <ul>${attempts.length ? attempts.map((attempt) => `<li><code>${escapeHtml(attempt.method)}</code> — ${escapeHtml(attempt.status)}${attempt.reason ? `: ${escapeHtml(attempt.reason)}` : ""}</li>`).join("") : "<li>Not run</li>"}</ul>
+  <h2>${renderText('render.report.section.attempts')}</h2>
+  <ul>${attempts.length ? attempts.map((attempt) => `<li><code>${escapeHtml(attempt.method)}</code> — ${escapeHtml(attempt.status)}${attempt.reason ? `: ${escapeHtml(attempt.reason)}` : ""}</li>`).join("") : `<li>${renderText('render.report.empty.notRun')}</li>`}</ul>
 
-  <h2>Input receipts</h2>
-  <table><thead><tr><th>Input</th><th>SHA-256</th></tr></thead><tbody>
+  <h2>${renderText('render.report.section.inputs')}</h2>
+  <table><thead><tr><th>${renderText('render.report.table.input')}</th><th>SHA-256</th></tr></thead><tbody>
     ${inputs.map(([path, receipt]) => `<tr><td><code>${escapeHtml(path)}</code></td><td><code>${escapeHtml(receipt.sha256)}</code></td></tr>`).join("")}
   </tbody></table>
 
-  <h2>Verification</h2>
-  <ul>${findings.length ? findings.map((finding) => `<li class="${escapeHtml(finding.severity)}"><code>${escapeHtml(finding.check)}</code> — ${escapeHtml(finding.message)}</li>`).join("") : "<li>Not run</li>"}</ul>
-  ${state.artifacts?.length ? `<p>Artifact SHA-256: <code>${escapeHtml(state.artifacts[0].sha256)}</code></p>` : ""}
+  <h2>${renderText('render.report.section.verification')}</h2>
+  <ul>${findings.length ? findings.map((finding) => `<li class="${escapeHtml(finding.severity)}"><code>${escapeHtml(finding.check)}</code> — ${escapeHtml(finding.message)}</li>`).join("") : `<li>${renderText('render.report.empty.notRun')}</li>`}</ul>
+  ${state.artifacts?.length ? `<p>${renderText('render.report.verification.artifact')}<code>${escapeHtml(state.artifacts[0].sha256)}</code></p>` : ""}
 
-  <h2>Blank-frame scan</h2>
-  <p>Every decoded frame is scanned; the minimum reported continuous interval is 0.3 seconds.</p>
-  <table><thead><tr><th>Start</th><th>Duration</th><th>YMAX max</th><th>Active overlays</th><th>Active cuts</th><th>Declared fades</th><th>Severity</th></tr></thead><tbody>
-    ${blankFrames.length ? blankFrames.map((interval) => `<tr class="${escapeHtml(interval.severity)}"><td>${escapeHtml(interval.start)}s</td><td>${escapeHtml(interval.duration)}s</td><td>${escapeHtml(interval.ymax_max)}</td><td>${formatIds(interval.active_overlays)}</td><td>${formatIds(interval.active_cuts)}</td><td>${formatDeclaredFades(interval.declared_fades)}</td><td>${escapeHtml(interval.severity)}</td></tr>`).join("") : '<tr><td colspan="7">No intervals reported</td></tr>'}
+  <h2>${renderText('render.report.section.blankFrames')}</h2>
+  <p>${renderText('render.report.blank.description')}</p>
+  <table><thead><tr><th>${renderText('render.report.table.start')}</th><th>${renderText('render.report.table.duration')}</th><th>${renderText('render.report.table.ymax')}</th><th>${renderText('render.report.table.overlays')}</th><th>${renderText('render.report.table.cuts')}</th><th>${renderText('render.report.table.fades')}</th><th>${renderText('render.report.table.severity')}</th></tr></thead><tbody>
+    ${blankFrames.length ? blankFrames.map((interval) => `<tr class="${escapeHtml(interval.severity)}"><td>${escapeHtml(interval.start)}s</td><td>${escapeHtml(interval.duration)}s</td><td>${escapeHtml(interval.ymax_max)}</td><td>${formatIds(interval.active_overlays)}</td><td>${formatIds(interval.active_cuts)}</td><td>${formatDeclaredFades(interval.declared_fades)}</td><td>${escapeHtml(interval.severity)}</td></tr>`).join("") : `<tr><td colspan="7">${renderText('render.report.empty.noIntervals')}</td></tr>`}
   </tbody></table>
 
-  ${state.contact_sheet ? `<h2>Contact sheet</h2>
-  <p>Deterministic keyframes at (s): ${state.contact_sheet.timestamps_seconds.map((seconds) => escapeHtml(seconds)).join(", ")}</p>
+  ${state.contact_sheet ? `<h2>${renderText('render.report.section.contactSheet')}</h2>
+  <p>${renderText('render.report.contactSheet.timestamps')}${state.contact_sheet.timestamps_seconds.map((seconds) => escapeHtml(seconds)).join(", ")}</p>
   <img src="contact-sheet.png" alt="contact sheet" style="max-width:100%;border:1px solid #293451;border-radius:8px">` : ""}
-  <p class="meta">Serve locally with <code>node ${escapeHtml(helperPath)} ${escapeHtml(reportRelativePath)}</code>.</p>
+  <p class="meta">${renderText('render.report.footer.serve')}<code>node ${escapeHtml(helperPath)} ${escapeHtml(reportRelativePath)}</code>.</p>
 </main>
 </body>
 </html>
@@ -91,13 +92,13 @@ export function renderReport(state, reportPath, projectRoot) {
 function formatIds(ids) {
   return Array.isArray(ids) && ids.length > 0
     ? ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")
-    : "None";
+    : renderText('render.report.empty.none');
 }
 
 function formatDeclaredFades(fades) {
   return Array.isArray(fades) && fades.length > 0
     ? fades.map(({ kind, id, via }) => `<code>${escapeHtml(kind)}:${escapeHtml(id)} (${escapeHtml(via)})</code>`).join(", ")
-    : "None";
+    : renderText('render.report.empty.none');
 }
 
 function escapeHtml(value) {

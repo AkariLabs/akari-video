@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * インストール進捗バー（裁定 E1）の純ロジック。node 側（`tool-install.ts` が spawn の
  * stdout/stderr 断片やダウンロードのバイト数を渡す）と browser 側（ダイアログの表示）の
@@ -39,16 +40,16 @@ export function computeDownloadPercent(downloadedBytes: number, totalBytes?: num
 export function summarizeCommandInstallPhase(outputTail: string): string {
     const text = outputTail.trim();
     if (!text) {
-        return '準備しています…';
+        return t('surfaces.tools.preparing.label');
     }
     if (/summary|already installed|up.?to.?date|successfully|success/i.test(text)) {
-        return '仕上げています…';
+        return t('surfaces.tools.finishing.label');
     }
     if (/fetch|download|取得|ダウンロード/i.test(text)) {
-        return 'パッケージを取得しています…';
+        return t('surfaces.tools.retrievingPackage.label');
     }
     if (/pour|install|extract|展開|インストール/i.test(text)) {
-        return '展開しています…';
+        return t('surfaces.tools.expanding.label');
     }
-    return '処理しています…';
+    return t('surfaces.tools.processing.label');
 }

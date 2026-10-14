@@ -9,16 +9,17 @@ import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { compareVersions } from './version.mjs';
+import { cliText } from './i18n.mjs';
 const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
 const creatorRoot = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
 function resolveAssetLibraryRoots(env) {
-  if (!creatorRoot) throw new Error('creator-root が見つからないため素材の置き場を解決できません。AKARI Video を再インストールしてください。');
+  if (!creatorRoot) throw new Error(cliText('cli.store.error.creatorRootMissing'));
   return creatorRoot.resolveAssetLibraryRoots(env);
 }
 
 const KITS_SCHEMA = 'akari-installed-kits/v0';
 const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
-const PLUGIN_DESCRIPTION = 'AKARI Video 拡張キットのスキルをまとめて提供するローカルプラグイン。';
+const pluginDescription = () => cliText('cli.kits.plugin.description');
 
 function parseVersion(value) {
   const match = typeof value === 'string'
@@ -53,18 +54,18 @@ export function checkRequires(manifest, { cliVersion, runtimeIds = [], entitledP
   const warnings = [];
   const requires = manifest?.requires ?? {};
   if (!satisfies(cliVersion, requires.cli)) {
-    blockers.push(`CLI ${requires.cli} が必要です（現在 ${cliVersion}）。AKARI Video を更新してください。`);
+    blockers.push(cliText('cli.kits.error.cliVersion', { required: requires.cli, current: cliVersion }));
   }
   const availableRuntimes = new Set(runtimeIds);
   for (const runtimeId of requires.runtimes ?? []) {
     if (!availableRuntimes.has(runtimeId)) {
-      blockers.push(`runtime ${runtimeId} がありません。このアプリ版ではキットを利用できません。`);
+      blockers.push(cliText('cli.kits.error.runtimeMissing', { id: runtimeId }));
     }
   }
   const entitled = new Set(entitledProductIds);
   for (const productId of requires.products ?? []) {
     if (!entitled.has(productId)) {
-      warnings.push(`依存商品 ${productId} の購入が確認できません。\`akari store install ${productId}\` で導入してください。`);
+      warnings.push(cliText('cli.kits.warning.purchaseMissing', { id: productId }));
     }
   }
   return { ok: blockers.length === 0, blockers, warnings };
@@ -74,7 +75,7 @@ function safeKitPath(kitDir, ...parts) {
   const root = path.resolve(kitDir);
   const candidate = path.resolve(root, ...parts);
   if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
-    throw new Error(`キット外のパスは参照できません: ${parts.join('/')}`);
+    throw new Error(cliText('cli.kits.error.pathOutside', { path: parts.join('/') }));
   }
   return candidate;
 }
@@ -155,18 +156,18 @@ export function linkKitAssets(kitDir, manifest, home, options = {}) {
     if (validator && existsSync(validator)) {
       const result = (options.spawnSyncImpl ?? spawnSync)(process.execPath, [validator, source], { stdio: 'pipe' });
       if (result.status !== 0) {
-        warnings.push(`素材 ${asset.category}/${asset.id} は検査に失敗したためリンクしませんでした。`);
+        warnings.push(cliText('cli.kits.warning.assetValidationFailed', { category: asset.category, id: asset.id }));
         continue;
       }
     } else {
-      warnings.push(`素材 ${asset.category}/${asset.id} の検査ツールが見つからないため検査をスキップしました。`);
+      warnings.push(cliText('cli.kits.warning.assetValidatorMissing', { category: asset.category, id: asset.id }));
     }
     const destination = path.join(resolveAssetLibraryRoots({ ...(options.env ?? process.env), AKARI_HOME: home }).write, asset.category, asset.id);
     const result = replaceSymlink(source, destination, options);
     if (result.status === 'occupied') {
-      warnings.push(`既存の実ディレクトリを保持しました: ${destination}`);
+      warnings.push(cliText('cli.kits.warning.directoryKept', { path: destination }));
     } else if (result.status === 'permission-denied') {
-      warnings.push(`symlink を作成できませんでした（Windows の権限を確認してください）: ${destination}`);
+      warnings.push(cliText('cli.kits.warning.symlinkFailed', { path: destination }));
     } else {
       linked.push({ category: asset.category, id: asset.id });
       items.push(installedAssetItem(source, asset, manifest));
@@ -181,7 +182,7 @@ function readInstalledAssetsIndex(home, env = process.env) {
   const index = JSON.parse(readFileSync(indexPath, 'utf8'));
   if (index?.schema !== INSTALLED_ASSETS_SCHEMA
     || !index.packs || typeof index.packs !== 'object' || Array.isArray(index.packs)) {
-    throw new Error(`導入済み素材索引の形式が想定と違います: ${indexPath}`);
+    throw new Error(cliText('cli.store.pack.error.indexInvalid', { path: indexPath }));
   }
   return index;
 }
@@ -198,7 +199,7 @@ export function registerKitAssets(home, manifest, kitDir, items, env = process.e
   const root = path.resolve(kitDir);
   const storeRoot = path.join(resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).write, 'store', manifest.id);
   if (root !== storeRoot && !root.startsWith(`${storeRoot}${path.sep}`)) {
-    throw new Error(`キット素材の root が展開先の外を指しています: ${root}`);
+    throw new Error(cliText('cli.kits.error.assetRootOutside', { root }));
   }
   const index = readInstalledAssetsIndex(home, env);
   index.packs[manifest.id] = {
@@ -231,12 +232,12 @@ export function linkKitSkills(kitDir, manifest, home, options = {}) {
     try {
       const stat = lstatSync(destination);
       if (!stat.isSymbolicLink()) {
-        blockers.push(`スキル名 ${skill.name} は既存の実ディレクトリと重複しています。`);
+        blockers.push(cliText('cli.kits.error.skillDirectoryConflict', { name: skill.name }));
         continue;
       }
       const current = path.resolve(path.dirname(destination), readlinkSync(destination));
       if (current !== source) {
-        blockers.push(`スキル名 ${skill.name} は別のキットと重複しています。`);
+        blockers.push(cliText('cli.kits.error.skillKitConflict', { name: skill.name }));
         continue;
       }
     } catch (error) {
@@ -248,7 +249,7 @@ export function linkKitSkills(kitDir, manifest, home, options = {}) {
   for (const { skill, source, destination } of planned) {
     const result = replaceSymlink(source, destination, options);
     if (result.status === 'permission-denied') {
-      warnings.push(`symlink を作成できませんでした（Windows の権限を確認してください）: ${destination}`);
+      warnings.push(cliText('cli.kits.warning.symlinkFailed', { path: destination }));
     } else {
       linked.push(skill.name);
     }
@@ -261,7 +262,7 @@ export function readKitsLedger(home) {
   if (!existsSync(ledgerPath)) return { schema: KITS_SCHEMA, kits: [] };
   const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
   if (ledger?.schema !== KITS_SCHEMA || !Array.isArray(ledger.kits)) {
-    throw new Error(`拡張キット台帳の形式が想定と違います: ${ledgerPath}`);
+    throw new Error(cliText('cli.kits.error.ledgerInvalid', { path: ledgerPath }));
   }
   return ledger;
 }
@@ -310,9 +311,9 @@ export function ensureKitsMarketplace(home) {
   const marketplace = {
     name: 'akari-kits',
     owner: { name: 'AKARI Video' },
-    plugins: [{ name: 'akari-kits', source: './plugin', description: PLUGIN_DESCRIPTION }]
+    plugins: [{ name: 'akari-kits', source: './plugin', description: pluginDescription() }]
   };
-  const plugin = { name: 'akari-kits', description: PLUGIN_DESCRIPTION };
+  const plugin = { name: 'akari-kits', description: pluginDescription() };
   for (const [filePath, value] of [[marketplacePath, marketplace], [pluginPath, plugin]]) {
     mkdirSync(path.dirname(filePath), { recursive: true });
     const content = `${JSON.stringify(value, null, 2)}\n`;
@@ -323,9 +324,9 @@ export function ensureKitsMarketplace(home) {
 
 export function enableHint() {
   return [
-    'Claude Code で拡張キットを有効化してください:',
+    cliText('cli.kits.help.enable'),
     '  claude plugin marketplace add ~/.akari/kits',
     '  claude plugin install akari-kits@akari-kits',
-    'claude が PATH に無い場合は、Claude Code のプラグイン設定で ~/.akari/kits を marketplace として追加してください。'
+    cliText('cli.kits.help.marketplace')
   ].join('\n');
 }

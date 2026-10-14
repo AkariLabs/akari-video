@@ -229,6 +229,7 @@ export interface CaptionRecord {
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
+    styleSources?: Record<string, unknown>;
     extra?: Record<string, unknown>;
     runs?: CaptionRun[];
 }
@@ -300,9 +301,13 @@ export declare function captionEditNotices(result: {
     removedEmphasis: readonly CaptionEmphasis[];
 }, oldDisplayText: string): string[];
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
+export declare function applyWordBookToCaptionsInSourceWithNotices(source: string, changes: WordBookCaptionChange[]): {
+    source: string;
+    notices: string[];
+};
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch, options?: {
     catalog?: TextstyleCatalog;
-}): string;
+} | TextstyleCatalog): string;
 export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null, options?: {
     catalog?: TextstyleCatalog;
     output?: {

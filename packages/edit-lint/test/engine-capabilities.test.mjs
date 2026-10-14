@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -273,7 +278,7 @@ test("version 3 keeps the too-new finding and adds engine.capabilities to skippe
   }
 });
 
-test("all 112 existing fixtures keep the default execution classification under --engine auto", async () => {
+test("all 113 existing fixtures keep the default execution classification under --engine auto", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-engine-fixtures-"));
   const fixtures = join(root, "fixtures");
   try {
@@ -282,7 +287,7 @@ test("all 112 existing fixtures keep the default execution classification under 
     const names = (await readdir(fixtures, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-    assert.equal(names.length, 112);
+    assert.equal(names.length, 113);
     const failures = [];
     for (const name of names) {
       const fixture = join(fixtures, name);

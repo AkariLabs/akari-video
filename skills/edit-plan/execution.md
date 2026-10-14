@@ -1,48 +1,30 @@
-# 承認後の実行
+# Execute after approval
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write with a targeted edit or the edit-store script API.
 
-> **edit.json v2**: トップレベルは exact で、`version` / `output` / `sources` / `tracks` /
-> `audio` / `captions` / `thumbnail` 以外を書けない。`beats` / `emphasis_words` / `direction` は
-> v2 で廃止済みのため `edit.json` へ書かず、判断記録に置く。消費者側コードも畳んでおり、今後も復活させない。
+> **edit.json v2**: The top level is exact; no fields other than `version` / `output` / `sources` / `tracks` / `audio` / `captions` / `thumbnail` are allowed. `beats` / `emphasis_words` / `direction` were retired in v2; put them in the decision record, not `edit.json`. Consumer code has also removed them; do not restore them.
 
-## 原則
+## Principle
 
-このファイルは `autonomy: collaborative` では Checkpoint 3 の明示承認後に、それ以外の autonomy では edit.json を書く前に読む。承認された manifest を、該当行の Edit か
-edit-store のスクリプト API で [M1〜M4 契約](../../docs/contract-2026-07-13-m1-m4.md) の
-`edit.json` と authoring 規約へ忠実に変換し、表現できない計画を独自フィールドで補わない。使って
-よいのは公開契約が定めたフィールドだけである（[SKILL.md](SKILL.md) のハードルール）。
+Read this file after explicit Checkpoint 3 approval for `autonomy: collaborative`; for other autonomy modes, read it before writing edit.json. Translate the approved manifest faithfully into `edit.json` and authoring rules under the [M1–M4 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md) by targeted edit or edit-store script API. Do not invent fields for an unrepresentable plan. Only fields defined in the public contract may be used ([SKILL.md](SKILL.md) hard rule).
 
-cut candidate report がある場合も、それ自体は実行承認ではない。`decision:"REVIEW_REQUIRED"` の
-候補を直接 cuts へ写さず、人間が今回の report に対して採否を明示し、append-only decision log に
-追記されたものだけを使う。final edit の fps が 30 以外、speed が 1 以外、track が 0 以外、または
-timeline `at` を加える場合、report の pause frame proposal は無効として再計算・再 review する。
-Checkpoint 3 まで `edit.json` を変更しない。
+A cut candidate report is not execution approval. Do not copy `decision:"REVIEW_REQUIRED"` candidates directly into cuts; use only those explicitly accepted or rejected by the human for this report and appended to the append-only decision log. If final-edit fps is not 30, speed is not 1, track is not 0, or a timeline `at` is added, invalidate the report's pause-frame proposal, recalculate, and review again. Do not change `edit.json` before Checkpoint 3.
 
-候補適用後も完了を自動判定しない。同じ preview/render 版について、人間が
-`POST_CUT_ASR_REVIEW`（cut 後の再文字起こしと原音照合）、`POST_CUT_INFORMATION_RETENTION`
-（前後文脈と必要情報の保持）、`POST_CUT_UI_TIMING_REVIEW`（クリック・遷移・読込待ち・結果表示）、
-`POST_CUT_AUDIO_BOUNDARY_REVIEW`（click、語頭語尾、呼吸、残響、無音）を確認し、最後に
-`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。どれかを修正した場合は新しい版で全項目を
-再確認し、結果を append-only `decision-log.md` に追記する。
+Do not automatically mark completion after applying candidates. For the same preview/render version, a human must check `POST_CUT_ASR_REVIEW` (retranscription and comparison with original audio), `POST_CUT_INFORMATION_RETENTION` (surrounding context and required information), `POST_CUT_UI_TIMING_REVIEW` (clicks, transitions, loading waits, result display), and `POST_CUT_AUDIO_BOUNDARY_REVIEW` (clicks, word starts/ends, breathing, reverb, silence). Finally, do not call it complete until `HUMAN_APPLY_GATE` is explicitly approved. If any item is revised, recheck all items in the new version and append results to append-only `decision-log.md`.
 
-## 1. 素材と段を確定する
+## 1. Settle sources and tracks
 
-**新規に作る `edit.json` は素材数に関係なく v2 で書く。** `sources[]` に素材を宣言し、
-`tracks[].items[]` にクリップを置く。旧 `cuts` / `layers` / `overlays` キーは作らない。
+**Write every new `edit.json` as v2, regardless of the source count.** Declare assets in `sources[]` and clips in `tracks[].items[]`. Do not create old `cuts` / `layers` / `overlays` keys.
 
-- 段は `lane: "visual" | "audio"` と `tracks[]` の配列順だけを持つ。visual の重なりは配列の
-  後ろほど前面。「本編」「レイヤー」という種別で段を分けない。
-- クリップの出力位置 `at` / `duration` は整数フレーム、media の素材区間
-  `source.in` / `source.out` は秒で書く。
-- 素材の種類は段ではなく `source.kind`（`media` / `html` / `telop` / `filter`）で表す。
-- 空の `items[]` を持つ宣言済み段は残す。移動で空になっても自動削除しない。
-- v0 / v1 を開いたときの変換は読み込み層の提案 → 明示承認へ任せ、スキルが独自変換しない。
+- Tracks have only `lane: "visual" | "audio"` and `tracks[]` array order. Later visual tracks appear in front. Do not divide tracks by "main video" or "layer" types.
+- Write output position `at` / `duration` in integer frames and media source range `source.in` / `source.out` in seconds.
+- Represent asset type by `source.kind` (`media` / `html` / `telop` / `filter`), not by track.
+- Keep declared tracks with empty `items[]`; do not auto-delete them when a move empties them.
+- Leave v0/v1 conversion on open to the reader layer's proposal followed by explicit approval; this skill must not convert on its own.
 
-### 音楽の配置はクリップが標準（2026-08-18 決定）
+### Music placement defaults to clips (2026-08-18 decision)
 
-**動画の一部区間だけに音楽を敷きたいときは、audio 段へ media クリップとして置くのが標準**である。`source.in` / `source.out` は素材秒、`at` / `duration` は整数フレーム。映像クリップと同じく移動・トリムできる。
+**When music covers only part of the video, the standard is a media clip on an audio track.** `source.in` / `source.out` are source seconds; `at` / `duration` are integer frames. Move and trim it like a visual clip.
 
 ```json
 {
@@ -53,51 +35,37 @@ Checkpoint 3 まで `edit.json` を変更しない。
 }
 ```
 
-上の例は 30fps で素材 48.0〜64.0 秒を出力 12.0 秒から鳴らす。`sources[]` には
-`{ "id": "music", "path": "assets/audio/theme-song.m4a" }` を宣言する。
+At 30fps, this example plays source seconds 48.0–64.0 starting at output second 12.0. Declare `{ "id": "music", "path": "assets/audio/theme-song.m4a" }` in `sources[]`.
 
-`audio.bgm` は**全編に敷くだけの最短表現（ベッド）として後方互換で残る**（新規プロジェクトの既定はクリップ）。曲を頭から流し、動画尺に合わせて自動ループ・自動追従させたいだけなら `bgm`（`t`/`out` を書かず尺を気にしなくてよい）を使う。部分区間だけに敷きたい・複数曲を切り替えたい・任意の位置で明示的にトリムしたい場合は、音楽であっても `sfx[]` のクリップで書く。
+`audio.bgm` **remains for backward compatibility as the shortest expression of a whole-video music bed** (new projects default to clips). Use `bgm` when a song should start at its beginning, loop automatically, and follow video duration without writing `t`/`out`. For a partial interval, switching among songs, or explicit trimming at any position, write music as `sfx[]` clips.
 
-### v2 で書くときの注意
+### Notes for writing v2
 
-- **`items[]` が空の段は空のまま残る**。素材全体を使う場合も media クリップを明示する。
-- **字幕・注釈・解析結果は (`src`, source 秒) でアンカーする**。同じ素材区間がタイムライン上に複数回現れ得るため source 秒 → timeline 秒は一対多であり、timeline 秒へ変換した結果を永続化しない。字幕（`captions.json`）と注釈（`review.json` の `annotations[]`）の各項目は `src` に `sources[].id` を書く。`src` の省略は単一ソース互換の意味になり、素材が 2 本以上ある edit では当該項目が警告付きでスキップされる。
-- **`sources[].id` は `s1`, `s2`, … の連番を推奨**。参照は path ではなく安定した id で行うので、素材の差し替えや path 変更で cut・サイドカーの参照が壊れない。id はファイル内で一意にする。
-- `version` は 2、素材表は `sources[]`、クリップは `tracks[].items[]` に限る。
-- `at` / `duration` は出力フレーム、media の `source.in` / `source.out` は素材秒である。
+- **Tracks with empty `items[]` stay empty.** Even for a whole source, declare a media clip explicitly.
+- **Anchor captions, annotations, and analysis results by (`src`, source seconds).** A source interval may recur on the timeline, so source-to-timeline mapping is one-to-many; do not persist a timeline-second conversion. Every caption (`captions.json`) and annotation (`annotations[]` in `review.json`) writes `sources[].id` in `src`. Omitting `src` means single-source compatibility; with two or more sources, the item is skipped with a warning.
+- **Sequential `s1`, `s2`, … values are recommended for `sources[].id`.** References use stable ids, not paths, so replacing an asset or changing its path does not break cut or sidecar references. Ids must be unique within the file.
+- Use `version` 2, `sources[]` for the asset table, and `tracks[].items[]` for clips.
+- `at` / `duration` are output frames; media `source.in` / `source.out` are source seconds.
 
-### 静止画素材の扱い（2026-08-12）
+### Handling still assets (2026-08-12)
 
-- **静止画は visual 段へ media クリップとして直接置く**。画像 1 枚につき item 1 件にし、
-  ffmpeg で連結しない。`at` / `duration` / `transform` / `crop` / `perspective` / `keyframes` は
-  ほかの visual クリップと同じに使う。
+- **Put stills directly on a visual track as media clips.** Use one item per image; do not concatenate with ffmpeg. Use `at` / `duration` / `transform` / `crop` / `perspective` / `keyframes` as for other visual clips.
+- **Library `still` assets are images by default (2026-10-12).** Place the single image directly in the asset folder (not `preview.png`, e.g. `bg.png`) as a media clip via `sources[]`. Use the asset's `fragment.html` (an HTML overlay) only when the user asks for one of its knobs (hue, brightness, vignette, …) or when the folder has no single image.
 
-### 重ねる media クリップの時間基準
+### Timing basis for overlaid media clips
 
-人物切り抜き・B-roll など別の visual 段に重ねる素材では、**十数フレーム単位のズレを作り込みやすい**。
-正本は `docs/contract-2026-08-02-preview-parity.md` §2.4 と
-`docs/contract-2026-07-22-render-basics.md` §2-3。
+For cutout people, B-roll, and other media overlaid on another visual track, **a drift of a dozen or more frames is easy to introduce**. The canonical rules are `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-02-preview-parity.md` §2.4 and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-render-basics.md` §2-3.
 
-- media クリップは `source.in` / `source.out` で素材区間、`at` / `duration` で出力区間を明示する。
-  「パネルが先に出ているから素材にもプリロールがあるはず」といった**推測でのトリムをしない**。
-  推測でトリムすると素材の頭が前へずれ、さらに `duration` を詰めた分だけ末尾で素材が尽きて
-  「重ねた素材が消えて下地だけになる」瞬間が出る。
-- 素材を事前に切り出した場合は
-  **由来（元素材 / in / out / speed / fps）を素材の隣に必ず残す**。残さないと次に触る人が
-  「この素材の頭は何の時刻か」を推測することになり、同じ事故を繰り返す。
-- 段ごとに色を変える場合は filter item を明示し、`source.kind: "filter"` を使う。
-- 時間対応を後から**実測**するときは、`blend=difference` の絶対差を使わない。上記の色差が
-  支配して指標が平坦になり、誤った結論（適当な lag が「最小」に見える）に落ちる。
-  **フレーム間差分エネルギーの時系列**（`format=gray,tblend=all_mode=difference` →
-  `signalstats` の YAVG）を素材側とカット側で取り、正規化して**相互相関**させると、
-  色に不変で lag を特定できる。カットに `speed` が掛かっている場合は、素材が
-  「速度適用済みで焼かれている」のか「素材レートのまま」なのかもこの相関で判別できる。
+- A media clip declares its source interval with `source.in` / `source.out` and output interval with `at` / `duration`. **Do not trim by guessing** that, for example, because a panel appears earlier the source must contain preroll. Guessing shifts the source beginning earlier and exhausts the source at the end when `duration` is shortened, leaving a moment where the overlay disappears and only the underlying video remains.
+- If a source was pre-cut, **always leave its provenance (original / in / out / speed / fps) beside it**. Otherwise the next editor must guess what time its beginning represents and may repeat the same error.
+- For per-track color changes, declare a filter item using `source.kind: "filter"`.
+- When **measuring** timing alignment later, do not use absolute `blend=difference`. Color differences dominate and flatten that measure, making an arbitrary lag look minimal. Take the **time series of inter-frame difference energy** (`format=gray,tblend=all_mode=difference` → YAVG from `signalstats`) for the source and cut, normalize, then **cross-correlate**. This identifies lag independently of color. If the cut uses `speed`, correlation can also distinguish whether speed was baked into the asset or it remains at the original source rate.
 
-## 2. edit.json を作る
+## 2. Create edit.json
 
-承認値を次の形へ入れる。例の数値を既定値として流用しない。
+Put approved values into the following form. Do not reuse sample numbers as defaults.
 
-**v2（30fps、映像 + HTML クリップ）**
+**v2 (30fps, video plus HTML clip)**
 
 ```json
 {
@@ -126,95 +94,90 @@ Checkpoint 3 まで `edit.json` を変更しない。
 }
 ```
 
-- `sources[].path` は原本、`proxy` は対応する 720p preview。原本を proxy へ置き換えない。
-- track id / item id は文書内で一意にする。
-- visual の重なりは `tracks[]` の配列順だけで決める。別の z フィールドを作らない。
-- media は `0 <= source.in < source.out`、全 item は整数の `at >= 0` / `duration >= 0` を満たす。
+- `sources[].path` is the original; `proxy` is its matching 720p preview. Do not replace the original with the proxy.
+- Track and item ids must be unique in the document.
+- Visual stacking follows only `tracks[]` array order; do not add another z field.
+- Media must satisfy `0 <= source.in < source.out`; every item must have integer `at >= 0` / `duration >= 0`.
 
-### 切り出し・先出しクリップの発話スナップと呼吸
+### Speech snapping and breathing room for extracted clips
 
-トレーラー・オープニングフック・引用など、短く先出しするクリップの `source.in` / `source.out` は、**クリップ内の発話を `analysis.json` の word-level 実測（`transcript[].words`）で拾い、発話へスナップして決める**。ハードルール:
+For short clips moved ahead, such as trailers, opening hooks, or quotations, **set `source.in` / `source.out` by identifying the speech inside the clip from measured word-level `analysis.json` data (`transcript[].words`) and snapping to that speech**. Hard rules:
 
-- **窓 = クリップ内発話の頭 − 0.25s / 末尾 + 0.25s**（前後合わせて呼吸 0.5s。オーナー指針 2026-07-24）。発話の頭・末尾ギリギリで詰めず、前後に無音の呼吸を残して急な切替感を消す。
-- coarse な segment 時刻（whisper の 2 秒量子化・句読点境界）や**見せ場スコア位置の機械窓のまま切り出さない**。機械窓は発話の外で切れていることがあり、意図した発話が窓の外へ落ちる。
-- **発話を含まない切り出し窓を作らない**。見せ場スコアが指す位置に発話が無ければ、窓ではなく発話の実測区間を正本にして取り直す。
-- **全文表示が 1.0 秒未満になる字幕を含むクリップを作らない**。収まらないなら窓を字幕が読める長さまで延ばすか、その字幕を落とす（読めない字幕を出さない）。
-- スナップに使う `words` は source 秒。窓（media の `source.in` / `source.out`）も source 秒で書く。
+- **Window = first speech word minus 0.25s / last speech word plus 0.25s** (0.5s total breathing room, owner guideline 2026-07-24). Do not cut tightly at speech boundaries; leave quiet breathing room to avoid abrupt transitions.
+- Do not use coarse segment times (Whisper's two-second quantization or punctuation boundaries) or **cut directly at a machine window around the highlight score**. Such a window can miss the intended speech.
+- **Do not create an extracted window without speech.** If the highlight score points to no speech, use the measured speech interval as the source of truth and choose a new window.
+- **Do not create a clip whose caption can be fully displayed for less than 1.0 second.** Extend the window until the caption is readable or omit the caption; do not show unreadable captions.
+- `words` used for snapping are in source seconds. Write the media window (`source.in` / `source.out`) in source seconds too.
 
-呼吸 0.5s（頭 0.25s / 末尾 0.25s）の採用値は `decision-log.md` に記す。
+Record the selected 0.5s breathing room (0.25s at the start / 0.25s at the end) in `decision-log.md`.
 
-## 3. オーバーレイ HTML を作る
+## 3. Create overlay HTML
 
-最初に [overlay-authoring](../overlay-authoring/SKILL.md) を読み、必要なリーフだけを追加で読む。利用不能なら [CLAUDE.md の authoring 規約](../../CLAUDE.md) を読み、fallback を `decision-log.md` に追記する。
+First read [overlay-authoring](../overlay-authoring/SKILL.md), then only the needed leaves. If unavailable, read the [CLAUDE.md authoring rules](https://github.com/AkariLabs/akari-video/blob/main/CLAUDE.md) and append the fallback to `decision-log.md`.
 
-- 断片のルート要素は 1 個にする。
-- 調整可能な値を `--x`、`--y`、`--scale`、`--font-size`、`--color` 等の CSS 変数にする。
-- HTML item の `at` / `duration` を SSOT とし、断片内に独立した時刻源を作らない。
-- アニメーションは transform / opacity 中心にし、4K 映像上の `filter: blur()` と `backdrop-filter` を使わない。
-- wall-clock に依存せず、シーク時に Web Animations API の `currentTime` で同じ絵を再現できるようにする。
-- 3D が必要なら Three.js + glTF、動画 texture は proxy を使う。
-- transcript 等の可変文字列を HTML と CSS の文脈に合わせて escape する。
+- Give the fragment exactly one root element.
+- Make adjustable values CSS variables such as `--x`, `--y`, `--scale`, `--font-size`, and `--color`.
+- Treat HTML item `at` / `duration` as the SSOT; do not create an independent clock in the fragment.
+- Base animation on transform / opacity; do not use `filter: blur()` or `backdrop-filter` over 4K video.
+- Avoid wall-clock dependence; seeking via Web Animations API `currentTime` must reproduce the same frame.
+- If 3D is needed, use Three.js plus glTF; use the proxy for video textures.
+- Escape variable strings such as transcript for their HTML or CSS context.
 
-サムネ用の HTML 文字組を、タイミング付き動画 overlay として無条件に再利用しない。
+Do not reuse thumbnail HTML typography unconditionally as a timed video overlay.
 
-## 4. 字幕（captions.json）の表示区間を作る
+## 4. Create caption display intervals (captions.json)
 
-字幕を持つ計画では、次の CLI で表示区間を作る。手で区間を組まない。
+For a plan with captions, create display intervals with the following CLI. Do not build intervals manually.
 
 ```sh
 akari captions <project-dir>
 ```
 
-- **`caption.start` = 先頭語（`words[0]`）の実測 start / `caption.end` = 末尾語（`words[-1]`）の実測 end + 読み切り猶予**。`--readout` の既定は **0.3 秒**（採用値は `decision-log.md` に記す）。次 caption の start を超えるときだけ丸める。
-- **次 caption の start まで引き伸ばさない**（敷き詰め禁止）。**無発話区間は無字幕**とし、隙間を字幕で埋めない。短い字幕は次 caption を超えない範囲で既定 1.0 秒の床まで延ばし、床に届かない場合は warning を確認する。
-- caption の start / end は source 秒アンカー（§1）。`words[]` も同じ source 秒で持つ。
+- **`caption.start` = measured start of first word (`words[0]`) / `caption.end` = measured end of last word (`words[-1]`) plus reading tail**. `--readout` defaults to **0.3 seconds** (record the adopted value in `decision-log.md`). Clip only if it would pass the next caption's start.
+- **Do not extend to the next caption's start** (no tiling). **Speechless intervals have no caption**; do not fill gaps. Extend short captions to the default 1.0-second floor only without crossing the next caption; check warnings if the floor cannot be reached.
+- Caption start/end are anchored in source seconds (§1); `words[]` use the same source seconds.
 
-`--max-chars` は既定 20・文節優先（句点 > ポーズ > 読点 > 文字数 / 秒数）。`--split none` で旧挙動に戻せる。複数素材では `--source <sources[].id>` で対象を選ぶ。
-按分 fallback は CLI が内包する（語時刻が無い場合は句点等で切り、segment 区間を文字数比で按分して読み切り猶予を加える）。
-字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
+`--max-chars` defaults to 20, and --split phrase is the default. The CLI splits at phrase boundaries in this order: sentence-ending punctuation > pause > comma > character count / seconds. `--split none` restores the old behavior. For multiple sources, select one with `--source <sources[].id>`. The CLI contains the apportionment fallback: without word times, it splits at sentence-ending punctuation and apportions segment time by character count before adding reading tail. Decide whether captions are included and what style to use in the caption slot of [report-guide.md](report-guide.md)'s Asset plan; this section defines only interval creation.
 
-### 字幕スタイルを適用する
+### Apply caption style
 
-ユーザーが「このスタイルで」など preset 名・系統を指定した場合は、`presets/textstyle/INDEX.md` または `presets/textstyle/index.jsonl` から対応する preset id を引く。プロジェクト全体へ適用するときはリポジトリルートから次を実行する。
+If the user names a preset or style family (for example, "use this style"), find the corresponding preset id in `presets/textstyle/INDEX.md` or `presets/textstyle/index.jsonl`. For project-wide application, run the following from the repository root.
 
 ```sh
 node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 ```
 
-特定の字幕行だけへ適用するときは、0-based index または caption id を `--caption` に指定する（複数回指定可）。
+To apply only to certain caption rows, pass a zero-based index or caption id to `--caption` (repeatable).
 
 ```sh
 node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id> --caption <index|id>
 ```
 
-書き込み前に差分 JSON を確認する場合は、どちらのコマンドにも `--dry-run` を加える。preset が持つフィールドは既存の `default_text_style` または `captions[].text_style` へマージされ、preset が宣言していない既存フィールドは保持される。preset の語彙にない微調整、または preset を使わない微調整は、`text_style` の該当行の Edit か edit-store のスクリプト API で `captions.json` に書く。
+Add `--dry-run` to either command to inspect the JSON diff before writing. Preset fields merge into existing `default_text_style` or `captions[].text_style`; existing fields absent from the preset remain. For adjustments outside preset vocabulary or without a preset, write to `captions.json` by targeted edit of the `text_style` row or the edit-store script API.
 
-## 5. 検証して判断記録を閉じる
+## 5. Validate and close the decision record
 
-- [edit-lint](../edit-lint/SKILL.md) を実行し、v2 構造、track / item id の一意性、source 参照、
-  整数フレーム時刻、HTML root が PASS になるまで findings を修正する。
-- overlay の CSS 変数と禁止 CSS は overlay-authoring 規約に照らして確認する。
-- 中間マスターを作った場合は、素材別対応表と実フレームで境界を確認する。
-- `decision-log.md` に実行結果（生成物一覧・provenance・実行日時）を追記し、Checkpoint 3
-  が実行済みであることを記録する。過去の log 行は変更しない。
-- 追記後に判断記録レポートを再描画し、そのパスをチャットで提示する。
+- Run [edit-lint](../edit-lint/SKILL.md), fixing findings until v2 structure, unique track/item ids, source references, integer-frame timing, and HTML root all PASS.
+- Check overlay CSS variables and prohibited CSS against overlay-authoring rules.
+- If an intermediate master was created, check boundaries with a per-source mapping table and actual frames.
+- Append execution results (generated-asset list, provenance, execution time) to `decision-log.md` and record that Checkpoint 3 was executed. Do not change earlier log rows.
+- After appending, regenerate the decision-record report and present its path in chat.
 
-## よくある間違い
+## Common mistakes
 
-- `akari captions` を使わず手で表示区間を組む（§4）。
-- 新規の `edit.json` を v0 / v1 で作る（新規は v2）。
-- 静止画を並べるために ffmpeg で連結する（画像は visual 段へ item として置く）。
-- 旧 `cuts` / `layers` / `overlays` キーや、v2 トップレベルに無い独自 field を足す。
-- `sources[].id` に無い id を media の `source.src` へ書く。
-- visual の重なりに独自 z を足す（z の権威は `tracks[]` の配列順だけ）。
-- 字幕・注釈・解析結果を timeline 秒へ変換して永続化する（正本は (`src`, source 秒)）。
-- **caption の表示区間を segment 境界で敷き詰め（`end = 次の caption の start`）、無発話区間にも字幕を残す**（実発話が終われば字幕も終わる。§4）。
-- 按分 fallback を「区間の拡張」に使い、末尾語の推定 end を越えて次 caption まで字幕を伸ばす（§4）。
-- **切り出し・先出しクリップを見せ場スコア位置の機械窓（segment 量子化時刻）のまま切り出し、意図した発話を窓の外へ落とす／全文 1.0s 未満の読めない字幕を出す**（発話へスナップし呼吸 0.5s を残す。§2）。
-- item の `at` / `duration` を秒で書く（v2 は整数フレーム）。
-- media の `source.in` / `source.out` を出力フレームで書く（素材秒である）。
-- 重ねた素材とカットの時間ズレを `blend=difference` の絶対差で測る（色が違うと指標が平坦になり
-  誤った結論に落ちる。フレーム間差分の相互相関で測る。§1 重ねる media クリップの時間基準）。
-- 実行承認前に中間マスターや overlay を作る。
-- authoring skill がないことを理由に規約を省略する。
-- edit.json の sample 値を、承認されていない出力仕様として使う。
+- Manually building display intervals instead of using `akari captions` (§4).
+- Creating a new `edit.json` as v0/v1 instead of v2.
+- Concatenating stills with ffmpeg instead of using visual items.
+- Adding old `cuts` / `layers` / `overlays` keys or custom v2 top-level fields.
+- Writing a media `source.src` id absent from `sources[].id`.
+- Adding custom z for visual stacking; only `tracks[]` order controls it.
+- Persisting captions, annotations, or analysis in timeline seconds instead of (`src`, source seconds).
+- **Tiling caption intervals at segment boundaries (`end = 次の caption の start`) and leaving captions over speechless gaps**; captions end with speech (§4).
+- Using apportionment fallback to extend an interval beyond the last word's estimated end to the next caption (§4).
+- **Cutting extracted clips at machine windows around highlight scores (quantized segment times), omitting intended speech or showing a caption for less than 1.0s**; snap to speech with 0.5s breathing room (§2).
+- Writing item `at` / `duration` in seconds rather than integer frames.
+- Writing media `source.in` / `source.out` in output frames rather than source seconds.
+- Measuring overlay-to-cut lag with absolute `blend=difference`; color differences flatten it and mislead. Use inter-frame difference cross-correlation (§1, timing basis for overlaid media).
+- Creating an intermediate master or overlay before execution approval.
+- Skipping authoring rules because the authoring skill is unavailable.
+- Treating sample edit.json values as unapproved output specifications.

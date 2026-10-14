@@ -82,17 +82,18 @@ test("display_policy 未宣言のプロジェクトは現行の書き出しバ�
   };
   const expected = {
     legacyArray: {
-      html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "f01557e3c3265fe63bc529bcdcdb9291256f239067f57d1028a574ac11f82a7d",
+      html: "b07df8878a93e31949f8a08b7e87a6a0ab02c934247e8f8817d2641e763bbc6e",
+      sheet: "441a40fc1e3b1aeb1d684b18b6ead84a7ca0e1eb4cd8b02b17ee44cfce902cb8",
     },
     legacyObject: {
-      html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "49816d1dd33ecbb4a372cb0e54ecc90bac8e9b9e8cdaabe531c2ba3172f9e41d",
+      html: "b07df8878a93e31949f8a08b7e87a6a0ab02c934247e8f8817d2641e763bbc6e",
+      sheet: "3e6d404b65f982be6421c8ed49d9718291dd286c5ca0c96589f020214b4e2ffb",
     },
   };
   for (const [name, captions] of Object.entries({ legacyArray, legacyObject })) {
     const page = buildOsrPage(buildArgs(captions));
-    assert.equal(digest(page.html), expected[name].html, `${name}: ページ HTML が変わった`);
+    const withoutWarningMessages = page.html.replace(/,"messages":\{"longGop":"(?:\\.|[^"\\])*"\}/u, "");
+    assert.equal(digest(withoutWarningMessages), expected[name].html, `${name}: ページ HTML が変わった`);
     assert.equal(digest(page.overlaySheetHtml), expected[name].sheet, `${name}: overlay シートが変わった`);
   }
 });

@@ -1,5 +1,5 @@
 // Static, Node-only manifest. No third-party dependencies or browser globals.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -138,8 +138,9 @@ export const runtimes = [
     scripts: [{path:"src/vendor/three-bundle.js"}, {path:"src/vendor/vendor-3d-text-bundle.js", when:{nonEmptyArray:"texts"}}, {path:"src/three-runtime.js", exportSource:exportDrawingSource}],
     usesVideoTextures: true, exportRenderOptions: false, exportSceneLabel: "3D",
     browserOptions: { defaultFontUrl: "/__akari/fonts/zen-kaku-gothic-new-black.ttf" },
-    assetReferences: (descriptor, ctx) => threeReferences(descriptor, ctx.label),
-    embed: (overlay, ctx) => embedThreeModels(overlay.html, ctx.projectRoot, overlay.id, overlay.vars ?? {}),
+    assetReferences: (descriptor, ctx) => threeReferences(descriptor, ctx.label, ctx.htmlPath),
+    embed: (overlay, ctx) => embedThreeModels(overlay.html, ctx.projectRoot, overlay.id, overlay.vars ?? {},
+      { htmlPath: overlay.htmlPath, resolveInput: ctx.resolveDeclaredProjectInput }),
     appliesTo: () => true,
     requiredFor: (category, ctx) => category === "scene3d" && ctx.name === "fragment.html",
     missingMessage: 'fragment.html に <script type="application/json" data-akari-3d-scene> 宣言が見つかりません',
@@ -260,8 +261,14 @@ export function extractRuntimeAssetReferences(html, htmlPath = "fragment.html", 
   }));
 }
 
-function threeReferences(descriptor, overlayLabel = "overlay") {
- const references = [];
+// 断片に書かれたパスは断片のフォルダ基準で探し、無ければプロジェクト基準（embedThreeModels の
+// threeAssetLocator と同じ規則。内部契約 2026-10-11-3d-place §4）。入力の収集側は path を先に試し、
+// 解決できなければ fallbackPath を使う
+function threeReferences(descriptor, overlayLabel = "overlay", htmlPath) {
+ const raw = [];
+ const fragmentDir = typeof htmlPath === "string" && htmlPath && !htmlPath.trimStart().startsWith("<")
+   && htmlPath !== "edit.json" ? htmlPath.replaceAll("\\", "/").split("/").slice(0, -1).join("/") : "";
+ const references = { push: (reference) => raw.push(reference) };
     if (!isRecord(descriptor)) {
       throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
     }
@@ -305,7 +312,10 @@ function threeReferences(descriptor, overlayLabel = "overlay") {
         references.push({ role: `texture:${name}`, path: override.texture });
       }
     }
- return references;
+ return raw.map((reference) => {
+   const local = reference.path.replaceAll("\\", "/").replace(/^\.\//u, "");
+   return fragmentDir ? { ...reference, path: `${fragmentDir}/${local}`, fallbackPath: reference.path } : reference;
+ });
 }
 function glassReferences(descriptor, htmlPath = "fragment.html", overlayLabel = "overlay") {
  const references = [];
@@ -387,8 +397,33 @@ function embedGlassBackdrop(overlay, projectRoot, resolveDeclaredProjectInput) {
     }, true);
 }
 
-function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
+// 3D の宣言に書かれたパスの実体を探す。断片に書かれたパスは断片のフォルダ基準（無ければ従来どおり
+// プロジェクト基準）、item の source.vars から来たパスはプロジェクト基準。resolveInput（render-cut の
+// resolveDeclaredProjectInput）があればプロジェクトの外への脱出を拒み、参照で置いた素材はライブラリから読む
+// （内部契約 2026-10-11-3d-place §4）
+function threeAssetLocator(projectRoot, htmlPath, resolveInput, overlayId) {
+  const fragmentDir = typeof htmlPath === "string" && htmlPath && !htmlPath.trimStart().startsWith("<")
+    ? htmlPath.replaceAll("\\", "/").split("/").slice(0, -1).join("/") : "";
+  const absoluteOf = (path) => resolveInput
+    ? resolveInput(projectRoot, path, `overlay:${overlayId}:3d-asset`)
+    : resolve(projectRoot, path);
+  return (path, origin) => {
+    const normalized = path.replaceAll("\\", "/").replace(/^\.\//u, "");
+    if (origin === "fragment" && fragmentDir) {
+      try {
+        const local = absoluteOf(`${fragmentDir}/${normalized}`);
+        if (existsSync(local)) return local;
+      } catch {
+        // 断片のフォルダに無ければプロジェクト基準へ（後方互換）
+      }
+    }
+    return absoluteOf(normalized);
+  };
+}
+
+function embedThreeModels(html, projectRoot, overlayId, overlayVars, { htmlPath, resolveInput } = {}) {
   if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
+  const locate = threeAssetLocator(projectRoot, htmlPath, resolveInput, overlayId);
   let declarationCount = 0;
   const embedded = replaceDeclarations(html, runtimes.find(entry => entry.id === "three"),
     ({ opening: openingTag, json: jsonText, closing: closingTag }) => {
@@ -420,7 +455,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
       }
       const embeddedDescriptor = { ...descriptor };
       if (typeof descriptor.model === "string") {
-        const modelPath = resolve(projectRoot, descriptor.model);
+        const modelPath = locate(descriptor.model, "fragment");
         const model = readFileSync(modelPath);
         embeddedDescriptor.model = `data:model/gltf-binary;base64,${model.toString("base64")}`;
       }
@@ -445,7 +480,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
               `3D overlay ${overlayId} texts.${textDescriptor.id}.font has an unsupported type: ${extension || "none"}`,
             );
           }
-          const fontFile = readFileSync(resolve(projectRoot, font));
+          const fontFile = readFileSync(locate(font, "fragment"));
           return {
             ...textDescriptor,
             font: `data:${mimeType};base64,${fontFile.toString("base64")}`,
@@ -466,7 +501,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
             `3D overlay ${overlayId} environment.map must be an equirectangular image: ${map}`,
           );
         }
-        const image = readFileSync(resolve(projectRoot, map));
+        const image = readFileSync(locate(map, "fragment"));
         embeddedDescriptor.environment = {
           ...descriptor.environment,
           map: `data:${mimeType};base64,${image.toString("base64")}`,
@@ -485,7 +520,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
               || typeof override !== "object"
               || Array.isArray(override)
               || Object.keys(override).some(
-                (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+                (key) => !["texture", "textureVar", "brightness", "target", "fit", "fitVar"].includes(key)
               )
               || typeof override.texture !== "string"
               || override.texture.length === 0) {
@@ -506,6 +541,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
             let texturePath = typeof variableTexture === "string" && variableTexture.length > 0
               ? variableTexture
               : override.texture;
+            let textureOrigin = texturePath === override.texture ? "fragment" : "vars";
             const textureVariableMatch = /^var\(\s*(--[\w-]+)\s*\)$/u.exec(texturePath);
             if (textureVariableMatch) {
               const resolvedTexture = overlayVars[textureVariableMatch[1]];
@@ -515,13 +551,14 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
                 );
               }
               texturePath = resolvedTexture;
+              textureOrigin = "vars";
             }
             if (texturePath.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(texturePath)) {
               throw new TypeError(
                 `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
               );
             }
-            const texture = readFileSync(resolve(projectRoot, texturePath));
+            const texture = readFileSync(locate(texturePath, textureOrigin));
             const mimeType = textureMimeType(texturePath);
             if (mimeType.startsWith("video/") && texture.length > MAX_VIDEO_TEXTURE_BYTES) {
               throw new Error(

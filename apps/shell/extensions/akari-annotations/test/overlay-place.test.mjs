@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -6,6 +8,12 @@ import ts from 'typescript';
 import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
     overlayBoxOrOutput, overlayTransformForBox, overlayBoxWithinDelay,
     parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../lib/common/overlay-place.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('置く要求のキーと位置を検証する', () => {
     assert.deepEqual(parseOverlayPlaceRequest({ key: 'overlay/lower-third-clean', t: 3,
@@ -117,7 +125,8 @@ test('実コマンドは取り込み失敗で書かず、成功を undo 1 回で
     const window = { setTimeout, clearTimeout, dispatchEvent: event => { events.push(event); return true; } };
     const previousWindow = globalThis.window;
     globalThis.window = window;
-    const context = createContext({ parseOverlayPlaceRequest, resolveThenWriteOverlay, nextOverlayItemId,
+    const context = createContext({ t: annotationT, i18n_1: annotationI18n,
+        parseOverlayPlaceRequest, resolveThenWriteOverlay, nextOverlayItemId,
         buildOverlayItem, insertOverlayItem, overlayDefaultVars, isUsableOverlayBox, overlayBoxWithinDelay,
         updateV2Item: (value, { itemId, patch }) => {
             const copy = structuredClone(value);

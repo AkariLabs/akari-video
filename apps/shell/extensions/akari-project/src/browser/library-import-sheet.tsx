@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { createPortal } from '@theia/core/shared/react-dom';
 import URI from '@theia/core/lib/common/uri';
@@ -6,6 +7,7 @@ import { LibraryImportItem, LibraryImportPlan, LibraryImportResult, LIBRARY_IMPO
 import { hoverPopupPosition } from '../common/material-card-hover';
 import { AssetSiteListing } from '../common/asset-sites';
 import { composeSiteAgentPrompt } from '../common/asset-site-prompt';
+import { isOsFileDropInput } from '../common/delegated-drop';
 import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_LINE, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 interface Props {
@@ -46,6 +48,7 @@ const css = `
 .akari-import-sheet footer { flex:none; display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:${AKARI_BORDER.hairline}; }
 .akari-import-sheet .theia-button { min-width:0 !important; margin-left:0 !important; }
 .akari-import-drop { border:1px dashed ${AKARI_LINE.edge}; border-radius:calc(${AKARI_RADIUS.panel}px + 2px); padding:28px 14px; display:grid; justify-items:center; gap:10px; text-align:center; color:var(--akari-muted); background:${AKARI_SURFACE.card}; font-size:12px; }
+.akari-import-drop[data-akari-drop-over='true'] { border-color:var(--akari-accent); background:color-mix(in srgb, var(--akari-accent) 12%, ${AKARI_SURFACE.card}); }
 .akari-import-drop .codicon { font-size:26px; color:${AKARI_FAINT}; }
 .akari-import-drop strong { color:${AKARI_INK}; font-size:13px; }
 .akari-import-ok { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--akari-success); }
@@ -54,6 +57,7 @@ const css = `
 .akari-import-group-count { margin-left:auto; color:var(--akari-muted); font-size:11.5px; font-weight:400; font-variant-numeric:tabular-nums; }
 .akari-import-row { display:flex; align-items:center; gap:8px; padding:6px 10px; border-top:${AKARI_BORDER.hairline}; font-size:12px; }
 .akari-import-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-import-filename { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--akari-muted); font-size:10.5px; }
 .akari-import-duration { color:${AKARI_FAINT}; font-variant-numeric:tabular-nums; font-size:11.5px; }
 .akari-import-row-ambiguous { flex-wrap:wrap; }
 .akari-import-kind-question { width:100%; display:flex; align-items:center; gap:8px; color:var(--akari-muted); font-size:11.5px; }
@@ -89,7 +93,7 @@ const css = `
 `;
 
 export function libraryImportReadinessText(rejectedCount: number): string {
-    return `✓ 全部読み込めることを確認しました${rejectedCount > 0 ? `（取り込まない ${rejectedCount} 件）` : ''}`;
+    return t('project.library.importSheet.allFilesCanBeReadLabel', { value1: rejectedCount > 0 ? t('project.library.importSheet.rejectedCountWillNotBeImportedLabel', { rejectedCount: rejectedCount }) : '' });
 }
 
 export function focusLibraryImportSheet(element: HTMLElement | null): void {
@@ -109,6 +113,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
     const [siteRequest, setSiteRequest] = React.useState('');
     const [plan, setPlan] = React.useState<LibraryImportPlan>();
     const [busy, setBusy] = React.useState<'plan' | 'apply'>();
+    const [dropOver, setDropOver] = React.useState(false);
     const [error, setError] = React.useState('');
     const [asSet, setAsSet] = React.useState(false);
     const [title, setTitle] = React.useState('');
@@ -172,7 +177,9 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
     }, [props.overlayHost]);
     const begin = async (paths: string[]): Promise<void> => {
-        if (!paths.length || busy === 'apply') return;
+        setDropOver(false);
+        if (!paths.length) return;
+        if (busy === 'apply') { setError(t('project.library.importSheet.importingStatus')); return; }
         const current = ++generation.current;
         stop(); props.stopAudio(); hideHover(); waveforms.current.clear(); setMenu(false); setOpen(true);
         setPlan(undefined); setError(''); setAsSet(false); setTitle(''); setCredit(''); setBusy('plan');
@@ -200,7 +207,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                     const uri = URI.fromFilePath(item.path);
                     if (alive) setVisual({ image: uri.toString() });
                 }
-            } catch { if (alive) setVisual({ error: 'プレビューを表示できません' }); }
+            } catch { if (alive) setVisual({ error: t('project.library.importSheet.couldNotShowPreviewError') }); }
         })();
         const hide = (): void => setHover(undefined);
         window.addEventListener('scroll', hide, true); window.addEventListener('resize', hide);
@@ -218,10 +225,10 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             // Same file-URI route as the library's existing audio cards, including external sources.
             const player = audio.current ?? (audio.current = new Audio());
             player.onended = stop;
-            player.onerror = () => { stop(); setError(`${item.name} を試聴できません`); };
+            player.onerror = () => { stop(); setError(t('project.library.importSheet.cannotPreviewNameError', { name: item.name })); };
             player.src = uri.toString();
             await player.play();
-        } catch (e) { if (current === playGeneration.current) { stop(); setError(`試聴できません: ${String(e)}`); } }
+        } catch (e) { if (current === playGeneration.current) { stop(); setError(t('project.library.importSheet.cannotPreviewAudioError', { value1: String(e) })); } }
     };
     const apply = async (): Promise<void> => {
         if (!plan || busy || (asSet && !title.trim())) return;
@@ -240,50 +247,51 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         onMouseEnter={event => { const position = hoverPopupPosition(event.currentTarget.getBoundingClientRect(),
             { width: window.innerWidth, height: window.innerHeight }, { width: 300, height: 220 }); hideHover(); hoverDelay.current = setTimeout(() => setHover({ item, ...position }), 250); }}
         onMouseLeave={hideHover}>
-        {item.category === 'audio' && <button type='button' className='theia-button secondary icon akari-import-audio' style={{ borderRadius: '50%' }} aria-label={`${item.name} を試聴`} aria-pressed={playing === item.path}
+        {item.category === 'audio' && <button type='button' className='theia-button secondary icon akari-import-audio' style={{ borderRadius: '50%' }} aria-label={t('project.library.importSheet.previewNameAction', { name: item.name })} aria-pressed={playing === item.path}
             onClick={() => void play(item)}>{playing === item.path ? '■' : '▶'}</button>}
-        <span className='akari-import-name' title={item.path}>{item.name}</span>
-        <small className='akari-import-duration'>{item.durationSec !== null ? `${item.durationSec.toFixed(1)} 秒` : `${((item.bytes ?? 0) / 1024).toFixed(0)} KB`}</small>
-        {item.ambiguous && <span className='akari-import-kind-question'>どちらで入れる？<span role='group' aria-label={`${item.name} の種類`} className='akari-seg'>
+        <span className='akari-import-name' title={item.path}>{item.kind === 'font' && item.title && item.title !== item.name
+            ? <>{item.title}<small className='akari-import-filename'>{item.name}</small></> : item.name}</span>
+        <small className='akari-import-duration'>{item.durationSec !== null ? t('project.library.importSheet.secLabel', { value1: item.durationSec.toFixed(1) }) : `${((item.bytes ?? 0) / 1024).toFixed(0)} KB`}</small>
+        {item.ambiguous && <span className='akari-import-kind-question'>{t('project.library.importSheet.howWouldYouLikeImportQuestion')}<span role='group' aria-label={t('project.library.importSheet.typeNameLabel', { name: item.name })} className='akari-seg'>
             {(['sfx', 'bgm'] as const).map(kind => <button type='button' className='theia-button quiet small' key={kind} aria-pressed={item.kind === kind}
                 disabled={busy === 'apply'} onClick={() => setPlan(previous => previous && ({ ...previous,
-                    items: previous.items.map(entry => entry.path === item.path ? { ...entry, kind } : entry) }))}>{kind === 'sfx' ? '効果音' : 'BGM'}</button>)}
+                    items: previous.items.map(entry => entry.path === item.path ? { ...entry, kind } : entry) }))}>{kind === 'sfx' ? t('project.library.importSheet.soundEffectLabel') : 'BGM'}</button>)}
         </span></span>}
     </div>;
     const count = plan?.items.filter(item => item.selected !== false).length ?? 0;
     return createPortal(<div className='akari-library-import'>
         <style>{css}</style>
-        <button ref={addButton} type='button' className='theia-button akari-library-import-add' aria-label='ライブラリに追加' aria-haspopup='menu' aria-expanded={menu}
+        <button ref={addButton} type='button' className='theia-button akari-library-import-add' aria-label={t('project.library.importSheet.addLibraryAction')} aria-haspopup='menu' aria-expanded={menu}
             style={{ position: 'fixed', left: bounds.right - 58, top: bounds.bottom - 100, width: 42, height: 42, borderRadius: '50%', fontSize: 24, zIndex: 30 }}
             onClick={() => setMenu(!menu)}>＋</button>
         {menu && <div style={{ position: 'fixed', left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height, zIndex: 40 }} onClick={() => setMenu(false)}>
-            <div ref={menuElement} role='menu' aria-label='ライブラリに追加' className='akari-import-menu'
+            <div ref={menuElement} role='menu' aria-label={t('project.library.importSheet.addLibraryAction')} className='akari-import-menu'
                 onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') { setMenu(false); addButton.current?.focus({ preventScroll: true }); } }}>
                 <button type='button' className='theia-button quiet akari-import-menu-item' role='menuitem' onClick={() => { setMenu(false); setPlan(undefined); setError(''); setOpen(true); }}>
-                    <span className='akari-import-menu-icon codicon codicon-folder-opened' aria-hidden='true' /><span><span className='akari-import-menu-title'>ローカルから取り込む</span><span className='akari-import-menu-description'>{props.isOSX ? 'この Mac のファイルやフォルダ' : 'このパソコンのファイルやフォルダ'}</span></span></button>
+                    <span className='akari-import-menu-icon codicon codicon-folder-opened' aria-hidden='true' /><span><span className='akari-import-menu-title'>{t('project.library.shelf.importDeviceAction')}</span><span className='akari-import-menu-description'>{props.isOSX ? t('project.library.importSheet.filesFoldersMacLabel') : t('project.library.importSheet.filesFoldersComputerLabel')}</span></span></button>
                 <button type='button' className='theia-button quiet akari-import-menu-item' role='menuitem' onClick={showSites}>
-                    <span className='akari-import-menu-icon codicon codicon-globe' aria-hidden='true' /><span><span className='akari-import-menu-title'>素材サイトでさがす</span><span className='akari-import-menu-description'>Lab と、無料で使える配布サイト</span></span></button>
+                    <span className='akari-import-menu-icon codicon codicon-globe' aria-hidden='true' /><span><span className='akari-import-menu-title'>{t('project.library.importSheet.findAssetSitesAction')}</span><span className='akari-import-menu-description'>{t('project.library.importSheet.labFreeAssetSitesLabel')}</span></span></button>
                 <button type='button' className='theia-button quiet akari-import-menu-item' role='menuitem' disabled>
-                    <span className='akari-import-menu-icon codicon codicon-link' aria-hidden='true' /><span><span className='akari-import-menu-title'>URL を貼って入れる<span className='akari-import-soon'>今後</span></span><span className='akari-import-menu-description'>配布ページの URL から取り込む</span></span></button>
+                    <span className='akari-import-menu-icon codicon codicon-link' aria-hidden='true' /><span><span className='akari-import-menu-title'>{t('project.library.importSheet.importUrlAction')}<span className='akari-import-soon'>{t('project.library.importSheet.comingLaterLabel')}</span></span><span className='akari-import-menu-description'>{t('project.library.importSheet.importAssetPageUrlAction')}</span></span></button>
                 <div className='akari-import-menu-separator' role='separator' />
-                <button type='button' className='theia-button quiet akari-import-menu-item plain' role='menuitem' onClick={() => { setMenu(false); props.overlayHost.dispatchEvent(new CustomEvent('akari.library.changeLocation')); }}><span className='akari-import-menu-title'>素材の置き場を変える…</span></button>
+                <button type='button' className='theia-button quiet akari-import-menu-item plain' role='menuitem' onClick={() => { setMenu(false); props.overlayHost.dispatchEvent(new CustomEvent('akari.library.changeLocation')); }}><span className='akari-import-menu-title'>{t('project.library.importSheet.changeAssetLocationAction')}</span></button>
                 <button type='button' className='theia-button quiet akari-import-menu-item plain' role='menuitem' onClick={() => { setMenu(false); setCheckOpen(true); setCheckBusy(true); setCheckResult(undefined); setError('');
-                    void props.service.checkLibrary(props.projectUri).then(setCheckResult).catch(e => setError(String(e))).finally(() => setCheckBusy(false)); }}><span className='akari-import-menu-title'>ライブラリを点検</span></button>
+                    void props.service.checkLibrary(props.projectUri).then(setCheckResult).catch(e => setError(String(e))).finally(() => setCheckBusy(false)); }}><span className='akari-import-menu-title'>{t('project.library.importSheet.checkLibraryAction')}</span></button>
             </div>
         </div>}
         {checkOpen && <div className='akari-import-backdrop' data-akari-library-check-sheet
             style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
             onMouseDown={event => { if (event.target === event.currentTarget) setCheckOpen(false); }}>
-            <div ref={checkDialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label='ライブラリを点検' className='akari-import-sheet' onKeyDown={event => sheetKeyDown(event, () => setCheckOpen(false))}>
-                <header><span className='akari-import-title'>ライブラリを点検</span><button type='button' className='theia-button quiet small' onClick={() => setCheckOpen(false)}>閉じる</button></header>
+            <div ref={checkDialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label={t('project.library.importSheet.checkLibraryAction')} className='akari-import-sheet' onKeyDown={event => sheetKeyDown(event, () => setCheckOpen(false))}>
+                <header><span className='akari-import-title'>{t('project.library.importSheet.checkLibraryAction')}</span><button type='button' className='theia-button quiet small' onClick={() => setCheckOpen(false)}>{t('project.library.card.close')}</button></header>
                 <div className='akari-import-scroll'>
-                    {checkBusy && <p role='status'>点検しています…</p>}
-                    {checkResult && <><div className='akari-import-summary'><div><b>{checkResult.ok}</b>問題なし</div><div><b>{checkResult.warnings.length}</b>注意</div><div><b>{checkResult.errors.length}</b>エラー</div></div>
+                    {checkBusy && <p role='status'>{t('project.library.importSheet.checkingStatus')}</p>}
+                    {checkResult && <><div className='akari-import-summary'><div><b>{checkResult.ok}</b>{t('project.library.importSheet.noIssuesError')}</div><div><b>{checkResult.warnings.length}</b>{t('project.library.importSheet.warningLabel')}</div><div><b>{checkResult.errors.length}</b>{t('project.library.importSheet.errorLabel')}</div></div>
                         <div className='akari-import-group'>{[...checkResult.errors, ...checkResult.warnings].map((finding, index) =>
                             <div className='akari-import-finding' key={`${finding.code}-${finding.category}-${finding.id}-${index}`}>
-                                <span className={`akari-import-level ${finding.level === 'error' ? 'error' : 'warning'}`}>{finding.level === 'error' ? 'エラー' : '注意'}</span>
+                                <span className={`akari-import-level ${finding.level === 'error' ? 'error' : 'warning'}`}>{finding.level === 'error' ? t('project.library.importSheet.errorLabel') : t('project.library.importSheet.warningLabel')}</span>
                                 <span>{finding.message}<small>{finding.category}/{finding.id}</small></span>
-                                {finding.level === 'error' && <span className='akari-import-finding-action'><button type='button' className='theia-button secondary small' onClick={() => props.revealLibraryPath(finding.dir)}>Finder で場所を見る</button></span>}
+                                {finding.level === 'error' && <span className='akari-import-finding-action'><button type='button' className='theia-button secondary small' onClick={() => props.revealLibraryPath(finding.dir)}>{t('project.library.menu.reveal')}</button></span>}
                             </div>)}</div></>}
                     {error && <p role='alert'>{error}</p>}
                 </div>
@@ -292,75 +300,80 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         {sitesOpen && <div className='akari-import-backdrop' data-akari-site-sheet
             style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
             onMouseDown={event => { if (event.target === event.currentTarget) setSitesOpen(false); }}>
-            <div ref={sitesDialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label='素材サイトでさがす' className='akari-import-sheet' onKeyDown={event => sheetKeyDown(event, () => setSitesOpen(false))}>
-                <header><span className='akari-import-title'>素材サイトでさがす</span><button type='button' className='theia-button quiet small' onClick={() => setSitesOpen(false)}>閉じる</button></header>
+            <div ref={sitesDialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label={t('project.library.importSheet.findAssetSitesAction')} className='akari-import-sheet' onKeyDown={event => sheetKeyDown(event, () => setSitesOpen(false))}>
+                <header><span className='akari-import-title'>{t('project.library.importSheet.findAssetSitesAction')}</span><button type='button' className='theia-button quiet small' onClick={() => setSitesOpen(false)}>{t('project.library.card.close')}</button></header>
                 <div className='akari-import-scroll'>
-                    <div className='akari-import-lab'><div><strong>AKARI Video Lab</strong><span>そのまま使える素材。まずここから</span></div><button type='button' className='theia-button small' onClick={() => { setSitesOpen(false); props.openLab(); }}>Lab を開く</button></div>
-                    <div className='akari-import-ask'><label htmlFor='akari-site-request'>ほしいものを書いて、エージェントに探してもらう</label>
-                        <textarea id='akari-site-request' placeholder='例: 料理動画に合う、明るくて短いジングル' value={siteRequest} onChange={event => setSiteRequest(event.target.value)} />
-                        <div className='akari-import-actions'><button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>エージェントに頼む</button></div>
+                    <div className='akari-import-lab'><div><strong>AKARI Video Lab</strong><span>{t('project.library.importSheet.readyUseAssetsStartHereMessage')}</span></div><button type='button' className='theia-button small' onClick={() => { setSitesOpen(false); props.openLab(); }}>{t('project.library.importSheet.openLabAction')}</button></div>
+                    <div className='akari-import-ask'><label htmlFor='akari-site-request'>{t('project.library.importSheet.describeWhatYouNeedAskAgentMessage')}</label>
+                        <textarea id='akari-site-request' placeholder={t('project.library.importSheet.exampleShortUpbeatJingleCookingVideoLabel')} value={siteRequest} onChange={event => setSiteRequest(event.target.value)} />
+                        <div className='akari-import-actions'><button type='button' className='theia-button secondary small' disabled={!siteRequest.trim()} onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>{t('project.web.assetSite.askAgentAction')}</button></div>
                     </div>
-                    <div role='tablist' aria-label='素材サイトの種類' className='akari-seg' style={{ alignSelf: 'flex-start' }}>
-                        {([['audio', '音'], ['font', 'フォント'], ['visual', '映像・画像']] as const).map(([key, label]) =>
+                    <div role='tablist' aria-label={t('project.library.importSheet.assetSiteTypeLabel')} className='akari-seg' style={{ alignSelf: 'flex-start' }}>
+                        {([['audio', t('project.handoff.item.audioLabel')], ['font', t('project.library.importSheet.fontLabel')], ['visual', t('project.library.importSheet.videoImagesLabel')]] as const).map(([key, label]) =>
                             <button key={key} type='button' className='theia-button quiet small' role='tab' aria-selected={siteTab === key} onClick={() => setSiteTab(key)}>{label}</button>)}
                     </div>
                     {sites.filter(value => value.site.tab === siteTab && value.site.price === 'free').map(value =>
                         <div className='akari-import-site' key={value.site.id}>
-                            <div className='akari-import-site-heading'><strong>{value.site.name}</strong><span className='akari-import-free'>無料</span>{value.recommendations.length > 0 && <span className='akari-import-site-recs'>定番 {value.recommendations.length} 件</span>}</div>
+                            <div className='akari-import-site-heading'><strong>{value.site.name}</strong><span className='akari-import-free'>{t('project.library.price.free')}</span>{value.recommendations.length > 0 && <span className='akari-import-site-recs'>{t('project.library.importSheet.popularLabel')}{value.recommendations.length} {t('project.materials.pane.itemsLabel')}</span>}</div>
                             <p>{value.site.terms.summary_ja}</p>
-                            <div className='akari-import-actions'><button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>開く</button>
-                                <button type='button' className='theia-button quiet small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>エージェントに頼む</button></div>
+                            <div className='akari-import-actions'><button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>{t('project.library.importSheet.openAction')}</button>
+                                <button type='button' className='theia-button quiet small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>{t('project.web.assetSite.askAgentAction')}</button></div>
                         </div>)}
-                    <details className='akari-import-paid'><summary>有料・サブスクのサービス（{sites.filter(value => value.site.tab === siteTab && value.site.price !== 'free').length}）</summary>
+                    <details className='akari-import-paid'><summary>{t('project.library.importSheet.paidSubscriptionServicesLabel')}{sites.filter(value => value.site.tab === siteTab && value.site.price !== 'free').length}）</summary>
                         {sites.filter(value => value.site.tab === siteTab && value.site.price !== 'free').map(value =>
                             <div className='akari-import-row' key={value.site.id}><strong>{value.site.name}</strong>
-                                <small>{value.site.price === 'subscription' ? 'サブスク' : '買い切り'}</small>
-                                <small>{siteTab === 'audio' ? '音素材' : siteTab === 'font' ? 'フォント' : '映像・画像'}</small>
+                                <small>{value.site.price === 'subscription' ? t('project.catalog.distribution.subscription') : t('project.library.importSheet.oneTimePurchaseLabel')}</small>
+                                <small>{siteTab === 'audio' ? t('project.library.importSheet.audioAssetsLabel') : siteTab === 'font' ? t('project.library.importSheet.fontLabel') : t('project.library.importSheet.videoImagesLabel')}</small>
                                 <span>{value.site.terms.summary_ja}</span>
-                                <button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>開く</button>
-                                <button type='button' className='theia-button quiet small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>エージェントに頼む</button></div>)}</details>
+                                <button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>{t('project.library.importSheet.openAction')}</button>
+                                <button type='button' className='theia-button quiet small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>{t('project.web.assetSite.askAgentAction')}</button></div>)}</details>
                     {error && <p role='alert'>{error}</p>}
                 </div>
             </div>
         </div>}
         {open && <div className='akari-import-backdrop' data-akari-local-import-sheet style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
             onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
-            <div ref={dialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label='ローカルから取り込む' className='akari-import-sheet'
+            <div ref={dialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label={t('project.library.shelf.importDeviceAction')} className='akari-import-sheet'
                 onKeyDown={event => sheetKeyDown(event, close)}>
-                <header><span className='akari-import-title'>{plan ? `${count} 個を取り込みます` : 'ローカルから取り込む'}{plan && <span className='akari-import-subtitle'>種類ごとに分けました。違っていたら直せます</span>}</span>
-                    {!plan && <button type='button' className='theia-button quiet small' disabled={busy === 'apply'} onClick={close}>閉じる</button>}</header>
+                <header><span className='akari-import-title'>{plan ? t('project.library.importSheet.importItemCountStatus', { count: count, n: count }) : t('project.library.shelf.importDeviceAction')}{plan && <span className='akari-import-subtitle'>{t('project.library.importSheet.filesWereGroupedTypeYouCanMessage')}</span>}</span>
+                    {!plan && <button type='button' className='theia-button quiet small' disabled={busy === 'apply'} onClick={close}>{t('project.library.card.close')}</button>}</header>
                 <div className='akari-import-scroll'>
-                    {busy === 'plan' && <p role='status'>ファイルを確認しています…</p>}
-                    {!plan && !busy && <div className='akari-import-drop'><span className='codicon codicon-cloud-upload' aria-hidden='true' />
-                        <strong>ここへファイルやフォルダを落とす</strong><span>音・画像・動画・フォントをまとめて入れられます</span>
-                        {props.isOSX ? <button type='button' className='theia-button secondary' onClick={() => void pick('both')}>ファイル・フォルダを選ぶ</button>
-                            : <div className='akari-import-actions'><button type='button' className='theia-button secondary' onClick={() => void pick('files')}>ファイルを選ぶ</button><button type='button' className='theia-button secondary' onClick={() => void pick('folders')}>フォルダを選ぶ</button></div>}
+                    {busy === 'plan' && <p role='status'>{t('project.library.importSheet.checkingFilesStatus')}</p>}
+                    {!plan && !busy && <div className='akari-import-drop' data-akari-drop-over={dropOver}
+                        onDragEnter={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(true); }}
+                        onDragOver={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(true); }}
+                        onDragLeave={event => { if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+                            if (dropOver) setDropOver(false); }}
+                        onDrop={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(false); }}><span className='codicon codicon-cloud-upload' aria-hidden='true' />
+                        <strong>{t('project.library.importSheet.dropFilesFoldersHereAction')}</strong><span>{t('project.library.importSheet.importAudioImagesVideoFontsTogetherAction')}</span>
+                        {props.isOSX ? <button type='button' className='theia-button secondary' onClick={() => void pick('both')}>{t('project.library.importSheet.chooseFilesFoldersAction')}</button>
+                            : <div className='akari-import-actions'><button type='button' className='theia-button secondary' onClick={() => void pick('files')}>{t('project.library.importSheet.chooseFilesAction')}</button><button type='button' className='theia-button secondary' onClick={() => void pick('folders')}>{t('project.library.pane.chooseFolderAction')}</button></div>}
                     </div>}
                     {plan && <>
                         <div className='akari-import-ok'>{libraryImportReadinessText(plan.rejected.length)}</div>
-                        {plan.truncated && <p role='alert'>一度に確認できる {plan.limit} 件まで表示しています。残りは分けて取り込んでください。</p>}
+                        {plan.truncated && <p role='alert'>{t('project.library.importSheet.canInspectLabel')}{plan.limit} {t('project.library.importSheet.itemsOnceImportRestSeparatelyMessage')}</p>}
                         {plan.warnings.map((warning, index) => <p key={index} role='status'>{warning}</p>)}
                         {libraryImportGroups(plan).map(group => <details key={group.kind} className='akari-import-group'>
-                            <summary><span>{group.icon} {group.label}</span><span className='akari-import-group-count'>{group.items.length} 件</span></summary>
+                            <summary><span>{group.icon} {group.label}</span><span className='akari-import-group-count'>{group.items.length} {t('project.materials.pane.itemsLabel')}</span></summary>
                             {group.items.map(row)}
                         </details>)}
-                        {plan.items.some(item => item.ambiguous) && <section className='akari-import-group' aria-label='迷ったもの'>
-                            <div className='akari-import-group-heading'>迷ったもの<span className='akari-import-group-count'>{plan.items.filter(item => item.ambiguous).length} 件</span></div>
+                        {plan.items.some(item => item.ambiguous) && <section className='akari-import-group' aria-label={t('project.library.importSheet.unclassifiedLabel')}>
+                            <div className='akari-import-group-heading'>{t('project.library.importSheet.unclassifiedLabel')}<span className='akari-import-group-count'>{plan.items.filter(item => item.ambiguous).length} {t('project.materials.pane.itemsLabel')}</span></div>
                             {plan.items.filter(item => item.ambiguous).map(row)}
                         </section>}
-                        {!!plan.duplicates.length && <section><h4>もう入っています · {plan.duplicates.length} 件</h4>
+                        {!!plan.duplicates.length && <section><h4>{t('project.library.importSheet.alreadyImportedLabel')}{plan.duplicates.length} {t('project.materials.pane.itemsLabel')}</h4>
                             {plan.duplicates.map((item, index) => <p key={`${item.path}-${index}`}>{item.name} → {item.title || item.id}</p>)}</section>}
-                        {!!plan.rejected.length && <section><h4>取り込まない · {plan.rejected.length} 件</h4>
+                        {!!plan.rejected.length && <section><h4>{t('project.library.importSheet.doNotImportLabel')}{plan.rejected.length} {t('project.materials.pane.itemsLabel')}</h4>
                             {plan.rejected.map((item, index) => <p key={`${item.path}-${index}`}>{item.name} — {item.reason}</p>)}</section>}
-                        <label className='akari-import-check'><input type='checkbox' checked={asSet} disabled={busy === 'apply'} onChange={event => setAsSet(event.target.checked)} />ひとまとまりのセットにする</label>
-                        {asSet && <input type='text' aria-label='セットの名前' placeholder='セットの名前' value={title} disabled={busy === 'apply'} onChange={event => setTitle(event.target.value)} />}
-                        <details><summary>くわしく</summary><label>クレジット文面（任意）<textarea value={credit} disabled={busy === 'apply'} onChange={event => setCredit(event.target.value)} /></label></details>
+                        <label className='akari-import-check'><input type='checkbox' checked={asSet} disabled={busy === 'apply'} onChange={event => setAsSet(event.target.checked)} />{t('project.library.importSheet.groupAsSetLabel')}</label>
+                        {asSet && <input type='text' aria-label={t('project.library.importSheet.setNameLabel')} placeholder={t('project.library.importSheet.setNameLabel')} value={title} disabled={busy === 'apply'} onChange={event => setTitle(event.target.value)} />}
+                        <details><summary>{t('project.library.importSheet.detailsLabel')}</summary><label>{t('project.library.importSheet.creditTextOptionalLabel')}<textarea value={credit} disabled={busy === 'apply'} onChange={event => setCredit(event.target.value)} /></label></details>
                     </>}
                     {error && <p role='alert'>{error}</p>}
                 </div>
-                {plan && <footer><button type='button' className='theia-button quiet' disabled={busy === 'apply'} onClick={close}>閉じる</button>
+                {plan && <footer><button type='button' className='theia-button quiet' disabled={busy === 'apply'} onClick={close}>{t('project.library.card.close')}</button>
                     <button type='button' className='theia-button' disabled={!!busy || !count || (asSet && !title.trim())} onClick={() => void apply()}>
-                        {busy === 'apply' ? '取り込み中…' : `${count} 個を取り込む`}</button></footer>}
+                        {busy === 'apply' ? t('project.library.importSheet.importingStatus') : t('project.library.importSheet.importItemCountAction', { count: count, n: count })}</button></footer>}
             </div>
         </div>}
         {hover && createPortal(<div role='tooltip' className='akari-import-hover' style={{ position: 'fixed', left: hover.left, top: hover.top,
@@ -368,10 +381,10 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             background: AKARI_SURFACE.raised, color: AKARI_INK, boxShadow: '0 4px 24px color-mix(in srgb, var(--akari-ground) 50%, transparent)', border: AKARI_BORDER.edge }}>
             <div style={{ height: 145, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {visual.image ? <img src={visual.image} alt={hover.item.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                    : <span>{visual.error || (hover.item.category === 'audio' || hover.item.kind === 'still' ? '読み込み中…' : LIBRARY_IMPORT_KINDS.find(kind => kind.kind === hover.item.kind)?.label)}</span>}
+                    : <span>{visual.error || (hover.item.category === 'audio' || hover.item.kind === 'still' ? t('project.library.pane.loadingStatus') : LIBRARY_IMPORT_KINDS.find(kind => kind.kind === hover.item.kind)?.label)}</span>}
             </div>
             <div className='akari-import-name'>{hover.item.name}</div>
-            <small>{hover.item.durationSec === null ? (hover.item.durationSource === 'size' ? '尺は未取得・サイズで推定 · ' : '') : `${hover.item.durationSec.toFixed(1)} 秒 · `}
+            <small>{hover.item.durationSec === null ? (hover.item.durationSource === 'size' ? t('project.library.importSheet.durationUnavailableEstimatedSizeLabel') : '') : t('project.library.importSheet.durationSecondsWithSeparatorLabel', { value1: hover.item.durationSec.toFixed(1) })}
                 {((hover.item.bytes ?? 0) / 1024).toFixed(0)} KB</small>
         </div>, document.body)}
     </div>, props.overlayHost);

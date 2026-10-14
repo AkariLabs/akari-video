@@ -1,31 +1,30 @@
-# store-unlock — 購入済み宣言パックの導入
+# store-unlock — Install purchased declaration packs
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-ユーザーが「購入した素材をセットアップして」「宣言パックを入れて」と言ったとき、
-または AKARI Store で音源系の購入がある状態でライブラリ整備を頼まれたときの工程。
-機械的な部分はすべて `akari store` CLI が持っている — このリーフは配線と検証だけを行う。
+Use when the user asks to set up purchased assets or install a declaration pack, or requests library maintenance
+with audio purchases in AKARI Store. The `akari store` CLI handles all mechanical work; this leaf only wires and verifies it.
 
-## 手順
+## Procedure
 
-1. **接続確認**: `akari store status` を実行する
-   - 未接続なら `akari store connect` をユーザーに案内する（ブラウザが開き、
-     ストアにログイン → 承認ボタンで完了。トークンの手動コピペは不要）
-   - 接続済みなら購入済み一覧が出る。`sounds-declaration-pack` が無ければ
-     ストアの商品ページを案内して終了（勝手に購入させない）
-2. **導入**: `akari store install sounds-declaration-pack`
-   - `<ライブラリの置き場>/audio/declarations.json` に置かれる（既存があれば自動退避される）
-3. **検証**（完了主張の前に必ず）:
-   - `declarations.json` が JSON として読めること
-   - 収録トラック数がパックの表示と一致すること（`node -e` で `Object.keys(...).length`）
-   - 各エントリに `bpm` / `beat_offset_s` / `hit_points` / `sections` があること
-4. **報告**: 収録曲数と「BGM 自動提案（suggest-bgm）が実測 BPM・サビ頭出し付きで
-   優先提案するようになった」ことを伝える
+1. **Check connection**: Run `akari store status`.
+   - If disconnected, guide the user to `akari store connect` (browser opens → store login → approval button;
+     no manual token copy/paste).
+   - If connected, purchased assets are listed. Without `sounds-declaration-pack`, point to the store product page
+     and stop (do not make the user purchase on your own initiative).
+2. **Install**: `akari store install sounds-declaration-pack`.
+   - Placed in `<ライブラリの置き場>/audio/declarations.json` (existing library-location placeholder;
+     existing files are automatically backed up).
+3. **Verify** (always before claiming completion):
+   - `declarations.json` parses as JSON.
+   - Track count matches the pack's displayed count (`node -e` with `Object.keys(...).length`).
+   - Every entry has `bpm` / `beat_offset_s` / `hit_points` / `sections`.
+4. **Report**: Give the track count and explain that automatic BGM suggestions (suggest-bgm) now prioritize
+   these tracks with measured BPM and chorus cueing.
 
-## してはいけないこと
+## Prohibited actions
 
-- declarations.json を手で書き換えない（宣言データの正本はストア配布物。
-  訂正は次版のパックで届く）
-- 未購入ユーザーに向けて宣言データの中身（実測値）を貼らない（有料レイヤの漏洩防止）
+- Do not manually edit declarations.json (store-distributed data is canonical; corrections arrive in the next pack version).
+- Do not paste declaration contents (measured values) for users who have not purchased it (prevent paid-layer leakage).

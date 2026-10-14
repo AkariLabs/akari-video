@@ -22,6 +22,8 @@ html [data-akari-interaction-editing="true"] { outline: none !important; }
 .akari-interaction-selection-frame .akari-interaction-action[data-akari-interaction] { position: absolute; top: auto; bottom: -38px; width: 25px; height: 25px; border: 1px solid var(--akari-accent); border-radius: 50%; background: var(--theia-editor-background, #252526); color: var(--theia-editor-foreground, #eee); box-shadow: 0 2px 6px rgba(0,0,0,.3); display: grid; place-items: center; pointer-events: auto; touch-action: none; padding: 0; transform: none; }
 .akari-interaction-action.is-rotate { left: calc(50% - 27px); cursor: grab; }
 .akari-interaction-action.is-move { left: calc(50% + 2px); cursor: move; }
+.akari-interaction-selection-frame.is-rotation3d .akari-interaction-handle.is-edge[data-akari-interaction],
+.akari-interaction-selection-frame.is-rotation3d .akari-interaction-action.is-rotate[data-akari-interaction] { display: none; }
 .akari-interaction-selection-frame.is-busy .akari-interaction-action { display: none; }
 .akari-interaction-selection-frame.is-moving .akari-interaction-handle:not(.akari-interaction-action) { display: none; }
 .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-n, .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-s { display: none; }

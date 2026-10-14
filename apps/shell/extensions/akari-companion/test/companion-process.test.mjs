@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { CompanionProcess, DEFAULT_COMPANION_STARTUP_TIMEOUT_MS, resolveCompanionBin } from '../lib/node/companion-process.js';
@@ -257,7 +257,7 @@ test('missing bundled executable fails without throwing and can retry', async t 
   const f = await fixture(t);
   const logs = [];
   delete f.env.AKARI_VIBE_BIN;
-  const manager = new CompanionProcessManager({ ...f.options, dirnameValue: f.dir, resourcesPath: f.dir, log: line => logs.push(line) });
+  const manager = new CompanionProcessManager({ ...f.options, dirnameValue: join(parse(f.dir).root, 'akari-vibe-bin-absent'), resourcesPath: f.dir, log: line => logs.push(line) });
   f.cleanup.push(() => manager.onStop());
   const a = owner();
   assert.equal(await manager.start(a), false);

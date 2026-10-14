@@ -1,5 +1,6 @@
+import { t } from '../common/preview-text';
 import { existsSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, isAbsolute, relative, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { FragmentAssetPreviewResult, VideoStreamReference } from '../common/akari-preview-protocol';
 
@@ -49,6 +50,7 @@ export async function rewritePreviewFragmentAssets(
     const { projectRoot, htmlPath, overlayId } = options;
     const warnings: string[] = [];
     const streams: FragmentAssetPreviewResult['streams'] = [];
+    const unserved: string[] = [];
     const urls = new Map<string, string>();
     for (const reference of fragment.extractFragmentAssetReferences(html, htmlPath)) {
         if (urls.has(reference.path)) continue;
@@ -61,15 +63,20 @@ export async function rewritePreviewFragmentAssets(
             streams.push({ ...stream, uri });
             urls.set(reference.path, stream.url);
         } catch {
-            warnings.push(`overlay:${overlayId} fragment ${htmlPath} の参照 "${reference.raw}" が見つからない、または配信できない`);
+            warnings.push(t('preview.fragmentPreview.validation.referenceOverlayFragmentNotFoundCannotServedError', { p1: (overlayId), p2: (htmlPath), p3: (reference.raw) }));
             urls.set(reference.path, `about:invalid#${encodeURIComponent(reference.path)}`);
+            // The fragment can be written before its image exists. Report where the image
+            // will land so the host can reload once it arrives.
+            const candidate = resolve(projectRoot, reference.path);
+            const inside = relative(projectRoot, candidate);
+            if (inside && !inside.startsWith('..') && !isAbsolute(inside)) unserved.push(pathToFileURL(candidate).href);
         }
     }
     for (const reference of fragment.extractAbsoluteFragmentAssetReferences(html, htmlPath)) {
-        warnings.push(`overlay:${overlayId} fragment ${htmlPath} の参照 "${reference.raw}": 断片からの相対パスで書く`);
+        warnings.push(t('preview.fragmentPreview.validation.referenceOverlayFragmentMustUsePathRelativeFragmentError', { p1: (overlayId), p2: (htmlPath), p3: (reference.raw) }));
     }
     return {
         html: fragment.rewriteFragmentAssetUrls(html, { htmlPath, urlPrefix: '/', resolveUrl: reference => urls.get(reference.path) }),
-        streams, warnings
+        streams, warnings, unserved
     };
 }

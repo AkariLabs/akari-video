@@ -1,7 +1,15 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
 import { visualDeclarationChain, visualThumbnailSnapshot, visualThumbnailKey } from '../lib/browser/visual-thumbnail-key.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const job = (key, capture, priority = 0) => ({ key, priority, wanted: () => true, capture });
 

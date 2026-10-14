@@ -1,13 +1,33 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
-const { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+const { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts, guideRequiredPanels,
     pointInGuideCutouts, guideBlockedRects, guideBlockerClipPath, shouldBlockGuidePointer,
     materialPreviewTransportRect, outputCaptionBandRect, captionCoachPosition, needsCaptionStyleSelection,
     partnerFallbackReady, askHighlightTarget,
     askConnectionCopy } = require('../../lib/onboarding/guide-ui-model.js');
+
+test('案内段の的から開くパネルを選ぶ', () => {
+    assert.deepEqual(guideRequiredPanels(['assets']), ['left']);
+    assert.deepEqual(guideRequiredPanels(['sample-card', 'assets']), ['left']);
+    assert.deepEqual(guideRequiredPanels(['export-result']), ['left']);
+    assert.deepEqual(guideRequiredPanels(['timeline']), ['bottom']);
+    assert.deepEqual(guideRequiredPanels(['assets', 'timeline']), ['left', 'bottom']);
+    assert.deepEqual(guideRequiredPanels(['output', 'partner']), []);
+});
+
+test('素材カードを読めない間も素材パネルの操作範囲を残す', () => {
+    const assets = { x: 48, y: 44, width: 226, height: 830 };
+    const cutouts = guideInputCutouts([], [assets], []);
+    assert.equal(pointInGuideCutouts(100, 300, cutouts), true);
+    assert.equal(pointInGuideCutouts(400, 300, cutouts), false);
+});
 
 test('ask は本物のパートナーを見せ、その他の実演段にはチャットを出す', () => {
     for (const step of ['tour3', 'prompt', 'work', 'play', 'caption']) assert.equal(guideShowsChat(step), true);

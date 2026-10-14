@@ -26,8 +26,9 @@ const batchSvg = new Function("captionRasterBand", "removeDuplicateCaptionFontFa
 
 test("caption measurement retains the unscaled used plate width", () => {
   const relativeRect = new Function(`return (${functionSource("relativeRect")})`)();
-  const measure = new Function("getComputedStyle", "relativeRect", `return (${functionSource("measureCaptionUnit")})`)(
-    () => ({ fontSize: "45px", width: "108px" }), relativeRect,
+  const measure = new Function("getComputedStyle", "relativeRect", "measureCaptionRunEffectRects",
+    `return (${functionSource("measureCaptionUnit")})`)(
+    () => ({ fontSize: "45px", width: "108px" }), relativeRect, () => [],
   );
   const plate = { getBoundingClientRect: () => ({ left: 938, top: 500, right: 1154, bottom: 1100, width: 216, height: 600 }) };
   const root = {

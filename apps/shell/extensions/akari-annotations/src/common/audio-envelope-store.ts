@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     findMatchingBracket,
     splitTopLevelElements,
@@ -31,7 +32,7 @@ interface LocatedValue {
 function locateTopLevelProperty(scope: string, property: string): LocatedValue | undefined {
     const open = scope.indexOf('{');
     const close = open >= 0 ? findMatchingBracket(scope, open) : -1;
-    if (open < 0 || close < 0) throw new Error('音声オブジェクトを特定できません。');
+    if (open < 0 || close < 0) throw new Error(t('annotationscommon.audioEnvelopeStore.error.couldNotIdentifyAudioItem'));
     const inner = scope.slice(open + 1, close);
     const element = splitTopLevelElements(inner)
         .find(candidate => new RegExp(`^"${property}"\\s*:`).test(candidate.text));
@@ -44,17 +45,17 @@ function locateTopLevelProperty(scope: string, property: string): LocatedValue |
 
 function locateTopLevelObject(scope: string, property: string): LocatedValue {
     const located = locateTopLevelProperty(scope, property);
-    if (!located) throw new Error(`"${property}" が見つかりません。`);
+    if (!located) throw new Error(t('annotationscommon.audioEnvelopeStore.error.notFound', { property: String(property) }));
     const colon = located.text.indexOf(':');
     const open = scope.indexOf('{', located.start + colon + 1);
-    if (open < 0 || open >= located.end) throw new Error(`"${property}" が object ではありません。`);
+    if (open < 0 || open >= located.end) throw new Error(t('annotationscommon.audioEnvelopeStore.error.mustBeObject', { property: String(property) }));
     const close = findMatchingBracket(scope, open);
     return { start: open, end: close + 1, text: scope.slice(open, close + 1) };
 }
 
 function appendJsonProperty(source: string, property: string, value: unknown): string {
     const close = source.lastIndexOf('}');
-    if (close < 0) throw new Error('音声オブジェクトを特定できません。');
+    if (close < 0) throw new Error(t('annotationscommon.audioEnvelopeStore.error.couldNotIdentifyAudioItem'));
     const beforeClose = source.slice(0, close);
     const trailingWhitespace = beforeClose.match(/\s*$/)?.[0] ?? '';
     const body = beforeClose.slice(0, beforeClose.length - trailingWhitespace.length);
@@ -72,7 +73,7 @@ function appendJsonProperty(source: string, property: string, value: unknown): s
 
 function replacePropertyValue(source: string, property: string, value: unknown, label: string): string {
     const located = locateTopLevelProperty(source, property);
-    if (!located) throw new Error(`${label} の ${property} を特定できません。`);
+    if (!located) throw new Error(t('annotationscommon.audioEnvelopeStore.error.couldNotIdentify', { label: String(label), property: String(property) }));
     const colon = located.text.indexOf(':');
     const prefix = located.text.slice(0, colon + 1);
     const whitespace = located.text.slice(colon + 1).match(/^\s*/)?.[0] ?? '';
@@ -83,7 +84,7 @@ function replacePropertyValue(source: string, property: string, value: unknown, 
 function removeObjectProperty(source: string, property: string): string {
     const open = source.indexOf('{');
     const close = open >= 0 ? findMatchingBracket(source, open) : -1;
-    if (open < 0 || close < 0) throw new Error('音声オブジェクトを特定できません。');
+    if (open < 0 || close < 0) throw new Error(t('annotationscommon.audioEnvelopeStore.error.couldNotIdentifyAudioItem'));
     const inner = source.slice(open + 1, close);
     const elements = splitTopLevelElements(inner);
     const index = elements.findIndex(element => new RegExp(`^"${property}"\\s*:`).test(element.text));
@@ -118,10 +119,10 @@ function updateTargetObject(source: string, target: AudioEnvelopeTarget, update:
 
 function validateDuckUpdates(updates: AudioDuckUpdates): void {
     if (Object.values(updates).every(value => value === undefined)) {
-        throw new Error('変更するダッキングフィールドを指定してください。');
+        throw new Error(t('annotationscommon.audioEnvelopeStore.error.selectDuckingFieldChange'));
     }
     if (updates.ducking !== undefined && updates.ducking !== null && typeof updates.ducking !== 'boolean') {
-        throw new Error('ducking は boolean で指定してください。');
+        throw new Error(t('annotationscommon.audioEnvelopeStore.error.duckingMustBeBoolean'));
     }
     const ranges: Array<[number | null | undefined, number, number, string]> = [
         [updates.duckDb, -40, 0, 'duck_db'],
@@ -131,7 +132,7 @@ function validateDuckUpdates(updates: AudioDuckUpdates): void {
     for (const [value, min, max, label] of ranges) {
         if (value !== undefined && value !== null
             && (!Number.isFinite(value) || value < min || value > max)) {
-            throw new Error(`${label} は ${min}〜${max} の範囲で指定してください。`);
+            throw new Error(t('annotationscommon.audioEnvelopeStore.error.enterFrom', { label: String(label), min: String(min), max: String(max) }));
         }
     }
 }
@@ -141,9 +142,9 @@ export function normalizeAudioKeyframes(
 ): AudioEnvelopeKeyframe[] | null {
     if (keyframes === null || keyframes.length === 0) return null;
     const normalized = keyframes.map(point => {
-        if (!Number.isFinite(point.t) || point.t < 0) throw new Error('keyframes[].t は 0 以上で指定してください。');
+        if (!Number.isFinite(point.t) || point.t < 0) throw new Error(t('annotationscommon.audioEnvelopeStore.error.keyframesTMustBe0Greater'));
         if (!Number.isFinite(point.gain_db) || point.gain_db < -60 || point.gain_db > 12) {
-            throw new Error('keyframes[].gain_db は -60〜12 の範囲で指定してください。');
+            throw new Error(t('annotationscommon.audioEnvelopeStore.error.keyframesGainDbMustBeFrom60'));
         }
         return { ...point };
     });

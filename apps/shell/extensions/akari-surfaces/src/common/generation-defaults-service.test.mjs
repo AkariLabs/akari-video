@@ -3,11 +3,14 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { AkariConnectionsServiceImpl } = await import("../../lib/node/akari-connections-service.js");
 
-import { AkariConnectionsServiceImpl } from '../../lib/node/akari-connections-service.js';
 
 const execFileAsync = promisify(execFile);
 const envNames = ['AKARI_CREATOR_ROOT', 'AKARI_HOME', 'AKARI_CREDENTIALS_FILE'];

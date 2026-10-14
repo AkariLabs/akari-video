@@ -1,8 +1,9 @@
+import { t } from '@akari-video/i18n';
 import { createEmptyEditV2 } from '@akari-video/edit-store';
 
 /** edit.json がまだ無いときだけ表示する、タイムラインの開始案内。 */
 export function timelineEmptyStateMessage(hasEdit: boolean): string | undefined {
-    return hasEdit ? undefined : '素材をここへドラッグ＆ドロップするか、パートナーに話しかけて始めてください';
+    return hasEdit ? undefined : t('annotationscommon.timelineEmptyState.message.dragAssetsHereAskPartnerGetStarted');
 }
 
 /** 同じ scheme / authority の正規化済み URI パスから、edit.json 基準の素材参照を作る。 */

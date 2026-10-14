@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
 import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
@@ -77,13 +78,13 @@ import {
     LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
-import { applyCatalogFont } from '../common/font-apply-flow';
+import { applyCatalogFont, fontFamily } from '../common/font-apply-flow';
 import {
     LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
-import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { canPlaceLibraryAsset, canPlaceOverlay, isScene3dBakeRecipe, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
 import { MaterialsSort } from '../common/materials-view';
 import { DEFAULT_MATERIAL_VIEW, MaterialViewPatch } from '../common/material-view';
@@ -233,9 +234,9 @@ export interface AkariCatalogCategorySummary {
  * 拾ってネイティブビューワーで開くため、生 JSON は出ない。
  */
 const PROJECT_DATA_FILES: ReadonlyArray<{ readonly name: string; readonly label: string }> = [
-    { name: 'edit.json', label: '編集データ' },
-    { name: 'captions.json', label: '字幕データ' },
-    { name: 'review.json', label: 'レビュー・指摘' }
+    { name: 'edit.json', label: t('project.workspace.outputs.editDataLabel') },
+    { name: 'captions.json', label: t('project.library.shelf.captionsDataLabel') },
+    { name: 'review.json', label: t('project.library.shelf.reviewsFindingsLabel') }
 ];
 
 /** 「企画・メモ」グループに出すルート直下の md（`planning/` 配下は別途 walk する）。 */
@@ -429,8 +430,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             key: item.key,
             kind: item.category === 'still' ? 'image' : item.category === 'broll' ? 'video' : item.category === 'audio' ? 'audio' : 'other',
             unavailableReason: canPlaceLibraryAsset(item) ? undefined
-                : item.origin === 'local' ? 'この素材は直接取り込めません。'
-                    : item.state === 'locked' ? '未購入の素材は選べません。' : 'この種類の素材は選べません。'
+                : item.origin === 'local' ? t('project.library.shelf.assetCannotBeImportedDirectlyMessage')
+                    : item.state === 'locked' ? t('project.library.shelf.youCannotSelectAssetYouHaveMessage') : t('project.library.shelf.typeAssetCannotBeSelectedMessage')
         };
     }
 
@@ -463,19 +464,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderGenerationPickBadge(candidate: GenerationPickCandidate): React.ReactNode {
         const badge = this.generationPick.badge(candidate);
         const pending = candidate.key !== undefined && this.generationPick.pendingKey === candidate.key;
-        return badge || pending ? <span className='akari-gen-pick-badge' role='status'>{pending ? '取得中…' : badge}</span> : null;
+        return badge || pending ? <span className='akari-gen-pick-badge' role='status'>{pending ? t('project.library.shelf.downloadingStatus') : badge}</span> : null;
     }
 
     protected renderGenerationPickBand(): React.ReactNode {
         const request = this.generationPick.request;
         if (!request) { return null; }
         return <div className='akari-gen-pick-band'>
-            <strong>{request.label} に入れる素材を選ぶ</strong>
+            <strong>{request.label} {t('project.library.shelf.chooseAssetAddAction')}</strong>
             <div className='akari-gen-pick-actions'>
-                <button type='button' className='akari-gen-pick-cancel' onClick={() => this.generationPick.cancel()}>やめる</button>
+                <button type='button' className='akari-gen-pick-cancel' onClick={() => this.generationPick.cancel()}>{t('project.library.shelf.cancelLabel')}</button>
                 {request.multi && <button type='button' className='akari-gen-pick-complete'
                     disabled={!!this.generationPick.pendingKey} onClick={() => this.generationPick.complete()}>
-                    完了（{this.generationPick.paths.length}）
+                    {t('project.library.shelf.doneLabel')}{this.generationPick.paths.length}）
                 </button>}
             </div>
             {this.generationPick.error && <div className='akari-gen-pick-error' role='alert'>{this.generationPick.error}</div>}
@@ -553,11 +554,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         </section>;
         return <div data-akari-swap-shelf style={{ padding: '8px 10px' }}>
             <div style={{ borderBottom: AKARI_BORDER.hairline, paddingBottom: '8px' }}>
-                <strong>⇄ 入れ替え候補</strong><div>{shelf.title}</div>
-                <button className='theia-button secondary' onClick={() => this.closeMaterialSwap()}>通常のライブラリに戻る ✕</button>
+                <strong>{t('project.library.shelf.replacementOptionsLabel')}</strong><div>{shelf.title}</div>
+                <button className='theia-button secondary' onClick={() => this.closeMaterialSwap()}>{t('project.library.shelf.returnLibraryAction')}</button>
             </div>
-            {shelf.candidates.near !== undefined && section('近い系統', shelf.candidates.near)}
-            {section(`それ以外の${shelf.request.kind === 'audio' ? '音源' : '画像・B-roll'}`, shelf.candidates.rest)}
+            {shelf.candidates.near !== undefined && section(t('project.library.shelf.similarItemsLabel'), shelf.candidates.near)}
+            {section(t('project.library.shelf.otherLabel', { value1: shelf.request.kind === 'audio' ? t('project.library.shelf.audioSourceLabel') : t('project.library.shelf.imagesBRollLabel') }), shelf.candidates.rest)}
         </div>;
     }
 
@@ -765,7 +766,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     reference = references.find(item => item.category === detail.category && item.id === detail.id);
                 }
                 if (!reference?.files.some(file => file.name === detail.file || file.name.endsWith(`/${detail.file}`))) {
-                    throw new Error('素材ファイルを参照台帳で確認できません。');
+                    throw new Error(t('project.library.shelf.couldNotVerifyAssetFileReferenceError'));
                 }
                 detail.resolve();
             })().catch(detail.reject);
@@ -790,8 +791,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.generationPick.cancel();
         } });
         this.id = AkariRoleBucketsWidget.ID;
-        this.title.label = '素材';
-        this.title.caption = '素材（プロジェクト / ライブラリ）';
+        this.title.label = t('project.catalog.purchase.asset');
+        this.title.caption = t('project.library.shelf.assetsProjectLibraryLabel');
         this.title.iconClass = 'codicon codicon-files';
         this.title.closable = false;
         // 俯瞰の取り込みドロップゾーンと同じ流儀: このパネルへのドロップは
@@ -803,7 +804,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:assets');
         this.node.setAttribute('data-akari-onboarding-target', 'assets');
-        this.node.setAttribute('data-akari-ui-label', '素材パネル');
+        this.node.setAttribute('data-akari-ui-label', t('project.library.shelf.assetsPanelLabel'));
         this.storeConnectionFlow = new StoreConnectionFlowController(this.projectService, {
             openVerificationUrl: url => this.windowService.openNewWindow(url, { external: true }),
             onChange: state => {
@@ -1170,22 +1171,42 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected reportLibraryImportResult(result: LibraryImportResult): void {
-        if (result.added.length) this.messages.info(`${result.added.length} 件を取り込みました`);
+        if (result.added.length) this.messages.info(t(result.added.some(item => item.category === 'font')
+            ? 'project.library.shelf.importedLengthItemsFontLocationMessage'
+            : 'project.library.shelf.importedLengthItemsMessage', { length: result.added.length, n: result.added.length }));
         for (const item of result.failures) this.messages.warn(`${item.path || ''}: ${item.reason}`);
+    }
+
+    protected async refreshLibraryFonts(): Promise<void> {
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+        this.libraryStyleFontsRequested = false;
+        this.ensureLibraryStyleFonts();
+        window.dispatchEvent(new CustomEvent('akari.library.fontsChanged'));
     }
 
     protected async finishLibraryImport(result: LibraryImportResult): Promise<void> {
         this.reportLibraryImportResult(result);
+        const importedFontIds = new Set(result.added.filter(item => item.category === 'font').map(item => item.id));
+        if (importedFontIds.size) await this.refreshLibraryFonts();
         this.topView = 'catalog';
         this.libraryCategory = undefined;
         this.librarySourceFilter = 'all';
+        if (importedFontIds.size) this.libraryFilterRest = { price: [], license: [], status: [] };
         this.libraryFolderFilter = undefined;
         this.catalogQuery = '';
         this.syncSearchInput();
         this.catalogCategory = 'all';
         await this.loadAssetCatalogView('user');
+        const importedFont = this.assetCatalogItems.find(item => item.category === 'font'
+            && importedFontIds.has(item.id));
+        if (importedFont) {
+            this.libraryTextLookOpen = true;
+            this.libraryTextTab = 'font';
+        }
         this.update();
-        requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
+        if (importedFont) void this.focusAssetCard('catalog', importedFont.key, false);
+        else requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
     }
 
     public async siteImportCompleted(result: LibraryImportResult): Promise<void> {
@@ -1198,9 +1219,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected async pickLibraryImport(mode: 'both' | 'files' | 'folders'): Promise<string[]> {
-        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return []; }
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn(t('project.materials.pane.movingAssetsPleaseWaitUntilItMessage')); return []; }
         const selected = await this.dialogs.showOpenDialog({
-            title: 'ローカルから取り込む', canSelectMany: true, canSelectFiles: mode !== 'folders', canSelectFolders: mode !== 'files'
+            title: t('project.library.shelf.importDeviceAction'), canSelectMany: true, canSelectFiles: mode !== 'folders', canSelectFolders: mode !== 'files'
         });
         return selected ? (Array.isArray(selected) ? selected : [selected]).map(uri => uri.path.fsPath()) : [];
     }
@@ -1221,7 +1242,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             await navigator.clipboard.writeText(uri.path.fsPath());
         } catch {
-            this.messages.error('パスをコピーできませんでした。');
+            this.messages.error(t('project.library.shelf.couldNotCopyPathError'));
         }
     }
 
@@ -1229,14 +1250,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async copyFileToClipboard(uri: URI): Promise<void> {
         const api = (window as Window & { electronAkariProject?: ElectronAkariProjectApi }).electronAkariProject;
         if (!api) {
-            this.messages.error('この機能は AKARI Video アプリでのみ使えます。');
+            this.messages.error(t('project.workspace.command.featureIsAvailableOnlyAKARIAppMessage'));
             return;
         }
         const result = await api.copyFileToClipboard(uri.path.fsPath());
         if (result.ok) {
-            this.messages.info('ファイルをコピーしました。Finder で ⌘V で貼り付けられます。');
+            this.messages.info(t('project.library.shelf.fileCopiedPressVPasteItMessage'));
         } else {
-            this.messages.error(result.message ?? 'ファイルをコピーできませんでした。');
+            this.messages.error(result.message ?? t('project.library.shelf.couldNotCopyFileError'));
         }
     }
 
@@ -1246,12 +1267,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * messages.error。成功後は呼び出し側が渡した `reload` で再読込する。
      */
     protected async renameEntry(uri: URI, currentName: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
-        const proceed = await this.materialsPane.confirmReferenceImpact(relativePath, isDirectory, '名前を変更');
+        const proceed = await this.materialsPane.confirmReferenceImpact(relativePath, isDirectory, t('project.library.menu.rename'));
         if (!proceed) {
             return;
         }
         const newName = await new SingleTextInputDialog({
-            title: '名前を変更',
+            title: t('project.library.menu.rename'),
             initialValue: currentName
         }).open();
         if (!newName || !newName.trim() || newName.trim() === currentName) {
@@ -1261,7 +1282,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             await this.files.move(uri, targetUri, { overwrite: false });
         } catch {
-            this.messages.error(`${currentName} の名前を変更できませんでした。`);
+            this.messages.error(t('project.library.shelf.couldNotRenameCurrentNameError', { currentName: currentName }));
             return;
         }
         reload();
@@ -1275,10 +1296,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async deleteEntry(uri: URI, name: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
         const referenceMessage = await this.materialsPane.buildDeleteReferenceMessage(relativePath, isDirectory);
         const confirmed = await new ConfirmDialog({
-            title: `${name} を削除しますか？`,
-            msg: `${referenceMessage} 削除するとゴミ箱に移動します。`,
-            ok: '削除する',
-            cancel: 'キャンセル'
+            title: t('project.library.shelf.deleteNameQuestion', { name: name }),
+            msg: t('project.library.shelf.referenceMessageDeletingWillMoveItTrashMessage', { referenceMessage: referenceMessage }),
+            ok: t('project.library.shelf.deleteConfirmAction'),
+            cancel: t('project.library.pane.cancelLabel')
         }).open();
         if (!confirmed) {
             return;
@@ -1286,7 +1307,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             await this.files.delete(uri, { recursive: true, useTrash: true });
         } catch {
-            this.messages.error(`${name} を削除できませんでした。`);
+            this.messages.error(t('project.library.shelf.couldNotDeleteNameError', { name: name }));
             return;
         }
         reload();
@@ -1693,10 +1714,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 反映を確認できるようにする。in-flight は resolvingAssetKeys でスピナー/二重クリック防止。
      */
     protected async useAssetCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn(t('project.materials.pane.movingAssetsPleaseWaitUntilItMessage')); return; }
         const root = this.workflow.workspaceRoot;
         if (!root) {
-            this.messages.warn('先にプロジェクトを開いてください。');
+            this.messages.warn(t('project.materials.importButton.openProjectFirstAction'));
             return;
         }
         if (this.resolvingAssetKeys.has(item.key)) {
@@ -1713,14 +1734,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             // if-else の判別共用体絞り込みが効かない（実測で確認済み）。`=== false` の
             // 明示比較だけが確実に絞り込めるため、これを使う。
             if (outcome.success === false) {
-                this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
+                this.messages.error(t('project.library.shelf.couldNotDownloadAssetError', { error: outcome.error }));
                 return;
             }
             this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === item.key
                 ? { ...entry, usageCount: (entry.usageCount ?? 0) + 1, lastUsedAt: new Date().toISOString() } : entry);
             this.refreshAfterAssetCatalogImport(item.key);
         } catch {
-            this.messages.error('素材を取得できませんでした。ネットワーク環境をご確認ください。');
+            this.messages.error(t('project.library.shelf.couldNotDownloadAssetCheckNetworkError'));
         } finally {
             this.resolvingAssetKeys.delete(item.key);
             this.update();
@@ -1739,7 +1760,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const root = this.workflow.workspaceRoot;
         const item = this.assetCatalogItems.find(entry => entry.key === key);
         if (!root || !item || !canPlaceOverlay(item)) {
-            this.messages.warn('このオーバーレイは置けません。');
+            this.messages.warn(t('project.library.shelf.overlayCannotBeAddedMessage'));
             return undefined;
         }
         if (this.resolvingAssetKeys.has(key)) return undefined;
@@ -1748,11 +1769,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             let directory: URI | undefined;
             let reusedProjectAsset = false;
+            const localSource = localLibraryAssetPlacementSource(item);
+            const isBakeRecipeAt = async (assetDirectory: URI): Promise<boolean> => {
+                const listing = await this.files.resolve(assetDirectory);
+                const names = (listing.children ?? []).filter(child => !child.isDirectory)
+                    .map(child => child.resource.path.base);
+                const metaSource = names.includes('meta.json')
+                    ? await this.files.readFile(assetDirectory.resolve('meta.json')) : undefined;
+                const meta = metaSource ? JSON.parse(metaSource.value.toString()) : undefined;
+                return isScene3dBakeRecipe({ names, meta });
+            };
             if (key === `${item.category}/${item.id}` && item.id !== '.' && item.id !== '..'
                 && !/[\\/]/.test(item.id)) {
                 try {
-                    const existing = root.resolve(`assets/overlay/${item.id}`);
+                    const existing = root.resolve(`assets/${item.category}/${item.id}`);
                     const listing = await this.files.resolve(existing);
+                    if (item.category === 'scene3d' && listing.isDirectory && await isBakeRecipeAt(existing)) {
+                        this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                        return undefined;
+                    }
                     if (listing.isDirectory && (listing.children ?? []).some(child => child.resource.path.base === 'meta.json')
                         && (listing.children ?? []).some(child => /\.html?$/i.test(child.resource.path.base))) {
                         directory = existing;
@@ -1761,7 +1796,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } catch { /* 未取得なら resolver に委譲する。 */ }
             }
             if (!directory) {
-                const localSource = localLibraryAssetPlacementSource(item);
+                const knownLibraryDir = localSource?.libraryDir ?? item.libraryDir;
+                if (item.category === 'scene3d' && knownLibraryDir
+                    && await isBakeRecipeAt(URI.fromFilePath(knownLibraryDir))) {
+                    this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                    return undefined;
+                }
+                // 未取得のリモート項目は中身が分からないため、取得後に判定する。
                 const outcome = localSource
                     ? await this.projectService.placeLibraryAsset(localSource, root.toString())
                     : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
@@ -1779,20 +1820,29 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const file = item.mediaFile && names.includes(item.mediaFile) && /\.html?$/i.test(item.mediaFile)
                 ? item.mediaFile : names.includes('fragment.html') ? 'fragment.html'
                     : names.filter(name => /\.html?$/i.test(name)).sort()[0];
-            if (!file || !names.includes('meta.json')) throw new Error('HTML または meta.json が見つかりません');
+            if (item.category === 'scene3d' && isScene3dBakeRecipe({ names })) {
+                this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                return undefined;
+            }
+            if (!file || !names.includes('meta.json')) throw new Error(t('project.library.shelf.htmlMetaJsonNotFoundMessage'));
             const [metaSource, fragment] = await Promise.all([
                 this.files.readFile(directory.resolve('meta.json')),
                 this.files.readFile(directory.resolve(file))
             ]);
+            const meta = JSON.parse(metaSource.value.toString()) as { requires?: string[]; tags?: string[] };
+            if (item.category === 'scene3d' && isScene3dBakeRecipe({ names, meta })) {
+                this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                return undefined;
+            }
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
             this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
                 ? { ...entry, state: 'cached' } : entry);
             if (reusedProjectAsset) void this.projectService.recordLibraryUsage(item.category, item.id, root.toString())
                 .catch(error => console.warn('ライブラリの使用記録を書けませんでした', error));
-            return { relativePath: `assets/overlay/${item.id}/${file}`,
-                meta: JSON.parse(metaSource.value.toString()), fragment: fragment.value.toString() };
+            return { relativePath: `assets/${item.category}/${item.id}/${file}`,
+                meta, fragment: fragment.value.toString() };
         } catch (error) {
-            this.messages.warn(`オーバーレイを使えませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.warn(t('project.library.shelf.couldNotUseOverlayError', { value1: error instanceof Error ? error.message : String(error) }));
             return undefined;
         } finally {
             this.resolvingAssetKeys.delete(key);
@@ -1800,9 +1850,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    /** ライブラリを参照して置いた素材の断片 HTML を読む（取り込まない・書かない。インスペクタの 3D セクション用）。 */
+    async readCatalogOverlayFragment(key: string): Promise<string | undefined> {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
+        const file = item.mediaFile && /\.html?$/i.test(item.mediaFile) ? item.mediaFile : 'fragment.html';
+        try {
+            return (await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve(file))).value.toString();
+        } catch { return undefined; }
+    }
+
     async readCatalogOverlayMeta(key: string): Promise<unknown | undefined> {
         const item = this.assetCatalogItems.find(entry => entry.key === key);
-        if (!item || item.category !== 'overlay' || !item.libraryDir) return undefined;
+        if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
         try {
             const file = await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve('meta.json'));
             return JSON.parse(file.value.toString());
@@ -1832,15 +1892,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     async resolveCatalogMaterial(key: string, options?: { preferExisting?: boolean }): Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined> {
         // 未購入のプレミアム: 置かずに促しのシート（Lab で見る）を出す。
         if (this.showPremiumPrompt(key)) return undefined;
-        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return undefined; }
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn(t('project.materials.pane.movingAssetsPleaseWaitUntilItMessage')); return undefined; }
         const root = this.workflow.workspaceRoot;
         if (!root) {
-            this.messages.warn('先にプロジェクトを開いてください。');
+            this.messages.warn(t('project.materials.importButton.openProjectFirstAction'));
             return undefined;
         }
         const item = this.assetCatalogItems.find(entry => entry.key === key);
         if (!item || !canPlaceLibraryAsset(item)) {
-            this.messages.warn('この素材は直接置けません');
+            this.messages.warn(t('project.library.shelf.assetCannotBeAddedDirectlyMessage'));
             return undefined;
         }
         const flights = this.resolvingAssetKeys as Set<string> & {
@@ -1850,7 +1910,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const running = inFlight.get(key);
         if (running) return running;
         if (this.resolvingAssetKeys.has(key)) {
-            this.messages.warn('素材を取得中です。完了してからもう一度追加してください。');
+            this.messages.warn(t('project.library.shelf.downloadingAssetAddItAgainWhenMessage'));
             return undefined;
         }
         const work = (async () => {
@@ -1888,13 +1948,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
             if (outcome.success === false) {
                 pendingAssetFetches.noteFailureReason(key, summarizeFetchFailure(outcome.error));
-                this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
+                this.messages.error(t('project.library.shelf.couldNotDownloadAssetError', { error: outcome.error }));
                 return undefined;
             }
             this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
                 ? { ...entry, usageCount: (entry.usageCount ?? 0) + 1, lastUsedAt: new Date().toISOString() } : entry);
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) {
-                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                this.messages.warn(t('project.library.shelf.projectChangedSoAssetWasNotMessage'));
                 return undefined;
             }
             const directory = URI.fromFilePath(outcome.reference ? outcome.libraryDir : outcome.projectAssetPath);
@@ -1905,19 +1965,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             );
             void this.loadMaterials();
             if (media.kind === 'other' || !media.mediaName) {
-                this.messages.warn('この素材は直接置けません');
+                this.messages.warn(t('project.library.shelf.assetCannotBeAddedDirectlyMessage'));
                 return undefined;
             }
             const relativePath = outcome.reference
                 ? `assets/${item.category}/${item.id}/${media.mediaName}`
                 : root.relative(directory.resolve(media.mediaName))?.toString();
             if (!relativePath) {
-                this.messages.error('素材のプロジェクト内パスを解決できませんでした。');
+                this.messages.error(t('project.library.shelf.couldNotResolveAssetPathProjectError'));
                 return undefined;
             }
             return { relativePath, kind: media.kind, ...(options?.preferExisting ? { cached: false } : {}) };
         } catch (error) {
-            this.messages.error(`素材を取得できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.materials.pane.couldNotDownloadAssetError', { value1: error instanceof Error ? error.message : String(error) }));
             return undefined;
         } finally {
             this.resolvingAssetKeys.delete(key);
@@ -1947,7 +2007,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.applyFontItem(item);
                 return;
             }
-            const payload = { kind: 'font', id, fontFamily: item.fontAvailability.family || title.replace(/（.*$/, '').trim(), key,
+            const payload = { kind: 'font', id, fontFamily: fontFamily(item), key,
                 ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'copy';
@@ -1982,8 +2042,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         let marked = false;
         try {
-            if (item.category === 'scene3d') { this.messages.info('3D は近日対応します。'); return; }
-            if (item.category === 'overlay') {
+            if (item.category === 'overlay' || item.category === 'scene3d') {
                 await this.commandService.executeCommand('akari.timeline.addOverlayAtOutputPoint', { key: item.key });
                 return;
             }
@@ -1996,7 +2055,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             if (material) await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, material);
             if (material) diagnostic('write');
         } catch (error) {
-            this.messages.error(`素材を追加できません: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotAddAssetError', { value1: error instanceof Error ? error.message : String(error) }));
         } finally {
             if (marked) placement('end');
         }
@@ -2057,7 +2116,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 if (line.startsWith('file:')) paths.push(new URI(line).path.fsPath());
             }
             if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
-            else this.messages.warn('ファイルの場所を読み取れませんでした。＋ から選び直してください。');
+            else this.messages.warn(t('project.library.shelf.couldNotReadFileLocationSelectError'));
             return;
         }
         const { accepted, rejectedCount } = this.classifyDropped(transfer);
@@ -2066,7 +2125,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         if (rejectedCount) {
             this.messages.warn(
-                `対応していないファイル形式のため ${rejectedCount} 件を取り込めませんでした（動画・音声・画像のみ取り込めます）。`
+                t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount, n: rejectedCount })
             );
         }
     }
@@ -2117,7 +2176,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async importDropped(assets: DroppedAsset[]): Promise<void> {
         const root = this.workflow.workspaceRoot;
         if (!root) {
-            this.messages.warn('先にプロジェクトを開いてください。');
+            this.messages.warn(t('project.materials.importButton.openProjectFirstAction'));
             return;
         }
         try {
@@ -2128,18 +2187,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.loadMaterials();
                 // 成功時に何も出さないと、一覧の更新に気づかない限り「無反応」に見える
                 // （ホームの取り込みゾーンは以前から成功トーストを出している。ここだけ無言だった）。
-                this.messages.info(`${imported} 件を素材に取り込みました。`);
+                this.messages.info(t('project.library.shelf.importedImportedItemsAsAssetsMessage', { imported: imported, n: imported }));
             }
             if (failed) {
-                const message = 'ファイルを取り込めませんでした。Finder からもう一度ドラッグしてください。';
+                const message = t('project.library.shelf.couldNotImportFilesDragThemError');
                 if (imported) {
-                    this.messages.warn(`${failed} 件の${message}`);
+                    this.messages.warn(t('project.library.shelf.failedFilesMessageLabel', { failed: failed, n: failed, message: message }));
                 } else {
                     this.messages.error(message);
                 }
             }
         } catch {
-            this.messages.error('ファイルを取り込めませんでした。Finder からもう一度ドラッグしてください。');
+            this.messages.error(t('project.library.shelf.couldNotImportFilesDragThemError'));
         }
     }
 
@@ -2222,7 +2281,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 }}
             >
                 <span className='codicon codicon-cloud-upload' aria-hidden='true' style={{ fontSize: 22 }} />
-                <strong style={{ fontSize: 12.5, lineHeight: 1.4 }}>{this.topView === 'catalog' ? 'ここに落とすとライブラリへ取り込みます' : 'ここに落とすと素材に取り込みます'}</strong>
+                <strong style={{ fontSize: 12.5, lineHeight: 1.4 }}>{this.topView === 'catalog' ? t('project.library.shelf.dropHereImportIntoLibraryAction') : t('project.library.shelf.dropHereImportAsAssetAction')}</strong>
             </div>
         );
     }
@@ -2352,10 +2411,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             padding: '6px 8px', border: 0, borderRadius: '5px', background: 'transparent', color: AKARI_INK,
             textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer' };
         const kindOptions: readonly [MaterialKind | 'all', string][] =
-            [['all', 'すべて'], ['video', '動画'], ['audio', '音声'], ['image', '画像'], ['other', 'ほか（HTML・3D・フォント…）']];
+            [['all', t('project.library.shelf.allLabel')], ['video', t('project.library.shelf.videoLabel')], ['audio', t('project.library.shelf.audioMediaLabel')], ['image', t('project.library.shelf.imageLabel')], ['other', t('project.library.shelf.otherHTMLDFontsLabel')]];
         const sortOptions: readonly [MaterialsSort, string][] = [
-            ['imported-desc', '取り込んだ順（新しい順）'], ['imported-asc', '取り込んだ順（古い順）'],
-            ['name', '名前'], ['dur', '長さ'], ['kind', '種類'], ['created', '作成日時']
+            ['imported-desc', t('project.library.shelf.importDateNewestFirstAction')], ['imported-asc', t('project.library.shelf.importDateOldestFirstAction')],
+            ['name', t('project.library.shelf.nameLabel')], ['dur', t('project.library.shelf.lengthLabel')], ['kind', t('project.library.shelf.typeLabel')], ['created', t('project.library.shelf.dateCreatedLabel')]
         ];
         const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
             strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -2372,7 +2431,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ref={element => { this.materialsFilterButton = element ?? undefined; }}
                 style={{ ...buttonStyle, ...(this.materialsPopover === 'filter' ? activeButtonStyle : {}) }}
                 onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'filter')}
-                aria-label='絞り込み' title='絞り込み'
+                aria-label={t('project.library.card.filter')} title={t('project.library.card.filter')}
                 aria-haspopup='true' aria-expanded={this.materialsPopover === 'filter'}
                 onClick={() => this.toggleMaterialsPopover('filter', this.materialsFilterButton)}>
                 <svg {...svg}><path d='M3 5h18l-7 8v6l-4 2v-8z' /></svg><span style={{ fontSize: '8px' }}>▾</span>
@@ -2383,7 +2442,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ref={element => { this.materialsSortButton = element ?? undefined; }}
                 style={{ ...buttonStyle, ...(this.materialsPopover === 'sort' ? activeButtonStyle : {}) }}
                 onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'sort')}
-                aria-label='並び替え' title='並び替え'
+                aria-label={t('project.library.shelf.sortLabel')} title={t('project.library.shelf.sortLabel')}
                 aria-haspopup='true' aria-expanded={this.materialsPopover === 'sort'}
                 onClick={() => this.toggleMaterialsPopover('sort', this.materialsSortButton)}>
                 <svg {...svg}><path d='M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3' /></svg>
@@ -2391,7 +2450,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             </button>
             <button type='button' className='akari-materials-toolbar-button' style={buttonStyle}
                 onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, false)}
-                aria-label='表示を切り替え' title='表示を切り替え'
+                aria-label={t('project.library.shelf.changeViewAction')} title={t('project.library.shelf.changeViewAction')}
                 onClick={() => { const next = mode === 'grid' ? 'list' : 'grid'; this.materialsPane.setMaterialView({ mode: next });
                     try { window.localStorage.setItem('akari.materials.viewMode', next); } catch { /* Session state still works. */ }
                     this.closeMaterialsPopover(); }}>
@@ -2407,7 +2466,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } }}>
                 <div style={popStyle} role='menu'>
                 <div style={{ fontSize: '11px', color: '#737373', padding: '4px 8px 2px' }}>
-                    {this.materialsPopover === 'filter' ? '種類（複数可）' : '並び替え'}
+                    {this.materialsPopover === 'filter' ? t('project.library.shelf.typesMultipleLabel') : t('project.library.shelf.sortLabel')}
                 </div>
                 {this.materialsPopover === 'filter' ? kindOptions.map(([kind, label]) =>
                     <button key={kind} type='button' className='akari-materials-popover-option'
@@ -2440,7 +2499,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             >
                 <div
                     role='tablist'
-                    aria-label='素材パネルの表示'
+                    aria-label={t('project.library.shelf.assetsPanelViewLabel')}
                     ref={this.mountPanelSegmentTrack}
                     onKeyDown={event => {
                         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') { return; }
@@ -2474,8 +2533,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         }}
                     />
                     {([
-                        { view: 'materials' as const, label: 'プロジェクト' },
-                        { view: 'catalog' as const, label: 'ライブラリ' }
+                        { view: 'materials' as const, label: t('project.library.shelf.projectLabel') },
+                        { view: 'catalog' as const, label: t('project.library.shelf.libraryLabel') }
                     ]).map(item => {
                         const active = this.topView === item.view;
                         return (
@@ -2554,8 +2613,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         }}
                         onChange={event => this.applySearchQuery(event.target.value, !this.searchComposing)}
                         onClick={event => event.stopPropagation()}
-                        placeholder={this.topView === 'materials' ? 'プロジェクト内を検索' : 'ライブラリを検索'}
-                        aria-label={this.topView === 'materials' ? 'プロジェクト内の素材を検索' : 'ライブラリを検索'}
+                        placeholder={this.topView === 'materials' ? t('project.library.shelf.searchProjectAction') : t('project.library.shelf.searchLibraryAction')}
+                        aria-label={this.topView === 'materials' ? t('project.library.shelf.searchProjectAssetsAction') : t('project.library.shelf.searchLibraryAction')}
                         data-akari-panel-search={this.topView}
                         style={{
                             flex: '1 1 auto',
@@ -2617,7 +2676,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!entries.length) { return undefined; }
         return (
             <section data-recent-strip style={{ paddingTop: '8px' }}>
-                <div style={{ fontSize: '0.75em', fontWeight: 700, paddingBottom: '6px' }}>最近入れた・よく使う</div>
+                <div style={{ fontSize: '0.75em', fontWeight: 700, paddingBottom: '6px' }}>{t('project.library.shelf.recentlyAddedFrequentlyUsedLabel')}</div>
                 <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
                     {entries.map(entry => (
                         <button
@@ -2632,11 +2691,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         >
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>{entry.label}</div>
                             <div style={{ fontSize: '0.68em', opacity: 0.65, paddingTop: '3px' }}>
-                                {this.assetCatalogItems.find(item => item.key === entry.itemKey)?.sourceKind === 'site' ? '素材サイト · ' : ''}
-                                {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? ` · ${entry.count} 件` : ''}
+                                {this.assetCatalogItems.find(item => item.key === entry.itemKey)?.sourceKind === 'site' ? t('project.library.shelf.assetSiteLabel') : ''}
+                                {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? t('project.library.shelf.countItemsLabel', { count: entry.count, n: entry.count }) : ''}
                             </div>
                             {this.assetCatalogItems.some(item => item.key === entry.itemKey && this.isSiteSubscription(item)) &&
-                                <span data-akari-site-subscription style={{ fontSize: '0.68em' }}>サブスク</span>}
+                                <span data-akari-site-subscription style={{ fontSize: '0.68em' }}>{t('project.catalog.distribution.subscription')}</span>}
                         </button>
                     ))}
                 </div>
@@ -2657,7 +2716,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             });
             return (
                 <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
-                    <div style={{ fontSize: '0.78em', fontWeight: 700, opacity: 0.7, padding: '4px 0 8px' }}>ライブラリ全体の検索結果</div>
+                    <div style={{ fontSize: '0.78em', fontWeight: 700, opacity: 0.7, padding: '4px 0 8px' }}>{t('project.library.shelf.searchResultsAcrossLibraryAction')}</div>
                     {hits.length
                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {hits.slice(0, CATALOG_RENDER_LIMIT).map((hit, index) => {
@@ -2685,11 +2744,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             {hits.length > CATALOG_RENDER_LIMIT && (
                                 <p data-akari-library-search-limit={hits.length - CATALOG_RENDER_LIMIT}
                                     style={{ opacity: 0.7, fontSize: '0.78em', padding: '4px 2px 0', margin: 0 }}>
-                                    ほかに {(hits.length - CATALOG_RENDER_LIMIT).toLocaleString()} 件あります。言葉を足して絞り込んでください。
-                                </p>
+                                    {t('project.library.shelf.thereAreAnotherLabel')}{(hits.length - CATALOG_RENDER_LIMIT).toLocaleString()} {t('project.library.shelf.itemsAddMoreWordsNarrowResultsMessage')}</p>
                             )}
                         </div>
-                        : <p style={{ opacity: 0.7, padding: '12px 6px' }}>条件に一致するライブラリ項目がありません。</p>}
+                        : <p style={{ opacity: 0.7, padding: '12px 6px' }}>{t('project.library.shelf.noLibraryItemsMatchFiltersError')}</p>}
                 </div>
             );
         }
@@ -2726,7 +2784,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
                         color: AKARI_INK, border: AKARI_BORDER.ghost, fontSize: '0.75em'
                     }}>
-                    {this.libraryDetailsOpen ? '▾ 詳細をたたむ' : '▸ 詳細（マイ）'}
+                    {this.libraryDetailsOpen ? t('project.library.shelf.hideDetailsLabel') : t('project.library.shelf.detailsMyAssetsLabel')}
                 </button>
                 {this.libraryDetailsOpen && <div data-akari-library-details>
                 {LIBRARY_DETAIL_GROUPS.map(group => (
@@ -2738,7 +2796,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         }}>
                             {group.label}
                         </div>
-                        {group.label === 'マイ'
+                        {group.categories.some(category => category.key === 'fav')
                             ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                                 {group.categories.map(category => this.renderLibraryMyCategory(category))}
                             </div>
@@ -2756,7 +2814,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             await this.commandService.executeCommand('akari.caption.placeText');
         } catch (error) {
-            this.messages.error(`文字を置けません: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotAddTextError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -2776,7 +2834,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             // 書き込み・undo・選択・最近使用はタイムライン側（akari.timeline.addShapeAt）が持つ。
             await this.commandService.executeCommand(TIMELINE_ADD_SHAPE_AT_COMMAND_ID, { preset: preset.id });
         } catch (error) {
-            this.messages.error(`図形を置けません: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotAddShapeError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -2876,7 +2934,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             >
                 <span style={{ fontSize: '1.15em' }}>{category.icon}</span>
                 <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{category.label}</span>
-                <span style={{ fontSize: '0.62em' }}>近日</span>
+                <span style={{ fontSize: '0.62em' }}>{t('project.library.shelf.comingSoonLabel')}</span>
             </button>
         );
     }
@@ -2906,7 +2964,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <span style={{ gridColumn: '1', gridRow: '1 / span 2', textAlign: 'center', color: soon ? 'inherit' : 'var(--theia-button-background)', fontSize: '1.35em', fontWeight: 700 }}>{category.icon}</span>
                 <span style={{ gridColumn: '2', gridRow: '1', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.95em', fontWeight: 700 }}>{category.label}</span>
                 <span style={{ gridColumn: '2', gridRow: '2', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.68em', opacity: 0.62 }}>{category.hint}</span>
-                <span style={{ gridColumn: '3', gridRow: '1 / span 2', justifySelf: 'end', fontVariantNumeric: 'tabular-nums', fontSize: '0.72em', opacity: 0.65 }}>{soon ? '近日' : count}</span>
+                <span style={{ gridColumn: '3', gridRow: '1 / span 2', justifySelf: 'end', fontVariantNumeric: 'tabular-nums', fontSize: '0.72em', opacity: 0.65 }}>{soon ? t('project.library.shelf.comingSoonLabel') : count}</span>
             </button>
         );
     }
@@ -2950,8 +3008,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             onClick={event => { event.stopPropagation(); this.showLibraryHome(); }}
                             style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)', cursor: 'pointer', fontSize: '0.8em' }}
                         >
-                            ← ライブラリ
-                        </button>
+                            {t('project.library.shelf.backToLibraryAction')}</button>
                         <strong style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.86em' }}>{category.label}</strong>
                         <span data-akari-library-category-count={count} style={{ opacity: 0.6, fontSize: '0.72em' }}>{count}</span>
                         {key !== 'transition' && (
@@ -2959,8 +3016,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 type='button'
                                 data-akari-catalog-view-toggle
                                 data-akari-catalog-view-mode={this.catalogViewMode}
-                                title={this.catalogViewMode === 'grid' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
-                                aria-label={this.catalogViewMode === 'grid' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
+                                title={this.catalogViewMode === 'grid' ? t('project.library.shelf.switchListViewAction') : t('project.library.shelf.switchCardViewAction')}
+                                aria-label={this.catalogViewMode === 'grid' ? t('project.library.shelf.switchListViewAction') : t('project.library.shelf.switchCardViewAction')}
                                 onClick={event => {
                                     event.stopPropagation();
                                     this.setCatalogViewMode(this.catalogViewMode === 'grid' ? 'list' : 'grid');
@@ -2975,8 +3032,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </div>
                 {this.libraryFolderFilter !== undefined && (
                     <div data-library-folder-filter={this.libraryFolderFilter} style={{ padding: '7px 10px', fontSize: '0.78em' }}>
-                        フォルダ: {this.libraryFolderFilter}
-                        <button type='button' className='theia-button quiet small icon' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }}>×</button>
+                        {t('project.library.shelf.folderLabel')}{this.libraryFolderFilter}
+                        <button type='button' className='theia-button quiet small icon' aria-label={t('project.library.shelf.clearFolderFilterAction')} onClick={() => { this.libraryFolderFilter = undefined; this.update(); }}>×</button>
                     </div>
                 )}
                 {this.renderLibraryCategoryBody(key)}
@@ -3004,7 +3061,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const filtered = catalogItemsWithoutShelvedTelops(this.filteredCatalogItems(), this.catalogCategory, this.catalogQuery);
         let content: React.ReactNode;
         if (this.catalogLoading) {
-            content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+            content = <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         } else if (!this.assetCatalogItems.length) {
             content = this.libraryPane.renderCatalogEmptyState();
         } else if (!filtered.length) {
@@ -3012,8 +3069,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             content = (
                 <p data-akari-catalog-filter-empty={emptyKind} style={{ opacity: 0.7, padding: '16px' }}>
                     {emptyKind === 'category-empty'
-                        ? 'この種類の素材はまだカタログにありません'
-                        : '条件に一致するカタログ項目がありません。'}
+                        ? t('project.library.shelf.noAssetsTypeAreCatalogYetError')
+                        : t('project.library.shelf.noCatalogItemsMatchFiltersError')}
                 </p>
             );
         } else {
@@ -3030,8 +3087,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {hidden > 0 && (
                         <p data-akari-catalog-render-limit={hidden}
                             style={{ opacity: 0.7, fontSize: '0.78em', padding: '0 10px 10px', margin: 0 }}>
-                            ほかに {hidden.toLocaleString()} 件あります。検索やカテゴリーで絞り込んでください。
-                        </p>
+                            {t('project.library.shelf.thereAreAnotherLabel')}{hidden.toLocaleString()} {t('project.library.shelf.itemsUseSearchCategoryNarrowResultsMessage')}</p>
                     )}
                 </>
             );
@@ -3059,12 +3115,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div data-akari-catalog-pack-count={totalGroups} style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
                 {this.libraryPane.renderCatalogResolverRetry()}
                 {this.catalogLoading
-                    ? <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>
+                    ? <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>
                     : groups.length
                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0' }}>
                             {groups.map(group => this.libraryPane.renderCatalogPackSection(group))}
                         </div>
-                        : <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するパックがありません。</p>}
+                        : <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.shelf.noPacksMatchFiltersError')}</p>}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
             </div>
         );
@@ -3102,7 +3158,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             >
                 <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span className='codicon codicon-unmute' aria-hidden='true' style={{ marginRight: '4px' }} />
-                    再生中: {this.playingCatalogAudioTitle}
+                    {t('project.library.shelf.playingLabel')}{this.playingCatalogAudioTitle}
                 </span>
                 <button
                     type='button'
@@ -3111,12 +3167,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     style={{ flex: '0 0 auto', padding: '1px 10px' }}
                     onClick={() => this.stopCatalogAudio()}
                 >
-                    停止
-                </button>
+                    {t('project.library.shelf.stopAction')}</button>
                 <button
                     type='button'
-                    aria-label='試聴ドックを閉じる'
-                    title='閉じる'
+                    aria-label={t('project.library.shelf.closeAudioPreviewAction')}
+                    title={t('project.library.card.close')}
                     data-akari-catalog-audio-dock-close
                     onClick={event => { event.stopPropagation(); this.stopCatalogAudio(); }}
                     style={{ flex: '0 0 auto', padding: '0 3px', border: 'none', background: 'transparent', color: AKARI_INK, cursor: 'pointer', fontSize: '1.2em' }}
@@ -3141,8 +3196,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <button
                 type='button'
-                title={playing ? '停止' : '試聴する'}
-                aria-label={playing ? `${item.title} の再生を停止` : `${item.title} を試聴`}
+                title={playing ? t('project.library.shelf.stopAction') : t('project.library.shelf.previewAudioAction')}
+                aria-label={playing ? t('project.library.shelf.stopPlayingTitleAction', { title: item.title }) : t('project.library.shelf.previewTitleAction', { title: item.title })}
                 data-akari-catalog-audio-toggle
                 data-akari-catalog-audio-playing={playing ? 'true' : 'false'}
                 onClick={event => { event.stopPropagation(); this.toggleCatalogAudio(item); }}
@@ -3175,8 +3230,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return (
             <p data-akari-catalog-audio-error style={{ margin: 0, color: 'var(--theia-errorForeground)', fontSize: '0.72em' }}>
-                再生できませんでした
-            </p>
+                {t('project.library.shelf.couldNotPlayAudioError')}</p>
         );
     }
 
@@ -3223,31 +3277,37 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }
                     return checked;
                 },
-                confirmDownload: async (title, bytes) => new ConfirmDialog({ title: `${title}をダウンロードしますか？`,
-                    msg: `約 ${(bytes / 1048576).toFixed(1)} MB を取得して、この Mac で使えるようにします。`,
-                    ok: 'ダウンロードして当てる', cancel: 'キャンセル' }).open(),
+                // 無料で取得できる書体は確認を挟まず、押したらすぐ取得を始める。何が起きているかは通知で伝える。
+                confirmDownload: async (title, bytes) => {
+                    void this.messages.info(t('project.library.shelf.downloadingTitleSizeMessage',
+                        { title: title, value1: (bytes / 1048576).toFixed(1) }), { timeout: 5000 });
+                    return true;
+                },
                 download: async id => this.projectService.downloadCatalogFont(id,
                     this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
                 offerSource: async (_title, source, unverified) => {
-                    const provider = source ? new URL(source).hostname : '配布元';
+                    const provider = source ? new URL(source).hostname : t('project.library.shelf.sourceLabel');
                     const message = unverified
-                        ? `この書体を確認できませんでした。配布元（${provider}）で確認できます。今当てる場合は代わりの書体で表示されます。`
-                        : `この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`;
-                    const choice = await this.messages.info(message,
-                        '配布元を開く', '代わりの書体で当てる');
-                    return choice === '配布元を開く' ? 'open' : choice === '代わりの書体で当てる' ? 'apply' : undefined;
+                        ? t('project.library.shelf.couldNotVerifyFontCheckSourceError', { provider: provider })
+                        : t('project.library.shelf.fontIsNotInstalledMacGetMessage', { provider: provider });
+                    const actions = [
+                        { id: 'open', label: t('project.library.shelf.openSourceAction') },
+                        { id: 'apply', label: t('project.library.shelf.applySubstituteFontAction') }
+                    ] as const;
+                    const choice = await this.messages.info(message, ...actions.map(action => action.label));
+                    return actions.find(action => action.label === choice)?.id;
                 },
                 openSource: source => this.windowService.openNewWindow(source, { external: true }),
                 apply: async family => { await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
                     payload: { kind: 'font', id: item.id, fontFamily: family }, editUri
                 }); },
                 refresh: async () => {
-                    await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+                    await this.refreshLibraryFonts();
                     void this.loadAssetCatalogView('user');
                 }
             });
         } catch (error) {
-            this.messages.error(`フォントを当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotApplyFontError', { value1: error instanceof Error ? error.message : String(error) }));
         } finally {
             this.applyingFontIds.delete(item.id);
         }
@@ -3263,7 +3323,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
             });
         } catch (error) {
-            this.messages.warn(`当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.warn(t('project.library.shelf.couldNotApplyError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -3318,19 +3378,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             else if (id === 'agent-import') await this.libraryPane.importCatalogItem(item);
             else if (id === 'ask') await this.libraryPane.askAgentAboutCatalogItem(item);
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
-            else if (id === 'remove-library') await this.libraryPane.removeLibraryItem(item);
+            else if (id === 'remove-library') {
+                await this.libraryPane.removeLibraryItem(item);
+                if (item.category === 'font' &&
+                    !this.assetCatalogItems.some(entry => entry.key === item.key && entry.libraryDir === item.libraryDir)) {
+                    await this.refreshLibraryFonts();
+                }
+            }
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
         if (target.kind === 'lut' && id === 'apply') {
             const lutId = target.key.startsWith('lut/') ? target.key.slice('lut/'.length) : '';
-            if (!lutId) { this.messages.info('LUT が見つかりません。'); return; }
+            if (!lutId) { this.messages.info(t('project.library.shelf.lutNotFoundMessage')); return; }
             await this.applyPresetToSelectedCaption(preset ?? { kind: 'lut', id: lutId, name: lutId, tags: [] });
             return;
         }
         if (preset && id === 'apply') await this.applyPresetToSelectedCaption(preset);
         else if (!preset && id === 'apply' && (target.kind === 'textstyle' || target.kind === 'textanim')) {
-            this.messages.info('カードを読み取れませんでした。');
+            this.messages.info(t('project.library.shelf.couldNotReadCardError'));
         }
         if (preset && id === 'place-text') await this.addTextStyleAtPlayhead(preset);
         if (style) {
@@ -3352,7 +3418,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key ? { ...entry, favorite } : entry);
             this.update();
         } catch (error) {
-            this.messages.error(`お気に入りを保存できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotSaveFavoriteError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -3433,8 +3499,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return (
                 <div data-akari-catalog-preset-kind={kind} data-akari-catalog-preset-count={this.presetShowcase[kind].length} data-akari-catalog-preset-visible-count={0}>
                     <p data-akari-catalog-preset-empty style={{ opacity: 0.7, padding: '16px' }}>
-                        条件に一致するプリセットがありません
-                    </p>
+                        {t('project.library.shelf.noPresetsMatchFiltersError')}</p>
                 </div>
             );
         }
@@ -3462,27 +3527,39 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected libraryStyleFontsRequested = false;
+    protected libraryStyleFontsGeneration = 0;
     protected libraryStyleFontFaces = new Map<string, string>();
 
     protected ensureLibraryStyleFonts(): void {
         if (this.libraryStyleFontsRequested || !this.materialPreviewService) return;
         this.libraryStyleFontsRequested = true;
+        const generation = ++this.libraryStyleFontsGeneration;
         void this.materialPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
-            this.libraryStyleFontFaces = new Map([...assets.bundledCaptionFontFaces,
-                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY }].map(face => [face.id, face.family]));
-            const style = document.createElement('style');
-            style.setAttribute('data-akari-library-style-fonts', '');
+            if (generation !== this.libraryStyleFontsGeneration) return;
+            const registered = new Map<string, string>();
+            for (const face of assets.bundledCaptionFontFaces) {
+                if (face.source !== 'library') continue;
+                if (!registered.has(face.id)) registered.set(face.id, face.family);
+            }
+            this.libraryStyleFontFaces = registered;
+            let style = document.querySelector<HTMLStyleElement>('style[data-akari-library-style-fonts]');
+            if (!style) {
+                style = document.createElement('style');
+                style.setAttribute('data-akari-library-style-fonts', '');
+                document.head.append(style);
+                this.toDispose.push({ dispose: () => style?.remove() });
+            }
             style.textContent = [...assets.bundledCaptionFontFaces,
-                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', url: assets.captionFontUrl }]
+                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, file: '', weight: '100 900', url: assets.captionFontUrl }]
                 .filter(face => face.id !== 'noto-sans-jp')
                 .map(face => `@font-face{font-family:${JSON.stringify(face.family)};`
-                    + `src:url(${JSON.stringify(face.url)}) format('truetype');`
+                    + `src:url(${JSON.stringify(face.url)}) format('${face.file.toLowerCase().endsWith('.woff2') ? 'woff2'
+                        : face.file.toLowerCase().endsWith('.woff') ? 'woff'
+                            : face.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype'}');`
                     + `font-weight:${face.id === 'noto-serif-jp' ? '200 900' : face.weight};font-display:swap}`)
                 .join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
-            document.head.append(style);
-            this.toDispose.push({ dispose: () => style.remove() });
             void document.fonts.ready.then(() => this.update());
-        }).catch(() => { this.libraryStyleFontsRequested = false; });
+        }).catch(() => { if (generation === this.libraryStyleFontsGeneration) this.libraryStyleFontsRequested = false; });
     }
 
     protected renderMyStyles(): React.ReactNode {
@@ -3491,8 +3568,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const styles = this.myStyles.filter(style => (!query || `${style.name} ${style.when_to_use}`.toLocaleLowerCase().includes(query))
             && this.presetPassesLibraryFilter(`mystyle/${style.id}`, 'own'));
         return <section data-akari-my-style-shelf>
-            <div style={{ padding: '7px 10px', fontSize: '0.76em', fontWeight: 700, borderBottom: AKARI_BORDER.hairline }}>マイスタイル</div>
-            {styles.length === 0 && <p style={{ opacity: 0.7, padding: '8px 10px', fontSize: '0.78em' }}>保存したスタイルはまだありません。</p>}
+            <div style={{ padding: '7px 10px', fontSize: '0.76em', fontWeight: 700, borderBottom: AKARI_BORDER.hairline }}>{t('project.library.pane.myStylesLabel')}</div>
+            {styles.length === 0 && <p style={{ opacity: 0.7, padding: '8px 10px', fontSize: '0.78em' }}>{t('project.library.shelf.noSavedStylesYetError')}</p>}
             <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '8px 10px' }}>
                 {styles.map(style => {
                     const look = style.parts.find(part => part.kind === 'look')?.text_style;
@@ -3545,12 +3622,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const popover = document.createElement('div');
         popover.setAttribute('data-akari-my-style-apply-popover', '');
         popover.setAttribute('role', 'dialog');
-        popover.setAttribute('aria-label', '当てる部品を選ぶ');
+        popover.setAttribute('aria-label', t('project.library.shelf.choosePartsApplyAction'));
         Object.assign(popover.style, { position: 'fixed', zIndex: '100000', width: '190px', padding: '10px',
             background: 'var(--theia-editor-background)', color: 'var(--theia-foreground)',
             border: '1px solid var(--theia-widget-border)', borderRadius: '7px', boxShadow: '0 8px 24px #0008' });
         const title = document.createElement('strong');
-        title.textContent = '当てる部品';
+        title.textContent = t('project.library.shelf.partsApplyLabel');
         popover.appendChild(title);
         for (const part of style.parts) {
             const applicable = defaultMyStyleParts([part]).length > 0;
@@ -3562,20 +3639,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             input.value = part.kind;
             input.checked = applicable && selected.includes(part.kind);
             input.disabled = !applicable;
-            label.append(input, document.createTextNode(` ${myStylePartLabel(part.kind)}${input.disabled ? '（当てない）' : ''}`));
+            label.append(input, document.createTextNode(` ${myStylePartLabel(part.kind)}${input.disabled ? t('project.library.shelf.doNotApplyLabel') : ''}`));
             popover.appendChild(label);
         }
         const actions = document.createElement('div');
         Object.assign(actions.style, { display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px' });
         const confirm = document.createElement('button');
-        confirm.type = 'button'; confirm.className = 'theia-button main'; confirm.textContent = '当てる';
+        confirm.type = 'button'; confirm.className = 'theia-button main'; confirm.textContent = t('project.library.shelf.applyAction');
         const refreshConfirm = (): void => {
             confirm.disabled = !popover.querySelector('input:checked:not(:disabled)');
         };
         popover.addEventListener('change', refreshConfirm);
         refreshConfirm();
         const cancel = document.createElement('button');
-        cancel.type = 'button'; cancel.className = 'theia-button secondary'; cancel.textContent = 'キャンセル';
+        cancel.type = 'button'; cancel.className = 'theia-button secondary'; cancel.textContent = t('project.library.pane.cancelLabel');
         actions.append(cancel, confirm);
         popover.appendChild(actions);
         const close = (): void => {
@@ -3610,21 +3687,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async renameMyStyle(style: MyStyle): Promise<void> {
         class MyStyleRenameDialog extends SingleTextInputDialog {
             constructor(name: string) {
-                super({ title: 'マイスタイルの名前を変更', initialValue: name, confirmButtonLabel: '変更' });
-                this.appendCloseButton('キャンセル');
+                super({ title: t('project.library.shelf.renameMyStyleAction'), initialValue: name, confirmButtonLabel: t('project.library.shelf.changeAction') });
+                this.appendCloseButton(t('project.library.pane.cancelLabel'));
             }
         }
         const name = await new MyStyleRenameDialog(style.name).open();
         if (name === undefined || !name.trim()) return;
         try { await this.projectService.renameMyStyle(style.id, name); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
-        catch (error) { this.messages.error(`名前を変更できません: ${String(error)}`); }
+        catch (error) { this.messages.error(t('project.library.shelf.renameMyStyleFailedError', { value1: String(error) })); }
     }
 
     protected async deleteMyStyle(style: MyStyle): Promise<void> {
-        const confirmed = await new ConfirmDialog({ title: 'マイスタイルを削除', msg: `${style.name} を削除しますか？`, ok: '削除', cancel: 'キャンセル' }).open();
+        const confirmed = await new ConfirmDialog({ title: t('project.library.shelf.deleteMyStyleAction'), msg: t('project.library.shelf.deleteNameQuestion', { name: style.name }), ok: t('project.library.shelf.deleteStyleAction'), cancel: t('project.library.pane.cancelLabel') }).open();
         if (!confirmed) return;
         try { await this.projectService.deleteMyStyle(style.id); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
-        catch (error) { this.messages.error(`削除できません: ${String(error)}`); }
+        catch (error) { this.messages.error(t('project.library.shelf.deleteMyStyleFailedError', { value1: String(error) })); }
     }
 
     protected handleTextStyleDragStart(event: React.DragEvent<HTMLElement>, item: PresetShowcaseItem): void {
@@ -3640,7 +3717,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             await this.commandService.executeCommand('akari.caption.placeText', options);
         } catch (error) {
-            this.messages.error(`文字を置けません: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.error(t('project.library.shelf.couldNotAddTextError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -3671,7 +3748,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 'data-akari-preset-origin': item.origin === 'library' ? 'library' : undefined,
                 'data-akari-catalog-preset-list-row': layout === 'list' ? true : undefined
             }}
-            badge={item.origin === 'library' ? 'ライブラリ' : undefined}
+            badge={item.origin === 'library' ? t('project.library.shelf.libraryLabel') : undefined}
             draggable
             onDragStart={event => this.handleTextStyleDragStart(event, item)}
             onDragEnd={() => this.handleLibraryTransitionDragEnd()}
@@ -3740,7 +3817,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 実体 URL（mediaUrl）があればそれを、無ければサムネイル（previewUrl）を開く。
      */
     protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        const source = item.mediaUrl ?? item.previewUrl;
+        // 3D の実体（model.glb）はテキストとして開けない。見本の画像を開く（置くのはドラッグか「プレイヘッドに置く」）
+        const source = item.category === 'scene3d'
+            ? item.previewUrl ?? item.mediaUrl
+            : item.mediaUrl ?? item.previewUrl;
         try {
             if (item.category === 'overlay' && item.state === 'cached' && item.libraryDir) {
                 const fragment = URI.fromFilePath(item.libraryDir).resolve('fragment.html');
@@ -3750,12 +3830,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 }
             }
             if (!source || (item.origin === 'resolver' && (item.state !== 'cached' || /^https?:\/\//i.test(source)))) {
-                this.messages.info(`「${item.title}」はまだ手元に無いので開けません。⋯ から取り寄せてください。`);
+                this.messages.info(t('project.library.shelf.titleIsNotAvailableLocallyYetMessage', { title: item.title }));
                 return;
             }
             await this.openFile(new URI(source));
         } catch (error) {
-            this.messages.warn(`プレビューを開けませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.messages.warn(t('project.library.shelf.couldNotOpenPreviewError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -3763,8 +3843,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (item.category !== 'audio' || !item.mediaUrl) return undefined;
         const playing = this.playingCatalogAudioKey === item.key;
         return (
-            <button type='button' title={playing ? '停止' : '試聴する'}
-                aria-label={playing ? `${item.title} の再生を停止` : `${item.title} を試聴`}
+            <button type='button' title={playing ? t('project.library.shelf.stopAction') : t('project.library.shelf.previewAudioAction')}
+                aria-label={playing ? t('project.library.shelf.stopPlayingTitleAction', { title: item.title }) : t('project.library.shelf.previewTitleAction', { title: item.title })}
                 data-akari-catalog-audio-toggle data-akari-catalog-audio-playing={playing ? 'true' : 'false'}
                 onClick={event => { event.stopPropagation(); this.toggleCatalogAudio(item); }}
                 style={{

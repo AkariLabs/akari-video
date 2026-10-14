@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { visionCandidates, preparePhotoClick, ensurePhotoModels, candidateCachePath } from '../lib/node/photo-segmentation.js';
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { visionCandidates, preparePhotoClick, ensurePhotoModels, candidateCachePath } = await import('../lib/node/photo-segmentation.js');
+
 
 const source = readFileSync(new URL('../src/node/photo-segmentation.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('photo-segmentation.ts', source, ts.ScriptTarget.Latest, true);
@@ -14,8 +20,8 @@ const adoptNode = ast.statements.find(node => ts.isFunctionDeclaration(node)
 assert.ok(adoptNode);
 const adoptCode = ts.transpileModule(adoptNode.getText(ast).replace(/^export\s+/u, ''),
   { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const adoptWithPlatform = platform => new Function('process', `${adoptCode}\nreturn adoptPhotoCandidates;`)(
-  { platform });
+const adoptWithPlatform = platform => new Function('process', 't', `${adoptCode}\nreturn adoptPhotoCandidates;`)(
+  { platform }, t);
 
 test('missing helper leaves inference unavailable without writing', async () => {
   assert.deepEqual(await visionCandidates('/unused', '/unused', undefined, 'foreground'),

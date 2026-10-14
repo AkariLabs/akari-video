@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
@@ -115,12 +116,12 @@ export function probeSourceHasAudio(path: string): Promise<ProbeSourceHasAudioRe
     if (cached) return cached;
     const pending = (async () => {
         const ffprobe = await ffprobePath();
-        if (!ffprobe) throw new Error('ffprobe が見つかりません。');
+        if (!ffprobe) throw new Error(t('annotationscommon.mediaCache.error.ffprobeNotFound'));
         const { stdout } = await videoExtractionSemaphore.run(() => execFileAsync(ffprobe, [
             '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type', '-of', 'json', path
         ], { timeout: 10000 }));
         const result = JSON.parse(stdout) as { streams?: Array<{ codec_type?: string }> };
-        if (!Array.isArray(result.streams)) throw new Error('音声の有無を確認できません。');
+        if (!Array.isArray(result.streams)) throw new Error(t('annotationscommon.mediaCache.error.couldNotDetermineWhetherAssetHasAudio'));
         return { hasAudio: result.streams.some(stream => stream.codec_type === 'audio') };
     })();
     sourceHasAudioCache.set(path, pending);
@@ -213,7 +214,7 @@ export async function getClipThumbnail(
 const sourceFrameExtractions = new Map<string, Promise<ExtractSourceFrameResult>>();
 export async function extractSourceFrame(projectRoot: string, sourcePath: string, atSeconds: number): Promise<ExtractSourceFrameResult> {
     if (!sourcePath || !Number.isFinite(atSeconds) || atSeconds < 0 || isAbsolute(sourcePath)) {
-        throw new Error('プロジェクト内の素材と有効な時刻が必要です。');
+        throw new Error(t('annotationscommon.mediaCache.error.provideProjectAssetValidTime'));
     }
     const root = await fs.realpath(projectRoot);
     const within = (target: string): boolean => {
@@ -225,7 +226,7 @@ export async function extractSourceFrame(projectRoot: string, sourcePath: string
     if (isFilmstripImageSource(source) || /\.gif$/iu.test(source)) {
         return { relativePath: sourcePath.replace(/\\/gu, '/'), sha256: await digest(source) };
     }
-    if (!/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source)) throw new Error('画像または動画の素材が必要です。');
+    if (!/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source)) throw new Error(t('annotationscommon.mediaCache.error.imageVideoAssetRequired'));
     // Check each existing ancestor before mkdir: even an assets symlink must not create a directory outside.
     let directory = root;
     for (const part of ['assets', 'captures']) {
@@ -233,7 +234,7 @@ export async function extractSourceFrame(projectRoot: string, sourcePath: string
         try { await fs.mkdir(directory); } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
         }
-        if (!within(await fs.realpath(directory))) throw new Error('保存先はプロジェクト内で指定してください。');
+        if (!within(await fs.realpath(directory))) throw new Error(t('annotationscommon.mediaCache.error.chooseDestinationInsideProject'));
     }
     const stat = await fs.stat(source);
     const hash = cacheHash([source, stat.size, stat.mtimeMs, atSeconds]).slice(0, 12);
@@ -245,11 +246,11 @@ export async function extractSourceFrame(projectRoot: string, sourcePath: string
     if (pending) return pending;
     const extraction = (async (): Promise<ExtractSourceFrameResult> => {
         try {
-            if (!within(await fs.realpath(destination))) throw new Error('保存先はプロジェクト内で指定してください。');
+            if (!within(await fs.realpath(destination))) throw new Error(t('annotationscommon.mediaCache.error.chooseDestinationInsideProject'));
             return { relativePath, sha256: await digest(destination) };
         } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
         const ffmpeg = await ffmpegPath();
-        if (!ffmpeg) throw new Error('ffmpeg が見つかりません。');
+        if (!ffmpeg) throw new Error(t('annotationscommon.mediaCache.error.ffmpegNotFound'));
         const staging = await fs.mkdtemp(join(directory, '.extract-'));
         const temporary = join(staging, 'frame.png');
         try {

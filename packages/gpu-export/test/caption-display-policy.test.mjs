@@ -181,6 +181,18 @@ test("display_policy の読点字幕は書き出しでも 1 行で焼く", () =>
   assert.equal(captionLines(legacy.spriteManifest.captions[0].html), 2);
 });
 
+test('English captions use the bundled Latin face in GPU and OSR pages', () => {
+  const captions = { display_policy: { ...displayPolicy, locale: 'en' },
+    captions: [{ id: 'english', src: 'main', start: 0, end: 2, text: 'English captions' }] };
+  const gpu = gpuPage(captions);
+  const osr = buildOsrPage(buildArgs(captions));
+  for (const html of [gpu.spriteManifest.captions[0].html, osr.overlaySheetHtml]) {
+    assert.match(html, /font-family: "AKARI Noto Sans";[\s\S]*?\/caption-fonts\/noto-sans-alias\/NotoSans-Variable\.ttf/u);
+  }
+  assert.equal(gpu.spriteManifest.captions[0].vars['--caption-font-family'],
+    '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif');
+});
+
 test('karaoke token timings are identical in GPU, OSR, and the shared preview/render plan', () => {
   const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
     text, start: index * 0.5, end: (index + 1) * 0.5,
@@ -255,10 +267,11 @@ test("GPU と OSR は display_policy 下でも同じ字幕 HTML と同じ本数�
 });
 
 test("display_policy 未宣言の字幕スプライトは既存バイト列を保ち、ページは R·S 順を使う", () => {
-  // 字幕スプライトは既存値を維持。ページ HTML は文字送りの共通遅延関数を含む値を固定する。
+  // 字幕スプライトは既存値を維持。ページ HTML のロケール依存警告だけを正規化する。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
-    .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")).digest("hex");
+    .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")
+      .replace(/"messages":\{"preserve3dOrder":"[^"]*","longGop":"[^"]*"\}/gu, '"messages":{"preserve3dOrder":"LOCALIZED"}')).digest("hex");
   const legacyArray = [punctuated, { id: "c-0008", src: "main", start: 3, end: 5, text: "短い字幕" }];
   const legacyObject = {
     default_text_style: { color: "#ffffff", size_px: 64, weight: 700 },
@@ -270,11 +283,11 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "fb2376246a499dea945fe96ef324a61832c01c6e3e87495edb64c6acf56e0480",
+      html: "b420cf67fa3750a91c3cb0820a9cb7fedee20028d808168cf6a31ed324397fc7",
       sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "88c2b0c9cc8dbffe58537c89213d6a9812aafb40db20e0a0a6d3c01a911d2b85",
+      html: "765f2ab5c24a2bdfbe88bbe98abfe7e9166bab29ac8d4ba55b1ccd78ffa27c19",
       sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };

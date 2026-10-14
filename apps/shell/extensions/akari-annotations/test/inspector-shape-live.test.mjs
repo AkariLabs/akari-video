@@ -1,7 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { shapeMarkup } from '@akari-video/edit-store';
-import { shapeLiveMarkup, shapeLiveParams } from '../lib/browser/inspector/shape-live.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { shapeLiveMarkup, shapeLiveParams } = await import('../lib/browser/inspector/shape-live.js');
+
 
 test('gradient and no fill produce live shape markup', () => {
     const gradient = { type: 'linear', angle: 45, stops: [

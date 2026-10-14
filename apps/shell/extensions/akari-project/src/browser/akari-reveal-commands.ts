@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { Command } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
 
@@ -8,7 +9,7 @@ import { isOSX } from '@theia/core/lib/common/os';
  * ボタンの title/aria-label 用の一文を組み立てる（「を」の二重化を避けて OS ごとに文型を変える）。
  */
 export function revealInFileManagerActionLabel(subject: string): string {
-    return isOSX ? `${subject} を Finder で表示` : `${subject} のフォルダを開く`;
+    return isOSX ? t('project.workspace.revealCommand.showSubjectFinderAction', { subject: subject }) : t('project.workspace.revealCommand.openFolderSubjectAction', { subject: subject });
 }
 
 /**
@@ -25,7 +26,7 @@ export const AKARI_REVEAL_IN_FILE_MANAGER: Command = {
 /** File メニューの「プロジェクトフォルダを Finder で表示」。現在のワークスペースルートが対象。 */
 export const AKARI_REVEAL_PROJECT_ROOT: Command = {
     id: 'akari.project.revealProjectRoot',
-    label: isOSX ? 'プロジェクトフォルダを Finder で表示' : 'プロジェクトフォルダを開く'
+    label: isOSX ? t('project.workspace.revealCommand.showProjectFolderFinderAction') : t('project.workspace.revealCommand.openProjectFolderAction')
 };
 
 /**

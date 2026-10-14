@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 export interface PreviewPlaceholderInput {
     width?: number;
     height?: number;
@@ -20,5 +21,5 @@ export function previewPlaceholderHtml(input: PreviewPlaceholderInput): string {
 .akari-placeholder-stage { position: absolute; left: 50%; top: 50%; width: min(calc(100cqw - 32px), calc((100cqh - 32px) * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
 .akari-placeholder-stage img { width: 100%; height: 100%; object-fit: contain; }
 .akari-placeholder-status { position: absolute; left: 12px; bottom: 12px; padding: 5px 8px; border-radius: 4px; background: rgba(0,0,0,.72); color: #eee; font: 12px system-ui, sans-serif; }
-</style><main class="akari-placeholder-stage" role="status">${image}<span class="akari-placeholder-status">読み込み中${escapeHtml(clock)}</span></main>`;
+</style><main class="akari-placeholder-stage" role="status">${image}<span class="akari-placeholder-status">${t('preview.previewWindow.placeholder.loadingStatusEmptyState')}${escapeHtml(clock)}</span></main>`;
 }

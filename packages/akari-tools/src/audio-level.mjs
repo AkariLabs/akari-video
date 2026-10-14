@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { toolsText } from './i18n.mjs';
 import path from "node:path";
 
 import {
@@ -30,10 +31,10 @@ function has(value, key) {
 
 function resolveTargets(targets) {
   if (targets === undefined) return DEFAULT_LEVEL_TARGETS;
-  if (!isRecord(targets)) throw new Error("--targets は JSON object で指定してください");
+  if (!isRecord(targets)) throw new Error(toolsText('tools.audioLevel.error.targetsObject'));
   const result = { ...DEFAULT_LEVEL_TARGETS };
   for (const [role, value] of Object.entries(targets)) {
-    if (!Number.isFinite(value)) throw new Error(`--targets の ${role} は有限数で指定してください`);
+    if (!Number.isFinite(value)) throw new Error(toolsText('tools.audioLevel.error.targetFinite', { role }));
     result[role] = value;
   }
   return result;
@@ -99,7 +100,7 @@ function collectLegacy(source, raw) {
 }
 
 function addFieldsToLegacyArray(source, key, index, fields) {
-  return updateArrayElementByIndex(source, key, index, key === "narration" ? "ナレーション" : "SE", (element) => {
+  return updateArrayElementByIndex(source, key, index, key === "narration" ? toolsText('tools.audioLevel.label.narration') : "SE", (element) => {
     const value = JSON.parse(element);
     return JSON.stringify({ ...value, ...fields });
   });
@@ -137,7 +138,7 @@ async function assertLintPass(projectRoot, lintRunner) {
   const errors = Array.isArray(result?.findings)
     ? result.findings.filter((finding) => finding?.severity === "error") : [];
   if (errors.length > 0 || result?.verdict === "fail") {
-    throw new Error(errors[0]?.message ?? "edit-lint が変更を拒否しました");
+    throw new Error(errors[0]?.message ?? toolsText('tools.audioLevel.error.lintRejected'));
   }
 }
 
@@ -160,7 +161,7 @@ async function writeRows({ projectRoot, editPath, originalText, version, rows, l
     await assertLintPass(projectRoot, lintRunner);
   } catch (error) {
     fs.writeFileSync(editPath, originalText, "utf8");
-    throw new Error(`edit-lint error のため edit.json を元に戻しました: ${error instanceof Error ? error.message : String(error)}`.replace(/\s+/gu, " "));
+    throw new Error(toolsText('tools.audioLevel.error.rolledBack', { message: error instanceof Error ? error.message : String(error) }).replace(/\s+/gu, " "));
   }
 }
 
@@ -175,7 +176,7 @@ export async function audioLevelProject(projectDir, options = {}) {
   const rows = [];
   const targets = resolveTargets(options.targets);
   const ceilingDbtp = options.ceilingDbtp ?? DEFAULT_TRUE_PEAK_CEILING_DBTP;
-  if (!Number.isFinite(ceilingDbtp)) throw new Error("--ceiling は有限数で指定してください");
+  if (!Number.isFinite(ceilingDbtp)) throw new Error(toolsText('tools.audioLevel.error.ceilingFinite'));
   const ffmpegPath = options.ffmpegPath ?? resolveFfmpeg();
   const measureRunner = options.measureRunner ?? measureAudioLevels;
   const cacheDir = path.join(projectRoot, ".akari", "cache", "audio-measure");
@@ -184,7 +185,7 @@ export async function audioLevelProject(projectDir, options = {}) {
     const materialPath = path.isAbsolute(clip.declaredPath)
       ? clip.declaredPath : path.resolve(path.dirname(editPath), clip.declaredPath);
     if (!fs.existsSync(materialPath)) {
-      warnings.push(`warning: 素材が見つからないため省略します: ${clip.declaredPath}`);
+      warnings.push(toolsText('tools.audioLevel.warning.sourceMissing', { path: clip.declaredPath }));
       continue;
     }
     try {
@@ -211,7 +212,7 @@ export async function audioLevelProject(projectDir, options = {}) {
         clip,
       });
     } catch (error) {
-      warnings.push(`warning: 計測できないため省略します: ${clip.declaredPath} (${error instanceof Error ? error.message : String(error)})`.replace(/\s+/gu, " "));
+      warnings.push(toolsText('tools.audioLevel.warning.measureFailed', { path: clip.declaredPath, message: error instanceof Error ? error.message : String(error) }).replace(/\s+/gu, " "));
     }
   }
 
@@ -236,7 +237,7 @@ function displayNumber(value) {
 }
 
 export function formatAudioLevelTable(result) {
-  if (result.targetCount === 0) return ["対象 0 件"];
+  if (result.targetCount === 0) return [toolsText('tools.audioLevel.table.empty')];
   const lines = ["path\trole\tbasis\tI(LUFS)\tTP(dBTP)\tgain_db\tfade_in\tfade_out\tstatus"];
   for (const row of result.rows) lines.push([
     row.path,
@@ -247,7 +248,7 @@ export function formatAudioLevelTable(result) {
     displayNumber(row.gain_db),
     displayNumber(row.fade_in),
     displayNumber(row.fade_out),
-    row.written ? "書込済み" : "-",
+    row.written ? toolsText('tools.audioLevel.table.written') : "-",
   ].join("\t"));
   return lines;
 }

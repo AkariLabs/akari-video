@@ -20,8 +20,13 @@ export const HANDLER_SOURCE_FILES = [
 export const HANDLER_COMPILED_FILES = HANDLER_SOURCE_FILES.map(relative => relative.replace(/^src\//u, 'lib/').replace(/\.ts$/u, '.js'));
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const previewJa = JSON.parse(readFileSync(join(extensionRoot, '../../../../packages/i18n/locales/ja/preview.json'), 'utf8'));
 let cachedSource;
 let cachedCompiled;
+
+export function readHandlerRawSource() {
+  return readFiles(HANDLER_SOURCE_FILES, 'source', 'class AkariPreviewOpenHandler');
+}
 
 function readFiles(files, kind, marker) {
   const content = files.map(relative => {
@@ -40,7 +45,14 @@ function readFiles(files, kind, marker) {
 
 export function readHandlerSource() {
   if (cachedSource !== undefined) return cachedSource;
-  cachedSource = readFiles(HANDLER_SOURCE_FILES, 'source', 'class AkariPreviewOpenHandler');
+  const source = readHandlerRawSource();
+  // Source-driven legacy tests assert the effective Japanese UI text. Expand static
+  // preview keys in this test view; the catalog key test checks the real source.
+  cachedSource = source.replace(/\$\{t\('(preview\.[^']+)'\)\}/g,
+    (match, key) => previewJa[key] ?? match)
+    .replace(/\bt\('(preview\.[^']+)'\)/g,
+      (match, key) => previewJa[key] === undefined ? match
+        : `'${previewJa[key].replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`);
   return cachedSource;
 }
 

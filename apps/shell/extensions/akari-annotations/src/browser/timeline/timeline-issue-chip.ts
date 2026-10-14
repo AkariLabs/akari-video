@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { StatusBar, StatusBarAlignment } from '@theia/core/lib/browser/status-bar/status-bar';
 import type { UiLintFinding } from '../../common/lint-message-ja';
 import { timelineIssueCopyText, timelineIssueHeading, timelineIssueLabel, timelineIssueRows } from '../../common/timeline-issue-chip';
@@ -25,7 +26,7 @@ export class TimelineIssueChip {
             text: timelineIssueLabel(findings.length),
             alignment: 0 as StatusBarAlignment,
             priority: -999,
-            name: 'タイムラインの課題',
+            name: t('annotationscommon.timelineIssueChip.label.timelineIssues'),
             className: 'akari-timeline-issue-status',
             color: 'var(--theia-editorWarning-foreground)',
             onclick: event => {
@@ -57,7 +58,7 @@ export class TimelineIssueChip {
         }
         if (remaining) {
             const more = this.doc.createElement('div');
-            more.textContent = `ほか ${remaining} 件`;
+            more.textContent = t('annotationscommon.timelineIssueChip.label.remainingIssues', { remaining: remaining, n: remaining });
             list.appendChild(more);
         }
         popup.appendChild(list);
@@ -65,12 +66,12 @@ export class TimelineIssueChip {
         actions.className = 'akari-timeline-issue-actions';
         const copy = this.doc.createElement('button');
         copy.type = 'button';
-        copy.textContent = 'コピー';
+        copy.textContent = t('annotationscommon.timelineIssueChip.text.copy');
         copy.dataset.testid = 'akari-timeline-issue-copy';
         copy.onclick = () => void this.copy(popup);
         const report = this.doc.createElement('button');
         report.type = 'button';
-        report.textContent = 'Lint レポートを開く';
+        report.textContent = t('annotationscommon.timelineIssueChip.text.openLintReport');
         report.dataset.testid = 'akari-timeline-issue-open-report';
         report.onclick = () => { this.openReport(); this.close(); };
         actions.append(copy, report);
@@ -100,7 +101,7 @@ export class TimelineIssueChip {
             fallback.className = 'akari-timeline-issue-fallback';
             fallback.value = content;
             fallback.readOnly = true;
-            fallback.setAttribute('aria-label', 'コピーする課題の全文');
+            fallback.setAttribute('aria-label', t('annotationscommon.timelineIssueChip.label.howCopyIssues'));
             popup.appendChild(fallback);
             fallback.select();
         }

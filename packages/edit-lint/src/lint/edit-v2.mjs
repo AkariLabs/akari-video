@@ -1,4 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
+import { lintText } from '../i18n.mjs';
 import { join, resolve } from "node:path";
 import { isSourceCompatibleWithLane } from "../shape-lane.mjs";
 import { EPSILON, addFinding, effectiveSourceOut, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath, structureFinding } from "./shared.mjs";
@@ -200,7 +201,7 @@ export function validateEditV2(edit, findings) {
             && duration < Math.round(0.5 * fps)) {
             addFinding(findings, {
               severity: "warning", check: "v2.item-duration-short",
-              message: `item ${String(item.id)} の duration は ${duration} フレーム（${seconds} 秒）です。at / duration の単位はフレームです。${duration} 秒のつもりなら ${formatNumber(duration * fps)} フレームにしてください（×fps = ${formatNumber(fps)}）。`,
+              message: lintText('lint-messages.item.duration.short', { id: String(item.id), duration, n: duration, seconds, expected: formatNumber(duration * fps), fps: formatNumber(fps) }),
               path: `${itemPath}.duration`,
             });
           }
@@ -215,7 +216,12 @@ export function validateEditV2(edit, findings) {
             if (sourceSeconds > 0 && ratio >= 5) {
               addFinding(findings, {
                 severity: "warning", check: "v2.item-duration-source-mismatch",
-                message: `item ${String(item.id)} の duration ${duration} フレーム（${seconds} 秒）と source の区間 in ${formatNumber(sourceIn)} 秒 〜 out ${formatNumber(source.out)} 秒（${sourceSeconds.toFixed(2)} 秒${isPositiveNumber(source.speed) && source.speed !== 1 ? `・speed ${formatNumber(source.speed)}` : ""}）が ${ratio.toFixed(1)} 倍食い違っています。at / duration はフレーム、source.in / out は秒です。取り違えていないか確かめてください（duration を秒で書いたなら ×fps = ${formatNumber(fps)}）。`,
+                message: lintText('lint-messages.item.duration.sourceMismatch', {
+                  id: String(item.id), duration, n: duration, seconds, sourceIn: formatNumber(sourceIn), sourceOut: formatNumber(source.out),
+                  sourceSeconds: sourceSeconds.toFixed(2), speed: isPositiveNumber(source.speed) && source.speed !== 1
+                    ? lintText('lint-messages.item.duration.speed', { speed: formatNumber(source.speed) }) : '',
+                  ratio: ratio.toFixed(1), fps: formatNumber(fps),
+                }),
                 path: `${itemPath}.duration`,
               });
             }
@@ -335,7 +341,11 @@ export function validateEditV2(edit, findings) {
       ? formatNumber(Number((overlaps[0].frames / fps).toFixed(2))) : null;
     if (overlaps.length) addFinding(findings, {
       severity: "warning", check: "v2.audio-bgm-multiple",
-      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.map(overlap => overlap.label).join('、')}。重なった区間は両方の BGM が鳴ります。クロスフェードにするなら、前の item に fade_out（秒）、後の item に fade_in（秒）を付けてください${exampleSeconds !== null ? `（例: 重なり ${formatNumber(overlaps[0].frames)} フレーム = ${exampleSeconds} 秒なら "fade_out": ${exampleSeconds} / "fade_in": ${exampleSeconds}）` : ""}。意図しない重なりなら時間が重ならないように配置してください。（同じトラックの中では重ねられません。別の audio トラックに置いてください）`,
+      message: lintText('lint-messages.audio.bgm.overlap', {
+        items: bgmItems.map(describe).join(lintText('lint-messages.audio.bgm.separator')),
+        overlaps: overlaps.map(overlap => overlap.label).join(lintText('lint-messages.audio.bgm.separator')),
+        example: exampleSeconds !== null ? lintText('lint-messages.audio.bgm.example', { frames: formatNumber(overlaps[0].frames), n: overlaps[0].frames, seconds: exampleSeconds }) : '',
+      }),
       path: "edit.json#tracks",
     });
   }
@@ -377,7 +387,7 @@ export function validateEditV2(edit, findings) {
       addFinding(findings, {
         severity: "warning",
         check: "v2.captions-content-deprecated",
-        message: "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
+        message: lintText('lint-messages.captions.content.deprecated'),
         path: `${trackPath}.content`,
       });
     }
@@ -434,9 +444,9 @@ export function validateEditV2(edit, findings) {
           addFinding(findings, {
             severity: "error",
             check: "v2.mask-video",
-            message: `${kind === "media" && isStillImageSourcePath(sourcePaths.get(item.source.src))
-              ? "静止画のマスクは PNG または動画を指定してください"
-              : "動画のマスクは動画ソースを指定してください"}: ${String(sourcePaths.get(item.mask))}`,
+            message: lintText('lint-messages.mask.source.invalid', { guidance: kind === "media" && isStillImageSourcePath(sourcePaths.get(item.source.src))
+              ? lintText('lint-messages.mask.still.allowed')
+              : lintText('lint-messages.mask.video.allowed'), path: String(sourcePaths.get(item.mask)) }),
             path: maskPath,
           });
         }
@@ -699,7 +709,7 @@ export async function validateV2ObjectTreeFiles(edit, findings, paths) {
       addFinding(findings, {
         severity: "error",
         check: "telop.retired",
-        message: "テロップ（ATF）の描画は退役しました。HTML 素材版のテロップに差し替えてください（Lab で配布）。すでに焼いた baked を持つ項目はそのまま再生できます。",
+        message: lintText('lint-messages.telop.render.retired'),
         path: `${itemPath}.source`,
       });
     }

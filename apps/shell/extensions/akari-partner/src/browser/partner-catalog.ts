@@ -30,6 +30,11 @@ export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     extensionId: string;
     viewContainerIds: string[];
     binaryVerification: Record<string, PlatformBinaryVerification>;
+    /**
+     * 拡張が「CLI の実体を指す設定」を持つとき、同梱より新しい AKARI 管理の CLI をそこへ入れる。
+     * `platforms` は実機で確かめたプラットフォーム（`process.platform-process.arch`）だけを載せる。
+     */
+    managedCli?: { preference: string; platforms: string[] };
 }
 
 export type PartnerCatalogEntry = PartnerCliCatalogEntry | PartnerWebCatalogEntry | PartnerExtensionCatalogEntry;
@@ -47,7 +52,8 @@ export const PARTNER_AGENT_LABELS: Record<PartnerAgentId, string> = {
     copilot: 'GitHub Copilot',
     cursor: 'Cursor',
     antigravity: 'Antigravity (Google)',
-    grok: 'Grok Build (xAI)'
+    grok: 'Grok Build (xAI)',
+    muse: 'Muse Code (Meta)'
 };
 
 export const PARTNER_CLI_ICON_CLASSES: Record<PartnerAgentId, string> = {
@@ -61,5 +67,6 @@ export const PARTNER_CLI_ICON_CLASSES: Record<PartnerAgentId, string> = {
     copilot: 'akari-partner-copilot-cli-icon',
     cursor: 'akari-partner-cursor-cli-icon',
     antigravity: 'akari-partner-antigravity-cli-icon',
-    grok: 'akari-partner-grok-cli-icon'
+    grok: 'akari-partner-grok-cli-icon',
+    muse: 'akari-partner-muse-cli-icon'
 };

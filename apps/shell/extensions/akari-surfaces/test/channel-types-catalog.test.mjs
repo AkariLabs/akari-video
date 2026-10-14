@@ -1,6 +1,11 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { assertCatalogCopy } from './i18n-source-copy.mjs';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const source = name => readFileSync(new URL(`../src/browser/channel/${name}`, import.meta.url), 'utf8');
 
@@ -17,16 +22,18 @@ test('チャンネル設計の入口', () => {
     const widget = source('akari-channel-widget.tsx');
     assert.ok(widget.includes('<ChannelTypesCatalog'));
     assert.ok(widget.includes('<ChannelDesignStart'));
-    assert.ok(widget.includes('自分の型として残しました'));
-    for (const marker of ['<ChannelTypeApplySheet', '<HelperConsentSheet', 'data-akari-helper-row', '1 つ前に戻しました', 'を当てました']) {
+    assertCatalogCopy(widget, '自分の型として残しました');
+    assertCatalogCopy(widget, '1 つ前に戻しました');
+    assertCatalogCopy(widget, 'を当てました');
+    for (const marker of ['<ChannelTypeApplySheet', '<HelperConsentSheet', 'data-akari-helper-row']) {
         assert.ok(widget.includes(marker));
     }
     const applySheet = source('channel-types-apply-sheet.tsx');
     assert.ok(!applySheet.includes('border-left'));
     for (const marker of ['data-akari-apply-run', 'data-akari-banner-undo']) assert.ok(applySheet.includes(marker));
     assert.ok(!source('channel-sheet-style.ts').includes('border-left'));
-    assert.ok(source('channel-design-md-form.tsx').includes('過去の動画からヘルパーに書いてもらう'));
+    assertCatalogCopy(source('channel-design-md-form.tsx'), '過去の動画からヘルパーに書いてもらう');
     const wizard = source('channel-design-wizard.tsx');
-    assert.ok(wizard.includes('カタログで探す…'));
-    assert.ok(wizard.includes('型を見る・当て直す…'));
+    assertCatalogCopy(wizard, 'カタログで探す…');
+    assertCatalogCopy(wizard, '型を見る・当て直す…');
 });

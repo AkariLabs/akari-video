@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -38,7 +39,7 @@ async function announceJob(result: { jobId: string }, root: string, memoId: stri
     watchJob(root, result.jobId);
 }
 export async function enqueueTaskify(request: TaskifyEnqueue, agent: 'claude' | 'codex'): Promise<{ jobId: string }> {
-    if (!currentService) throw new Error('取り込み係につながっていません。');
+    if (!currentService) throw new Error(t('annotationscommon.taskifyClient.error.notConnectedIngSection'));
     const result = await currentService.enqueue(request);
     await announceJob(result, request.projectRootUri, request.memoId, agent);
     return result;

@@ -14,7 +14,17 @@ export function libraryDragKind(item: Pick<AssetCatalogViewItem, 'category'>): '
 }
 
 export function canPlaceOverlay(item: Pick<AssetCatalogViewItem, 'origin' | 'category' | 'state'>): boolean {
-    return item.origin === 'resolver' && item.category === 'overlay' && item.state !== 'locked';
+    return item.origin === 'resolver' && (item.category === 'overlay' || item.category === 'scene3d')
+        && item.state !== 'locked';
+}
+
+export function isScene3dBakeRecipe({ names, meta }: {
+    names: readonly string[]; meta?: unknown;
+}): boolean {
+    const metadata = meta && typeof meta === 'object' ? meta as { requires?: unknown; tags?: unknown } : undefined;
+    return !names.some(name => /\.html?$/i.test(name)) || names.includes('scene.py')
+        || (Array.isArray(metadata?.requires) && metadata.requires.includes('blender'))
+        || (Array.isArray(metadata?.tags) && metadata.tags.includes('bake-recipe'));
 }
 
 /** 複数テイクの音源は試聴したファイルを選ぶ。meta.json 付きパックは一意解決のみ。 */

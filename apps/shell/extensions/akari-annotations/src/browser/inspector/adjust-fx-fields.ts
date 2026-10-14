@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type InspectorAdjustFxId = 'vignette' | 'blur' | 'grain' | 'sharpen' | 'glow' | 'clarity' | 'dehaze' | 'denoise' | 'motion_blur';
 export type InspectorAdjustFx =
     | { id: 'vignette'; amount?: number; midpoint?: number; roundness?: number; feather?: number }
@@ -25,41 +26,41 @@ export const INSPECTOR_ADJUST_FX_MAX_ITEMS = 8;
 export const INSPECTOR_ADJUST_FX: readonly {
     id: InspectorAdjustFxId; label: string; params: readonly InspectorAdjustFxParam[];
 }[] = [
-    { id: 'vignette', label: 'ビネット', params: [
-        { key: 'amount', label: '量', min: -1, max: 1, default: 0.5, step: 0.05, unit: '%', displayScale: 100 },
-        { key: 'midpoint', label: '中間点', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'roundness', label: '丸み', min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'feather', label: '境界ぼかし', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 }
+    { id: 'vignette', label: t('inspector.adjustFxFields.label.vignette'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: -1, max: 1, default: 0.5, step: 0.05, unit: '%', displayScale: 100 },
+        { key: 'midpoint', label: t('inspector.adjustFxFields.label.middlePoint'), min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'roundness', label: t('inspector.adjustFxFields.label.roundness'), min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'feather', label: t('inspector.adjustFxFields.label.feather'), min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 }
     ] },
-    { id: 'blur', label: 'ぼかし', params: [
-        { key: 'px', label: '半径', min: 0, max: 50, default: 8, step: 1, unit: 'px', displayScale: 1 }
+    { id: 'blur', label: t('inspector.adjustFxFields.label.blur'), params: [
+        { key: 'px', label: t('inspector.adjustFxFields.label.radius'), min: 0, max: 50, default: 8, step: 1, unit: 'px', displayScale: 1 }
     ] },
-    { id: 'grain', label: 'フィルムグレイン', params: [
-        { key: 'amount', label: '量', min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'size', label: 'サイズ', min: 0.5, max: 4, default: 1, step: 0.1, unit: '倍', displayScale: 1 }
+    { id: 'grain', label: t('inspector.adjustFxFields.label.filmGrain'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'size', label: t('inspector.adjustFxFields.label.size'), min: 0.5, max: 4, default: 1, step: 0.1, unit: t('inspector.adjustFxFields.unit.double'), displayScale: 1 }
     ] },
-    { id: 'sharpen', label: 'シャープ', params: [
-        { key: 'amount', label: '量', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 }
+    { id: 'sharpen', label: t('inspector.adjustFxFields.label.sharp'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 }
     ] },
-    { id: 'glow', label: 'グロー', params: [
-        { key: 'intensity', label: '強さ', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'radius', label: '半径', min: 0, max: 100, default: 20, step: 1, unit: 'px', displayScale: 1 },
-        { key: 'threshold', label: 'しきい値', min: 0, max: 1, default: 0.7, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'warmth', label: '色味', min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 }
+    { id: 'glow', label: t('inspector.adjustFxFields.label.glow'), params: [
+        { key: 'intensity', label: t('inspector.adjustFxFields.label.strength'), min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'radius', label: t('inspector.adjustFxFields.label.radius'), min: 0, max: 100, default: 20, step: 1, unit: 'px', displayScale: 1 },
+        { key: 'threshold', label: t('inspector.adjustFxFields.label.threshold'), min: 0, max: 1, default: 0.7, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'warmth', label: t('inspector.adjustFxFields.label.color'), min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 }
     ] },
-    { id: 'clarity', label: '明瞭度', params: [
-        { key: 'amount', label: '量', min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
-        { key: 'radius', label: '半径', min: 1, max: 50, default: 10, step: 1, unit: 'px', displayScale: 1 }
+    { id: 'clarity', label: t('inspector.adjustFxFields.label.clarity'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'radius', label: t('inspector.adjustFxFields.label.radius'), min: 1, max: 50, default: 10, step: 1, unit: 'px', displayScale: 1 }
     ] },
-    { id: 'dehaze', label: 'かすみ除去', params: [
-        { key: 'amount', label: '量', min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
+    { id: 'dehaze', label: t('inspector.adjustFxFields.label.removal'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
     ] },
-    { id: 'denoise', label: 'ノイズ除去', params: [
-        { key: 'amount', label: '量', min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
+    { id: 'denoise', label: t('inspector.adjustFxFields.label.noiseRemoval'), params: [
+        { key: 'amount', label: t('inspector.adjustFxFields.label.amount'), min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
     ] },
-    { id: 'motion_blur', label: 'モーションブラー', params: [
-        { key: 'px', label: '長さ', min: 0, max: 100, default: 10, step: 1, unit: 'px', displayScale: 1 },
-        { key: 'angle', label: '角度', min: -180, max: 180, default: 0, step: 1, unit: '°', displayScale: 1 }
+    { id: 'motion_blur', label: t('inspector.adjustFxFields.label.motionBra'), params: [
+        { key: 'px', label: t('inspector.adjustFxFields.label.length'), min: 0, max: 100, default: 10, step: 1, unit: 'px', displayScale: 1 },
+        { key: 'angle', label: t('inspector.adjustFxFields.label.angle'), min: -180, max: 180, default: 0, step: 1, unit: '°', displayScale: 1 }
     ] }
 ];
 
@@ -88,16 +89,16 @@ export function normalizeInspectorAdjustFx(raw: unknown): InspectorAdjustFx[] {
 }
 
 export function addInspectorAdjustFx(list: readonly InspectorAdjustFx[], id: string): InspectorAdjustFx[] {
-    if (list.length >= INSPECTOR_ADJUST_FX_MAX_ITEMS) throw new Error('効果は 8 個までです。');
+    if (list.length >= INSPECTOR_ADJUST_FX_MAX_ITEMS) throw new Error(t('inspector.adjustFxFields.error.up8Effects'));
     const definition = INSPECTOR_ADJUST_FX.find(effect => effect.id === id);
-    if (!definition) throw new Error('一覧から効果を選択してください。');
+    if (!definition) throw new Error(t('inspector.adjustFxFields.error.selectEffectFromList'));
     const next = normalizeInspectorAdjustFx(list);
-    if (next.some(effect => effect.id === id)) throw new Error('同じ効果は 1 つまでです');
+    if (next.some(effect => effect.id === id)) throw new Error(t('inspector.adjustFxFields.error.sameEffectUpOne'));
     return [...next, { id: definition.id }];
 }
 
 function assertIndex(list: readonly InspectorAdjustFx[], index: number): void {
-    if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('効果を選択してください。');
+    if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error(t('inspector.adjustFxFields.error.selectEffect'));
 }
 
 export function removeInspectorAdjustFx(list: readonly InspectorAdjustFx[], index: number): InspectorAdjustFx[] {
@@ -114,9 +115,9 @@ export function updateInspectorAdjustFxParam(
     assertIndex(next, index);
     const entry = next[index];
     const param = INSPECTOR_ADJUST_FX.find(effect => effect.id === entry.id)!.params.find(candidate => candidate.key === key);
-    if (!param) throw new Error('この効果に未対応のパラメータです。');
+    if (!param) throw new Error(t('inspector.adjustFxFields.error.parameterNotSupported'));
     if (value !== null && !validParam(value, param)) {
-        throw new Error(`${param.label}は ${param.min * param.displayScale}〜${param.max * param.displayScale} ${param.unit} の範囲で入力してください。`);
+        throw new Error(t('inspector.adjustFxFields.error.shouldBeEnteredRange', { label: param.label, minimum: param.min * param.displayScale, maximum: param.max * param.displayScale, unit: param.unit }));
     }
     const updated = { ...entry } as Record<string, unknown>;
     if (value === null || value === param.default) delete updated[key];
@@ -128,7 +129,7 @@ export function updateInspectorAdjustFxParam(
 export function moveInspectorAdjustFx(list: readonly InspectorAdjustFx[], index: number, delta: number): InspectorAdjustFx[] {
     const next = normalizeInspectorAdjustFx(list);
     assertIndex(next, index);
-    if (delta !== -1 && delta !== 1) throw new Error('効果は上か下へ移動してください。');
+    if (delta !== -1 && delta !== 1) throw new Error(t('inspector.adjustFxFields.error.specifyEffectAboveBelow'));
     const destination = index + delta;
     if (destination >= 0 && destination < next.length) {
         [next[index], next[destination]] = [next[destination], next[index]];

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { InspectorStorage } from './section-model';
 
 export interface InspectorTabDef {
@@ -14,25 +15,25 @@ export interface InspectorTabSnapshotHints {
     generationAvailable?: boolean;
 }
 
-const VIDEO_TAB = { id: 'video', label: '映像', enabled: true } as const;
-const INFO_TAB = { id: 'info', label: '情報', enabled: true } as const;
+const VIDEO_TAB = { id: 'video', label: t('inspector.tabModel.label.video'), enabled: true } as const;
+const INFO_TAB = { id: 'info', label: t('inspector.tabModel.label.info'), enabled: true } as const;
 
 export function tabsForKind(
     kind: InspectorTabKind,
     snapshotHints: InspectorTabSnapshotHints = {}
 ): InspectorTabDef[] {
-    if (kind === 'world') return [{ id: 'world', label: '地図', enabled: true }, { ...INFO_TAB }];
+    if (kind === 'world') return [{ id: 'world', label: t('inspector.tabModel.label.map'), enabled: true }, { ...INFO_TAB }];
     if (kind === 'caption') {
         return [
-            { id: 'text', label: 'テキスト', enabled: true },
-            { id: 'motion', label: '動き', enabled: true },
+            { id: 'text', label: t('inspector.tabModel.label.text'), enabled: true },
+            { id: 'motion', label: t('inspector.tabModel.label.motion'), enabled: true },
             { ...INFO_TAB }
         ];
     }
     if (kind === 'audio') {
         return [
-            { id: 'edit', label: 'ホーム', enabled: true },
-            { id: 'audio', label: '音声', enabled: true },
+            { id: 'edit', label: t('inspector.tabModel.label.home'), enabled: true },
+            { id: 'audio', label: t('inspector.tabModel.label.voice'), enabled: true },
             { ...INFO_TAB }
         ];
     }
@@ -40,11 +41,11 @@ export function tabsForKind(
     const hasMediaSource = typeof snapshotHints.src === 'string' && snapshotHints.src.length > 0;
     const hasMediaPreview = kind === 'cut' || hasMediaSource;
     return [
-        { id: 'edit', label: 'ホーム', enabled: true },
+        { id: 'edit', label: t('inspector.tabModel.label.home'), enabled: true },
         { ...VIDEO_TAB },
-        { id: 'adjust', label: '色', enabled: hasMediaPreview },
-        { id: 'audio', label: '音声', enabled: hasMediaPreview },
-        { id: 'motion', label: '動き', enabled: true },
+        { id: 'adjust', label: t('inspector.tabModel.label.color'), enabled: hasMediaPreview },
+        { id: 'audio', label: t('inspector.tabModel.label.voice'), enabled: hasMediaPreview },
+        { id: 'motion', label: t('inspector.tabModel.label.motion'), enabled: true },
         { ...INFO_TAB }
     ];
 }
@@ -112,4 +113,4 @@ export class InspectorTabState {
 
 export const COMING_SOON_ADJUST_SECTIONS = [] as const;
 
-export const ACTIVE_ADJUST_SECTIONS = ['基本補正', 'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'LUT', 'エフェクト'] as const;
+export const ACTIVE_ADJUST_SECTIONS = [t('inspector.tabModel.label.basicCorrection'), t('inspector.tabModel.label.rgb'), t('inspector.tabModel.label.colorWheel'), t('inspector.tabModel.label.hue'), 'LUT', t('inspector.tabModel.label.effect')] as const;

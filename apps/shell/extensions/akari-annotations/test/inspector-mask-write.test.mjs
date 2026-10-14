@@ -1,15 +1,32 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-    isMaskCandidatePath, maskSourceOptionsForSources, maskOptionLabels,
-    maskOptionLabel, maskSourceIdForLabel, createMaskWriteRequest
-} from '../lib/browser/inspector/mask-fields.js';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
-import { readInspectorAdjustSnapshot } from '../lib/browser/inspector/adjust-fields.js';
-import { layerSnapshotChromaKey, legacyTransformOpFor } from '../lib/browser/inspector/field-mappings.js';
-import { isCutFramingWriteRequest } from '../lib/browser/inspector/framing-fields.js';
-import { isCutFreezeWriteRequest } from '../lib/browser/inspector/freeze-fields.js';
-import { layerSections, itemSections, timelineMethod, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { layerSections, itemSections, timelineMethod, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { isMaskCandidatePath, maskSourceOptionsForSources, maskOptionLabels, maskOptionLabel, maskSourceIdForLabel, createMaskWriteRequest } = await import('../lib/browser/inspector/mask-fields.js');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { readInspectorAdjustSnapshot } = await import('../lib/browser/inspector/adjust-fields.js');
+const { layerSnapshotChromaKey, legacyTransformOpFor } = await import('../lib/browser/inspector/field-mappings.js');
+const { isCutFramingWriteRequest } = await import('../lib/browser/inspector/framing-fields.js');
+const { isCutFreezeWriteRequest } = await import('../lib/browser/inspector/freeze-fields.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const sources = new Map([
     ['main', { path: 'assets/main.mp4' }],

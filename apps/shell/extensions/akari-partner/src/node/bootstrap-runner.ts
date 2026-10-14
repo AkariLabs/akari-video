@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 /* eslint-disable @typescript-eslint/no-var-requires */
 import type { PartnerAgentId, PartnerInstallDisclosure } from '../common/akari-partner-protocol';
 
@@ -7,8 +8,8 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
     const localBin = windows ? '%USERPROFILE%\\.local\\bin' : '~/.local/bin';
     const privateNode = windows ? '%USERPROFILE%\\.akari\\runtime\\node\\v24.21.0' : '~/.akari/runtime/node/v24.21.0';
     const npmPrefix = windows ? '%USERPROFILE%\\.local' : '~/.local';
-    const installerEffects = '提供元のインストーラーをそのまま実行します。インストーラーが PATH などシェルの設定を変えることがあります。';
-    const powershellEffects = `PowerShell の ExecutionPolicy Bypass で実行します。${installerEffects}`;
+    const installerEffects = t('partner.partnerSetup.bootstrap.runProviderSInstallerMayChangeShellSettingsSuchPathMessage');
+    const powershellEffects = t('partner.partnerSetup.bootstrap.runPowershellExecutionpolicyBypassText', { value1: installerEffects });
     const table: Record<PartnerAgentId, PartnerInstallDisclosure> = {
         claude: {
             name: 'Claude Code', provider: 'Anthropic',
@@ -21,64 +22,64 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
             name: 'Codex', provider: 'OpenAI',
             sourceUrl: 'https://api.github.com/repos/openai/codex/releases/latest',
             location: windows ? '%LOCALAPPDATA%\\AKARI Video\\codex'
-                : '~/.local/share/akari-video/codex と ~/.local/bin/codex',
-            environment: windows ? 'アプリ管理フォルダへ配置し、既存の Codex は変更しません。利用者の PATH は変更しません。'
-                : 'すでに入っている Codex に補助の実行ファイル（codex-code-mode-host）が無いときは、その Codex と同じフォルダへ追加します。~/.local/bin/codex にリンクを作ります（同じ名前のファイルがあれば置き換えます）。利用者の PATH は変更しません。',
+                : t('partner.partnerSetup.bootstrap.localShareAkariVideoCodexLocalBinCodexText'),
+            environment: windows ? t('partner.partnerSetup.bootstrap.installAppManagedFolderWithoutChangingExistingCodexPathMessage')
+                : t('partner.partnerSetup.bootstrap.existingCodexLacksCodexCodeModeHostAddBesideCodexMessage'),
             termsUrl: 'https://openai.com/policies/terms-of-use/'
         },
         opencode: {
             name: 'opencode', provider: 'Anomaly Innovations, Inc.',
             sourceUrl: windows ? `https://github.com/sst/opencode/releases/latest/download/opencode-windows-${arch === 'arm64' ? 'arm64' : 'x64'}.zip` : 'https://opencode.ai/install',
-            location: windows ? `${localBin}\\opencode.exe` : '~/.opencode/bin または ~/.local/bin',
-            environment: windows ? '実行ファイルを配置します。利用者の PATH は変更しません。' : installerEffects,
+            location: windows ? `${localBin}\\opencode.exe` : t('partner.partnerSetup.bootstrap.opencodeBinLocalBinText'),
+            environment: windows ? t('partner.partnerSetup.bootstrap.installExecutableWithoutChangingPathMessage') : installerEffects,
             termsUrl: 'https://opencode.ai/legal/terms-of-service'
         },
         commandcode: {
-            name: 'Command Code', provider: 'Langbase, Inc.（Command Code）',
+            name: 'Command Code', provider: t('partner.partnerSetup.bootstrap.langbaseIncCommandCodeText'),
             sourceUrl: 'https://registry.npmjs.org/command-code',
-            location: `${privateNode} と ${npmPrefix}（npm global）`,
-            environment: '必要なら https://nodejs.org/dist/v24.21.0/ から Node.js を取得し、npm global で CLI を導入します。利用者の PATH は変更せず、パートナー起動時に一時追加します。',
+            location: t('partner.partnerSetup.bootstrap.npmGlobalLabel', { value1: privateNode, value2: npmPrefix }),
+            environment: t('partner.partnerSetup.bootstrap.neededDownloadNodeJsLinkInstallCliGloballyNpmPathMessage'),
             termsUrl: 'https://commandcode.ai/terms'
         },
         pi: {
             name: 'Pi', provider: 'Earendil',
             sourceUrl: 'https://registry.npmjs.org/@earendil-works/pi-coding-agent',
-            location: `${privateNode} と ${npmPrefix}（npm global）`,
-            environment: '必要なら https://nodejs.org/dist/v24.21.0/ から Node.js を取得し、npm global で CLI を導入します。利用者の PATH は変更せず、パートナー起動時に一時追加します。',
+            location: t('partner.partnerSetup.bootstrap.npmGlobalLabel', { value1: privateNode, value2: npmPrefix }),
+            environment: t('partner.partnerSetup.bootstrap.neededDownloadNodeJsLinkInstallCliGloballyNpmPathMessage'),
             termsUrl: 'https://github.com/earendil-works/pi/blob/main/LICENSE'
         },
         deepseek: {
-            name: 'DeepSeek Harness', provider: 'DeepSeek（杭州深度求索人工智能基础技术研究有限公司）',
+            name: 'DeepSeek Harness', provider: t('partner.partnerSetup.bootstrap.deepSeekLegalProviderName'),
             sourceUrl: 'https://registry.npmjs.org/@deepseek-ai/dsh',
-            location: `${privateNode} と ${npmPrefix}（npm global）`,
-            environment: '必要なら https://nodejs.org/dist/v24.21.0/ から Node.js を取得し、npm global で CLI を導入します。利用者の PATH は変更せず、パートナー起動時に一時追加します。',
+            location: t('partner.partnerSetup.bootstrap.npmGlobalLabel', { value1: privateNode, value2: npmPrefix }),
+            environment: t('partner.partnerSetup.bootstrap.neededDownloadNodeJsLinkInstallCliGloballyNpmPathMessage'),
             termsUrl: 'https://cdn.deepseek.com/policies/en-US/deepseek-terms-of-use.html'
         },
         devin: {
             name: 'Devin', provider: 'Cognition',
             sourceUrl: windows ? 'https://static.devin.ai/cli/setup.ps1' : 'https://cli.devin.ai/install.sh',
-            location: windows ? '%LOCALAPPDATA%\\devin\\cli\\bin' : '~/.local/bin または提供元インストーラーの指定先',
+            location: windows ? '%LOCALAPPDATA%\\devin\\cli\\bin' : t('partner.partnerSetup.bootstrap.localBinProviderInstallLocationText'),
             environment: windows ? powershellEffects : installerEffects,
             termsUrl: 'https://cognition.com/legal/platform-terms-of-service'
         },
         copilot: {
             name: 'GitHub Copilot CLI', provider: 'GitHub',
             sourceUrl: windows ? `https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-${arch === 'arm64' ? 'arm64' : 'x64'}.zip` : 'https://gh.io/copilot-install',
-            location: windows ? `${localBin}\\copilot.exe` : '~/.local/bin または提供元インストーラーの指定先',
-            environment: windows ? '実行ファイルを配置します。利用者の PATH は変更しません。' : installerEffects,
+            location: windows ? `${localBin}\\copilot.exe` : t('partner.partnerSetup.bootstrap.localBinProviderInstallLocationText'),
+            environment: windows ? t('partner.partnerSetup.bootstrap.installExecutableWithoutChangingPathMessage') : installerEffects,
             termsUrl: 'https://docs.github.com/en/site-policy/github-terms/github-terms-of-service'
         },
         cursor: {
             name: 'Cursor CLI', provider: 'Anysphere', sourceUrl: 'https://cursor.com/install',
-            location: windows ? 'Windows ネイティブの自動導入はありません。' : '~/.local/bin または提供元インストーラーの指定先',
-            environment: windows ? 'PATH などの環境は変更しません。' : installerEffects,
+            location: windows ? t('partner.partnerSetup.bootstrap.automaticNativeWindowsInstallationUnavailableStatus') : t('partner.partnerSetup.bootstrap.localBinProviderInstallLocationText'),
+            environment: windows ? t('partner.partnerSetup.bootstrap.environmentSettingsSuchPathNotChangeMessage') : installerEffects,
             termsUrl: 'https://cursor.com/en-US/terms-of-service'
         },
         antigravity: {
             name: 'Antigravity', provider: 'Google',
             sourceUrl: windows ? 'https://antigravity.google/cli/install.ps1' : 'https://antigravity.google/cli/install.sh',
             location: windows ? '%LOCALAPPDATA%\\agy\\bin' : '~/.local/bin',
-            environment: windows ? `${powershellEffects} 提供元インストーラーが利用者の PATH を変更します。` : installerEffects,
+            environment: windows ? t('partner.partnerSetup.bootstrap.providerInstallerChangePathMessage', { value1: powershellEffects }) : installerEffects,
             termsUrl: 'https://antigravity.google/terms'
         },
         grok: {
@@ -87,6 +88,13 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
             location: windows ? '%USERPROFILE%\\.grok\\bin' : '~/.grok/bin',
             environment: windows ? powershellEffects : installerEffects,
             termsUrl: 'https://x.ai/legal/terms-of-service'
+        },
+        muse: {
+            name: 'Muse Code', provider: 'Meta',
+            sourceUrl: windows ? 'https://dev.meta.ai/install.ps1' : 'https://dev.meta.ai/install.sh',
+            location: windows ? '%LOCALAPPDATA%\\Programs\\muse' : t('partner.partnerSetup.bootstrap.localBinProviderInstallLocationText'),
+            environment: windows ? powershellEffects : installerEffects,
+            termsUrl: 'https://www.facebook.com/policies_center/'
         }
     };
     const overrideNames: Record<PartnerAgentId, string> = {
@@ -94,7 +102,7 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
         opencode: 'AKARI_PARTNER_OPENCODE_INSTALL_URL', commandcode: '', pi: '', deepseek: '',
         devin: 'AKARI_PARTNER_DEVIN_INSTALL_URL', copilot: 'AKARI_PARTNER_COPILOT_INSTALL_URL',
         cursor: 'AKARI_PARTNER_CURSOR_INSTALL_URL', antigravity: 'AKARI_PARTNER_ANTIGRAVITY_INSTALL_URL',
-        grok: 'AKARI_PARTNER_GROK_INSTALL_URL'
+        grok: 'AKARI_PARTNER_GROK_INSTALL_URL', muse: 'AKARI_PARTNER_MUSE_INSTALL_URL'
     };
     const override = env[overrideNames[agent]];
     return override ? { ...table[agent], sourceUrl: override } : table[agent];
@@ -105,7 +113,12 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
  * That keeps packaged execution independent of both user PATH and extension
  * source/layout paths inside app.asar.
  */
-export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-candidates').partnerCliCandidates): void {
+export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-candidates').partnerCliCandidates,
+    translations: Record<string, string> = {}): void {
+    // This function is serialized into a separate process, so its dictionary travels with it.
+    const t = (key: string, params: Record<string, string | number | null | undefined> = {}): string =>
+        (translations[key] ?? key).replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (match, name) =>
+            params[name] === undefined ? match : String(params[name]));
     const fs = require('fs').promises as typeof import('fs').promises;
     const os = require('os') as typeof import('os');
     const path = require('path') as typeof import('path');
@@ -175,7 +188,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
 
     function requireInstallConsent(): void {
         if (process.env.AKARI_PARTNER_INSTALL_CONSENT !== '1') {
-            throw new InstallConsentRequired('導入には同意が必要です');
+            throw new InstallConsentRequired(t('partner.partnerSetup.bootstrap.installationRequiresConsentText'));
         }
     }
 
@@ -286,16 +299,16 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (!forceReinstall) {
             const existing = await firstExecutable(claudeCandidates());
             if (existing) {
-                console.log(`既存の claude を検出: ${existing}`);
+                console.log(t('partner.partnerSetup.bootstrap.foundExistingClaudeText', { value1: existing }));
                 return { executablePath: existing, reused: true };
             }
         }
         requireInstallConsent();
-        console.log(`Claude installer を取得しています: ${claudeInstallUrl}`);
+        console.log(t('partner.partnerSetup.bootstrap.downloadingClaudeInstallerText', { value1: claudeInstallUrl }));
         const script = await request(claudeInstallUrl, 'text/plain');
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'akari-claude-'));
         try {
-            console.log('Claude Code をユーザー領域へインストールしています');
+            console.log(t('partner.partnerSetup.bootstrap.installingClaudeCodeUserFolderText'));
             if (process.platform === 'win32') {
                 const installer = path.join(tempDir, 'install.ps1');
                 await fs.writeFile(installer, script);
@@ -320,7 +333,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             }
             const executable = await firstExecutable(claudeCandidates());
             if (!executable) {
-                console.log(`探索した実行ファイル候補: ${claudeCandidates().join(', ')}`);
+                console.log(t('partner.partnerSetup.bootstrap.executableLocationsSearchedStatus', { value1: claudeCandidates().join(', ') }));
                 throw new Error('Claude installer completed but the claude executable was not found');
             }
             return { executablePath: executable, reused: false };
@@ -334,20 +347,24 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             if (!forceReinstall) {
                 const existing = await firstExecutable(codexCandidates());
                 if (existing) {
-                    console.log(`既存の codex を検出: ${existing}`);
-                    if (await codexHostPath(existing)) {
+                    console.log(t('partner.partnerSetup.bootstrap.foundExistingCodexText', { value1: existing }));
+                    if (await isIncompleteManagedCodex(existing)) {
+                        // 以前の Windows 導入は bin の 2 本だけを current へ写していた。新しい Codex は
+                        // codex-package.json などの一式が無いと起動を拒む（no complete local package）ので入れ直す。
+                        console.log(t('partner.partnerSetup.bootstrap.managedCodexPackageIncompleteText', { value1: existing }));
+                    } else if (await codexHostPath(existing)) {
                         logCodexHostResult('OK', existing);
                         return { executablePath: existing, reused: true };
                     }
-                    if (process.platform !== 'win32') {
+                    if (process.platform !== 'win32' && !await isIncompleteManagedCodex(existing)) {
                         try {
                             await repairCodexHost(existing);
                             await requireCodexHost(existing);
-                            logCodexHostResult('補充した', existing);
+                            logCodexHostResult(t('partner.partnerSetup.bootstrap.addedStatus'), existing);
                             return { executablePath: existing, reused: true };
                         } catch (error) {
                             if (error instanceof InstallConsentRequired) throw error;
-                            console.log(`既存 Codex の code-mode host 補充に失敗したため、公式バンドルへ切り替えます: ${errorMessage(error)}`);
+                            console.log(t('partner.partnerSetup.bootstrap.couldNotAddCodeModeHostExistingCodexSwitchingOfficialError', { value1: errorMessage(error) }));
                         }
                     }
                 }
@@ -359,7 +376,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             return { executablePath: installed, reused: false };
         } catch (error) {
             if (error instanceof InstallConsentRequired) throw error;
-            console.log(`Codex code-mode host: 取得失敗 — 画像生成が使えません: ${errorMessage(error)}`);
+            console.log(t('partner.partnerSetup.bootstrap.couldNotFetchCodexCodeModeHostImageGenerationUnavailableError', { value1: errorMessage(error) }));
             throw error;
         }
     }
@@ -371,7 +388,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
 
     async function installManagedCodexBundle(): Promise<string> {
         requireInstallConsent();
-        console.log(`Codex リリース情報を取得しています: ${codexReleaseApiUrl}`);
+        console.log(t('partner.partnerSetup.bootstrap.fetchingCodexReleaseInformationText', { value1: codexReleaseApiUrl }));
         const release = await fetchCodexRelease(codexReleaseApiUrl);
         const version = releaseVersion(release);
         const assetName = codexBundleAssetName();
@@ -379,7 +396,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (!asset) {
             throw new Error(`Codex release does not contain ${assetName}`);
         }
-        console.log(`${asset.name} をダウンロードしています`);
+        console.log(t('partner.partnerSetup.bootstrap.downloadingAssetStatus', { value1: asset.name }));
         // バンドルは 114MB 級。低速回線向けの大容量タイムアウトを使う（win32 zip CLI と同方針）。
         const archive = await request(asset.browser_download_url, 'application/octet-stream', largeDownloadTimeoutMs);
         const managedRoot = codexManagedRoot();
@@ -400,16 +417,33 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
 
         const bundled = codexBundlePaths(versionDir);
         let executable: string;
+        let installedDir = versionDir;
         if (process.platform === 'win32') {
-            const currentBin = path.join(managedRoot, 'current', 'bin');
+            // Windows は固定の current を指す。bin だけでなくパッケージ一式（codex-package.json・
+            // codex-path・codex-resources）を丸ごと current に据える。欠けると Codex が起動を拒む。
+            const current = path.join(managedRoot, 'current');
             const temporaryCurrent = path.join(managedRoot, `.current-${process.pid}`);
             await fs.rm(temporaryCurrent, { recursive: true, force: true });
-            await fs.mkdir(path.join(temporaryCurrent, 'bin'), { recursive: true });
-            await fs.copyFile(bundled.executable, path.join(temporaryCurrent, 'bin', path.basename(bundled.executable)));
-            await fs.copyFile(bundled.host, path.join(temporaryCurrent, 'bin', path.basename(bundled.host)));
-            await fs.rm(path.dirname(currentBin), { recursive: true, force: true });
-            await fs.rename(temporaryCurrent, path.dirname(currentBin));
-            executable = path.join(currentBin, path.basename(bundled.executable));
+            const previousCurrent = path.join(managedRoot, `.previous-${process.pid}`);
+            await fs.rename(versionDir, temporaryCurrent);
+            try {
+                // 消す前に別名へ退避する。実行中の codex.exe があれば退避の rename が丸ごと失敗するので、
+                // 中途半端に削れた current を残さない。
+                await fs.rm(previousCurrent, { recursive: true, force: true });
+                await fs.rename(current, previousCurrent).catch(error => {
+                    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw error;
+                });
+                await fs.rename(temporaryCurrent, current);
+            } catch (error) {
+                await fs.rm(temporaryCurrent, { recursive: true, force: true }).catch(() => undefined);
+                if (!await pathExists(current)) {
+                    await fs.rename(previousCurrent, current).catch(() => undefined);
+                }
+                throw error;
+            }
+            await fs.rm(previousCurrent, { recursive: true, force: true }).catch(() => undefined);
+            executable = path.join(current, 'bin', path.basename(bundled.executable));
+            installedDir = current;
         } else {
             const executableLink = path.join(os.homedir(), '.local', 'bin', 'codex');
             await fs.mkdir(path.dirname(executableLink), { recursive: true });
@@ -419,7 +453,15 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             await fs.rename(temporaryLink, executableLink);
             executable = executableLink;
         }
-        console.log(`Codex ${version} を ${versionDir} にインストールしました`);
+        // 更新を重ねるたびに 100MB 級のバンドルが溜まらないよう、新版以外の版フォルダを片付ける。
+        // 実行中の旧版や権限の問題で消せなくても導入自体は成功なので握りつぶす（best-effort）。
+        try {
+            for (const entry of await fs.readdir(managedRoot, { withFileTypes: true })) {
+                if (!entry.isDirectory() || entry.name === version || entry.name === 'current' || entry.name.startsWith('.')) continue;
+                await fs.rm(path.join(managedRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+            }
+        } catch { /* 片付けは任意 */ }
+        console.log(t('partner.partnerSetup.bootstrap.installedCodexLabel', { value1: version, value2: installedDir }));
         return executable;
     }
 
@@ -432,11 +474,11 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         });
         const versionMatch = /(?:^|\s)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(versionOutput.trim());
         if (!versionMatch) {
-            throw new Error(`codex --version から版を特定できませんでした: ${versionOutput.trim()}`);
+            throw new Error(t('partner.partnerSetup.bootstrap.couldNotDetermineVersionCodexVersionError', { value1: versionOutput.trim() }));
         }
         const tag = `rust-v${versionMatch[1]}`;
         const tagUrl = codexReleaseTagApiUrlTemplate.replace('{tag}', encodeURIComponent(tag));
-        console.log(`Codex ${versionMatch[1]} の code-mode host を取得しています: ${tagUrl}`);
+        console.log(t('partner.partnerSetup.bootstrap.fetchingCodeModeHostCodexText', { value1: versionMatch[1], value2: tagUrl }));
         const release = await fetchCodexRelease(tagUrl);
         if (release.tag_name !== tag) {
             throw new Error(`Codex host release tag mismatch: expected ${tag}, got ${release.tag_name ?? '(missing)'}`);
@@ -497,6 +539,29 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         };
     }
 
+    /** AKARI 管理フォルダの Codex なのに、パッケージ一式の目印（codex-package.json）が無い。 */
+    async function isIncompleteManagedCodex(executable: string): Promise<boolean> {
+        let managedRoot: string;
+        let executableRealpath: string;
+        try {
+            managedRoot = await fs.realpath(codexManagedRoot());
+            executableRealpath = await fs.realpath(executable);
+        } catch {
+            return false;
+        }
+        if (!executableRealpath.startsWith(managedRoot + path.sep)) return false;
+        try {
+            await fs.access(path.join(path.dirname(path.dirname(executableRealpath)), 'codex-package.json'));
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    async function pathExists(target: string): Promise<boolean> {
+        try { await fs.access(target); return true; } catch { return false; }
+    }
+
     async function codexHostPath(executable: string): Promise<string | undefined> {
         try {
             const executableRealpath = await fs.realpath(executable);
@@ -516,11 +581,11 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         return host;
     }
 
-    function logCodexHostResult(result: 'OK' | '補充した', executable: string): void {
-        console.log(`Codex code-mode host: ${result}（${executable} の realpath 隣）`);
+    function logCodexHostResult(result: string, executable: string): void {
+        console.log(t('partner.partnerSetup.bootstrap.codexCodeModeHostBesideRealpathText', { value1: result, value2: executable }));
     }
 
-    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'devin';
+    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'devin' | 'muse';
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
@@ -550,7 +615,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 x64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-x64.zip',
                 arm64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-arm64.zip'
             },
-            manualInstallCommand: 'curl -fsSL https://opencode.ai/install | bash（または npm install -g opencode-ai）',
+            manualInstallCommand: t('partner.partnerSetup.bootstrap.curlFsslLinkBashNpmInstallGOpencodeAiText'),
             manualInstallCommandWin32: 'npm install -g opencode-ai'
         },
         copilot: {
@@ -564,7 +629,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 arm64: 'https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-arm64.zip'
             },
             manualInstallCommand: 'npm install -g @github/copilot',
-            manualInstallCommandWin32: 'winget install GitHub.Copilot（または npm install -g @github/copilot）'
+            manualInstallCommandWin32: t('partner.partnerSetup.bootstrap.wingetInstallGithubCopilotNpmInstallGGithubCopilotText')
         },
         cursor: {
             agent: 'cursor',
@@ -574,7 +639,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             // 偽エンドポイント（2026-08-24 実測）。Windows ネイティブ配布が存在しないため
             // win32 は自動インストール不可 — 手動誘導のみ（WSL 内での公式スクリプト実行）。
             manualInstallCommand: 'curl https://cursor.com/install -fsS | bash',
-            manualInstallCommandWin32: 'Cursor CLI は Windows ネイティブ未対応です。WSL 内で curl https://cursor.com/install -fsS | bash を実行してください'
+            manualInstallCommandWin32: t('partner.partnerSetup.bootstrap.cursorCliNotSupportedNativelyWindowsRunCurlLinkFssMessage')
         },
         antigravity: {
             agent: 'antigravity',
@@ -608,12 +673,21 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             // outside both ~/.local/bin and the minimal launchd PATH inherited by
             // the GUI-launched Electron backend. Without this, a successful grok
             // install is structurally undetectable (task/2026-08-17-partner-grok-install-detection).
-            manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）',
-            manualInstallCommandWin32: 'powershell -c "irm https://x.ai/cli/install.ps1 | iex"（または npm install -g @xai-official/grok）'
+            manualInstallCommand: t('partner.partnerSetup.bootstrap.curlFsslLinkBashNpmInstallGXaiOfficialGrokText'),
+            manualInstallCommandWin32: t('partner.partnerSetup.bootstrap.powershellCIrmLinkIexNpmInstallGXaiOfficialText')
+        },
+        muse: {
+            agent: 'muse',
+            installUrlEnvVar: 'AKARI_PARTNER_MUSE_INSTALL_URL',
+            defaultInstallUrl: 'https://dev.meta.ai/install.sh',
+            defaultInstallUrlWin32: 'https://dev.meta.ai/install.ps1',
+            manualInstallCommand: 'curl -fsSL https://dev.meta.ai/install.sh | bash',
+            manualInstallCommandWin32: 'irm https://dev.meta.ai/install.ps1 | iex',
+            posixInterpreter: '/bin/bash'
         }
     };
 
-    const commandCodeManualInstall = 'npm install -g command-code（Node.js 22 以上が必要）';
+    const commandCodeManualInstall = t('partner.partnerSetup.bootstrap.npmInstallGCommandCodeRequiresNodeJs22LaterText');
 
     interface NodeRuntime {
         nodeExecutable: string;
@@ -703,7 +777,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         }
         const prepared = await preparedPrivateNode();
         if (prepared) {
-            console.log(`用意済みの AKARI 専用 Node.js を使います: ${privateNodeDir()}`);
+            console.log(t('partner.partnerSetup.bootstrap.usingPreparedAkariSpecificNodeJsText', { value1: privateNodeDir() }));
             return prepared;
         }
         const suffix = process.platform === 'darwin' ? 'tar.gz' : process.platform === 'win32' ? 'zip' : undefined;
@@ -711,15 +785,15 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         const assetName = suffix && (process.arch === 'arm64' || process.arch === 'x64')
             ? `node-v${nodeVersion}-${archivePlatform}-${process.arch}.${suffix}` : undefined;
         if (!assetName || !nodeSha256[assetName]) {
-            throw new Error(`${purposeLabel} は ${process.platform}-${process.arch} で Node.js を自動取得できません。手動でインストールしてください: ${manualInstall}`);
+            throw new Error(t('partner.partnerSetup.bootstrap.cannotDownloadNodeJsAutomaticallyInstallManuallyError', { value1: purposeLabel, value2: process.platform, value3: process.arch, value4: manualInstall }));
         }
         requireInstallConsent();
         const root = privateNodeDir();
         const parent = path.dirname(root);
         const distBaseUrl = process.env.AKARI_PARTNER_NODE_DIST_BASE_URL;
         const url = `${(distBaseUrl || 'https://nodejs.org/dist').replace(/\/$/, '')}/v${nodeVersion}/${assetName}`;
-        console.log(`${purposeLabel} に必要な Node.js を AKARI 専用の場所に用意しています: ${root}`);
-        console.log(`Node.js をダウンロードしています: ${url}`);
+        console.log(t('partner.partnerSetup.bootstrap.preparingNodeJsAkariSpecificLocationText', { value1: purposeLabel, value2: root }));
+        console.log(t('partner.partnerSetup.bootstrap.downloadingNodeJsText', { value1: url }));
         const archive = await request(url, 'application/octet-stream', largeDownloadTimeoutMs);
         const overrides = distBaseUrl && process.env.AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON
             ? JSON.parse(process.env.AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON) as Record<string, string> : {};
@@ -728,7 +802,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (actual !== expected) {
             throw new Error(`Node.js archive sha256 mismatch: ${assetName} (expected ${expected}, got ${actual})`);
         }
-        console.log(`Node.js archive sha256 検証 OK: ${actual}`);
+        console.log(t('partner.partnerSetup.bootstrap.nodeJsArchiveSha256VerifiedText', { value1: actual }));
         await fs.mkdir(parent, { recursive: true });
         const temporaryDir = await fs.mkdtemp(path.join(parent, '.node-download-'));
         try {
@@ -764,12 +838,12 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         },
         pi: {
             label: 'Pi', packageName: '@earendil-works/pi-coding-agent',
-            manualInstall: 'npm install -g @earendil-works/pi-coding-agent（Node.js 22.19 以上が必要）',
+            manualInstall: t('partner.partnerSetup.bootstrap.npmInstallGEarendilWorksPiCodingAgentRequiresNodeText'),
             marker: 'pi-installed', minimumNode: [22, 19]
         },
         deepseek: {
             label: 'DeepSeek Harness', packageName: '@deepseek-ai/dsh',
-            manualInstall: 'npm install -g @deepseek-ai/dsh（Node.js 22.19 以上が必要）',
+            manualInstall: t('partner.partnerSetup.bootstrap.npmInstallGDeepseekAiDshRequiresNodeJs22Text'),
             marker: 'dsh-installed', minimumNode: [22, 19]
         }
     };
@@ -780,7 +854,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         } catch (error) {
             const [major, minor] = config.minimumNode;
             const minimumNode = `${major}${minor ? `.${minor}` : ''}`;
-            throw new Error(`${config.label} の起動確認に失敗しました。Node.js ${minimumNode} 以上を確認して再インストールしてください: ${config.manualInstall} (${errorMessage(error)})`);
+            throw new Error(t('partner.partnerSetup.bootstrap.couldNotVerifyStartsCheckNodeJsLaterReinstallError', { value1: config.label, value2: minimumNode, value3: config.manualInstall, value4: errorMessage(error) }));
         }
     }
 
@@ -801,11 +875,11 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                     .filter(Boolean)
                     .join(path.delimiter);
                 const version = await requireNpmAgentVersion(existing, { ...process.env, PATH: validationPath }, config);
-                console.log(`既存の ${agent} ${version || '(version unknown)'} を検出: ${existing}`);
+                console.log(t('partner.partnerSetup.bootstrap.foundExistingVersionStatus', { value1: agent, value2: version || '(version unknown)', value3: existing }));
                 const markerExists = await fs.access(privateMarker).then(() => true, () => false);
                 const usePrivate = Boolean(privateRuntime && (markerExists || !await hasSystemNode(config.minimumNode)));
                 if (usePrivate) {
-                    console.log(`用意済みの AKARI 専用 Node.js を使います: ${privateNodeDir()}`);
+                    console.log(t('partner.partnerSetup.bootstrap.usingPreparedAkariSpecificNodeJsText', { value1: privateNodeDir() }));
                     await fs.writeFile(privateMarker, 'private\n');
                 }
                 return { executablePath: existing, reused: true, ...(usePrivate ? { nodeSource: 'private' as const } : {}) };
@@ -816,7 +890,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         const installEnv = nodeRuntimeEnv(runtime.binDir);
 
         const prefix = path.join(os.homedir(), '.local');
-        console.log(`${config.label} を npm 公式パッケージからユーザー領域へインストールしています: ${prefix}`);
+        console.log(t('partner.partnerSetup.bootstrap.installingOfficialNpmPackageUserFolderText', { value1: config.label, value2: prefix }));
         const npmArgs = [
             'install', '--global', '--prefix', prefix,
             '--no-audit', '--no-fund',
@@ -829,12 +903,12 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             await run(useWindowsNpmCli ? runtime.nodeExecutable : runtime.npmExecutable,
                 useWindowsNpmCli ? [npmCli, ...npmArgs] : npmArgs, installEnv);
         } catch (error) {
-            throw new Error(`${agent} のインストールに失敗しました。手動でインストールしてください: ${config.manualInstall} (${errorMessage(error)})`);
+            throw new Error(t('partner.partnerSetup.bootstrap.couldNotInstallInstallManuallyError', { value1: agent, value2: config.manualInstall, value3: errorMessage(error) }));
         }
         const executable = await firstExecutable(candidates);
         if (!executable) {
-            console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
-            throw new Error(`npm install は完了しましたが ${config.label} の実行ファイルが見つかりませんでした。手動でインストールしてください: ${config.manualInstall}`);
+            console.log(t('partner.partnerSetup.bootstrap.executableLocationsSearchedStatus', { value1: candidates.join(', ') }));
+            throw new Error(t('partner.partnerSetup.bootstrap.npmInstallFinishedButExecutableNotFoundInstallManuallyStatus', { value1: config.label, value2: config.manualInstall }));
         }
         const version = await requireNpmAgentVersion(executable, installEnv, config);
         if (runtime.source === 'private') {
@@ -842,7 +916,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         } else {
             await fs.rm(privateMarker, { force: true });
         }
-        console.log(`${config.label} ${version || '(version unknown)'} を検出: ${executable}`);
+        console.log(t('partner.partnerSetup.bootstrap.foundLabel', { value1: config.label, value2: version || '(version unknown)', value3: executable }));
         return { executablePath: executable, reused: false, nodeSource: runtime.source };
     }
 
@@ -857,7 +931,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (!forceReinstall) {
             const existing = await firstExecutable(candidates);
             if (existing) {
-                console.log(`既存の ${config.agent} を検出: ${existing}`);
+                console.log(t('partner.partnerSetup.bootstrap.foundExistingStatus', { value1: config.agent, value2: existing }));
                 return { executablePath: existing, reused: true };
             }
         }
@@ -870,20 +944,20 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         const installUrl = envInstallUrl
             || (process.platform === 'win32' ? config.defaultInstallUrlWin32 : config.defaultInstallUrl);
         if (!installUrl) {
-            throw new Error(`${config.agent} はこの環境で自動インストールできません。手動でインストールしてください: ${manualCommand}`);
+            throw new Error(t('partner.partnerSetup.bootstrap.cannotInstalledAutomaticallyEnvironmentInstallManuallyError', { value1: config.agent, value2: manualCommand }));
         }
 
         requireInstallConsent();
-        console.log(`${config.agent} installer を取得しています: ${installUrl}`);
+        console.log(t('partner.partnerSetup.bootstrap.downloadingInstallerLabel', { value1: config.agent, value2: installUrl }));
         let script: Buffer;
         try {
             script = await request(installUrl, 'text/plain');
         } catch (error) {
-            throw new Error(`${config.agent} のインストーラー取得に失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+            throw new Error(t('partner.partnerSetup.bootstrap.couldNotDownloadInstallerInstallManuallyError', { value1: config.agent, value2: manualCommand, value3: error instanceof Error ? error.message : String(error) }));
         }
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `akari-${config.agent}-`));
         try {
-            console.log(`${config.agent} をユーザー領域へインストールしています`);
+            console.log(t('partner.partnerSetup.bootstrap.installingUserFolderText', { value1: config.agent }));
             let installerError: unknown;
             try {
                 if (process.platform === 'win32') {
@@ -906,25 +980,25 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 }
             } catch (error) {
                 if (!config.allowNonzeroIfVersionSucceeds) {
-                    throw new Error(`${config.agent} のインストールに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+                    throw new Error(t('partner.partnerSetup.bootstrap.couldNotInstallInstallManuallyError', { value1: config.agent, value2: manualCommand, value3: error instanceof Error ? error.message : String(error) }));
                 }
                 installerError = error;
             }
             const installerErrorLine = installerError ? lastInstallerErrorLine(installerError) : undefined;
             const executable = await firstExecutable(candidates);
             if (!executable) {
-                console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
+                console.log(t('partner.partnerSetup.bootstrap.executableLocationsSearchedStatus', { value1: candidates.join(', ') }));
                 const searchedDirectories = [...new Set(candidatePaths(config.agent, {
                     homeDir: os.homedir(), platform: process.platform, env: process.env, includePath: false
                 }).map(candidate => path.dirname(candidate)))];
-                throw new Error(`インストールスクリプト後に実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${manualCommand}${installerErrorLine ? ` (${installerErrorLine})` : ''}`);
+                throw new Error(t('partner.partnerSetup.bootstrap.executableNotFoundInstallScriptSearchedInstallManuallyText', { value1: searchedDirectories.join(', '), value2: manualCommand, value3: installerErrorLine ? ` (${installerErrorLine})` : '' }));
             }
             if (installerError) {
                 try {
                     const version = (await runCapture(executable, ['--version'], { ...process.env, PATH: [path.dirname(executable), process.env.PATH ?? ''].join(path.delimiter) })).trim();
-                    console.log(`${config.agent} installer は非 0 終了しましたが、${executable} --version (${version}) が成功したためインストール済みと判定します: ${installerErrorLine}`);
+                    console.log(t('partner.partnerSetup.bootstrap.nonzeroInstallerExitAcceptedStatus', { value1: config.agent, value2: executable, value3: version, value4: installerErrorLine }));
                 } catch (versionError) {
-                    throw new Error(`${config.agent} のインストールと起動確認に失敗しました。手動でインストールしてください: ${manualCommand} (${installerErrorLine}; ${lastInstallerErrorLine(versionError)})`);
+                    throw new Error(t('partner.partnerSetup.bootstrap.couldNotInstallStartInstallManuallyError', { value1: config.agent, value2: manualCommand, value3: installerErrorLine, value4: lastInstallerErrorLine(versionError) }));
                 }
             }
             return { executablePath: executable, reused: false };
@@ -941,15 +1015,15 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
     async function installWin32ZipBinary(config: ScriptInstallAgentConfig, manualCommand: string): Promise<BootstrapOutcome> {
         const url = config.win32ZipUrlByArch?.[process.arch];
         if (!url) {
-            throw new Error(`${config.agent} は ${process.platform}-${process.arch} 向けの配布物がありません。手動でインストールしてください: ${manualCommand}`);
+            throw new Error(t('partner.partnerSetup.bootstrap.noDistributionInstallManuallyText', { value1: config.agent, value2: process.platform, value3: process.arch, value4: manualCommand }));
         }
         requireInstallConsent();
-        console.log(`${config.agent} をダウンロードしています: ${url}`);
+        console.log(t('partner.partnerSetup.bootstrap.downloadingFromUrlStatus', { value1: config.agent, value2: url }));
         let archive: Buffer;
         try {
             archive = await request(url, 'application/octet-stream', largeDownloadTimeoutMs);
         } catch (error) {
-            throw new Error(`${config.agent} のダウンロードに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+            throw new Error(t('partner.partnerSetup.bootstrap.couldNotDownloadInstallManuallyError', { value1: config.agent, value2: manualCommand, value3: error instanceof Error ? error.message : String(error) }));
         }
         const executable = candidatePaths(config.agent, { homeDir: os.homedir(), platform: process.platform,
             env: process.env, includePath: false, nativeOnly: true })[0];
@@ -959,7 +1033,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         // Windows の fs.chmod は POSIX 実行属性を持たないため mode 指定は不要（codex 同様）。
         await fs.writeFile(temporary, binary);
         await fs.rename(temporary, executable);
-        console.log(`${config.agent} を ${executable} にインストールしました`);
+        console.log(t('partner.partnerSetup.bootstrap.installedStatus', { value1: config.agent, value2: executable }));
         return { executablePath: executable, reused: false };
     }
 
@@ -1321,7 +1395,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
      */
     async function wirePluginSkills(claudeExecutable: string): Promise<void> {
         if (!workspaceRoot) {
-            console.log('プラグイン配線: プロジェクトの workspace が見つからないためスキップします');
+            console.log(t('partner.partnerSetup.bootstrap.pluginIntegrationSkippedBecauseProjectWorkspaceNotFoundText'));
             return;
         }
 
@@ -1333,7 +1407,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             settings = undefined;
         }
         if (settings && settings.enabledPlugins && settings.enabledPlugins[akariPluginId]) {
-            console.log('akari プラグイン配線済み');
+            console.log(t('partner.partnerSetup.bootstrap.akariPluginIntegratedStatus'));
             return;
         }
 
@@ -1346,7 +1420,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             marketplaces = undefined;
         }
         if (!marketplaces || !marketplaces[akariMarketplaceKey]) {
-            console.log('akari マーケットプレイスが未登録のため、スキル配線は手動が必要です');
+            console.log(t('partner.partnerSetup.bootstrap.akariMarketplaceNotRegisteredSkillIntegrationRequiresManualSetupText'));
             return;
         }
 
@@ -1357,9 +1431,9 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 ...process.env,
                 PATH: explicitSystemPath
             }, workspaceRoot);
-            console.log(`akari プラグインを配線しました（project scope: ${workspaceRoot}）`);
+            console.log(t('partner.partnerSetup.bootstrap.integratedAkariPluginProjectScopeText', { value1: workspaceRoot }));
         } catch (error) {
-            console.log(`akari プラグインの配線に失敗しました。スキル配線は手動が必要です（接続は続行します）: ${error instanceof Error ? error.message : String(error)}`);
+            console.log(t('partner.partnerSetup.bootstrap.couldNotIntegrateAkariPluginSkillIntegrationRequiresManualSetupError', { value1: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -1368,8 +1442,8 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
             && agent !== 'commandcode' && agent !== 'pi' && agent !== 'deepseek' && agent !== 'devin'
             && agent !== 'copilot' && agent !== 'cursor'
-            && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, deepseek, devin, copilot, cursor, antigravity, or grok');
+            && agent !== 'antigravity' && agent !== 'grok' && agent !== 'muse') {
+            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, deepseek, devin, copilot, cursor, antigravity, grok, or muse');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
@@ -1387,7 +1461,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             } catch (error) {
                 // Belt-and-suspenders: wirePluginSkills already fail-softs internally,
                 // but a connection must never fail because of the wiring step.
-                console.log(`プラグイン配線ステップで想定外のエラーが発生しました（接続は続行します）: ${error instanceof Error ? error.message : String(error)}`);
+                console.log(t('partner.partnerSetup.bootstrap.unexpectedPluginIntegrationErrorConnectionContinuesText', { value1: error instanceof Error ? error.message : String(error) }));
             }
         }
         console.log(JSON.stringify(outcome));

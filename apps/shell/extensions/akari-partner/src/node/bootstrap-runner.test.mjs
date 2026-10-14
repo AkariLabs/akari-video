@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -10,6 +10,11 @@ import { deflateRawSync, gzipSync } from 'node:zlib';
 import { bootstrapRunner, partnerInstallDisclosure } from '../../lib/node/bootstrap-runner.js';
 import { spawnBootstrapProcess } from '../../lib/node/bootstrap-process.js';
 import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
+import { catalogMessages } from '../../lib/common/partner-text.js';
+import { setLanguage } from '@akari-video/i18n';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const VERSION = '0.149.1';
 const TAG = `rust-v${VERSION}`;
@@ -151,7 +156,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         sourceLines.push(`const originalSpawn = require('child_process').spawn;`);
         sourceLines.push(`require('child_process').spawn = (...args) => { require('fs').appendFileSync(${JSON.stringify(mock.spawnLogPath)}, String(args[0]) + '\\n'); return originalSpawn(...args); };`);
     }
-    sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`);
+    sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()}, ${JSON.stringify(catalogMessages())})`);
     const source = sourceLines.join('\n');
     const env = {
         ...process.env,
@@ -183,7 +188,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
 const NODE_VERSION = '24.21.0';
 
 test('全パートナーの導入情報には提供元とプラットフォーム別の取得元などがある', () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok', 'muse'];
     const runnerSource = bootstrapRunner.toString();
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
@@ -206,7 +211,7 @@ test('全パートナーの導入情報には提供元とプラットフォー�
 });
 
 test('未導入で同意がなければ全エージェントで子プロセスも取得も始めない', async () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok', 'muse'];
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
             for (const consent of ['unset', '0']) {
@@ -514,6 +519,49 @@ const noisyInstallerProgress = `for ((i=0; i<80; i++)); do
 done
 echo 'Error: Login canceled' >&2
 `;
+
+test('Muse Code の開示は公式の取得元、導入先、利用規約と URL 上書きを示す', () => {
+    const mac = partnerInstallDisclosure('muse', 'darwin');
+    const windows = partnerInstallDisclosure('muse', 'win32');
+    assert.equal(mac.name, 'Muse Code');
+    assert.equal(mac.provider, 'Meta');
+    assert.equal(mac.sourceUrl, 'https://dev.meta.ai/install.sh');
+    assert.equal(windows.sourceUrl, 'https://dev.meta.ai/install.ps1');
+    assert.equal(windows.location, '%LOCALAPPDATA%\\Programs\\muse');
+    assert.equal(mac.termsUrl, 'https://www.facebook.com/policies_center/');
+    assert.equal(partnerInstallDisclosure('muse', 'darwin', 'arm64', {
+        AKARI_PARTNER_MUSE_INSTALL_URL: 'https://example.test/muse-install'
+    }).sourceUrl, 'https://example.test/muse-install');
+});
+
+test('Muse Code は bash の公式スクリプトから ~/.local/bin/muse を導入し再利用する', async () => {
+    const home = await makeHome('akari-muse-home-');
+    const spawnLogPath = path.join(home, 'spawn.log');
+    const requestLogPath = path.join(home, 'request.log');
+    const script = `#!/usr/bin/env bash
+[[ -n "$HOME" ]] || exit 90
+mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'echo "muse 1.2.3"' > "$HOME/.local/bin/muse"
+chmod +x "$HOME/.local/bin/muse"
+`;
+    const mock = { origin: 'http://example.test', fixtures: {
+        '/muse-install': fixture(script, 200, 'text/plain')
+    }, spawnLogPath, requestLogPath };
+    try {
+        const first = await runBootstrap({ home, agent: 'muse', mock,
+            extraEnv: { AKARI_PARTNER_MUSE_INSTALL_URL: 'http://example.test/muse-install' } });
+        assert.equal(first.code, 0, first.stderr || first.stdout);
+        assert.match(first.stdout, /"reused":false/);
+        assert.ok(first.stdout.includes(`${home}/.local/bin/muse`));
+        assert.match(await readFile(spawnLogPath, 'utf8'), /\/bin\/bash/);
+        assert.match(await readFile(requestLogPath, 'utf8'), /muse-install/);
+        const second = await runBootstrap({ home, agent: 'muse', mock });
+        assert.equal(second.code, 0, second.stderr || second.stdout);
+        assert.match(second.stdout, /"reused":true/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
 
 test('Devin installer の setup が非 0 でも実体と --version が成功すれば導入済みと判定する', async () => {
     const home = await makeHome('akari-devin-home-');
@@ -1011,6 +1059,115 @@ test('Windows の既存 Codex に host が無ければ既存フォルダを変�
         assert.equal(await readFile(existing, 'utf8'), '#!/bin/sh\necho codex-cli 0.149.1\n');
         await assert.rejects(readFile(path.join(path.dirname(existing), 'codex-code-mode-host.exe')));
         assert.equal(await readFile(path.join(home, 'local-app-data', 'AKARI Video', 'codex', 'current', 'bin', 'codex-code-mode-host.exe'), 'utf8'), 'matching host');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の管理 Codex は bin だけでなくパッケージ一式を current に置く', async () => {
+    const home = await makeHome('akari-codex-win-package-');
+    const asset = 'codex-package-x86_64-pc-windows-msvc.tar.gz';
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        [`/assets/${asset}`]: fixture(bundleArchive('win32'))
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64' });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        const managedRoot = path.join(home, 'local-app-data', 'AKARI Video', 'codex');
+        const current = path.join(managedRoot, 'current');
+        // Codex は実行ファイルの 1 つ上に codex-package.json が無いと「no complete local package」で止まる。
+        assert.equal(await readFile(path.join(current, 'codex-package.json'), 'utf8'), JSON.stringify({ version: VERSION }));
+        assert.ok((await stat(path.join(current, 'codex-path', 'rg'))).isFile());
+        assert.ok((await stat(path.join(current, 'bin', 'codex.exe'))).isFile());
+        assert.ok((await stat(path.join(current, 'bin', 'codex-code-mode-host.exe'))).isFile());
+        // 版フォルダとの二重持ちはしない（100MB 級）。
+        await assert.rejects(stat(path.join(managedRoot, VERSION)));
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows で以前の導入が残した欠けた current（bin の 2 本だけ）は再利用せず入れ直す', async () => {
+    const home = await makeHome('akari-codex-win-broken-');
+    const managedRoot = path.join(home, 'local-app-data', 'AKARI Video', 'codex');
+    const brokenBin = path.join(managedRoot, 'current', 'bin');
+    await mkdir(brokenBin, { recursive: true });
+    await writeFile(path.join(brokenBin, 'codex.exe'), '#!/bin/sh\necho codex-cli 0.147.0\n', { mode: 0o755 });
+    await writeFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'old host', { mode: 0o755 });
+    await mkdir(path.join(managedRoot, '0.147.0', 'bin'), { recursive: true });
+    const asset = 'codex-package-x86_64-pc-windows-msvc.tar.gz';
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        [`/assets/${asset}`]: fixture(bundleArchive('win32'))
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64' });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /入れ直します|reinstalling/);
+        assert.ok((await stat(path.join(managedRoot, 'current', 'codex-package.json'))).isFile());
+        assert.match(await readFile(path.join(brokenBin, 'codex.exe'), 'utf8'), /0\.149\.1/);
+        assert.equal(await readFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'utf8'), 'matching host');
+        await assert.rejects(stat(path.join(managedRoot, '0.147.0')), '旧版フォルダは消える');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の欠けた current を直すにも導入の同意が要る', async () => {
+    const home = await makeHome('akari-codex-win-broken-consent-');
+    const brokenBin = path.join(home, 'local-app-data', 'AKARI Video', 'codex', 'current', 'bin');
+    await mkdir(brokenBin, { recursive: true });
+    await writeFile(path.join(brokenBin, 'codex.exe'), 'old', { mode: 0o755 });
+    await writeFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'old host', { mode: 0o755 });
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json')
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64', consent: 'unset' });
+        assert.equal(result.code, 0, result.stderr);
+        assert.match(result.stdout, /"consentRequired":true/u);
+        assert.equal(await readFile(path.join(brokenBin, 'codex.exe'), 'utf8'), 'old');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('FORCE_REINSTALL=1 は既存の Codex を最新へ置き換え、旧版フォルダを片付ける', async () => {
+    const home = await makeHome('akari-codex-force-');
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        '/assets/codex-package-aarch64-apple-darwin.tar.gz': fixture(bundleArchive('darwin'))
+    });
+    try {
+        // 旧版（0.100.0）を AKARI 管理の場所に置き、~/.local/bin/codex をそこへ向ける。
+        const managedRoot = path.join(home, '.local', 'share', 'akari-video', 'codex');
+        const oldBin = path.join(managedRoot, '0.100.0', 'bin');
+        await mkdir(oldBin, { recursive: true });
+        await writeFile(path.join(oldBin, 'codex'), '#!/bin/sh\necho codex-cli 0.100.0\n', { mode: 0o755 });
+        await writeFile(path.join(oldBin, 'codex-code-mode-host'), 'old host', { mode: 0o755 });
+        await writeFile(path.join(managedRoot, '0.100.0', 'codex-package.json'), JSON.stringify({ version: '0.100.0' }));
+        await mkdir(path.join(home, '.local', 'bin'), { recursive: true });
+        const shim = path.join(home, '.local', 'bin', 'codex');
+        const { symlink } = await import('node:fs/promises');
+        await symlink(path.join(oldBin, 'codex'), shim);
+
+        // 強制なしなら既存を再利用して何も取りに行かない（既存の挙動）。
+        const reused = await runBootstrap({ home, mock });
+        assert.equal(reused.code, 0, reused.stderr || reused.stdout);
+        assert.equal(await realpath(shim), await realpath(path.join(oldBin, 'codex')));
+
+        const result = await runBootstrap({ home, mock, force: true });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        const executable = await realpath(shim);
+        assert.ok(executable.startsWith(await realpath(path.join(managedRoot, VERSION))), executable);
+        assert.match(await readFile(executable, 'utf8'), /0\.149\.1/);
+        await assert.rejects(stat(path.join(managedRoot, '0.100.0')), '旧版フォルダは消える');
+        assert.ok((await stat(path.join(managedRoot, VERSION))).isDirectory());
     } finally {
         await mock.close();
         await rm(home, { recursive: true, force: true });

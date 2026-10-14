@@ -1,9 +1,12 @@
 import { segmentDuration } from "../cut-timeline.mjs";
+import { lintText } from '../i18n.mjs';
 import { buildMatcher, protectedTermsFrom } from "../../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mjs";
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
-import { resolveCaptionDisplay } from "./external.mjs";
+import { resolveCaptionDisplay, validateCaptionsSemantics, validateCaptionLookV1Shape, CAPTION_RUN_FIELDS } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
+import { captionLanguageDefaults, resolveContentLanguage } from "../../../content-language/src/index.mjs";
+import { readContentLanguageSync } from "../../../content-language/src/node.mjs";
 
 export function validateCaptionRunRanges(caption) {
   if (!Array.isArray(caption?.runs)) return [];
@@ -18,6 +21,8 @@ export function validateCaptionRunRanges(caption) {
 export function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
+  // The caller supplies the v2 cut projection; never interpret raw tracks as cuts.
+  const timeline = Array.isArray(edit?.cuts) ? edit.cuts : undefined;
   const wordBook = resolveWordBookSync({ projectRoot: paths.projectRoot, env: process.env });
   const wordBookMatcher = buildMatcher(wordBook.entries);
   for (const layer of wordBook.layers) {
@@ -25,7 +30,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "warning",
       check: "word-book.invalid",
-      message: `単語帳を読み込めません（${layer.error.code}）: ${layer.error.message}`,
+      message: lintText('lint-messages.wordBook.load.error', { code: layer.error.code, message: layer.error.message }),
       path: relativePath(paths.projectRoot, layer.path),
     });
   }
@@ -33,7 +38,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "info",
       check: "word-book.variant-shadowed",
-      message: `variant ${conflict.variant_key} は ${conflict.winner.surface} (${conflict.winner.scope}) が優先され、${conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ")} を隠します`,
+      message: lintText('lint-messages.wordBook.variant.shadowed', { variant: conflict.variant_key, winner: conflict.winner.surface, scope: conflict.winner.scope, shadowed: conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ") }),
       path: captionPath,
     });
   }
@@ -52,7 +57,8 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (field !== "default_text_style"
         && field !== "display_policy"
         && field !== "emphasis_words"
-        && field !== "captions") {
+        && field !== "captions"
+        && field !== "unresolved_runs") {
         captionFinding(
           findings,
           "captions.schema",
@@ -84,6 +90,10 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     }
     captions = captions.captions;
   }
+  const locale = typeof paths.projectRoot === 'string'
+    ? readContentLanguageSync(paths.projectRoot, { cliLang: displayPolicy?.locale }).language
+    : resolveContentLanguage({ cliLang: displayPolicy?.locale, analysis }).language;
+  const speedLimit = locale === 'ja' ? null : captionLanguageDefaults(locale).charactersPerSecond;
   const ids = new Set();
   // ここには以前 `captions.overlay-link`（caption の id と一致する overlays[].id が無ければ警告）
   // があったが、2026-08-07 に撤去した。字幕のオーバーレイは消費側が captions[] から合成する
@@ -104,7 +114,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style", "runs"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style", "runs", "style_sources"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -168,8 +178,8 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     if (!isNonEmptyString(caption.text)) {
       captionFinding(findings, "captions.schema", "text must be a non-empty string", itemPath);
     }
-    if (caption.speaker !== null) {
-      captionFinding(findings, "captions.schema", "speaker must be null in v0", itemPath);
+    if (caption.speaker !== null && !isNonEmptyString(caption.speaker)) {
+      captionFinding(findings, "captions.schema", "speaker must be null or a non-empty string", itemPath);
     }
     if (typeof caption.edited !== "boolean") {
       captionFinding(findings, "captions.edited", "edited must be a boolean", itemPath);
@@ -207,12 +217,12 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           || (run.style !== undefined && (!isRecord(run.style)
             || Object.keys(run.style).some(key => !["color", "font_weight", "scale", "baseline_shift_em", "rotate_deg", "letter_spacing_em", "stroke", "italic", "underline"].includes(key))))
           || (run.animation !== undefined && !isRecord(run.animation))
-          || Object.keys(run).some(key => !["from", "to", "role", "style", "animation"].includes(key))) {
+          || Object.keys(run).some(key => !CAPTION_RUN_FIELDS.has(key))) {
           captionFinding(findings, "captions.schema", "run has invalid fields or types", path);
           return;
         }
         const range = outOfRange.get(runIndex);
-        if (range) {
+        if (range && !["id", "look", "motion", "anchor", "fire"].some(key => Object.hasOwn(run, key))) {
           addFinding(findings, { severity: "warning", check: "captions.run-range",
             message: `run range [${run.from}, ${run.to}) is outside ${range.count} displayed graphemes or empty; ignored`, path });
         }
@@ -275,7 +285,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       addFinding(findings, {
         severity: "warning",
         check: `captions.${caption.style}-without-words`,
-        message: `字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${caption.style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        message: lintText('lint-messages.captions.words.missing', { id: caption.id ?? "(unknown)", style: caption.style === "karaoke" ? lintText('lint-messages.captions.style.karaoke') : lintText('lint-messages.captions.style.pop') }),
         path: itemPath,
       });
     }
@@ -319,6 +329,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         }
       }
       const displaySeconds = caption.end - caption.start;
+      if (speedLimit && displaySeconds > 0 && isNonEmptyString(caption.text)) {
+        const characters = Array.from(typeof caption.display_text === 'string' ? caption.display_text : caption.text).length;
+        const speed = characters / displaySeconds;
+        if (speed > speedLimit + EPSILON) {
+          addFinding(findings, {
+            severity: 'warning', check: 'captions.reading-speed',
+            message: `caption reading speed is ${speed.toFixed(1)} characters/s, over ${speedLimit} characters/s for ${locale}`,
+            path: itemPath, range: { start: caption.start, end: caption.end },
+          });
+        }
+      }
       if (displaySeconds < 1.0 - EPSILON) {
         addFinding(findings, {
           severity: "warning",
@@ -332,7 +353,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.output-domain-exceeds-duration",
-          message: `captions[${index}] は time_domain: output の宣言区間が動画総尺 ${cutsEndSeconds.toFixed(1)}s を超えています。書き出しでは ${cutsEndSeconds.toFixed(1)}s までにクランプして表示されます。`,
+          message: lintText('lint-messages.captions.duration.exceeds', { index, seconds: cutsEndSeconds.toFixed(1) }),
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });
@@ -341,7 +362,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (caption.time_domain !== "output") {
         const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
         const ratio = kept / (caption.end - caption.start);
-        if (ratio < 0.5 - EPSILON) {
+        if (kept <= EPSILON && isNonEmptyString(caption.id)) {
+          // 話した区間ごとカットで消した字幕は出ないのが正しい結果。エラーにすると GUI で
+          // カットするたびに誤報になるため記録だけ残す（オーナー裁定 2026-10-12）。
+          addFinding(findings, {
+            severity: "info",
+            check: "captions.cut-removed",
+            message: "the caption is entirely inside removed sections and will not be shown",
+            path: itemPath,
+            range: { start: caption.start, end: caption.end },
+          });
+        } else if (ratio < 0.5 - EPSILON) {
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",
@@ -389,14 +420,14 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: caption.edited === true ? "info" : "warning",
           check: "captions.word-book-term",
-          message: `${position} に単語帳の表記ゆれ ${JSON.stringify(match.matched)} が残っています（正表記: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.variant', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       } else if (match.kind === "notation") {
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-notation",
-          message: `${position} に非推奨表記 ${JSON.stringify(match.matched)} があります（推奨: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.notation', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       }
@@ -413,13 +444,24 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-break-fallback",
-          message: `単語帳の行分割保護を外しました: ${fallback.dropped_terms.join(", ")}`,
+          message: lintText('lint-messages.captions.wordBook.breakFallback', { terms: fallback.dropped_terms.join(", ") }),
           path: index >= 0 ? `captions.json#[${index}]` : captionPath,
         });
       }
     } catch (error) {
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }
+  }
+  const seenDiagnostics = new Set();
+  for (const diagnostic of [...validateCaptionLookV1Shape(captionsRoot),
+    ...validateCaptionsSemantics({ captions: captionsRoot, edit, timeline })]) {
+    const identity = JSON.stringify([diagnostic.code, diagnostic.path, diagnostic.message]);
+    if (seenDiagnostics.has(identity)) continue;
+    if (diagnostic.code === 'captions.look.shape' && findings.some(item => item.severity === 'error'
+      && item.check === 'captions.schema' && item.path === diagnostic.path)) continue;
+    seenDiagnostics.add(identity);
+    addFinding(findings, { severity: diagnostic.severity, check: diagnostic.code,
+      message: diagnostic.message, path: diagnostic.path });
   }
 }
 
@@ -480,7 +522,7 @@ function validateEmphasisWords(emphasisWords, findings, captionPath) {
   });
 }
 
-function captionDisplayEdit(edit) {
+export function captionDisplayEdit(edit) {
   if (!Array.isArray(edit?.cuts)) return edit;
   let cursor = 0;
   for (const cut of edit.cuts) {

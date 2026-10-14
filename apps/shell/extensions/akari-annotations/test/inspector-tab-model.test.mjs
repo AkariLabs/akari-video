@@ -1,16 +1,33 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
-import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { cutSections, layerSections, cutSnapshot, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { createSelectionHeader } = await import('../lib/browser/inspector/selection-header.js');
+const { ACTIVE_ADJUST_SECTIONS, assignSectionToTab, COMING_SOON_ADJUST_SECTIONS, InspectorTabState, tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const tabModel = await import('../lib/browser/inspector/tab-model.js');
+const fx = await import('../lib/browser/inspector/adjust-fx-fields.js');
+const adjust = await import('../lib/browser/inspector/adjust-fields.js');
+const audioMaster = await import('../lib/browser/inspector/audio-master.js');
+const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { buildLutOptions } = await import('../lib/browser/inspector/lut-options.js');
+const { AUDIO_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/audio-preview.js');
+const { ADJUST_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/adjust-preview.js');
+const { generationFields } = await import('../lib/browser/inspector/generation-fields.js');
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { isInspectorStillImage } = await import('../lib/browser/inspector/edit-target.js');
+const { CAPTION_IMAGE_EXTENSIONS } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
 
-import {
-  ACTIVE_ADJUST_SECTIONS,
-  assignSectionToTab,
-  COMING_SOON_ADJUST_SECTIONS,
-  InspectorTabState,
-  tabsForKind
-} from '../lib/browser/inspector/tab-model.js';
+
+
 
 const tabShape = tabs => tabs.map(({ label, enabled }) => [label, enabled]);
 
@@ -86,20 +103,20 @@ test('調整タブは実働 6 件と Coming soon 0 件を裁定どおり分け�
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
-import * as tabModel from '../lib/browser/inspector/tab-model.js';
-import * as fx from '../lib/browser/inspector/adjust-fx-fields.js';
-import * as adjust from '../lib/browser/inspector/adjust-fields.js';
-import * as audioMaster from '../lib/browser/inspector/audio-master.js';
-import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from '../lib/browser/inspector/look-presets.js';
-import { buildLutOptions } from '../lib/browser/inspector/lut-options.js';
-import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
-import { ADJUST_PREVIEW_SECTIONS } from '../lib/browser/inspector/adjust-preview.js';
-import { generationFields } from '../lib/browser/inspector/generation-fields.js';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
-import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
-import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
-import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const widgetSource = readInspectorSource();
 const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
@@ -201,7 +218,7 @@ const BASELINE_SECTION_FIELDS = {
     ['adjust:lut', 3], ['adjust:wheels', 0], ['appearance', 1], ['audio', 2],
     ['audio-av-link', 3], ['audio-ducking', 2], ['audio-enhancement', 2], ['audio-fades', 2],
     ['audio-pitch-time', 2], ['audio-volume', 2], ['audio:master', 4], ['framing', 5],
-    ['freeze', 2], ['info', 3], ['time', 4], ['timing', 1], ['transform', 4]
+    ['freeze', 2], ['info', 3], ['time', 2], ['timing', 1], ['transform', 4]
   ],
   layer: [
     ['adjust:basic', 11], ['adjust:curves', 0], ['adjust:fx', 1], ['adjust:hue', 0],

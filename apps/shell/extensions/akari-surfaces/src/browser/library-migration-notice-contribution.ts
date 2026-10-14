@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -17,7 +18,7 @@ export class LibraryMigrationNoticeContribution implements FrontendApplicationCo
     protected async showNotice(): Promise<void> {
         const notice = await this.service.takeLibraryMigrationNotice();
         if (!notice) return;
-        const action = await this.messages.info(notice, '場所を変える…');
-        if (action === '場所を変える…') await this.commands.executeCommand('akari.library.changeLocation');
+        const action = await this.messages.info(notice, t('surfaces.library.noticeChangeLocation.label'));
+        if (action === t('surfaces.library.noticeChangeLocation.label')) await this.commands.executeCommand('akari.library.changeLocation');
     }
 }

@@ -1,76 +1,68 @@
-# ドロップフォルダ監視・登録
+# Monitor and register the drop folder
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-[candidate-list.md](candidate-list.md) でユーザーが実際にダウンロードしたあと、
-このリーフでファイル単位の照合・登録を行う。
+After the user actually downloads files via [candidate-list.md](candidate-list.md), use this leaf for per-file matching and registration.
 
-## 1. ドロップフォルダの場所
+## 1. Drop-folder location
 
-既定は `~/.akari/audio-drop/`（2026-07-25 第三裁定でプロジェクト外置き場所の基底を
-`~/.akari/` に統一。鍵の置き場は現在 `~/.akari/credentials.env`。
-`~/.config/akari-video/voice-profiles/` は別論点だが、いずれも
-user レベル・git 管理外の置き場である）。
-ユーザーがブラウザでダウンロードしたファイルを、そのままこのフォルダへ移動・保存して
-もらう。`~/Downloads` を直接監視しない（無関係なダウンロードと混在し誤登録するリスクを
-避けるため、音源専用の場所を切る）。
+Default: `~/.akari/audio-drop/` (the third ruling of 2026-07-25 unified the base for out-of-project locations
+under `~/.akari/`; current key location: `~/.akari/credentials.env`).
+`~/.config/akari-video/voice-profiles/` is a separate issue, but both are user-level locations outside git.
+Ask the user to move/save browser downloads into this folder. Do not monitor `~/Downloads` directly;
+use a dedicated audio location to avoid incorrect registration of unrelated downloads.
 
-## 2. まず plan-only で確認する（既定・安全）
+## 2. Check plan-only first (default, safe)
 
 ```sh
-node packages/audio-library-setup/bin/register-drop-folder.mjs \
+akari assets audio drop \
   --drop-dir ~/.akari/audio-drop
 ```
 
-`--apply` を付けない限り**ファイルは一切動かず、catalog にも一切書き込まない**。
-標準出力の JSON（`matched_candidates` / `quarantined`）をユーザーに見せ、想定通りかを
-確認する。
+Without `--apply`, **no files move and nothing is written to the catalog**.
+Show stdout JSON (`matched_candidates` / `quarantined`) to the user and confirm it matches expectations.
 
-## 3. 問題なければ `--apply` で実行する
+## 3. Apply with `--apply` if correct
 
 ```sh
-node packages/audio-library-setup/bin/register-drop-folder.mjs \
+akari assets audio drop \
   --drop-dir ~/.akari/audio-drop --apply
 ```
 
-- **一致したファイル**: `<ライブラリの置き場>/audio/<candidate-id>/` （user スコープ、
-  [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md) と同じ
-  スコープ階層）へ実体を移動し、`meta.json`（実体あり・`remote` キーなし）を書く。
-  同時に `catalog/audio/<candidate-id>/meta.json`（`remote: true` の参照 SSOT）が
-  無ければ作る。**既にあれば上書きしない**（ハードルール 6）。
-  `ffmpeg` があれば波形 `preview.png` を生成する（無ければ生成せず理由をログに残す。
-  実物と違う mock を作らない）。
-- **一致しなかったファイル**: ドロップフォルダ内の `_quarantine/` へ移動し、
-  `_quarantine/manifest.json` に「出典不明」として記録する（audio-import レーンと同じ
-  規律）。ファイル名からの推測登録はしない。
-- **複数候補に一致してしまう場合**: 一意に決定できないため隔離する（推測しない）。
+- **Matched files**: Move actual files to `<ライブラリの置き場>/audio/<candidate-id>/` (existing library-location
+  placeholder; user scope, same hierarchy as [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md)).
+  Write `meta.json` (actual files present, no `remote` key). Also create `<candidate-id>/meta.json` in the reference-record location
+  (`remote: true` reference SSOT) if absent. **Never overwrite an existing one** (hard rule 6).
+  With `ffmpeg`, generate waveform `preview.png`; otherwise log the reason without generating it.
+  Do not make a mock differing from the actual asset.
+- **Unmatched files**: Move to drop-folder `_quarantine/` and record unknown source in `_quarantine/manifest.json`
+  (same discipline as audio-import). Do not register based on filename guesses.
+- **Multiple matches**: Quarantine because uniqueness cannot be established; do not guess.
 
-再実行は idempotent（同名ファイルは二重移動しない・`manifest.json` に重複エントリを
-増やさない）。
+Reruns are idempotent (no duplicate moves of same-name files or duplicate entries in `manifest.json`).
 
-## 4. マッチングの限界（正直に伝える）
+## 4. Matching limitations (explain honestly)
 
-ファイル名照合が機能するのは、候補データに `expected_filenames` /
-`filename_patterns` が入っている「個別ファイル名まで特定できた候補」（効果音ラボ・
-OtoLogic の一部）だけ。DOVA-SYNDROME・Pixabay・Freesound のタグ/検索ページ候補は
-ユーザーが保存時に付けるファイル名が予測できないため、自動照合できず `_quarantine/`
-に入る。この場合は audio-import レーンの前例にならい、`_quarantine/manifest.json` を
-見ながらユーザーに出典を確認し、`catalog/audio/candidates.json` の該当候補に
-`expected_filenames` を追記するか、手で `catalog/audio/<id>/meta.json` を作る。
+Filename matching works only for candidates identified down to individual filenames, with `expected_filenames` /
+`filename_patterns` in candidate data (some Sound Effect Lab / OtoLogic entries).
+DOVA-SYNDROME, Pixabay, and Freesound tag/search-page candidates cannot be matched automatically because
+user-chosen save filenames are unpredictable; they go to `_quarantine/`. Follow the audio-import precedent:
+review `_quarantine/manifest.json`, ask the user for sources, then add `expected_filenames` to the corresponding
+candidate in the candidate file at `audioCandidatesPath`, or manually create `<id>/meta.json` in the reference-record location.
 
-## 5. 検証
+## 5. Validate
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs <ライブラリの置き場>/audio/<candidate-id>
+akari assets validate <ライブラリの置き場>/audio/<candidate-id>
 ```
 
-失敗したら理由（大抵は `preview.png` 未生成 = ffmpeg 不在）をそのまま報告する。
+Report failures honestly (usually missing `preview.png` because ffmpeg is unavailable).
 
-## よくある間違い
+## Common mistakes
 
-- `--apply` を付けずに「登録した」と報告する（plan-only は何も変更しない）。
-- 複数候補に一致するファイルをどちらかに決め打ちで登録する。
-- 既存の `catalog/audio/<id>/meta.json` を上書きする。
-- `_quarantine/` の存在を無視し、出典不明ファイルを放置したまま完了報告する。
+- Claiming registration without `--apply` (plan-only changes nothing).
+- Arbitrarily choosing one of multiple matching candidates.
+- Overwriting existing `<id>/meta.json` in the reference-record location.
+- Ignoring `_quarantine/` and reporting completion while unknown-source files remain unresolved.

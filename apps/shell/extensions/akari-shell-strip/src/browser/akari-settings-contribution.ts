@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, WidgetManager, ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { CommandService } from '@theia/core/lib/common';
@@ -14,8 +15,8 @@ export class AkariSettingsOpener extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariSettingsOpener.ID;
-        this.title.label = '設定';
-        this.title.caption = '外観・接続・パートナー・書き出しの既定など';
+        this.title.label = t('shell.settings.panel.settingsLabel');
+        this.title.caption = t('shell.settings.panel.appearanceConnectionsPartnerExportDefaultsMoreText');
         this.title.iconClass = 'codicon codicon-settings-gear';
         this.title.closable = false;
     }

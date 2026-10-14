@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { AkariTasksService, Task } from '../../common/akari-tasks-protocol';
 import { composeBatchPacket, composeTaskPacket } from '../../common/task-packet';
 import { chooseRoute } from '../../common/task-route';
@@ -50,14 +51,14 @@ export class TaskOperations {
         const eligible = selected.filter((task): task is Task => !!task && task.state === 'unsent'
             && task.needsConfirm !== true && !task.unknown);
         const skipped = unique.length - eligible.length;
-        if (skipped) this.ports.warn(`${skipped} 件は頼む対象から外しました。`);
+        if (skipped) this.ports.warn(t('annotationscommon.taskOperations.message.excludedFromTarget', { skipped: skipped, n: skipped }));
         if (!eligible.length) return { sent: [], skipped, route: 'none' };
-        let target: { form: 'cli' | 'extension' | 'none'; agent?: string; focusCommandId?: string };
+        let target: { form: 'cli' | 'extension' | 'web' | 'none'; agent?: string; focusCommandId?: string };
         try { target = await this.ports.execute('akari.partner.deliveryTarget') as typeof target; }
         catch { target = { form: 'none' }; }
         const choice = chooseRoute({ target: target.form, count: eligible.length });
         if (choice.route === 'none') {
-            this.ports.warn('パートナーが未接続です。');
+            this.ports.warn(t('annotationscommon.taskOperations.message.noConnection'));
             return { sent: [], skipped, route: 'none' };
         }
         let packet: string;
@@ -72,23 +73,22 @@ export class TaskOperations {
             }
             if (choice.route === 'pty') {
                 if (await this.ports.execute('akari.partner.injectPrompt', packet) !== true) {
-                    this.ports.warn('パートナーへ渡せませんでした。');
                     return { sent: [], skipped, route: choice.route };
                 }
             } else {
                 try { await this.ports.copy(packet); }
                 catch {
-                    this.ports.warn(`コピーできませんでした。次の文を手でコピーしてください: ${packet}`);
+                    this.ports.warn(t('annotationscommon.taskOperations.error.couldNotCopyCopyTextManually', { packet: packet }));
                     return { sent: [], skipped, route: choice.route };
                 }
                 if (target.focusCommandId && this.ports.hasCommand(target.focusCommandId)) {
                     try { await this.ports.execute(target.focusCommandId); }
                     catch { /* コピーした文はそのまま使える。 */ }
                 }
-                this.ports.info('依頼文をコピーしました。入力欄に貼り付けて（⌘V）送ってください。');
+                this.ports.info(t('annotationscommon.taskOperations.action.copyRequestPasteInputFieldV'));
             }
         } catch (error) {
-            this.ports.warn(`依頼文を渡せませんでした: ${String(error)}`);
+            this.ports.warn(t('annotationscommon.taskOperations.error.couldNotSendRequest', { error: String(error) }));
             return { sent: [], skipped, route: choice.route };
         }
         const sent: string[] = [];
@@ -103,12 +103,12 @@ export class TaskOperations {
     }
 
     async confirm(task: Task, root: string): Promise<Task> {
-        if (task.state !== 'review') throw new Error('確認するタスクが見つかりません。');
+        if (task.state !== 'review') throw new Error(t('annotationscommon.taskOperations.error.noTasksCheck'));
         const ref = task.ref as { kind?: string; id?: string } | undefined;
         if (ref?.kind === 'annotation' && ref.id) {
             try { await this.ports.resolveAnnotation(ref.id); }
             catch (error) {
-                this.ports.error(`注釈を確認できませんでした: ${String(error)}`);
+                this.ports.error(t('annotationscommon.taskOperations.error.couldNotVerifyAnnotation', { error: String(error) }));
                 throw error;
             }
         }

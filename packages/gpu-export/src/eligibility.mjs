@@ -1,9 +1,14 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
 import { stripHtmlComments, stripCssComments, rawTextElements, htmlTags, findAttribute, isHtmlSpace, startsWithFold } from "../../render-cut/src/html-scan.mjs";
 import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
-import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
+import { runtimes as overlayRuntimes, readDeclarations } from "../../overlay-runtime/runtimes.mjs";
 import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
+import { captionLanguageDefaults, normalizeLanguage } from '../../content-language/src/index.mjs';
 import { accessSync, constants, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { captionRunHasOutsideEffect } = require('../../edit-store/lib/index.js');
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -289,13 +294,12 @@ OVERLAY_CONDITIONS.push(...RUNTIME_DECLARATION_CONDITIONS);
 const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
 const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
 const COMPOSITE_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "css-3d-transform", "advanced-css"]);
+const THREE_RUNTIME = overlayRuntimes.find((runtime) => runtime.id === "three");
 
 const UNSUPPORTED_MOTIONS = new Set();
 
 const SUPPORTED_WORD_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
 const GEOMETRY_EMPHASIS_STYLES = new Set(["one-char-bang", "one-char-jumble", "size-pulse"]);
-const DEFAULT_MAX_CHARACTERS = 20;
-const PORTRAIT_MAX_CHARACTERS = 10;
 
 export function evaluateGpuEligibility({
   edit = {},
@@ -322,7 +326,8 @@ export function evaluateGpuEligibility({
     const entrance = names.includes("three-or-canvas-runtime") && animated
       ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
       : null;
-    if (names.includes("item-keyframes")) {
+    const threeScene = readDeclarations(source, THREE_RUNTIME).length > 0;
+    if (!threeScene && names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
     } else if (names.includes("vgpu-runtime")) {
       const result = classifyVgpuOverlay(source, names);
@@ -333,7 +338,8 @@ export function evaluateGpuEligibility({
       // entranceCandidate が animation を要求していたため、静止 3D + CSS が分岐から漏れていた。
       // 方式 B は断片全体を転写するため animation の有無に依存せず、U3 実測済みの
       // composite 経路へ静止 3D も通せる（条件外の断片は引き続き fail-closed）。
-      const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
+      const visualNames = names.filter((name) => name !== "item-keyframes");
+      const withinSampledConditions = visualNames.every((name) => SAMPLED_CONDITIONS.has(name));
       if (names.includes("css-3d-backface-hidden")) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
       } else if (animated && entrance.ok && withinSampledConditions) {
@@ -350,13 +356,13 @@ export function evaluateGpuEligibility({
         entries.push(composite.ok
           ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
           : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
-      } else if (names.every((name) => COMPOSITE_CONDITIONS.has(name))) {
+      } else if (visualNames.every((name) => COMPOSITE_CONDITIONS.has(name))) {
         const composite = scanThreeComposite(html);
         entries.push(composite.ok
           ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
           : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
       } else {
-        const unsupported = names.filter((name) => !COMPOSITE_CONDITIONS.has(name));
+        const unsupported = visualNames.filter((name) => !COMPOSITE_CONDITIONS.has(name));
         entries.push(entry(
           "overlay",
           overlay.id ?? `overlay-${index}`,
@@ -428,7 +434,21 @@ export function evaluateGpuEligibility({
       output: edit.output,
       inheritedTextStyle,
       emphasisWords: validEmphasis,
+      locale: Array.isArray(captions) ? 'ja' : captions?.display_policy?.locale,
     });
+    const gradientEffects = textStyle?.fill_gradient && !textStyle?.fill
+      && (textStyle?.stroke || textStyle?.stroke_inner || textStyle?.extrude
+        || textStyle?.shadow || textStyle?.glow);
+    const richRun = !gradientEffects && Array.isArray(cue?.runs)
+      && cue.runs.some(run => run && captionRunHasOutsideEffect(run));
+    if (richRun && [animation?.in?.id, animation?.out?.id].includes('typewriter')) {
+      entries.push(entry('caption', id, 'unsupported', 'caption-run-effects-typewriter', ['runs', 'text_style.animation']));
+      continue;
+    }
+    if (wordSupport.hasWordDisplay && richRun) {
+      entries.push(entry("caption", id, "unsupported", "caption-run-plate-words-native", ["runs", "words"]));
+      continue;
+    }
     if (wordSupport.hasWordDisplay && textStyle?.vertical === true) {
       entries.push(entry("caption", id, "unsupported", "caption-text-style-vertical-unsupported", ["text_style.vertical"]));
       continue;
@@ -472,14 +492,15 @@ function isValidEmphasis(value) {
     && (value.style_hint === undefined || typeof value.style_hint === "string");
 }
 
-export function classifyCaptionWordMode({ cue = {}, output = {}, inheritedTextStyle = null, emphasisWords = [] } = {}) {
+export function classifyCaptionWordMode({ cue = {}, output = {}, inheritedTextStyle = null, emphasisWords = [], locale = 'ja' } = {}) {
   const portrait = Number(output?.height) > Number(output?.width);
   const textStyle = mergeTextStyle(inheritedTextStyle, cue?.text_style);
-  const maximum = textStyle?.max_characters ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
+  const defaults = captionLanguageDefaults(locale);
+  const maximum = textStyle?.max_characters ?? (portrait ? defaults.portraitCharacters : defaults.landscapeCharacters);
   const words = clipWordsToRange(cue?.words, cue?.start, cue?.end);
   const displayText = typeof cue?.display_text === "string" ? cue.display_text : String(cue?.text ?? "");
   let effectiveStyle = SUPPORTED_WORD_STYLES.has(cue?.style) ? cue.style : null;
-  if (portrait && effectiveStyle === null && words.length > 0 && splitCaptionLines(displayText, maximum).length > 1) {
+  if (portrait && effectiveStyle === null && words.length > 0 && splitCaptionLines(displayText, maximum, false, normalizeLanguage(locale) ?? 'ja').length > 1) {
     effectiveStyle = "reveal";
   }
   const normalizedEmphasis = Array.isArray(emphasisWords) ? emphasisWords.filter(isValidEmphasis) : [];
@@ -764,10 +785,21 @@ function threeOnlyHtmlSpace(html, start, end) {
 // 断片内 CSS の変形や不透明度は出ない。canvas とレイアウトだけを残し、他は既存の composite へ回す。
 // 生 HTML を静的に読み、ブラウザと対応を確定できない断片は偽にする（fail-closed）。
 function isThreeOnlyOverlay(html, conditions, overlay) {
-  if (conditions.length !== 1 || conditions[0] !== "three-or-canvas-runtime") return false;
-  if (Object.hasOwn(overlay, "motion") || Object.hasOwn(overlay, "motionSource")
-    || Object.hasOwn(overlay, "keyframes")
-    || (Array.isArray(overlay.motionParents) && overlay.motionParents.length > 0)) return false;
+  const visualConditions = conditions.filter((condition) => condition !== "item-keyframes");
+  if (visualConditions.length !== 1 || visualConditions[0] !== "three-or-canvas-runtime") return false;
+  const hasValidKeys = (points) => Array.isArray(points) && points.length >= 2
+    && points.every((point) => Number.isFinite(point?.t));
+  const keyed = hasValidKeys(overlay.keyframes)
+    || hasValidKeys(overlay.motionSource?.keyframes)
+    || overlay.motionParents?.some((parent) => hasValidKeys(parent?.keyframes));
+  if (Object.hasOwn(overlay, "keyframes") && !hasValidKeys(overlay.keyframes)) return false;
+  if (!keyed && (Object.hasOwn(overlay, "motion") || Object.hasOwn(overlay, "motionSource")
+    || (Array.isArray(overlay.motionParents) && overlay.motionParents.length > 0))) return false;
+  if (overlay.motion?.in?.preset === "wipe" || overlay.motion?.out?.preset === "wipe"
+    || overlay.motionSource?.motion?.in?.preset === "wipe"
+    || overlay.motionSource?.motion?.out?.preset === "wipe"
+    || overlay.motionParents?.some((parent) => parent?.motion?.in?.preset === "wipe"
+      || parent?.motion?.out?.preset === "wipe")) return false;
   let cursor = 0;
   let fallbacks = 0;
   let fallbackDepth = 0;

@@ -52,6 +52,7 @@ export interface FrameEngineAdjust extends Omit<AdjustV1, 'lut'> {
 export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'> {
   transitionOut?: EditCut['transitionOut'];
   transition_out?: EditCut['transitionOut'];
+  transitionHold?: EditCut['transitionHold'];
   framing?: {
     crop?: { x: number; y: number; w: number; h: number };
     keyframes?: readonly CutFramingKeyframe[];
@@ -112,6 +113,8 @@ const KNOWN_CUT_KEY_LIST = [
   'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion', 'motionSource', 'motionParents', 'animator', 'audio', 'mute'
 ] as const;
 
+const KNOWN_RENDER_CUT_KEY_LIST = ['transitionHold'] as const;
+
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'transform', 'crop', 'perspective',
   'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'motionSource', 'motionParents', 'animator', 'track', 'in', 'speed'
@@ -131,7 +134,8 @@ type ExactKeys<T, Keys extends PropertyKey> =
     ? Exclude<Keys, keyof T> extends never ? true : false
     : false;
 type Assert<T extends true> = T;
-type _KnownCutKeysAreExact = Assert<ExactKeys<FrameEngineCut & { animator?: unknown }, typeof KNOWN_CUT_KEY_LIST[number]>>;
+type _KnownCutKeysAreExact = Assert<ExactKeys<FrameEngineCut & { animator?: unknown },
+  typeof KNOWN_CUT_KEY_LIST[number] | typeof KNOWN_RENDER_CUT_KEY_LIST[number]>>;
 type _KnownLayerKeysAreExact = Assert<ExactKeys<FrameEngineLayer & { animator?: unknown }, typeof KNOWN_LAYER_KEY_LIST[number]>>;
 type _KnownKeyframeKeysAreExact = Assert<ExactKeys<LayerKeyframe & { animator?: unknown }, typeof KNOWN_KEYFRAME_KEY_LIST[number]>>;
 
@@ -253,7 +257,7 @@ function warnUnknownFields(
     warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
   }
   for (const key of Object.keys(value)) {
-    if (knownKeys.has(key)) continue;
+    if (knownKeys.has(key) || (knownKeys === KNOWN_CUT_KEYS && key === KNOWN_RENDER_CUT_KEY_LIST[0])) continue;
     warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
   }
 }
@@ -302,9 +306,9 @@ export function buildResolvedTimelinePlan(
     warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
     warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
   });
-  if (cuts.some(cut => cut.freeze && (cut.at !== undefined || cut.track !== undefined))) {
-    throw new Error('freeze with explicit at/track is not supported by the sequential cuts timeline');
-  }
+  // An explicit placement can anchor a gapped cut even when it freezes. The virtual
+  // source range below extends that cut's end; the placement and local freeze mapping
+  // use the same resolved start, so the hold remains inside its declared track window.
   const virtualCuts: EditCut[] = cuts.map(cut => {
     const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
     const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));
@@ -832,9 +836,6 @@ export function evaluationPlanFromResolvedTimeline(
     const outgoingIndex = window.outgoing.cutIndex;
     const incomingIndex = window.incoming.cutIndex;
     if (outgoingIndex == null || incomingIndex == null) throw new Error('transition has no source cuts');
-    if (!isTransitionType(window.type)) {
-      throw new Error(`unsupported transition type: ${window.type}`);
-    }
     return {
       timeUs,
       frameIndex,
@@ -844,7 +845,7 @@ export function evaluationPlanFromResolvedTimeline(
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
-        type: window.type,
+        type: isTransitionType(window.type) ? window.type : 'fade',
         progress: transitionProgressAt(window, outputSeconds)
       },
       output

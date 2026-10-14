@@ -45,6 +45,7 @@ test('雛形の .gitignore: issue #48 の期待表どおりに分かれる（git
             ['.akari/reports/contact-sheet.png', true],
             ['.akari/reports/export-check/result.json', false],
             ['.akari/work/base.mp4', true],
+            ['.akari/write.lock.wait', true],
             ['.akari/work/notes.json', false],
             ['edit.json', false],
             ['captions.json', false],
@@ -155,4 +156,12 @@ test('applyHistoryPolicy: 書き換え済みで囲みが無ければ末尾へ足
 test('雛形ファイルと定数が drift していない（npm 配布では .gitignore が剥がされ定数が雛形になる）', async () => {
     const template = await readFile(path.join(REPO_ROOT, 'templates', 'project-default', '.gitignore'), 'utf8');
     assert.equal(template, PROJECT_GITIGNORE);
+});
+
+test('声の特徴量の除外行は sidecars の再許可より後に置く', async () => {
+    const template = await readFile(path.join(REPO_ROOT, 'templates', 'project-default', '.gitignore'), 'utf8');
+    for (const body of [PROJECT_GITIGNORE, template]) {
+        const lines = body.split('\n');
+        assert.ok(lines.indexOf('.akari/sidecars/**/voices.json') > lines.indexOf('!.akari/sidecars/**'));
+    }
 });

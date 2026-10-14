@@ -1,18 +1,28 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite,
-    captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail,
-    renderableCaptionFonts, CAPTION_FONT_FAMILY } from '../lib/common/caption-panel-state.js';
-import { CAPTION_PANEL_FONTS } from '../lib/common/caption-panel-catalog.js';
-import { filterCaptionPanelFonts } from '../lib/common/caption-font-label.js';
-import { captionRevealDestination } from '../lib/common/caption-reveal-destination.js';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
-import { createCaptionPanel, CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
-import { updateCaptionTextStyleInSource } from '../lib/common/caption-store.js';
+
+
+
+
+
+
+
 import { createRequire } from 'node:module';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../../akari-project/lib/common/preset-showcase.js';
 import { libraryTextStyleSample } from '../../akari-preview/lib/common/textstyle-sample.js';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail, renderableCaptionFonts, captionPanelFontRows, firstCaptionFontFamilies, recentCaptionFontId, CAPTION_FONT_FAMILY } = await import('../lib/common/caption-panel-state.js');
+const { CAPTION_PANEL_FONTS } = await import('../lib/common/caption-panel-catalog.js');
+const { filterCaptionPanelFonts } = await import('../lib/common/caption-font-label.js');
+const { captionRevealDestination } = await import('../lib/common/caption-reveal-destination.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+const { createCaptionPanel, CAPTION_PANEL_STYLES } = await import('../lib/browser/inspector/caption-panels.js');
+const { updateCaptionTextStyleInSource } = await import('../lib/common/caption-store.js');
+
 
 const require = createRequire(import.meta.url);
 const { CAPTION_SAMPLE_TEXT } = require('../../../../../packages/edit-store/lib/index.js');
@@ -36,6 +46,11 @@ const actions = { close() {}, switchTo() {}, font() {}, style() {}, save() {}, o
 const state = () => ({ query: '', filtersOpen: true, filters: new Set(), recentFonts: [], recentStyles: [] });
 const faces = new Map(CAPTION_PANEL_FONTS.filter(font => font.bundled).map(font => [font.id,
     font.id === 'noto-sans-jp' ? CAPTION_FONT_FAMILY : font.family]));
+faces.set('noto-sans-jp-direct', CAPTION_FONT_FAMILY);
+const withOwnFont = () => firstCaptionFontFamilies([
+    ...[...faces].map(([id, family]) => ({ id, family })),
+    { id: 'my-font', family: '私の書体', source: 'library' }
+]);
 
 test('同じコマンドで閉じ、別のコマンドで切り替え、文字以外の選択で閉じる', () => {
     assert.equal(nextCaptionPanel(null, 'font', true), 'font');
@@ -82,6 +97,78 @@ test('表示できる 9 書体だけを検索・複数タグ AND フィルター
     assert.equal(faces.get('noto-sans-jp'), CAPTION_FONT_FAMILY);
     assert.match(captionFontRowDetail(['latin']), /日本語は代わりの書体で表示/u);
     assert.doesNotMatch(captionFontRowDetail(['japanese']), /代わりの書体/u);
+    assert.equal(captionFontRowDetail(['japanese'], false), 'Aa Bb 123');
+});
+
+test('読み込んだ自前の書体を一行にまとめ、名前と family で検索できる', () => {
+    const imported = firstCaptionFontFamilies([{ id: 'my-font', family: '私の書体', source: 'library' },
+        { id: 'my-font', family: '別名', source: 'library' }]);
+    assert.equal(imported.get('my-font'), '私の書体');
+    const loaded = withOwnFont();
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    assert.equal(rows.length, 10);
+    assert.equal(rows.some(row => row.id === 'noto-sans-jp-direct'), false);
+    assert.deepEqual(rows.filter(row => row.own).map(row => row.id), ['my-font']);
+    assert.deepEqual(rows.filter(row => row.id === 'my-font').map(row => row.title), ['私の書体']);
+    assert.equal(filterCaptionPanelFonts(rows, '私の', new Set())[0].id, 'my-font');
+    assert.equal(filterCaptionPanelFonts(rows, '私の書体', new Set(['gothic'])).some(row => row.id === 'my-font'), false);
+    const panel = createCaptionPanel(document, 'font', state(), [], loaded, actions);
+    const own = descendants(panel).find(node => node.attributes['data-akari-font-row'] === 'my-font');
+    assert.ok(own);
+    assert.ok(descendants(own).some(node => node.textContent === '自分で入れた'));
+    const applied = [];
+    const selectable = createCaptionPanel(document, 'font', state(), [], loaded,
+        { ...actions, font: (...args) => applied.push(args) });
+    const ownChoice = descendants(selectable).find(node => node.attributes['data-akari-font-row'] === 'my-font')
+        .children.find(node => node.className === 'akari-caption-font-face');
+    ownChoice.fire('click');
+    assert.deepEqual(applied, [['私の書体', undefined, 'my-font']]);
+});
+
+test('カタログ掲載の書体を自分で入れた場合は実際の family と出自を表示する', () => {
+    const id = '851-chikara-dzuyoku';
+    const family = '851チカラヅヨク-かなA';
+    const loaded = firstCaptionFontFamilies([{ id, family, source: 'library' }]);
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    const font = rows.find(row => row.id === id);
+    assert.equal(font?.title, '851チカラヅヨク');
+    assert.equal(font?.family, family);
+    assert.equal(font?.own, true);
+    assert.equal(font?.bundled, false);
+    const panel = createCaptionPanel(document, 'font', state(), [], loaded, actions);
+    const row = descendants(panel).find(node => node.attributes['data-akari-font-row'] === id);
+    assert.ok(row);
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-english' && node.textContent === family));
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-detail' && node.textContent === '自分で入れた'));
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-status' && node.textContent === '自分で入れた'));
+    assert.ok(!descendants(row).some(node => node.textContent.includes('同梱')));
+});
+
+test('最近使ったフォントは現在の描画可能な family だけから id を引く', () => {
+    const loaded = withOwnFont();
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    assert.equal(recentCaptionFontId(undefined, rows), undefined);
+    assert.equal(recentCaptionFontId('851チカラヅヨク', rows), undefined);
+    assert.equal(recentCaptionFontId('私の書体', rows), 'my-font');
+    assert.equal(recentCaptionFontId(CAPTION_FONT_FAMILY, rows), 'noto-sans-jp');
+    const withoutDefault = rows.filter(row => row.id !== 'noto-sans-jp');
+    assert.equal(recentCaptionFontId('', withoutDefault), undefined);
+    assert.equal(recentCaptionFontId(CAPTION_FONT_FAMILY, withoutDefault), 'noto-sans-jp');
+    assert.equal(recentCaptionFontId('851チカラヅヨク', withoutDefault), undefined);
+});
+
+test('最近使ったフォントは使える書体だけを描き、自前の書体を選べる', () => {
+    const viewState = state();
+    viewState.recentFonts = ['851-chikara-dzuyoku', 'my-font', 'missing'];
+    const loaded = withOwnFont();
+    const applied = [];
+    const panel = createCaptionPanel(document, 'font', viewState, [], loaded,
+        { ...actions, font: (...args) => applied.push(args) });
+    const recent = descendants(panel).find(node => node.className === 'akari-caption-recent');
+    assert.ok(recent);
+    assert.deepEqual(recent.children.map(node => node.textContent), ['私の書体']);
+    recent.children[0].fire('click');
+    assert.deepEqual(applied, [['私の書体', undefined, 'my-font']]);
 });
 
 test('日本語表示名と英字名の両方で同じ書体を検索できる', () => {
@@ -204,15 +291,16 @@ test('右の見本は共有 CSS で光・多重縁・グラデーション・大
     assert.equal(face(cards[0]).style.textTransform, 'uppercase');
 });
 
-test('右から用意されたスタイルは動きとサイズ保持を渡し、マイスタイルは保存サイズを渡す', () => {
+test('右から当てる同梱とマイスタイルはいずれも既存の大きさを保つ', () => {
     const preset = { id: 'impact', style: { size_px: 168, animation: { in: { id: 'pop' } } } };
     const prepared = captionPanelLookWrite('one', preset.style, preset.id, [preset]);
     assert.equal(prepared.value.keepSize, true);
     assert.deepEqual(prepared.value.parts.map(part => part.kind), ['look', 'motion']);
     assert.deepEqual(prepared.value.parts[1].animation, { in: { id: 'pop' } });
     const saved = captionPanelLookWrite('one', { size_px: 80 }, 'mystyle/saved', [preset]);
-    assert.equal(saved.value.keepSize, undefined);
+    assert.equal(saved.value.keepSize, true);
     assert.equal(saved.value.parts[0].text_style.size_px, 80);
+    assert.equal(captionPanelLookWrite('one', { size_px: 80 }).value.keepSize, true);
 });
 
 test('右の同梱スタイルはカードと最近使った行の仮表示でも現在の大きさと px 比を保つ', () => {

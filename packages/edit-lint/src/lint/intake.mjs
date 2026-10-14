@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { addFinding, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
+import { t } from "../../../akari-tools/src/decision-log/i18n.mjs";
 
 const INTAKE_TASK_IDS = new Set([
   "transcribe-captions",
@@ -17,6 +18,7 @@ const INTAKE_STATUS_VALUES = new Set(["draft", "submitted"]);
 export const INTAKE_ROOT_FIELDS = [
   "version",
   "title",
+  "language",
   "tasks",
   "target",
   "autonomy",
@@ -59,8 +61,8 @@ export async function lintDecisionLogPredict({ projectRoot, intake, edit, findin
   addFinding(findings, {
     severity: "warning",
     check: "decision-log.predict-missing",
-    message: "decision-log.md に機械の予測行（決定者 machine:director）がありません。提案つき / そのままモードでは、入れた物 1 件ごとに予測 1 行を追記してください（判子は一回 契約 §10）"
-      + (decisionLog === undefined ? "（decision-log.md が見つかりません）" : ""),
+    message: t("decision-log.intake.predict.missing")
+      + (decisionLog === undefined ? t("decision-log.intake.log.missing") : ""),
     path: "decision-log.md",
   });
 }
@@ -75,7 +77,7 @@ export function validateIntake(intake, findings, paths) {
     intakeFinding(
       findings,
       "intake.version",
-      `intake.json version ${intake.version} は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください`,
+      t("decision-log.intake.version.new", { version: intake.version }),
       `${intakeRelative}#version`,
     );
     return;

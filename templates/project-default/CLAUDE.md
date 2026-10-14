@@ -1,77 +1,79 @@
-# AKARI Video プロジェクト
+# AKARI Video project
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<library-location>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-このプロジェクトでは、次の役割に沿って編集を進めます。
+Edit this project according to these roles:
 
-- `assets/` … 元動画と音声を置く素材の場所。原本は読み取り専用として扱い、書き換えや削除をしません。
-- `planning/` … 企画、分析レポート、編集計画など、人が読む成果物を置く場所。
-- `exports/` … 完成した動画を書き出す場所。
-- `.akari/` … 素材の分析結果と、作業の節目の記録を置く場所。
+- `assets/` … Source video and audio. Treat originals as read-only; never modify or delete them.
+- `planning/` … Human-readable artifacts such as proposals, analysis reports, and edit plans.
+- `exports/` … Finished video exports.
+- `.akari/` … Media analysis results and workflow milestone records.
 
-素材の分析結果は `.akari/sidecars/<assets 以下の相対パス>.meta.json` に保存します。
-レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
-1 件ずつ新しく追加します。すでにある記録は書き換えたり削除したりしません。
+Save media analysis results in `.akari/sidecars/<relative-path-under-assets>.meta.json`
+(the placeholder means the relative path beneath assets).
+Never read or upload `.akari/sidecars/**/voices.json` (voice embeddings are biometric identifiers).
+At report creation, approval, editing completion, and export completion, append 1 new record to `.akari/events/`.
+Never modify or delete existing records.
 
-今回の進め方は `.akari/intake.json` に記録されています。`status` が `submitted` のときは、そこに書かれた `tasks`（やること）・`target`（仕上がりの尺）・`autonomy`（おまかせの度合い）に従って進めます。`full-auto` は「そのまま = 途中確認なしで書き出しまで進み、事後に capture + lint を添える」、`checkpoint` は「提案つき = 既定。良さそうな物を入れて見せる。要らなければ消す。判子は書き出しの 1 回」、`collaborative` は「一緒に作る = 方針・素材・実行の要所で確認」として扱います。`status` が `draft`、ファイルが無い、または `autonomy` が欠落している場合は提案つきとみなし、draft の `tasks` / `target` / `autonomy` には従いません。進め方はフォームまたは対話で確定させます。
+The workflow is recorded in `.akari/intake.json`. When `status` is `submitted`, follow its `tasks` (work to do), `target` (finished duration), and `autonomy` (level of delegation). Treat `full-auto` as “proceed directly to export without intermediate confirmation; attach capture + lint afterward”, `checkpoint` as “with suggestions, the default: add promising choices and show them; remove unwanted ones; require approval 1 time, at export”, and `collaborative` as “work together: confirm direction, assets, and execution at key points”. If `status` is `draft`, the file is absent, or `autonomy` is missing, use the suggestions workflow and do not follow draft `tasks` / `target` / `autonomy`. Settle the workflow through the form or conversation.
 
-進め方を `.akari/intake.json` に書くときは、`tasks` は決められた 5 つの id だけを使い、`target` は `duration_s` か `keep_length: true` のどちらか片方にします。`status` を `submitted` にする前に lint で確認します。
+When writing the workflow to `.akari/intake.json`, use only the 5 prescribed IDs for `tasks`; for `target`, choose either `duration_s` or `keep_length: true`. Run lint before setting `status` to `submitted`.
 
-素材が足りないときは、`akari assets list` でアカウントの素材ライブラリ（無料全部 + 購入済み）を
-確認できます。使いたい素材が見つかったら `akari assets fetch <id> --project .` でこのプロジェクトへ
-取り込みます（sha256 検証込み）。有料素材は `akari store connect` で接続済みのアカウントで
-購入していれば使え、未購入のものは価格付きの `locked` と表示されます。ライブラリの実体は
-`<ライブラリの置き場>/` に置かれますが、直接編集せず上記コマンド経由で操作してください。
+If assets are missing, inspect the account's asset library (all free + purchased assets) with `akari assets list`.
+Import a chosen asset into this project with `akari assets fetch <id> --project .` (including sha256 verification).
+For free external sound effects, BGM, fonts, and other site references, use `akari assets list --source site`; inspect acquisition, license, and source with `akari assets show <category/id>`. An entry marked `同梱済み` is already bundled in the app and ready to use. A `↗` (`reference`) entry cannot be fetched; if it is not marked `同梱済み`, follow `/setup-library` with explicit approval, then run `akari assets validate <dir>`. Do not guess `catalog/` or `packages/` paths.
+Paid assets are available if purchased through the account connected with `akari store connect`;
+unpurchased assets display `locked` and their price. Library files live in `<library-location>/`
+(the existing library-location placeholder). Operate through these commands rather than editing them directly.
 
-## プレビューの確認
+## Check the preview
 
-プレビューは既存機能を使う。提供するためだけに専用の再生 HTML・再生 UI・音声同期を
-新規実装しない（独立した再生ページを利用者が明示依頼した場合を除く）。
-アプリで対象プロジェクトの出力プレビューを開く。ブラウザ版は「メニュー」→
-「ブラウザプレビュー」から起動できる。詳しくは
-[既存プレビューの起動・確認](.claude/skills/edit-lint/preview.md) を読む。
-起動できない場合は原因と再現条件を記録する。確認済みと報告するには既存画面で
-再生・シーク・音声（ある場合）を確認し、アプリ内／既存ブラウザのどちらかを明記する。
-描画部品や別ページだけの検証を、既存プレビューの確認済みとして扱わない。
+Use the existing preview functionality. Do not implement dedicated playback HTML, playback UI, or audio synchronization
+just to provide a preview (unless the user explicitly requests a standalone playback page).
+Open this project's output preview in the app. Launch the browser version from Menu → Browser Preview.
+See [Launch and check the existing preview](.claude/skills/edit-lint/preview.md).
+If launch fails, record the cause and reproduction conditions. To report it as checked, verify playback, seeking,
+and audio (if present) in the existing screen, and specify whether you used the app or existing browser preview.
+Checking only rendering components or a separate page does not count as checking the existing preview.
 
-## AKARI Video の在処
+## Where AKARI Video is installed
 
-- `~/.akari/cli` … コマンド操作の本体と入口（macOS / Linux は `~/.akari/cli/bin/akari`、Windows は `~/.akari/cli/bin/akari.cmd`）です。パートナー接続時に配備されます。
-- `~/.akari/app` … `install.sh` から入れた AKARI Video 本体です。デスクトップアプリだけを使っている場合は、存在しなくて構いません。
-- アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint など、編集や検査を実行するコマンドの実体です。Windows では `<install dir>\resources\packages\` にあります。
-- アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe があります。whisper-cli はビルドによって同梱されないことがあります。Windows では `<install dir>\resources\media-bin\` にあります。
-- `<ライブラリの置き場>` … 素材ライブラリの実体です。
+- `~/.akari/cli` … Command implementation and entry point (macOS / Linux: `~/.akari/cli/bin/akari`; Windows: `~/.akari/cli/bin/akari.cmd`). Deployed when the partner connects.
+- `~/.akari/app` … AKARI Video installed via `install.sh`. It need not exist when only the desktop app is used.
+- App-bundled `<App>/Contents/Resources/packages/` … Editing and checking commands such as render-cut and edit-lint. On Windows: `<install dir>\resources\packages\`.
+- App-bundled `<App>/Contents/Resources/media-bin/` … ffmpeg and ffprobe. Some builds do not bundle whisper-cli. On Windows: `<install dir>\resources\media-bin\`.
+- `<library-location>` … Existing placeholder for the asset library's actual location.
 
-どれも PATH には無い前提です。パートナー PTY 以外の端末では、macOS / Linux は `~/.akari/cli/bin/akari`、Windows は `~/.akari/cli/bin/akari.cmd` をフルパスで実行してください（Windows の入口は `akari.cmd` だけで、拡張子を省くと Git Bash では見つかりません）。
+Assume none is on PATH. Outside the partner PTY, run the full path: `~/.akari/cli/bin/akari` on macOS / Linux,
+`~/.akari/cli/bin/akari.cmd` on Windows (the only Windows entry point is `akari.cmd`; Git Bash cannot find it if you omit the extension).
 
-## 編集スキル
+## Editing skills
 
-`.claude/skills/` 配下の全ディレクトリがそのまま使えます。主なもの:
+All directories beneath `.claude/skills/` are available as-is. Main skills:
 
-- `/analyze-footage` … 素材ごとの内容を分析します。
-- `/analyze-project` … 複数の素材とプロジェクト全体の文脈をまとめて分析します。
-- `/edit-plan` … 編集計画を作り、レポートと承認を経て編集内容へ反映します。
-- `/overlay-authoring` … テロップ、図、3D などの画面要素を制作します。
-- `/edit-lint` … 編集結果を機械的に検査し、仕上がりの確認を支えます。
-- `/render-cut` … 承認済みの編集を書き出し、完成ファイルを検証します。
-- `/setup-library` … 利用できる素材を準備します。
-- `/address-review` … 未対応のレビュー指摘を編集へ反映します。
+- `/analyze-footage` … Analyze each source asset.
+- `/analyze-project` … Analyze multiple assets together with the project's overall context.
+- `/edit-plan` … Make an edit plan and apply it after reporting and approval.
+- `/overlay-authoring` … Create captions, diagrams, 3D, and other visual elements.
+- `/edit-lint` … Check edits mechanically and support final quality checks.
+- `/render-cut` … Export approved edits and verify the finished file.
+- `/setup-library` … Prepare available assets.
+- `/address-review` … Apply open review feedback to the edit.
 
-Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります
-（中身は `.claude/skills/` へのリンクです）。
-詳しい進め方と、スキル文書を直接読む場合の場所は `AGENTS.md` を参照してください。
+Entry points for other AI agents such as Codex and Cursor are in `.agents/skills/`, `.cursor/skills/`, and `.codex/skills/`
+(links to `.claude/skills/`). See `AGENTS.md` for the workflow and paths for reading skill documents directly.
 
-画面や会話で利用者へ説明するときは日本語を使い、内部の仕組みの名前ではなく、
-「変更履歴」「企画メモ」「素材」など役割が伝わる言葉で案内します。
+When explaining things to users in the UI or conversation, follow the response-language rule above and use
+role-based words such as “change history”, “planning notes”, and “assets”, rather than internal mechanism names.
 
-プロジェクトルート直下に新規ファイルを作らない（`edit.json` 等の既存契約ファイルを除く）。
-生成物は `.akari/work/`、証跡は `.akari/reports/`、キャッシュは `.akari/cache/` に置く。
-詳しい層の定義は[公開リポの正典](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md)を参照します。
-ローカルでは (b) `install.sh` から入れた場合の `~/.akari/app/docs/contract-2026-07-25-project-structure-v0.md`、
-(c) モノレポを持っている場合の `<repo>/docs/contract-2026-07-25-project-structure-v0.md` からも確認できます。
+Do not create new files directly under the project root (except existing contract files such as `edit.json`).
+Put generated files in `.akari/work/`, evidence in `.akari/reports/`, and caches in `.akari/cache/`.
+See the [public repository's canonical contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) (Japanese) for layer definitions.
+Local copies are also available at (b) `~/.akari/app/docs/contract-2026-07-25-project-structure-v0.md` after installation via `install.sh`,
+and (c) `<repo>/docs/contract-2026-07-25-project-structure-v0.md` with a monorepo checkout.
 
-このファイルはあなたのプロジェクトのものです。運用に合わせて自由に書き換えて構いません。
+This file belongs to your project. Feel free to adapt it to your workflow.

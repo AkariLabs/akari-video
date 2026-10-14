@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -17,8 +18,8 @@ export class AkariProjectListWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariProjectListWidget.ID;
-        this.title.label = 'プロジェクト一覧';
-        this.title.caption = 'このチャンネルのプロジェクト';
+        this.title.label = t('surfaces.projects.projectList.label');
+        this.title.caption = t('surfaces.projects.projectsChannel.label');
         this.title.iconClass = 'codicon codicon-files';
         this.title.closable = true;
         this.update();

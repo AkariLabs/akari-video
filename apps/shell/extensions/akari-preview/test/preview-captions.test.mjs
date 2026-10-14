@@ -31,7 +31,7 @@ const checkedVisualContract = JSON.parse(await readFile(join(
 
 test('webview に埋め込む語プリセット CSS は render-cut と一致する', async () => {
     const source = readHandlerSource();
-    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
+    const embedded = source.match(/const presetCaptionTokenCss = '(\.akari-caption__tok\{display:inline-block;[^']+\.akari-caption__tok--preset\{[^']+\})';/u);
     assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
 });
 

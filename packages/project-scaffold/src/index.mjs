@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { reportCatalog, reportLanguage, reportText } from '../../analysis-report/report-i18n.mjs';
+import { t } from '../../i18n/index.mjs';
 
 // 履歴に何を入れるかの単一の宣言（issue #48）。ここで別に書き起こすと、雛形とアプリ側の
 // 除外規則が片方だけ育つ。相対パスなのは npm 配布 tarball の vendor ミラーでも同じ深さに
@@ -21,6 +23,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `assets/` は元動画と音声を置く素材の場所です。原本は書き換えたり削除したりしません。',
     '- `planning/` は企画やレポート、`exports/` は完成した動画を置く場所です。',
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
+    '- `.akari/sidecars/**/voices.json`（声の特徴量・個人識別符号）は読まず、外へ送りません。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
     '- Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
@@ -163,8 +166,8 @@ export async function writeFallbackTemplate(destinationDir) {
         'AGENTS.md': FALLBACK_AGENT_GUIDANCE,
         '.claude/settings.json': JSON.stringify({
             permissions: {
-                allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                deny: ['Edit(./assets/**)']
+                allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)', 'Edit(./assets/generated/**)'],
+                deny: ['Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)']
             }
         }, null, 2) + '\n',
         '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
@@ -437,7 +440,7 @@ export async function checkGitBoundary(destinationDir) {
     return { eligibility: 'inside-parent-repository', parentRoot };
 }
 
-export async function commitInitialProject(destinationDir, message = 'プロジェクトを作成') {
+export async function commitInitialProject(destinationDir, message = t('cli.project.git.initialCommit')) {
     await runGit(destinationDir, ['init']);
     await runGit(destinationDir, ['add', '-A', '--', '.']);
     const { stdout } = await runGit(destinationDir, ['status', '--porcelain']);
@@ -470,20 +473,33 @@ function escapeHtml(value) {
         .replaceAll("'", '&#39;');
 }
 
-function renderList(items, emptyText = 'なし') {
+function renderList(items, emptyText) {
     if (items.length === 0) {
         return `<p>${escapeHtml(emptyText)}</p>`;
     }
     return `<ul>${items.map(item => `<li><code>${escapeHtml(item)}</code></li>`).join('')}</ul>`;
 }
 
-export function renderReportHtml(report) {
+export function renderReportHtml(report, options = {}) {
+    const lang = reportLanguage(options.lang ?? report.lang);
+    const q = (key, params) => reportText('report-project', `report-project.${key}`, lang, params);
+    const attr = (key) => lang === 'en' ? ` data-i18n="report-project.${key}"` : '';
+    const dictionary = lang === 'en'
+        ? `  <script type="application/json" id="akari-report-i18n">${JSON.stringify(reportCatalog('report-project', lang)).replace(/</gu, '\\u003c')}</script>\n  <script>\n    (() => {\n      const messages = JSON.parse(document.getElementById('akari-report-i18n').textContent);\n      for (const node of document.querySelectorAll('[data-i18n]')) {\n        const value = messages[node.getAttribute('data-i18n')];\n        if (value !== undefined && !value.includes('{')) node.textContent = value;\n      }\n    })();\n  </script>\n`
+        : '';
+    const reasonCode = report.git.reasonCode
+        ?? (report.git.action === 'initialized-and-committed' ? 'initialized'
+            : report.git.eligibility === 'own-root' ? 'ownRoot'
+                : report.git.eligibility === 'parent-root' ? 'parentRoot' : null);
+    const gitReason = lang === 'en' && reasonCode
+        ? q(`git.reason.${reasonCode}`, report.git.reasonParams ?? { parentRoot: report.git.parentRoot })
+        : report.git.reason;
     return `<!doctype html>
-<html lang="ja">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AKARI Video プロジェクト作成結果</title>
+  <title${attr('page.title.text')}>${q('page.title.text')}</title>
   <style>
     :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
     body { max-width: 960px; margin: 0 auto; padding: 2rem; }
@@ -497,38 +513,38 @@ export function renderReportHtml(report) {
 </head>
 <body>
   <main>
-    <h1>AKARI Video プロジェクト作成結果</h1>
+    <h1${attr('page.title.text')}>${q('page.title.text')}</h1>
     <dl>
-      <dt>作成日時</dt><dd>${escapeHtml(report.createdAt)}</dd>
-      <dt>作成先</dt><dd><code>${escapeHtml(report.destination)}</code></dd>
-      <dt>使用した雛形</dt><dd><code>${escapeHtml(report.templateDir)}</code></dd>
+      <dt${attr('meta.created.label')}>${q('meta.created.label')}</dt><dd>${escapeHtml(report.createdAt)}</dd>
+      <dt${attr('meta.destination.label')}>${q('meta.destination.label')}</dt><dd><code>${escapeHtml(report.destination)}</code></dd>
+      <dt${attr('meta.template.label')}>${q('meta.template.label')}</dt><dd><code>${escapeHtml(report.templateDir)}</code></dd>
     </dl>
     <section>
-      <h2>コピーしたファイル（${escapeHtml(report.copy.copiedFiles.length)} 件）</h2>
-      ${renderList(report.copy.copiedFiles)}
+      <h2${attr('files.copied.heading')}>${q('files.copied.heading', { n: escapeHtml(report.copy.copiedFiles.length) })}</h2>
+      ${renderList(report.copy.copiedFiles, q('files.empty.text'))}
     </section>
     <section>
-      <h2>フォールバック補完されたファイル（${escapeHtml(report.fallback.writtenFiles.length)} 件）</h2>
-      ${renderList(report.fallback.writtenFiles)}
+      <h2${attr('files.fallback.heading')}>${q('files.fallback.heading', { n: escapeHtml(report.fallback.writtenFiles.length) })}</h2>
+      ${renderList(report.fallback.writtenFiles, q('files.empty.text'))}
     </section>
     <section>
-      <h2>スキップしたシンボリックリンク（${escapeHtml(report.copy.skippedSymlinks.length)} 件）</h2>
-      ${renderList(report.copy.skippedSymlinks)}
+      <h2${attr('files.symlinks.heading')}>${q('files.symlinks.heading', { n: escapeHtml(report.copy.skippedSymlinks.length) })}</h2>
+      ${renderList(report.copy.skippedSymlinks, q('files.empty.text'))}
     </section>
     <section>
-      <h2>雛形バージョン</h2>
-      <p>${report.skillsVersion === null ? '記録なし' : `<code>${escapeHtml(report.skillsVersion)}</code>`}</p>
+      <h2${attr('skills.version.heading')}>${q('skills.version.heading')}</h2>
+      <p>${report.skillsVersion === null ? q('skills.version.missing') : `<code>${escapeHtml(report.skillsVersion)}</code>`}</p>
     </section>
     <section>
-      <h2>git 初期化の結果</h2>
+      <h2${attr('git.result.heading')}>${q('git.result.heading')}</h2>
       <dl>
-        <dt>実施</dt><dd>${report.git.action === 'initialized-and-committed' ? '実施' : 'スキップ'}</dd>
-        <dt>判定</dt><dd>${escapeHtml(report.git.eligibility)}</dd>
-        <dt>理由</dt><dd>${escapeHtml(report.git.reason)}</dd>
+        <dt${attr('git.action.label')}>${q('git.action.label')}</dt><dd>${report.git.action === 'initialized-and-committed' ? q('git.action.done') : q('git.action.skipped')}</dd>
+        <dt${attr('git.eligibility.label')}>${q('git.eligibility.label')}</dt><dd>${escapeHtml(report.git.eligibility)}</dd>
+        <dt${attr('git.reason.label')}>${q('git.reason.label')}</dt><dd>${escapeHtml(gitReason)}</dd>
       </dl>
     </section>
   </main>
-</body>
+${dictionary}</body>
 </html>
 `;
 }
@@ -550,21 +566,29 @@ export async function createProject(destinationDir, templateDir, options = {}) {
 
     let action;
     let reason;
+    let reasonCode;
+    let reasonParams;
     if (boundary.eligibility === 'none') {
         try {
             await commitInitialProject(destination);
             action = 'initialized-and-committed';
             reason = 'git 初期化して単一コミットを作成';
+            reasonCode = 'initialized';
         } catch (error) {
             action = 'skipped';
             reason = `git が利用できないためスキップ — 後からプロジェクトを開くと自動で git 化されます（${firstErrorLine(error)}）`;
+            reasonCode = 'unavailable';
+            reasonParams = { error: firstErrorLine(error) };
         }
     } else if (boundary.eligibility === 'own-root') {
         action = 'skipped';
         reason = 'このフォルダは既に git リポジトリのため git init を skip';
+        reasonCode = 'ownRoot';
     } else {
         action = 'skipped';
         reason = `親リポジトリ ${boundary.parentRoot} の内側のため git init を skip`;
+        reasonCode = 'parentRoot';
+        reasonParams = { parentRoot: boundary.parentRoot };
     }
 
     const report = {
@@ -578,13 +602,15 @@ export async function createProject(destinationDir, templateDir, options = {}) {
             eligibility: boundary.eligibility,
             parentRoot: boundary.parentRoot,
             action,
-            reason
+            reason,
+            reasonCode,
+            reasonParams
         },
         reportPath
     };
 
     await fs.mkdir(path.dirname(reportPath), { recursive: true });
-    await fs.writeFile(reportPath, renderReportHtml(report), 'utf8');
+    await fs.writeFile(reportPath, renderReportHtml(report, { lang: options.lang }), 'utf8');
 
     return report;
 }

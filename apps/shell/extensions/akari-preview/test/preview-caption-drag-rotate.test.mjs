@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { persistCaptionPlateTransform } from '../src/common/caption-plate-handles.ts';
-import { persistCaptionCuePosition } from '../src/common/caption-zone-write.ts';
+import { persistCaptionPlateTransform } from '../lib/common/caption-plate-handles.js';
+import { persistCaptionCuePosition } from '../lib/common/caption-zone-write.js';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const handler = readHandlerSource();

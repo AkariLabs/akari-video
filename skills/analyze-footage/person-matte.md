@@ -1,56 +1,53 @@
-# 人物マットを作る（任意工程）
+# Generate a person matte (optional)
 
-## 目次
+## Contents
 
-- [実行するかを先に決める](#実行するかを先に決める)
-- [道具を確認する](#道具を確認する)
-- [生成する](#生成する)
-- [カットへ自動配線する](#カットへ自動配線する)
-- [analysis.json へ書く](#analysisjson-へ書く)
-- [グレースケールマスクを使う](#グレースケールマスクを使う)
-- [RVM の実行環境を入れる](#rvm-の実行環境を入れる)
-- [Windows 実機検証手順](#windows-実機検証手順)
-- [劣化](#劣化)
+- [Decide whether to execute first](#decide-whether-to-execute-first)
+- [Check tools](#check-tools)
+- [Generate](#generate)
+- [Route a matte to a cut](#route-a-matte-to-a-cut)
+- [Write to analysis.json](#write-to-analysisjson)
+- [Use a grayscale mask](#use-a-grayscale-mask)
+- [Install the RVM runtime](#install-the-rvm-runtime)
+- [Verify on a Windows machine](#verify-on-a-windows-machine)
+- [Degraded operation](#degraded-operation)
 
-## 原則
+## Principles
 
-人物マットは**人物演出（text-behind-person など）を使うと決めた素材でだけ**作る。既定の分析
-フローはマットを作らず `tracks.person_matte` に `null` を書く。データ契約は
-[docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md) が正本である。
-以下の `$PERSON_MATTE_BIN/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
-analyze-footage の手順から直接呼ぶものではない。内部のデコード・検証は生成器自身が担う。
+Generate a matte only for footage selected for a person-based effect, such as text behind a person. The default analysis produces no matte and records `null` in `tracks.person_matte`. Follow the [person-matte data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-analysis-person-matte.md).
+The `$PERSON_MATTE_BIN/...` commands below are the public L3 sidecar-generator interface. They are not direct media-backend calls from this skill; the generator handles decoding and validation internally.
 
-## 実行するかを先に決める
+## Decide whether to execute first
 
-全素材で常時実行しない。実測コスト（8 秒 / 1280x720 / 24fps / `balanced`・負荷のあるマシン）:
+Do not run matte generation on every source. Measured cost for an eight-second, 1280×720, 24 fps clip at `balanced` quality on a loaded machine:
 
-| 工程 | 実時間比 | 備考 |
+| Process | Actual time ratio | Notes |
 |---|---|---|
-| Vision セグメンテーション | 約 1.7 倍 | 58 ms/frame。マットは 512x384 固定 |
-| VP9 alpha エンコード | 残り全部 | **壁時計時間の支配項** |
-| 合計 | **約 7.7 倍**（8 秒 → 62 秒） | 10 分素材なら 1 時間強の目安 |
+| Vision segmentation | About 1.7× source duration | 58 ms/frame; matte fixed at 512×384 |
+| VP9 alpha encoding | Remaining time | **Dominates wall-clock cost** |
+| Total | **About 7.7×** (8 seconds → 62 seconds) | A ten-minute source may take over an hour |
 
-次のすべてに当てはまるときだけ実行する。
+Run it only when every condition holds:
 
-- その素材に人物が映っており、人物を切り抜く演出を使うと決まっている。
-- 素材の尺と上の実時間比から見積もった処理時間を許容できる。
-- 単に「顔が映っている」だけではない（顔トラック `tracks.faces` はマット無しで作れる）。
+- A person appears in the footage, and a cutout effect has been chosen.
+- The estimated processing time from the footage duration and measured ratio is acceptable.
+- Seeing a face in the footage is insufficient: a face track in `tracks.faces` can be generated without a matte.
 
-品質の選び方:
+Choose quality by purpose:
 
-| quality | 用途 | 実測 |
+| Quality | Use | Measured result |
 |---|---|---|
-| `fast` | 当たり付け・「この素材で切り抜けるか」の事前判定のみ | マット 256x192。輪郭が階段状で**本番不可** |
-| `balanced`（既定） | **本番**（text-behind-person / 切り抜き） | マット 512x384・58 ms/frame・実用輪郭 |
-| `accurate` | 寄りカット・最終仕上げ | マット 2016x1512・135 ms/frame・peak 638 MB |
-| `best` | **髪の毛をくっきり残す必要があるときだけ** | RVM mobilenetv3。10 秒素材で約 1〜1.5 分待つ目安 |
-| `best --model resnet50` | 処理時間をさらに許容できる場合のこだわり指定 | RVM resnet50。既定の mobilenetv3 より大幅に遅い |
+| `fast` | Rough pass and preliminary check only to see whether this source can be cut out | 256×192 matte with stepped edges; **not for final output** |
+| `balanced` (default) | **Production** text-behind-person or cutout | 512×384 matte, 58 ms/frame, usable edges |
+| `accurate` | Close shots or final finishing | 2016×1512 matte, 135 ms/frame, 638 MB peak |
+| `best` | Only when hair detail must be preserved clearly | RVM mobilenetv3; about 1–1.5 minutes for ten seconds of footage |
+| `best --model resnet50` | Higher-cost option when more processing time is acceptable | RVM resnet50, substantially slower than mobilenetv3 |
 
-Windows では全品質段が RVM mobilenetv3 になる。手順は [Windows 実機検証手順](#windows-実機検証手順) を参照する。
+On Windows, all quality levels use RVM mobilenetv3. Follow [Windows verification](#verify-on-a-windows-machine).
 
-`fast` の出力を本番の成果物として `analysis.json` に載せない。
+Do not record a `fast` output as a production matte in `analysis.json`.
 
-## 道具を確認する
+## Check tools
 
 ```bash
 PERSON_MATTE_BIN=".claude/skills/analyze-footage/bin/person-matte"
@@ -58,16 +55,12 @@ PERSON_MATTE_BIN=".claude/skills/analyze-footage/bin/person-matte"
 node "$PERSON_MATTE_BIN/person-matte.mjs" --check
 ```
 
-`available:true` 以外なら `reason` を報告し、マットを作らずに `null` のまま進む。結果には既定の
-RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、同梱メディア道具、VP9 alpha
-エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
-実行環境と mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
-ネットワークからツールを導入しない。Mac の Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
-バイナリはコミットしない（[.gitignore](.gitignore) 参照）。
+Unless the check returns `available:true`, report `reason` and continue with a `null` matte. The result also includes `rvm_model`, indicating whether the default RVM model is deployed. macOS needs `swiftc`, the bundled media tools, and a VP9 alpha encoder. Windows needs the same media tools plus the RVM runtime and mobilenetv3 model, but not swiftc. Let the sidecar generator resolve the media tools.
+Never install tools from the network. On Mac, the Swift helper builds automatically with `swiftc -O` on first use; do not commit the binary (see [.gitignore](.gitignore)).
 
-## 生成する
+## Generate
 
-出力は analysis.json と同じディレクトリの `matte/person-matte.webm` に置く。
+Write `matte/person-matte.webm` relative to the directory containing analysis.json.
 
 ```bash
 node "$PERSON_MATTE_BIN/person-matte.mjs" \
@@ -75,35 +68,25 @@ node "$PERSON_MATTE_BIN/person-matte.mjs" \
   --out "$OUT_DIR/matte/person-matte.webm"
 ```
 
-オプション（既定のままで良ければ渡さない）:
+Optional overrides (omit them to use defaults):
 
-- `--quality fast|balanced|accurate|best`（既定 `balanced`）
-- `--model mobilenetv3|resnet50`（`--quality best` のときだけ指定可、既定 `mobilenetv3`）。
-  `resnet50` は `cd packages/matte-rvm && node scripts/fetch-models.mjs --model resnet50` で明示取得する
-- `--fps <n>`（既定 24）。マット動画の fps。元素材と一致しなくてよい
-- `--decode-width <n>`（既定 1280）。Vision のマット解像度は quality だけで決まり入力解像度に
-  依存しないため、通常は変更しない。素材が 1280 幅未満なら拡大せずその幅を使う
+- `--quality fast|balanced|accurate|best` (default `balanced`).
+- `--model mobilenetv3|resnet50` only with `--quality best` (default `mobilenetv3`). Fetch `resnet50` explicitly with `cd packages/matte-rvm && node scripts/fetch-models.mjs --model resnet50`.
+- `--fps <n>` (default 24) sets the matte video's frame rate, which need not match the source.
+- `--decode-width <n>` (default 1280) normally need not change: Vision matte resolution depends on quality rather than input resolution. For a source narrower than 1280, use its native width instead of upscaling.
 
-`--input` には**原本**を渡す。プロキシ（`proxy.mp4`）を渡してもよいが、その場合マットの RGB は
-720p の絵になる。原本と時刻対応が崩れた素材を入力にしない。
+Pass the **original footage** to `--input`. A proxy such as `proxy.mp4` is allowed, but its matte RGB will reflect the 720p proxy. Never use an input whose timing no longer matches the original.
 
-成功時は 1 行の JSON が返る。`ok`、`frames`、`bytes`、`elapsed_seconds`、`engine`、
-Vision 時の `vision_ms_per_frame` または RVM 時の `rvm_ms_per_frame`、
-`alpha_transparent_ratio`（完全透明画素の割合）、`probe`（同梱 prober の実測）を含む。
-ヘルパーは書き出した WebM が `codec_name = vp9` かつ `alpha_mode = 1` であることを確認してから
-成功を返すので、`ok: true` はアルファが落ちていないことを含意する。
+On success, the command returns one JSON line with `ok`, `frames`, `bytes`, `elapsed_seconds`, `engine`, either `vision_ms_per_frame` or `rvm_ms_per_frame`, `alpha_transparent_ratio` (fraction of fully transparent pixels), and `probe` (measurements from the bundled prober). The helper checks the WebM for `codec_name = vp9` and `alpha_mode = 1` before returning success, so `ok: true` also confirms alpha was retained.
 
-`ok: false` なら `reason` を報告し、マットを諦めて `null` のまま分析を続ける。**マットが作れない
-ことを理由に分析全体を失敗扱いにしない。**
+If the result is `ok: false`, report `reason`, keep the matte `null`, and continue the analysis. **A missing matte alone does not fail the whole analysis.**
 
-## カットへ自動配線する
+## Route a matte to a cut
 
-使い分けは次のとおり。
+Choose the command by use case:
 
-- 素材全体の解析結果として `analysis.json` の `tracks.person_matte` を作る場合は、上の
-  `person-matte.mjs` を使う。入力素材の時刻 0 とマットの時刻 0 を一致させる。
-- 編集済みの特定カットを人物レイヤーへ載せる場合は `person-cutout.mjs` を使う。カットの `in` /
-  `out` / `speed` を解決し、速度適用済みの区間マットを作って v2 `edit.json` へ自動配線する。
+- To populate `tracks.person_matte` in `analysis.json` for the full source, use `person-matte.mjs` above. Source time zero and matte time zero must match.
+- To place one edited cut on a person layer, use `person-cutout.mjs`. It resolves cut `in`, `out`, and `speed`, creates a speed-adjusted matte for that interval, and wires it into v2 `edit.json`.
 
 ```bash
 node "$PERSON_MATTE_BIN/person-cutout.mjs" \
@@ -111,22 +94,14 @@ node "$PERSON_MATTE_BIN/person-cutout.mjs" \
   --cut 0
 ```
 
-`--cut` は v2 `tracks` を下から上、各 `items` を宣言順に走査した visual media item の 0 始まり
-index で、`0,2,4` のように複数指定できる。自動生成済みの `person-N` item は数えない。
-`--quality fast|balanced|accurate|best`（既定 `balanced`）と、`best` の場合だけ
-`--model mobilenetv3|resnet50` を指定できる。
+`--cut` indexes visual media items from zero by traversing v2 `tracks` bottom to top and each track's `items` in declared order. A comma-separated selection such as `0,2,4` is allowed. Automatically created `person-N` items do not count.
+For this cutout command, use `--quality fast|balanced|accurate|best` (default `balanced`); set `--model mobilenetv3|resnet50` only with `best`.
 
-生成物は `<project>/assets/matte/person-<cut index>.webm`。v2 は旧 `layers[]` と
-`timeline.tracks` を持たず、トップレベル `tracks[]` 自体が下→上の z 順の正本なので、コマンドは
-マットを `sources[]` に登録し、対応する media item を `person-cutout` visual track へ置く。この
-track は既存 track の相互順を変えず最前面へ移すため、HTML overlay やテロップより人物が上に来る。
+The output is `<project>/assets/matte/person-<cut index>.webm`. v2 does not use the old `layers[]` or `timeline.tracks` fields; top-level `tracks[]` defines z-order from bottom to top. The command registers the matte in `sources[]` and puts its media item on a `person-cutout` visual track. That track moves to the front without changing the relative order of other tracks, so the person appears above HTML overlays and captions.
 
-同じ cut へ再実行すると `person-cutout-N` source と `person-N` item を更新し、source / item / track
-を重複させない。`edit.json` は候補ファイルを v2 reader と `validate-edit.mjs` の両方で検証してから
-atomic rename し、不合格時は元ファイルを変更しない。
+Rerunning for the same cut updates its `person-cutout-N` source and `person-N` item without duplicating source, item, or track. The command validates the candidate `edit.json` with both the v2 reader and `validate-edit.mjs` before an atomic rename. On failure, it leaves the original file unchanged.
 
-変更内容だけを確認する場合は `--dry-run` を付ける。マットの生成、ディレクトリ作成、edit.json の
-書き換えを一切行わず、予定するマット・レイヤー互換表示・track 順を stdout の 1 行 JSON で返す。
+Use `--dry-run` to inspect planned changes only. It creates no matte or directories and does not rewrite edit.json; stdout contains one JSON line describing the planned matte, layer-compatibility view, and track order.
 
 ```bash
 node "$PERSON_MATTE_BIN/person-cutout.mjs" \
@@ -137,10 +112,9 @@ node "$PERSON_MATTE_BIN/person-cutout.mjs" \
   --dry-run
 ```
 
-## analysis.json へ書く
+## Write to analysis.json
 
-返ってきた JSON の `person_matte` をそのまま使えるが、**`path` は analysis.json のディレクトリ
-基準の相対パスへ書き換える**（ヘルパーは呼び出し時の絶対パスを返す）。区切りは `/` を使う。
+Use the returned `person_matte` object, but **rewrite `path` relative to the directory containing analysis.json**. The helper returns an absolute path for the call. Use `/` separators in the recorded path.
 
 ```json
 "person_matte": {
@@ -152,55 +126,44 @@ node "$PERSON_MATTE_BIN/person-cutout.mjs" \
 }
 ```
 
-`path` と `fps` が必須、`quality` / `generated_at` / `tool` は任意である。
-確定前に [analysis-json.md](analysis-json.md#schema-では表せない意味制約) の意味制約も検査する。
+`path` and `fps` are required; `quality`, `generated_at`, and `tool` are optional. Before finalizing, check the semantic constraints in [analysis-json.md](analysis-json.md#semantic-constraints-beyond-the-schema).
 
-- マット動画の時刻 0 が素材の時刻 0 と一致する（区間を切り出したマットを載せない）。
-- `fps` が実際に書き出したマット動画の fps と一致する。
-- `path` を analysis.json の位置から解決でき、実ファイルが存在する。
+- Matte time zero matches source time zero; do not use an interval-trimmed matte here.
+- `fps` matches the frame rate of the actual matte video.
+- `path` resolves from analysis.json to an existing file.
 
-## グレースケールマスクを使う
+## Use a grayscale mask
 
-`person-matte.mjs` は VP9 alpha WebM を従来どおり生成しながら、同じ推論結果の raw BGRA から
-`<basename>.mask.mp4` も併産する。成功結果の `person_matte` には `mask_path` と
-`mask_format: "gray-h264-fullrange"` が加わる。マスク生成だけが失敗した場合も VP9 alpha WebM は
-成功扱いのままで、結果の `mask.reason` に劣化理由が入る。
+`person-matte.mjs` still produces VP9 alpha WebM and also makes `<basename>.mask.mp4` from the same inference's raw BGRA data. A successful `person_matte` result includes `mask_path` and `mask_format: "gray-h264-fullrange"`. If only mask generation fails, the WebM remains successful and the result records the degraded reason in `mask.reason`.
 
-既存の VP9 alpha WebM しかない場合は、次の冪等コマンドで一度だけ変換する。入力より新しい出力が
-あれば skip し、作り直す場合だけ `--force` を付ける。
+For an existing VP9 alpha WebM without a mask, run this idempotent conversion. It skips an output newer than the input; use `--force` only to regenerate it.
 
 ```bash
 node "$PERSON_MATTE_BIN/mask-from-alpha.mjs" \
   --input "$OUT_DIR/matte/person-matte.webm"
 ```
 
-往復精度は次のコマンドで全フレーム比較できる。
+Compare round-trip accuracy across all frames with:
 
 ```bash
 node "$PERSON_MATTE_BIN/mask-roundtrip.mjs" --alpha <webm> --mask <mp4>
 ```
 
-合否閾値は
-alpha WebM を真値とみなす取り込み変換の基準である。併産された兄弟 2 形式の比較では、それぞれの
-符号化損失の和を測るため、この閾値で `ok:false` になっても変換精度の不合格を意味しない。
+The pass/fail threshold treats alpha WebM as ground truth for an imported conversion. Comparing two outputs generated together measures the sum of their separate encoding losses. Therefore `ok:false` at that threshold does not by itself prove the sibling mask conversion is inaccurate.
 
-## RVM の実行環境を入れる
+## Install the RVM runtime
 
-Windows で人物マットを作る場合と、Mac で `--quality best` を使う場合は、公開リポジトリのルートで
-次の 1 コマンドを実行する。`--check` の `rvm_runtime.available` が `false` のときも同じ手順で直せる。
+From the repository root, run the following command to make mattes on Windows or to use `--quality best` on Mac. It also addresses `rvm_runtime.available` reported as `false` by `--check`.
 
 ```bash
 cd packages/matte-rvm && npm install
 ```
 
-モデルは別に配備する。実行環境を入れたあと、既定モデルは同じディレクトリで
-`npm run fetch:models` を実行して取得する。モデルをリポジトリへコミットしない。
+Install the model separately. After the runtime is ready, run `npm run fetch:models` in the same directory for the default model. Do not commit model files.
 
-## Windows 実機検証手順
+## Verify on a Windows machine
 
-Windows では `fast` / `balanced` / `accurate` / `best` の全段が RVM mobilenetv3 を使う。
-次の PowerShell コマンドは公開リポジトリのルートで実行する。Node.js 20 以上を前提とし、まず版を確認して
-`packages/matte-rvm` 内で依存と既定モデルを明示的に配備する。
+On Windows, `fast`, `balanced`, `accurate`, and `best` all use RVM mobilenetv3. Run these PowerShell commands from the repository root. Check for Node.js 20 or later, then explicitly install dependencies and the default model in `packages/matte-rvm`.
 
 ```powershell
 node --version
@@ -211,21 +174,19 @@ cd ..\..
 $PersonMatteBin = if (Test-Path ".claude\skills\analyze-footage\bin\person-matte") { ".claude\skills\analyze-footage\bin\person-matte" } else { "skills\analyze-footage\bin\person-matte" }
 ```
 
-道具とモデルを検査する。
+Check the tools and installed model:
 
 ```powershell
 node "$PersonMatteBin\person-matte.mjs" --check
 ```
 
-期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false`、
-`rvm_runtime.available` が `true` になる。
+Expect a one-line JSON result with `available` set to `true`, `rvm_model.missing` set to `false`, and `rvm_runtime.available` set to `true`.
 
 ```json
 {"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"},"rvm_runtime":{"available":true,"reason":null,"installHint":"cd packages/matte-rvm && npm install"}}
 ```
 
-次に、人物が映る実素材 1 本を `C:\Users\owner\Videos\person-input.mp4` へ置き、`balanced` で生成する。
-出力先は必要に応じて書き換える。
+Put one real clip containing a person at `C:\Users\owner\Videos\person-input.mp4`, then generate a `balanced` matte. Change the output path if needed.
 
 ```powershell
 $SOURCE = "C:\Users\owner\Videos\person-input.mp4"
@@ -233,31 +194,26 @@ $OUT = "C:\Users\owner\Videos\person-matte-balanced.webm"
 node "$PersonMatteBin\person-matte.mjs" --input "$SOURCE" --out "$OUT" --quality balanced
 ```
 
-実際に返る 1 行 JSON から確認するキーの抜粋は次のとおりで、`ok:true`、`engine:"rvm"`、`model:"mobilenetv3"`、
-`probe.alpha_mode:"1"` を含む。`quality` は `person_matte.quality:"balanced"` として指定値のまま残る。
+In the returned one-line JSON, check for `ok:true`, `engine:"rvm"`, `model:"mobilenetv3"`, and `probe.alpha_mode:"1"`. The selected `quality` should remain `person_matte.quality:"balanced"`.
 
 ```json
 {"ok":true,"engine":"rvm","model":"mobilenetv3","person_matte":{"path":"C:\\Users\\owner\\Videos\\person-matte-balanced.webm","fps":24,"quality":"balanced","tool":"rvm-person-matting"},"probe":{"codec_name":"vp9","alpha_mode":"1"}}
 ```
 
-速度は `rvm_ms_per_frame`（RVM 推論 1 フレーム当たりのミリ秒）で読む。Mac の既存実測は
-**137〜271 ms/frame** なので、Windows の値を同じ単位で比較する。VP9 エンコードを含む全体時間では
-ないため、総所要時間は `elapsed_seconds` も併記する。
+Use `rvm_ms_per_frame` for RVM inference time in milliseconds per frame. Existing Mac measurements are **137–271 ms/frame**; compare Windows in the same unit. That value excludes VP9 encoding, so also report total `elapsed_seconds`.
 
-実測記録欄:
+Record the measurement:
 
 - Windows PC: CPU ______ / RAM ______ GB / GPU ______ / Windows ______
-- 素材: 解像度 ______ / fps ______ / 尺 ______ 秒
-- `rvm_ms_per_frame`: ______ ms/frame（Mac 137〜271 ms/frame と比較）
-- `elapsed_seconds`: ______ 秒
+- Source: resolution ______ / fps ______ / duration ______ seconds
+- `rvm_ms_per_frame`: ______ ms/frame (compared to Mac 137-271 ms/frame)
+- `elapsed_seconds`: ______ seconds
 
-つまずいた場合は `reason` を先に読む。
+For a failure, read `reason` first:
 
-- 実行環境不在: `rvm_runtime.available:false` を確認し、[RVM の実行環境を入れる](#rvm-の実行環境を入れる)
-  の 1 コマンドを実行してから再検査する。
+- Missing runtime: Confirm `rvm_runtime.available:false`, run the one command in [Install the RVM runtime](#install-the-rvm-runtime), then check again.
 
-- モデル不在: `rvm_model.missing:true` または reason 内の `fetchHint` を確認し、次のコマンドで
-  mobilenetv3 を取得してから再検査する。
+- Missing model: Check `rvm_model.missing:true` or the `fetchHint` in the reason. Fetch mobilenetv3 and check again:
 
   ```powershell
   cd packages\matte-rvm
@@ -266,8 +222,7 @@ node "$PersonMatteBin\person-matte.mjs" --input "$SOURCE" --out "$OUT" --quality
   node "$PersonMatteBin\person-matte.mjs" --check
   ```
 
-- 同梱メディア道具不在: `packages/media-bin` の postinstall が同梱バイナリを配備するため、
-  次のコマンドで配備をやり直してから `--check` を再実行する。
+- Missing bundled media tools: Re-run the `packages/media-bin` postinstall by reinstalling the package, then rerun `--check`:
 
   ```powershell
   cd packages\media-bin
@@ -276,24 +231,20 @@ node "$PersonMatteBin\person-matte.mjs" --input "$SOURCE" --out "$OUT" --quality
   node "$PersonMatteBin\person-matte.mjs" --check
   ```
 
-- `libvpx-vp9` 不在: 解決された encoder が VP9 alpha を書けない。`reason` に従って media-bin の配備と
-  解決元を確認する。
+- Missing `libvpx-vp9`: The resolved encoder cannot write VP9 alpha. Follow `reason` and check the media-bin installation and encoder resolution path.
 
-## 劣化
+## Degraded operation
 
-道具が無い、生成に失敗した、または品質が実用に達しない場合は `tracks.person_matte` を `null` に
-して分析を確定し、理由を完了報告に書く。未生成を空文字や欠落したパスで表さない。
+If tools are unavailable, generation fails, or quality is unusable, set `tracks.person_matte` to `null`, finalize the rest of the analysis, and explain why in the completion report. Do not represent an ungenerated matte with an empty string or missing path.
 
-細い毛束を 1 本単位で分離することは Vision ではできない（セグメンテーションであってマット化では
-ない）。逆光・毛先の抜けが要求水準になる素材では、マットが取れても品質不足として `null` を選ぶ
-判断があり得る。その判断も完了報告に書く。
+Vision segmentation cannot separate individual fine hair strands; it is segmentation rather than detailed matting. For backlit footage or hair edges where that detail is required, even a generated matte may be too poor to use. In that case choose `null` and record the quality decision in the completion report.
 
-## よくある間違い
+## Common mistakes
 
-- 人物演出を使うと決まっていない素材にも一律で実行し、分析時間を何倍にもする。
-- `fast` の出力を本番の切り抜きとして確定する。
-- 出来上がったマット動画を別の媒体変換コマンドで再エンコードする（アルファが無言で落ちる）。
-- マットを素材の途中区間から切り出し、時刻 0 の一致を壊す。
-- `--fps` を変えたのに `analysis.json` の `fps` を書き換え忘れる。
-- ヘルパーが返した絶対パスをそのまま `path` に書く。
-- マットが作れなかったことを理由に `analysis.json` 自体を出さない。
+- Running matte generation on unspecified footage merely because person-based effects might be used, multiplying analysis time.
+- Accepting a `fast` matte as the final cutout.
+- Re-encoding the matte with another media command and silently losing alpha.
+- Trimming the matte to a mid-source interval, breaking the time-zero alignment.
+- Changing `--fps` without updating `fps` in `analysis.json`.
+- Writing the helper's absolute path directly to `path`.
+- Withholding `analysis.json` entirely because the matte could not be created.

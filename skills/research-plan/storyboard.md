@@ -1,77 +1,78 @@
-# 企画書・構成案・絵コンテ
 
-[SKILL.md](SKILL.md) の実行順 5. からだけ読む。`topic-select` カードの `completedAt` が非 null（またはチャット明示承認）になり、`topic.selected` が確定した後にだけ着手する。成果物は `structure`（`chapters[]` / `shots[]` / `opening_hook` / `confirmed` / `confirmed_at`）。
 
-## 1. 構成案（チャプター）を組む
+# Proposal, structure, and storyboard
 
-確定したネタから、動画の構成ビートを `structure.chapters[]` に配列順（= タイムライン順）で書く。各チャプターに次を持たせる。
+Read this file only at step 5 of [SKILL.md](SKILL.md), after the `topic-select` card has a non-null `completedAt` (or explicit chat approval) and `topic.selected` is set. Produce `structure`, including `chapters[]`, `shots[]`, `opening_hook`, `confirmed`, and `confirmed_at`.
 
-- `id`: チャプターを指す短い識別子
-- `title`: チャプター名
-- `duration_estimate_seconds`: 想定尺（秒）。未確定なら `null`
-- `notes`: 演出方針・テロップ方針など
+## 1. Draft the chapter structure
 
-[ideate.md](ideate.md) で分類した Hub/Hero/Help の型に沿ったテンポ・尺を意識する（例: Hero は冒頭フックを強く、Help は手順の網羅性を優先する）。
+Write the video's structural beats for the selected topic in `structure.chapters[]`, ordered as they will appear on the timeline. Each chapter has:
 
-## 2. オープニングフックを決める
+- `id`: A short chapter identifier.
+- `title`: Chapter name.
+- `duration_estimate_seconds`: Estimated duration in seconds, or `null` if unknown.
+- `notes`: Visual direction, on-screen text approach, and related guidance.
 
-`opening_hook` に、視聴継続を左右する冒頭の見せ方を 1 文で書く（例: 「完成映像を最初の 3 秒で見せる」）。採らない場合は `null` にし、理由をレポート本文に残す。
+Let the Hub, Hero, or Help classification in [ideate.md](ideate.md) inform pace and length. For example, a Hero concept needs a strong opening hook, while a Help video should cover the steps thoroughly.
 
-## 3. 絵コンテのショットカードを作る
+## 2. Decide how to open
 
-各チャプターに対応する主要ショットを `structure.shots[]` に書く。ショットは映像の設計図であり、次節の撮影実務リスト（[shotlist.md](shotlist.md)）とは別物 — ここでは「何をどう見せるか」だけを扱う。
+Use one sentence in `opening_hook` to describe the opening intended to hold viewers, such as "Show the finished video in the first three seconds." If no hook is selected, set it to `null` and explain why in the report.
 
-- `id`: ショットを指す短い識別子
-- `chapter_id`: 対応する `structure.chapters[].id`。未割当なら `null`
-- `sequence`: 任意。ビジュアル絵コンテで章帯を出すための `structure.chapters[].id` 参照
-- `cutaway_of`: 任意。主軸ショットの `id` を指し、「挿入して戻る」1 段の枝を表す。カットアウェイからさらに枝分かれさせない
-- `shot_type`: ショットサイズ・アングルの自由記述（例: `close-up` / `overhead` / `wide`）。厳密な enum にしない
-- `description`: 画面に映るものの説明
-- `duration_estimate_seconds`: 想定尺（秒）。未確定なら `null`
-- `camera`: 任意の予約フィールド。`movement?: string[]` / `path_hint?: string` を持てるが、本工程では語彙を解釈せず、値があればレポートへ文字列表示するだけにする
-- `image_path`: 任意の概念画像パス。**画像なしでも工程は成立する**ため、必要性が無ければ `null` のままにする
+## 3. Create storyboard shot cards
 
-### 3.1 概念画像を付ける場合
+Write the principal shots for each chapter in `structure.shots[]`. A shot card describes only what to show and how to show it; it is a visual blueprint, separate from the practical list in [shotlist.md](shotlist.md).
 
-概念画像は絵コンテの理解を助ける任意の補助物であり、全ショットを埋める完了条件ではない。本工程では画像を量産せず、必要な代表ショットに付ける手順だけを定める。
+- `id`: A short shot identifier.
+- `chapter_id`: The associated `structure.chapters[].id`, or `null` if unassigned.
+- `sequence`: Optional reference to `structure.chapters[].id` for chapter bands in the visual storyboard.
+- `cutaway_of`: Optional `id` of the main shot to which this one cuts away and returns. Limit this to one branch level; do not branch from a cutaway.
+- `shot_type`: Free-text shot size and angle, such as `close-up`, `overhead`, or `wide`; do not impose a strict enum.
+- `description`: What appears on screen.
+- `duration_estimate_seconds`: Estimated seconds, or `null` if unknown.
+- `camera`: Reserved optional field. It may contain `movement?: string[]` and `path_hint?: string`, but this workflow does not interpret that vocabulary; display any values as text in the report.
+- `image_path`: Optional concept-image path. **An image is not required to finish this stage**; leave it `null` when unnecessary.
 
-1. [edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md) の Decision Communication Contract に沿って、対象・使う手・理由・代替案・影響を宣言する。
-2. 手は次の順で選ぶ。
-   1. Codex 画像生成（`codex exec` の `image_generation`）で概念画像を作る。
-   2. 生成が不要または適さない場合は、撮影素材から実フレームを流用する。
-3. 生成物または実フレームを `research-plan.json` と同じ計画ディレクトリ配下へ置き、そこからの相対パスを `image_path` に書く。使った手・指示・日時・出所は provenance として記録する。
-4. 画像を用意しないショットは `image_path: null` のままとし、レポートの `shot_type` + `description` プレースホルダーで確認する。
+### 3.1 Add a concept image when useful
 
-### 3.2 ビジュアル絵コンテレポートを生成する
+Concept images are optional aids to understanding the storyboard. They are not required for every shot. Generate or select images only for representative shots that need them.
 
-`research-plan.json` を検証した後、自己完結 HTML を生成する。
+1. Follow the Decision Communication Contract in [edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md): state the target, method, reason, alternatives, and impact.
+2. Choose the source in this order:
+   1. Generate a concept image with Codex image generation (`image_generation` in `codex exec`).
+   2. If generation is unnecessary or unsuitable, use an actual frame from the footage.
+3. Save the generated image or source frame under the same planning directory as `research-plan.json`. Put its relative path in `image_path`, and record the method, instructions, date, and source as provenance.
+4. Keep `image_path: null` for a shot without an image; review its `shot_type` and `description` text placeholder in the report.
 
+
+### 3.2 Generate the visual storyboard report
+
+Validate `research-plan.json`, then generate the self-contained HTML report:
 ```sh
 node packages/decision-cards/render-research-plan-report.mjs \
   planning/research-plan.json \
   planning/research-plan-report.html
 ```
+- The card view groups shots by `sequence`. Each row shows a small image on the left and text on the right; opening it reveals the full text and a larger image, or a text placeholder if `image_path` is absent.
+- The structure view orders shots without `cutaway_of` as the main sequence and shows branches and return lines in a read-only SVG.
+- For older data without `sequence` or `cutaway_of`, show the cards normally and display `構造情報なし` ("no structure information") in the structure view.
+- Keep shot-specific and overall annotations in the browser only. `注釈をコピー` ("copy annotations") produces text for pasting back, including shot IDs and the exact annotation wording. The report writes no file itself. The agent overwrites the single `plan-comments.json` file, revises only named shots, and deletes the file after processing.
 
-- コマ面は `sequence` ごとの章帯で、左に小さい画・右に文章を置いたショット行を並べる。行を押すと大きい画像と全文を含む詳細が開き、`image_path` が無ければ文字プレースホルダーを出す。
-- 構造面は `cutaway_of` の無いショットを主軸として時系列に並べ、枝と戻り線を読み取り専用 SVG で出す。
-- `sequence` / `cutaway_of` が無い旧形式ではカード面を通常表示し、構造面は「構造情報なし」と表示する。
-- 詳細のコマ別注釈と末尾の全体注釈はブラウザ内だけに保持し、「注釈をコピー」で shot id と逐語を含む貼り戻しテキストを作る。レポート自身はファイルを書かず、エージェントが `plan-comments.json` を 1 ファイル上書きで作成し、名指しショットだけを改訂して処理後に削除する。
+## 4. Wait for approval before confirming
 
-## 4. 承認を受けるまで確定しない
+Do not write `structure.confirmed` or `structure.confirmed_at` until the `structure-confirm` card in [SKILL.md](SKILL.md) is complete. Its `answer` records chapter adoption via `chapters[].adopt` and the opening-hook choice. Keep rejected chapters in `structure.chapters[]` and record their rejection in the report's `decision_log`; deletion would erase the decision history.
 
-`structure.confirmed` / `structure.confirmed_at` は [SKILL.md](SKILL.md) の `structure-confirm` 決定カードが確定するまで書かない。カードの `answer` はチャプターの採否（`chapters[].adopt`）とオープニングフックの選択を持つ。人間が一部チャプターを不採用にした場合も、`structure.chapters[]` からは削除せず、レポートの `decision_log` に不採用の記録を残す運用にする（削除すると採否の経緯が消える）。
+## 5. Receive revisions to `structure-confirm` (plan-comments.json)
 
-## 5. `structure-confirm` の差し戻し受領手順（plan-comments.json）
+Before presenting the `structure-confirm` card again, check for `<plan-dir>/plan-comments.json` **before interpreting chat replies**. The [plan-comments contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-plan-comments-v0.md) defines its lifecycle and format.
 
-`structure-confirm` 決定カードの再提示に着手する前に、`<plan-dir>/plan-comments.json` の有無を確認する（**チャット返信の解釈より先に本ファイルを読む**）。ライフサイクル・データ形の正本は [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md)。
+- If `plan-comments.json` has `pass: "structure"`, revise **only** the entries in `structure.shots[]` named by `comments[].target_kind: "shot"`; `target_id` is the array index. Leave unnamed chapters and shots unchanged.
+- After revising, **delete `plan-comments.json`** before presenting the updated `structure-confirm` card.
+- If no file exists, follow the revision instructions in chat as before.
 
-- `pass: "structure"` の `plan-comments.json` が在れば、`comments[].target_kind: "shot"` で名指しされた `structure.shots[]`（配列インデックスが `target_id`）**だけ**を改訂する。名指しされていないチャプター・ショットは無変更のまま次の提示に進む。
-- 改訂が終わったら **`plan-comments.json` を削除**してから、更新後の `structure-confirm` 決定カードを再提示する。
-- ファイルが無い回は、従来どおりチャットの差し戻し指示のみを解釈する。
+## Common mistakes
 
-## よくある間違い
-
-- 承認前に `structure.confirmed: true` を書く。
-- 絵コンテのショットカードと撮影実務リストを混同し、`shot_type` に機材名や撮影地を書く。
-- 概念画像の生成前に Decision Communication Contract を宣言しない。
-- 想定尺が不明なのに `duration_estimate_seconds` へ根拠のない数値を入れる（`null` にして「未確定」と明記する方が正直）。
+- Setting `structure.confirmed: true` before approval.
+- Putting equipment or location in `shot_type` by confusing a shot card with a shooting checklist.
+- Generating a concept image without first making the Decision Communication Contract declaration.
+- Guessing `duration_estimate_seconds` when duration is unknown instead of using `null` and stating that it is undecided.

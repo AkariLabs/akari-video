@@ -15,6 +15,14 @@ test('チャンネル外は人物を探さず、壊れた JSON は空にする',
     assert.deepEqual(parseChannelPeople('invalid'), []);
 });
 
+test('声の見本は本人か対象者の同意がある場合だけ有効にする', () => {
+    const people = parseChannelPeople(JSON.stringify({ entries: [
+        { id: 'a', name: '甲', kind: 'person', voice: { samples: [{ file: 'a.wav' }] } },
+        { id: 'b', name: '乙', kind: 'avatar', voice: { samples: [{ file: 'b.wav', consent: 'subject' }] } }
+    ] }));
+    assert.deepEqual(people.map(person => person.hasVoiceSample), [false, true]);
+});
+
 test('存在する声のプロフィールを持つ人物だけを表示し、選択で声とエンジンを決める', () => {
     const people = parseChannelPeople(JSON.stringify({ entries: [
         { id: 'p1', name: '泉', kind: 'person', voice: { profile: 'v1' } },

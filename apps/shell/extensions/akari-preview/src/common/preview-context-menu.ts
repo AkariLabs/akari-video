@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 export interface PreviewContextMenuRect {
     left: number;
     top: number;
@@ -30,10 +31,10 @@ export function previewZOrderMenuVisible(
 }
 
 export const PREVIEW_Z_ORDER_MENU_ITEMS = [
-    { id: 'akari.preview.zOrder.front', label: '最前面へ', op: 'front', order: '1' },
-    { id: 'akari.preview.zOrder.forward', label: '前面へ', op: 'forward', order: '2' },
-    { id: 'akari.preview.zOrder.backward', label: '背面へ', op: 'backward', order: '3' },
-    { id: 'akari.preview.zOrder.back', label: '最背面へ', op: 'back', order: '4' }
+    { id: 'akari.preview.zOrder.front', get label() { return t('preview.contextBar.toolbar.bringFrontAction'); }, op: 'front', order: '1' },
+    { id: 'akari.preview.zOrder.forward', get label() { return t('preview.contextBar.toolbar.bringForwardAction'); }, op: 'forward', order: '2' },
+    { id: 'akari.preview.zOrder.backward', get label() { return t('preview.contextBar.toolbar.sendBackwardAction'); }, op: 'backward', order: '3' },
+    { id: 'akari.preview.zOrder.back', get label() { return t('preview.contextBar.toolbar.sendBackAction'); }, op: 'back', order: '4' }
 ] as const;
 
 export interface PreviewContextMenuMessage {

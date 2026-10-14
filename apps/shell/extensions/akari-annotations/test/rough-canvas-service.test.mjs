@@ -5,8 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { AkariRoughCanvasServiceImpl, decodeRoughCanvasPng } from '../lib/node/rough-canvas-service.js';
+
 import { validateCanvasManifest, validateCanvasStroke } from '../../../../../skills/compile-review-session/bin/core/canvas-compiler.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariRoughCanvasServiceImpl, decodeRoughCanvasPng } = await import('../lib/node/rough-canvas-service.js');
+
 
 const aspect = { w: 1920, h: 1080 };
 const ink = { schema: 'akari.ink.v0', space: 'canvas-rect', aspect, objects: [{

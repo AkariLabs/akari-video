@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { EditV2, ItemV2, VisualItemsTrackV2 } from '@akari-video/edit-store';
 
 export interface TrackCompactionResult {
@@ -55,7 +56,7 @@ export function compactVisualTracks(edit: EditV2): TrackCompactionResult {
     const packedTracks = targetItems.map((items, index): VisualItemsTrackV2 => {
         const template = nonEmptySourceTracks[index];
         if (!template) {
-            throw new Error(`詰め先トラック ${index} の ID を確保できません。`);
+            throw new Error(t('preview.tracks.validation.couldNotAllocateIdDestinationTrackError', { p1: (index) }));
         }
         return {
             id: template.id,

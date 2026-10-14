@@ -11,6 +11,7 @@ import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.j
 import { readHandlerSource } from './helpers/handler-source.mjs';
 const require = createRequire(import.meta.url);
 const { applyCaptionRunsToHtml } = require('../../../../../packages/edit-store/lib/index.js');
+const { t } = require('../lib/common/preview-text.js');
 
 export const source = readHandlerSource();
 
@@ -134,6 +135,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
     const summary = { output: output ?? { width: 1920, height: 1080, fps: 30 } };
     const clock = { tick: time => time, seek: time => time, totalDuration: 60 };
     const context = vm.createContext({
+        t,
         console: { warn: (...values) => warnings.push(values) },
         document: { getElementById: id => id === 'caption-plate' ? layer : null, createElement },
         window: {

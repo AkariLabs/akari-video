@@ -57,6 +57,9 @@ export interface KeyframeV2 {
         start?: number;
         end?: number;
     }>;
+    /** 数値の CSS 変数（例 --akari-3d-rot-y: 度）。v0 でキーを打てるのは 3D 回転の 3 本だけ。 */
+    vars?: Record<string, number>;
+    /** object なら "transform.x" / "opacity" / "vars.--akari-3d-rot-y" のように項目ごと。 */
     easing?: EasingV2 | Record<string, EasingV2>;
     [key: string]: unknown;
 }

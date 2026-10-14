@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { childProcessEnv } from '@akari-video/i18n';
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
@@ -152,7 +153,7 @@ export function createSystemOutputVolumeReader(
                         : ['-e', 'get volume settings'],
                     { encoding: 'utf8', timeout: isWindows && dllPath && !filesystem.existsSync(dllPath) ? 10000 : 4000,
                         maxBuffer: 16 * 1024, windowsHide: true,
-                        ...(isWindows ? { env: { ...environment, AKARI_SYSTEM_VOLUME_DLL: dllPath } } : {}) },
+                        ...(isWindows ? { env: childProcessEnv({ ...environment, AKARI_SYSTEM_VOLUME_DLL: dllPath }) } : {}) },
                     (error, stdout) => {
                         resolve(error ? undefined : isWindows
                             ? parseWindowsOutputVolume(stdout) : parseMacOutputVolume(stdout));

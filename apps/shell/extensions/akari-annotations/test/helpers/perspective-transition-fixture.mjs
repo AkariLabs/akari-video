@@ -2,9 +2,9 @@ import { readInspectorSource } from './inspector-source.mjs';
 import { readAllSourceText, findMember } from './widget-source.mjs';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+import { t } from '@akari-video/i18n';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import * as perspective from '../../lib/browser/inspector/perspective-fields.js';
-import * as transition from '../../lib/browser/inspector/transition-fields.js';
 import * as mask from '../../lib/browser/inspector/mask-fields.js';
 import * as motion from '../../lib/browser/inspector/motion-fields.js';
 import * as animator from '../../lib/browser/inspector/animator-fields.js';
@@ -21,7 +21,7 @@ export const inspectorSource = readInspectorSource();
 export const timelineSource = readAllSourceText();
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
-    'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
+    'PERSPECTIVE_FIELDS', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
     'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'OVERLAY_SECTIONS', 'MASK_FIELDS', 'PHOTO_FLIP_FIELDS', 'MOTION_FIELDS', 'MOTION_SECTIONS', 'ANIMATOR_SECTION',
     'PHOTO_FRAME_FIELDS', 'PHOTO_CROP_OPEN_FIELD', 'MOTION_SUMMARY_SECTION', 'MOTION_EMPTY_SECTION',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
@@ -37,17 +37,17 @@ for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'p
     assert.ok(node, name);
     declarations.push(node.getText(ast));
 }
-const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...animator, ...crop, ...framing, ...freeze, ...mappings,
+const dependencies = { ...perspective, ...mask, ...motion, ...animator, ...crop, ...framing, ...freeze, ...mappings,
     ...shapeFields, ...motionMarks,
-    TRANSITION_VOCABULARY, composeInspectorSections, nextPhotoBrushItem };
+    TRANSITION_VOCABULARY, composeInspectorSections, nextPhotoBrushItem, t, translate: t };
 delete dependencies.default;
 delete dependencies['module.exports'];
 const code = ts.transpileModule(declarations.join('\n'), {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-export const { perspectiveFields, transitionFields, layerSections, itemSections, cutSections, overlaySections, animatorSection, photoMaskFields } = new Function(
+export const { perspectiveFields, layerSections, itemSections, cutSections, overlaySections, animatorSection, photoMaskFields } = new Function(
     ...Object.keys(dependencies), `${code}\nreturn {
-        perspectiveFields: PERSPECTIVE_FIELDS, transitionFields: cutTransitionFields,
+        perspectiveFields: PERSPECTIVE_FIELDS,
         layerSections: LAYER_SECTIONS, itemSections: TREE_ITEM_SECTIONS, cutSections: CUT_SECTIONS,
         overlaySections: OVERLAY_SECTIONS,
         animatorSection: ANIMATOR_SECTION, photoMaskFields: MASK_FIELDS
@@ -55,7 +55,7 @@ export const { perspectiveFields, transitionFields, layerSections, itemSections,
 )(...Object.values(dependencies));
 
 export function timelineMethod(name, dependencies = {}) {
-    dependencies = { isAudioFadeShapeWriteRequest: () => false, ...dependencies };
+    dependencies = { isAudioFadeShapeWriteRequest: () => false, t, translate: t, ...dependencies };
     const { ast, node: method } = findMember(name, { in: 'widget' });
     assert.ok(method, name);
     const code = ts.transpileModule(`class Handler { ${method.getText(ast)} }`, {

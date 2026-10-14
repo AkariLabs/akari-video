@@ -1,14 +1,29 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { findMember } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
 import { readInternalEdit, projectLegacyEdit } from '@akari-video/edit-store/lib/internal-model.js';
-import { updateItem } from '../lib/common/edit-v2-mutations.js';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { readCutFreeze } from '../lib/browser/inspector/freeze-fields.js';
+
+
+
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { updateItem } = await import('../lib/common/edit-v2-mutations.js');
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+const { readCutFreeze } = await import('../lib/browser/inspector/freeze-fields.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 // audio-clip-fx-fixture と同じく、Theia の DOM / DI を起動せず実 factory / handler を実行する。
 function compile(code, bindings, result) {
@@ -27,9 +42,7 @@ const cutSections = compile(cutFactory.getText(inspector), {
   cutFreezeFields: () => [],
   MOTION_SUMMARY_SECTION: () => ({ id: 'motion-summary', label: '動き', fields: [] }),
   MOTION_EMPTY_SECTION: () => ({ id: 'motion-empty', label: '動き', fields: [] }),
-  MOTION_FIELDS: () => [],
-  // S3 で timing 節に加わった transition_out 行。本テストは audio 節だけを見るので空にする。
-  cutTransitionFields: () => []
+  MOTION_FIELDS: () => []
 }, 'CUT_SECTIONS');
 
 const { ast: timeline } = findMember('handleInspectorWriteV2', { in: 'widget' });

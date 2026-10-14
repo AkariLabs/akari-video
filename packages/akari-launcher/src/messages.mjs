@@ -1,14 +1,15 @@
 import { compareVersions } from './update-check.mjs';
+import { cliText, cliValue } from './i18n.mjs';
 
 const AUTONOMY_LABELS = {
-  'full-auto': 'すべておまかせ',
-  checkpoint: '要所で確認（既定）',
-  collaborative: '相談しながら'
+  'full-auto': 'fullAuto',
+  checkpoint: 'checkpoint',
+  collaborative: 'collaborative'
 };
 
 /** channel が prerelease のときだけ付ける版名の注記（CLI・シェルで共通の規則）。 */
 function channelSuffix(channel) {
-  return channel === 'prerelease' ? '（プレリリース）' : '';
+  return channel === 'prerelease' ? cliText('cli.version.channel.prerelease') : '';
 }
 
 /**
@@ -16,52 +17,52 @@ function channelSuffix(channel) {
  */
 export function describeIntake(intake, taskLabels) {
   if (!intake) {
-    return '進め方フォーム（.akari/intake.json）がまだありません。';
+    return cliText('cli.intake.status.missing');
   }
   if (intake.status !== 'submitted') {
-    return '進め方はまだ未確定です（.akari/intake.json: draft）。intake フォーム、または対話で「やること・尺・おまかせ度」を確定してください。';
+    return cliText('cli.intake.status.draft');
   }
 
   const tasks = Array.isArray(intake.tasks) ? intake.tasks : [];
   const taskText = tasks.length > 0
-    ? tasks.map((id) => taskLabels?.[id] ?? id).join('、')
-    : '（やること未選択）';
-  const autonomyText = AUTONOMY_LABELS[intake.autonomy] ?? intake.autonomy ?? '未設定';
+    ? tasks.map((id) => cliValue('cli.intake.task.', taskLabels?.[id] ?? id)).join(cliText('cli.intake.list.separator'))
+    : cliText('cli.intake.tasks.empty');
+  const autonomyText = AUTONOMY_LABELS[intake.autonomy] ? cliText(`cli.intake.autonomy.${AUTONOMY_LABELS[intake.autonomy]}`) : intake.autonomy ?? cliText('cli.intake.autonomy.unset');
   const target = intake.target ?? {};
   const targetText = target.keep_length
-    ? '尺は素材のまま'
+    ? cliText('cli.intake.target.keepLength')
     : typeof target.duration_s === 'number'
-      ? `目標尺 ${target.duration_s} 秒`
-      : '尺は未指定';
+      ? cliText('cli.intake.target.duration', { seconds: target.duration_s, n: target.duration_s })
+      : cliText('cli.intake.target.unspecified');
 
-  return `進め方: ${taskText} / ${targetText} / 進め方は${autonomyText}。この内容で進めます。`;
+  return cliText('cli.intake.status.submitted', { tasks: taskText, target: targetText, autonomy: autonomyText });
 }
 
 export function claudeMissingGuidance() {
   return [
-    'claude コマンドが見つかりませんでした。',
-    'Claude Code をインストールしてください: https://claude.ai/install.sh',
-    'インストール後、このフォルダーで再度 `akari` を実行してください。'
+    cliText('cli.agent.claude.missing'),
+    cliText('cli.agent.claude.install'),
+    cliText('cli.agent.claude.retry')
   ].join('\n');
 }
 
 export function opencodeMissingGuidance() {
   return [
-    'opencode コマンドが見つかりませんでした。',
-    'opencode をインストールしてください: npm install -g opencode-ai',
-    'インストール後、このフォルダーで再度 `akari --opencode` を実行してください。'
+    cliText('cli.agent.opencode.missing'),
+    cliText('cli.agent.opencode.install'),
+    cliText('cli.agent.opencode.retry')
   ].join('\n');
 }
 
 /** 入口で第 1 引数の打ち間違いを検出したときの案内。 */
 export function firstArgumentTypoError(argument, suggestion) {
   const visibleArgument = argument.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
-  return `第 1 引数「${visibleArgument}」は打ち間違いかもしれません。${suggestion} のことですか？プロジェクトの作成も AI エージェントの起動もしていません。\nそのまま AI エージェントへ渡すには \`akari -- ${visibleArgument}\` と入力してください。`;
+  return cliText('cli.argument.first.typo', { argument: visibleArgument, suggestion });
 }
 
 /** 非対話の未作成フォルダーで、作成を明示する引数がないときの案内。 */
 export function nonInteractiveUninitializedGuidance() {
-  return 'プロジェクトではないフォルダーなので何もしませんでした。作る場合は `--yes` を付けてください。このフォルダーに作る場合は `--here` を付けてください。';
+  return cliText('cli.project.nonInteractive.uninitialized');
 }
 
 /**
@@ -76,27 +77,27 @@ export function formatUpdateNotice(status) {
     return null;
   }
   const current = status.mismatch
-    ? `CLI v${status.cliVersion} / 本体 v${status.appVersion} → ${versionRelationLabel(status)}`
-    : `現在 v${status.currentVersion}`;
-  return `⬆ AKARI Video v${status.latestVersion}${channelSuffix(status.channel)}があります（${current}）→ 詳細: akari update`;
+    ? cliText('cli.version.notice.mismatchCurrent', { cliVersion: status.cliVersion, appVersion: status.appVersion, relation: versionRelationLabel(status) })
+    : cliText('cli.version.notice.current', { version: status.currentVersion });
+  return cliText('cli.version.notice.available', { version: status.latestVersion, channel: channelSuffix(status.channel), current });
 }
 
 /** `akari doctor` 系出力に足す 1 行（現在版 + フィード取得状態）。 */
 export function describeVersionStatus(versionOrInfo, cache, runtimeDiagnostics) {
   if (typeof versionOrInfo === 'string') {
     if (!cache?.feed) {
-      return `バージョン: v${versionOrInfo}（更新フィード: 未取得）`;
+      return cliText('cli.version.feed.unfetched', { version: versionOrInfo });
     }
-    const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : '不明';
-    return `バージョン: v${versionOrInfo}（更新フィード: 取得済み・${fetchedAt} 時点）`;
+    const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : cliText('cli.version.feed.unknownTime');
+    return cliText('cli.version.feed.fetched', { version: versionOrInfo, fetchedAt });
   }
   const info = normalizeVersionInfo(versionOrInfo);
   const installed = describeInstalledVersions(info, runtimeDiagnostics).join(' / ');
   if (!cache?.feed) {
-    return `${installed}（更新フィード: 未取得）`;
+    return cliText('cli.version.feed.statusUnfetched', { installed });
   }
-  const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : '不明';
-  return `${installed}（更新フィード: 取得済み・${fetchedAt} 時点）`;
+  const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : cliText('cli.version.feed.unknownTime');
+  return cliText('cli.version.feed.statusFetched', { installed, fetchedAt });
 }
 
 export function describeInstalledVersions(versionOrInfo, runtimeDiagnostics) {
@@ -104,49 +105,49 @@ export function describeInstalledVersions(versionOrInfo, runtimeDiagnostics) {
   if (info.installRefNeedsRepair) {
     const installRefPath = info.installRefPath ?? '~/.akari/app/.akari-install-ref';
     return [
-      `CLI バージョン: v${info.cliVersion}`,
-      `本体版を判定できません（\`${installRefPath}\` が壊れています）。`,
-      '修復するには `akari update --force` を実行してください。'
+      cliText('cli.version.installed.cli', { version: info.cliVersion }),
+      cliText('cli.version.installed.invalid', { path: installRefPath }),
+      cliText('cli.version.installed.repair')
     ];
   }
   if (!info.appVersion) {
     if (info.installRefStatus === 'missing' && runtimeDiagnostics?.render_cut) {
       const renderCut = runtimeDiagnostics.render_cut;
       const availability = renderCut.origin === 'none'
-        ? 'render-cut が見つからないため書き出しできません'
-        : `書き出しは ${humanRenderOrigin(renderCut.origin)} の render-cut を使います`;
+        ? cliText('cli.version.export.unavailable')
+        : cliText('cli.version.export.origin', { origin: humanRenderOrigin(renderCut.origin) });
       const lines = [
-        `現在のバージョン: v${info.currentVersion}`,
-        `CLI バージョン: v${info.cliVersion}`,
-        `install.sh 経路の本体は未導入（${availability}。詳細: \`akari doctor\`）`,
+        cliText('cli.version.installed.current', { version: info.currentVersion }),
+        cliText('cli.version.installed.cli', { version: info.cliVersion }),
+        cliText('cli.version.installed.unmanaged', { availability }),
       ];
       if (renderCut.origin === 'none') {
-        lines.push('復旧するにはデスクトップ版を導入するか、install.sh 経路の本体を導入してください。');
+        lines.push(cliText('cli.version.export.repair'));
       }
       return lines;
     }
     return [
-      `現在のバージョン: v${info.currentVersion}`,
-      `CLI バージョン: v${info.cliVersion}`,
-      `本体バージョン: 未記録（更新判定は CLI v${info.currentVersion} へフォールバック）`
+      cliText('cli.version.installed.current', { version: info.currentVersion }),
+      cliText('cli.version.installed.cli', { version: info.cliVersion }),
+      cliText('cli.version.installed.unrecorded', { version: info.currentVersion })
     ];
   }
-  const lines = [`CLI バージョン: v${info.cliVersion}`, `本体バージョン: v${info.appVersion}（更新判定の基準）`];
+  const lines = [cliText('cli.version.installed.cli', { version: info.cliVersion }), cliText('cli.version.installed.app', { version: info.appVersion })];
   if (info.mismatch) {
-    lines.push(`版のずれ: CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${versionRelationLabel(info)}`);
+    lines.push(cliText('cli.version.installed.mismatch', { cliVersion: info.cliVersion, appVersion: info.appVersion, relation: versionRelationLabel(info) }));
   }
   return lines;
 }
 
 function humanRenderOrigin(origin) {
-  return origin === 'monorepo' ? '開発リポジトリ' : origin;
+  return origin === 'monorepo' ? cliText('cli.version.export.monorepo') : origin;
 }
 
 export function describeForceReinstall(versionOrInfo, targetVersion) {
   const info = normalizeVersionInfo(versionOrInfo);
   return info.installRefNeedsRepair
-    ? `--force: 版を判定できない install.sh 経路の本体 → v${targetVersion} を入れ直します。`
-    : `--force: install.sh 経路の本体 v${info.currentVersion} → v${targetVersion} を入れ直します。`;
+    ? cliText('cli.update.force.unknown', { targetVersion })
+    : cliText('cli.update.force.known', { currentVersion: info.currentVersion, targetVersion });
 }
 
 function normalizeVersionInfo(value) {
@@ -157,15 +158,15 @@ function normalizeVersionInfo(value) {
 }
 
 function versionRelationLabel(info) {
-  return compareVersions(info.appVersion, info.cliVersion) < 0 ? '本体が古い' : 'CLI が古い';
+  return compareVersions(info.appVersion, info.cliVersion) < 0 ? cliText('cli.version.relation.app') : cliText('cli.version.relation.cli');
 }
 
 function formatVersionMismatch(info) {
   const relation = versionRelationLabel(info);
-  const guidance = relation === '本体が古い'
-    ? '`akari update` で本体を更新してください。'
-    : '`npm i -g akari-video@latest` で CLI を更新してください。';
-  return `⚠ CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${relation}。${guidance}`;
+  const guidance = compareVersions(info.appVersion, info.cliVersion) < 0
+    ? cliText('cli.version.relation.updateApp')
+    : cliText('cli.version.relation.updateCli');
+  return cliText('cli.version.relation.mismatch', { cliVersion: info.cliVersion, appVersion: info.appVersion, relation, guidance });
 }
 
 /**
@@ -175,27 +176,27 @@ function formatVersionMismatch(info) {
 
 /** (a) 既存プロジェクトが作業場の中にある場合に添える 1 行。 */
 export function creatorRootFoundNotice(rootDir) {
-  return `作業場: ${rootDir}`;
+  return cliText('cli.workspace.status.found', { root: rootDir });
 }
 
 /** (b) 作業場の中だがプロジェクトではない cwd から新規プロジェクトを作るときの 1 行。 */
 export function creatorRootNewProjectNotice(rootDir, projectDir) {
-  return `作業場 ${rootDir} に新規プロジェクトを作成します: ${projectDir}`;
+  return cliText('cli.workspace.project.new', { root: rootDir, project: projectDir });
 }
 
 /** (c) 作業場を新規作成してプロジェクトを作るときの 1 行。 */
 export function creatorRootCreatedNotice(rootDir, projectDir) {
-  return `作業場を作成しました: ${rootDir}（新規プロジェクト: ${projectDir}）`;
+  return cliText('cli.workspace.project.created', { root: rootDir, project: projectDir });
 }
 
 /** (c) 作業場の作成でエラーが発生した場合の 1 行（このフォルダでの単体運用を続ける）。 */
 export function creatorRootCreateFailedNotice(errorMessage) {
-  return `作業場の作成でエラーが発生しました（このフォルダでの単体運用を続けます）: ${errorMessage}`;
+  return cliText('cli.workspace.project.createFailed', { message: errorMessage });
 }
 
 /** (c) の TTY プロンプト文言。既定パスを 1 行で提示する。 */
 export function creatorRootPromptText(defaultPath) {
-  return `作業場を作って始めますか？ [Enter: ${defaultPath} / パスを入力 / n: このフォルダだけで試す] `;
+  return cliText('cli.workspace.prompt.create', { path: defaultPath });
 }
 
 /**
@@ -204,11 +205,11 @@ export function creatorRootPromptText(defaultPath) {
  */
 export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed, usingCachedFeed = false, runtimeDiagnostics, npmAvailable = true }) {
   const info = versionInfo ?? normalizeVersionInfo(currentVersion);
-  const lines = versionInfo ? describeInstalledVersions(info, runtimeDiagnostics) : [`現在のバージョン: v${currentVersion}`];
+  const lines = versionInfo ? describeInstalledVersions(info, runtimeDiagnostics) : [cliText('cli.version.installed.current', { version: currentVersion })];
   const feed = cache?.feed;
   if (!feed) {
-    lines.push('最新情報をまだ取得できていません（オフライン、または初回起動直後の可能性があります）。');
-    lines.push('少し待ってから、もう一度 `akari` を実行すると次回チェックされます。');
+    lines.push(cliText('cli.update.feed.unavailable'));
+    lines.push(cliText('cli.update.feed.retry'));
     return lines;
   }
 
@@ -216,40 +217,40 @@ export function describeUpdateCommand({ currentVersion, versionInfo, cache, dism
     lines.push(describeUpdateCacheFallback(cache));
   }
 
-  lines.push(`最新バージョン: v${feed.product}${channelSuffix(feed.channel)}`);
+  lines.push(cliText('cli.update.feed.latest', { version: feed.product, channel: channelSuffix(feed.channel) }));
   if (feed.notes_url) {
-    lines.push(`リリースノート: ${feed.notes_url}`);
+    lines.push(cliText('cli.update.feed.notes', { url: feed.notes_url }));
   }
 
   if (info.installRefNeedsRepair) {
-    lines.push('本体版を判定できないため、更新判定を行いません。');
+    lines.push(cliText('cli.update.feed.versionUnknown'));
     return lines;
   }
 
   if (compareVersions(feed.product, info.currentVersion) <= 0) {
-    lines.push('お使いのバージョンは最新です。');
+    lines.push(cliText('cli.update.feed.upToDate'));
     return lines;
   }
 
   const tarballUrl = feed.components?.cli?.tarball?.url;
   if (npmAvailable) {
-    lines.push('CLI を更新するには、次のコマンドを実行してください（自動実行はしません）:');
+    lines.push(cliText('cli.update.command.manual'));
     lines.push(tarballUrl ? `  npm i -g ${tarballUrl}` : '  npm i -g akari-video@latest');
   } else {
-    lines.push('npm が PATH に無いため、CLI の npm 更新コマンドは表示しません。');
+    lines.push(cliText('cli.update.command.npmMissing'));
   }
   lines.push(
     dismissed
-      ? `この版（v${feed.product}）の通知は今後表示しません。`
-      : 'この版の通知を今後出さない場合は `akari update --dismiss` を実行してください。'
+      ? cliText('cli.update.notice.dismissed', { version: feed.product })
+      : cliText('cli.update.notice.dismissGuide')
   );
   return lines;
 }
 
 /** 明示 update の再取得失敗時に、参照するキャッシュの取得時刻を示す 1 行。 */
 export function describeUpdateCacheFallback(cache) {
-  const fetchedAt = typeof cache?.fetched_at === 'string' ? cache.fetched_at : '取得時刻不明';
-  return `更新フィードを取得できなかったため、${fetchedAt} 時点のキャッシュを表示します。`;
+  const fetchedAt = typeof cache?.fetched_at === 'string' ? cache.fetched_at : cliText('cli.update.feed.unknownTime');
+  return cliText('cli.update.feed.cacheFallback', { fetchedAt });
 }
 
 /**
@@ -259,22 +260,22 @@ export function describeUpdateCacheFallback(cache) {
 
 /** 既存の作業場が見つかり、何も作らず確認しただけの場合の人間向け行。 */
 export function initFoundNotice(rootDir) {
-  return `既存の作業場を確認しました: ${rootDir}`;
+  return cliText('cli.init.workspace.found', { root: rootDir });
 }
 
 /** 新規に作業場を作成した場合の人間向け行。 */
 export function initCreatedNotice(rootDir) {
-  return `作業場を作成しました: ${rootDir}`;
+  return cliText('cli.init.workspace.created', { root: rootDir });
 }
 
 /** creator-root モジュールが解決できない場合のエラー（stderr 1 行。init にフォールバック先は無い）。 */
 export function initModuleMissingError() {
-  return '作業場モジュール（creator-root）が見つかりませんでした。';
+  return cliText('cli.init.error.moduleMissing');
 }
 
 /** 作業場の初期化に失敗した場合のエラー（root.json 破損・未知 schema・書き込み不能など。stderr 1 行）。 */
 export function initFailedError(errorMessage) {
-  return `作業場の初期化に失敗しました: ${errorMessage}`;
+  return cliText('cli.init.error.failed', { message: errorMessage });
 }
 
 /**
@@ -296,27 +297,27 @@ export function initFailedError(errorMessage) {
 
 /** `akari` 起動時に生涯 1 回だけ出す素材案内（質問ではない・対話をブロックしない）。 */
 export function assetIntroNotice() {
-  return '素材（B-roll・背景・音源）は使うときに必要な分だけ自動で取得されます。無料の素材パックもあります — `akari store connect` でアカウント連携すると使えるようになります。まとめて音源だけ欲しい場合は `akari sounds` で一括ダウンロードできます（この案内は次回以降表示しません）。';
+  return cliText('cli.assets.notice.intro');
 }
 
 /** ダウンロード成功後の完了 + 追加カタログ（外部補完）の案内。`akari sounds` の完了時に使う。 */
 export function soundsCompleteNotice() {
-  return '公式音源ライブラリの登録が完了しました。公式に無い系統（拍手・失敗音・和風打撃など）は追加カタログにあります — セッションで「追加の音源も入れて」と頼むと取得を代行します。';
+  return cliText('cli.sounds.status.complete');
 }
 
 /** ダウンロード失敗時の 1 行（起動は止めない・再入口を示す）。 */
 export function soundsFailedNotice() {
-  return '音源のダウンロードに失敗しました（続行します）。後から `akari sounds` で再試行できます。';
+  return cliText('cli.sounds.error.downloadFailed');
 }
 
 /** `akari sounds`: セットアップスクリプトが同梱されていない場合のエラー（stderr 1 行）。 */
 export function soundsUnavailableError() {
-  return '音源セットアップスクリプト（audio-library-setup）が見つかりませんでした。';
+  return cliText('cli.sounds.error.scriptMissing');
 }
 
 /** `akari assets`: 素材 resolver（asset-resolver）が同梱されていない場合のエラー（stderr 1 行）。 */
 export function assetsResolverUnavailableError() {
-  return '素材 resolver（asset-resolver）が見つかりませんでした。`akari assets` は使えません。';
+  return cliText('cli.assets.error.resolverMissing');
 }
 
 /**
@@ -329,32 +330,16 @@ export function assetsResolverUnavailableError() {
  */
 export function describeCliHelp() {
   return [
-    'AKARI Video — AI が主体で動画を編集するツール',
+    cliText('cli.help.header.title'),
     '',
-    '使い方: akari [command] [options...]',
+    cliText('cli.help.header.usage'),
     '',
-    'よく使うコマンド:',
-    '  (引数なし)              プロジェクトを開いて AI エージェントを起動（未作成なら自動作成）',
-    '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
-    '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
-    '  doctor [--json]        必須部品の実在と解決元を診断する',
-    '  update [--force]       更新を確認する（--force で install.sh 経路の本体を入れ直す）',
-    '  status                 接続状態を確認する',
-    '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
-    '  generate               台本のビートから静止画クリップを生成',
-    '  storyboard             タイムラインから印刷用の絵コンテを作成',
-    '  akari clean [dir]      使い捨ての中間ファイルを一覧・削除（既定は一覧のみ）',
+    cliText('cli.help.commands.heading'),
+    ...['launch', 'store', 'sounds', 'doctor', 'speakers', 'toolsVoice', 'update', 'status', 'migrate', 'migrateLook', 'generate', 'storyboard', 'clean'].map((name) => cliText(`cli.help.commands.${name}`)),
     '',
-    '開発者向け:',
-    '  --opencode              Claude Code の代わりに opencode を起動する',
-    '  --claude, --claudecode  Claude Code を明示的に起動する',
-    '  -y, --yes               自動承認（確認をスキップ）',
-    '  --version, -v            インストール済みのバージョンを表示',
-    '  new <dir>                雛形からプロジェクトを新規作成',
-    '  init                     保存フォルダ（作業場）だけを作成・確認',
-    '  narration / assets / internal / capability   各機能の詳細は `akari <command> --help`',
-    '  -h, --help               このヘルプを表示',
+    cliText('cli.help.developer.heading'),
+    ...['opencode', 'claude', 'yes', 'version', 'new', 'init', 'other', 'help'].map((name) => cliText(`cli.help.developer.${name}`)),
     '',
-    'プレビューサーバー（ブラウザで確認する画面）はシェル版のみ対応です: akari.sh --preview'
+    cliText('cli.help.preview.notice')
   ];
 }

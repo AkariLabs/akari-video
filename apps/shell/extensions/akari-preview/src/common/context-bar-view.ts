@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 /**
  * 出力プレビューの上のバー・要素の上の小さなメニューの「何を出すか」を決める純関数。
  * 状態（選んだ item・種類）は akari-annotations が `akari.contextBar.state` で配る（拡張をまたぐので型は複製）。
@@ -118,45 +119,45 @@ export function barItems(state: ContextBarState): BarItem[] {
     if (state.kind === 'caption') return captionBarItems(state);
     const p = params(state);
     const common = (withStyle = false): BarItem[] => [
-        { key: 'opacity', label: '不透明度', kind: 'window' },
+        { key: 'opacity', label: t('preview.contextBar.toolbar.itemOpacityLabel'), kind: 'window' },
         SEP,
-        { key: 'anim', label: 'アニメーション', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'motion' } },
-        { key: 'arrange', label: '配置', kind: 'window', text: true },
-        ...(withStyle ? [SEP, { key: 'style', label: 'スタイルをコピー', kind: 'action' as const, title: 'スタイルをコピー（⌥⌘C）' }] : [])
+        { key: 'anim', label: t('preview.contextBar.toolbar.animationLabel'), kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'motion' } },
+        { key: 'arrange', label: t('preview.contextBar.toolbar.alignmentLabel'), kind: 'window', text: true },
+        ...(withStyle ? [SEP, { key: 'style', label: t('preview.contextBar.toolbar.copyStyleAction'), kind: 'action' as const, title: t('preview.contextBar.fields.copyStyleShortcutTooltip') }] : [])
     ];
     if (state.kind === 'shape') {
         const closedFill = state.item?.source?.shape !== 'line';
         const strokeWidth = Number(p.strokeWidth) || 0;
         return [
-            ...(closedFill ? [{ key: 'fill', label: '塗りの色', kind: 'color' as const, paint: paintCss(p.fill), path: 'source.params.fill', allowTransparent: true }] : []),
-            { key: 'stroke', label: '枠の色', kind: 'color', paint: strokeWidth > 0 ? paintCss(p.stroke) : 'none', path: 'source.params.stroke' },
-            { key: 'weight', label: '枠線の太さ', kind: 'window' },
-            ...(state.hasCorners ? [{ key: 'radius', label: '角の丸み', kind: 'window' as const }] : []),
+            ...(closedFill ? [{ key: 'fill', label: t('preview.contextBar.fields.fillColorLabel'), kind: 'color' as const, paint: paintCss(p.fill), path: 'source.params.fill', allowTransparent: true }] : []),
+            { key: 'stroke', label: t('preview.contextBar.fields.borderColorLabel'), kind: 'color', paint: strokeWidth > 0 ? paintCss(p.stroke) : 'none', path: 'source.params.stroke' },
+            { key: 'weight', label: t('preview.contextBar.toolbar.borderWidthLabel'), kind: 'window' },
+            ...(state.hasCorners ? [{ key: 'radius', label: t('preview.contextBar.toolbar.cornerRadiusLabel'), kind: 'window' as const }] : []),
             ...common()
         ];
     }
     if (state.kind === 'line') {
         return [
-            { key: 'stroke', label: '線の色', kind: 'color', paint: paintCss(p.stroke ?? '#000000'), path: 'source.params.stroke' },
-            { key: 'weight', label: '太さ', kind: 'window' },
-            { key: 'dash', label: '線の種類', kind: 'window' },
-            { key: 'ends', label: '始点と終点', kind: 'window' },
+            { key: 'stroke', label: t('preview.contextBar.fields.lineColorLabel'), kind: 'color', paint: paintCss(p.stroke ?? '#000000'), path: 'source.params.stroke' },
+            { key: 'weight', label: t('preview.contextBar.toolbar.weightLabel'), kind: 'window' },
+            { key: 'dash', label: t('preview.contextBar.fields.lineStyleLabel'), kind: 'window' },
+            { key: 'ends', label: t('preview.contextBar.fields.startEndLabel'), kind: 'window' },
             ...common()
         ];
     }
     if (state.kind === 'photo') {
         if (state.photoToolsAvailable === false) return common(true);
         return [
-            { key: 'edit', label: '編集', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'home' } },
+            { key: 'edit', label: t('preview.contextBar.fields.editLabel'), kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'home' } },
             SEP,
-            { key: 'replace', label: '置き換え', kind: 'action' },
-            { key: 'cutout', label: '背景透過', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-cutout', fieldName: 'photo-cutout-panel' } },
-            { key: 'eraser', label: '消しゴム', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-eraser', fieldName: 'photo-brush-start' } },
-            { key: 'photoColor', label: '写真の色', kind: 'inspector', inspector: { tabId: 'adjust' } },
-            { key: 'border', label: '枠線', kind: 'window' },
-            { key: 'photoRadius', label: '角の丸み', kind: 'window' },
-            { key: 'crop', label: '切り抜き', kind: 'inspector', inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-crop-open' } },
-            { key: 'flip', label: '反転', kind: 'window' },
+            { key: 'replace', label: t('preview.contextBar.fields.replaceLabel'), kind: 'action' },
+            { key: 'cutout', label: t('preview.contextBar.fields.backgroundRemovalLabel'), kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-cutout', fieldName: 'photo-cutout-panel' } },
+            { key: 'eraser', label: t('preview.contextBar.fields.eraserLabel'), kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-eraser', fieldName: 'photo-brush-start' } },
+            { key: 'photoColor', label: t('preview.contextBar.fields.photoColorLabel'), kind: 'inspector', inspector: { tabId: 'adjust' } },
+            { key: 'border', label: t('preview.contextBar.fields.borderLabel'), kind: 'window' },
+            { key: 'photoRadius', label: t('preview.contextBar.toolbar.cornerRadiusLabel'), kind: 'window' },
+            { key: 'crop', label: t('preview.contextBar.fields.cropLabel'), kind: 'inspector', inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-crop-open' } },
+            { key: 'flip', label: t('preview.contextBar.fields.flipAction'), kind: 'window' },
             ...common(true)
         ];
     }
@@ -164,19 +165,19 @@ export function barItems(state: ContextBarState): BarItem[] {
 }
 
 export const DASH_OPTIONS = [
-    { value: 'solid', label: '実線' },
-    { value: 'dash', label: '破線' },
-    { value: 'dot', label: '点線' }
+    { value: 'solid', label: t('preview.contextBar.fields.solidLabel') },
+    { value: 'dash', label: t('preview.contextBar.fields.dashedLabel') },
+    { value: 'dot', label: t('preview.contextBar.fields.dottedLabel') }
 ] as const;
 
 export const CAP_OPTIONS = [
-    { value: 'none', label: 'なし' },
-    { value: 'triangle', label: '三角' },
-    { value: 'chevron', label: '矢印' },
-    { value: 'bar', label: '縦線' },
-    { value: 'square', label: '四角' },
-    { value: 'circle', label: '丸' },
-    { value: 'diamond', label: 'ひし形' }
+    { value: 'none', label: t('preview.contextBar.fields.noneOption') },
+    { value: 'triangle', label: t('preview.contextBar.fields.triangleLabel') },
+    { value: 'chevron', label: t('preview.contextBar.fields.arrowLabel') },
+    { value: 'bar', label: t('preview.contextBar.fields.barLabel') },
+    { value: 'square', label: t('preview.contextBar.fields.squareLabel') },
+    { value: 'circle', label: t('preview.contextBar.fields.circleLabel') },
+    { value: 'diamond', label: t('preview.contextBar.fields.diamondLabel') }
 ] as const;
 
 /** 窓に出す今の値（0〜100 の目盛り）。 */

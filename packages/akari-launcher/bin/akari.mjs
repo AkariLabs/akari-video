@@ -22,6 +22,7 @@ import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions, firstArgumentTypoError } from '../src/messages.mjs';
 import { suggestFirstArgument } from '../src/first-arg-guard.mjs';
+import { cliText } from '../src/i18n.mjs';
 
 // `akari --version` / `-v`: インストール済みの版を表示するだけの最小コマンド
 // （タスク契約 2026-08-11-update-u4-cli-self-update の受け入れ条件 —
@@ -41,8 +42,8 @@ async function printVersion() {
 // `--help` は claude/opencode へそのまま転送されてしまっていた — AKARI Video 自身の
 // コマンド一覧が一度も出ない行き止まりだったため新設した）。
 async function printCliHelp() {
-  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー・停留所移動',
-    '  skills                   入口スキルを配置・削除・確認（install/remove --entry, status --json）']) {
+  for (const line of [...describeCliHelp(), cliText('cli.help.commands.world'),
+    cliText('cli.help.commands.skills')]) {
     console.log(line);
   }
   return { exitCode: 0 };

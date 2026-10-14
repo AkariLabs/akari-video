@@ -136,7 +136,8 @@ test('強調だけ変わった行も再描画され、保存直後に本文の�
     assert.deepEqual(changedWordPresetRowIds(after, new Map(after)), []);
     assert.match(transcript, /changedPresets\.has\(row\.id\)/);
     assert.match(transcript, /this\.word\(word\.text, index, row\.id, this\.wordPresetByRowId\.get\(row\.id\)\?\.\[index\]\)/);
-    assert.match(transcript, /await this\.queueCaptionReloadIfChanged\(\);\s*const preset = TEXTSTYLE_CATALOG\[presetId\]/);
+    assert.match(transcript, /await settleCaptionCommand\(result, \{ reload: async \(\) => \{ await this\.reload\(\); \}/);
+    assert.match(transcript, /this\.renderRows\(next, cutSourceChanged, changedWordMarkRows\(previousWordMarks, this\.wordPresetByRowId\)\)/);
     const start = transcript.indexOf('    protected resolveWordPresets(');
     const end = transcript.indexOf('    protected async loadSilences(', start);
     const ts = require('typescript');
@@ -156,7 +157,7 @@ test('強調プリセットと src は保存され、更新通知がプレビュ
         'emphasis-red'), [{ src: 'sample', t_start: 2.35, t_end: 2.75, word: '今日は',
         emotion: 'neutral', style_preset: 'emphasis-red', inherit_caption_size: true }]);
     assert.match(transcript, /src: this\.sourceIdForRow\(row\)/);
-    assert.match(previewHost, /return normalizePreviewEmphasisWords\(value\)/);
+    assert.match(previewHost, /return normalizePreviewEmphasisWords\(value, output\)/);
     assert.match(previewHost, /type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords/);
     assert.match(preview, /emphasisWords = message\.emphasisWords/);
     const start = preview.indexOf('const emphasisPresets =');

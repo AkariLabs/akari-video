@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -35,5 +41,6 @@ test('finish choices keep their own accent border and listen uses a plain button
     const finish = source.slice(source.indexOf('    protected renderFinish(): void {'), source.indexOf('    protected updateExample():'));
     assert.equal([...finish.matchAll(/const choice = plainButton\(/gu)].length, 2);
     assert.equal([...finish.matchAll(/choice\.style\.borderColor = 'var\(--akari-accent\)'/gu)].length, 2);
-    assert.match(finish, /listen\.append\(plainButton\('▶ 聞く'/u);
+    assert.match(finish, /listen\.append\(plainButton\(t\('transcript\.captionPopup\.dialog\.playListenAction'\)/u);
+    assert.equal(globalThis.t('transcript.captionPopup.dialog.playListenAction'), '▶ 聞く');
 });

@@ -23,6 +23,14 @@ export interface LibraryOverlayDragPayload {
     title: string;
 }
 
+export interface LibraryScene3dDragPayload {
+    kind: 'scene3d';
+    key: string;
+    id: string;
+    category: 'scene3d';
+    title: string;
+}
+
 export interface LibraryTextStyleDragPayload {
     kind: 'textstyle';
     id: string;
@@ -50,7 +58,7 @@ export interface LibraryShapeDragPayload {
     preset: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryOverlayDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryOverlayDragPayload | LibraryScene3dDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
 
 export function textPlaceOptions(start: number): { start: number } {
     return { start };
@@ -99,12 +107,13 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
-    if (candidate.kind === 'overlay') {
-        return candidate.category === 'overlay' && candidate.locked !== true && candidate.state !== 'locked'
+    if (candidate.kind === 'overlay' || candidate.kind === 'scene3d') {
+        return candidate.category === candidate.kind && candidate.locked !== true && candidate.state !== 'locked'
             && typeof candidate.id === 'string' && candidate.id.trim().length > 0
-            && candidate.key === `overlay/${candidate.id}`
+            && candidate.key === `${candidate.kind}/${candidate.id}`
             && typeof candidate.title === 'string' && candidate.title.trim().length > 0
-            ? { kind: 'overlay', key: candidate.key, id: candidate.id, category: 'overlay', title: candidate.title }
+            ? { kind: candidate.kind, key: candidate.key, id: candidate.id,
+                category: candidate.kind, title: candidate.title } as LibraryOverlayDragPayload | LibraryScene3dDragPayload
             : undefined;
     }
     if (candidate.kind === 'text') return { kind: 'text' };
@@ -149,13 +158,11 @@ export interface TransitionBoundaryHitCandidate {
     earlierIndex: number;
     laterIndex: number;
     x: number;
-    y: number;
+    applicable: boolean;
+    windowStartX?: number;
+    windowEndX?: number;
 }
 
-export interface TransitionDropPoint {
-    x: number;
-    y: number;
-}
 
 /** JSON 文字列と CustomEvent.detail の双方を、書き込み可能な transition payload に絞り込む。 */
 export function parseLibraryTransitionDragPayload(value: unknown): LibraryTransitionDragPayload | undefined {
@@ -186,35 +193,29 @@ export function filterSupportedTransitionBoundaries<T extends { earlierIndex: nu
     return boundaries.filter(boundary => !unsupportedEarlierIndexes.has(boundary.earlierIndex));
 }
 
-/**
- * ドロップ点に最も近い境界を円形の許容距離内で選ぶ。同距離では cut index の小さい方を選び、
- * DOM の列挙順に結果が左右されないようにする。
- */
-export function hitTestTransitionBoundary(
-    point: TransitionDropPoint,
+/** Visible, applicable boundary nearest to the pointer, with the left side winning ties. */
+export function nearestTransitionBoundary(
+    pointerX: number,
     candidates: readonly TransitionBoundaryHitCandidate[],
-    tolerancePx: number
+    visibleLeft: number,
+    visibleRight: number
 ): TransitionBoundaryHitCandidate | undefined {
-    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)
-        || !Number.isFinite(tolerancePx) || tolerancePx < 0) {
-        return undefined;
-    }
-    const toleranceSquared = tolerancePx * tolerancePx;
+    if (!Number.isFinite(pointerX) || !Number.isFinite(visibleLeft) || !Number.isFinite(visibleRight)) return undefined;
+    const inWindow = candidates.find(candidate => candidate.applicable
+        && Number.isFinite(candidate.windowStartX) && Number.isFinite(candidate.windowEndX)
+        && candidate.windowStartX! <= pointerX && pointerX <= candidate.windowEndX!
+        && candidate.windowEndX! >= visibleLeft && candidate.windowStartX! <= visibleRight);
+    if (inWindow) return inWindow;
     let best: TransitionBoundaryHitCandidate | undefined;
-    let bestDistanceSquared = Number.POSITIVE_INFINITY;
+    let bestDistance = Number.POSITIVE_INFINITY;
     for (const candidate of candidates) {
-        if (!Number.isFinite(candidate.x) || !Number.isFinite(candidate.y)) continue;
-        const xDistance = candidate.x - point.x;
-        const yDistance = candidate.y - point.y;
-        const distanceSquared = xDistance * xDistance + yDistance * yDistance;
-        if (distanceSquared > toleranceSquared) continue;
-        const isCloser = distanceSquared < bestDistanceSquared;
-        const isDeterministicTie = distanceSquared === bestDistanceSquared
-            && (!best || candidate.earlierIndex < best.earlierIndex
-                || (candidate.earlierIndex === best.earlierIndex && candidate.laterIndex < best.laterIndex));
-        if (isCloser || isDeterministicTie) {
+        if (!candidate.applicable || !Number.isFinite(candidate.x)
+            || candidate.x < visibleLeft || candidate.x > visibleRight) continue;
+        const distance = Math.abs(candidate.x - pointerX);
+        if (distance < bestDistance || (distance === bestDistance && (!best || candidate.x < best.x
+            || (candidate.x === best.x && candidate.earlierIndex < best.earlierIndex)))) {
             best = candidate;
-            bestDistanceSquared = distanceSquared;
+            bestDistance = distance;
         }
     }
     return best;

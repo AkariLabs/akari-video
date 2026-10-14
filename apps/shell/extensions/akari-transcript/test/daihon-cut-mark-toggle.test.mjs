@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -8,7 +14,7 @@ const ts = require('typescript');
 const { changedWordPresetRowIds, planDaihonUpdate } = require('../lib/common/daihon-reconcile.js');
 const { rowSourceIds, duplicateSpeechPairs } = require('../lib/common/daihon-source-badges.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
-const start = source.indexOf('    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {');
+const start = source.indexOf('    protected renderRows(next: DaihonRow[], refreshCutMarks = false, changedWordMarks = new Set<string>()): void {');
 assert.ok(start >= 0);
 const method = source.slice(start, source.indexOf('    protected placedRanges(', start));
 const compiled = ts.transpileModule(`class RenderHarness { ${method} }`, {

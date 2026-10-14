@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CommandRegistry, Disposable, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import type { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
@@ -12,6 +13,7 @@ import { captionPaintOnlyChange } from '../common/caption-paint-only-change';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
+import type { PreviewKeyframeGroup } from './focus/preview-keyframe-prompt';
 
 /**
  * 出力プレビューの上のバー・要素の上の小さなメニュー（akari-preview が描く）の書き込み口とデータ。
@@ -40,8 +42,9 @@ export interface ContextBarSource {
     multi: number;
     fps: number;
     playhead: number;
+    pendingKeyframeGroups?: PreviewKeyframeGroup[];
     sourcePath(id: string): string | undefined;
-    caption?: { id: string; textStyle: object };
+    caption?: { id: string; textStyle: object; locale?: string };
 }
 
 export interface ContextBarState {
@@ -58,6 +61,7 @@ export interface ContextBarState {
     output: { width: number; height: number };
     /** ロック中の item の id（プレビューがつまみ・ドラッグを止めるのに使う）。 */
     lockedIds: string[];
+    pendingKeyframeGroups: PreviewKeyframeGroup[];
 }
 
 export interface ContextBarRequest {
@@ -109,10 +113,13 @@ export class ContextBarController implements Disposable {
         document.addEventListener('mousedown', onUser, true);
         window.addEventListener('keydown', onUser, true);
         window.addEventListener(CONTEXT_BAR_USER_INPUT_EVENT, onUser);
+        const onRefresh = (): void => this.queuePublish();
+        window.addEventListener('akari.contextBar.refresh', onRefresh);
         this.toDispose.push(Disposable.create(() => {
             document.removeEventListener('mousedown', onUser, true);
             window.removeEventListener('keydown', onUser, true);
             window.removeEventListener(CONTEXT_BAR_USER_INPUT_EVENT, onUser);
+            window.removeEventListener('akari.contextBar.refresh', onRefresh);
         }));
         return this;
     }
@@ -146,7 +153,8 @@ export class ContextBarController implements Disposable {
             editUri: source.editUri,
             selectedId: caption?.id ?? (place ? String(item!.id) : null),
             kind: caption ? 'caption' : place ? contextBarKind(item, src) : null,
-            item: caption ? { textStyle: JSON.parse(JSON.stringify(caption.textStyle ?? {})) }
+            item: caption ? { textStyle: JSON.parse(JSON.stringify(caption.textStyle ?? {})),
+                ...(caption.locale ? { captionLocale: caption.locale } : {}) }
                 : item ? JSON.parse(JSON.stringify(item)) : null,
             sourcePath: src ?? null,
             parentId: place?.parent ? String(place.parent.id) : null,
@@ -155,7 +163,8 @@ export class ContextBarController implements Disposable {
             multi: source.multi,
             styleCopy: this.styleClip?.kind ?? null,
             output: { width: Number(output.width) || 1920, height: Number(output.height) || 1080 },
-            lockedIds: lockedItemIds(source.doc)
+            lockedIds: lockedItemIds(source.doc),
+            pendingKeyframeGroups: place ? source.pendingKeyframeGroups ?? [] : []
         };
     }
 
@@ -215,19 +224,21 @@ export class ContextBarController implements Disposable {
     protected async runOnce(request: ContextBarRequest): Promise<Result> {
         const source = this.source();
         const widget = this.deps.widget();
-        if (!source || !widget) return { ok: false, message: 'タイムラインを開いてください。' };
-        if (request.editUri && request.editUri !== source.editUri) return { ok: false, message: '別のプロジェクトです。' };
+        if (!source || !widget) return { ok: false, message: t('annotations.contextBarController.text.pleaseOpenYourTimeline') };
+        if (request.editUri && request.editUri !== source.editUri) return { ok: false, message: t('annotations.contextBarController.text.itSAnotherProject') };
         const id = request.id ?? source.caption?.id ?? source.selectedId;
         const guardLocked = (): Result | undefined => id && isItemLocked(source.doc, id)
-            ? { ok: false, message: 'ロック中です。鍵を押すと外せます。' } : undefined;
+            ? { ok: false, message: t('annotations.contextBarController.text.lockedItCanBeRemovedByPressing') } : undefined;
         try {
             switch (request.action) {
+                case 'addKeyframes':
+                    return source.selectedId ? widget.commitPendingPreviewKeyframes(source.selectedId) : { ok: false };
                 case 'write': {
                     if (!id || !request.path) return { ok: false };
                     if (request.path.startsWith('transform')) { const locked = guardLocked(); if (locked) return this.notice(locked); }
                     const write = this.deps.selectionModel.requestWrite;
-                    if (!write) return { ok: false, message: 'インスペクターの書き込み口がありません。' };
-                    if (!WRITABLE_PATH.test(request.path)) return { ok: false, message: `書けない項目です: ${request.path}` };
+                    if (!write) return { ok: false, message: t('annotations.contextBarController.text.thereIsNoWritingPortForThe') };
+                    if (!WRITABLE_PATH.test(request.path)) return { ok: false, message: t('annotations.contextBarController.text.itemCannotBeWritten', { path: request.path }) };
                     return await write({ kind: 'item-field', id, path: request.path as never, value: request.value as never }) as Result;
                 }
                 case 'captionStyle': {
@@ -282,13 +293,13 @@ export class ContextBarController implements Disposable {
                     window.dispatchEvent(new CustomEvent('akari.mystyle.open-save', { detail: { captionId: id } }));
                     return { ok: true };
                 case 'radius':
-                    return this.commit('角の丸みを変更', doc => setCornerRadius(doc, id!, Number(request.value)));
+                    return this.commit(t('annotations.contextBarController.text.changeCornerRoundness'), doc => setCornerRadius(doc, id!, Number(request.value)));
                 case 'swapEnds':
-                    return this.commit('線の始点と終点を入れ替え', doc => swapLineEnds(doc, id!));
+                    return this.commit(t('annotations.contextBarController.text.swapTheStartAndEndPointsOf'), doc => swapLineEnds(doc, id!));
                 case 'lock': {
                     const next = request.value === undefined ? !isItemLocked(source.doc, id) : request.value === true;
-                    const result = await this.commit(next ? 'ロック' : 'ロックを外す', doc => setItemLocked(doc, id!, next));
-                    if (result.ok) widget.contextBarFooter(next ? 'ロックしました（動かない・変形しない・消えない）。' : 'ロックを外しました。');
+                    const result = await this.commit(next ? t('annotations.contextBarController.text.lock') : t('annotations.contextBarController.text.removeTheLock'), doc => setItemLocked(doc, id!, next));
+                    if (result.ok) widget.contextBarFooter(next ? t('annotations.contextBarController.text.lockedDoesNotMoveDeformDisappear') : t('annotations.contextBarController.text.iRemovedTheLock'));
                     return result;
                 }
                 case 'delete': {
@@ -323,31 +334,31 @@ export class ContextBarController implements Disposable {
                 }
                 case 'moveLayer':
                     if (!id || !request.targetId) return { ok: false };
-                    return this.commit('重なり順を変更', doc => moveLayer(doc, id, request.targetId!));
+                    return this.commit(t('annotations.contextBarController.text.changeStackingOrder'), doc => moveLayer(doc, id, request.targetId!));
                 case 'selectLayer':
                     if (!request.targetId) return { ok: false };
                     return { ok: await widget.focusTimelineItem(request.targetId, {}) };
                 case 'fit': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
-                    return this.commit('画面に合わせる', doc => fitItemToScreen(doc, id!, Math.round(source.playhead * source.fps)));
+                    return this.commit(t('annotations.contextBarController.text.fitScreen'), doc => fitItemToScreen(doc, id!, Math.round(source.playhead * source.fps)));
                 }
                 case 'nudge': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
-                    return this.commit('位置を揃える', doc => nudgeItem(doc, id!, Number(request.dx) || 0, Number(request.dy) || 0,
+                    return this.commit(t('annotations.contextBarController.text.alignPosition'), doc => nudgeItem(doc, id!, Number(request.dx) || 0, Number(request.dy) || 0,
                         Math.round(source.playhead * source.fps)));
                 }
                 case 'resize': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
-                    return this.commit('大きさを変更', doc => resizeShapeTo(doc, id!, {
+                    return this.commit(t('annotations.contextBarController.text.changeSize'), doc => resizeShapeTo(doc, id!, {
                         ...(request.width !== undefined ? { width: request.width } : {}),
                         ...(request.height !== undefined ? { height: request.height } : {}), keepRatio: request.keepRatio === true },
                     Math.round(source.playhead * source.fps)));
                 }
                 default:
-                    return { ok: false, message: `不明な操作: ${request.action}` };
+                    return { ok: false, message: t('annotations.contextBarController.text.unknownOperation', { action: request.action }) };
             }
         } catch (error) {
             return this.notice({ ok: false, message: error instanceof Error ? error.message : String(error) });
@@ -370,13 +381,13 @@ export class ContextBarController implements Disposable {
         const source = this.source();
         if (!source || !id) return { ok: false };
         let created: string | undefined;
-        await this.commit('複製', doc => {
+        await this.commit(t('annotations.contextBarController.text.reproduction'), doc => {
             const result = duplicateItem(doc, id, { x: PASTE_OFFSET_PX, y: PASTE_OFFSET_PX });
             created = result.itemId;
             return result.document;
         });
         if (created) await this.deps.widget()?.focusTimelineItem(created, {});
-        this.deps.widget()?.contextBarFooter('複製しました。');
+        this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.iHaveCopiedIt'));
         return { ok: true, id: created };
     }
 
@@ -384,10 +395,10 @@ export class ContextBarController implements Disposable {
         const source = this.source();
         if (!source || !id) return { ok: false };
         const envelope = buildItemClipboard(source.doc, id);
-        if (!envelope) return { ok: false, message: 'この要素は edit.json の item としてはコピーできません。' };
+        if (!envelope) return { ok: false, message: t('annotations.contextBarController.text.thisElementCannotBeCopiedAsAn') };
         await this.writeClipboard(serializeItemClipboard(envelope));
         this.pasteCount.set(envelope.item.id as string, 0);
-        this.deps.widget()?.contextBarFooter('コピーしました（⌘V で貼り付け）。');
+        this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.iCopiedItVToPaste'));
         return { ok: true };
     }
 
@@ -395,19 +406,19 @@ export class ContextBarController implements Disposable {
         const source = this.source();
         if (!source) return { ok: false };
         const envelope = parseItemClipboard(await this.readClipboard());
-        if (!envelope) return { ok: false, message: 'コピーしたものがありません。' };
+        if (!envelope) return { ok: false, message: t('annotations.contextBarController.text.iDonTHaveAnythingToCopy') };
         const key = String(envelope.item.id);
         const count = (this.pasteCount.get(key) ?? 0) + 1;
         this.pasteCount.set(key, count);
         let created: string | undefined;
-        await this.commit('貼り付け', doc => {
+        await this.commit(t('annotations.contextBarController.text.paste'), doc => {
             const result = pasteItemClipboard(doc, envelope, { atFrame: Math.round(source.playhead * source.fps),
                 offset: { x: PASTE_OFFSET_PX * count, y: PASTE_OFFSET_PX * count } });
             created = result.itemId;
             return result.document;
         });
         if (created) await this.deps.widget()?.focusTimelineItem(created, {});
-        this.deps.widget()?.contextBarFooter('貼り付けました。');
+        this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.iPastedIt'));
         return { ok: true, id: created };
     }
 
@@ -427,7 +438,7 @@ export class ContextBarController implements Disposable {
         this.styleClip = { ...styleClipOf(place.item, kind), fromId: id };
         this.lastSelectedId = id;
         document.body.setAttribute('data-akari-style-copy', kind);
-        this.deps.widget()?.contextBarFooter('スタイルをコピーしました。当てたい要素を押してください（Esc でやめる）。');
+        this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.iCopiedTheStylePressTheElement'));
         this.publish();
         return { ok: true };
     }
@@ -436,7 +447,7 @@ export class ContextBarController implements Disposable {
         if (!this.styleClip) return false;
         this.styleClip = undefined;
         document.body.removeAttribute('data-akari-style-copy');
-        this.deps.widget()?.contextBarFooter('スタイルのコピーをやめました。');
+        this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.iStoppedCopyingStyles'));
         this.publish();
         return true;
     }
@@ -444,13 +455,13 @@ export class ContextBarController implements Disposable {
     protected async applyStyle(clip: StyleClip, targetId: string, targetKind: ContextBarKind): Promise<void> {
         const source = this.source();
         if (isItemLocked(source?.doc, targetId)) {
-            this.deps.widget()?.contextBarFooter('ロック中の要素にはスタイルを当てられません。');
+            this.deps.widget()?.contextBarFooter(t('annotations.contextBarController.text.lockedElementsCannotBeStyled'));
             return;
         }
         // 当て先の不透明度が動きを持つときは、静的値でなく再生位置へ点を打つ（applyStyleClip 側で分岐）
         const atFrame = source ? Math.round(source.playhead * source.fps) : undefined;
-        await this.commit('スタイルを当てる', doc => applyStyleClip(doc, targetId, clip, targetKind, atFrame));
-        this.deps.widget()?.contextBarFooter(clip.kind === targetKind ? 'スタイルを当てました。' : '種類が違うので不透明度だけ当てました。');
+        await this.commit(t('annotations.contextBarController.text.guessTheStyle'), doc => applyStyleClip(doc, targetId, clip, targetKind, atFrame));
+        this.deps.widget()?.contextBarFooter(clip.kind === targetKind ? t('annotations.contextBarController.text.iGuessedTheStyle') : t('annotations.contextBarController.text.sinceTheTypesAreDifferentIOnly'));
     }
 
     protected async writeClipboard(text: string): Promise<void> {
@@ -497,7 +508,7 @@ export class ContextBarController implements Disposable {
         if (!state?.selectedId) return;
         if ((event.code === 'Delete' || event.code === 'Backspace') && !command && state.locked) {
             stop();
-            this.notice({ ok: false, message: 'ロック中は消せません。鍵を押すとロックを外せます。' });
+            this.notice({ ok: false, message: t('annotations.contextBarController.text.cannotBeDeletedWhileLockedPressThe') });
             return;
         }
         if (!command || event.shiftKey) return;

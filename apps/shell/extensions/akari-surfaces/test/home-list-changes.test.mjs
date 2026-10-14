@@ -43,3 +43,17 @@ test('非表示では読みを予約し、表示時にまとめて差分を反�
     assert.match(home, /this\.projectCardFrames\.delete\(key\)/);
     assert.match(channel, /if \(this\.isVisible\) \{ this\.stageRefreshSeen = true; void this\.refreshStages\(keys\); \}/);
 });
+
+test('ホームの一覧は差分の読みを一回にまとめる', () => {
+    const home = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
+    assert.match(home, /if \(this\.creatorProjectsRun\) return this\.creatorProjectsRun/);
+    assert.match(home, /const keys = new Set\(this\.pendingHomeProjects\)/);
+});
+
+test('プロジェクトの詳細は一覧のフォルダ日時を再利用し、子の metadata を個別に要求しない', () => {
+    const home = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
+    const body = home.match(/protected async readProjectDetails\(uri: URI, folderUpdatedAt\?: number\): Promise<ProjectDetails> \{([\s\S]*?)\n    \}\n/)?.[1];
+    assert.ok(body, 'readProjectDetails の本体');
+    assert.match(body, /folderUpdatedAt === undefined \? stat\(uri\) : Promise\.resolve/);
+    assert.doesNotMatch(body, /resolveMetadata: true/);
+});

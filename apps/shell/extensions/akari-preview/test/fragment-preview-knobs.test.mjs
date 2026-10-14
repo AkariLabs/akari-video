@@ -1,3 +1,10 @@
+import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
+const restorePreviewTestI18n = installPreviewTestI18n();
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+after(restorePreviewTestI18n);
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -13,7 +20,7 @@ assert.ok(start >= 0 && end > start);
 const compiled = ts.transpileModule(`class Handler { ${source.slice(start, end)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
-const Handler = vm.runInContext(`${compiled}\nHandler`, vm.createContext({}));
+const Handler = vm.runInContext(`${compiled}\nHandler`, vm.createContext({ getLanguage: () => 'ja' }));
 
 test('fragment preview exposes meta knobs and escapes their labels in the webview script', () => {
     const html = Handler.prototype.previewHtml.call({

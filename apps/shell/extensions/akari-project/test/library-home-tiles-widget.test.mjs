@@ -1,6 +1,8 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import ts from 'typescript';
 import { LIBRARY_DETAIL_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/library-home-view.js';
 import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../lib/common/library-tile-art.js';
@@ -97,6 +99,25 @@ test('ホームは主要タイルを宣言順に描き、段は線で区切り�
     assert.equal(tiles[2].props['data-akari-library-soon'], 'true');
     assert.equal(nodes(home, node => node.props['data-akari-library-details'] !== undefined).length, 0);
     assert.equal(nodes(home, node => node.props['data-akari-library-details-toggle'] !== undefined)[0].props['aria-expanded'], false);
+});
+
+test('My library group keeps its grid when the UI label is English', () => {
+    const group = LIBRARY_DETAIL_GROUPS[0];
+    const original = group.label;
+    try {
+        setLanguage('en');
+        group.label = globalThis.t('project.library.shelf.myAssetsLabel');
+        assert.equal(group.label, 'My assets');
+        const { handler } = fixture();
+        handler.libraryDetailsOpen = true;
+        const home = handler.renderLibraryHome();
+        const details = nodes(home, node => node.props['data-akari-library-details'] !== undefined)[0];
+        const firstSection = nodes(details, node => node.type === 'section')[0];
+        assert.ok(nodes(firstSection, node => node.props.style?.gridTemplateColumns === 'repeat(3, minmax(0, 1fr))').length > 0);
+    } finally {
+        group.label = original;
+        setLanguage('ja');
+    }
 });
 
 // 2 枚重ねカード（2026-09-27 オーナー検収）。表と裏で別の絵を重ね、

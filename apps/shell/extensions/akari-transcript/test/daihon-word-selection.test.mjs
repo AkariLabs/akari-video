@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict'; import test from 'node:test';
 import { addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf } from '../lib/common/daihon-word-selection.js';
 const rows = [{ id: 'a', words: [{ text: 'A', start: 0, end: 1 }, { text: 'B', start: 1, end: 2 }, { text: 'C', start: 2, end: 3 }] },

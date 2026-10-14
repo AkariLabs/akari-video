@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { Emitter, Event, MessageService, CommandService, CommandRegistry } from '@theia/core/lib/common';
 import { FrontendApplicationContribution, StorageService } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -78,7 +79,7 @@ export class TaskService implements FrontendApplicationContribution {
             const tasks = await this.operations().load(root, location.reviewUri.toString());
             if (sequence === this.refreshSequence && root === this.review.location?.root.toString()) this.publish(tasks);
         } catch (error) {
-            this.messages.error(`タスクを読み込めませんでした: ${String(error)}`);
+            this.messages.error(t('annotationscommon.taskService.error.taskLoadFailed', { error: String(error) }));
         }
     }
 
@@ -106,7 +107,7 @@ export class TaskService implements FrontendApplicationContribution {
 
     async create(input: NewTask): Promise<Task> {
         const root = this.projectRoot();
-        if (typeof input.text !== 'string' || !input.text.trim()) throw new Error('タスクの本文が必要です。');
+        if (typeof input.text !== 'string' || !input.text.trim()) throw new Error(t('annotationscommon.taskService.error.bodyTaskRequired'));
         const task = await this.backend.create({ projectRootUri: root, task: {
             body: input.text, via: input.via, target: input.target,
             source: input.source ?? 'annotation', priority: input.priority
@@ -139,7 +140,7 @@ export class TaskService implements FrontendApplicationContribution {
 
     async confirm(id: string): Promise<Task> {
         const task = this.tasks.find(candidate => candidate.id === id);
-        if (!task) throw new Error('確認するタスクが見つかりません。');
+        if (!task) throw new Error(t('annotationscommon.taskService.error.noTasksCheck'));
         const updated = await this.operations().confirm(task, this.projectRoot());
         await this.refresh();
         return updated;
@@ -148,13 +149,13 @@ export class TaskService implements FrontendApplicationContribution {
     async markPasted(id: string): Promise<Task> {
         const task = this.tasks.find(candidate => candidate.id === id);
         const sentTo = task?.sentTo as { route?: string; pasted?: boolean } | undefined;
-        if (task?.state !== 'sent' || sentTo?.route !== 'clipboard') throw new Error('貼り付け待ちのタスクではありません。');
+        if (task?.state !== 'sent' || sentTo?.route !== 'clipboard') throw new Error(t('annotationscommon.taskService.error.taskNotWaitingPaste'));
         return this.update(id, { sentTo: { ...sentTo, pasted: true } }, 'human');
     }
 
     protected projectRoot(): string {
         const root = this.review.location?.root.toString();
-        if (!root) throw new Error('プロジェクトを特定できません。');
+        if (!root) throw new Error(t('annotationscommon.taskService.error.identifyProject'));
         return root;
     }
 }

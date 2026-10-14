@@ -5,8 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { generationProvenance } from '../lib/browser/inspector/generation-provenance.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { generationProvenance } = await import('../lib/browser/inspector/generation-provenance.js');
+
+
+
 
 const sourcePath = 'out/narration/n-0001.wav';
 const hash = content => createHash('sha256').update(content).digest('hex');

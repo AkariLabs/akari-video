@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import loader from './fixtures/load-browser.cjs';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 const { load } = loader;
 const toolbarModule = load('browser/companion-toolbar-contribution.js');
 const { AkariCompanionContribution } = load('browser/akari-companion-contribution.js', {
@@ -195,6 +198,8 @@ test('command session が違えば実行前に拒否し、省略時は通す', a
 test('public label is AKARI バイブ and obsolete word prohibition test is removed', async () => {
   assert.equal(toolbarModule.COMPANION_TOGGLE_LABEL, 'AKARI バイブ');
   const frame = await readFile(new URL('../src/browser/companion-panel-frame.ts', import.meta.url), 'utf8');
-  assert.match(frame, /AKARI バイブをしまう/);
+  assert.match(frame, /t\('companion\.companion\.mountHideAkariVibe\.label'\)/);
+  const ja = JSON.parse(await readFile(new URL('../../../../../packages/i18n/locales/ja/companion.json', import.meta.url), 'utf8'));
+  assert.equal(ja['companion.companion.mountHideAkariVibe.label'], 'AKARI バイブをしまう');
   await assert.rejects(access(new URL('./companion-forbidden-words.test.mjs', import.meta.url)), { code: 'ENOENT' });
 });

@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * ライブラリの絞り込み（検索欄の右の 1 個のボタン → 4 節のポップオーバー）の純関数。
  *
@@ -47,13 +48,13 @@ export interface LibraryFilterSection {
 }
 
 export const LIBRARY_FILTER_SECTIONS: readonly LibraryFilterSection[] = [
-    { key: 'source', label: '出どころ', single: true, options: LIBRARY_SOURCE_FILTERS },
+    { key: 'source', label: t('project.library.filter.sourceLabel'), single: true, options: LIBRARY_SOURCE_FILTERS },
     { key: 'tier', label: 'tier', single: false, options: [
-        { key: 'free', label: '無料' }, { key: 'premium', label: 'Pro' }] },
-    { key: 'license', label: 'ライセンス', single: false, options: [
-        { key: 'commercial', label: '商用 OK' }, { key: 'attribution', label: '帰属表示あり' }, { key: 'noncommercial', label: '商用不可' }] },
-    { key: 'status', label: '状態', single: false, options: [
-        { key: 'cached', label: '取得済み' }, { key: 'remote', label: '未取得' }, { key: 'favorite', label: 'お気に入り' }] }
+        { key: 'free', label: t('project.library.price.free') }, { key: 'premium', label: 'Pro' }] },
+    { key: 'license', label: t('project.library.filter.licenseLabel'), single: false, options: [
+        { key: 'commercial', label: t('project.library.filter.commercialUseAllowedLabel') }, { key: 'attribution', label: t('project.library.filter.attributionRequiredLabel') }, { key: 'noncommercial', label: t('project.library.filter.noCommercialUseError') }] },
+    { key: 'status', label: t('project.library.filter.statusLabel'), single: false, options: [
+        { key: 'cached', label: t('project.library.card.cached') }, { key: 'remote', label: t('project.library.card.available') }, { key: 'favorite', label: t('project.library.textPage.favoritesLabel') }] }
 ];
 
 /** 絞り込み中の条件の数（ボタンの件数の座布団）。0 なら座布団を出さない。 */

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { AiAnswer, OnboardingStep } from './model';
 
 export function guideShowsChat(step: OnboardingStep): boolean {
@@ -13,6 +14,13 @@ export function guideNeedsPartner(step: OnboardingStep): boolean {
     return step.startsWith('tour') || ['ask', 'prompt', 'work', 'play', 'caption'].includes(step);
 }
 
+export function guideRequiredPanels(targets: readonly string[]): Array<'left' | 'bottom'> {
+    const panels: Array<'left' | 'bottom'> = [];
+    if (targets.some(target => ['assets', 'sample-card', 'export-result'].includes(target))) panels.push('left');
+    if (targets.includes('timeline')) panels.push('bottom');
+    return panels;
+}
+
 export function askHighlightTarget(answer: AiAnswer | undefined): string {
     return ({ claude: 'partner-claude', chatgpt: 'partner-codex', google: 'partner-antigravity',
         none: 'partner', other: 'partner' } as Record<AiAnswer, string>)[answer ?? 'none'];
@@ -20,11 +28,11 @@ export function askHighlightTarget(answer: AiAnswer | undefined): string {
 
 export function askConnectionCopy(answer: AiAnswer | undefined): string {
     return ({
-        claude: 'Claude の Pro・Max なら、つなぐのは「Claude Code CLI」です（光っているところ）。',
-        chatgpt: 'ChatGPT なら、つなぐのは「Codex CLI」です（光っているところ）。無料のアカウントでも使えます。',
-        google: 'Google のアカウントなら、つなぐのは「Antigravity CLI」です（光っているところ）。',
-        none: 'AI とつながなくても、流れはお手本で見られます。',
-        other: 'お使いの AI は、あとでこの一覧からつなげます。'
+        claude: t('surfaces.onboarding.askConnectionCopyClaudesProMaxConnectionClaudeCodeCli.message'),
+        chatgpt: t('surfaces.onboarding.askConnectionCopyChatgptConnectionCodexCliHighlightedPartAlso.message'),
+        google: t('surfaces.onboarding.googleConnectionInstruction.description'),
+        none: t('surfaces.onboarding.askConnectionCopyEvenConnectedAiSeeFlowExample.message'),
+        other: t('surfaces.onboarding.askConnectionCopyConnectAiLaterList.message')
     } as Record<AiAnswer, string>)[answer ?? 'none'];
 }
 

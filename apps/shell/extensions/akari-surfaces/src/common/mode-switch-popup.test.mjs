@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { modePopupPosition } from '../../lib/browser/mode-switch/mode-switch-popup.js';
-import { INTAKE_AUTONOMY_DESCRIPTIONS } from '../../lib/common/intake-labels.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { modePopupPosition } = await import("../../lib/browser/mode-switch/mode-switch-popup.js");
+const { INTAKE_AUTONOMY_DESCRIPTIONS } = await import("../../lib/common/intake-labels.js");
+
 
 test('popup follows the actual bottom rail button at its left and bottom', () => {
     const anchor = { left: 950, bottom: 780 };

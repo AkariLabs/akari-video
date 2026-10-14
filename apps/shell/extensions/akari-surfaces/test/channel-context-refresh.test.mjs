@@ -15,8 +15,9 @@ const code = ts.transpileModule(`class Context { ${body} }`, { compilerOptions: 
 
 test('非表示中の通知を溜め、表示時には変わった行を一回だけ読む', async () => {
     const timers = new Set();
-    const Context = new Function('setTimeout', 'clearTimeout', 'projectRefreshDelay', `${code}\nreturn Context;`)(
-        callback => { timers.add(callback); return callback; }, callback => timers.delete(callback), projectRefreshDelay);
+    const Context = new Function('setTimeout', 'clearTimeout', 'projectRefreshDelay', 'compareText', `${code}\nreturn Context;`)(
+        callback => { timers.add(callback); return callback; }, callback => timers.delete(callback), projectRefreshDelay,
+        (a, b) => a.localeCompare(b));
     const context = new Context();
     const root = new URI('file:///creator');
     context.rootUri = root;
@@ -52,8 +53,9 @@ test('非表示中の通知を溜め、表示時には変わった行を一回�
 
 test('表示時の保留分は一覧を渡す前にその行だけ反映する', async () => {
     const timers = new Set();
-    const Context = new Function('setTimeout', 'clearTimeout', 'projectRefreshDelay', `${code}\nreturn Context;`)(
-        callback => { timers.add(callback); return callback; }, callback => timers.delete(callback), projectRefreshDelay);
+    const Context = new Function('setTimeout', 'clearTimeout', 'projectRefreshDelay', 'compareText', `${code}\nreturn Context;`)(
+        callback => { timers.add(callback); return callback; }, callback => timers.delete(callback), projectRefreshDelay,
+        (a, b) => a.localeCompare(b));
     const context = new Context();
     const root = new URI('file:///creator');
     context.rootUri = root;
@@ -75,8 +77,8 @@ test('500ms おきの通知は数秒ごとにまとめて反映する', async ()
     let timerId = 0;
     const timers = new Map();
     const schedule = (callback, delay) => { const id = ++timerId; timers.set(id, { callback, due: now + delay }); return id; };
-    const Context = new Function('setTimeout', 'clearTimeout', 'Date', 'projectRefreshDelay', `${code}\nreturn Context;`)(
-        schedule, id => timers.delete(id), { now: () => now }, projectRefreshDelay);
+    const Context = new Function('setTimeout', 'clearTimeout', 'Date', 'projectRefreshDelay', 'compareText', `${code}\nreturn Context;`)(
+        schedule, id => timers.delete(id), { now: () => now }, projectRefreshDelay, (a, b) => a.localeCompare(b));
     const root = new URI('file:///creator');
     const context = new Context();
     context.rootUri = root;

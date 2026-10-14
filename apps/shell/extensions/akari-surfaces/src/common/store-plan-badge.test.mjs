@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { hasLifetimePass, resolveStorePlanBadge } from '../../lib/common/store-plan-badge.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { hasLifetimePass, resolveStorePlanBadge } = await import("../../lib/common/store-plan-badge.js");
+
 
 // ホーム面の右上に常設する AKARI Store の在席表示（2026-09-26 オーナー指摘）。
 // 出すのは製品名ではなく「今の状態」— 接続していればそのアカウントのメールアドレス。

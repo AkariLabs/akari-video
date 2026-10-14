@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { GenerationPickController, GENERATION_PICK_INTO_COMMAND_ID, GENERATION_PICK_PRIMARY_SELECTED_EVENT,

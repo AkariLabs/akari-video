@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
 import { classifyProject } from './clean-manifest.mjs';
+import { cliText, cliValue } from './i18n.mjs';
 
 export async function runCleanCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
@@ -24,7 +25,7 @@ export async function runCleanCommand(args, options = {}) {
     const editStat = await statPath(path.join(parsed.projectRoot, 'edit.json'));
     if (!editStat.isFile()) throw Object.assign(new Error('not a file'), { code: 'ENOENT' });
   } catch {
-    error(`edit.json が見つかりません: ${parsed.projectRoot}`);
+    error(cliText('cli.clean.error.editMissing', { root: parsed.projectRoot }));
     return { exitCode: 2 };
   }
 
@@ -37,32 +38,32 @@ export async function runCleanCommand(args, options = {}) {
       readFile: options.readFile,
     });
   } catch (cause) {
-    error(`プロジェクトを調べられません: ${messageOf(cause)}`);
+    error(cliText('cli.clean.error.inspectFailed', { message: messageOf(cause) }));
     return { exitCode: 2 };
   }
 
   if (parsed.json) {
-    log(JSON.stringify(classification));
+    log(JSON.stringify(localizeClassification(classification)));
   } else {
     for (const line of formatClassification(classification)) log(line);
     for (const warning of provenanceWarnings(classification)) log(warning);
   }
 
   if (parsed.dryRun || classification.disposable.length === 0) {
-    if (!parsed.json && classification.disposable.length === 0) log('削除対象はありません。');
+    if (!parsed.json && classification.disposable.length === 0) log(cliText('cli.clean.status.nothingToDelete'));
     return { exitCode: 0, classification, removed: [], failures: [] };
   }
 
   if (!parsed.yes) {
     const isTTY = options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
     if (!isTTY) {
-      error('非 TTY では明示承認が必要です。一覧を確認し、--yes を付けて再実行してください。');
+      error(cliText('cli.clean.error.approvalRequired'));
       return { exitCode: 2, classification, removed: [], failures: [] };
     }
     const answer = options.prompt ? await options.prompt() : await promptForConfirmation();
     const accepted = typeof answer === 'boolean' ? answer : /^(?:y|yes)$/iu.test(String(answer).trim());
     if (!accepted) {
-      if (!parsed.json) log('削除しませんでした。プロジェクトは変更されていません。');
+      if (!parsed.json) log(cliText('cli.clean.status.cancelled'));
       return { exitCode: 0, classification, removed: [], failures: [] };
     }
   }
@@ -75,7 +76,7 @@ export async function runCleanCommand(args, options = {}) {
     if (!isInside(parsed.projectRoot, target) || target === parsed.projectRoot) {
       const failure = { path: entry.path, code: 'OUTSIDE_PROJECT' };
       failures.push(failure);
-      error(`削除に失敗しました: ${entry.path} (${failure.code})`);
+      error(cliText('cli.clean.error.deleteFailed', { path: entry.path, code: failure.code }));
       continue;
     }
     try {
@@ -84,15 +85,15 @@ export async function runCleanCommand(args, options = {}) {
     } catch (cause) {
       const code = errorCode(cause);
       failures.push({ path: entry.path, code });
-      error(`削除に失敗しました: ${entry.path} (${code})`);
+      error(cliText('cli.clean.error.deleteFailed', { path: entry.path, code }));
     }
   }
 
   if (failures.length > 0) {
-    error('一部を削除できませんでした。AKARI Video と書き出し処理を終了してから再実行してください。');
+    error(cliText('cli.clean.error.partialDelete'));
     return { exitCode: 1, classification, removed, failures };
   }
-  if (!parsed.json) log(`削除しました: ${removed.length} 件`);
+  if (!parsed.json) log(cliText('cli.clean.status.deleted', { count: removed.length, n: removed.length }));
   return { exitCode: 0, classification, removed, failures };
 }
 
@@ -100,9 +101,9 @@ export function parseArguments(args, cwd = process.cwd()) {
   const allowed = new Set(['--dry-run', '--yes', '--json', '--help']);
   const flags = args.filter((value) => value.startsWith('-'));
   const unknown = [...new Set(flags.filter((value) => !allowed.has(value)))];
-  if (unknown.length > 0) return { ok: false, message: `未知のオプションです: ${unknown.join(', ')}` };
+  if (unknown.length > 0) return { ok: false, message: cliText('cli.clean.error.unknownOption', { options: unknown.join(', ') }) };
   const positional = args.filter((value) => !value.startsWith('-'));
-  if (positional.length > 1) return { ok: false, message: '引数のプロジェクトディレクトリは 1 つだけ指定できます。' };
+  if (positional.length > 1) return { ok: false, message: cliText('cli.clean.error.multipleRoots') };
   const flagSet = new Set(flags);
   return {
     ok: true,
@@ -116,37 +117,46 @@ export function parseArguments(args, cwd = process.cwd()) {
 
 export function cleanHelp() {
   return [
-    '使い方: akari clean [dir] [--dry-run] [--yes] [--json] [--help]',
+    cliText('cli.clean.help.usage'),
     '',
-    '使い捨ての中間ファイル、保持する正本、判断が必要なものを一覧します。',
-    '既定では一覧だけを表示し、削除前には必ず確認します。',
+    cliText('cli.clean.help.description'),
+    cliText('cli.clean.help.default'),
     '',
-    '  --dry-run  一覧だけを表示して削除しない',
-    '  --yes      一覧を表示した後、削除可能なものだけを削除',
-    '  --json     分類結果を JSON で表示',
-    '  --help     このヘルプを表示',
+    ...['dryRun', 'yes', 'json', 'help'].map((name) => cliText(`cli.clean.help.${name}`)),
   ];
 }
 
 export function formatClassification(classification) {
   const lines = [];
   for (const [className, heading] of [
-    ['disposable', '削除可能:'],
-    ['keep', '保持:'],
-    ['undecided', '判断保留:'],
+    ['disposable', cliText('cli.clean.category.disposable')],
+    ['keep', cliText('cli.clean.category.keep')],
+    ['undecided', cliText('cli.clean.category.undecided')],
   ]) {
     lines.push(heading);
     const entries = classification[className];
-    if (entries.length === 0) lines.push('  （なし）');
+    if (entries.length === 0) lines.push(cliText('cli.clean.category.empty'));
     for (const entry of entries) {
       const provenance = entry.provenance
-        ? ` / 由来: ${entry.provenance.origin} / 生成器: ${entry.provenance.generator}`
+        ? cliText('cli.clean.entry.provenance', { origin: entry.provenance.origin, generator: entry.provenance.generator })
         : '';
-      lines.push(`  ${entry.path} | ${entry.files} ファイル | ${formatBytes(entry.bytes)} | ${entry.reason}${provenance}`);
+      lines.push(cliText('cli.clean.entry.row', { path: entry.path, files: entry.files, n: entry.files, bytes: formatBytes(entry.bytes), reason: cliValue('cli.clean.reason.', entry.reason), provenance }));
     }
   }
-  lines.push(`削除可能 合計 ${formatBytes(classification.totals.disposable.bytes)}`);
+  lines.push(cliText('cli.clean.category.total', { bytes: formatBytes(classification.totals.disposable.bytes) }));
   return lines;
+}
+
+function localizeClassification(classification) {
+  const result = { ...classification };
+  for (const category of ['disposable', 'keep', 'undecided']) {
+    result[category] = classification[category].map((entry) => ({
+      ...entry,
+      reason: cliValue('cli.clean.reason.', entry.reason),
+      ...(entry.held_reason ? { held_reason: cliValue('cli.clean.reason.', entry.held_reason) } : {}),
+    }));
+  }
+  return result;
 }
 
 export function formatBytes(bytes) {
@@ -164,13 +174,13 @@ export function formatBytes(bytes) {
 function provenanceWarnings(classification) {
   return classification.keep
     .filter((entry) => entry.provenance?.origin_exists === false)
-    .map((entry) => `[警告] 由来の計画ファイルが見当たりません: ${entry.provenance.origin}`);
+    .map((entry) => cliText('cli.clean.warning.provenanceMissing', { origin: entry.provenance.origin }));
 }
 
 async function promptForConfirmation() {
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    return await readline.question('削除可能な中間ファイルだけを削除しますか? [y/N] ');
+    return await readline.question(cliText('cli.clean.prompt.delete'));
   } finally {
     readline.close();
   }

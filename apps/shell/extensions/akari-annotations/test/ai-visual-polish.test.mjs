@@ -3,8 +3,15 @@ import { memberText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
-import { describeGenerationChip, generationChipLabel } from '../lib/common/generation-sidecar.js';
-import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { describeGenerationChip, generationChipLabel } = await import('../lib/common/generation-sidecar.js');
+const { appendAiMaterialView } = await import('../lib/browser/inspector/ai-material-view.js');
+
+
+
 
 class Node {
   constructor(tag) {

@@ -97,8 +97,12 @@ export function childEnv(env = process.env, execPath = process.execPath) {
   const same = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
   const already = current.split(path.delimiter)
     .some(entry => entry && same(path.resolve(entry), nodeDir));
-  if (already) return env;
-  return { ...env, [pathKey]: current ? `${current}${path.delimiter}${nodeDir}` : nodeDir };
+  if (already && env.AKARI_LANG !== undefined) return env;
+  return {
+    ...env,
+    ...(already ? {} : { [pathKey]: current ? `${current}${path.delimiter}${nodeDir}` : nodeDir }),
+    ...(env.AKARI_LANG === undefined ? { AKARI_LANG: 'ja' } : {})
+  };
 }
 
 const CHILD_ENV = childEnv();
@@ -194,17 +198,20 @@ export const LANES = {
       pkg('asset-resolver'),
       pkg('audio-library-setup'),   // ffprobe が無い環境では 2 件 skip（設計どおり）
       pkg('chat-bridge'),
+      pkg('content-language'),
       pkg('creator-root'),
       pkg('decision-log-report'),
       pkg('edit-lint'),             // ffprobe が無い環境では 6 件 skip（設計どおり）
       pkg('edit-store'),            // test script が build（gen:textstyle-catalog + tsc -b + esbuild）を含む（lib/ は追跡対象・drift させない）
       pkg('frame-scene'),
+      pkg('i18n'),
       pkg('intake-form'),
       pkg('matte-rvm'),             // onnxruntime-node の実体が無い環境では 3 件 skip
       pkg('pen-visuals'),           // test script が tsc -b を含む（lib/ は追跡対象・drift させない）
       pkg('project-scaffold'),
       pkg('schemas'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
+      pkg('akari-voice'),         // 依存ゼロ・純関数。実エンジンの結合テストは AKARI_VOICE_HOME と AKARI_VOICE_TEST_AUDIO があるときだけ走り、無ければ skip（話者分離 v0 2026-10-11）
       // 2026-10-02 quarantine から昇格（テスト側の追随で 497/497。ubuntu の参考レーンで fail 0 を確認してから）
       pkg('akari-launcher'),
       pkg('generate'),            // 依存ゼロ・純関数（生成入力バリデータ w1-b 2026-09-13。adapters/ は test script の glob 外 = 合流後の統合小票で吸収）

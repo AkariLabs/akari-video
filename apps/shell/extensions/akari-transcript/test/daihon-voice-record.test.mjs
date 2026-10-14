@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -21,7 +27,7 @@ function makeHarness() {
         addEventListener(name, listener) { this.listeners[name] = listener; },
         click() { this.listeners.click?.({ stopPropagation() {} }); }
     }) };
-    const create = vm.runInContext(`${compiled}\nmakeVoice;`, vm.createContext({ document }));
+    const create = vm.runInContext(`${compiled}\nmakeVoice;`, vm.createContext({ document, t: globalThis.t }));
     const widget = { editUri: { toString: () => 'file:///project/edit.json' },
         commands: { executeCommand: (...args) => { calls.push(args); } } };
     return { create: row => create.call(widget, row), calls };
@@ -61,7 +67,7 @@ test('selection bar records ordered rows and disables all-cut selections', () =>
         click() { this.listeners.click?.({ stopPropagation() {} }); }
     });
     const document = { createElement: element };
-    const Harness = vm.runInContext(`${js}\nBarHarness;`, vm.createContext({ document,
+    const Harness = vm.runInContext(`${js}\nBarHarness;`, vm.createContext({ document, t: globalThis.t,
         canMergeRows: () => ({ ok: true }) }));
     const calls = [];
     const widget = Object.assign(new Harness(), { actionBar: element('div'), footer: {},

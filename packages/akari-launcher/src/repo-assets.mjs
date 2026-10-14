@@ -41,6 +41,8 @@ export const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-too
 export const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
 export const FINGER_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'finger-frame.mjs');
 export const MEDIA_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'media.mjs');
+export const SPEAKERS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'speakers.mjs');
+export const TOOLS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'tools.mjs');
 export const WORD_BOOK_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'word-book.mjs');
 export const GENERATE_CLI_RELATIVE = path.join('packages', 'generate', 'src', 'cli', 'index.mjs');
 export const STORYBOARD_CLI_RELATIVE = path.join('packages', 'decision-cards', 'render-storyboard-print.mjs');
@@ -66,6 +68,8 @@ export const LAUNCHER_SUBCOMMAND_EXECUTABLES = [
   { command: 'akari internal eye-bar', relative: EYE_BAR_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari internal vision-finger-frame', relative: FINGER_FRAME_SCRIPT_RELATIVE, resolution: 'resources' },
   { command: 'akari media', relative: MEDIA_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari speakers', relative: SPEAKERS_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari tools', relative: TOOLS_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari word-book', relative: WORD_BOOK_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari generate', relative: GENERATE_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari storyboard', relative: STORYBOARD_CLI_RELATIVE, resolution: 'launcher-assets' },
@@ -91,6 +95,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
   const mediaScript = path.join(repoRoot, MEDIA_SCRIPT_RELATIVE);
+  const speakersScript = path.join(repoRoot, SPEAKERS_SCRIPT_RELATIVE);
+  const toolsScript = path.join(repoRoot, TOOLS_SCRIPT_RELATIVE);
   const decisionLogScript = path.join(repoRoot, DECISION_LOG_SCRIPT_RELATIVE);
   const wordBookScript = path.join(repoRoot, WORD_BOOK_SCRIPT_RELATIVE);
   const generateScript = path.join(repoRoot, GENERATE_CLI_RELATIVE);
@@ -113,6 +119,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
     eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
     mediaScript: existsSync(mediaScript) ? mediaScript : null,
+    speakersScript: existsSync(speakersScript) ? speakersScript : null,
+    toolsScript: existsSync(toolsScript) ? toolsScript : null,
     ...(existsSync(decisionLogScript) ? { decisionLogScript } : {}),
     ...(existsSync(wordBookScript) ? { wordBookScript } : {}),
     ...(existsSync(generateScript) ? { generateScript } : {}),
@@ -152,6 +160,8 @@ export function resolveLauncherAssets({
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
     eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
     mediaScript: candidate.mediaScript ?? vendor.mediaScript,
+    speakersScript: candidate.speakersScript ?? vendor.speakersScript,
+    toolsScript: candidate.toolsScript ?? vendor.toolsScript,
     ...(candidate.generateScript ?? vendor.generateScript
       ? { generateScript: candidate.generateScript ?? vendor.generateScript }
       : {}),

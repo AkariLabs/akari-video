@@ -1,8 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
-import { tabsForKind } from '../lib/browser/inspector/tab-model.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+
 
 const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', family: 'MiniMax H3', price: { by_resolution: { '768P': 0.1 } } }];
 const catalog = aiActionCatalog(models);
@@ -19,20 +27,22 @@ test('AI 行為カタログは動画モデルから実働 route を作る', () =
 for (const [name, target, count, stillEnabled, videoEnabled, videoReason] of [
   ['静止画', 'still', 2, true, true, undefined],
   ['空の枠', 'empty-frame', 2, true, true, undefined],
-  ['ふつうの動画', 'video', 2, false, false, '静止画か空の枠で使えます'],
+  // ふつうの動画・画像のクリップには「作る」を出さない（仮枠のときだけ。オーナー裁定 2026-10-12）
+  ['ふつうの動画', 'video', 1, undefined, undefined, undefined],
   ['生成済み動画', 'generated-video', 2, false, true, undefined],
   ['音声', 'audio', 1, undefined, undefined, undefined]
 ]) {
   test(`describeAiTiles: ${name}`, () => {
     const groups = describeAiTiles(catalog, target);
     assert.equal(groups.length, count);
-    if (target !== 'audio') assert.deepEqual(groups[0], { group: 'make', tiles: [
+    const hasMake = target !== 'audio' && target !== 'video';
+    if (hasMake) assert.deepEqual(groups[0], { group: 'make', tiles: [
       { id: 'still', label: '静止画', image: 'still', enabled: stillEnabled,
         ...(!stillEnabled ? { reason: '空の枠か静止画で使えます' } : {}) },
       { id: 'video', label: '動画にする', image: 'video', enabled: videoEnabled,
         ...(videoReason ? { reason: videoReason } : {}) }
     ] });
-    assert.deepEqual(groups[target === 'audio' ? 0 : 1], { group: 'refine', tiles: [
+    assert.deepEqual(groups[hasMake ? 1 : 0], { group: 'refine', tiles: [
       ...(target === 'audio' ? [] : ['cutout', 'eraser'].map((id, index) => ({
         id, label: index === 0 ? '背景を消す' : '消しゴム', image: id,
         enabled: target !== 'empty-frame',
@@ -150,4 +160,8 @@ test('aiTabViewFor: route が 0 本で identity があれば以前の一覧よ�
     generationState: 'planned', stillCandidateCount: 0 }), 'tiles');
   assert.equal(aiTabViewFor({ clipKey: 'a', generationKind: 'still', forcePanel: true,
     generationState: 'generating' }), 'still-result');
+});
+
+test('describeAiTiles: ふつうの画像のクリップには「作る」を出さない', () => {
+  assert.deepEqual(describeAiTiles(catalog, 'image').map(group => group.group), ['refine']);
 });

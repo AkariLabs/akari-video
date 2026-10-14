@@ -28,6 +28,11 @@
         "$ref": "#/$defs/transcriptSegment"
       }
     },
+    "transcript_language": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "description": "文字起こしが記録した言語（BCP 47）。transcript 配列の兄弟として置く。transcript は配列のまま。"
+    },
     "keyframes": {
       "type": "array",
       "items": {

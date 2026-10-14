@@ -1,10 +1,15 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 import type { CaptionDisplayPolicy, CaptionTextStyle, CaptionTextStylePatch } from '@akari-video/edit-store';
+import type { CaptionStyleEditInput, CaptionClearTarget, CaptionStyleTarget, CaptionStyleSource } from '@akari-video/edit-store';
 import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
 import type { ImageAiBinding } from './image-ai-binding';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
+
+export interface AkariAnnotationsService {
+    getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>>;
+}
 
 export interface NarrationEngine {
     id: string; label: string; place: 'local' | 'network' | 'cloud'; provider?: string; experimental?: boolean;
@@ -185,7 +190,7 @@ export interface GenerationProcessResult {
     stderr?: string;
     exitCode?: number | null;
 }
-export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok' | 'fal'; state: 'ready' | 'signed-out' | 'missing' | 'unknown'; detail: string; }
+export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok' | 'fal'; state: 'ready' | 'signed-out' | 'missing' | 'unknown'; detail: string; reasonCode?: 'probe-unverified'; }
 export type StillAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '4:5' | '3:2' | '21:9';
 export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: StillAspect; route?: ImageRouteState['id']; references?: string[]; cropToAspect?: boolean; quality?: 'low' | 'medium' | 'high'; approved?: boolean; }
 export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; croppedFrom?: string; }
@@ -780,6 +785,9 @@ export interface SetCaptionStylePresetRequest {
 export interface WriteBackResult {
     committed: boolean;
     notices?: string[];
+    conflict?: true;
+    files?: string[];
+    message?: string;
 }
 
 export interface SetCaptionStylePresetResult extends WriteBackResult {
@@ -836,7 +844,31 @@ export interface WriteEditSnapshotRequest {
     editSource?: string;
     captionsUri?: string;
     captionsSource?: string;
+    expectedHashes?: { edit?: string | null; captions?: string | null };
 }
+
+export interface CaptionCommandRequest<Input> {
+    projectRootUri: string;
+    editUri?: string;
+    captionsUri?: string;
+    input: Input;
+    expectedHashes?: { edit?: string | null; captions?: string | null };
+}
+export type ApplyCaptionStyleRequest = CaptionCommandRequest<Omit<CaptionStyleEditInput,
+    'captions' | 'edit' | 'assetReferences' | 'legacy' | 'catalog'>>;
+export type ClearCaptionStyleRequest = CaptionCommandRequest<{ targets: CaptionClearTarget[]; mode: 'run' | 'range' }>;
+export type SetCaptionSizeRequest = CaptionCommandRequest<{ targets: Array<{ caption_id: string }>; size_px: number }>;
+export type ReapplyCaptionStyleRequest = CaptionCommandRequest<{ targets?: CaptionStyleTarget[];
+    styles: { entries: Array<{ source: CaptionStyleSource; look?: Record<string, unknown>;
+        motion?: Record<string, unknown>; revision?: number }> };
+    apply?: Array<{ target: CaptionStyleTarget; part: 'look' | 'motion' }> }>;
+export type MigrateCaptionLookRequest = CaptionCommandRequest<{ dryRun?: boolean }>;
+export type CaptionCommandResult = { ok: true; written: string[]; notices: string[]; changed: string[];
+    notice_codes?: Array<{ code: string; params?: Record<string, string | number> }>;
+    recovered?: string; before: Record<string, { hash: string | null; text: string | null }>;
+    after: Record<string, { hash: string | null; text: string | null }>;
+    items?: unknown[]; diff?: unknown[] } | { ok: false; conflict: true; files: string[]; message: string }
+    | { ok: false; invalid: true; diagnostics: unknown[]; message: string };
 
 export interface EditHistoryEntry {
     id: string;
@@ -889,6 +921,9 @@ export interface DeferredLintNotification {
         message?: string;
         check?: string;
         path?: string;
+        range?: { start?: number; end?: number };
+        /** 保存前の lint にも有った指摘（edit-store の write-gate が付ける）。 */
+        preexisting?: boolean;
     }>;
 }
 
@@ -1041,6 +1076,12 @@ export interface AkariAnnotationsService {
     setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
     setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
+    applyCaptionStyle(request: ApplyCaptionStyleRequest): Promise<CaptionCommandResult>;
+    clearCaptionStyle(request: ClearCaptionStyleRequest): Promise<CaptionCommandResult>;
+    reapplyCaptionStyle(request: ReapplyCaptionStyleRequest): Promise<CaptionCommandResult>;
+    setCaptionSize(request: SetCaptionSizeRequest): Promise<CaptionCommandResult>;
+    migrateCaptionLook(request: MigrateCaptionLookRequest): Promise<CaptionCommandResult>;
+    recoverInterruptedWrite(request: { projectRootUri: string }): Promise<{ notice?: string }>;
     snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null>;
     listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]>;
     restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }>;

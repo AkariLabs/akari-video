@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import type { MaterialSwapRequest } from '../common/material-swap-candidates';
 import { RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -43,7 +44,7 @@ import {
 export const AkariCatalogCommands = {
     OPEN_CATALOG: {
         id: 'akari.catalog.open',
-        label: 'カタログを開く'
+        label: t('project.catalog.command.openCatalogAction')
     } as Command,
     LIST_CATEGORIES: {
         id: 'akari.catalog.listCategories'
@@ -175,6 +176,13 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
                 if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('user');
                 return widget.resolveCatalogOverlay(key);
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.readOverlayFragment' }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('automatic');
+                return widget.readCatalogOverlayFragment(key);
             }
         });
         registry.registerCommand({ id: 'akari.catalog.readOverlayMeta' }, {

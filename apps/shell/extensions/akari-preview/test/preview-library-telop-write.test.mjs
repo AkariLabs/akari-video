@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -23,6 +27,7 @@ const code = ts.transpileModule(`class Host { ${source.slice(start, end + 6)} }`
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
 const Host = vm.runInNewContext(`${code}; Host`, {
+  t: require('../lib/common/preview-text.js').t,
   resolvePreviewItemWrite, materializedFragmentPlan, replaceFragmentReference, serializeEdit,
   patchFragmentSourceText, assertNoSessionAssetUrl, withoutFragmentRootTiming,
   BinaryBuffer: { fromString: value => value }, crypto: { randomUUID: () => 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }, Error

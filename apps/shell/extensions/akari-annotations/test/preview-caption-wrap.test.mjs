@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writePreviewCaptionWrap, duplicatePreviewCaption } from '../lib/common/preview-caption-wrap.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { writePreviewCaptionWrap, duplicatePreviewCaption } = await import('../lib/common/preview-caption-wrap.js');
+
+
 
 test('wrap width write preserves text size and patches only the requested cue', () => {
   const source = JSON.stringify({ captions: [

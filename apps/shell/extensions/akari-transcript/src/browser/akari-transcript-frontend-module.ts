@@ -1,3 +1,4 @@
+import { t } from './transcript-text';
 import { CommandContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, OpenHandler, WidgetFactory } from '@theia/core/lib/browser';
@@ -16,7 +17,7 @@ export default new ContainerModule(bind => {
         id: AkariTranscriptWidget.FACTORY_ID,
         createWidget: async (options: { analysisUri: string }) => {
             if (!options?.analysisUri) {
-                throw new Error('文字起こしデータの場所がありません。');
+                throw new Error(t('transcript.transcript.frontend.transcriptDataLocationMissingError'));
             }
             const widget = context.container.get(AkariTranscriptWidget);
             await widget.configure(new URI(options.analysisUri));

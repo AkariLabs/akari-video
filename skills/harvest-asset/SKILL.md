@@ -1,138 +1,161 @@
 ---
 name: harvest-asset
-description: 案件で作った高コスト・再利用価値の高いオーバーレイ、3D、モーション、テロップ、サムネ構図、音源、B ロールを AKARI Video の assets ライブラリへ素材化するときに発動する。入庫判定、meta.json 下書き、preview、INDEX 更新、検証を行う。
+description: Use to turn costly, reusable project overlays, 3D, motion, captions, thumbnail layouts, audio, and B-roll into AKARI Video library assets. Assess admission, draft meta.json, create previews, update INDEX, and validate.
 ---
 
-# 素材化ワークフロー
+# Asset harvesting workflow
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
+Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
+Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
+Follow the order; do not ask humans for information you can derive.
 
-順序を変えず、導出できる情報を人へ質問しない。
+## 1. Assess admission criteria
 
-## 1. 入庫基準を判定する
+**Admit only things expensive or impossible to generate.** Stop harvesting and report why unless both criteria are met:
 
-**「生成コストが高い、または生成不能なものだけ」を入れる。** 次のどちらも満たさなければ収穫を中止し、理由を報告する。
+- Cannot be immediately regenerated from natural language each time. Examples: licensed 3D models, complex multi-element motion,
+  polished caption/thumbnail layouts, audio, B-roll.
+- Value of storage, search, and license management exceeds generation cost on reuse.
 
-- 自然言語から毎回すぐ再生成できない。例: license 済み 3D model、多要素の複雑 motion、完成度の高い telop / thumbnail 構図、音源、B-roll。
-- 再利用時に、保存・検索・license 管理の価値が生成コストを上回る。
+Exclude simple subtitles, mere color variations, basic fades/slides, and fragments with only project-specific wording
+changed. If essentially the same as an existing asset, check whether its knobs can express the variation before adding variants.
 
-単純字幕、色違いだけ、素朴な fade / slide、案件固有文言を差し替えただけの断片は入れない。既存 asset と本質的に同じ場合も variant を増やさず、既存 asset の knob で表せるかを先に確認する。
+## 2. Build a working package and draft `meta.json`
 
-## 2. 作業用 package と `meta.json` 下書きを作る
+Read the source fragment and same-level dependency assets; assemble a self-contained package in a temporary working directory.
+Before final placement, automatically extract:
 
-source fragment と同階層の依存 asset を読み、作業用一時ディレクトリへ自己完結した package を組む。最終配置前に次を自動抽出する。
+### CSS variables → `knobs`
 
-### CSS 変数 → `knobs`
+1. List fragment `--name: value` and `var(--name, fallback)`.
+2. Deduplicate; distinguish runtime-owned `--x`, `--y`, `--scale`, `--rotate` from asset-specific knobs.
+3. Take defaults from declarations/fallbacks and use them to check fragment/preview. Follow schema v1's allowed
+   `knobs[].default` types; never invent values.
+4. Mechanically map types to this vocabulary:
+   - Color → `color`
+   - Number + unit → `slider`; add `min` / `max` only when evidence can be extracted
+   - Media URL / `src` → `media`
+   - Boolean visibility toggle → `checkbox`
+   - Finite choices readable in code → `dropdown`
+   - Other replaceable strings → `text`
+5. Generate `group` and `label` from variable names and usage sites. Note ambiguous inference in the draft;
+   do not add more human questions.
 
-1. fragment 内の `--name: value` と `var(--name, fallback)` を列挙する。
-2. 重複を除き、runtime 所有の `--x`、`--y`、`--scale`、`--rotate` と素材固有 knob を区別する。
-3. default は宣言値または fallback から取り、fragment と preview の確認に使う。schema v1 で許された `knobs[].default` の型を守り、値を発明しない。
-4. 型を次の語彙へ機械的に寄せる。
-   - 色値 → `color`
-   - 数値 + 単位 → `slider`。`min` / `max` は根拠が抽出できる場合だけ付ける
-   - media URL / `src` → `media`
-   - boolean の表示切替 → `checkbox`
-   - 有限の選択肢がコードから読める → `dropdown`
-   - それ以外の置換可能文字列 → `text`
-5. `group` と `label` は variable 名と利用箇所から生成する。曖昧な推論は下書きに注記し、人へ新しい質問を増やさない。
+### Dependencies → `requires` and bundled files
 
-### 依存 → `requires` と同梱対象
+- Scan `<script src>`, module imports, `@import`, `url()`, `src` / `href`, Three.js addons/decoders,
+  fonts, models, textures, audio, video.
+- Put package/runtime names in `requires`; copy relative files.
+- Do not adopt CDN/remote URLs unchanged: verify licenses and localize, or stop admission.
+- Leave no nonexistent file references, relative paths escaping the fragment, or unused dependencies.
 
-- `<script src>`、module import、`@import`、`url()`、`src` / `href`、Three.js addon / decoder、font、model、texture、audio、video を走査する。
-- package / runtime 名は `requires` へ、相対 file は copy 対象へ分ける。
-- CDN / remote URL はそのまま採用せず、license を確認して local 化するか入庫を止める。
-- file が存在しない参照、fragment 外へ抜ける相対 path、未使用依存を残さない。
+### Other automatic derivations
 
-### その他の自動導出
+- `id`: Generate kebab-case from source name/content.
+- `category`: Choose a single category by **distribution form** from `overlay` / `still` / `scene3d` / `audio` /
+  `broll` / `font` (changed from topic-based categories on 2026-07-29). Timed HTML fragments are `overlay`;
+  untimed HTML sheets baked into images (e.g., thumbnail layouts) are `still`; Three.js + glTF or bake recipes are `scene3d`.
+  **Put topics (captions, blackboards, lower thirds, BGM, SFX, thumbnails) in `tags`, not categories. Add no categories.**
+- `title` / `description` / `tags`: Summarize appearance, role, aspect, and scene from source/use context.
+- `provenance`: Fill origin project, original path, generation method, prompt, timestamp from existing information; never fabricate unknowns.
+- Inspect dimensions, duration, codec, and model information only when readable with `sips`, `ffprobe`, or an available
+  GLB inspector; use for description/tags/preview judgments. Add no top-level fields absent from schema.
+- `author`: Use known project/git information. Confirm `tier` (`free` / `pro`) with the owner; do not guess.
+  Do not write legacy `price` in new metadata.
 
-- `id`: source 名と内容から kebab-case で生成する。
-- `category`: `overlay` / `still` / `scene3d` / `audio` / `broll` / `font` から単一カテゴリを**配布物の形**で選ぶ（2026-07-29 に主題軸から変更）。時間を持つ HTML 断片は `overlay`、時間を持たず画像に焼く HTML シート（サムネ構図等）は `still`、Three.js + glTF またはベイクレシピは `scene3d`。**主題（テロップ・黒板・ロワーサード・BGM・SFX・サムネ等）はカテゴリにせず `tags` に逃がす。カテゴリを増やさない。**
-- `title` / `description` / `tags`: 見た目、役割、aspect、scene を source と利用文脈から要約する。
-- `provenance`: origin project、元 path、生成手、prompt、日時を既存情報から埋める。分からない値を捏造しない。
-- media の寸法、duration、codec、model 情報は `sips`、`ffprobe`、利用可能な GLB inspector などで読める場合だけ確認し、description / tags / preview 判断へ使う。schema にないトップレベル field は追加しない。
-- `author` は既知の project / git 情報から埋める。`tier`（`free` / `pro`）は本人に確認し、推測で決めない。旧 `price` は新規メタに書かない。
+Align `meta.json` with v1 of `packages/schemas/asset-meta.schema.json` and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md`;
+use the official `when_to_use` key. Treat request wording `when_use` as meaning that key.
 
-`meta.json` は `packages/schemas/asset-meta.schema.json` の v1 と `docs/contract-2026-10-04-asset-tier-v1.md` に合わせ、正式 key `when_to_use` を使う。依頼文中の `when_use` はこの key の意味と扱う。
+## 3. Ask only the 5 items requiring human judgment
 
-## 3. 人間判断が必要な 5 項目だけを聞く
+Briefly show extraction results; ask these 5 items together. Ask nothing else.
 
-自動抽出結果を短く見せ、次の 5 項目を一度に質問する。それ以外は質問しない。
+1. **when_use** → `when_to_use`: Which scenes/purposes?
+2. **ai_usage**: What AI may change, what must be preserved, and prohibited modifications.
+3. **license**: SPDX, commercial scope, attribution requirement, AI training permission. Unknown license does not default to permission.
+4. **tier**: Confirm `free` / `pro` with the owner. `pro` cannot be combined with CC0.
+5. **Registration scope**: `local` (this project only) / `shared` (ancestor `.akari/assets/`, business/organization) /
+   `user` (`<ライブラリの置き場>/`, reusable across all projects; existing library-location placeholder) /
+   `builtin` (product repository; promotion via PR). Give guidance: use `local` if project-specific wording/assets remain;
+   use `user` if generalized. Never silently put assets into `builtin`.
 
-1. **when_use** → `when_to_use`: どの scene / 目的で使うか。
-2. **ai_usage**: AI が変えてよい部分、守る部分、禁止する改変。
-3. **license**: SPDX、commercial scope、attribution 要否、AI training 可否。license 不明を既定許可にしない。
-4. **tier**: `free` / `pro` のどちらかを本人に確認する。`pro` と CC0 は組み合わせられない。
-5. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`<ライブラリの置き場>/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
+Reflect answers in `meta.json`. Admit no asset into any layer until its license is established.
 
-回答を `meta.json` に反映する。license が確定しない asset はどの層にも入れない。
+## 4. Generate `preview.png`
 
-## 4. `preview.png` を生成する
+- HTML / CSS: Place fragment in one preview harness, wait for local fonts/images to load, capture with headless Chrome.
+  Seek video timing to a representative time.
+- 3D: Use a representative pose showing model/material/texture. Even if current Three.js live runtime is unfinished,
+  never misrepresent a substitute image as the actual model preview.
+- B-roll / video: Select a representative frame with `ffmpeg`.
+- Audio: Make a preview with readable waveform, title, duration.
+- Thumbnail / still: Fit the original asset into the preview canvas without breaking aspect ratio.
 
-- HTML / CSS: 単一の preview harness へ fragment を置き、local font / image の load を待って headless Chrome で撮る。動画 timing は代表時刻へ seek する。
-- 3D: model、material、texture が読める代表 pose を使う。現行 Three.js live runtime が未整備でも、実物ではない代替画像を model preview と偽らない。
-- B-roll / video: `ffmpeg` で内容を代表する frame を選ぶ。
-- audio: waveform と title / duration を読める preview を作る。
-- thumbnail / still: 元 asset を aspect を壊さず preview canvas へ収める。
+Previews identify contents; do not generate imaginary finished images different from the source.
+Any dimension conventions added in schema or category INDEX take priority.
 
-preview は中身を識別するためのものとし、source と違う架空の完成図を生成しない。schema または category INDEX に寸法規約が追加されていたら、それを優先する。
+## 5. Place in the chosen scope's `assets/<category>/`
 
-## 5. 選ばれたスコープの `assets/<category>/` へ配置する
-
-配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `<ライブラリの置き場>/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v1・validator は同一。最低限、次をそろえる。
+Use **the registration scope established in step 3** at `assets/<category>/<id>/`; do not add hierarchy levels.
+If the scope's actual directory (`local` = project / `shared` = ancestor `.akari/assets/` /
+`user` = `<ライブラリの置き場>/`, existing library-location placeholder) is absent, create it with category and INDEX.md.
+Structure, meta.json v1, and validator are identical across layers. Minimum:
 
 - `meta.json`
 - `preview.png`
-- 実体。HTML 表現は `fragment.html`、ほかは model / media 本体
-- fragment が参照する local dependency
+- Actual files: `fragment.html` for HTML, otherwise model/media files
+- Local dependencies referenced by fragment
 
-同名 directory が既にあれば上書きしない。内容を比較し、更新か新 ID かの明示判断を得る。採用時は library 外への symlink を残さず、package を自己完結させる。
+Never overwrite a same-name directory. Compare contents and obtain an explicit decision to update or use a new ID.
+Leave no symlinks outside the library; make the package self-contained.
 
-## 6. category `INDEX.md` を更新する
+## 6. Update category `INDEX.md`
 
-`assets/<category>/INDEX.md` に、ID 順または既存の並び規則を守って 1 行追加する。
+Add 1 row to `assets/<category>/INDEX.md`, following ID order or existing sorting conventions.
 
 ```text
 <id> — <何で、どんな場面向けかを一文で>
 ```
 
-重複行を作らない。新 category のときだけ `assets/INDEX.md` にもカテゴリ説明を追加する。
+No duplicate rows. Add a category description to `assets/INDEX.md` only for a new category.
 
-## 7. validator で検証する
+## 7. Validate
 
-まず `packages/schemas/bin/validate-asset.mjs` と `packages/schemas/asset-meta.schema.json` の存在、script 内の usage を確認する。現行 usage では、次のように対象 package を渡す。
+First check existence of `packages/schemas/bin/validate-asset.mjs` and `packages/schemas/asset-meta.schema.json`,
+and read script usage. Current usage takes the target package as follows:
 
 ```sh
 node packages/schemas/bin/validate-asset.mjs "assets/<category>/<id>"
 ```
 
-将来 usage が変わっていれば script を正とし、引数を推測しない。失敗時は `meta.json`、最小 3 点、category 一致、relative dependency、INDEX を直し、成功するまで再実行する。
+If usage changes, the script is authoritative; do not guess arguments. On failure, fix `meta.json`, the minimum
+3-file set, category match, relative dependencies, and INDEX; rerun until successful.
 
-script または schema がまだない場合、成功扱いにせず成果報告へ次をそのまま残す。
+If script or schema is absent, do not treat it as success; retain this unchanged in the result report:
 
 ```text
 後で実行: node packages/schemas/bin/validate-asset.mjs（validator / schema 作成後）
 ```
 
-## よくある間違い
+## Common mistakes
 
-- 「きれいにできた」だけで、毎回生成できる単純表現を入庫する。
-- CSS 変数や依存を人へ転記させる。
-- `when_to_use` を `when_use` という非 schema key で保存する。
-- slider の min / max、license、provenance を推測で埋める。
-- CDN や案件 directory への相対参照を残す。
-- 1 asset を複数 category へ複製する。
-- 登録先スコープを聞かず、黙って `builtin`（製品リポ）へ入庫する。
-- プロジェクト固有の文言・画像が残ったまま `user` / `builtin` へ入れて、他プロジェクトで使えない資産を作る。
-- preview を作らず、または実体と違う mock を preview にする。
-- INDEX を更新せず、grep で発見不能にする。
-- validator がない状態を validation pass と報告する。
+- Admitting simple, easily regenerated visuals just because they look nice.
+- Making humans transcribe CSS variables/dependencies.
+- Saving `when_to_use` under non-schema `when_use`.
+- Guessing slider min/max, licenses, or provenance.
+- Leaving CDN references or relative references to project directories.
+- Duplicating 1 asset across multiple categories.
+- Silently admitting into `builtin` without asking scope.
+- Putting project-specific wording/images in `user` / `builtin`, making assets unusable elsewhere.
+- Omitting previews or using mocks different from actual files.
+- Omitting INDEX updates, making assets undiscoverable by grep.
+- Reporting validation pass without a validator.
 
-## 根拠
+## Sources
 
-- 入庫基準、schema、構造、収穫: `docs/contract-2026-07-13-asset-library.md`
-- authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- Admission criteria, schema, structure, harvesting: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md`
+- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)

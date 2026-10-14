@@ -11,6 +11,7 @@ import { VibeDockTabs } from './vibe-dock-tabs';
 import { vibeDockIcon } from './vibe-dock-icons';
 import { VibeDockNotificationOffset } from './vibe-dock-notification-offset';
 import { EarDockController } from './ear-dock-controller';
+import { t } from './vibe-text';
 
 const h = React.createElement;
 
@@ -112,9 +113,9 @@ export class VibeDockWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = VibeDockWidget.ID;
-        this.title.label = 'AKARI バイブ';
+        this.title.label = t('vibe.dock.title.label');
         this.node.setAttribute('data-akari-ui', 'panel:vibe-dock');
-        this.node.setAttribute('data-akari-ui-label', 'AKARI バイブ');
+        this.node.setAttribute('data-akari-ui-label', t('vibe.dock.widget.akariVibeLabel'));
         installStyle();
         const state = this.state;
         this.context = {
@@ -245,7 +246,7 @@ export class VibeDockWidget extends ReactWidget {
         const shown = mode === 'tiny' ? tabs.filter(tab => tab.id === this.selected) : tabs;
         const status = this.state.currentStatus();
         const line = this.state.unavailable ?? status?.line ?? MARK_PRESENTATION[this.state.mark].line;
-        const statusText = this.state.pointedTarget ? `対象: ${this.state.pointedTarget.label}` : line;
+        const statusText = this.state.pointedTarget ? t('vibe.dock.target.status', { name: this.state.pointedTarget.label }) : line;
         const statusLabel = h('span', { className: 'akari-vibe-dock-status', title: statusText }, statusText);
         const statusLine = !this.state.pointedTarget && status?.actions?.length
             ? h('span', { className: 'akari-vibe-dock-status-line' }, statusLabel,
@@ -258,24 +259,24 @@ export class VibeDockWidget extends ReactWidget {
         return h('div', { className: 'akari-vibe-dock', 'data-layout': this.effectiveState },
             showBody && h('div', { className: 'akari-vibe-dock-grip', onPointerDown: this.startResize,
                 onDoubleClick: () => this.state.setLayout(this.state.layout === 'expanded' ? 'open' : 'expanded'),
-                role: 'separator', 'aria-label': '区画の高さ', title: 'ドラッグで高さを変更・ダブルクリックで広げる' }),
+                role: 'separator', 'aria-label': t('vibe.dock.grip.label'), title: t('vibe.dock.grip.hint') }),
             h('div', { className: 'akari-vibe-dock-row' },
                 this.mark(),
-                h('span', { className: 'akari-vibe-dock-tabs', role: 'tablist', 'aria-label': '区画のタブ' }, ...shown.map(tab => this.tabButton(tab))),
+                h('span', { className: 'akari-vibe-dock-tabs', role: 'tablist', 'aria-label': t('vibe.dock.tabs.label') }, ...shown.map(tab => this.tabButton(tab))),
                 h('span', { className: 'akari-vibe-dock-spacer' }),
-                mode === 'full' && this.action('指す', () => this.pointing.toggle(), '指す', false, this.pointing.isActive()),
-                mode !== 'full' && h('button', { className: 'akari-vibe-icon', title: 'その他', 'aria-label': 'その他',
+                mode === 'full' && this.action(t('vibe.dock.point.action'), () => this.pointing.toggle(), t('vibe.dock.point.action'), false, this.pointing.isActive()),
+                mode !== 'full' && h('button', { className: 'akari-vibe-icon', title: t('vibe.dock.more.action'), 'aria-label': t('vibe.dock.more.action'),
                     'aria-expanded': this.overflow, onClick: () => { this.overflow = !this.overflow; this.update(); } }, vibeDockIcon('more'))
             ),
             showBody && h('div', { className: 'akari-vibe-dock-subrow' },
-                h('button', { className: 'theia-button quiet small akari-vibe-auto', title: 'まだ使えません',
-                    'aria-label': '自動（まだ使えません）', 'aria-disabled': true }, '自動'),
-                h('button', { className: 'akari-vibe-icon', title: this.state.layout === 'expanded' ? '元に戻す' : '広げる',
-                    'aria-label': this.state.layout === 'expanded' ? '元に戻す' : '広げる', 'aria-expanded': this.state.layout === 'expanded',
+                h('button', { className: 'theia-button quiet small akari-vibe-auto', title: t('vibe.dock.auto.unavailable'),
+                    'aria-label': t('vibe.dock.auto.label'), 'aria-disabled': true }, t('vibe.dock.auto.action')),
+                h('button', { className: 'akari-vibe-icon', title: this.state.layout === 'expanded' ? t('vibe.dock.restore.action') : t('vibe.dock.expand.action'),
+                    'aria-label': this.state.layout === 'expanded' ? t('vibe.dock.restore.action') : t('vibe.dock.expand.action'), 'aria-expanded': this.state.layout === 'expanded',
                     onClick: () => this.state.setLayout(this.state.layout === 'expanded' ? 'open' : 'expanded') },
                 h('span', { style: { transform: this.state.layout === 'expanded' ? 'rotate(180deg)' : undefined } }, vibeDockIcon('expand'))),
                 statusLine,
-                this.state.pointedTarget && this.action('解除', () => this.state.setPointed(undefined), '対象を外す'),
+                this.state.pointedTarget && this.action(t('vibe.dock.clear.action'), () => this.state.setPointed(undefined), t('vibe.dock.clear.hint')),
                 !this.state.pointedTarget && status?.action && h('button', { className: 'theia-button secondary small',
                     title: status.action.label, 'aria-label': status.action.label, onClick: () => void status.action?.run() }, status.action.label)),
             this.overflow && h('div', { className: 'akari-vibe-overflow' },
@@ -283,8 +284,8 @@ export class VibeDockWidget extends ReactWidget {
                     key: tab.id, className: 'theia-button quiet small', title: tab.label, 'aria-label': tab.label,
                     onClick: () => this.selectTab(tab.id)
                 }, vibeDockIcon(tab.icon), tab.label)) : []),
-                mode !== 'full' && this.action('指す', () => { this.overflow = false; this.pointing.toggle(); this.update(); }),
-                !showBody && this.action('開く', () => this.state.setLayout('open'))
+                mode !== 'full' && this.action(t('vibe.dock.point.action'), () => { this.overflow = false; this.pointing.toggle(); this.update(); }),
+                !showBody && this.action(t('vibe.dock.open.action'), () => this.state.setLayout('open'))
             ),
             showBody && h('div', { className: 'akari-vibe-dock-body', ref: this.setTabHost })
         );

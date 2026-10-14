@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /** Node-only helpers. Never import this module from a browser entry point. */
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -29,7 +30,7 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function credentialEnvName(provider: ConnectionProvider): string {
     const match = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/.exec(provider.env ?? '');
-    if (provider.auth !== 'env-key' || !match) { throw new Error('未対応の接続です。'); }
+    if (provider.auth !== 'env-key' || !match) { throw new Error(t('surfaces.connections.credentialEnvNameUnsupportedConnection.message')); }
     return match[1];
 }
 
@@ -59,15 +60,15 @@ export function readCredentials(filePath: string): CredentialState {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
             return { exists: false, secure_permissions: false, values: new Map() };
         }
-        throw new Error('資格情報ファイルを読めません。');
+        throw new Error(t('surfaces.connections.readCredentialsUnableReadCredentialsFile.message'));
     }
 }
 
 /** Preserve every unrelated line, including comments, blank lines and CRLF. Remove duplicate target assignments. */
 export function updateCredentialSource(source: string, name: string, value: string | null): string {
-    if (!ENV_NAME.test(name)) { throw new Error('資格情報の名前が不正です。'); }
+    if (!ENV_NAME.test(name)) { throw new Error(t('surfaces.connections.credentialSourceNameCredentialInvalid.message')); }
     if (value !== null && (typeof value !== 'string' || !value || value.trim() !== value || (/[\s'"`]/u.test(value) || Array.from(value).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)))) {
-        throw new Error('鍵は空白や改行・引用符を含まない 1 行で入力してください。');
+        throw new Error(t('surfaces.connections.credentialSourceEnterKeyOneLineWithoutSpacesLine.message'));
     }
     const newline = source.includes('\r\n') ? '\r\n' : '\n';
     const lines = source.match(/[^\n]*\n|[^\n]+$/g) ?? [];
@@ -104,7 +105,7 @@ export function writeCredential(filePath: string, name: string, value: string | 
         temporary = undefined;
         fs.chmodSync(filePath, 0o600);
     } catch {
-        throw new Error('資格情報を保存できません。入力と保存先の権限を確認してください。');
+        throw new Error(t('surfaces.connections.writeCredentialSaveCredentialsCheckInputDestinationPermissions.message'));
     } finally {
         if (temporary) { try { fs.unlinkSync(temporary); } catch { /* Do not expose filesystem errors. */ } }
     }
@@ -116,7 +117,7 @@ export function maskedTail(value: string | undefined): string | null {
 }
 
 export function unconfiguredDoctor(): ConnectionDoctor {
-    return { status: 'unconfigured', detail: '未登録', last_checked: null };
+    return { status: 'unconfigured', detail: t('surfaces.connections.unconfiguredDoctorRegistered.label'), last_checked: null };
 }
 
 export function formatConnections(
@@ -137,7 +138,7 @@ export function formatConnections(
                 description: provider.notes.description, setup_url: provider.notes.setup_url, env_name,
                 configured: !!secret, masked_tail: maskedTail(secret),
                 source: state.sources?.[env_name],
-                doctor: secret ? doctors.get(provider.id) ?? { status: 'unchecked', detail: '未確認', last_checked: null } : unconfiguredDoctor()
+                doctor: secret ? doctors.get(provider.id) ?? { status: 'unchecked', detail: t('surfaces.connections.formatConnectionsUnknown.label'), last_checked: null } : unconfiguredDoctor()
             };
         });
 }
@@ -146,12 +147,12 @@ export async function checkCredential(filePath: string, name: string, adapter?: 
     const secret = readCredentials(filePath).values.get(name);
     if (!secret) { return unconfiguredDoctor(); }
     const last_checked = new Date().toISOString();
-    if (!adapter) { return { status: 'unchecked', detail: '無償・読み取り専用の確認に未対応です。', last_checked }; }
+    if (!adapter) { return { status: 'unchecked', detail: t('surfaces.connections.checkCredentialFreeReadConfirmationSupported.message'), last_checked }; }
     try {
         const doctor = await adapter(secret, last_checked);
         return safeDoctor(doctor, secret, last_checked);
     } catch {
-        return { status: 'unchecked', detail: '接続を確認できませんでした。', last_checked };
+        return { status: 'unchecked', detail: t('surfaces.connections.checkCredentialConnectionVerified.message'), last_checked };
     }
 }
 
@@ -161,13 +162,13 @@ export async function setCredentialAndCheck(
 ): Promise<SetCredentialResult> {
     writeCredential(filePath, name, value);
     let doctor: ConnectionDoctor;
-    try { doctor = await check(); } catch { doctor = { status: 'unchecked', detail: '接続を確認できませんでした。', last_checked: new Date().toISOString() }; }
+    try { doctor = await check(); } catch { doctor = { status: 'unchecked', detail: t('surfaces.connections.credentialAndCheckConnectionVerified.message'), last_checked: new Date().toISOString() }; }
     return { ok: true, masked_tail: maskedTail(value), doctor: safeDoctor(doctor, value, new Date().toISOString()) };
 }
 
 export function safeDoctor(doctor: ConnectionDoctor, secret: string, last_checked: string): ConnectionDoctor {
     // Do not pass through arbitrary adapter fields or reflected secrets.
     const status = ['ok', 'unauthorized', 'unconfigured', 'unchecked', 'setup_required'].includes(doctor?.status) ? doctor.status : 'unchecked';
-    const detail = typeof doctor?.detail === 'string' && !doctor.detail.includes(secret) ? doctor.detail : '接続結果を表示できません。';
+    const detail = typeof doctor?.detail === 'string' && !doctor.detail.includes(secret) ? doctor.detail : t('surfaces.connections.safeDoctorUnableDisplayConnectionResults.message');
     return { status, detail, last_checked };
 }

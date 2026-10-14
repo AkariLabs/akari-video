@@ -1,19 +1,16 @@
-# 分析収集と統合ワークフロー
+# Analysis collection and integration workflow
 
-## 原則
+## Principle
 
-素材ごとの観察と、素材横断の編集判断を分離する。各分析はその素材だけを扱い、統合エージェントだけがサムネイル、方向性、カット、素材計画を比較する。
+Separate per-asset observation from editing decisions across assets. Each analysis covers only its own asset; only the integration agent compares thumbnails, direction, cuts, and asset plans.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
 
-## 1. 入力と出力先を固定する
+## 1. Fix inputs and output location
 
-入力として、素材パス、既存 `analysis.json`、希望する出力先を列挙する。出力先の指定がなければ、素材群の共通プロジェクトディレクトリ直下の `edit-plan/` を提案し、採用理由を完了報告に残す。別プロジェクトの既存レポートや `decision-log.md` を混ぜない。
+List asset paths, existing `analysis.json` files, and the requested output location. If none is specified, propose `edit-plan/` directly under the assets' shared project directory and explain the choice in the completion report. Do not mix in reports or `decision-log.md` from another project.
 
-標準出力は次の形とする（2026-07-22 改訂: `editing-report.html` は生成しない。分析レポートは
-[analyze-project](../analyze-project/SKILL.md) がプロジェクト直下に作る `analysis-report.html` を
-指し、edit-plan はそれを読む側になる）。
+Use this standard output structure (2026-07-22 revision: do not generate `editing-report.html`. The analysis report is `analysis-report.html`, created by [analyze-project](../analyze-project/SKILL.md) directly under the project; edit-plan reads it).
 
 ```text
 <plan-dir>/
@@ -22,24 +19,17 @@
 └── overlays/                  # collaborative では実行承認後・それ以外は出力ルールで書く
 ```
 
-判断記録の派生描画は `<project>/.akari/reports/decision-log-report.html` に置く
-（project-structure-v0 のレポート層。[report-guide §decision_log](report-guide.md#decision_log)）。
+`decision-log.md` is shared with analyze-project and is append-only. Write `edit.json` and `overlays/` after execution approval in collaborative mode; in other modes, follow the output rules.
 
-生成した静止画等の原本は `<project>/assets/generated/`（`<plan-dir>/` の外、プロジェクト
-直下の `assets/` 配下）に置く（2026-08-12 改訂 — 素材パネルの守備範囲に入れるための変更。
-旧 `<plan-dir>/generated/` からの置き場変更であり、既存プロジェクトの `<plan-dir>/generated/`
-は移設しない）。provenance は再検証できるよう残す。方針・素材計画の証拠は analyze-project の
-分析レポート（読み取り専用・自己完結 HTML）を参照する。生成は必ずプロジェクト内で行い、
-プロジェクト外のパスへ書き出さない。
+Place the derived decision-record rendering at `<project>/.akari/reports/decision-log-report.html` (the project-structure-v0 report layer; [report-guide §decision_log](report-guide.md#decision_log)).
 
-## Checkpoint 1 後の cut candidate bridge
+Place originals of generated stills and other assets in `<project>/assets/generated/` (under project-root `assets/`, outside `<plan-dir>/`). This 2026-08-12 revision brings them within the asset panel's scope. It replaces `<plan-dir>/generated/` for new assets; do not move existing projects' `<plan-dir>/generated/`. Keep provenance re-verifiable. Use analyze-project's read-only, self-contained HTML analysis report as evidence for the direction and asset plan. Always generate inside the project; do not write to paths outside it.
 
-Checkpoint 1 で human-approved になった semantic keep 順序を、専用 derived input
-`.akari/work/semantic-keep-plan.json` に写す。これは `edit.json` でも新しい編集正本でもない。
-v0 は source 1 件・`id:null`、v1 は unique string id とし、`occurrences[]` の順を出力順として
-`explicit` または `full_source` range を記録する。speed、track、timeline `at` は発明しない。
+## Cut candidate bridge after Checkpoint 1
 
-次の helper を、解決済み edit-plan skill から直接呼ぶ。
+Copy the human-approved semantic keep order from Checkpoint 1 to the dedicated derived input `.akari/work/semantic-keep-plan.json`. This is neither `edit.json` nor a new editing SSOT. v0 uses one source and `id:null`; v1 uses unique string ids. Record `explicit` or `full_source` ranges, with `occurrences[]` order as output order. Do not invent speed, track, or timeline `at`.
+
+Call the following helper directly from the resolved edit-plan skill.
 
 ```sh
 node <resolved-edit-plan-skill>/bin/propose-cut-candidates.mjs \
@@ -49,101 +39,70 @@ node <resolved-edit-plan-skill>/bin/propose-cut-candidates.mjs \
   --approval-ref checkpoint-1/<subject>/<yyyy-mm-dd> [--write]
 ```
 
-`--write` なしは canonical report を stdout へ出す。`--write` は同じ stdout bytes を保ったまま
-`.akari/reports/cut-candidates/<sha256>.json` に content-addressed copy を置く。`--apply` は存在しない。
-report の `semantic_event_review` と `pause_shortening_review` は全件 `REVIEW_REQUIRED` であり、
-0.10 / 0.166667 / 0.30 秒 classification も採用判断ではなく根拠付き候補である。
+Without `--write`, print the canonical report to stdout. `--write` preserves identical stdout bytes and places a content-addressed copy at `.akari/reports/cut-candidates/<sha256>.json`. There is no `--apply`. Every `semantic_event_review` and `pause_shortening_review` in the report is `REVIEW_REQUIRED`; 0.10 / 0.166667 / 0.30-second classifications are evidence-backed candidates, not acceptance decisions.
 
-report を提示して候補ごとの keep/drop、classification 修正、情報保持、画面操作待ちを確認する。
-採否は人間の明示回答に基づいて append-only `decision-log.md` へ別途追記する。helper の成功、
-report の存在、過去の包括承認を Checkpoint 3 とみなさない。
-Checkpoint 3 後に候補を反映した版も、[execution.md](execution.md) の `POST_CUT_ASR_REVIEW`、
-`POST_CUT_INFORMATION_RETENTION`、`POST_CUT_UI_TIMING_REVIEW`、`POST_CUT_AUDIO_BOUNDARY_REVIEW` を
-人間が同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまでは完成へ進めない。
+Present the report and confirm keep/drop for each candidate, classification corrections, information retention, and waits for UI actions. Separately append accept/reject decisions to append-only `decision-log.md` based on explicit human answers. Helper success, report existence, and earlier blanket approvals do not constitute Checkpoint 3. Even for a version with candidates applied after Checkpoint 3, do not advance to completion until a human checks `POST_CUT_ASR_REVIEW`, `POST_CUT_INFORMATION_RETENTION`, `POST_CUT_UI_TIMING_REVIEW`, and `POST_CUT_AUDIO_BOUNDARY_REVIEW` from [execution.md](execution.md) in the same version and explicitly approves `HUMAN_APPLY_GATE`.
 
-## 2. 素材の有無で分岐する
+## 2. Branch by media availability
 
-### 録画素材がある場合
+### When recorded footage exists
 
-素材ごとに次の順で既存分析を探す。
+For each asset, search for existing analysis in this order.
 
-1. ユーザーが明示した `analysis.json`
+1. User-specified `analysis.json`
 2. `<source-dir>/analysis/<source-stem>/analysis.json`
-3. 素材専用ディレクトリであると確認できる場合だけ `<source-dir>/analysis/analysis.json`
+3. `<source-dir>/analysis/analysis.json` only when the directory is confirmed to be dedicated to that asset
 
-相対 `source`、`keyframes[].path`、`tracks.person_matte` は、それぞれの `analysis.json` 所在ディレクトリを基準に解決する。パス文字列を分析レポートや `decision-log.md` の場所から解決し直さない。
+Resolve relative `source`, `keyframes[].path`, and `tracks.person_matte` against the directory containing each `analysis.json`. Do not re-resolve those strings relative to the analysis report or `decision-log.md`.
 
-有効な分析がない素材は、1 素材 = 1 サブエージェントとして `analyze-footage` を実行する。複数素材なら、利用可能なサブエージェントへ同時に割り当ててから全件を待つ。各依頼には source の絶対パス、リポジトリルート、[analyze-footage](../analyze-footage/SKILL.md) を渡し、他素材や共有成果物を編集させない。逐次実行へ変えた場合は理由を報告する。
+For assets without valid analysis, run `analyze-footage` with one subagent per asset. For multiple assets, assign them concurrently to available subagents and then wait for all. Give each request the source's absolute path, repository root, and [analyze-footage](../analyze-footage/SKILL.md); do not let it edit other assets or shared outputs. If switching to sequential execution, report why.
 
-既存分析を再利用するときも `source` が対象素材を指すことを確認する。新旧判定に必要な hash や解析日時は v0 Schema にないため、鮮度を推測しない。素材が更新された疑いがあれば再分析するか、人間へ差分を示す。
+When reusing analysis, verify that `source` refers to the target asset. The v0 schema lacks hashes and analysis times for freshness checks; do not guess freshness. If an asset may have changed, reanalyze it or show the difference to the human.
 
-### 素材がゼロの場合
+### When there is no media
 
-`analysis.json` を捏造しない。「リサーチ → 台本 → 生成計画」モードとし、録画素材がないこと・
-採用した根拠・台本の版をチャットで提示し、`decision-log.md` に記録する（analyze-project は
-素材の analysis.json を前提とするスキルであり、素材ゼロのこの分岐では使わない）。構成ビートを
-決めたら [generate-media の still.md](../generate-media/still.md) へ進み、文字カードまたは Codex 静止画で
-仮枠を作る。仮枠は edit.json v2 のタイムライン上の静止画 media item + 素材の隣の
-`<path>.meta.json` で、尺は cuts が持つ。静止画のまま完成品にしてよく、動かすクリップだけを
-generate-media の video.md へ進める。生成後に複数クリップとなる場合も、実行時には
-[execution.md](execution.md) §1 の source 構成規則を適用する。
+Do not invent `analysis.json`. Use a "research → script → generation plan" mode; present the absence of recorded media, evidence used, and script version in chat and record them in `decision-log.md` (analyze-project assumes asset analysis.json and is not used in this zero-media branch). Once structural beats are decided, proceed to [generate-media's still.md](../generate-media/still.md) and create placeholders with text cards or Codex stills. A placeholder is a still media item on the edit.json v2 timeline plus `<path>.meta.json` beside the asset; cuts hold its duration. Stills may remain the final result. Send only clips needing motion to generate-media's video.md. If generation yields multiple clips, apply the source-structure rules in [execution.md](execution.md) §1 at execution.
 
-## 3. 各 analysis.json を検証する
+## 3. Validate each analysis.json
 
-[analysis.schema.json](../../packages/schemas/analysis.schema.json) を Draft 2020-12 対応 validator で検証する。validator を得るための無断ネットワーク導入はしない。併せて次を確認する。
+Validate against [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) with a Draft 2020-12-capable validator. Do not install a validator over the network without permission. Also check:
 
-- `source` と全 keyframe path が解決できる。
-- すべての区間で `end > start`、時刻が source duration 内である。
-- face box の `x + width <= 1`、`y + height <= 1` が成立する。
-- transcript、event、track の speaker ID が矛盾しない。
-- `transcript: []` が「無発話」なのか「文字起こし未取得」なのか、分析エージェントの報告で区別できる。
+- `source` and every keyframe path resolve.
+- Every interval has `end > start`, with times within source duration.
+- Face boxes satisfy `x + width <= 1` and `y + height <= 1`.
+- Speaker IDs in transcripts, events, and tracks are consistent.
+- The analysis agent's report distinguishes whether `transcript: []` means no speech or transcription not obtained.
 
-不正な分析を黙って修復して統合しない。再分析、当該素材の除外、根拠不足のまま限定利用、の得失を示し、人間の選択を `decision-log.md` に追記する。
+Do not silently repair and integrate invalid analysis. Explain the tradeoffs of reanalysis, excluding the asset, or limited use with insufficient evidence, and append the human's choice to `decision-log.md`.
 
-## 4. 素材横断の証拠索引を作る
+## 4. Build a cross-asset evidence index
 
-素材 ID、source path、duration、transcript 区間、keyframe、event を対応付ける表を作る。チャット提示や `decision-log.md` から参照できる安定した ID を割り当て、引用箇所を明確にする。
+Build a table relating asset ID, source path, duration, transcript intervals, keyframes, and events. Assign stable IDs usable from chat and `decision-log.md`, making each evidence citation unambiguous.
 
-カット候補は source ごとに keep/drop と根拠 event を作る。この時点では `edit.json` を作らない。複数素材を 1 本のタイムラインへ並べる順序も、編集方針の承認対象にする。
+For each source, create keep/drop cut candidates with supporting events. Do not create `edit.json` yet. Include the order of multiple assets on one timeline in direction approval.
 
-## 5. チェックポイントを進める
+## 5. Advance through checkpoints
 
-段階の運びは変わらないが、各段階の証拠は「レポートを更新する」のではなく「analyze-project の
-分析レポートを読み、チャットで提示する」形に変わった（[report-guide.md](report-guide.md) 参照）。
+The stage sequence is unchanged, but at each stage read the analyze-project analysis report and present evidence in chat instead of updating a report (see [report-guide.md](report-guide.md)).
 
-Checkpoint 1 の提示に着手する前に、[recipe.md](recipe.md) の recall 手順で
-`~/.akari/recipes/`（`workflow: "edit"`）を確認する。見つかれば出所付きの推奨として添え、
-今回の方針提示を上書きしない（採用は人間の明示宣言があったときだけ）。
+Before preparing the Checkpoint 1 presentation, check `~/.akari/recipes/` (`workflow: "edit"`) using [recipe.md](recipe.md)'s recall procedure. If found, include a sourced recommendation without overriding this direction; adoption requires an explicit human declaration.
 
-1. サムネイル案・編集方針・カット案をチャットで提示し、Checkpoint 1（方針）で停止する。
-2. 承認された方針に沿って素材計画（BGM/字幕/SFX/B ロールの三択）と静止プレビューをチャットで
-   提示し、Checkpoint 2（素材計画）で停止する。
-3. 出力仕様、source 構成の選択（v1 マルチソース / v0 単一 source / 中間マスターへ conform）、生成・conform・overlay の実行一覧を提示し、
-   Checkpoint 3（実行）で停止する。
-4. 承認後だけ `edit.json` と最終 overlay を作る。完了処理として [recipe.md](recipe.md) の
-   freeze 手順を確認し、そのプロジェクトでまだ申し出ていなければ一度だけ（offer-once）
-   レシピ化を人間に申し出る。
+1. Present thumbnail ideas, edit direction, and cut proposals in chat; stop at Checkpoint 1 (direction).
+2. Present the asset plan (three-way BGM/caption/SFX/B-roll choices) and still preview in chat according to the approved direction; stop at Checkpoint 2 (asset plan).
+3. Present output specifications, source-structure choice (v1 multi-source / v0 single source / conform to an intermediate master), and the execution list for generation, conform, and overlays; stop at Checkpoint 3 (execution).
+4. Create `edit.json` and final overlays only after approval. As completion work, check [recipe.md](recipe.md)'s freeze procedure and offer to save a recipe once (offer-once) if this project has not received that offer.
 
-各チェックポイントの承認内容・修正指示は `decision-log.md` へ追記する（既存行は変更・削除
-せず、新しい行を末尾へ追加する）。カット判断一覧（素材 ID・source の start/end・keep/drop・
-根拠 event・理由）と素材計画の三択結果（あれば提案 / なければ生成 / 使わない）は、
-`decision-log.md` の該当 category（`cut`/`material`）の下に一覧として記録し、`edit.json` 生成時
-の一次証拠にする。
+Append approval details and revisions for every checkpoint to `decision-log.md` (never change or delete existing rows; add new rows at the end). Record the cut-decision list (asset ID, source start/end, keep/drop, supporting event, reason) and asset-plan three-way choices (propose if available / generate if absent / do not use) under the relevant `decision-log.md` category (`cut`/`material`) as primary evidence when generating `edit.json`.
 
-## 6. 出力先の補足
+## 6. Output-location details
 
-ad-hoc な検証スクリプトや、統合判断のための一時的な比較・実験生成物は、プロジェクトルート
-直下や `<plan-dir>/` 直下に書かず、`.akari/work/` へ置く
-（[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
-使い捨ての中間物は `.akari/work/tmp/`、計画・生成器・手編集ファイル等の作り直せないものは `.akari/work/keep/` へ置く。
-`decision-log.md`・`edit.json`・`overlays/` 等、正式な生成物の出力先（§1）は変わらない。
-生成した静止画等の原本の出力先は `<project>/assets/generated/`（2026-08-12 改訂。§1 参照）。
+Place ad hoc validation scripts and temporary comparisons or experimental outputs for integrated decisions under `.akari/work/`, not directly in the project root or `<plan-dir>/` ([project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) §1). Put disposable intermediates in `.akari/work/tmp/`; put plans, generators, hand-edited files, and other irreplaceable work in `.akari/work/keep/`. Formal output locations for `decision-log.md`, `edit.json`, `overlays/`, etc. (§1) remain unchanged. Originals of generated stills and similar assets go in `<project>/assets/generated/` (2026-08-12 revision; see §1).
 
-## よくある間違い
+## Common mistakes
 
-- 複数素材を 1 サブエージェントへ渡し、素材ごとの証拠境界を失う。
-- `analysis.json` から見た相対パスを、分析レポートや `decision-log.md` から見た相対パスとして開く。
-- `transcript: []` を無音と断定する。
-- 素材ゼロなのに架空の分析 event を作る。
-- チャットでの提示より先に `edit.json` や最終 overlay を作る。
-- analyze-project の分析レポートを読まずに方針を組み立てる（根拠のない推奨案を作る）。
+- Assigning multiple assets to one subagent and losing per-asset evidence boundaries.
+- Opening paths relative to `analysis.json` as though they were relative to the analysis report or `decision-log.md`.
+- Treating `transcript: []` as proof of silence.
+- Inventing analysis events when there is no media.
+- Creating `edit.json` or final overlays before presenting the plan in chat.
+- Building a direction without reading the analyze-project analysis report, resulting in unsupported recommendations.

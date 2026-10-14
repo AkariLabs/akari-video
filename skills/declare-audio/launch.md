@@ -1,60 +1,49 @@
-# 宣言づけ画面の起動
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
 
-## 1. 起動する
+# Open the declaration timeline
 
+The library normally lives in the workspace's `library/`. Without a workspace, use `~/.akari/assets/`. Confirm the actual path from the first line of `akari-assets list` or `akari assets list`. Below, `<ライブラリの置き場>` denotes that displayed path; audio files are under its `audio/` directory.
+
+## 1. Start the helper
 ```sh
 node packages/audio-library-setup/bin/declare-helper.mjs
 ```
-
-既定のライブラリは `<ライブラリの置き場>/audio`。別の場所を見るときだけ上書きする。
-
+The default audio library is `<ライブラリの置き場>/audio`. Override it only when inspecting a different library.
 ```sh
 node packages/audio-library-setup/bin/declare-helper.mjs \
   --port 0
 ```
-
-起動すると次の 3 行を標準出力に出す。**`HELPER:` の URL をユーザーにそのまま提示して
-ブラウザで開いてもらう**（エージェントが代わりに打つ画面ではない）。
-
+At startup, the helper prints three lines. **Give the person the exact `HELPER:` URL and ask them to open it in their browser.** The person, not the agent, marks the timeline.
 ```
 HELPER: http://localhost:<port>/
 library-root: <ライブラリの置き場>/audio
 保存先: <ライブラリの置き場>/audio/declarations.json
 ```
 
-## 2. 一覧に何が出るか
 
-`library-root` 配下を走査して**トラック単位**で並べる。
+## 2. Understand the track list
 
-- 音声が 1 個だけのディレクトリ → id はディレクトリ名（`my-song/my-song.mp3` → `my-song`）
-- 音声が複数あるディレクトリ（`akari-sounds-bgm/` のようなパック）→ id は各ファイルの stem
-  （`bgm-lofi-085-001.mp3` → `bgm-lofi-085-001`）。これは `catalog.json` / `suggest-bgm` が
-  使うトラック id と同じ粒度である
-- `meta.json` が無いディレクトリでも音声があれば対象（自分で置いた曲も宣言できる）
-- `_` や `.` で始まるディレクトリ（`_quarantine` 等）は対象外
-- 一覧が空なら画面が案内を出す（`akari sounds` で公式ライブラリを入れる／自分の曲を
-  `<ライブラリ>/<曲名>/<曲名>.mp3` の形で置く）
+The helper scans `library-root` and lists individual tracks:
 
-バッジの意味: **宣言済み** = 区間かピンが 1 つ以上ある ／ **パック由来** = 購入した宣言パック等、
-このツール以外が書いた宣言（上書きすると自分の値になる。保存時に `replaced_source` が残る）。
+- In a directory containing one audio file, the ID is the directory name (`my-song/my-song.mp3` → `my-song`).
+- In a directory containing several files, such as `akari-sounds-bgm/`, each file stem becomes an ID (`bgm-lofi-085-001.mp3` → `bgm-lofi-085-001`). This matches the track IDs used by `catalog.json` and `suggest-bgm`.
+- Audio remains eligible even without `meta.json`, so a personally added track can be declared.
+- Ignore directories beginning with `_` or `.`, such as `_quarantine`.
+- If no tracks are found, the screen explains how to install the official library with `akari sounds` or add a track at `<ライブラリ>/<曲名>/<曲名>.mp3`.
 
-## 3. ユーザーへ伝える操作の要点（これだけ言えば足りる）
+Badges mean: `宣言済み` ("declared") indicates at least one section or pin; `パック由来` ("from a pack") indicates a declaration from outside this tool, such as a purchased pack. Replacing it creates a new user declaration and records the prior source in `replaced_source`.
 
-1. トラックを選ぶと **BPM と頭拍を自動推定**する（推定なので ±1〜2 ずれることがある）
-2. **「🥁 クリック音で確認」を ON にして再生** — 宣言した拍でクリックが鳴る。曲のキックと
-   ズレて聞こえたら BPM / 頭拍を直す（`-10ms` `+10ms`、「今の位置を頭拍に」、
-   「タップでテンポ」で 4 回以上叩く）
-3. **区間 = 波形を横にドラッグ**。上の色ボタンで種類を選ぶ。**サビ（drop）は必ず 1 つ**
-4. **ピン = 波形をダブルクリック**（同じ場所をもう一度ダブルクリックで削除）
-5. 拡大はピンチ／ホイール／`ー ＋ 全体` ボタン、移動は 2 本指の横スライドか上のミニマップ
-6. 「保存」を押す
+## 3. Explain the essential controls (this is all you need to say)
 
-## 4. ユーザーへの案内文言（テンプレート）
+1. Selecting a track estimates **BPM and the first downbeat**. Treat the estimate as uncertain; it may be off by 1–2 BPM.
+2. Turn on `🥁 クリック音で確認` ("confirm with click sound") and play the track. If clicks do not align with the kick, adjust BPM or the downbeat with `-10ms`, `+10ms`, `今の位置を頭拍に` ("set current position as downbeat"), or `タップでテンポ` ("tap tempo") at least four times.
+3. Drag across the waveform to mark a section and choose its type with the colored buttons. **Always mark one chorus (drop).** The UI calls that section `サビ・見せ場` ("chorus/highlight").
+4. Double-click the waveform to add an accent pin; double-click that position again to remove it.
+5. Zoom with pinch, wheel, or the `ー ＋ 全体` controls. Pan with a two-finger horizontal gesture or the minimap above.
+6. Press `保存` ("Save").
 
+
+## 4. Example user guidance
 ```text
 宣言づけの画面を開きました: http://localhost:<port>/
 曲を選ぶと BPM と頭拍を自動で推定します（推定なので、まず「🥁 クリック音で確認」を ON にして
@@ -64,10 +53,10 @@ library-root: <ライブラリの置き場>/audio
 打ち終わったら教えてください。保存内容を確認して、提案に効いているか一緒に見ます。
 ```
 
-## よくある間違い
 
-- エージェントが代わりに宣言を打とうとする（**耳で決めるのは人**。ここは案内と検証だけ）
-- 自動推定の値を確認なしで「確定した BPM」として扱う（クリック音での確認を案内する）
-- サーバを `0.0.0.0` にバインドする、ポートを固定して他プロセスと衝突させる（既定の `0` =
-  空きポート自動割り当てのままにする）
-- 保存されていないのに「宣言済み」と報告する（[after-save.md](after-save.md) の確認を通す）
+## Common mistakes
+
+- Marking declarations on the person's behalf. The person decides by listening; the agent guides and verifies.
+- Calling an automatic BPM estimate confirmed before the person checks it against the click; always guide them to verify it with the click sound.
+- Binding the server to `0.0.0.0` or forcing a port that may conflict with another process. Keep the default `0` so an available port is assigned.
+- Reporting a declaration before it is saved and checked using [after-save.md](after-save.md).

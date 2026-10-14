@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { contextMenuPosition } from '../common/context-menu-position';
 import { TimelineClipMenuItem } from '../common/timeline-context-menu-items';
 
@@ -25,7 +26,7 @@ export function withAudioTrimMenuItem(
     const insertAt = deleteIndex >= 0 ? deleteIndex : items.length;
     return [
         ...items.slice(0, insertAt),
-        { id: 'audio-trim', label: 'トリム（in/out）' },
+        { id: 'audio-trim', label: t('annotations.timelineContextMenu.text.trimInOut') },
         ...items.slice(insertAt)
     ];
 }

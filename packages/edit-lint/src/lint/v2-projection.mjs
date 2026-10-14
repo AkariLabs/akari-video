@@ -1,5 +1,7 @@
 import { addFinding, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
-import { areCutsAdjacent, captionsHaveRenderableCues, collectFitBasisCandidates, cutOverlapFrames, findCrossTrackLayerEvacuations, isStillImageSourcePath, planTransitionHandleWindow, withoutItemAnchors } from "./external.mjs";
+import { freezeDurationSeconds } from '../cut-timeline.mjs';
+import { lintText, lintTextWithFallback } from '../i18n.mjs';
+import { areCutsAdjacent, captionsHaveRenderableCues, collectFitBasisCandidates, cutOverlapFrames, findCrossTrackLayerEvacuations, isStillImageSourcePath, planTrackTransitions, transitionPlanClipsFromCuts, withoutItemAnchors } from "./external.mjs";
 
 /**
  * 幾何の統一 G1: `output.geometry` を持たない v2 文書は fit 互換モード（出力へ contain fit した後に
@@ -13,9 +15,14 @@ export function validateGeometryFitCompat(rawEdit, internalEdit, findings) {
   addFinding(findings, {
     severity: "warning",
     check: "geometry.fit-compat",
-    message: "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+    message: lintText('lint-messages.geometry.fit.compat'),
     path: "edit.json#output.geometry",
   });
+}
+
+// 指摘の文に出す秒数。浮動小数点の端数（0.04999999999999999 など）を出さない。
+function secondsLabel(seconds) {
+  return Number(seconds.toFixed(3));
 }
 
 export function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
@@ -23,6 +30,56 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
     .filter(source => isRecord(source) && typeof source.id === "string")
     .map(source => [source.id, source.path]));
   const isStillCut = cut => isStillImageSourcePath(sourcePaths.get(cut?.src) ?? cut?.src);
+  const planCuts = (Array.isArray(cuts) ? cuts : []).map(cut => ({
+    ...cut, transitionOut: cut?.transition_out ?? cut?.transitionOut
+  }));
+  for (const track of transitionPlanClipsFromCuts(planCuts, {
+    fps, resolve: cut => ({ stillImage: isStillCut(cut), freezeSeconds: freezeDurationSeconds(cut?.freeze) })
+  })) {
+    for (const plan of planTrackTransitions(track.clips, { fps, tailRoom: 'ignore' })) {
+      if (plan.legacyOverlap) continue;
+      const earlierIndex = Number(plan.earlierId);
+      const laterIndex = Number(plan.laterId);
+      const earlier = segments.find(segment => segment.index === earlierIndex);
+      const later = segments.find(segment => segment.index === laterIndex);
+      const path = `edit.json#cuts[${earlierIndex}].transition_out`;
+      if (plan.freezeIncomingSeconds > 0) {
+        addFinding(findings, {
+          severity: 'info', check: 'cuts.transition-out.freeze',
+          message: lintText('lint-messages.cuts.transition.freeze',
+            { seconds: secondsLabel(plan.freezeIncomingSeconds) }),
+          path,
+          range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
+        });
+      }
+      if (plan.state === 'ok') continue;
+      if (plan.state === 'none') {
+        addFinding(findings, {
+          severity: 'warning', check: 'cuts.transition-out.zero-overlap',
+          message: lintText('lint-messages.cuts.transition.zeroOverlap'), path,
+          ...(earlier && later ? { range: { start: earlier.end, end: later.start } } : {})
+        });
+      } else {
+        const seconds = plan.effectiveSeconds;
+        const reasonKeys = {
+          'outgoing-length': 'reasonClipLength', 'incoming-length': 'reasonClipLength',
+          'outgoing-room': 'reasonMaterial', 'incoming-room': 'reasonMaterial',
+          neighbor: 'reasonNeighbor', 'too-short': 'reasonTooShort'
+        };
+        const reason = [...new Set(plan.reasons.map(code =>
+          lintText(`lint-messages.cuts.transition.${reasonKeys[code]}`)))].join(', ')
+          || lintText('lint-messages.cuts.transition.reasonMaterial');
+        addFinding(findings, {
+          severity: 'info', check: 'cuts.transition-out.shortened',
+          message: lintTextWithFallback('lint-messages.cuts.transition.shortened',
+            { seconds: secondsLabel(seconds), declared: secondsLabel(plan.declaredSeconds), reason },
+            `Transition shortened from ${secondsLabel(plan.declaredSeconds)} s to ${secondsLabel(seconds)} s (${reason}).`),
+          path,
+          range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
+        });
+      }
+    }
+  }
   for (let position = 0; position < segments.length; position += 1) {
     const earlier = segments[position];
     const transition = cuts?.[earlier.index]?.transition_out;
@@ -34,29 +91,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
       { tlStart: later.start },
       fps,
     );
-    if (overlapFrames === 0) {
-      const outgoingCut = cuts?.[earlier.index];
-      const incomingCut = cuts?.[later.index];
-      const incomingSpeed = isPositiveNumber(incomingCut?.speed) ? incomingCut.speed : 1;
-      const plan = planTransitionHandleWindow({
-        declaredSeconds: transition.duration,
-        outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
-        incomingHeadRoomSeconds: isStillCut(incomingCut)
-          ? Number.POSITIVE_INFINITY : Math.max(0, Number(incomingCut?.in) || 0) / incomingSpeed,
-        outgoingDurationSeconds: Math.max(0, earlier.end - earlier.start),
-        incomingDurationSeconds: Math.max(0, later.end - later.start),
-      });
-      if (plan.effectiveSeconds <= 0) {
-        addFinding(findings, {
-          severity: "warning",
-          check: "cuts.transition-out.zero-overlap",
-          message: "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
-          path: `edit.json#cuts[${earlier.index}].transition_out`,
-          range: { start: earlier.end, end: later.start },
-        });
-      }
-      continue;
-    }
+    if (overlapFrames === 0) continue;
     // 正の重なりは、宣言尺未満なら既存の短縮クランプ、宣言尺超なら track-overlap が担当する。
     if (overlapFrames > 0 || areCutsAdjacent(
       { tlEnd: earlier.end, transitionOut: { duration: transition.duration } },
@@ -66,7 +101,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
     addFinding(findings, {
       severity: "error",
       check: "cuts.transition-out.non-adjacent",
-      message: "transition_out の次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+      message: lintText('lint-messages.cuts.transition.nonAdjacent'),
       path: `edit.json#cuts[${earlier.index}].transition_out`,
       range: { start: earlier.end, end: later.start },
     });
@@ -97,12 +132,12 @@ export function validateTransitionLayerEvacuations(rawEdit, internalEdit, findin
       const location = rawLocations.get(item.id);
       const cause = crossTrackCauses.get(item.id);
       const reason = cause
-        ? `このクリップは他トラックのアイテム（${cause.causeItemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。`
-        : "このクリップは合成機能または同一トラック内の重なりにより PiP 経路へ退避され、宣言したトランジションは書き出されません。";
+        ? lintText('lint-messages.cuts.transition.evacuatedCrossTrack', { id: cause.causeItemId })
+        : lintText('lint-messages.cuts.transition.evacuatedComposite');
       addFinding(findings, {
         severity: "warning",
         check: "cuts.transition-out.layer-evacuated",
-        message: `${reason}重なりを解消するか、トランジションを削除してください。`,
+        message: lintText('lint-messages.cuts.transition.evacuatedGuidance', { reason }),
         path: location
           ? `edit.json#tracks[${location.trackIndex}].items[${location.itemIndex}].source.transition_out`
           : `edit.json#tracks[${track.z}].items`,
@@ -127,7 +162,7 @@ export function validateCaptionTrackDeclaration(rawEdit, captionsRoot, findings)
   addFinding(findings, {
     severity: "warning",
     check: "v2.captions-track-undeclared",
-    message: 'captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { "id": "captions", "name": "字幕", "at": 0, "duration": <出力尺>, "source": { "kind": "captions", "path": "captions.json" }, "items": [] } を追加してください。',
+    message: lintText('lint-messages.captions.track.undeclared'),
     path: "edit.json#tracks",
   });
 }

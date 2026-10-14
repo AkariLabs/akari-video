@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -5,6 +7,13 @@ import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js
 import { initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
+import * as webviewKeydownSourceModule from '../lib/browser/webview-keydown-source.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readCompiledSource('widget').text;
 function method(name, next) {
@@ -14,12 +23,12 @@ function method(name, next) {
 const start = source.indexOf('const keydown = (event) => {');
 const end = source.indexOf('\n        };', start) + '\n        };'.length;
 const keydownCode = source.slice(start, end);
-const createKeydown = new Function('document', 'review_tool_mode_1', 'caption_edit_focus_1', `${keydownCode}; return keydown;`);
+const createKeydown = new Function('document', 'review_tool_mode_1', 'caption_edit_focus_1', 'webview_keydown_source_1', `${keydownCode}; return keydown;`);
 for (const [key, mode] of [['v', 'select'], ['V', 'select'], ['c', 'razor'], ['f', 'frame'], ['a', 'select'], ['b', 'razor']]) {
   test(`key ${key} switches to ${mode}`, () => {
     const widget = { isAttached: true, toolMode: 'other', flushStripRender() {}, isEditableTarget: t => !!t?.editable,
       setToolMode(value) { this.toolMode = value; } };
-    const handler = createKeydown.call(widget, { activeElement: null }, { isImeCompositionKeydown: e => e.isComposing }, { captionEditFocusWithinMarkedWidget });
+    const handler = createKeydown.call(widget, { activeElement: null }, { isImeCompositionKeydown: e => e.isComposing }, { captionEditFocusWithinMarkedWidget }, webviewKeydownSourceModule);
     handler({ key, preventDefault() {}, stopPropagation() {} });
     assert.equal(widget.toolMode, mode);
   });
@@ -30,7 +39,7 @@ for (const changes of [{ key: 'c', metaKey: true }, { key: 'v', ctrlKey: true },
   test(`shortcut guard ${JSON.stringify(changes)}`, () => {
     const widget = { isAttached: true, toolMode: 'select', flushStripRender() {}, isEditableTarget: t => !!t?.editable,
       copySelectedItem() {}, pasteClipboard() {}, setToolMode() { assert.fail('mode changed'); } };
-    const handler = createKeydown.call(widget, { activeElement: changes.active }, { isImeCompositionKeydown: e => e.isComposing }, { captionEditFocusWithinMarkedWidget });
+    const handler = createKeydown.call(widget, { activeElement: changes.active }, { isImeCompositionKeydown: e => e.isComposing }, { captionEditFocusWithinMarkedWidget }, webviewKeydownSourceModule);
     handler({ preventDefault() {}, stopPropagation() {}, ...changes });
     assert.equal(widget.toolMode, 'select');
   });

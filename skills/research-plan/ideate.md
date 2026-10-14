@@ -1,56 +1,51 @@
-# ネタ出しと候補ランキング
+# Generate and rank topic candidates
 
-[SKILL.md](SKILL.md) の実行順 1. からだけ読む。ここでの成果物は `topic.candidates[]`（配列順 = ランキング順、最有力を先頭に置く）と `topic.selected` / `topic.decided_at`（decision-cards の `topic-select` カード確定後にのみ埋める）。
+Read this file only at step 1 of [SKILL.md](SKILL.md). Produce `topic.candidates[]` in ranked order, with the strongest candidate first. Fill `topic.selected` and `topic.decided_at` only after the `topic-select` decision card is confirmed.
 
-## 0. recipe の recall（候補を出す前に一度）
+## 0. Recall a recipe before proposing candidates
 
-候補出しに入る前に、[edit-plan/recipe.md](../edit-plan/recipe.md) の recall 手順と同じ規律で
-`~/.akari/recipes/` を確認する。`workflow: "research"` のレシピだけを対象にし、無ければ
-何もせず通常どおり進む（error にしない）。見つかれば `confirmed`（`target_duration_band` /
-`aspect` / `overlay_kinds` 等）を出所付きの推奨としてチャットで添えるが、**今回の依頼を
-上書きせず**、候補出し・競合調査・日本語 SNS 事情確認などの必須工程をスキップさせない。
-採用は人間が「前回と同じで」等を明示したときだけ、対応フィールドを一括で反映してよい。
+Before generating candidates, check `~/.akari/recipes/` using the recall procedure in [edit-plan/recipe.md](../edit-plan/recipe.md). Consider only recipes marked `workflow: "research"`. If none exists, proceed normally without an error. If one exists, present its `confirmed` values, such as `target_duration_band`, `aspect`, and `overlay_kinds`, as sourced recommendations in chat. **Do not let a recipe override this request** or skip candidate generation, competitor research, or the required review of Japanese social platforms. Apply the corresponding fields together only when the person explicitly asks to reuse the previous setup, for example by saying "same as last time."
 
-## 1. 候補を出す
+## 1. Propose candidates
 
-依頼の主題・チャンネルの既存傾向・[competitor.md](competitor.md) / [trends.md](trends.md) の途中知見があればそれも踏まえ、候補を複数（目安 3〜7 件）出す。候補ゼロや 1 件だけで確定しない。根拠のない候補を「調査済み」と偽らない — 依頼文脈からの推測は推測と明記する。
+Propose several topics, normally 3–7, based on the request, the channel's existing direction, and any findings already available from [competitor.md](competitor.md) or [trends.md](trends.md). Do not settle on zero or one candidate. Distinguish an inference from the request from a researched finding; never call an unsupported candidate "researched."
 
-各候補に次を記録する。
+Record these fields for each candidate:
 
-- `id`: 候補を指す短い識別子（他の候補と重複しない）
-- `title`: 動画の仮タイトル
-- `category`: 下記の分類
-- `monetization_potential`: `high` / `medium` / `low`
-- `rationale`: 分類・収益ポテンシャルの判断根拠。トレンド調査で得た知見を使った場合は根拠に含め、出典は `sources[]` に記録する
+- `id`: A short identifier unique among the candidates.
+- `title`: A working video title.
+- `category`: The classification described below.
+- `monetization_potential`: `high`, `medium`, or `low`.
+- `rationale`: The reasons for the classification and monetization assessment. Include any trend finding used as evidence and record its source in `sources[]`.
 
-## 2. Hub/Hero/Help で分類する
+## 2. Classify as Hub, Hero, or Help
 
-チャンネル運用でよく使われる 3 分類の型を使う。
+Use these three common channel-planning categories:
 
-- **Hub**: 定期配信でファン化・関係構築を狙う企画。単体の収益貢献は弱くてよい
-- **Hero**: 話題性・拡散を狙う一点突破企画。バズれば新規流入が跳ねるが再現性は低い
-- **Help**: 検索・具体的な悩み解決を狙う企画。息の長い流入源になりやすい
+- **Hub:** A recurring format that builds a relationship with viewers. An individual installment need not generate much revenue.
+- **Hero:** A distinctive event or concept intended to attract attention and spread widely. It can bring a surge of new viewers, but is hard to repeat.
+- **Help:** A searchable answer to a specific problem. It can attract viewers over a longer period.
 
-3 分類のバランスを見て、既存チャンネルに欠けている分類があれば `rationale` にその旨を書く。全候補が同じ分類に偏っている場合も黙って進めず、理由を残す。
+Check the balance among the three categories. If the existing channel lacks one, note that in `rationale`. If every proposed topic falls into the same category, record why instead of proceeding silently.
 
-## 3. 収益化ポテンシャル軸でランキングする
+## 3. Rank by monetization potential
 
-`monetization_potential` は次のような観点の合成で判断し、`rationale` にどの観点を重く見たかを書く。厳密な数式は持たない（v0 は推定ランキングまでで、実データ連携は非スコープ）。
+Assess `monetization_potential` using the factors below, and explain in `rationale` which factors mattered most. There is no strict formula: v0 produces an estimated ranking without linking actual performance data.
 
-- 広告主・商材との親和性（レビュー導線・アフィリエイト導線が作りやすいか）
-- 息の長さ（季節性・一過性のトレンド依存か、通年で効くか）
-- 制作コストとの釣り合い（収録・生成の手間に見合うリターンか）
-- 既存チャンネル資産との相乗効果（過去動画・登録者属性と噛み合うか）
+- Fit with advertisers or products, including review and affiliate opportunities.
+- Longevity: whether interest is seasonal or fleeting, or remains useful year-round.
+- Return relative to production effort, including recording and generation costs.
+- Fit with the channel's existing videos and subscriber audience.
 
-ランキングは `topic.candidates[]` の配列順で表現する（`rank` フィールドは持たない）。最有力候補を先頭に置き、レポートの候補ネタランキング表もこの順で描画する。
+Represent ranking by the order of `topic.candidates[]`; there is no `rank` field. Put the strongest candidate first, and render the report's ranked topic table in the same order.
 
-## 4. 承認を受けるまで確定しない
+## 4. Wait for approval before selecting a topic
 
-`topic.selected` / `topic.decided_at` は [SKILL.md](SKILL.md) の `topic-select` 決定カードが確定する（`completedAt` 非 null、またはチャット明示承認）までは書かない。AI 推奨（配列先頭の候補）を `data-default="true"` にした候補選択カードを用意し、人間の選択がそのまま候補になる設計にする。
+Do not write `topic.selected` or `topic.decided_at` until the `topic-select` card in [SKILL.md](SKILL.md) is complete: `completedAt` is non-null, or explicit chat approval has been received. Mark the first, AI-recommended candidate with `data-default="true"` on the selection card, then record the person's actual choice.
 
-## よくある間違い
+## Common mistakes
 
-- 候補を 1 件だけ出して「これで確定」と即断する。
-- Hub/Hero/Help の分類根拠を書かず、ラベルだけ貼る。
-- `monetization_potential` を勘だけで決め、`rationale` に判断材料を残さない。
-- 承認前に `topic.selected` を仮埋めし、後から書き換える運用にする（承認ゲートの意味が消える）。
+- Offering a single candidate and treating it as approved.
+- Assigning Hub, Hero, or Help without explaining the classification.
+- Choosing `monetization_potential` by intuition alone without evidence in `rationale`.
+- Temporarily filling `topic.selected` before approval and changing it afterward, which defeats the approval gate.

@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { captionRunOmittedNotice } from '../lib/common/caption-run-style-notice.js';

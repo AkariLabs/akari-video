@@ -1,9 +1,10 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult, TimelineCutSelection } from '../../timeline-selection-model';
 import { composeInspectorSections } from '../section-model';
 import { GENERATION_SECTION_ID, type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, formatDecimal1, withDefaultNumber } from './shared-helpers';
-import { cutTransitionFields, cutFramingFields, cutFreezeFields } from './transform-fields';
+import { cutFramingFields, cutFreezeFields } from './transform-fields';
 import { MOTION_FIELDS, MOTION_SUMMARY_SECTION, MOTION_EMPTY_SECTION } from './motion-sections';
 
 export function CUT_SECTIONS(
@@ -14,17 +15,17 @@ export function CUT_SECTIONS(
 ): InspectorSection[] {
     const photoItemId = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? snapshot.itemId : undefined;
     const photoFrameFields: InspectorFieldDef<TimelineCutSelection>[] = photoItemId ? [{
-        name: 'photo-frame-width', label: '枠線の太さ', inputKind: 'scrub-number', unit: 'px', min: 0, max: 100,
+        name: 'photo-frame-width', label: t('inspector.cutSections.label.frameLineThickness'), inputKind: 'scrub-number', unit: 'px', min: 0, max: 100,
         getValue: () => String(snapshot.frame?.stroke?.width ?? 0),
         write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
             path: 'frame.stroke.width', value: Number(value) })
     }, {
-        name: 'photo-frame-color', label: '枠線の色', inputKind: 'color',
+        name: 'photo-frame-color', label: t('inspector.cutSections.label.frameLineColor'), inputKind: 'color',
         getValue: () => snapshot.frame?.stroke?.color ?? '#ffffff',
         write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
             path: 'frame.stroke.color', value })
     }, {
-        name: 'photo-frame-radius', label: '角の丸み', inputKind: 'scrub-number', unit: '%', min: 0, max: 100,
+        name: 'photo-frame-radius', label: t('inspector.cutSections.label.cornerRound'), inputKind: 'scrub-number', unit: '%', min: 0, max: 100,
         getValue: () => String(snapshot.frame?.cornerRadius ?? 0),
         write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
             path: 'frame.cornerRadius', value: Number(value) })
@@ -37,7 +38,7 @@ export function CUT_SECTIONS(
             inputKind: 'scrub-number', scrubStep: 1, liveField: 'x',
             write: async (_snapshot, nextValue) => {
                 const parsed = Number(nextValue);
-                if (!Number.isFinite(parsed)) return { ok: false, message: 'X は有限数値で入力してください。' };
+                if (!Number.isFinite(parsed)) return { ok: false, message: t('inspector.cutSections.error.invalidX') };
                 return requestWrite({ kind: 'cut-transform-x', index: snapshot.index, value: parsed });
             },
             reset: () => requestWrite({ kind: 'cut-transform-x', index: snapshot.index, value: null })
@@ -49,31 +50,31 @@ export function CUT_SECTIONS(
             inputKind: 'scrub-number', scrubStep: 1, liveField: 'y',
             write: async (_snapshot, nextValue) => {
                 const parsed = Number(nextValue);
-                if (!Number.isFinite(parsed)) return { ok: false, message: 'Y は有限数値で入力してください。' };
+                if (!Number.isFinite(parsed)) return { ok: false, message: t('inspector.cutSections.error.invalidY') };
                 return requestWrite({ kind: 'cut-transform-y', index: snapshot.index, value: parsed });
             },
             reset: () => requestWrite({ kind: 'cut-transform-y', index: snapshot.index, value: null })
         },
         {
-            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            name: 'transform-scale', label: t('inspector.cutSections.label.scale'), unit: '%', removable: true,
             getValue: () => String((snapshot.transform?.scale ?? 1) * 100),
             getEditValue: () => String((snapshot.transform?.scale ?? 1) * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
             write: async (_snapshot, nextValue) => {
                 const parsed = Number(nextValue) / 100;
-                if (!Number.isFinite(parsed) || parsed <= 0) return { ok: false, message: '拡縮は正の数で入力してください。' };
+                if (!Number.isFinite(parsed) || parsed <= 0) return { ok: false, message: t('inspector.cutSections.message.enterNumberExtensions') };
                 return requestWrite({ kind: 'cut-scale', index: snapshot.index, value: parsed });
             },
             reset: () => requestWrite({ kind: 'cut-scale', index: snapshot.index, value: null })
         },
         {
-            name: 'transform-rotate', label: '回転', unit: '°', removable: true,
+            name: 'transform-rotate', label: t('inspector.cutSections.label.rotation'), unit: '°', removable: true,
             getValue: () => String(snapshot.transform?.rotate ?? 0),
             getEditValue: () => String(snapshot.transform?.rotate ?? 0),
             inputKind: 'scrub-number', scrubStep: 0.1, liveField: 'rotate',
             write: async (_snapshot, nextValue) => {
                 const parsed = Number(nextValue);
-                if (!Number.isFinite(parsed)) return { ok: false, message: '回転は有限数値で入力してください。' };
+                if (!Number.isFinite(parsed)) return { ok: false, message: t('inspector.cutSections.message.enterRotationAlValue') };
                 return requestWrite({ kind: 'cut-rotate', index: snapshot.index, value: parsed });
             },
             reset: () => requestWrite({ kind: 'cut-rotate', index: snapshot.index, value: null })
@@ -81,60 +82,59 @@ export function CUT_SECTIONS(
     ];
     return composeInspectorSections([
         {
-            id: 'time', label: '時間', fields: [
-                { name: 'output-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
+            id: 'time', label: t('inspector.cutSections.label.time'), fields: [
+                { name: 'output-start', label: t('inspector.cutSections.label.outputPosition'), getValue: () => formatTimestamp(snapshot.outputStart) },
                 // Same source extensions as isStillImageCut; empty/planned frames are PNG cards.
                 /\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {
-                    name: 'duration', label: '長さ', unit: '秒',
+                    name: 'duration', label: t('inspector.cutSections.label.length'), unit: t('inspector.cutSections.unit.seconds'),
                     getValue: () => String(snapshot.outputEnd - snapshot.outputStart),
                     getEditValue: () => String(snapshot.outputEnd - snapshot.outputStart),
                     inputKind: 'scrub-number', scrubStep: 0.5, displayPrecision: 1, min: 0.5,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed)) return { ok: false, message: '長さは有限数で入力してください。' };
+                        if (!Number.isFinite(parsed)) return { ok: false, message: t('inspector.cutSections.message.enterLengthProductLimitedNumber') };
                         return requestWrite({ kind: 'cut-source-out', index: snapshot.index,
                             value: Math.round(parsed * 10) / 10 });
                     }
-                } : { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
-                ...cutTransitionFields(snapshot, requestWrite)
+                } : { name: 'duration', label: t('inspector.cutSections.label.duration'), getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'transform', label: t('inspector.cutSections.label.transform'), fields: transformFields },
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
         ...(snapshot.itemId && snapshot.durationFrames ? (() => {
             const fields = MOTION_FIELDS({ id: snapshot.itemId, durationFrames: snapshot.durationFrames,
                 motion: snapshot.motion }, requestWrite);
-            return ([['draw', '動きを描く'], ['in', '登場'], ['loop', '強調'], ['out', '退場']] as const)
+            return ([['draw', t('inspector.cutSections.label.movement')], ['in', t('inspector.cutSections.label.entrance')], ['loop', t('inspector.cutSections.label.emphasis')], ['out', t('inspector.cutSections.label.exit')]] as const)
                 .map(([slot, label]) => ({ id: `motion:${slot}`, label,
                     fields: fields.filter(field => slot === 'draw' ? field.name === 'motion-draw'
                         : field.name?.startsWith(`motion-${slot}-`)) }))
                 .filter(section => section.fields.length > 0);
         })() : [MOTION_EMPTY_SECTION()]),
-        { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
-        { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
-        ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
+        { id: 'framing', label: t('inspector.cutSections.label.framing'), fields: cutFramingFields(snapshot, requestWrite) },
+        { id: 'freeze', label: t('inspector.cutSections.label.freeze'), fields: cutFreezeFields(snapshot, requestWrite) },
+        ...(generation ? [{ id: GENERATION_SECTION_ID, label: t('inspector.cutSections.label.generate'), fields: generation }] : []),
         {
-            id: 'appearance', label: '外観', fields: [
+            id: 'appearance', label: t('inspector.cutSections.label.appearance'), fields: [
                 {
-                    name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
+                    name: 'opacity', label: t('inspector.cutSections.label.opacity'), unit: '%', displayScale: 100,
                     getValue: () => String(snapshot.opacity ?? 1), getEditValue: () => String(snapshot.opacity ?? 1),
                     inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: 1, liveField: 'opacity',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return { ok: false, message: '不透明度は 0〜100% の範囲で入力してください。' };
+                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return { ok: false, message: t('inspector.cutSections.message.enterOpacityRangeFrom0100') };
                         return requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: null })
                 },
                 ...(photoItemId ? [{
-                    name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
+                    name: 'photo-crop-open', label: t('inspector.cutSections.label.cutOut'), getValue: () => '', actionLabel: t('inspector.cutSections.label.cutOut'),
                     action: () => requestWrite({ kind: 'item-field', id: photoItemId,
                         path: 'photo-crop-open', value: null })
                 }, ...photoFrameFields] : [])
             ]
         },
         {
-            id: 'timing', label: '再生', fields: [
+            id: 'timing', label: t('inspector.cutSections.label.playback'), fields: [
                 {
                     name: 'speed', label: 'speed',
                     getValue: () => withDefaultNumber(snapshot.speed, 1, formatDecimal1),
@@ -142,30 +142,30 @@ export function CUT_SECTIONS(
                     inputKind: 'scrub-number', scrubStep: 0.01, min: 0.01,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed) || parsed <= 0) return { ok: false, message: 'speed は正の数で入力してください。' };
+                        if (!Number.isFinite(parsed) || parsed <= 0) return { ok: false, message: t('inspector.cutSections.message.typeSpeedPositiveNumber') };
                         return requestWrite({ kind: 'cut-speed', index: snapshot.index, value: parsed });
                     }
                 }
             ]
         },
         {
-            id: 'audio', label: '埋め込み音声', fields: [
+            id: 'audio', label: t('inspector.cutSections.label.embeddedVoice'), fields: [
                 {
-                    name: 'gain-db', label: '音量', unit: 'dB', removable: true,
-                    getValue: () => String(snapshot.audioGainDb ?? 0) + (snapshot.audioMute === true ? '（ミュート中）' : ''),
+                    name: 'gain-db', label: t('inspector.cutSections.label.volume'), unit: 'dB', removable: true,
+                    getValue: () => String(snapshot.audioGainDb ?? 0) + (snapshot.audioMute === true ? t('inspector.cutSections.hint.mute') : ''),
                     getEditValue: () => String(snapshot.audioGainDb ?? 0),
                     inputKind: 'scrub-number', scrubStep: 0.5, min: -60, max: 12,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
-                            return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                            return { ok: false, message: t('inspector.cutSections.message.inputVolumeEmbeddedAudioRange6012') };
                         }
                         return requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: null })
                 },
                 {
-                    name: 'mute', label: 'ミュート',
+                    name: 'mute', label: t('inspector.cutSections.label.mute'),
                     getValue: () => String(snapshot.audioMute === true),
                     getEditValue: () => String(snapshot.audioMute === true),
                     inputKind: 'boolean-select',
@@ -176,10 +176,10 @@ export function CUT_SECTIONS(
             ]
         },
         {
-            id: 'info', label: '情報', collapsedByDefault: true,
+            id: 'info', label: t('inspector.cutSections.label.info'), collapsedByDefault: true,
             fields: [
-                { name: 'track', label: 'トラック', getValue: () => snapshot.trackName },
-                { name: 'clip', label: 'クリップ', getValue: () => snapshot.clipName },
+                { name: 'track', label: t('inspector.cutSections.label.track'), getValue: () => snapshot.trackName },
+                { name: 'clip', label: t('inspector.cutSections.label.clip'), getValue: () => snapshot.clipName },
                 { name: 'src', label: 'src', getValue: () => snapshot.src ?? snapshot.sourceName }
             ]
         }

@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -27,7 +33,7 @@ function harness(recordings) {
         click() { let stopped = false; this.listeners.click?.({ stopPropagation() { stopped = true; } }); return stopped; }
     });
     const create = vm.runInContext(`${compiled}\nrenderControls;`, vm.createContext({
-        document: { createElement: elements }, recordedBadge
+        document: { createElement: elements }, recordedBadge, t: globalThis.t
     }));
     const seeks = [];
     const widget = { captionRecordings: recordings, editUri: { toString: () => 'file:///project/edit.json' },

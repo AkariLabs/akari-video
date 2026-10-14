@@ -1,4 +1,6 @@
+import { t } from '../browser/vibe-text';
 import { spawn } from 'node:child_process';
+import { childProcessEnv } from '@akari-video/i18n';
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { release } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -83,7 +85,7 @@ function localTranscriber(): EarServiceOptions['transcribe'] | undefined {
         const child = spawn(process.execPath, [cli, 'transcribe', wavPath,
             '--no-record', '--no-word-book'], {
             stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, signal,
-            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+            env: childProcessEnv({ ...process.env, ELECTRON_RUN_AS_NODE: '1' })
         });
         let output = '';
         let errorOutput = '';
@@ -91,7 +93,7 @@ function localTranscriber(): EarServiceOptions['transcribe'] | undefined {
         child.stderr?.on('data', chunk => { errorOutput += chunk.toString(); });
         child.on('error', reject);
         child.on('close', code => {
-            if (code !== 0) { reject(new Error(errorOutput.trim() || '録音後の文字起こしに失敗しました')); return; }
+            if (code !== 0) { reject(new Error(errorOutput.trim() || t('vibe.listening.service.couldNotTranscribeRecordingError'))); return; }
             try {
                 const lines = output.trim().split('\n');
                 const result = JSON.parse(lines[lines.length - 1] ?? '{}');
@@ -99,7 +101,7 @@ function localTranscriber(): EarServiceOptions['transcribe'] | undefined {
                     start: number; end: number; text: string; confidence?: number
                 }) => ({ t0: segment.start, t1: segment.end, t: segment.end, final: true, text: segment.text,
                     ...(Number.isFinite(segment.confidence) ? { confidence: segment.confidence } : {}) })) });
-            } catch { reject(new Error('文字起こしの結果を読めません')); }
+            } catch { reject(new Error(t('vibe.listening.service.couldNotReadTranscriptionResultError'))); }
         });
     });
 }
@@ -164,7 +166,7 @@ export class AkariEarServiceImpl implements AkariEarService {
 
     protected testAudio(path: string): Buffer {
         const wav = readFileSync(path);
-        const invalid = (): never => { throw new Error('検証用の音声は 16kHz・モノラル・16bit の WAV にしてください'); };
+        const invalid = (): never => { throw new Error(t('vibe.listening.service.use16KhzMono16BitWavFileTestAudioError')); };
         if (wav.length < 12 || wav.toString('ascii', 0, 4) !== 'RIFF'
             || wav.toString('ascii', 8, 12) !== 'WAVE') invalid();
         let format = false;
@@ -200,7 +202,7 @@ export class AkariEarServiceImpl implements AkariEarService {
                 if (this.active !== active) return;
                 this.active = undefined;
                 this.publish({ state: 'error', mic: 'unknown', purpose: active.purpose, engine: active.id,
-                    message: error instanceof Error ? error.message : '検証用の音声を読めませんでした' });
+                    message: error instanceof Error ? error.message : t('vibe.listening.service.couldNotReadTestAudioError') });
                 void active.engine.stop();
             }
         };
@@ -211,8 +213,8 @@ export class AkariEarServiceImpl implements AkariEarService {
         const module = await this.earModule();
         const testInput = this.testInputFile();
         if (!module) return { engines: [
-            { id: 'speechanalyzer-live', available: false, reason: '聞き取り部品が見つかりません' },
-            { id: 'record-then-transcribe', available: false, reason: '聞き取り部品が見つかりません' }
+            { id: 'speechanalyzer-live', available: false, reason: t('vibe.listening.service.listeningComponentNotFoundMessage') },
+            { id: 'record-then-transcribe', available: false, reason: t('vibe.listening.service.listeningComponentNotFoundMessage') }
         ], ...(testInput ? { testInput: true } : {}), ...(this.env.AKARI_JEV_TEST_TEXT === '1' ? { testText: true } : {}) };
         const capabilities = module.getCapabilities({
             platform: this.options.platform ?? process.platform,
@@ -246,10 +248,10 @@ export class AkariEarServiceImpl implements AkariEarService {
 
     async start(options: { purpose: EarPurpose; engine?: EarEngineId }): Promise<EarStatus> {
         if (this.active) {
-            const label = this.active.purpose === 'trial' ? '試し聞き' : 'メモ';
-            return { state: 'error', mic: 'unknown', message: `聞き取りは${label}（${this.active.purpose}）で動作中です` };
+            const label = this.active.purpose === 'trial' ? t('vibe.listening.service.testListeningLabel') : t('vibe.listening.service.noteLabel');
+            return { state: 'error', mic: 'unknown', message: t('vibe.listening.service.listeningAlreadyRunningWithValuesMessage', { value1: label, value2: this.active.purpose }) };
         }
-        if (options.purpose === 'jev') return { state: 'error', mic: 'unknown', message: 'Jev の聞き取りは今後の更新で対応します' };
+        if (options.purpose === 'jev') return { state: 'error', mic: 'unknown', message: t('vibe.listening.service.jevListeningWillSupportedFutureUpdateMessage') };
         const module = await this.earModule();
         const caps = await this.getCapabilities();
         const id = module?.pickEngine(options.engine, caps);
@@ -312,7 +314,7 @@ export class AkariEarServiceImpl implements AkariEarService {
         } catch (error) {
             this.active = undefined;
             void engine.stop();
-            return this.publish({ state: 'error', mic: 'unknown', message: error instanceof Error ? error.message : '聞き取りを開始できません' });
+            return this.publish({ state: 'error', mic: 'unknown', message: error instanceof Error ? error.message : t('vibe.listening.service.couldNotStartListeningError') });
         }
     }
 

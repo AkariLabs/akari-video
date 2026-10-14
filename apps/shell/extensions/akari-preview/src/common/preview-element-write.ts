@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 const ELEMENT_CONFLICT_KEYS = ['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'xyKeyframes'];
 const ELEMENT_STYLE_KEYS = new Set(['translate', 'rotate', 'width', 'height', 'box-sizing',
     'min-width', 'min-height', 'max-width', 'max-height', 'flex', 'display']);
@@ -8,10 +9,10 @@ const TRANSLATE = /^\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)px\s+[+-]?(?:\d+(?:\.\d+)?|\.
 export function assertPreviewElementStyleAllowed(element: unknown): void {
     const style = (element as { style?: unknown } | null)?.style;
     if (!style || typeof style !== 'object' || Array.isArray(style)) {
-        throw new Error('要素の style が不正です');
+        throw new Error(t('preview.elementEditor.validation.invalidElementStyleError'));
     }
     for (const [name, value] of Object.entries(style)) {
-        if (!ELEMENT_STYLE_KEYS.has(name)) throw new Error(`要素の style に許可されないプロパティ: ${name}`);
+        if (!ELEMENT_STYLE_KEYS.has(name)) throw new Error(t('preview.elementEditor.validation.disallowedElementStylePropertyError', { p1: (name) }));
         const valid = typeof value === 'string' && (
             (name === 'translate' && TRANSLATE.test(value)) ||
             (name === 'rotate' && NUMBER_DEG.test(value)) ||
@@ -22,13 +23,13 @@ export function assertPreviewElementStyleAllowed(element: unknown): void {
             (name === 'box-sizing' && value === 'border-box') ||
             (name === 'flex' && value === '0 0 auto')
         );
-        if (!valid) throw new Error(`要素の style に許可されない値: ${name}`);
+        if (!valid) throw new Error(t('preview.elementEditor.validation.disallowedElementStyleValueError', { p1: (name) }));
     }
 }
 
 export function assertNoElementWriteConflict(patch: object & { element?: unknown }): void {
     if (patch.element && ELEMENT_CONFLICT_KEYS.some(key => key in patch)) {
-        throw new Error('要素の移動と別の書き戻しを同時に指定できません');
+        throw new Error(t('preview.elementEditor.validation.cannotMoveElementApplyAnotherWriteSameRequestError'));
     }
     if (patch.element) assertPreviewElementStyleAllowed(patch.element);
 }

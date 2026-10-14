@@ -1,3 +1,10 @@
+import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
+const restorePreviewTestI18n = installPreviewTestI18n();
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+after(restorePreviewTestI18n);
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -78,6 +85,28 @@ test('initial source requirements use resolved cut placement, active layers and 
   assert.equal(requirements(timeline, 6).firstUses.get('mask'), 0);
   assert.equal(requirements({ ...timeline, cuts: [] }, 6).initialIds.has('late'), true);
   assert.equal(requirements(timeline, 15).initialIds.size, 0);
+});
+
+test('source requirements include every held cut at the front of its window', () => {
+  const requirements = vm.runInNewContext(`${helper('sourceRequirements')} sourceRequirements;`);
+  const cases = JSON.parse(readFileSync(new URL(
+    '../../../../../packages/edit-store/test/transition-plan-cases.json', import.meta.url), 'utf8')).hold;
+  for (const entry of cases) {
+    const cuts = entry.expected.projected.map((expected, index) => ({
+      cut: { src: entry.cuts[index].src,
+        ...(expected.hold ? { transitionHold: { headSeconds: expected.hold } } : {}) },
+      at: expected.at,
+      end: expected.at + (expected.out - expected.in) / (entry.cuts[index].speed ?? 1)
+        + (entry.cuts[index].freeze?.duration_sec ?? 0)
+    }));
+    const b = cuts[1];
+    const start = b.at - (b.cut.transitionHold?.headSeconds ?? 0);
+    const result = requirements({ fps: entry.fps, cuts, layers: [] }, start);
+    assert.equal(result.initialIds.has(b.cut.src), true, entry.name);
+    const first = Math.min(...cuts.filter(cut => cut.cut.src === b.cut.src)
+      .map(cut => cut.at - (cut.cut.transitionHold?.headSeconds ?? 0)));
+    assert.ok(Math.abs(result.firstUses.get(b.cut.src) - first) < 1e-9, entry.name);
+  }
 });
 
 test('background workers cap probes at two and discard the old queue after generation changes', async () => {

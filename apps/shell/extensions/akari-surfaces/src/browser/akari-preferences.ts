@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { PreferenceContribution, PreferenceSchema, PreferenceScope } from '@theia/core/lib/common/preferences';
 import { injectable } from '@theia/core/shared/inversify';
 
@@ -26,33 +27,33 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
         [AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE]: {
             type: 'boolean', default: false, scope: PreferenceScope.User,
-            description: 'プロジェクトをこの画面で開く前の確認を省く'
+            description: t('surfaces.settings.skipConfirmationOpeningProjectScreen.description')
         },
         [AKARI_VIBE_PREVIEW_ENABLED]: {
             type: 'boolean', default: false, scope: PreferenceScope.User,
-            description: '開発中の AKARI バイブの画面と入口を表示する（再起動後に反映）'
+            description: t('surfaces.settings.displayScreenEntranceAkariVibeDevelopmentReflected.description')
         },
-        [AKARI_NARRATION_ENGINE]: { type: 'string', default: 'voicevox', description: '読み上げの既定エンジン' },
-        [AKARI_NARRATION_VOICE]: { type: 'object', default: {}, description: 'エンジン別の読み上げ音声' },
-        [AKARI_NARRATION_IRODORI_URL]: { type: 'string', default: 'http://127.0.0.1:8088', description: '彩サーバーの接続先 URL' },
+        [AKARI_NARRATION_ENGINE]: { type: 'string', default: 'voicevox', description: t('surfaces.settings.defaultNarrationEngine.description') },
+        [AKARI_NARRATION_VOICE]: { type: 'object', default: {}, description: t('surfaces.settings.narrationVoiceEngine.description') },
+        [AKARI_NARRATION_IRODORI_URL]: { type: 'string', default: 'http://127.0.0.1:8088', description: t('surfaces.settings.ayaServerConnectionUrl.description') },
         // Old mode values in user settings are ignored by Theia after their schema entry is removed.
         [AKARI_TRANSCRIBE_BACKEND]: {
             type: 'string', enum: ['auto', ...TRANSCRIBE_BACKENDS], default: 'auto',
-            description: '文字起こしの既定エンジン（おまかせはローカルを優先）'
+            description: t('surfaces.settings.defaultEngineTranscriptionLocalPrioritizedAuto.description')
         },
         [AKARI_TRANSCRIBE_COMPARE_SET]: {
             type: 'array', items: { type: 'string', enum: [...TRANSCRIBE_BACKENDS] }, default: [], uniqueItems: true,
-            description: '文字起こしを比べるときに使うエンジンの組（空なら比較しない）'
+            description: t('surfaces.settings.engineSetComparingTranscriptionsEmptyCompare.description')
         },
         [AKARI_TRANSCRIBE_AUTO_CUTS]: {
             type: 'boolean', default: true,
-            description: 'フィラー・言い直し・無音のカット候補を自動で作る（タイムラインには入れない）'
+            description: t('surfaces.settings.automaticallyCreateCutCandidatesFillersRephrasingSilence.description')
         },
         [AKARI_QUALITY_TIER]: {
             type: 'string',
             enum: ['draft', 'final'],
             default: 'draft',
-            description: 'AKARI Video の書き出し品質ティア'
+            description: t('surfaces.settings.akariVideoExportQualityTier.description')
         },
         [AKARI_PREVIEW_SCRUB_AUDIO]: {
             type: 'boolean', default: false,
@@ -60,16 +61,16 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
         },
         [AKARI_TIMELINE_VISUAL_THUMBNAILS]: {
             type: 'boolean', default: false,
-            description: 'タイムラインに HTML / 3D 素材の絵を出す（オフのときは種別の色と名前だけ）'
+            description: t('surfaces.settings.timelineHtmlThreeDimensionalThumbnail.description')
         },
         [AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY]: {
             type: 'string', enum: ['tag', 'switches'], default: 'tag',
-            description: 'タイムライン: トラックの詰め方の表示（札 / ターゲットと同期ロックの 2 スイッチ）'
+            description: t('surfaces.settings.timelineDisplayTrackPackingMethodTagTarget.description')
         },
         [AKARI_AGENT_TURN_END_NOTIFICATION]: {
             type: 'boolean',
             default: true,
-            description: 'AI パートナーの処理が終わったとき OS 通知を出す（ウィンドウが背面のときだけ）'
+            description: t('surfaces.settings.sendsOsNotificationAiPartnerFinishesProcessing.description')
         }
     }
 };

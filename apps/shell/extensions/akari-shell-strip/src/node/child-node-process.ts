@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process';
+import { childProcessEnv } from '@akari-video/i18n';
 import { existsSync } from 'fs';
 import { bundledMediaBinCandidate } from './packaged-cli-candidates';
 
@@ -54,5 +55,5 @@ export function childNodeEnvironment(resourcesPath: string | undefined): NodeJS.
             env[variable] = resolved;
         }
     }
-    return env;
+    return childProcessEnv(env);
 }

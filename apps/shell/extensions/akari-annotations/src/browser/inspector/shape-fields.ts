@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /** Shape v1 controls. This module has no DOM or document writes. */
 export interface ShapeField {
     key: string;
@@ -11,19 +12,19 @@ export interface ShapeField {
 
 export interface ShapeControlGroup { id: 'appearance' | 'bubble'; fields: ShapeField[] }
 
-const capOptions = ['なし', '三角', '山形', '棒', '四角', '丸', 'ひし形'] as const;
+const capOptions = [t('inspector.shapeFields.label.none'), t('inspector.shapeFields.label.triangle'), t('inspector.shapeFields.label.chevron'), t('inspector.shapeFields.label.bar'), t('inspector.shapeFields.label.square'), t('inspector.shapeFields.label.round'), t('inspector.shapeFields.label.diamond')] as const;
 const capValues = ['none', 'triangle', 'chevron', 'bar', 'square', 'circle', 'diamond'] as const;
-const dashOptions = ['実線', '破線', '点線'] as const;
+const dashOptions = [t('inspector.shapeFields.label.solidLine'), t('inspector.shapeFields.label.dashed'), t('inspector.shapeFields.label.dottedLine')] as const;
 const dashValues = ['solid', 'dash', 'dot'] as const;
-const bubbleOptions = ['楕円', '角丸', '四角', 'ギザギザ', '爆発', 'もくもく', '震え'] as const;
+const bubbleOptions = [t('inspector.shapeFields.label.ellipse'), t('inspector.shapeFields.label.cornerRadius'), t('inspector.shapeFields.label.square'), t('inspector.shapeFields.label.zigzag'), t('inspector.shapeFields.label.burst'), t('inspector.shapeFields.label.cloud'), t('inspector.shapeFields.label.shake')] as const;
 const bubbleValues = ['ellipse', 'rounded', 'rect', 'jagged', 'burst', 'cloud', 'wobble'] as const;
-const tailOptions = ['とがった', '小さな丸', 'なし'] as const;
+const tailOptions = [t('inspector.shapeFields.label.pointed'), t('inspector.shapeFields.label.smallRound'), t('inspector.shapeFields.label.none')] as const;
 const tailValues = ['point', 'dots', 'none'] as const;
 
 const optionSets: Record<string, readonly [readonly string[], readonly string[]]> = {
     dash: [dashOptions, dashValues], startCap: [capOptions, capValues], endCap: [capOptions, capValues],
     style: [bubbleOptions, bubbleValues], tail: [tailOptions, tailValues],
-    lineCap: [['なし', '丸く'], ['butt', 'round']]
+    lineCap: [[t('inspector.shapeFields.label.none'), t('inspector.shapeFields.label.rounded')], ['butt', 'round']]
 };
 
 export function shapeOptionLabel(key: string, raw: unknown): string {
@@ -72,30 +73,30 @@ export function shapeControlGroups(shape: string | undefined, params: Record<str
     const select = (key: string, label: string, fallback: string, options: readonly string[]) =>
         field(key, label, 'select', fallback, options);
     const paint = (key: 'fill' | 'stroke', label: string, fallback: string): ShapeField[] => [
-        { key: `${key}Mode`, label, kind: 'select', value: params[key] === 'none' ? 'なし' : '色', options: ['色', 'なし'] },
-        ...(params[key] === 'none' ? [] : [field(key, `${label}の色`, 'color', fallback)])
+        { key: `${key}Mode`, label, kind: 'select', value: params[key] === 'none' ? t('inspector.shapeFields.label.none') : t('inspector.shapeFields.label.colorColor'), options: [t('inspector.shapeFields.label.colorColor'), t('inspector.shapeFields.label.none')] },
+        ...(params[key] === 'none' ? [] : [field(key, t('inspector.shapeFields.label.colorWithValue', { label: label }), 'color', fallback)])
     ];
     if (shape === 'line' || shape === 'arrow') return [{ id: 'appearance', fields: [
-        field('stroke', '線の色', 'color', '#000000'), number('strokeWidth', '太さ', 4, 1, 100),
-        select('dash', '線種', 'solid', dashOptions), select('lineCap', '端を丸く', 'butt', ['なし', '丸く']),
-        select('startCap', '始点のパーツ', 'none', capOptions), select('endCap', '終点のパーツ',
+        field('stroke', t('inspector.shapeFields.label.lineColor'), 'color', '#000000'), number('strokeWidth', t('inspector.shapeFields.label.weight'), 4, 1, 100),
+        select('dash', t('inspector.shapeFields.label.lineStyle'), 'solid', dashOptions), select('lineCap', t('inspector.shapeFields.label.roundEdge'), 'butt', [t('inspector.shapeFields.label.none'), t('inspector.shapeFields.label.rounded')]),
+        select('startCap', t('inspector.shapeFields.cap.start'), 'none', capOptions), select('endCap', t('inspector.shapeFields.label.endPointParts'),
             shape === 'arrow' ? 'triangle' : 'none', capOptions)
     ] }];
     const appearance: ShapeControlGroup = { id: 'appearance', fields: [
-        ...paint('fill', '塗り', shape === 'bubble' ? '#ffffff' : '#a6a6a6'),
-        ...paint('stroke', '枠', shape === 'bubble' ? '#000000' : '#000000'),
-        number('strokeWidth', '枠の太さ', shape === 'bubble' ? 5 : 0, 0, 100)
+        ...paint('fill', t('inspector.shapeFields.label.fill'), shape === 'bubble' ? '#ffffff' : '#a6a6a6'),
+        ...paint('stroke', t('inspector.shapeFields.label.frame'), shape === 'bubble' ? '#000000' : '#000000'),
+        number('strokeWidth', t('inspector.shapeFields.label.frameThickness'), shape === 'bubble' ? 5 : 0, 0, 100)
     ] };
     if (shape === 'rounded-rect' || shape === 'path' && shapeHasStraightCorner(params.path)) {
-        appearance.fields.push(number('cornerRadius', '角の丸み', 0, 0, 100));
+        appearance.fields.push(number('cornerRadius', t('inspector.shapeFields.label.cornerRound'), 0, 0, 100));
     }
     if (shape !== 'bubble') return [appearance];
     return [appearance, { id: 'bubble', fields: [
-        select('style', '形の種類', 'ellipse', bubbleOptions), number('count', '山やトゲの数', 12, 4, 48),
-        number('depth', '深さ', 20, 0, 100), number('jitter', 'ばらつき', 0, 0, 100),
-        select('dash', '枠の線種', 'solid', dashOptions), select('tail', 'しっぽ', 'point', tailOptions),
-        number('tailAngle', 'しっぽの向き', 0, 0, 360), number('tailLength', 'しっぽの長さ', 30, 0, 100),
-        number('tailWidth', 'しっぽの太さ', 20, 0, 100), number('tailCurve', 'しっぽの曲がり', 0, -100, 100)
+        select('style', t('inspector.shapeFields.label.typesShapes'), 'ellipse', bubbleOptions), number('count', t('inspector.shapeFields.label.mountainsTrekking'), 12, 4, 48),
+        number('depth', t('inspector.shapeFields.label.depth'), 20, 0, 100), number('jitter', t('inspector.shapeFields.label.variation'), 0, 0, 100),
+        select('dash', t('inspector.shapeFields.label.borderLineStyle'), 'solid', dashOptions), select('tail', t('inspector.shapeFields.label.tail'), 'point', tailOptions),
+        number('tailAngle', t('inspector.shapeFields.label.tailDirection'), 0, 0, 360), number('tailLength', t('inspector.shapeFields.label.lengthTail'), 30, 0, 100),
+        number('tailWidth', t('inspector.shapeFields.label.tailThickness'), 20, 0, 100), number('tailCurve', t('inspector.shapeFields.label.tailCurve'), 0, -100, 100)
     ] }];
 }
 

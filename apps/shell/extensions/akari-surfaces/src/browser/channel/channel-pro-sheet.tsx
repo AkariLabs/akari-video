@@ -1,11 +1,12 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 
-export const PRO_FEATURE_APPLY_TYPE = 'この型を当てる';
-export const PRO_FEATURE_PRESET_SKILL = '用意されたスキルを足す';
-export const PRO_FEATURE_PRESET_NOTES = '用意された辞書とメモを足す';
-export const PRO_FEATURE_PACK = '記憶パックの取り込み';
+export const PRO_FEATURE_APPLY_TYPE = t('surfaces.channel.applySelectedType.button');
+export const PRO_FEATURE_PRESET_SKILL = t('surfaces.channel.addPreparedSkills.label');
+export const PRO_FEATURE_PRESET_NOTES = t('surfaces.channel.addPreparedDictionaryNotes.label');
+export const PRO_FEATURE_PACK = t('surfaces.channel.retrievingMemoryPack.label');
 
 export function ChannelProSheet(props: { feature: string; onClose: () => void; onConnect: () => void }): React.ReactElement {
     // 下に残したシートへ Escape が届く前に、案内だけを閉じる。
@@ -25,16 +26,16 @@ export function ChannelProSheet(props: { feature: string; onClose: () => void; o
             .akari-home-sheet-scrim[data-akari-home-dialog="channel-pro"] .akari-home-sheet { width:420px; max-width:calc(100vw - 32px); }
         `}</style>
         <div data-akari-pro-sheet>
-            <h3>☆ {props.feature} は Akari Pro の機能です</h3>
-            <p>Akari Pro（月額）か Lab Lifetime を持っていると使えます。中身はこのまま全部見られます。自分で書いて足すのは無料です。</p>
+            <h3>{t('surfaces.channel.proFeature.heading', { feature: props.feature })}</h3>
+            <p>{t('surfaces.channel.channelProSheetHaveAkariProMonthlyLabLifetimeSee.description')}</p>
             <ul>
-                <li>用意されたスキル・辞書・決まりごと・よく使う情報のまとまり</li>
-                <li>記憶パック</li>
-                <li>Pro のチャンネルの型</li>
+                <li>{t('surfaces.channel.channelProSheetCollectionPreparedSkillsDictionariesRulesFrequently.label')}</li>
+                <li>{t('surfaces.channel.channelProSheetMemoryPack.label')}</li>
+                <li>{t('surfaces.channel.channelProSheetProChannelType.label')}</li>
             </ul>
             <div className='akari-channel-sheet-actions'>
-                <button type='button' className='theia-button secondary' data-akari-pro-close onClick={props.onClose}>閉じる</button>
-                <button type='button' className='theia-button main' data-akari-pro-connect onClick={props.onConnect}>アカウントを接続する</button>
+                <button type='button' className='theia-button secondary' data-akari-pro-close onClick={props.onClose}>{t('surfaces.channel.channelProSheetClose.button')}</button>
+                <button type='button' className='theia-button main' data-akari-pro-connect onClick={props.onConnect}>{t('surfaces.channel.channelProSheetConnectAccount.button')}</button>
             </div>
         </div>
     </HomeScrim>;

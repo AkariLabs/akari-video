@@ -6,10 +6,12 @@
       "Edit(./exports/**)",
       "Edit(./.akari/sidecars/**)",
       "Edit(./.akari/events/**)",
-      "Edit(./.akari/intake.json)"
+      "Edit(./.akari/intake.json)",
+      "Edit(./assets/generated/**)"
     ],
     "deny": [
-      "Edit(/assets/**)"
+      "Read(/.akari/sidecars/**/voices.json)",
+      "Read(./.akari/sidecars/**/voices.json)"
     ]
   }
 }

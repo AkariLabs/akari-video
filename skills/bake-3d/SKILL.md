@@ -1,43 +1,38 @@
 ---
 name: bake-3d
-description: Blender ヘッドレスで 3D ベイクレシピ（scene.py）を mp4 へ焼き、検証し、素材ライブラリ / プロジェクトへ配置する。**3D の既定は Three.js オーバーレイ（overlay-authoring/3d.md）** であり、本スキルは「宣言型ランタイムで出せない絵（被写界深度・モーションブラー・レイトレース反射・GI・パーティクル）」「同時 3D シーンを 2 枚以下へ減らすための事前焼き」「素材ライブラリへ納品するクリップ」のいずれかに当てはまるときだけ使う。
+description: Bake a 3D recipe (scene.py) to MP4 with headless Blender, verify it, and place it in the asset library or project. **The default 3D path is a Three.js overlay (overlay-authoring/3d.md).** Use this skill only for images the declarative runtime cannot produce (depth of field, motion blur, ray-traced reflections, GI, particles), to pre-bake at least three simultaneous 3D scenes down to two or fewer, or to deliver a clip to the asset library.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-1. **ベイクを実行せずに「焼けた」と報告しない。** 出力 mp4 を ffprobe で確認し、フレームを抽出して目視するまで完了扱いにしない。
-2. **scene.py に宣言済み param 以外の外部入力を持ち込まない。** 環境変数・wall-clock・暗黙 seed の乱数・ネットワーク取得は禁止。同じレシピ + 同じ params + 同じ Blender バージョン → 同じ映像、を崩さない。
-3. **連番静止画を残さない。** mp4 へ直書きする。中間連番が必要だった場合は合成後に必ず削除する。
-4. **モデル・HDRI 等のアセット実体を改変しない。** 調整はツマミ（param）の範囲で行う。ライセンス不明のアセットをレシピに同梱しない（[harvest-asset](../harvest-asset/SKILL.md) の規律を継承）。
-5. **Blender をユーザー確認なしにインストールしない**（[setup-library/tools-check.md](../setup-library/tools-check.md) と同じ）。
-6. **`node packages/schemas/bin/validate-asset.mjs` を通さずにライブラリ入庫を「検証済み」と報告しない。**
+1. **Never report that a bake succeeded without running it.** Do not treat it as complete until you check the output MP4 with ffprobe, extract frames, and inspect them visually.
+2. **Do not introduce undeclared external inputs to scene.py.** Environment variables, wall-clock time, random numbers without an explicit seed, and network fetches are forbidden. Preserve: same recipe + same params + same Blender version → same video.
+3. **Do not leave image sequences behind.** Write directly to MP4. If an intermediate sequence was necessary, always delete it after compositing.
+4. **Do not modify source assets such as models or HDRIs.** Adjust only through parameter knobs. Do not bundle assets of unknown license with the recipe (inherit [harvest-asset](../harvest-asset/SKILL.md) rules).
+5. **Do not install Blender without the user's approval** (same rule as [setup-library/tools-check.md](../setup-library/tools-check.md)).
+6. **Do not report library intake as verified without passing `node packages/schemas/bin/validate-asset.mjs`.**
 
-# 経路の判定（着手前に必ず読む）
+# Choose the path (must read before starting)
 
-**3D の既定は経路 A = Three.js オーバーレイ**（`../overlay-authoring/3d.md`）。本スキル（経路 B）は
-A で出せない絵が要るときだけ選ぶ。「タイムラインにクリップとして置きたいから B」は**誤り**で、
-置き場所ではなく**必要な能力**で選ぶ。
+**The default 3D path is A = Three.js overlay** (`../overlay-authoring/3d.md`). Choose this skill (path B) only when A cannot produce the required image. "I want a timeline clip, so use B" is **wrong**: choose by **required capability**, not destination.
 
-B を選ぶ条件（いずれかに当てはまるときだけ）:
+Choose B only when at least one condition applies:
 
-1. 宣言型ランタイムで表現できない絵 — 被写界深度・モーションブラー・レイトレース反射・GI・パーティクル
-2. 同時に出す 3D シーンが 3 枚以上になり、書き出しの性能予算を超える（一部を焼いて 2 枚以下へ落とす）
-3. 素材ライブラリへ再利用可能なクリップとして納品する（レシピ = SSOT の資産にする）
+1. The declarative runtime cannot produce the image: depth of field, motion blur, ray-traced reflections, GI, or particles.
+2. Three or more 3D scenes must appear simultaneously, exceeding the export performance budget (bake some to reduce the count to two or fewer).
+3. Deliver a reusable clip to the asset library (make the recipe the SSOT asset).
 
-上に当てはまらないなら A へ戻る。B の出力は**不透明な背景を必ず連れてくる**ので合成側で背景色を
-合わせ続ける仕事が発生し、焼き直しに 10 分級かかる（2026-08-04 の実制作で、A で足りる用途に B を
-使って手戻りを生んだ実例がある）。開閉・回転などの自作モーションは、Blender でクリップを作って
-**glb に焼いて A で再生**すれば足りる — B に逃げる理由にはならない。
+Otherwise return to A. B's output **always includes an opaque background**. The composite then needs continuous background-color matching, and rebaking takes on the order of 10 minutes (an actual production on 2026-08-04 used B where A sufficed and incurred rework). For custom opening, closing, or rotation motion, bake the clip **into a glb and play it through A**; this does not justify B.
 
-# 契約
+# Contract
 
-正典: [`docs/contract-2026-07-14-3d-bake-recipe.md`](../../docs/contract-2026-07-14-3d-bake-recipe.md)。
-レシピ = SSOT（scene.py + param + アセット参照）、ベイク出力 = 再生成可能キャッシュ。
-焼いた mp4 は edit.json の通常クリップとして扱う（エンジン・ビューワーは無改修）。
+Canonical source: [`docs/contract-2026-07-14-3d-bake-recipe.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md).
+Recipe = SSOT (scene.py + parameters + asset references); baked output = reproducible cache.
+Treat the baked MP4 as an ordinary edit.json clip (no engine or viewer changes).
 
-# 1. Blender の探索
+# 1. Find Blender
 
 ```sh
 BLENDER="${AKARI_BLENDER_BIN:-}"
@@ -46,22 +41,21 @@ BLENDER="${AKARI_BLENDER_BIN:-}"
 test -x "$BLENDER" && "$BLENDER" --version | head -1
 ```
 
-なければ `brew install --cask blender` を提示して止まる（無断実行しない）。
+If unavailable, suggest `brew install --cask blender` and stop; do not run it without approval.
 
-# 2. scene.py の authoring 契約
+# 2. scene.py authoring contract
 
-参照実装: [`assets/scene3d/vintage-camera-turntable/scene.py`](../../assets/scene3d/vintage-camera-turntable/scene.py)
+Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](https://github.com/AkariLabs/akari-video/blob/main/assets/scene3d/vintage-camera-turntable/scene.py)
 
-- **自己完結**: レシピディレクトリ単体をプロジェクトへコピーしても動くこと。リポ内の他ファイルを import しない。アセットは `os.path.dirname(os.path.abspath(__file__))` 相対で読む
-- **引数契約**（`--` 以降を argparse で受ける）:
-  `--out <path>.mp4` / `--profile draft|final` / `--fps N` / `--frame-start N` / `--frame-end N` / `--set key=value`（複数可）
-- **PARAM_DEFAULTS 辞書 = meta.json の knobs と 1:1**。未宣言キーの `--set` はエラーにする
-- **時間はフレーム番号の純関数**。アニメーションはドライバの安全式サブセット（`frame` 変数 + 算術）または線形キーフレームで表現し、wall-clock を使わない
-- **profile は品質 2 段**: draft = EEVEE 低解像度（ツマミ調整の反復用）/ final = 出力解像度。同じ scene.py が両方を通る
-- **Blender 5.x API 注意**（5.1.2 実測）: エンジン ID は `BLENDER_EEVEE`（`_NEXT` は廃止）。動画出力は `image_settings.media_type = "VIDEO"` を先に立ててから `file_format = "FFMPEG"`（4.x に media_type は無いので hasattr で分岐）
-- 出力名へ Blender がフレーム範囲を付けるケースに備え、レンダー後に `--out` の名前へ正規化する（参照実装の `render()` を踏襲）
+- **Self-contained**: The recipe directory must work when copied alone into a project. Do not import other files from this repository. Resolve assets relative to `os.path.dirname(os.path.abspath(__file__))`.
+- **Argument contract** (parse after `--` with argparse): `--out <path>.mp4` / `--profile draft|final` / `--fps N` / `--frame-start N` / `--frame-end N` / `--set key=value` (repeatable).
+- **The PARAM_DEFAULTS dictionary must map 1:1 to meta.json knobs**. An undeclared `--set` key must be an error.
+- **Time must be a pure function of the frame number**. Express animation with Blender's safe driver expression subset (`frame` plus arithmetic) or linear keyframes; never use wall-clock time.
+- **Two quality profiles**: draft = lower-resolution EEVEE for knob iterations; final = output resolution. The same scene.py must support both.
+- **Blender 5.x API caution** (measured on 5.1.2): engine ID is `BLENDER_EEVEE` (`_NEXT` is obsolete). For video, set `image_settings.media_type = "VIDEO"` before `file_format = "FFMPEG"` (4.x has no media_type; branch with hasattr).
+- Blender may append the frame range to the output name. After rendering, normalize it to the `--out` name (follow the reference implementation's `render()`).
 
-# 3. ベイク実行
+# 3. Run the bake
 
 ```sh
 "$BLENDER" -b -P scene.py -- \
@@ -70,26 +64,26 @@ test -x "$BLENDER" && "$BLENDER" --version | head -1
   --set orbit_start_deg=205
 ```
 
-- 実測目安（M シリーズ Mac / EEVEE / 720p / 16 samples）: 約 0.5〜0.6 秒/フレーム。draft 4 秒素材 ≒ 1 分
-- ベイク出力は `bakes/`（git ignore 済み: `*.mp4`）。消してよい。final はプロジェクト書き出し直前だけ
+- Measured guide (M-series Mac / EEVEE / 720p / 16 samples): about 0.5–0.6 seconds per frame. A four-second draft takes about one minute.
+- Baked outputs go in `bakes/` (already gitignored: `*.mp4`) and may be deleted. Bake final only immediately before project export.
 
-# 4. 検証（必須）
+# 4. Verification (required)
 
-1. `ffprobe` で解像度・fps・フレーム数が指定と一致することを確認する
-2. 先頭・中間・末尾のフレームを `ffmpeg -ss <t> -frames:v 1` で抽出して目視する（構図・ライティング・アニメーションの向き）
-3. ライブラリ入庫時は中間フレームから `preview.png` を作り、`node packages/schemas/bin/validate-asset.mjs assets/scene3d/<id>` を通す
+1. Use `ffprobe` to confirm resolution, fps, and frame count match the requested values.
+2. Extract and visually inspect the first, middle, and last frames with `ffmpeg -ss <t> -frames:v 1` (composition, lighting, and animation direction).
+3. For library intake, make `preview.png` from a middle frame and pass `node packages/schemas/bin/validate-asset.mjs assets/scene3d/<id>`.
 
-# 5. ライブラリ入庫 / プロジェクト採用
+# 5. Library intake / project use
 
-- 入庫基準は素材ライブラリ契約と同じ: シーン構築・ライティング・カメラワークの設計コストが高いレシピだけを入れる
-- meta.json は knobs を `param` で宣言し、`requires: ["blender"]`。provenance にアセットの取得元・ライセンス・梱包手順を書く
-- プロジェクト採用 = レシピ一式を `<project>/assets/scene3d/<id>/` へ複製 → params 上書き → ベイク → mp4 を edit.json にクリップ配置。provenance にレシピ id / 版 / params / Blender バージョンを記録する
+- Use the asset-library intake standard: admit only recipes with high design cost in scene construction, lighting, or camera work.
+- Declare meta.json knobs as `param` and `requires: ["blender"]`. Record asset source, license, and packaging procedure in provenance.
+- Project use = copy the full recipe to `<project>/assets/scene3d/<id>/` → override params → bake → place the MP4 as a clip in edit.json. Record recipe ID, version, params, and Blender version in provenance.
 
-# よくある間違い
+# Common mistakes
 
-- EEVEE ヘッドレスの動作を検証せず「焼ける」と報告する（GPU 環境依存。必ず実行する）
-- `THREE.Clock` 的発想で wall-clock や `random()` に依存したアニメーションを書く
-- ツマミを cssVar で宣言する（ベイクレシピは param。cssVar はオーバーレイ素材用）
-- fragment.html と scene.py を同じ素材ディレクトリに同居させる（validate-asset.mjs が拒否する）
-- .blend にテクスチャをパックして肥大化させる / 連番 EXR を残してディスクを焼く
-- draft で確認せずいきなり final を焼いて反復時間を溶かす
+- Reporting that headless EEVEE can bake without testing it (GPU environment dependent; always execute it).
+- Writing animation that depends on wall-clock time or `random()`, as if using `THREE.Clock`.
+- Declaring knobs as cssVar (bake recipes use param; cssVar is for overlay assets).
+- Putting fragment.html and scene.py in the same asset directory (validate-asset.mjs rejects this).
+- Packing textures into a bloated .blend or leaving an EXR sequence that consumes disk space.
+- Baking final immediately without checking draft first, wasting iteration time.

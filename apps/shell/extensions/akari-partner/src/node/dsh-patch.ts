@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { createHash } from 'crypto';
 import * as path from 'path';
 
@@ -5,6 +6,7 @@ export type DeepSeekProvider = 'deepseek-official' | 'opencode-go';
 export interface DeepSeekConnection {
     provider: DeepSeekProvider;
     note: string;
+    detail: string;
     guidance?: string;
     secret?: { OPENCODE_GO_API_KEY: string };
 }
@@ -15,7 +17,8 @@ export function detectDeepSeekConnection(input: {
     readFile: (file: string) => string;
 }): DeepSeekConnection {
     if (input.env.DEEPSEEK_API_KEY?.trim()) {
-        return { provider: 'deepseek-official', note: '接続先: DeepSeek 公式 API（DEEPSEEK_API_KEY を使います）' };
+        return { provider: 'deepseek-official', note: t('partner.partnerSetup.deepSeekPatch.destinationOfficialDeepseekApiUsesDeepseekApiKeyText'),
+            detail: t('partner.partnerSetup.deepSeekPatch.officialApiDetail') };
     }
     try {
         const auth = JSON.parse(input.readFile(path.join(input.homeDir, '.local', 'share', 'opencode', 'auth.json')));
@@ -23,17 +26,25 @@ export function detectDeepSeekConnection(input: {
         if (typeof key === 'string' && key.trim()) {
             return {
                 provider: 'opencode-go',
-                note: '接続先: OpenCode Go（opencode の契約を使います）',
+                note: t('partner.partnerSetup.deepSeekPatch.destinationOpencodeGoUsesOpencodeCredentialsText'),
+                detail: t('partner.partnerSetup.deepSeekPatch.openCodeGoDetail'),
                 secret: { OPENCODE_GO_API_KEY: key }
             };
         }
     } catch { /* Optional local credential. */ }
     return {
         provider: 'deepseek-official',
-        note: '接続先: 未設定（DeepSeek の鍵か OpenCode Go のログインがあれば自動で使います）',
-        guidance: '右上の Settings → Models で DeepSeek の鍵を入れるか、opencode で OpenCode Go にログインすると自動で使われます'
+        note: t('partner.partnerSetup.deepSeekPatch.automaticConnectionNotConfiguredNote'),
+        detail: t('partner.partnerSetup.deepSeekPatch.notConfiguredDetail'),
+        guidance: t('partner.partnerSetup.deepSeekPatch.addDeepseekKeySettingsModelsSignOpencodeGoOpencodeUseText')
     };
 }
+
+// A `models` list replaces dsh's installed OpenCode Go catalog wholesale, so every DeepSeek model the picker should offer must be listed.
+const OPENCODE_GO_MODELS = [
+    { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash (OpenCode Go)' },
+    { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro (OpenCode Go)' }
+];
 
 export function buildDshSessionId(workspaceRootFsPath: string): string {
     return 'akari-' + createHash('sha256').update(workspaceRootFsPath).digest('hex').slice(0, 16);
@@ -66,6 +77,6 @@ export function buildDshPatchYaml(input: {
         baseURL: https://opencode.ai/zen/go/v1
         headers: { User-Agent: ${JSON.stringify('akari-video/' + input.appVersion)}, x-opencode-session: ${input.sessionId} }
         compat: { thinkingFormat: deepseek }
-        models: [{ id: deepseek-v4-pro, name: DeepSeek V4 Pro (OpenCode Go), contextWindow: 131072 }]
-`;
+        models:
+${OPENCODE_GO_MODELS.map(model => `          - { id: ${model.id}, name: ${model.name}, contextWindow: 131072 }\n`).join('')}`;
 }

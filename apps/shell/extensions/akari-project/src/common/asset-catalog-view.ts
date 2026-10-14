@@ -1,3 +1,4 @@
+import { t } from './project-text';
 /**
  * カタログ面「1 ビュー」の純関数群（ビューのマージ・resolver 生アイテムの正規化・
  * 状態→バッジ文言）。node/browser のどちらからも import される想定のため、
@@ -183,8 +184,8 @@ export function deriveCatalogEmptyStateKind(
 export type CatalogResolverNoticeKind = 'unauthorized' | 'error';
 
 export const CATALOG_ENTITLEMENTS_UNAUTHORIZED_MESSAGE =
-    'AKARI アカウントの接続が解除されています — ホームから再接続してください';
-export const CATALOG_ENTITLEMENTS_ERROR_MESSAGE = 'アカウント素材の取得に失敗';
+    t('project.catalog.notice.unauthorized');
+export const CATALOG_ENTITLEMENTS_ERROR_MESSAGE = t('project.catalog.notice.error');
 
 /**
  * カタログ上部の案内行を決める共通分岐。認証失効だけは再試行ではなく再接続案内、
@@ -195,10 +196,10 @@ export function deriveCatalogResolverNotice(
     entitlementsStatus: AssetEntitlementsStatus
 ): { kind: CatalogResolverNoticeKind; message: string; retry: boolean } | undefined {
     if (resolverStatus === 'failed' || entitlementsStatus === 'error') {
-        return { kind: 'error', message: CATALOG_ENTITLEMENTS_ERROR_MESSAGE, retry: true };
+        return { kind: 'error', message: t('project.catalog.notice.error'), retry: true };
     }
     if (entitlementsStatus === 'unauthorized') {
-        return { kind: 'unauthorized', message: CATALOG_ENTITLEMENTS_UNAUTHORIZED_MESSAGE, retry: false };
+        return { kind: 'unauthorized', message: t('project.catalog.notice.unauthorized'), retry: false };
     }
     return undefined;
 }
@@ -233,12 +234,12 @@ export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 
         return undefined;
     }
     if (item.state === 'locked') {
-        return 'Pro パスが必要';
+        return t('project.catalog.badge.passRequired');
     }
     if (item.state === 'cached') {
-        return '取得済み';
+        return t('project.catalog.badge.cached');
     }
-    return item.tier === 'pro' ? 'Pro（未取得）' : '未取得';
+    return item.tier === 'pro' ? t('project.catalog.badge.proAvailable') : t('project.catalog.badge.available');
 }
 
 // --- locked カードの購入案内（価格 + ストア URL） --------------------------------------------
@@ -259,10 +260,10 @@ export function catalogPurchaseActionText(
     viewMode: 'grid' | 'list',
     productUrl: string
 ): { label: string; title: string } {
-    const label = tier === 'pro' ? 'Pro' : '素材';
+    const label = tier === 'pro' ? 'Pro' : t('project.catalog.purchase.asset');
     return {
-        label: viewMode === 'list' ? `${label} を見る` : label,
-        title: `${label} の案内 — AKARI Video Lab を開く（${productUrl}）`
+        label: viewMode === 'list' ? t('project.catalog.purchase.listAction', { name: label }) : label,
+        title: t('project.catalog.purchase.title', { name: label, url: productUrl })
     };
 }
 
@@ -312,10 +313,11 @@ export function deriveAssetDistribution(input: AssetDistributionInput): AssetDis
  */
 export function assetDistributionBadgeText(distribution: AssetDistribution | undefined, sourceAcquisition?: string): string | undefined {
     switch (distribution) {
-        case 'bundled': return '✓ 同梱済み';
-        case 'subscription': return 'サブスク';
-        case 'paid': return '¥ 各自入手';
-        case 'free': return sourceAcquisition === 'login' ? '☁ 無料 DL（要登録）' : '☁ 無料 DL';
+        case 'bundled': return t('project.catalog.distribution.bundled');
+        case 'subscription': return t('project.catalog.distribution.subscription');
+        case 'paid': return t('project.catalog.price.selfPurchase');
+        case 'free': return sourceAcquisition === 'login'
+            ? t('project.catalog.distribution.freeLogin') : t('project.catalog.distribution.free');
         default: return undefined;
     }
 }
@@ -404,13 +406,6 @@ export function summarizeCatalogPackDistribution(items: readonly Pick<AssetCatal
     return breakdown;
 }
 
-const PACK_BREAKDOWN_LABEL: Record<'bundled' | 'free' | 'paid' | 'subscription', string> = {
-    bundled: '同梱',
-    free: '無料 DL',
-    paid: '¥ 各自入手',
-    subscription: 'サブスク'
-};
-
 /**
  * パックヘッダの内訳文言（例: "23 件 — 同梱 9 / 無料 DL 14"）。0 件の分類は出さない。
  * 単位は「書体」等カテゴリ固有の語にせず汎用の「件」に統一する（パックはカテゴリ非依存の
@@ -419,6 +414,7 @@ const PACK_BREAKDOWN_LABEL: Record<'bundled' | 'free' | 'paid' | 'subscription',
 export function formatCatalogPackBreakdown(breakdown: CatalogPackBreakdown): string {
     const parts = (['bundled', 'free', 'paid', 'subscription'] as const)
         .filter(key => breakdown[key] > 0)
-        .map(key => `${PACK_BREAKDOWN_LABEL[key]} ${breakdown[key]}`);
-    return parts.length ? `${breakdown.total} 件 — ${parts.join(' / ')}` : `${breakdown.total} 件`;
+        .map(key => `${key === 'paid' ? t('project.catalog.price.selfPurchase') : t(`project.catalog.breakdown.${key}`)} ${breakdown[key]}`);
+    return parts.length ? t('project.catalog.breakdown.detail', { n: breakdown.total, details: parts.join(' / ') })
+        : t('project.catalog.breakdown.count', { n: breakdown.total });
 }

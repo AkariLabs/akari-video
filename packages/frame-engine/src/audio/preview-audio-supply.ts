@@ -110,8 +110,11 @@ export interface PreviewAudioSidecar {
   bytesPerSample?: number;
   path: string;
   durationSec: number;
+  /** Requested source seconds. */
   padBeforeSec: number;
   padAfterSec: number;
+  /** Actual first source second after clamping. */
+  actualStartSeconds?: number;
   generatedMs?: number;
   skipped?: boolean;
   bytes?: number;
@@ -155,6 +158,8 @@ export interface PreviewSpeechDeclaration {
   padAfterSec?: number;
   crossfadeInSec?: number;
   crossfadeOutSec?: number;
+  fadeInAtStart?: boolean;
+  fadeInWindowStartSec?: number;
   sidecarWarningEmitted?: boolean;
 }
 
@@ -2033,6 +2038,7 @@ function firstUseRegular(item: PreviewAudioDeclaration): number {
 }
 
 function firstUseSpeech(item: PreviewSpeechDeclaration): number {
+  if (item.fadeInAtStart) return item.atSec;
   const before = finitePositive(item.crossfadeInSec) ? item.crossfadeInSec as number : 0;
   return Math.max(0, item.atSec - before);
 }

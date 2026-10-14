@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -12,7 +13,7 @@ const code = ts.transpileModule(ast.statements.filter(node => !ts.isImportDeclar
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }),
     Children: { toArray: children => children }, isValidElement: item => !!item?.props,
     useState: initial => [initial, () => {}], useRef: () => ({ current: null }), useEffect: () => {} };
-const context = vm.createContext({ exports: {}, React, AKARI_BORDER: { hairline: 'line', ghost: 'ghost', edge: 'edge' },
+const context = vm.createContext({ exports: {}, React, t: globalThis.t, AKARI_BORDER: { hairline: 'line', ghost: 'ghost', edge: 'edge' },
     AKARI_INK: 'ink', AKARI_RADIUS: { panel: 6 }, AKARI_SURFACE: { card: 'card', raised: 'raised', elevated: 'elevated' } });
 vm.runInContext(`${code}\nthis.LibraryTextTelopPage = LibraryTextTelopPage`, context);
 const { LibraryTextTelopPage } = context;

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { promises as fs } from 'node:fs';
@@ -14,16 +15,16 @@ import type { InkDocument } from '../common/ink-model';
 import type { RoughCanvasManifest } from '../common/rough-canvas-protocol';
 
 const rootPath = (uri: string): string => {
-    const value = new URI(uri); if (value.scheme !== 'file') throw new Error('プロジェクトの場所が不正です。');
+    const value = new URI(uri); if (value.scheme !== 'file') throw new Error(t('annotationscommon.taskifyService.error.invalidProjectLocation'));
     return resolve(value.path.fsPath());
 };
 const readOptional = async (path: string): Promise<string | undefined> => fs.readFile(path, 'utf8').catch(error => {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error;
 });
 const dataPng = (value: string): Buffer => {
-    if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length > 32_000_000) throw new Error('画像の形式が不正です。');
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length > 32_000_000) throw new Error(t('annotationscommon.taskifyService.error.invalidImageFormat'));
     const bytes = Buffer.from(value.split(',')[1], 'base64');
-    if (!bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw new Error('画像の形式が不正です。');
+    if (!bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw new Error(t('annotationscommon.taskifyService.error.invalidImageFormat'));
     return bytes;
 };
 const taskifyAgent = async (): Promise<Agent> => {
@@ -86,8 +87,8 @@ export class AkariTaskifyServiceImpl implements AkariTaskifyService {
     }
     async enqueue(request: TaskifyEnqueue): Promise<{ jobId: string }> {
         const root = rootPath(request.projectRootUri);
-        if (!await this.enabled(root)) throw new Error('このプロジェクトでは使えません。');
-        if (!/^c-\d{4,}$/.test(request.memoId)) throw new Error('メモの番号が不正です。');
+        if (!await this.enabled(root)) throw new Error(t('annotationscommon.taskifyService.error.featureUnavailableProject'));
+        if (!/^c-\d{4,}$/.test(request.memoId)) throw new Error(t('annotationscommon.taskifyService.error.invalidNoteId'));
         await this.restore(root);
         const memoDir = join(root, 'review', 'canvas', request.memoId);
         const canvas = JSON.parse(await fs.readFile(join(memoDir, 'canvas.json'), 'utf8')) as RoughCanvasManifest;
@@ -98,7 +99,7 @@ export class AkariTaskifyServiceImpl implements AkariTaskifyService {
         const jobDir = join(memoDir, 'taskify', `r${revision}`);
         const paper = request.includeBackdrop ? await fs.readFile(join(memoDir, 'paper.png'))
             : request.paperPng ? dataPng(request.paperPng) : undefined;
-        if (!paper) throw new Error('線だけの画像が必要です。');
+        if (!paper) throw new Error(t('annotationscommon.taskifyService.error.imageContainingOnlyStrokesRequired'));
         const editText = await readOptional(join(root, 'edit.json'));
         const scriptText = await readOptional(join(root, 'planning', 'script.md'))
             ?? await readOptional(join(root, 'SCRIPT.md'));

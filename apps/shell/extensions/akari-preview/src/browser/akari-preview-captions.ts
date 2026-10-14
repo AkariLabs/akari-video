@@ -67,6 +67,7 @@ export interface PreviewCaption {
     fragmentKey?: string;
     fragmentIndex?: number;
     fragmentCount?: number;
+    manualFragment?: boolean;
 }
 
 export interface CaptionDisplayFallbackState {
@@ -224,6 +225,10 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
         return {
             id: cue.id,
             sourceCueId: cue.source_cue_id,
+            ...(cue.fragment_index === undefined ? {} : { fragmentIndex: cue.fragment_index }),
+            ...(cue.fragment_count === undefined ? {} : { fragmentCount: cue.fragment_count }),
+            ...((cue as { line_override?: boolean }).line_override === undefined ? {} :
+                { manualFragment: (cue as { line_override?: boolean }).line_override }),
             resolvedTimeline: true,
             ...(karaoke ? { style: 'karaoke' as const,
                 karaokeOffset: (cue as { karaoke_offset?: number }).karaoke_offset ?? 0 } : {}),

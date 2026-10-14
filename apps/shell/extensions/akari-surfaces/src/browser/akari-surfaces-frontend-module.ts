@@ -35,8 +35,19 @@ import { ProjectProgressService } from './home/project-progress';
 import { bindHomeOneShell } from './akari-home-bindings';
 import { bindChannelPanel } from './akari-channel-bindings';
 import { bindTitleBar } from './akari-title-bar-bindings';
+import { AkariChildLanguageService, AKARI_CHILD_LANGUAGE_PATH } from '../common/child-language-protocol';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+    bind(AkariChildLanguageService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_CHILD_LANGUAGE_PATH)
+    ).inSingletonScope();
+    bind(FrontendApplicationContribution).toDynamicValue(ctx => ({
+        onStart: async () => {
+            const value = window.localStorage.getItem('akari.ui.language');
+            await ctx.container.get<AkariChildLanguageService>(AkariChildLanguageService)
+                .setLanguage(value === 'ja' || value === 'en' ? value : 'auto');
+        }
+    })).inSingletonScope();
     // 1 枚の画面 v0（contract-2026-10-08-one-shell-v0 §2.4 / §3）: 進み具合 5 段と、レーンごとの束ね口。
     bind(ProjectProgressService).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(ProjectProgressService);

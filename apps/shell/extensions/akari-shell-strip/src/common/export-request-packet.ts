@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 /**
  * 「書き出し」ボタンの設定ダイアログが確定した値から、パートナーへ注入する
  * 依頼パケットを組み立てる純関数。task.md に一字一句固定の文言があるため、
@@ -12,9 +13,9 @@ export interface ExportResolutionPreset {
 }
 
 export const EXPORT_RESOLUTION_PRESETS: readonly ExportResolutionPreset[] = [
-    { id: 'landscape-1080p', label: '1080p 横' },
-    { id: 'portrait-1080p', label: '1080p 縦' },
-    { id: 'square-1080p', label: '正方形' }
+    { id: 'landscape-1080p', label: t('shell.export.request.value1080pLandscapeLabel') },
+    { id: 'portrait-1080p', label: t('shell.export.request.value1080pPortraitLabel') },
+    { id: 'square-1080p', label: t('shell.export.request.squareLabel') }
 ];
 
 export const DEFAULT_EXPORT_OUTPUT_NAME = 'final.mp4';
@@ -32,10 +33,10 @@ export interface ExportRequestSettings {
 }
 
 export function composeExportRequestPacket(settings: ExportRequestSettings): string {
-    const lintLabel = settings.rerunLint ? 'する' : 'しない';
-    return `【書き出し依頼】edit.json を render-cut スキルで書き出してください。`
-        + `設定: 解像度 ${settings.resolutionLabel}・出力名 ${settings.outputName}・lint 再実行 ${lintLabel}`
+    const lintLabel = settings.rerunLint ? t('shell.export.request.yesLabel') : t('shell.export.request.noLabel');
+    return t('shell.export.request.exportRequestExportEditJsonUsingRenderCutSkillMessage')
+        + t('shell.export.request.settingsResolutionOutputNameRerunLintText', { value1: settings.resolutionLabel, value2: settings.outputName, value3: lintLabel })
         + `。`
-        + `ユーザーは書き出しダイアログで設定を確定済み（明示承認済み・チャット再確認不要）。`
-        + `進捗を .akari/render.json に随時書き込みながら進めてください`;
+        + t('shell.export.request.userConfirmedSettingsExportDialogExplicitApprovalGivenNoNeedMessage')
+        + t('shell.export.request.keepWritingProgressAkariRenderJsonMessage');
 }

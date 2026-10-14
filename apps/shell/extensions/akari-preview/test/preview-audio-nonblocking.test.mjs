@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -237,6 +241,22 @@ test('host ready fields copy PCM metadata and omit all undefined metadata fields
     }
     assert.deepEqual(Object.keys(f.host.previewAudioSidecarFields(item, { state: 'not-needed' })), []);
     assert.equal(f.warnings.length, 0);
+    f.dispose();
+});
+
+test('speech requests convert output pads once and ready sidecars retain the actual source start', () => {
+    const load = section(source, '    protected async loadPreviewModel(', '    protected async resolveAudioAssets(');
+    assert.match(load, /padBeforeSec: \(declaration\.padBeforeSec \?\? 0\) \* declaration\.speed/u);
+    assert.match(load, /padAfterSec: \(declaration\.padAfterSec \?\? 0\) \* declaration\.speed/u);
+    const f = lifecycle();
+    const result = f.host.previewAudioSidecarFields({ kind: 'speech', label: 'speech',
+        request: { padBeforeSec: 2, padAfterSec: 1 } }, {
+        state: 'ready', stream: { url: 'sidecar' }, durationSec: 1.625,
+        actualStartSeconds: 0
+    });
+    assert.equal(result.sidecar.actualStartSeconds, 0);
+    assert.equal(result.sidecar.padBeforeSec, 2);
+    assert.equal(result.sidecar.padAfterSec, 1);
     f.dispose();
 });
 
