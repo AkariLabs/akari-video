@@ -43,6 +43,38 @@ test('同梱の CLI より AKARI 管理の CLI が新しければ、管理側の
     assert.deepEqual(subject.asked, [managedExe]);
 });
 
+for (const [arch, bundledFolder, target] of [
+    ['arm64', 'macos-aarch64', 'aarch64-apple-darwin'],
+    ['x64', 'macos-x86_64', 'x86_64-apple-darwin']
+]) {
+    test(`Mac ${arch} では同梱より新しい AKARI 管理の CLI を返し、PATH 上の CLI は見ない`, async () => {
+        const macHome = path.posix.join('/opt', 'someone');
+        const macPackagePath = path.join(macHome, '.theia', 'deployedPlugins', 'openai.chatgpt-26.5908.31748', 'extension');
+        const macBundledDir = path.join(macPackagePath, 'bin', bundledFolder);
+        const macManagedExe = path.join(macHome, '.local', 'bin', 'codex');
+        const macPathCodex = path.join(macHome, 'elsewhere', 'codex');
+        const subject = probe({
+            files: {
+                [path.join(macBundledDir, 'codex')]: '',
+                [path.join(macBundledDir, 'codex-package.json')]: JSON.stringify({ version: '0.154.0-alpha.6.1', target })
+            },
+            versions: { [macManagedExe]: 'codex-cli 0.162.1', [macPathCodex]: 'codex-cli 0.999.0' },
+            directories: { [path.join(macPackagePath, 'bin')]: [bundledFolder] }
+        });
+        subject.platform = 'darwin';
+        subject.arch = arch;
+        subject.homeDir = macHome;
+        subject.env = { PATH: path.dirname(macPathCodex) };
+
+        const result = await resolveExtensionCli('codex', macPackagePath, subject);
+        assert.deepEqual(result, {
+            reason: 'managed-newer', executablePath: macManagedExe,
+            bundledVersion: '0.154.0-alpha.6.1', managedVersion: '0.162.1', managedPaths: [macManagedExe]
+        });
+        assert.deepEqual(subject.asked, [macManagedExe]);
+    });
+}
+
 test('同梱が同じか新しいとき・管理側が無いとき・比べられないときは、実体を返さない', async () => {
     const manifest = version => ({ [bundledManifest]: JSON.stringify({ version }) });
     const same = await resolveExtensionCli('codex', packagePath,

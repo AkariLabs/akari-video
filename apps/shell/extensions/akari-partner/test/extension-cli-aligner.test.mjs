@@ -4,6 +4,7 @@ setLanguage('ja');
 afterI18n(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -24,8 +25,9 @@ const compiled = ts.transpileModule(`class Aligner { ${members.join('\n')} }\nAl
 }).outputText;
 
 const entry = { form: 'extension', agent: 'codex', extensionId: 'openai.chatgpt', name: 'Codex 拡張',
-    managedCli: { preference: 'chatgpt.cliExecutable', platforms: ['win32-x64'] } };
+    managedCli: { preference: 'chatgpt.cliExecutable', platforms: ['win32-x64', 'darwin-arm64', 'darwin-x64'] } };
 const managedExe = 'C:\\Users\\someone\\AppData\\Local\\AKARI Video\\codex\\current\\bin\\codex.exe';
+const macManagedExe = path.join(path.posix.join('/opt', 'someone'), '.local', 'bin', 'codex');
 const newer = { reason: 'managed-newer', executablePath: managedExe, bundledVersion: '0.147.0-alpha.1.2', managedVersion: '0.161.0', managedPaths: [managedExe] };
 
 function aligner({ platform = 'win32-x64', alignment = newer, current, installed = true, packagePath = 'C:\\plugins\\openai.chatgpt\\extension',
@@ -62,6 +64,17 @@ test('同梱の CLI が古いとき、拡張の設定を AKARI 管理の CLI へ
     assert.equal(calls.info.length, 0);
 });
 
+test('Mac では Codex 拡張の設定を AKARI 管理の CLI へ向ける', async () => {
+    const alignment = { reason: 'managed-newer', executablePath: macManagedExe,
+        bundledVersion: '0.154.0-alpha.6.1', managedVersion: '0.162.1', managedPaths: [macManagedExe] };
+    const packagePath = path.join(path.posix.join('/opt', 'someone'), '.theia', 'deployedPlugins', 'openai.chatgpt', 'extension');
+    const { subject, calls } = aligner({ platform: 'darwin-arm64', alignment, packagePath });
+    const outcome = await subject.align(entry);
+    assert.equal(outcome.changed, true);
+    assert.deepEqual(calls.resolve, [['codex', packagePath]]);
+    assert.deepEqual(calls.set, [['chatgpt.cliExecutable', macManagedExe, 'user-scope']]);
+});
+
 test('すでに向いている・利用者が自分で入れた値・確かめていないプラットフォームでは書き換えない', async () => {
     const aligned = aligner({ current: managedExe });
     assert.deepEqual(await aligned.subject.align(entry), { changed: false });
@@ -71,9 +84,9 @@ test('すでに向いている・利用者が自分で入れた値・確かめ�
     assert.deepEqual(await custom.subject.align(entry), { changed: false });
     assert.equal(custom.calls.set.length, 0);
 
-    const mac = aligner({ platform: 'darwin-arm64' });
-    assert.deepEqual(await mac.subject.align(entry), { changed: false });
-    assert.deepEqual([mac.calls.resolve.length, mac.calls.set.length], [0, 0]);
+    const linux = aligner({ platform: 'linux-x64' });
+    assert.deepEqual(await linux.subject.align(entry), { changed: false });
+    assert.deepEqual([linux.calls.resolve.length, linux.calls.set.length], [0, 0]);
 
     const notInstalled = aligner({ installed: false });
     assert.deepEqual(await notInstalled.subject.align(entry), { changed: false });
@@ -119,7 +132,7 @@ test('起動時は書き換えたときだけ 1 回だけ再読み込みを勧�
 test('カタログは Codex 拡張だけに、確かめたプラットフォームの設定名を持つ', () => {
     const catalog = JSON.parse(readFileSync(new URL('../src/common/partner-catalog.json', import.meta.url), 'utf8'));
     assert.deepEqual(catalog.filter(item => item.managedCli).map(item => [item.id, item.managedCli]),
-        [['openai/codex-extension', { preference: 'chatgpt.cliExecutable', platforms: ['win32-x64'] }]]);
+        [['openai/codex-extension', { preference: 'chatgpt.cliExecutable', platforms: ['win32-x64', 'darwin-arm64', 'darwin-x64'] }]]);
 });
 
 test('拡張を開く 2 つの経路と起動時の両方で CLI を合わせる', () => {
