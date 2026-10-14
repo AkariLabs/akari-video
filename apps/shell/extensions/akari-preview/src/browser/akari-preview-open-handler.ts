@@ -757,8 +757,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     });
                     marker.akariPreviewDiagnostics = session;
                     this.previewDiagnosticsWidgets.set(id, marker);
+                    const observeIframe = (): void => {
+                        session.observeAttachedIframe(event.widget.node.querySelector('iframe.webview') ?? undefined, Date.now());
+                    };
+                    const iframeObserver = new MutationObserver(observeIframe);
+                    iframeObserver.observe(event.widget.node, { childList: true, subtree: true });
+                    observeIframe();
                     session.markStage('webview-created', 'ok');
                     event.widget.disposed.connect(() => {
+                        iframeObserver.disconnect();
                         session.dispose();
                         if (this.previewDiagnosticsWidgets.get(id) === marker) this.previewDiagnosticsWidgets.delete(id);
                     });

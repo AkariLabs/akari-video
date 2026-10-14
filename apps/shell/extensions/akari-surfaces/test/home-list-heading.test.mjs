@@ -18,7 +18,8 @@ test('一覧の見出し、チャンネル動線、ホームの線と暗幕', ()
     assert.match(home, /--akari-line/);
 });
 
-test('一覧を読み直すたびに札とサムネを読み直す', () => {
+test('札とサムネは行の版が変わったときだけ読み直す', () => {
     const list = readFileSync(new URL('../src/browser/home/project-list-view.tsx', import.meta.url), 'utf8');
-    assert.match(list, /\}, \[row\.key, props\.refreshToken\]\);/);
+    assert.match(list, /cached\.version !== props\.rowVersion/);
+    assert.match(list, /if \(!props\.active\) return;/);
 });
