@@ -5,7 +5,7 @@ import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewChatReviewScript } from './preview-chat-review';
 import { attachReviewToPartner, currentReviewPartner } from './preview-chat-review-host';
 import { ChatAttachment, ChatReviewMark, parseReviewPending, serializeReviewPending,
-    REVIEW_PENDING_PATH } from '../common/chat-review-attachments';
+    REVIEW_PENDING_PATH, updateReviewPending } from '../common/chat-review-attachments';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
 import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
@@ -595,8 +595,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previous = this.reviewChatWrites.get(key) ?? Promise.resolve();
         const next = previous.catch(() => undefined).then(async () => {
             const pendingUri = projectRoot.resolve(REVIEW_PENDING_PATH);
-            const current = await this.fileService.exists(pendingUri)
+            const loaded = await this.fileService.exists(pendingUri)
                 ? parseReviewPending((await this.fileService.readFile(pendingUri)).value.toString()) : [];
+            let assignedIds = false;
+            const current = loaded.map(item => {
+                if (item.kind !== 'review' || item.review.id) return item;
+                assignedIds = true;
+                const identified = { ...item, review: { ...item.review, id: crypto.randomUUID() } };
+                if (new TextEncoder().encode(JSON.stringify(identified)).byteLength > 64 * 1024) {
+                    identified.review.thumbnail = undefined;
+                }
+                return identified;
+            });
             let attachments: ChatAttachment[] = current;
             if (message.type === 'akari-preview-chat-review-add') {
                 const mark = message.review as ChatReviewMark;
@@ -604,8 +614,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (parseReviewPending(serializeReviewPending([candidate])).length !== 1) return;
                 attachments = [...current, candidate];
             } else if (message.type === 'akari-preview-chat-review-remove') {
+                const index = typeof message.id === 'string'
+                    ? current.findIndex(item => item.kind === 'review' && item.review.id === message.id)
+                    : message.index;
+                if (!Number.isInteger(index) || index < 0 || index >= current.length) return;
+                attachments = current.filter((_, position) => position !== index);
+            } else if (message.type === 'akari-preview-chat-review-update') {
                 if (!Number.isInteger(message.index) || message.index < 0 || message.index >= current.length) return;
-                attachments = current.filter((_, index) => index !== message.index);
+                const target = current[message.index];
+                if (target.kind !== 'review') return;
+                const mark = message.review as ChatReviewMark;
+                if (typeof message.id === 'string' && target.review.id !== message.id) return;
+                if (mark?.id !== target.review.id) return;
+                const candidate: ChatAttachment = { ...target, review: mark };
+                if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) return;
+                const updated = updateReviewPending(current, message.index, mark);
+                if (updated === current) return;
+                attachments = updated;
             } else if (message.type === 'akari-preview-chat-review-attach') {
                 if (!current.length) return;
                 if (!await attachReviewToPartner(projectRoot, current, await currentReviewPartner(this.commandRegistry),
@@ -613,7 +638,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.preferences.get<boolean>('akari.chat.experimental.enabled', false))) return;
                 attachments = [];
             }
-            if (attachments !== current) {
+            if (attachments !== current || assignedIds) {
                 await this.fileService.createFolder(projectRoot.resolve('.akari/review'));
                 await this.fileService.writeFile(pendingUri, BinaryBuffer.fromString(serializeReviewPending(attachments)));
             }
@@ -8373,37 +8398,59 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
-.review-tools { display:flex; align-items:center; gap:3px; margin-right:4px; }
-.review-tools button, #review-chat-tray button, .review-note-actions button { border:0; border-radius:5px; padding:4px 7px; color:var(--akari-transport-fg); background:rgba(128,128,128,.18); cursor:pointer; font:inherit; font-size:11px; white-space:nowrap; }
-.review-tools button.on, .review-note-actions [data-review-add], #review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
-.review-tools .review-divider { height:18px; width:1px; margin:0 3px; background:rgba(128,128,128,.55); }
+.review-toolbar { display:flex; align-items:center; justify-content:space-between; min-width:0; height:28px; padding:0 10px; color:var(--akari-transport-fg); }
+.review-toolbar [data-review-hint] { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--akari-time-fg); font-size:11px; }
+.review-toolbar [data-review-hint][hidden] { display:none; }
+.review-tools { display:flex; flex:none; align-items:center; gap:3px; margin-left:auto; }
+.review-tools .icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
+.review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"],
+.review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"]:is(:hover,:active) { color:#f97316; background:transparent; box-shadow:none; }
+.review-toolbar .review-tools button.icon-button[data-review-tool]:is(:hover,:active) { background:transparent; }
+.review-tools [data-review-attach-count] { display:inline-flex; align-items:center; justify-content:center; gap:2px; width:auto; min-width:28px; padding:0 3px; font-size:11px; font-variant-numeric:tabular-nums; }
+.review-tools [data-review-attach-count][hidden] { display:none; }
+.review-tools .review-divider { height:18px; width:1px; margin:0 3px; background:var(--akari-transport-fg); opacity:.35; }
 #review-chat-layer { position:absolute; inset:0; z-index:1800; pointer-events:none; }
 #review-chat-layer.is-active { pointer-events:auto; cursor:crosshair; }
 #review-chat-layer [data-review-ink], #review-chat-layer [data-review-marks] { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
 #review-chat-layer [data-review-ink] polyline { fill:none; stroke:#fb923c; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-#review-chat-layer [data-review-hint] { position:absolute; top:8px; left:50%; transform:translateX(-50%); padding:5px 9px; border-radius:5px; background:rgba(17,17,17,.88); color:#fff; font-size:11px; white-space:nowrap; pointer-events:none; }
-#review-chat-layer [data-review-hint][hidden], #review-chat-layer [data-review-note][hidden] { display:none; }
 .review-mark { position:absolute; display:grid; place-items:center; min-width:20px; min-height:20px; border-radius:50%; background:#f97316; color:#171717; font-size:11px; font-weight:700; transform:translate(-50%,-50%); }
-.review-mark.pen { box-sizing:border-box; transform:none; border:2px solid #fb923c; background:rgba(249,115,22,.12); color:#fff; }
-#review-chat-layer [data-review-note] { position:absolute; width:min(290px,90%); max-height:calc(100% - 16px); overflow:auto; overflow-wrap:anywhere; box-sizing:border-box; padding:10px; border:1px solid #5e5e5e; border-radius:9px; background:#252525; color:#f5f5f5; box-shadow:0 8px 24px #0009; pointer-events:auto; cursor:default; font-size:12px; }
-.review-what { margin-bottom:7px; color:#bdbdbd; }
-.review-what [data-review-elements] { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; color:#fff; }
-.review-what [data-review-element] { padding:2px 5px; border-radius:4px; background:#454545; }
-#review-chat-layer textarea { width:100%; min-height:52px; box-sizing:border-box; border:1px solid #777; border-radius:5px; padding:6px; background:#151515; color:#fff; resize:vertical; font:inherit; }
-.review-note-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:7px; }
-#review-chat-tray { position:absolute; right:9px; bottom:100%; z-index:2100; width:min(370px,96%); max-height:55vh; overflow:auto; box-sizing:border-box; border:1px solid #555; border-radius:9px 9px 0 0; background:#242424; color:#f5f5f5; box-shadow:0 -8px 24px #0008; font-size:12px; }
-#review-chat-tray[hidden] { display:none; }
-.review-tray-heading, .review-tray-actions { padding:9px; font-weight:700; }
-.review-tray-row { display:flex; align-items:center; gap:8px; padding:7px 9px; border-top:1px solid #444; }
-.review-tray-row img { width:54px; max-height:48px; object-fit:cover; border-radius:3px; }
-.review-tray-row span { flex:1; min-width:0; overflow-wrap:anywhere; }
-.review-tray-actions { display:flex; justify-content:flex-end; gap:7px; border-top:1px solid #444; }
+.review-mark.pen { box-sizing:border-box; transform:none; border:2px solid #fb923c; background:rgba(249,115,22,.12); color:#fff; pointer-events:none; }
+.review-mark.pen [data-review-badge] { position:absolute; left:0; top:0; display:grid; place-items:center; min-width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); background:#f97316; color:#171717; }
+#review-chat-layer [data-review-badge][data-review-active] { pointer-events:auto; cursor:pointer; }
+#review-chat-layer [data-review-badge]:not([data-review-active]) { pointer-events:none; }
+#review-dock { position:relative; z-index:1; width:100%; max-height:min(40vh,220px); overflow:auto; padding:5px 10px; border-top:1px solid var(--akari-control-active); background:var(--akari-transport-bg); color:var(--akari-transport-fg); font-size:12px; }
+#review-dock[hidden], #review-dock [hidden] { display:none; }
+#review-dock:has(> #review-chat-tray:not([hidden])) { display:flex; flex-direction:column; overflow:hidden; }
+#review-dock [data-review-note] { overflow-wrap:anywhere; }
+.review-note-line { display:flex; align-items:center; gap:6px; min-width:0; }
+.review-note-meta { display:flex; flex:none; align-items:center; gap:6px; white-space:nowrap; font-size:11px; }
+.review-note-meta [data-review-note-badge] { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-weight:700; }
+.review-note-meta [data-review-note-tool] { flex:none; display:inline-grid; place-items:center; width:18px; height:18px; }
+.review-note-meta [data-review-note-tool] svg { width:15px; height:15px; }
+.review-note-meta [data-review-note-time] { flex:none; font-variant-numeric:tabular-nums; }
+#review-dock [data-review-elements] { display:flex; gap:4px; max-height:24px; min-width:0; overflow-x:auto; overflow-y:hidden; white-space:nowrap; margin-top:2px; }
+#review-dock [data-review-element] { flex:none; padding:2px 5px; border-radius:4px; background:var(--akari-control-active); }
+#review-dock textarea { display:block; flex:1 1 auto; min-width:0; width:auto; height:36px; min-height:30px; max-height:50px; border:1px solid var(--akari-control-active); border-radius:5px; padding:5px 6px; background:var(--akari-transport-bg); color:var(--akari-transport-fg); resize:vertical; font:inherit; }
+.review-note-actions { display:flex; flex:none; align-items:center; gap:4px; margin:0; }
+.review-note-actions button, #review-chat-tray button { border:0; border-radius:5px; padding:4px 7px; color:var(--akari-transport-fg); background:var(--akari-control-active); cursor:pointer; font:inherit; font-size:11px; white-space:nowrap; }
+.review-note-actions button.icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
+.review-note-actions button.icon-button:hover { background:var(--akari-control-hover); }
+#review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
+#review-chat-tray { display:flex; flex-direction:column; min-height:0; overflow-wrap:anywhere; }
+#review-chat-tray [data-review-rows] { flex:0 1 auto; min-height:0; overflow-y:auto; }
+.review-tray-row { display:flex; align-items:center; gap:8px; min-height:42px; padding:3px 0; border-bottom:1px solid var(--akari-control-active); cursor:pointer; }
+.review-row-badge { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-size:11px; font-weight:700; }
+.review-tray-row img { flex:none; width:64px; height:36px; object-fit:cover; border-radius:3px; }
+.review-tray-row .review-row-text { flex:1; min-width:0; overflow-wrap:anywhere; }
+.review-empty-memo { color:var(--akari-time-fg); }
+.review-tray-row [data-review-remove] { flex:none; }
+.review-tray-actions { display:flex; flex:none; justify-content:flex-end; gap:7px; padding-top:5px; background:var(--akari-transport-bg); }
 #review-seek-marks { position:absolute; inset:0; pointer-events:none; }
 .transport-seek { position:relative; }
 .review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }
-#review-range-controls { display:flex; justify-content:flex-end; gap:5px; padding:0 10px 4px; }
+#review-range-controls { display:flex; align-items:center; gap:3px; }
 #review-range-controls[hidden] { display:none; }
-#review-range-controls button { border:0; border-radius:4px; padding:2px 8px; background:#474747; color:#fff; cursor:pointer; font-size:11px; }
+#review-range-controls button { border:0; border-radius:4px; padding:2px 4px; background:var(--akari-control-active); color:var(--akari-transport-fg); cursor:pointer; font-size:11px; }
 .transport { container-type:inline-size; }
 @container (max-width:600px) {
   .transport-controls { grid-template-columns:1fr auto; height:auto; min-height:34px; }

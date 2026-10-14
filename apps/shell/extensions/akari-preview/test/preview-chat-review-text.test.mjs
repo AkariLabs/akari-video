@@ -26,3 +26,10 @@ test('レビュー本文に改行があっても一件一行にする', () => {
     assert.equal(describeReviewAttachments(dirty).split('\n').length, 2);
     assert.match(describeReviewAttachments(dirty), /上に 動かす/);
 });
+
+test('メモが空でも時刻・道具・対象・ソースを渡す', () => {
+    const empty = [{ ...attachments[0], review: { ...attachments[0].review, text: '' } }];
+    const text = describeReviewAttachments(empty);
+    assert.match(text, /0:12 ペン（テロップ「軽い」付近） \[exports\/draft\.mp4\]/u);
+    assert.doesNotMatch(text, /:  \[/u);
+});

@@ -4636,8 +4636,14 @@ export function previewBootstrapScript(): string {
                 previewChrome.style.transform = 'scale(' + scaleX + ',' + scaleY + ')';
                 previewChrome.dataset.frameEngineActive = previewStage.dataset.frameEngineActive || '';
                 const viewport = previewPane.getBoundingClientRect();
+                const oldChromeGeometry = previousChromeGeometry;
                 previousChromeGeometry = refreshPreviewChromeOnGeometryChangeFn(
                     previousChromeGeometry, rect, viewport, chromeRefreshers);
+                if (previousChromeGeometry !== oldChromeGeometry) {
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        for (const refresh of Object.values(chromeRefreshers)) refresh();
+                    }));
+                }
                 const cropControls = previewChrome.querySelector('#photo-crop-controls');
                 if (cropControls) cropControls.style.maxWidth = Math.max(80, (viewport.width - 8) / scaleX) + 'px';
                 for (const selector of ['#layer-crop-toggle.is-target-active',

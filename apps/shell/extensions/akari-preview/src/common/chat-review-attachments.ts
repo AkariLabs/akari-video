@@ -3,6 +3,7 @@ export type ChatAttachment =
     | { kind: 'review'; label: string; review: ChatReviewMark };
 
 export interface ChatReviewMark {
+    id?: string;
     tool: 'pen' | 'pin' | 'range';
     source: string;
     sourceLabel: string;
@@ -119,6 +120,37 @@ export function parseReviewPending(text: string | undefined): ChatAttachment[] {
 
 export function serializeReviewPending(attachments: readonly ChatAttachment[]): string {
     return JSON.stringify({ attachments }, null, 2) + '\n';
+}
+
+export function reviewEscapeStep(state: { noteOpen: boolean; trayOpen: boolean; tool: string | null;
+    isComposing?: boolean; keyCode?: number }): 'note' | 'tray' | 'tool' | undefined {
+    if (state.isComposing || state.keyCode === 229) return undefined;
+    if (state.noteOpen) return 'note';
+    if (state.trayOpen) return 'tray';
+    if (state.tool) return 'tool';
+    return undefined;
+}
+
+export function reviewMemoEnterAction(event: { key: string; shiftKey: boolean; isComposing: boolean; keyCode: number }): 'save' | 'newline' | 'ignore' {
+    if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return 'ignore';
+    return event.shiftKey ? 'newline' : 'save';
+}
+
+export function updateReviewPending(attachments: ChatAttachment[], index: number, review: ChatReviewMark): ChatAttachment[] {
+    if (!Number.isInteger(index) || index < 0 || index >= attachments.length || attachments[index].kind !== 'review'
+        || !review || !['pen', 'pin', 'range'].includes(review.tool)
+        || typeof review.source !== 'string' || typeof review.sourceLabel !== 'string'
+        || !Number.isFinite(review.time) || typeof review.text !== 'string'
+        || (review.id !== undefined && (typeof review.id !== 'string' || !review.id))
+        || (review.timeEnd !== undefined && !Number.isFinite(review.timeEnd))
+        || (review.elements !== undefined && (!Array.isArray(review.elements) || !review.elements.every(value => typeof value === 'string')))
+        || (review.thumbnail !== undefined && typeof review.thumbnail !== 'string')
+        || (review.shape !== undefined && (!review.shape || !Number.isFinite(review.shape.x)
+            || !Number.isFinite(review.shape.y) || review.shape.x < 0 || review.shape.x > 1
+            || review.shape.y < 0 || review.shape.y > 1
+            || (review.shape.w !== undefined && (!Number.isFinite(review.shape.w) || review.shape.w < 0 || review.shape.w > 1))
+            || (review.shape.h !== undefined && (!Number.isFinite(review.shape.h) || review.shape.h < 0 || review.shape.h > 1))))) return attachments;
+    return attachments.map((item, position) => position === index ? { ...item, review } : item);
 }
 
 export function reviewAttachArgument(attachments: readonly ChatAttachment[]): { attachments: ChatAttachment[] } {
