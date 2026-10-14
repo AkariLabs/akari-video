@@ -163,9 +163,16 @@ test('animation loop の削除は他の席を保ち、最後の席ではキー�
 test('text_style 不在でも animation を新規作成できる', () => {
   const source = JSON.stringify([caption('c-0001', 0, '本文')]);
   const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', {
-    animation: { in: { id: 'typewriter', ease: null }, out: { id: 'typewriter' } }
+    animation: { in: { id: 'typewriter', ease: 'linear' }, out: { id: 'typewriter' } }
   }))[0];
-  assert.deepEqual(record.text_style.animation, { in: { id: 'typewriter', ease: null }, out: { id: 'typewriter' } });
+  assert.deepEqual(record.text_style.animation, { in: { id: 'typewriter', ease: 'linear' }, out: { id: 'typewriter' } });
+});
+
+test('描画が受けない animation の ease は旧入口でも保存前に拒む', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  assert.throws(() => updateCaptionTextStyleInSource(source, 'c-0001', {
+    animation: { in: { id: 'typewriter', ease: null } }
+  }), { code: 'AKARI_CAPTIONS_INVALID' });
 });
 
 test('text 更新は対象 1 物理行だけを書き換え words を再導出する', () => {

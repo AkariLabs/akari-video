@@ -1154,6 +1154,6 @@
   "annotations.captionLookMigration.offer.laterAction": "あとで",
   "annotations.captionLookMigration.offer.fixedNotice": "字幕 {count} 行の見た目を固定しました。",
   "annotations.captionLookMigration.offer.undoAction": "元に戻す",
-  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "ほかの操作のあとなので、取り消し（Ctrl+Z）で戻してください",
+  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "ほかの操作のあとなので、取り消しで戻してください",
   "annotations.captionLookMigration.offer.historyLabel": "字幕の見た目を固定"
 }

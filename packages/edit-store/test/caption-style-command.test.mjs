@@ -7,6 +7,8 @@ import test from 'node:test';
 import { planCaptionStyleEdit, planCaptionStyleClear, planCaptionStyleReapply,
   planCaptionSizeEdit, captionValueHash, captionEmphasisOverlapsRange,
   validateCaptionsSemantics, mergeCaptionTextStyles } from '../lib/index.js';
+import { resolveCaptionDisplay, mergeCaptionDisplayStyles, validateCaptionTextStyle,
+  scaleCaptionLookPixels, updateCaptionTextStyleInSource, CAPTION_PIXEL_FIELDS } from '../lib/index.js';
 
 test('既定の fill と strokes を受け継ぐ行は大きさ変更後も px 以外を保つ', () => {
   const defaultStyle = { size_px: 38,
@@ -24,6 +26,81 @@ test('既定の fill と strokes を受け継ぐ行は大きさ変更後も px �
   assert.deepEqual(effective.strokes, [{ color: '#123456', width_px: 6, offset_x: 2, offset_y: 4 }]);
   assert.deepEqual(after.default_text_style, defaultStyle);
   assert.deepEqual(after.captions[1], captions.captions[1]);
+});
+
+test('同梱の全スタイルを既定にした行は 38→56→72→38 で描画と検査を通り見た目を比例させる', () => {
+  for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
+    const { animation, ...style } = preset.style;
+    const captions = { default_text_style: { ...style, size_px: 38 }, captions: [
+      row({ id: 'c-0001', text: '猫', start: 0, end: 2 }),
+      row({ id: 'c-0002', text: '犬', start: 0, end: 2 })] };
+    const base = JSON.stringify(captions.default_text_style), other = JSON.stringify(captions.captions[1]);
+    let current = captions;
+    for (const size of [56, 72, 38]) {
+      const previous = mergeCaptionDisplayStyles(current.default_text_style, current.captions[0].text_style);
+      const beforeSize = previous.size_px;
+      current = planCaptionSizeEdit({ captions: current, targets: [{ caption_id: 'c-0001' }], size_px: size }).next.captions;
+      const actual = mergeCaptionDisplayStyles(current.default_text_style, current.captions[0].text_style);
+      assert.doesNotThrow(() => resolveCaptionDisplay(current, { cuts: [{ in: 0, out: 2 }] }), id);
+      assert.doesNotThrow(() => validateCaptionTextStyle(current.captions[0].text_style), id);
+      assert.doesNotThrow(() => validateCaptionTextStyle(actual), id);
+      const scaled = scaleCaptionLookPixels({ ...previous, size_px: beforeSize }, size);
+      for (const [key, fields] of Object.entries(CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' && Array.isArray(previous.strokes)) {
+          previous.strokes.forEach((stroke, i) => fields.forEach(field => {
+            if (typeof stroke[field] === 'number') assert.ok(Math.abs(actual.strokes[i][field] - scaled.strokes[i][field]) <= 0.0000011, `${id} ${key}.${field}`);
+          }));
+        } else if (key === 'fill.pattern' && previous.fill?.pattern) {
+          assert.ok(Math.abs(actual.fill.pattern.scale - scaled.fill.pattern.scale) <= 0.0000011, id);
+        } else if (previous[key]) {
+          for (const field of fields) if (typeof previous[key][field] === 'number')
+            assert.ok(Math.abs(actual[key][field] - scaled[key][field]) <= 0.0000011, `${id} ${key}.${field}`);
+        }
+      }
+      const strip = value => {
+        const copy = structuredClone(value);
+        delete copy.size_px;
+        for (const [key, fields] of Object.entries(CAPTION_PIXEL_FIELDS)) {
+          if (key === 'strokes') {
+            for (const stroke of copy.strokes ?? []) for (const field of fields) delete stroke[field];
+          } else if (key === 'fill.pattern') {
+            for (const field of fields) if (copy.fill?.pattern) delete copy.fill.pattern[field];
+          } else if (copy[key]) {
+            for (const field of fields) delete copy[key][field];
+          }
+        }
+        return copy;
+      };
+      assert.deepEqual(strip(actual), strip(previous), id);
+      assert.equal(JSON.stringify(current.default_text_style), base, id);
+      assert.equal(JSON.stringify(current.captions[1]), other, id);
+    }
+  }
+});
+
+test('旧入口の sizePx は既定の影とグローを完全な値で明示し配列ルートも扱う', () => {
+  const source = JSON.stringify({ default_text_style: { size_px: 38,
+    shadow: { color: '#123456', opacity: 0.7, blur_px: 4, distance_px: 2 },
+    glow: { color: '#abcdef', density: 2, spread: 6 } },
+  captions: [row({ text: '猫' })] });
+  const changed = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', { sizePx: 72 }));
+  assert.equal(changed.captions[0].text_style.shadow.color, '#123456');
+  assert.equal(changed.captions[0].text_style.glow.density, 2);
+  validateCaptionTextStyle(mergeCaptionDisplayStyles(changed.default_text_style, changed.captions[0].text_style));
+  const array = JSON.stringify([row({ text: '猫', text_style: { size_px: 38,
+    shadow: { color: '#123456', opacity: 0.7, blur_px: 4, distance_px: 2 } } })]);
+  assert.equal(JSON.parse(updateCaptionTextStyleInSource(array, 'c-0001', { sizePx: 72 }))[0].text_style.shadow.blur_px, 7.578947);
+});
+
+test('保存前の検査は新しく壊す行を拒み既に壊れた行と未変更行を塞がない', () => {
+  assert.throws(() => planCaptionStyleEdit({ captions: root(), targets: [{ caption_id: 'c-0001' }],
+    parts: { look: { color: 'broken' } } }), { code: 'AKARI_CAPTIONS_INVALID' });
+  const previous = root({ text_style: { color: 'broken' } });
+  assert.doesNotThrow(() => planCaptionSizeEdit({ captions: previous,
+    targets: [{ caption_id: 'c-0001' }], size_px: 72 }));
+  const other = { captions: [row({ text_style: { color: 'broken' } }), row({ id: 'c-0002' })] };
+  assert.doesNotThrow(() => planCaptionSizeEdit({ captions: other,
+    targets: [{ caption_id: 'c-0002' }], size_px: 72 }));
 });
 import { validateCaptionLookV1Shape } from '../lib/caption-look-shape.js';
 import { TEXTSTYLE_CATALOG } from '../lib/generated/textstyle-catalog.js';
@@ -62,7 +139,7 @@ test('38px の猫に黄色ラベルを当てると縁・影・グローを無し
   assert.equal(planCaptionStyleReapply({ captions: result.next.captions, styles: { builtin: cat } }).items[0].modified, false);
   const cleared = planCaptionStyleClear({ captions: result.next.captions,
     targets: [{ caption_id: 'c-0001', range: { from: 2, to: 3 } }], mode: 'range' });
-  assert.equal(cleared.next.captions.captions[0].runs.length, 0);
+  assert.equal(Object.hasOwn(cleared.next.captions.captions[0], 'runs'), false);
 });
 
 test('グローだけのスタイルは縁と影を無しにしグローの広がりを換算する', () => {
@@ -92,6 +169,151 @@ test('ネオンを範囲に当てる通知は内部の鍵でなく日本語の�
   assert.equal(result.next.captions.captions[0].runs[0].look.font_weight, 700);
   assert.match(result.notices.join(' '), /大文字・小文字の変換は字幕全体にだけ当てられます。/u);
   assert.doesNotMatch(result.notices.join(' '), /text_transform|weight/u);
+  assert.deepEqual(result.notice_codes.find(item => item.code === 'run-look-omitted'),
+    { code: 'run-look-omitted', params: { field: 'text_transform' } });
+});
+
+test('既定の色だけの台紙は大きさ変更で行に増えない', () => {
+  const captions = { default_text_style: { size_px: 38, background: { color: '#112233' } },
+    captions: [row({ text: '猫' })] };
+  const changed = planCaptionSizeEdit({ captions, targets: [{ caption_id: 'c-0001' }], size_px: 56 }).next.captions;
+  assert.equal(Object.hasOwn(changed.captions[0].text_style, 'background'), false);
+});
+
+test('実測へ写せない範囲と見つからない preset の通知に種類を付ける', () => {
+  const unmapped = planCaptionStyleEdit({ captions: { captions: [row({ text: '猫' })] },
+    targets: [{ caption_id: 'c-0001', range: { from: 0, to: 1 } }], parts: { look: label } });
+  assert.ok(unmapped.notice_codes.some(item => item.code === 'anchor-unmapped'));
+  const missing = planCaptionStyleEdit({ captions: { captions: [row({ style_preset: 'missing-style' })] },
+    targets: [{ caption_id: 'c-0001' }], parts: { look: label } });
+  assert.ok(missing.notice_codes.some(item => item.code === 'style-not-found'));
+});
+
+test('頭に空白が付く語の中央を戻しても両隣の強調を残す', () => {
+  const tokens = ['I', ' will', ' explain', ' how', ' the', ' transcript'];
+  const line = row({ text: tokens.join(''), src: 's1', start: 10, end: 13,
+    words: tokens.map((text, i) => ({ text, start: 10 + i * 0.5, end: 10.5 + i * 0.5 })) });
+  const emphasis_words = [1, 2, 3].map((i) => ({ id: `e-000${i}`, word: tokens[i].trim(), src: 's1',
+    t_start: line.words[i].start, t_end: line.words[i].end, emotion: 'joy' }));
+  const applied = planCaptionStyleEdit({ captions: { captions: [line], emphasis_words },
+    targets: [{ caption_id: 'c-0001', range: { from: 7, to: 14 } }], parts: { look: label } });
+  assert.deepEqual(applied.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0003']);
+  const cleared = planCaptionStyleClear({ captions: applied.next.captions, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 6, to: 15 } }] });
+  assert.deepEqual(cleared.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0003']);
+});
+
+test('末尾に空白が付く語の中央を戻しても両隣の強調を残す', () => {
+  const tokens = ['I ', 'will ', 'explain ', 'how ', 'the ', 'transcript'];
+  const line = row({ text: tokens.join(''), src: 's1', start: 10, end: 13,
+    words: tokens.map((text, i) => ({ text, start: 10 + i * 0.5, end: 10.5 + i * 0.5 })) });
+  const emphasis_words = [1, 2, 3].map(i => ({ id: `e-000${i}`, word: tokens[i].trim(), src: 's1',
+    t_start: line.words[i].start, t_end: line.words[i].end, emotion: 'joy' }));
+  const cleared = planCaptionStyleClear({ captions: { captions: [line], emphasis_words }, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 6, to: 15 } }] });
+  assert.deepEqual(cleared.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0003']);
+});
+
+test('空白だけを戻しても旧い強調は一つも外さない', () => {
+  const line = row({ text: 'I will', src: 's1', start: 0, end: 2,
+    words: [{ text: 'I', start: 0, end: 1 }, { text: ' will', start: 1, end: 2 }] });
+  const emphasis_words = [{ id: 'e-0001', word: 'will', t_start: 1, t_end: 2 }];
+  const cleared = planCaptionStyleClear({ captions: { captions: [line], emphasis_words }, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 1, to: 2 } }] });
+  assert.deepEqual(cleared.next.captions.emphasis_words, emphasis_words);
+  assert.equal(Object.hasOwn(cleared.next.captions.captions[0], 'runs'), false);
+});
+
+test('we call it a strong match の it を広げて戻しても a の強調を残す', () => {
+  const tokens = ['we', ' call', ' it', ' a', ' strong', ' match,', ' and'];
+  const line = row({ text: tokens.join(''), src: 's1', start: 0, end: 7,
+    words: tokens.map((text, i) => ({ text, start: i, end: i + 1 })) });
+  const emphasis_words = [1, 2, 3].map(i => ({ id: `e-000${i}`, word: tokens[i].trim(), src: 's1',
+    t_start: i, t_end: i + 1 }));
+  const cleared = planCaptionStyleClear({ captions: { captions: [line], emphasis_words }, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 7, to: 11 } }] });
+  assert.deepEqual(cleared.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0003']);
+});
+
+test('別素材と置いた文字の行では時刻が重なっても強調を外さない', () => {
+  const line = row({ text: '猫', src: 's1', start: 0, end: 1,
+    words: [{ text: '猫', start: 0, end: 1 }] });
+  const words = [
+    { id: 'e-0001', src: 's1', word: '猫', t_start: 0, t_end: 1 },
+    { id: 'e-0002', src: 's2', word: '猫', t_start: 0, t_end: 1 },
+    { id: 'e-0003', word: '素材', t_start: 0, t_end: 1 }];
+  const changed = planCaptionStyleEdit({ captions: { captions: [line], emphasis_words: words },
+    targets: [{ caption_id: 'c-0001', range: { from: 0, to: 1 } }], parts: { look: label } });
+  assert.deepEqual(changed.next.captions.emphasis_words.map(item => item.id), ['e-0002', 'e-0003']);
+  const placed = planCaptionStyleEdit({ captions: { captions: [{ ...line, time_domain: 'output' }], emphasis_words: words },
+    targets: [{ caption_id: 'c-0001', range: { from: 0, to: 1 } }], parts: { look: label } });
+  assert.deepEqual(placed.next.captions.emphasis_words, words);
+});
+
+test('s2 の素材に当てると src 付きと無しの同じ語だけ外し s1 を残す', () => {
+  const line = row({ text: '素材', src: 's2', start: 0, end: 1,
+    words: [{ text: '素材', start: 0, end: 1 }] });
+  const emphasis_words = [
+    { id: 'e-0001', src: 's1', word: '素材', t_start: 0, t_end: 1 },
+    { id: 'e-0002', src: 's2', word: '素材', t_start: 0, t_end: 1 },
+    { id: 'e-0003', word: '素材', t_start: 0, t_end: 1 },
+    { id: 'e-0004', word: '隣', t_start: 0, t_end: 1 }];
+  const result = planCaptionStyleEdit({ captions: { captions: [line], emphasis_words },
+    targets: [{ caption_id: 'c-0001', range: { from: 0, to: 2 } }], parts: { look: label } });
+  assert.deepEqual(result.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0004']);
+});
+
+test('重なる赤い run を切って黄色を置き同範囲への再適用で id を保つ', () => {
+  const captions = { captions: [row({ text: '赤い猫', runs: [{ id: 'r-0001', from: 0, to: 3,
+    look: { color: '#ff0000', stroke: { width_px: 3 } } }] })],
+    unresolved_runs: [{ run: { id: 'r-0002', from: 0, to: 1 } }] };
+  const first = planCaptionStyleEdit({ captions, targets: [{ caption_id: 'c-0001', range: { from: 2, to: 3 } }],
+    parts: { look: label } }).next.captions;
+  assert.deepEqual(first.captions[0].runs.map(run => [run.from, run.to]), [[0, 2], [2, 3]]);
+  assert.equal(first.captions[0].runs[1].look.color, '#202020');
+  assert.equal(first.captions[0].runs[1].look.stroke.width_px, 0);
+  const second = planCaptionStyleEdit({ captions: first, targets: [{ caption_id: 'c-0001', range: { from: 2, to: 3 } }],
+    parts: { look: label } }).next.captions;
+  assert.deepEqual(second.captions[0].runs.map(run => run.id), first.captions[0].runs.map(run => run.id));
+});
+
+test('三語の中央を戻すと左右の anchor を実測し右に split_from を付ける', () => {
+  const line = row({ text: '赤猫犬', src: 's1', start: 0, end: 3,
+    words: ['赤', '猫', '犬'].map((text, i) => ({ text, start: i, end: i + 1 })),
+    runs: [{ id: 'r-0001', from: 0, to: 3, look: { color: '#ff0000' },
+      anchor: { src: 's1', start: 0, end: 3, domain: 'source' }, fire: 'spoken' }] });
+  const result = planCaptionStyleClear({ captions: { captions: [line] }, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 1, to: 2 } }] });
+  const [left, right] = result.next.captions.captions[0].runs;
+  assert.deepEqual([left.anchor.start, left.anchor.end, right.anchor.start, right.anchor.end], [0, 1, 2, 3]);
+  assert.equal(right.split_from, 'r-0001');
+  assert.notEqual(left.id, right.id);
+});
+
+test('三語の中央に当てると左・新・右の三 run となり未解決分とも id が一意になる', () => {
+  const captions = { captions: [row({ text: '赤猫犬', runs: [{ id: 'r-0001', from: 0, to: 3,
+    look: { color: '#ff0000' } }] })], unresolved_runs: [{ run: { id: 'r-0002', from: 0, to: 1 } }] };
+  const result = planCaptionStyleEdit({ captions, targets: [{ caption_id: 'c-0001', range: { from: 1, to: 2 } }],
+    parts: { look: label } }).next.captions;
+  const runs = result.captions[0].runs;
+  assert.deepEqual(runs.map(run => [run.from, run.to]), [[0, 1], [1, 2], [2, 3]]);
+  assert.equal(runs[2].split_from, 'r-0001');
+  assert.equal(new Set([...runs.map(run => run.id), result.unresolved_runs[0].run.id]).size, 4);
+});
+
+test('分割した spoken の時刻が取れない側は shown と要確認にする', () => {
+  const line = row({ text: '赤猫犬', src: 's1', start: 0, end: 3,
+    words: [{ text: '赤猫', start: 0, end: 2 }],
+    runs: [{ id: 'r-0001', from: 0, to: 3, look: { color: '#ff0000' },
+      anchor: { src: 's1', start: 0, end: 3, domain: 'source' }, fire: 'spoken' }] });
+  const result = planCaptionStyleClear({ captions: { captions: [line] }, mode: 'range',
+    targets: [{ caption_id: 'c-0001', range: { from: 1, to: 2 } }] });
+  for (const piece of result.next.captions.captions[0].runs) {
+    assert.equal(piece.anchor, undefined);
+    assert.equal(piece.fire, 'shown');
+    assert.equal(piece.fire_was, 'spoken');
+    assert.equal(piece.needs_review, true);
+  }
 });
 
 test('実測時刻と表示位置の重なりで旧い強調を判定する', () => {
@@ -130,7 +352,7 @@ test('run の解除もその範囲の旧い強調を一緒に外す', () => {
     { id: 'e-0002', word: '赤い', t_start: 0, t_end: 0.8, emotion: 'joy' }] };
   const result = planCaptionStyleClear({ captions, mode: 'run', targets: [
     { caption_id: 'c-0001', run_id: 'r-0001' }] });
-  assert.deepEqual(result.next.captions.captions[0].runs, []);
+  assert.equal(Object.hasOwn(result.next.captions.captions[0], 'runs'), false);
   assert.deepEqual(result.next.captions.emphasis_words.map(item => item.id), ['e-0002']);
   assert.ok(result.changed.includes('emphasis_words'));
 });
@@ -411,7 +633,7 @@ test('default 対象は配列ルートを object に上げる', () => {
 test('解除 run は指定そのものを消す', () => {
   const captions = root({ runs: [{ id: 'r-0001', from: 0, to: 2, look: { color: '#ffffff' } }] });
   const result = planCaptionStyleClear({ captions, targets: [{ caption_id: 'c-0001', run_id: 'r-0001' }], mode: 'run' });
-  assert.deepEqual(result.next.captions.captions[0].runs, []);
+  assert.equal(Object.hasOwn(result.next.captions.captions[0], 'runs'), false);
 });
 
 test('解除 range は重なる範囲を切り取り右側に新しい id を付ける', () => {
@@ -474,6 +696,16 @@ const fixture = async fn => {
   const dir = await mkdtemp(join(tmpdir(), 'akari-caption-style-'));
   try { return await fn(dir); } finally { await rm(dir, { recursive: true, force: true }); }
 };
+
+test('境界の返り値もネオンの省略項目コードと元の日本語通知を返す', async () => fixture(async dir => {
+  await writeFile(join(dir, 'captions.json'), `${JSON.stringify({ captions: [wordRow()] })}\n`);
+  const { animation, ...neon } = TEXTSTYLE_CATALOG.neon.style;
+  const result = await applyCaptionStyle(dir, { targets: [{ caption_id: 'c-0001', range: { from: 2, to: 3 } }],
+    parts: { look: neon } });
+  assert.deepEqual(result.notice_codes.find(item => item.code === 'run-look-omitted'),
+    { code: 'run-look-omitted', params: { field: 'text_transform' } });
+  assert.match(result.notices.join(' '), /大文字・小文字の変換は字幕全体にだけ当てられます。/u);
+}));
 
 test('意味の error があれば applyCaptionStyle は書かない', async () => fixture(async dir => {
   const sourceText = `${JSON.stringify(root({ runs: [{ id: 'r-0001', from: 0, to: 99, look: { color: '#ffffff' } }] }), null, 2)}\n`;

@@ -349,13 +349,14 @@ type Journal = { version: 1; id: string; label: string; pid: number; host: strin
 const JOURNAL_VERSION = 1;
 
 type SharedWriteState = { chains: Map<string, Promise<void>>; unreleased: Map<string, string>;
-    committed: Set<string>; yieldUntil: Map<string, number> };
+    committed: Set<string>; yieldUntil: Map<string, number>; activeClaims: Set<string> };
 const sharedSymbol = Symbol.for('akari.edit-store.write-locks');
 const sharedGlobal = globalThis as typeof globalThis & { [key: symbol]: SharedWriteState | undefined };
 const sharedState = sharedGlobal[sharedSymbol] ?? (sharedGlobal[sharedSymbol] = {
-    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map()
+    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map(), activeClaims: new Set()
 });
 sharedState.yieldUntil ??= new Map();
+sharedState.activeClaims ??= new Set();
 const projectWriteChains = sharedState.chains;
 const pause = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
 const absent = (error: unknown) => (error as NodeJS.ErrnoException)?.code === 'ENOENT';
@@ -462,6 +463,8 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
     const nonce = randomUUID();
     let permissionFailures = 0;
     let permissionFailureAt = 0;
+    let probeAttempts = 0;
+    let probeSucceeded = false;
     let placedWaitMark = false;
     const clearOwnWaitMark = async () => {
         if (!placedWaitMark) return;
@@ -503,6 +506,15 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
     };
     const yieldMs = (sharedState.yieldUntil.get(resolve(projectRoot)) ?? 0) - Date.now();
     if (yieldMs > 0) await pause(yieldMs);
+    try {
+        const probes = (await ops.readdir(folder)).filter(name => name.startsWith('write.lock.probe-')).slice(0, 16);
+        for (const name of probes) {
+            const probe = join(folder, name);
+            try {
+                if (now() - (await ops.stat(probe)).mtimeMs > 5_000) await ops.unlink(probe);
+            } catch (error) { if (!absent(error) && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error; }
+        }
+    } catch (error) { if (!absent(error)) throw error; }
     for (;;) {
         const acquiredAt = now();
         try {
@@ -524,15 +536,21 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                 if (code === 'EPERM' || code === 'EACCES') {
                     if (permissionFailures++ === 0) permissionFailureAt = Date.now();
                     if (permissionFailures >= 5 && Date.now() - permissionFailureAt >= 50) {
-                        const probe = join(folder, `write.lock.probe-${randomUUID()}`);
-                        try {
-                            await ops.writeFile(probe, '', { flag: 'wx' });
-                        } catch (probeError) {
-                            const probeCode = (probeError as NodeJS.ErrnoException).code;
-                            if (probeCode === 'EPERM' || probeCode === 'EACCES') throw error;
-                            throw probeError;
+                        if (!probeSucceeded && probeAttempts < 2) {
+                            probeAttempts++;
+                            const probe = join(folder, `write.lock.probe-${randomUUID()}`);
+                            try {
+                                await ops.writeFile(probe, '', { flag: 'wx' });
+                            } catch (probeError) {
+                                const probeCode = (probeError as NodeJS.ErrnoException).code;
+                                if (probeCode === 'EPERM' || probeCode === 'EACCES') throw error;
+                                throw probeError;
+                            }
+                            probeSucceeded = true;
+                            await retryFs(() => ops.unlink(probe)).catch(() => undefined);
+                        } else if (!probeSucceeded) {
+                            throw error;
                         }
-                        await retryFs(() => ops.unlink(probe)).catch(() => undefined);
                         permissionFailures = 0;
                     }
                 } else permissionFailures = 0;
@@ -573,14 +591,24 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                 // 奪取だけ claim で直列化し、取得済みの相手の lock を消さない。
                 const clearStaleClaim = async () => {
                     try {
-                        const stat = await fs.stat(claim);
+                        const stat = await ops.stat(claim);
                         let claimant: { pid?: number; host?: string; created_at?: string } = {};
-                        try { claimant = JSON.parse((await fs.readFile(join(claim, 'owner.json'))).toString('utf8')) as typeof claimant; }
+                        try {
+                            const parsed: unknown = JSON.parse((await ops.readFile(join(claim, 'owner.json'))).toString('utf8'));
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) claimant = parsed as typeof claimant;
+                        }
                         catch { /* 識別できない claim は期限後だけ取り除く */ }
-                        if (claimant.host === host && typeof claimant.pid === 'number'
-                            && (options.hooks?.processAlive ?? ownerAlive)(claimant.pid)) return;
+                        if (sharedState.activeClaims.has(claim)) return;
+                        if (claimant.host === host && claimant.pid === process.pid) {
+                            await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
+                            return;
+                        }
+                        const live = claimant.host === host && Number.isInteger(claimant.pid)
+                            && (claimant.pid ?? 0) > 0 && (options.hooks?.processAlive ?? ownerAlive)(claimant.pid!);
                         const createdAt = Date.parse(claimant.created_at ?? '');
-                        if (now() - (Number.isFinite(createdAt) ? createdAt : stat.mtimeMs) > 30_000)
+                        const age = live && Number.isFinite(createdAt) && createdAt <= now()
+                            ? now() - createdAt : now() - stat.mtimeMs;
+                        if (age > (live ? 30_000 : 5_000))
                             await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
                     } catch (error) {
                         if (!absent(error) && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
@@ -591,6 +619,7 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                     await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
+                    sharedState.activeClaims.add(claim);
                     await retryFs(() => ops.writeFile(join(claim, 'owner.json'), JSON.stringify({ pid: process.pid,
                         host, created_at: new Date(now()).toISOString() })));
                     const current = await readBytes(lock);
@@ -602,7 +631,10 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                     if ((error as NodeJS.ErrnoException).code === 'EEXIST') await clearStaleClaim();
                     if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
                         && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
-                } finally { if (claimed) await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined); }
+                } finally { if (claimed) {
+                    await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
+                    sharedState.activeClaims.delete(claim);
+                } }
             } else if (typeof owner.pid === 'number' && Number.isInteger(owner.pid) && owner.pid > 0
                 && typeof owner.host === 'string' && owner.host.length > 0
                 && typeof owner.nonce === 'string' && owner.nonce.length > 0

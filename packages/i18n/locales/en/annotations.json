@@ -1154,6 +1154,6 @@
   "annotations.captionLookMigration.offer.laterAction": "Later",
   "annotations.captionLookMigration.offer.fixedNotice": "Locked the look of {count} subtitle lines.",
   "annotations.captionLookMigration.offer.undoAction": "Undo",
-  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "Other changes followed. Use Undo (Ctrl+Z) to return to this change.",
+  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "Other changes followed. Use Undo to return to this change.",
   "annotations.captionLookMigration.offer.historyLabel": "Lock subtitle appearance"
 }

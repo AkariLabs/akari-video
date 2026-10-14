@@ -93,6 +93,6 @@ test('固定後に別の操作が入った元に戻すは取り消しの案内�
   const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
   assert.match(source, /if \(this\.historyService\.isTop\(entry\)\) await this\.performUndo\(\);\s*else this\.showNotice\(t\('annotations\.captionLookMigration\.offer\.undoAfterOtherChangesNotice'\)\)/u);
   setLanguage('ja');
-  try { assert.match(t('annotations.captionLookMigration.offer.undoAfterOtherChangesNotice'), /Ctrl\+Z/u); }
+  try { assert.match(t('annotations.captionLookMigration.offer.undoAfterOtherChangesNotice'), /取り消しで戻してください/u); }
   finally { setLanguage(undefined); }
 });

@@ -5,7 +5,7 @@ import { captionGraphemes, captionRunsRemovedNotice, rebaseCaptionRuns, splitCap
 import { applyCaptionStylePresets, type TextstyleCatalog } from './caption-style-preset';
 import { resolveTextstyleCatalog } from './textstyle-catalog-merge';
 import { validateCaptionTextStyle } from './caption-display';
-import { planCaptionSizeEdit, type CaptionRoot } from './caption-style-command';
+import { assertChangedCaptionStyles, planCaptionSizeEdit, type CaptionRoot } from './caption-style-command';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
 export const CAPTION_ZONES = [
@@ -696,7 +696,14 @@ export function updateCaptionTextStyleInSource(
             ? removeObjectProperty(nextElement, 'text_style')
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
-    return replaceElement(source, array.openIndex + 1, element, nextElement);
+    const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+    if (updated !== source) {
+        const original = JSON.parse(source) as CaptionRoot;
+        const rows = Array.isArray(original) ? original : original.captions;
+        const index = rows.findIndex(row => row.id === captionId);
+        assertChangedCaptionStyles(original, JSON.parse(updated) as CaptionRoot, [`captions[${index}].text_style`]);
+    }
+    return updated;
 }
 
 export function updateCaptionStylePresetInSource(

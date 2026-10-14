@@ -2,6 +2,7 @@ import { scriptDictionary, t, webviewScriptText } from '../common/preview-text';
 import { getLanguage, t as renderT } from '@akari-video/i18n';
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
 import { selectedCaptionRangesMessage, type SelectedCaptionRange } from '../common/caption-word-selection-message';
+import { clearSelectedCaptionRanges } from '../common/caption-word-selection-state';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
@@ -497,6 +498,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly primaryTimelineSelections = new Map<string, { kind: 'cut' | 'caption'; id: string } | null>();
     protected readonly timelineCaptionSelections = new Map<string, { captionIds: string[]; primaryCaptionId: string | null }>();
     protected readonly daihonWordSelections = new Map<string, SelectedCaptionRange[]>();
+    protected clearDaihonWordSelections(keep?: string): void {
+        clearSelectedCaptionRanges(this.daihonWordSelections, this.openOutputPreviews, keep);
+    }
     protected readonly timelineGroupSelections = new Map<string, Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>>();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
@@ -647,6 +651,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     onStart(): void {
+        this.lifecycleDisposables.push(this.workspaceService.onWorkspaceChanged(() =>
+            this.clearDaihonWordSelections()));
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
         const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
             if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
@@ -1022,7 +1028,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const key = new URI(detail.editUri).normalizePath().toString();
             const message = selectedCaptionRangesMessage({ ...detail, editUri: key }, key);
             if (!message) return;
-            this.daihonWordSelections.set(key, message.ranges);
+            if (message.ranges.length) {
+                this.clearDaihonWordSelections(key);
+                this.daihonWordSelections.set(key, message.ranges);
+            } else this.daihonWordSelections.delete(key);
             this.openOutputPreviews.get(key)?.sendMessage(message);
         };
         this.lifecycleDisposables.push(listen(window, 'akari.daihon.wordSelectionChanged', onDaihonWordSelectionChanged));
@@ -2634,6 +2643,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const marker = widget as PreviewWidgetMarker;
         const seekKey = uri.normalizePath().toString();
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
+        if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
         if (previews.get(seekKey) === marker) {
             previews.delete(seekKey);
         }
@@ -3672,6 +3682,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.disposed.connect(() => {
             disposables.dispose();
             this.previewGestureGuards?.delete(widget);
+            if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
             if (previews.get(seekKey) === widget) {
                 previews.delete(seekKey);
             }

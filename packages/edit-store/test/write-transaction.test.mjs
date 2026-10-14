@@ -687,21 +687,128 @@ test('古い claim は片付けて奪取し新しい claim は保持する', asy
   assert.equal((await stat(claim)).isDirectory(), true);
 }));
 
-test('生きた claim の持ち主は五秒を超えても消さず死んだ持ち主は期限後に消す', async () => fixture(async root => {
+test('生きた claim は作成から三十秒まで保持し死んだ claim は mtime の五秒後に消す', async () => fixture(async root => {
   const lock = join(root, '.akari', 'write.lock'), claim = `${lock}.claim`;
   await mkdir(claim, { recursive: true });
   await writeFile(lock, JSON.stringify({ pid: 456, host: hostname(), created_at: new Date().toISOString(), nonce: 'old' }));
   await writeFile(join(claim, 'owner.json'), JSON.stringify({ pid: 123, host: hostname(),
-    created_at: new Date(Date.now() - 31_000).toISOString() }));
+    created_at: new Date(Date.now() - 6_000).toISOString() }));
   await assert.rejects(writeProjectFilesTransactional(root, { label: 'live claim', files: {
     'edit.json': { next: 'blocked' }
   } }, { waitTimeoutMs: 30, hooks: { processAlive: pid => pid === 123 } }), /待ち時間/);
   assert.equal((await stat(claim)).isDirectory(), true);
+  const old = new Date(Date.now() - 6_000);
+  await utimes(claim, old, old);
   await writeProjectFilesTransactional(root, { label: 'dead claim', files: {
     'edit.json': { next: 'saved' }
   } }, { hooks: { processAlive: () => false } });
   assert.equal(await read(root, 'edit.json'), 'saved');
   await assert.rejects(stat(claim), { code: 'ENOENT' });
+}));
+
+for (const sample of [
+  { name: '生きた pid の claim は二十九秒で保持する', owner: { pid: 123, host: hostname() }, age: 29_000, blocked: true },
+  { name: '生きた pid の claim は三十一秒で消す', owner: { pid: 123, host: hostname() }, age: 31_000 },
+  { name: '自分の pid の取り残し claim は直ちに消す', owner: { pid: process.pid, host: hostname() }, age: 0 },
+  { name: 'pid 0 の claim は五秒後に消す', owner: { pid: 0, host: hostname() }, age: 6_000 },
+  { name: '生きた pid 4 の claim は三十一秒で消す', owner: { pid: 4, host: hostname() }, age: 31_000 },
+  { name: '小数 pid の claim は五秒後に消す', owner: { pid: 2.5, host: hostname() }, age: 6_000 },
+  { name: '負の pid の claim は五秒後に消す', owner: { pid: -1, host: hostname() }, age: 6_000 },
+  { name: '文字列 pid の claim は五秒後に消す', owner: { pid: '4', host: hostname() }, age: 6_000 },
+  { name: '未来の作成時刻の claim は mtime 三十一秒で消す', owner: { pid: 123, host: hostname() }, age: 31_000, future: true },
+  { name: '空の owner.json の claim は五秒後に消す', raw: '', age: 6_000 },
+  { name: 'null の owner.json の claim は五秒後に消す', raw: 'null', age: 6_000 },
+  { name: '壊れた owner.json の claim は五秒後に消す', raw: '{', age: 6_000 },
+  { name: 'owner.json の無い claim は五秒後に消す', age: 6_000 },
+  { name: '別 host の claim は五秒後に消す', owner: { pid: 123, host: 'other-host' }, age: 6_000 },
+  { name: '死んだ pid の claim は五秒後に消す', owner: { pid: 123, host: hostname() }, age: 6_000, dead: true }
+]) test(sample.name, async () => fixture(async root => {
+  const clock = Date.now();
+  const lock = join(root, '.akari', 'write.lock'), claim = `${lock}.claim`;
+  await mkdir(claim, { recursive: true });
+  await writeFile(lock, JSON.stringify({ pid: 456, host: hostname(),
+    created_at: new Date(clock - 31_000).toISOString(), nonce: 'old' }));
+  if (sample.owner) await writeFile(join(claim, 'owner.json'), JSON.stringify({ ...sample.owner,
+    created_at: new Date(clock + (sample.future ? 10_000 : -sample.age)).toISOString() }));
+  else if (sample.raw !== undefined) await writeFile(join(claim, 'owner.json'), sample.raw);
+  const old = new Date(clock - sample.age);
+  await utimes(claim, old, old);
+  const mkdirClaim = async (...args) => {
+    if (args[0] === claim && sample.blocked) {
+      try { await stat(claim); }
+      catch (error) { if (error.code === 'ENOENT') return mkdir(...args); throw error; }
+      throw Object.assign(new Error('CLAIM_HELD'), { code: 'CLAIM_HELD' });
+    }
+    return mkdir(...args);
+  };
+  const attempt = writeProjectFilesTransactional(root, { label: 'claim', files: { 'edit.json': { next: 'saved' } } },
+    { hooks: { now: () => clock, processAlive: pid => !sample.dead && (pid === 123 || pid === 4),
+      fs: { mkdir: mkdirClaim } } });
+  if (sample.blocked) {
+    await assert.rejects(attempt, /CLAIM_HELD/);
+    assert.equal((await stat(claim)).isDirectory(), true);
+  } else {
+    await attempt;
+    assert.equal(await read(root, 'edit.json'), 'saved');
+    await assert.rejects(stat(claim), { code: 'ENOENT' });
+  }
+}));
+
+test('五秒より古い試し書きの残骸を次の保存で掃除する', async () => fixture(async root => {
+  const folder = join(root, '.akari');
+  await mkdir(folder);
+  const probe = join(folder, 'write.lock.probe-leftover');
+  await writeFile(probe, '');
+  const old = new Date(Date.now() - 6_000);
+  await utimes(probe, old, old);
+  await writeProjectFilesTransactional(root, { label: 'probe cleanup', files: { 'edit.json': { next: 'saved' } } });
+  await assert.rejects(stat(probe), { code: 'ENOENT' });
+}));
+
+test('claim の後始末が失敗しても次の自分の保存で回収する', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock'), claim = `${lock}.claim`;
+  await mkdir(dirname(lock));
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date(Date.now() - 31_000).toISOString(), nonce: 'old' }));
+  await writeProjectFilesTransactional(root, { label: 'first', files: { 'edit.json': { next: 'one' } } },
+    { hooks: { processAlive: () => false, fs: { rm: async (path, options) => {
+      if (path === claim) throw Object.assign(new Error('busy'), { code: 'EIO' });
+      return fs.rm(path, options);
+    } } } });
+  assert.equal((await stat(claim)).isDirectory(), true);
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date(Date.now() - 31_000).toISOString(), nonce: 'old-again' }));
+  await writeProjectFilesTransactional(root, { label: 'second', files: { 'edit.json': { next: 'two' } } },
+    { hooks: { processAlive: () => false } });
+  assert.equal(await read(root, 'edit.json'), 'two');
+  await assert.rejects(stat(claim), { code: 'ENOENT' });
+}));
+
+test('試し書きの後始末が失敗しても次の保存で古い残骸を掃除する', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  await mkdir(dirname(lock));
+  let blocked = true, probe;
+  await writeProjectFilesTransactional(root, { label: 'first', files: { 'edit.json': { next: 'one' } } },
+    { hooks: { fs: {
+      writeFile: async (...args) => {
+        if (args[0] === lock && blocked) throw Object.assign(new Error('busy'), { code: 'EPERM' });
+        if (String(args[0]).includes('write.lock.probe-')) { probe = args[0]; blocked = false; }
+        return fs.writeFile(...args);
+      },
+      unlink: async path => {
+        if (path === probe) throw Object.assign(new Error('busy'), { code: 'EIO' });
+        return fs.unlink(path);
+      }
+    } } });
+  assert.equal(await read(root, 'edit.json'), 'one');
+  assert.ok(probe);
+  const old = new Date(Date.now() - 6_000);
+  await utimes(probe, old, old);
+  await writeProjectFilesTransactional(root, { label: 'second', files: { 'edit.json': { next: 'two' } } });
+  assert.equal(await read(root, 'edit.json'), 'two');
+  await assert.rejects(stat(probe), { code: 'ENOENT' });
 }));
 
 test('試し書きの unlink が一回 EBUSY でも保存でき残骸を残さない', async () => fixture(async root => {
@@ -780,6 +887,35 @@ test('lock 名だけの EPERM は試し書き成功後も取り直す', async ()
   assert.ok(probes > 0);
   assert.equal(await read(root, 'edit.json'), '成功');
 }));
+
+for (const code of ['EBUSY', 'EPERM']) {
+  test(`lock 作成が 40 回 EPERM でも試し書きが成功し、unlink が ${code} で失敗し続けても保存できる`,
+    async () => fixture(async root => {
+      const fs = await import('node:fs/promises');
+      const lock = join(root, '.akari', 'write.lock');
+      await mkdir(dirname(lock));
+      let blocked = 40, probes = 0;
+      await writeProjectFilesTransactional(root, { label: '競り合い', files: {
+        'edit.json': { next: '成功' }
+      } }, { waitTimeoutMs: 8_000, hooks: { fs: {
+        writeFile: async (...args) => {
+          if (args[0] === lock && args[2]?.flag === 'wx' && blocked-- > 0)
+            throw Object.assign(new Error('競り合い'), { code: 'EPERM' });
+          if (String(args[0]).includes('write.lock.probe-')) probes++;
+          return fs.writeFile(...args);
+        },
+        unlink: async path => {
+          if (String(path).includes('write.lock.probe-'))
+            throw Object.assign(new Error('削除待ち'), { code });
+          return fs.unlink(path);
+        }
+      } } });
+      assert.equal(await read(root, 'edit.json'), '成功');
+      assert.equal(blocked, -1);
+      assert.ok(probes > 0 && probes <= 2);
+      assert.ok((await fs.readdir(join(root, '.akari'))).filter(name => name.startsWith('write.lock.probe-')).length <= 2);
+    }));
+}
 
 test('比較つきの読み取り EBUSY は再試行して保存する', async () => fixture(async root => {
   const fs = await import('node:fs/promises');

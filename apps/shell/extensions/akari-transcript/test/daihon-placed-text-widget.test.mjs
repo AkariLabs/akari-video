@@ -10,8 +10,10 @@ import Module, { createRequire } from 'node:module';
 import { readAllSourceText } from './helpers/daihon-source.mjs';
 
 const require = createRequire(import.meta.url);
+const { planCaptionStyleClear } = require('@akari-video/edit-store');
 const editMutations = require('akari-annotations/lib/common/edit-v2-mutations');
 const decorator = () => () => {};
+let activeTimelineListener;
 class BaseWidget {}
 class DisposableCollection { push() {} dispose() {} }
 const stubs = {
@@ -26,6 +28,12 @@ const stubs = {
   '@theia/core/shared/inversify': { inject: decorator, injectable: decorator, postConstruct: decorator },
   '@theia/filesystem/lib/browser/file-service': {}, '@theia/workspace/lib/browser/workspace-service': {},
   'akari-annotations/lib/browser/akari-edit-history-service': {},
+  'akari-annotations/lib/browser/active-timeline': {
+    onActiveTimelineEditUriChange: listener => {
+      activeTimelineListener = listener;
+      return { dispose() {} };
+    }
+  },
   'akari-annotations/lib/common/akari-annotations-protocol': {},
   'akari-annotations/lib/common/edit-v2-mutations': editMutations,
   'akari-project/lib/common/akari-project-protocol': {}
@@ -94,6 +102,40 @@ test('語の選択を外すと空の範囲を送る', () => {
   assert.deepEqual(wordSelectionEvents([[{ row: 'ja', a: 1, b: 1 }], []]),
     [[{ captionId: 'ja', from: 2, to: 3 }], []]);
 });
+
+test('タイムライン切り替え時は旧い editUri に空の語選択を一回送る', async () => {
+  const oldWindow = globalThis.window, oldEvent = globalThis.CustomEvent;
+  const events = [];
+  let reloads = 0;
+  globalThis.window = { dispatchEvent: event => events.push(event) };
+  globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+  activeTimelineListener = undefined;
+  const instance = widget({
+    preferences: { get: () => undefined },
+    updateAttachmentModeButtons() {},
+    workspaceService: { ready: Promise.resolve(), roots: [{ resource: uri('') }] },
+    async locateProject() {}, async reload() {},
+    toDispose: { push() {} },
+    fileService: { onDidFilesChange: () => ({ dispose() {} }), watch: async () => ({ dispose() {} }) },
+    editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit-a.json' },
+    lastWordSelectionPayload: 'previous selection',
+    queueReload() { reloads++; }
+  });
+  try {
+    await instance.configure();
+    assert.equal(typeof activeTimelineListener, 'function');
+    activeTimelineListener();
+    assert.deepEqual(events.map(event => [event.type, event.detail]),
+      [['akari.daihon.wordSelectionChanged', { editUri: 'file:///project/edit-a.json', ranges: [] }]]);
+    assert.equal(instance.lastWordSelectionPayload, '');
+    assert.equal(reloads, 1);
+  } finally {
+    activeTimelineListener = undefined;
+    globalThis.window = oldWindow;
+    globalThis.CustomEvent = oldEvent;
+  }
+});
+
 function widget(overrides = {}) {
   return Object.assign(Object.create(AkariDaihonWidget.prototype), {
     rows: buildDaihonRows([...spoken, ...placed], null), sourceCaptions: structuredClone([...spoken, ...placed]),
@@ -178,6 +220,15 @@ test('台本の語の印は run の色と台紙が旧い強調より優先する
     [{ color: '#202020', background: '#ffd948' }]);
 });
 
+test('表示に挿入がある行でも当てられる隣の語と run の印が一致する', () => {
+  const caption = { id: 'c-0001', text: 'あかりは便利', displayText: 'あかり（AKARI）は便利',
+    words: ['あかり', 'は', '便利'].map((text, index) => ({ text, start: index, end: index + 1 })) };
+  const root = { captions: [{ id: caption.id, text: caption.text, display_text: caption.displayText,
+    runs: [{ from: 10, to: 11, look: { color: '#ffd948' } }] }] };
+  assert.deepEqual(widget().resolveWordPresets(root, [caption]).get(caption.id),
+    [undefined, { color: '#ffd948', background: undefined }, undefined]);
+});
+
 test('words の連結が本文と異なる行では run の印をずらして出さない', () => {
   const instance = widget();
   const caption = { id: 'c-0001', text: '赤い猫', start: 0, end: 1,
@@ -250,6 +301,42 @@ test('旧い強調だけの語も range 解除を一回呼ぶ', async () => {
   assert.equal(writes.length, 1);
   assert.deepEqual(writes[0].input,
     { targets: [{ caption_id: caption.id, range: { from: 0, to: 1 } }], mode: 'range' });
+});
+
+test('we call it a strong match の it を戻すと広げた範囲で it だけの強調が消える', async () => {
+  const tokens = ['we', ' call', ' it', ' a', ' strong', ' match,', ' and'];
+  const caption = { id: 'c-0001', text: tokens.join(''), src: 's1', start: 0, end: 7,
+    words: tokens.map((text, index) => ({ text, start: index, end: index + 1 })) };
+  const root = { captions: [caption], emphasis_words: [1, 2, 3].map(index => ({
+    id: `e-000${index}`, word: tokens[index].trim(), src: 's1',
+    t_start: index, t_end: index + 1 })) };
+  const calls = [];
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 2, b: 2 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify(root), request: {} });
+    }, annotationsService: { async clearCaptionStyle(request) {
+      calls.push(request);
+      const planned = planCaptionStyleClear({ captions: root, ...request.input });
+      assert.deepEqual(planned.next.captions.emphasis_words.map(item => item.id), ['e-0001', 'e-0003']);
+      return { ok: true, written: ['captions.json'], changed: [], notices: [] };
+    } } });
+  await instance.clearWordPreset();
+  assert.deepEqual(calls[0].input.targets, [{ caption_id: caption.id, range: { from: 7, to: 11 } }]);
+});
+
+test('隣の a にだけ強調がある it を戻しても RPC を呼ばない', async () => {
+  const tokens = ['we', ' call', ' it', ' a', ' strong', ' match,', ' and'];
+  const caption = { id: 'c-0001', text: tokens.join(''), src: 's1', start: 0, end: 7,
+    words: tokens.map((text, index) => ({ text, start: index, end: index + 1 })) };
+  const root = { captions: [caption], emphasis_words: [{ id: 'e-0003', word: 'a', src: 's1',
+    t_start: 3, t_end: 4 }] };
+  const calls = [];
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 2, b: 2 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify(root), request: {} });
+    }, annotationsService: { clearCaptionStyle: request => calls.push(request) } });
+  await instance.clearWordPreset();
+  assert.deepEqual(calls, []);
 });
 
 test('無音提案と行結合の対象に output は入らない', async () => {
@@ -1059,6 +1146,20 @@ test('語と候補を選ぶと下部バーの操作が切り替わる', () => {
     instance.candidateBar = { title: 'フィラー「えー」', actions: [{ label: '字幕からだけ消す（音声はそのまま）', run() {} }] };
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent), ['フィラー「えー」', '字幕からだけ消す（音声はそのまま）', '✕']);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('語の題は頭と末尾の空白を除いて六字で省略し全文をツールチップに残す', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const actionBar = fakeNode();
+  const instance = widget({ actionBar, selection: { selected: ['r1'], anchorId: 'r1' },
+    wordRanges: [{ row: 'r1', a: 0, b: 0 }],
+    selectionRows: () => [{ id: 'r1', words: [{ text: ' strong match ', start: 0, end: 1 }] }] });
+  try {
+    instance.renderActionBar();
+    assert.equal(actionBar.children[0].textContent, '「stron…」');
+    assert.equal(actionBar.children[0].title, ' strong match ');
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 

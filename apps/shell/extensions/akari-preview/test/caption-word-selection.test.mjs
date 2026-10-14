@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { captionWordSelectionBoxes } from '../lib/common/caption-word-selection-geometry.js';
 import { selectedCaptionRangesMessage } from '../lib/common/caption-word-selection-message.js';
+import { clearSelectedCaptionRanges } from '../lib/common/caption-word-selection-state.js';
 import { previewBootstrapScript } from '../lib/browser/preview-script-bootstrap.js';
 
 const rect = (left, top, width, height = 12) => ({ left, right: left + width,
@@ -34,8 +35,24 @@ test('host は同じ editUri の語選択だけを webview メッセージに直
     { type: 'akari-preview-set-selected-caption-ranges', ranges: detail.ranges });
   assert.equal(selectedCaptionRangesMessage(detail, 'file:///b/edit.json'), undefined);
   const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-  assert.match(source, /daihonWordSelections\.set\(key, message\.ranges\)/u);
+  assert.match(source, /if \(message\.ranges\.length\) \{\s*this\.clearDaihonWordSelections\(key\);\s*this\.daihonWordSelections\.set\(key, message\.ranges\)/u);
   assert.match(source, /this\.daihonWordSelections\.has\(key\)/u);
+});
+
+test('別の editUri に切り替えると旧い側の語選択を空にして新しい側だけ残す', () => {
+  const oldKey = 'file:///a/edit.json', newKey = 'file:///b/edit.json';
+  const ranges = [{ captionId: 'c-1', from: 0, to: 2 }];
+  const selections = new Map([[oldKey, ranges], [newKey, ranges]]);
+  const sent = [];
+  const previews = new Map([[oldKey, { sendMessage: message => sent.push([oldKey, message]) }],
+    [newKey, { sendMessage: message => sent.push([newKey, message]) }]]);
+  clearSelectedCaptionRanges(selections, previews, newKey);
+  assert.deepEqual([...selections.keys()], [newKey]);
+  assert.deepEqual(sent, [[oldKey, { type: 'akari-preview-set-selected-caption-ranges', ranges: [] }]]);
+  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  assert.match(source, /listen\(window, 'akari\.daihon\.wordSelectionChanged', onDaihonWordSelectionChanged\)/u);
+  assert.match(source, /else this\.daihonWordSelections\.delete\(key\);\s*this\.openOutputPreviews\.get\(key\)\?\.sendMessage\(message\)/u);
+  assert.match(source, /onWorkspaceChanged\(\(\) =>\s*this\.clearDaihonWordSelections/u);
 });
 
 test('webview は空の選択を受けると枠の要素を消す', () => {
@@ -49,7 +66,7 @@ test('webview は空の選択を受けると枠の要素を消す', () => {
   assert.match(source, /wordBoxObserver\.observe\(previewStage/u);
   assert.match(source, /wordBoxResize\.observe\(previewChrome\)/u);
   assert.match(source, /wordBoxFrame = requestAnimationFrame\(drawSelectedCaptionWordBoxes\)/u);
-  assert.match(source, /!video\.paused \? 100 - \(Date\.now\(\) - lastWordBoxDraw\)/u);
+  assert.match(source, /isPlaying \? 100 - \(Date\.now\(\) - lastWordBoxDraw\)/u);
   assert.match(source, /window\.addEventListener\('akari-frame-engine-seek', queueSelectedCaptionWordBoxes\)/u);
   assert.match(source, /row\.plate\.querySelector\('\[contenteditable="true"\]'\)/u);
   assert.match(source, /if \(caption\.manualFragment\) continue/u);

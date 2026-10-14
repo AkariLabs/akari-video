@@ -42,12 +42,61 @@ export function wordSelectionToCaptionRange(
     if (display === caption.text) return { range: { from: sourceStart, to: sourceEnd },
         text: captionGraphemes(display).slice(sourceStart, sourceEnd).join('') };
     const map = inferCaptionDisplayToSource(display, caption.text);
-    const starts = map.flatMap((source, index) => source === sourceStart ? [index] : []);
-    const ends = map.flatMap((source, index) => source === sourceEnd ? [index] : []);
-    if (starts.length !== 1 || ends.length !== 1 || starts[0] >= ends[0]) return { reason: reasons.display };
     const chars = captionGraphemes(display);
-    let from = starts[0];
-    let to = ends[0];
+    const sourceChars = captionGraphemes(caption.text);
+    const matched = new Map<number, number>();
+    for (let index = 0; index < chars.length; index++) {
+        const source = map[index];
+        if (source !== undefined && chars[index] === sourceChars[source])
+            matched.set(source, index);
+    }
+    const first = matched.get(sourceStart);
+    if (first !== undefined && sourceChars.slice(sourceStart, sourceEnd).every((_, offset) =>
+        matched.get(sourceStart + offset) === first + offset)) {
+        const text = chars.slice(first, first + sourceEnd - sourceStart).join('');
+        if (text === caption.text.slice(sourceFrom, sourceTo))
+            return { range: { from: first, to: first + sourceEnd - sourceStart }, text };
+    }
+    const selectedText = caption.text.slice(sourceFrom, sourceTo);
+    const width = sourceEnd - sourceStart;
+    const starts: number[] = [];
+    const ends: number[] = [];
+    for (let index = 0; index < map.length; index++) {
+        if (map[index] === sourceStart) starts.push(index);
+        if (map[index] === sourceEnd) ends.push(index);
+    }
+    const boundary = starts.length === 1 && ends.length === 1 && starts[0] < ends[0]
+        ? { from: starts[0], to: ends[0] } : undefined;
+    const before = matched.get(sourceStart - 1);
+    const after = matched.get(sourceEnd);
+    const windowFrom = before === undefined ? 0 : before + 1;
+    const windowTo = after === undefined ? chars.length : after;
+    const exact: number[] = [];
+    for (let index = windowFrom; index + width <= windowTo; index++) {
+        if (chars.slice(index, index + width).join('') === selectedText) exact.push(index);
+    }
+    if (exact.length) {
+        const overlapping = boundary
+            ? exact.filter(index => index < boundary.to && index + width > boundary.from) : [];
+        const candidates = overlapping.length ? overlapping : exact;
+        if (candidates.length === 1) {
+            const from = candidates[0];
+            return { range: { from, to: from + width }, text: selectedText };
+        }
+    }
+    if (boundary) {
+        const overlapping: number[] = [];
+        for (let index = 0; index + width <= chars.length; index++) {
+            if (index < boundary.to && index + width > boundary.from
+                && chars.slice(index, index + width).join('') === selectedText) overlapping.push(index);
+        }
+        if (overlapping.length === 1) {
+            const from = overlapping[0];
+            return { range: { from, to: from + width }, text: selectedText };
+        }
+    }
+    if (!boundary) return { reason: reasons.display };
+    let { from, to } = boundary;
     while (from < to && /^\s+$/u.test(chars[from])) from++;
     while (to > from && /^\s+$/u.test(chars[to - 1])) to--;
     const text = chars.slice(from, to).join('');

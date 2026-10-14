@@ -17,6 +17,11 @@ const RUN_LOOK_OMITTED_NAMES: Record<string, string> = {
     fill: '塗り', strokes: '重ねた縁', size_px: '大きさ', reference_height_px: '基準の高さ'
 };
 export const CAPTION_DEFAULT_SIZE_PX = 38;
+export const CAPTION_PIXEL_FIELDS: Readonly<Record<string, readonly string[]>> = {
+    stroke: ['width_px'], background: ['radius_px', 'padding_px'],
+    shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'],
+    strokes: ['width_px', 'offset_x', 'offset_y'], 'fill.pattern': ['scale']
+};
 
 function record(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -56,10 +61,8 @@ export function scaleCaptionLookPixels(look: Record<string, unknown>, targetSize
     const ratio = typeof presetSize === 'number' && Number.isFinite(presetSize) && presetSize > 0
         ? targetSize / presetSize : 1;
     const scaled = { ...look };
-    for (const [key, fields] of Object.entries({
-        stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y']
-    })) {
+    for (const [key, fields] of Object.entries(CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern') continue;
         const value = look[key];
         if (!record(value)) continue;
         const copy = { ...value };
@@ -72,7 +75,7 @@ export function scaleCaptionLookPixels(look: Record<string, unknown>, targetSize
     if (Array.isArray(look.strokes)) scaled.strokes = look.strokes.map(entry => {
         if (!record(entry)) return entry;
         const stroke = { ...entry };
-        for (const field of ['width_px', 'offset_x', 'offset_y']) {
+        for (const field of CAPTION_PIXEL_FIELDS.strokes) {
             const current = stroke[field];
             if (typeof current === 'number') stroke[field] = current * ratio;
         }

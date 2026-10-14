@@ -49,18 +49,25 @@ const DEFAULT_HINT: Readonly<Record<string, string>> = {
     disgust: 'one-char-jumble', joy: 'size-pulse', emphasis: 'size-pulse'
 };
 
+export function captionEmphasisWordIntervals(row: Pick<CaptionRow, 'text' | 'display_text'>,
+    wordText: string): Array<{ from: number; to: number }> {
+    const chars = captionGraphemes(row.display_text ?? row.text ?? '');
+    const word = captionGraphemes(wordText);
+    const matches: Array<{ from: number; to: number }> = [];
+    if (!word.length) return matches;
+    for (let i = 0; i <= chars.length - word.length; i++) {
+        if (word.every((char, n) => chars[i + n] === char)) matches.push({ from: i, to: i + word.length });
+    }
+    return matches;
+}
+
 function intervalForEmphasis(row: CaptionRow, emphasis: Emphasis): { from: number; to: number } | undefined {
     if (emphasis.src && emphasis.src !== row.src) return undefined;
     if (typeof row.start !== 'number' || typeof row.end !== 'number'
         || emphasis.t_start < row.start || emphasis.t_end > row.end
         || emphasis.t_start >= emphasis.t_end) return undefined;
-    const chars = captionGraphemes(row.display_text ?? row.text ?? '');
-    const word = captionGraphemes(emphasis.word);
-    const matches: number[] = [];
-    for (let i = 0; i <= chars.length - word.length; i++) {
-        if (word.every((char, n) => chars[i + n] === char)) matches.push(i);
-    }
-    return matches.length === 1 ? { from: matches[0], to: matches[0] + word.length } : undefined;
+    const matches = captionEmphasisWordIntervals(row, emphasis.word);
+    return matches.length === 1 ? matches[0] : undefined;
 }
 
 function projectEmphasis(rows: CaptionRow[], item: Emphasis):

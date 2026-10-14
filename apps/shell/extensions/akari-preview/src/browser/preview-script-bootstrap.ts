@@ -12285,7 +12285,7 @@ export function previewBootstrapScript(): string {
             const drawSelectedCaptionWordBoxes = () => {
                 wordBoxFrame = 0;
                 if (!selectedCaptionWordRanges.length) return;
-                const delay = !video.paused ? 100 - (Date.now() - lastWordBoxDraw) : 0;
+                const delay = isPlaying ? 100 - (Date.now() - lastWordBoxDraw) : 0;
                 if (delay > 0) {
                     if (!wordBoxTimer) wordBoxTimer = setTimeout(() => {
                         wordBoxTimer = 0;

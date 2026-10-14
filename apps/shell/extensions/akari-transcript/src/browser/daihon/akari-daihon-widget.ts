@@ -86,6 +86,7 @@ import {
 } from '../../common/daihon-selection';
 import { normalizeFillerWord } from '../../common/daihon-filler';
 import { expandCaptionRangeToAdjacentWhitespace, wordSelectionToCaptionRange } from '../../common/daihon-word-caption-range';
+import { captionNoticeTexts } from '../../common/daihon-caption-notices';
 import { changedWordMarkRows, readableWordMarkColor } from '../../common/daihon-word-mark-color';
 import { settleCaptionCommand } from '../../common/caption-command-outcome';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
@@ -1161,7 +1162,13 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rootUri = root;
         await this.locateProject(root);
         await this.reload();
-        this.toDispose.push(onActiveTimelineEditUriChange(() => this.queueReload()));
+        this.toDispose.push(onActiveTimelineEditUriChange(() => {
+            const editUri = this.editUri?.normalizePath().toString();
+            if (editUri) window.dispatchEvent(new CustomEvent(DAIHON_WORD_SELECTION_CHANGED_EVENT,
+                { detail: { editUri, ranges: [] } }));
+            this.lastWordSelectionPayload = '';
+            this.queueReload();
+        }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const relevant = (this.editUri && event.contains(this.editUri))
@@ -1839,7 +1846,9 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
-            title.textContent = `「${summary.text.slice(0, 6)}」`; title.title = summary.text; bar.append(title);
+            const heading = summary.text.trim();
+            title.textContent = `「${heading.length > 6 ? `${heading.slice(0, 5)}…` : heading}」`;
+            title.title = summary.text; bar.append(title);
             add(t('transcript.daihon.editor.editLabel'), () => {
                 const row = this.rows.find(item => item.id === this.wordRanges[0]?.row);
                 if (row) this.startEdit(row);
@@ -5227,7 +5236,9 @@ export class AkariDaihonWidget extends BaseWidget {
                     ? t('transcript.daihon.editor.rangesWithValuesNotice', { value1: selectedText,
                         value2: preset.name, value3: this.wordRanges.length })
                     : t('transcript.daihon.editor.noChangesChangedNotice');
-                this.notify(`${message}${result.notices.length ? ` ${result.notices.join(' ')}` : ''}`);
+                const notices = captionNoticeTexts(result.notice_codes ?? [], (key, values) => t(key, values),
+                    code => console.warn('[akari-daihon] unrecognized caption notice', code.code));
+                this.notify([message, ...notices].join(' '));
             }
         } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
