@@ -49,6 +49,8 @@ test('webview injection keeps run rules when editing redraws only a paragraph', 
   assert.match(bootstrap, /const syncRunShadowText = element => \{[\s\S]*?\.akari-caption__run\[data-akari-shadow-text\][\s\S]*?run\.setAttribute\('data-akari-shadow-text', run\.textContent \|\| ''\)/u);
   assert.match(bootstrap, /element\.replaceChildren\([\s\S]*?syncRunShadowText\(element\)/u);
   assert.match(bootstrap, /captionLayer\.addEventListener\('input',[\s\S]*?syncRunShadowText\(activeCaptionEdit\.element\)/u);
-  assert.match(bootstrap, /const captionHasScaledRun = caption => !\(caption\?\.textStyle\?\.underline === true[\s\S]*?caption\?\.textStyle\?\.strikethrough === true\)/u);
+  assert.match(bootstrap, /const captionHasScaledRun = caption => Boolean\(caption\?\.runs\?\.some\(run =>/u);
+  assert.doesNotMatch(bootstrap, /captionHasScaledRun = caption => !\(/u);
+  assert.match(bootstrap, /if \(wrapWidthActive \|\| Boolean\(caption\?\.runs\?\.some\(run =>/u);
   assert.match(bootstrap, /renderCaptionRuns\(captionHtml, caption\.text, caption\.runs,[\s\S]*?--plate-ext-bg/u);
 });

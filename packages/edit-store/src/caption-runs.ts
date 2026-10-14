@@ -456,6 +456,11 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     const segment = (value: string): string[] => Array.from(
         new Segmenter(undefined, { granularity: 'grapheme' }).segment(value), item => item.segment);
     const chars = segment(displayText);
+    const decorationHtml = html.includes('data-decoration-text=');
+    if (decorationHtml) runs = runs.filter(run => Boolean(run?.look));
+    if (!runs.length) return html;
+    const hasV1 = runs.some(run => Boolean(run?.look));
+    const firstNewline = chars.findIndex(char => /^\r?\n$/u.test(char));
     const defaultStroke = html.includes('akari-caption--single-line') ? '0 transparent' : '0.14em rgba(0,0,0,.9)';
     if (!runs.some(run => Number.isInteger(run?.from) && Number.isInteger(run?.to)
         && run.from >= 0 && run.to <= chars.length && run.from < run.to)) return html;
@@ -478,6 +483,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 ...stroke, width_px: Math.round(stroke.width_px * scale * 1_000_000) / 1_000_000 };
         }
         for (let index = run.from; index < run.to; index++) {
+            if (hasV1 && !run.look && firstNewline >= 0 && index > firstNewline) continue;
             resolved[index] = { ...resolved[index],
                 role: run.role ?? resolved[index].role,
                 shadow: run.resolved_look?.text_shadow ?? resolved[index].shadow,
@@ -495,11 +501,15 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
         ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#039': "'" })[key] ?? _);
     let position = 0;
     let decorationLine = false;
+    let renderedLineCount = 0;
     const decorate = (encoded: string): string => {
         const value = decode(encoded);
         const decorated = segment(value).map(character => {
             const item = resolved[position++];
-            if (!item || item.text !== character || (!item.role && !Object.keys(item.style).length)) {
+            const newline = /^\r?\n$/u.test(character);
+            if (decorationLine && /^\s+$/u.test(character)) return escape(character);
+            if ((hasV1 && newline) || !item || item.text !== character
+                || (!item.role && !Object.keys(item.style).length)) {
                 return flow ? `<span class="akari-caption__run-lift" style="position:relative">${escape(character)}</span>`
                     : escape(character);
             }
@@ -539,7 +549,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 else css.push(`text-shadow:${item.shadow}`);
             }
             if (flow && item.shadow === undefined) css.push('position:relative');
-            if (/^\s$/u.test(character)) css.push('white-space:pre');
+            if (/^\s$/u.test(character) && !newline) css.push('white-space:pre');
             const copiedShadow = item.shadow !== undefined && (flow || !item.plate);
             return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''}${copiedShadow
                 ? ` data-akari-shadow-text="${escape(character)}"${flow ? ' data-akari-shadow-flow="true"' : ''}` : ''} style="${css.join(';')}">${escape(character)}</span>`;
@@ -551,6 +561,8 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     // Limit parsing to caption line contents, leaving CSS and plate markup untouched.
     const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
+            if (hasV1 && renderedLineCount > 0 && /^\r?\n$/u.test(chars[position] ?? '')) position++;
+            renderedLineCount++;
             decorationLine = open.includes('data-decoration-text=');
             const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g,
                 (whole, charOpen: string | undefined, charText: string | undefined,
@@ -568,8 +580,11 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
         });
     if (!richRuns.length) return renderedHtml;
     let lineStart = 0;
+    let layeredLineCount = 0;
     const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
+            if (hasV1 && layeredLineCount > 0 && /^\r?\n$/u.test(chars[lineStart] ?? '')) lineStart++;
+            layeredLineCount++;
             decorationLine = open.includes('data-decoration-text=');
             const lineOpen = flow && productLineRoot
                 ? open.replace(/>$/, ' data-akari-flow-preserve-line-root="true">')
@@ -615,6 +630,12 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             type Fragment = { start: number; end: number; from: number; to: number;
                 runIndex: number; run: CaptionRun; split: boolean };
             const fragments: Fragment[] = [];
+            const crossingPlate = (runIndex: number): boolean => richLayers
+                && Boolean(runs[runIndex].resolved_look?.plate)
+                && runs.slice(0, runIndex).some(prior => Boolean(prior?.resolved_look?.plate)
+                    && prior.from < runs[runIndex].to && prior.to > runs[runIndex].from
+                    && !(prior.from <= runs[runIndex].from && prior.to >= runs[runIndex].to)
+                    && !(runs[runIndex].from <= prior.from && runs[runIndex].to >= prior.to));
             for (const run of richRuns) {
                 const runIndex = runs.indexOf(run);
                 const selected = units.filter(unit => unit.index >= run.from && unit.index < run.to);
@@ -701,7 +722,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 }
                 for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
                     const resolvedLook = fragment.run.resolved_look;
-                    const plate = resolvedLook?.plate;
+                    const plate = crossingPlate(fragment.runIndex) ? undefined : resolvedLook?.plate;
                     const style: Record<string, unknown> = decorationLine ? { ...(fragment.run.style ?? fragment.run.look ?? {}) }
                         : fragment.run.style ?? fragment.run.look ?? {};
                     if (decorationLine) for (const key of ['scale', 'letter_spacing_em', 'baseline_shift_em',
@@ -713,7 +734,8 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                     const coveringPlates = plate ? runs.slice(fragment.runIndex + 1)
                         .filter(later => Number.isInteger(later?.from) && Number.isInteger(later?.to)
                             && later.from >= 0 && later.to <= chars.length && later.from < later.to
-                            && later.resolved_look?.plate && later.from <= fragment.run.from
+                            && later.resolved_look?.plate && !crossingPlate(runs.indexOf(later))
+                            && later.from <= fragment.run.from
                             && later.to >= fragment.run.to && (later.from < fragment.run.from
                                 || later.to > fragment.run.to) && later.from <= fragment.from
                             && later.to >= fragment.to)
@@ -731,7 +753,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                             ? [`background-image:${coveringPlates.join(',')}`] : []), `border-radius:${plate.radius_px}px`,
                             `padding:${plate.padding_px}px`, `margin:-${plate.padding_px}px`,
                             '-webkit-box-decoration-break:clone', 'box-decoration-break:clone',
-                            ...(flow ? ['pointer-events:none'] : [])] : []),
+                            'pointer-events:none'] : []),
                         ];
                     const attrs = [flow ? 'data-akari-run-flow="true"' : '',
                         plate ? `data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : '',

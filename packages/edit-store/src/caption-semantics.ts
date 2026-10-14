@@ -120,11 +120,21 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
                 ? root.default_text_style as Record<string, unknown> : {};
             const effective = { ...defaultStyle, ...rowStyle };
             const runStyle = run.look ?? run.style ?? {};
-            if ((effective.underline === true || effective.strikethrough === true)
+            if (run.look && (effective.underline === true || effective.strikethrough === true)
                 && ['scale', 'letter_spacing_em', 'baseline_shift_em', 'rotate_deg', 'font_weight', 'italic']
                     .some(key => Object.prototype.hasOwnProperty.call(runStyle, key))) {
                 add('captions.run.decoration-shape', 'warning', path,
                     '下線・打ち消しの行では範囲の字形を変える指定を描きません。', 'document');
+            }
+            if ((effective.fill !== undefined || effective.strokes !== undefined) && background
+                && runs.slice(0, runIndex).some(prior => {
+                    if (!prior || typeof prior !== 'object' || !prior.look?.background) return false;
+                    return prior.from < run.to && prior.to > run.from
+                        && !(prior.from <= run.from && prior.to >= run.to)
+                        && !(run.from <= prior.from && run.to >= prior.to);
+                })) {
+                add('captions.run.layer-crossing', 'warning', path,
+                    '層の行では交差する後の範囲の台紙を描きません。', 'document');
             }
             const gradientEffects = Boolean(effective.fill_gradient && !effective.fill
                 && (effective.stroke || effective.stroke_inner || effective.extrude

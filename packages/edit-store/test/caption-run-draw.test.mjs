@@ -78,8 +78,8 @@ test('nested and crossing fragments stay in their outer context on gradient and 
     }
     const separate = render([plateRun(0, 2, '#ff0000'), plateRun(5, 7, '#ffff00')]);
     assert.deepEqual(fragmentStyles(separate), [
-      'display:inline;position:relative;z-index:-1000000;line-height:1;background:rgba(255,0,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone',
-      'display:inline;position:relative;z-index:-999999;line-height:1;background:rgba(255,255,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone',
+      'display:inline;position:relative;z-index:-1000000;line-height:1;background:rgba(255,0,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone;pointer-events:none',
+      'display:inline;position:relative;z-index:-999999;line-height:1;background:rgba(255,255,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone;pointer-events:none',
     ]);
   }
 });
@@ -277,7 +277,7 @@ test('GPU path diagnoses emphasis word tiles on the same source and time', () =>
   assert.equal(diagnose({ ...emphasis, t_start: 3, t_end: 4 }).length, 0);
 });
 
-test('decorated lines ignore run shape while retaining color and effects', () => {
+test('decorated lines leave v0 untouched and draw only v1 color and effects', () => {
   for (const decoration of ['underline', 'strikethrough']) for (const policy of [false, true]) {
     const source = line('今日は黄色のラベルを試します')
       .replace('class="akari-caption__line"', 'class="akari-caption__line" data-decoration-text="今日は黄色のラベルを試します"')
@@ -286,16 +286,115 @@ test('decorated lines ignore run shape while retaining color and effects', () =>
     const shaped = [{ from, to, style: { scale: 1.5, color: '#ff3355', rotate_deg: 8,
       baseline_shift_em: -.2, font_weight: 800, italic: true, letter_spacing_em: .2 } }];
     const color = [{ from, to, style: { color: '#ff3355' } }];
-    assert.equal(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', shaped),
-      applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', color));
+    assert.equal(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', shaped), source);
+    assert.equal(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', color), source);
     const warnings = validateCaptionsSemantics({ captions: { captions: [{ text: '今日は黄色のラベルを試します',
       text_style: { [decoration]: true }, runs: shaped }] } });
-    assert.equal(warnings.filter(item => item.code === 'captions.run.decoration-shape').length, 1);
+    assert.equal(warnings.filter(item => item.code === 'captions.run.decoration-shape').length, 0);
     assert.match(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します',
-      [{ from, to, resolved_look: { plate }, style: { color: '#ff3355' } }]), /data-akari-plate="true"/);
+      [{ from, to, look: { color: '#ff3355' }, resolved_look: { plate }, style: { color: '#ff3355' } }]), /data-akari-plate="true"/);
+    const v1 = [{ from, to, look: shaped[0].style, style: shaped[0].style }];
+    assert.equal(validateCaptionsSemantics({ captions: { captions: [{ text: '今日は黄色のラベルを試します',
+      text_style: { [decoration]: true }, runs: v1 }] } }).filter(item =>
+      item.code === 'captions.run.decoration-shape').length, 1);
     assert.match(applyCaptionRunsToHtml(line('今日は黄色のラベルを試します'),
       '今日は黄色のラベルを試します', shaped), /font-size:1\.5em/);
   }
+});
+
+test('decorated lines keep whitespace outside v1 character spans and ignore mixed v0 runs', () => {
+  const text = '今日は黄色の\nラベルを試します';
+  const source = line(text).replace('class="akari-caption__line"',
+    'class="akari-caption__line" data-decoration-text="今日は黄色の&#10;ラベルを試します"');
+  const v0 = { from: 4, to: 9, style: { color: '#ff0000', scale: 1.4 } };
+  const v1 = { from: 4, to: 10, look: { color: '#ffd948' }, style: { color: '#ffd948' } };
+  assert.equal(applyCaptionRunsToHtml(source, text, [v0]), source);
+  const html = applyCaptionRunsToHtml(source, text, [v0, v1]);
+  assert.doesNotMatch(html, /color:#ff0000/u);
+  assert.match(html, /color:#ffd948/u);
+  assert.doesNotMatch(html, /class="akari-caption__run"[^>]*>\s+<\/span>/u);
+  assert.equal(visibleText(html), text);
+});
+
+test('v0 ranges keep legacy markup across a display policy line break and preserve spaces', () => {
+  const styled = character => `<span class="akari-caption__run" style="display:inline-block;vertical-align:baseline;line-height:1;color:#ff3355">${character}</span>`;
+  for (const newline of ['\n', '\r\n']) {
+    const text = `今日は黄色の${newline}ラベルを試します`;
+    const expected = line(`<span class="akari-caption__tok">今日は黄${styled('色')}${styled('の')}${styled(newline)}${styled('ラ')}${styled('ベ')}ルを試します</span>`);
+    assert.equal(applyCaptionRunsToHtml(line(text), text,
+      [{ from: 4, to: 9, style: { color: '#ff3355' } }]), expected);
+  }
+
+  const english = applyCaptionRunsToHtml(line('A B\tC'), 'A B\tC',
+    [{ from: 1, to: 4, style: { color: '#ff3355' } }]);
+  assert.match(english, /class="akari-caption__run"[^>]*white-space:pre[^>]*> <\/span>/u);
+  assert.match(english, /class="akari-caption__run"[^>]*white-space:pre[^>]*>\t<\/span>/u);
+});
+
+test('v1 plate spans both sides of a display policy line break without wrapping the newline', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const text = `今日は黄色の${newline}ラベルを試します`;
+    const html = applyCaptionRunsToHtml(line(text), text, [{ from: 3, to: 10,
+      look: { background: plate, color: '#ffd948' }, style: { color: '#ffd948' },
+      resolved_look: { plate } }]);
+    const fragment = html.match(/data-akari-plate="true"[^>]*>([\s\S]*?)<span class="akari-caption__run-lift"[^>]*>を/u)?.[1];
+    assert.ok(fragment);
+    assert.equal(visibleText(fragment), `黄色の${newline}ラベル`);
+    assert.equal((html.match(/data-akari-plate="true"/gu) ?? []).length, 1);
+    assert.doesNotMatch(html, /class="akari-caption__run"[^>]*>\r?\n<\/span>/u);
+    assert.equal(visibleText(html), text);
+  }
+});
+
+test('manual line breaks advance v1 fragments while leaving v0-only HTML intact', () => {
+  const text = '今日は黄色の\nラベルを試します';
+  const source = line('今日は黄色の') + line('ラベルを試します');
+  const v1 = captionRenderInputFromV1({ captions: [{ text, runs: [{ id: 'r-0001',
+    from: 7, to: 10, look: { background: plate, color: '#ffd948',
+      stroke: { width_px: 0 }, shadow: { color: '#000000', opacity: 0 },
+      glow: { color: '#000000', density: 0 } } }] }] }).captions[0].runs[0];
+  const html = applyCaptionRunsToHtml(source, text, [v1]);
+  const fragment = html.match(/data-akari-plate="true"[^>]*>([\s\S]*?)<span class="akari-caption__run-lift"/u)?.[1];
+  assert.ok(fragment);
+  assert.deepEqual([...fragment.matchAll(/data-akari-shadow-text="([^"]+)"/gu)].map(match => match[1]),
+    ['ラ', 'ベ', 'ル']);
+  assert.equal((fragment.match(/color:#ffd948/gu) ?? []).length, 3);
+  assert.equal((html.match(/data-akari-plate="true"/gu) ?? []).length, 1);
+  assert.equal(visibleText(html), text.replace('\n', ''));
+  const old = { from: 7, to: 10, style: { color: '#ff3355' } };
+  assert.equal(applyCaptionRunsToHtml(source, text, [old]),
+    source.replace('今日は黄色の</p>', '<span class="akari-caption__tok">今日は黄色の</span></p>')
+      .replace('ラベルを試します</p>', '<span class="akari-caption__tok">ラベルを試します</span></p>'));
+  const mixed = applyCaptionRunsToHtml(source, text, [old, v1]);
+  assert.doesNotMatch(mixed, /color:#ff3355/u);
+  assert.match(mixed, /color:#ffd948/u);
+  for (const [three, range, count] of [
+    ['甲乙\n丙丁\n戊己', [6, 8], 1],
+    ['甲乙\n丙丁\n戊己', [4, 7], 2],
+  ]) {
+    const lines = three.split('\n').map(line).join('');
+    const fragments = applyCaptionRunsToHtml(lines, three,
+      [{ ...v1, from: range[0], to: range[1] }]);
+    assert.equal((fragments.match(/data-akari-plate="true"/gu) ?? []).length, count);
+    assert.equal(visibleText(fragments), three.replaceAll('\n', ''));
+  }
+});
+
+test('layer crossings omit the later plate and warn once', () => {
+  const make = (from, to, color) => ({ from, to, look: { background: { ...plate, color },
+    color }, style: { color }, resolved_look: { plate: { ...plate, color } } });
+  const source = line('ABCDEFG');
+  const first = make(1, 4, '#ff0000');
+  const later = make(3, 6, '#0000ff');
+  const crossing = applyCaptionRunsToHtml(source, 'ABCDEFG', [first, later], false, true);
+  assert.equal((crossing.match(/data-akari-plate="true"/gu) ?? []).length, 1);
+  assert.match(crossing, /color:#0000ff/u);
+  assert.doesNotMatch(crossing, /background:rgba\(0,0,255/u);
+  assert.equal(validateCaptionsSemantics({ captions: { captions: [{ text: 'ABCDEFG',
+    text_style: { fill: { type: 'solid', color: '#ffffff' }, strokes: [] },
+    runs: [first, later] }] } }).filter(item => item.code === 'captions.run.layer-crossing').length, 1);
+  const nested = applyCaptionRunsToHtml(source, 'ABCDEFG', [first, make(2, 3, '#0000ff')], false, true);
+  assert.equal((nested.match(/data-akari-plate="true"/gu) ?? []).length, 2);
 });
 
 test('gradient with line effects drops run replacements before drawing', () => {

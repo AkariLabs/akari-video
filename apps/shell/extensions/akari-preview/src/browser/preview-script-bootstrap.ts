@@ -7838,8 +7838,7 @@ export function previewBootstrapScript(): string {
             const richPreviewWords = (line, renderText) => Array.from(
                 new Intl.Segmenter(undefined, { granularity: 'word' }).segment(line), part => part.segment
             ).map(word => '<span class="akari-caption__tok">' + renderText(word) + '</span>').join('');
-            const captionHasScaledRun = caption => !(caption?.textStyle?.underline === true
-                || caption?.textStyle?.strikethrough === true) && Boolean(caption?.runs?.some(run =>
+            const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
                 Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
             const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
                 ? '.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}'
@@ -8168,9 +8167,8 @@ export function previewBootstrapScript(): string {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
                     const wrapWidthActive = Boolean(caption?.textStyleVars?.['--caption-wrap-width']);
-                    if (wrapWidthActive || (!(caption?.textStyle?.underline === true
-                        || caption?.textStyle?.strikethrough === true) && Boolean(caption?.runs?.some(run =>
-                        Number.isFinite(run?.style?.scale) && run.style.scale !== 1)))) {
+                    if (wrapWidthActive || Boolean(caption?.runs?.some(run =>
+                        Number.isFinite(run?.style?.scale) && run.style.scale !== 1))) {
                         captionPlate.dataset.captionSizedRun = '';
                         const captionPositionX = caption?.textStyle?.position?.x;
                         const captionAnchor = caption?.textStyle?.text_anchor;
