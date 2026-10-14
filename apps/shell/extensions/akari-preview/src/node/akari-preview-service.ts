@@ -1644,9 +1644,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // display_policy 経路だけ前処理を欠き、行の style_preset が無視されていた。
         // legacy の parsePreviewCaptions、Web UI、render-cut、page-builder は解決済みで、
         // 公開字幕プリセット契約 §3 も captions.json 消費側での前処理を必須としている。
-        captionsRoot = captionRenderInputFromV1(captionsRoot);
-        captionsRoot = applyCaptionStylePresets(captionsRoot, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
-        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
         const legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
@@ -1657,6 +1654,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
             rawEdit = JSON.parse(planned.nextText);
         }
+        captionsRoot = applyCaptionStylePresets(captionsRoot, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
+        captionsRoot = captionRenderInputFromV1(captionsRoot, { output: rawEdit.output });
+        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const internal = readInternalEdit(rawEdit, { captions: toAnchorCaptions(captionsRoot) });
         const legacy = projectLegacyEdit(internal);
         const edit = {

@@ -59,10 +59,10 @@ test('selection bounds include a shifted or rotated run outside the line', () =>
     assert.deepEqual({ ...context.measure(plate) }, { left: 10, right: 125, top: 5, bottom: 50 });
 });
 
-test('editing restores one line after scaled runs are inserted and leaves plain width alone', () => {
-    for (const scaled of [false, true]) {
+test('editing restores one line after scaled or bold runs are inserted and leaves plain width alone', () => {
+    for (const runStyle of [null, { scale: 1.1 }, { font_weight: 800 }]) {
         const caption = { id: 'caption', text: 'Hello World',
-            ...(scaled ? { runs: [{ from: 2, to: 5, style: { scale: 1.1 } }] } : {}) };
+            ...(runStyle ? { runs: [{ from: 2, to: 5, style: runStyle }] } : {}) };
         let editor;
         let runInserted = false;
         const layoutPlate = { replaceChildren(value) { editor = value; },
@@ -92,11 +92,11 @@ test('editing restores one line after scaled runs are inserted and leaves plain 
             getComputedStyle: () => ({ lineHeight: '20px', paddingTop: '0px', paddingBottom: '0px' }),
             document, placeCaptionCaretAtEnd() {},
             window: { akari: { reportCaptionEditFocus() {},
-                refreshActiveCaptionRuns() { runInserted = scaled; }, syncRunSelection() {} } }
+                refreshActiveCaptionRuns() { runInserted = Boolean(runStyle); }, syncRunSelection() {} } }
         };
         vm.runInNewContext(`${sliceBetween('const beginCaptionEdit =', "captionLayer.addEventListener('dblclick'")} globalThis.begin = beginCaptionEdit;`, context);
         context.begin(caption);
-        assert.equal(editor.style.width, scaled ? '256px' : '255px');
+        assert.equal(editor.style.width, runStyle ? '256px' : '255px');
         assert.equal(editor.offsetHeight, 20);
     }
 });

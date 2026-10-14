@@ -33,6 +33,7 @@ exports.resolveCaptionLineStyleVars = resolveCaptionLineStyleVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
 exports.captionTextShadowValue = captionTextShadowValue;
+exports.captionRichTextShadowValue = captionRichTextShadowValue;
 exports.colorWithOpacity = colorWithOpacity;
 exports.formatCssNumber = formatCssNumber;
 exports.captionOutlineRuntime = captionOutlineRuntime;

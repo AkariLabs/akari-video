@@ -411,7 +411,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               words: allWords,
             });
       if (runs?.length) {
-        html = applyCaptionRunsToHtml(html, displayText, runs);
+        html = applyCaptionRunsToHtml(html, displayText, runs, false,
+          textStyle?.fill !== undefined || textStyle?.strokes !== undefined);
       }
       html = decorateTypewriterHtml(html, textStyle?.animation, range.duration);
       html = applyCaptionRichLayers(html, textStyle, output);
@@ -439,7 +440,8 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(decorateTypewriterHtml(applyResolvedCaptionAnimation(
-      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
+      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text,
+        cue.runs, false, cue.text_style?.fill !== undefined || cue.text_style?.strokes !== undefined),
       cue.text_style?.animation, cue.end - cue.start
     ), cue.text_style?.animation, cue.end - cue.start), cue.text_style, output),
     start: cue.start,

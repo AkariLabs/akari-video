@@ -43,6 +43,19 @@ export declare function planCaptionLookMigration(captions: CaptionsRoot | Captio
     unresolved: Emphasis[];
     notices: string[];
 };
+export declare function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' | 'resolved_look'>): boolean;
+export declare function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null, output?: {
+    width: number;
+    height: number;
+}, layout?: unknown, policy?: boolean): {
+    style: NonNullable<CaptionRun['style']>;
+    resolved_look?: CaptionRun['resolved_look'];
+};
 /** Restore the renderer's legacy input without changing a legacy-only document. */
-export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T;
+export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T, options?: {
+    output?: {
+        width: number;
+        height: number;
+    };
+}): T;
 export {};
