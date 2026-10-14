@@ -118,7 +118,8 @@ export class RoughCanvasCommands implements CommandContribution {
         const previewWidth = previewRect?.width;
         const popup = new RoughCanvasPopup({ projectRootUri: project.toString(), aspect, aspectSource,
             subject, subjectAtOpen, service: this.service, capture,
-            send: async packet => this.commands.executeCommand<boolean>('akari.partner.injectPrompt', packet).catch(() => false),
+            send: async packet => this.commands.executeCommand<true | 'copied' | false>('akari.partner.injectPrompt', packet)
+                .then(result => result === true || result === 'copied', () => false),
             notify: message => this.messages.info(message), previewWidth,
             previewRect: previewRect ? { left: previewRect.left, top: previewRect.top,
                 width: previewRect.width, height: previewRect.height } : undefined, backdrop });

@@ -156,6 +156,8 @@ export class AkariExportSessionService implements Disposable {
     protected pollHandle: number | undefined;
     protected failureNotified = false;
     protected dialogVisible = false;
+    protected handoffNotice: string | undefined;
+    protected handoffNoticeObserver: MutationObserver | undefined;
     protected lintRechecking = false;
     protected discardingLeftover = false;
     protected lintWatch = new DisposableCollection();
@@ -192,6 +194,7 @@ export class AkariExportSessionService implements Disposable {
 
     dispose(): void {
         this.stopPolling();
+        this.handoffNoticeObserver?.disconnect();
         this.cancelPendingLintRecheck();
         this.lintWatch.dispose();
         this.toDispose.dispose();
@@ -236,6 +239,11 @@ export class AkariExportSessionService implements Disposable {
             return;
         }
         this.dialogVisible = visible;
+        if (!visible) {
+            this.handoffNotice = undefined;
+            this.handoffNoticeObserver?.disconnect();
+            this.handoffNoticeObserver = undefined;
+        }
         if (visible) void this.loadLicenseFindings();
         if (visible && this.status.phase === 'lint-failed') {
             void this.recheckLint({ auto: true });
@@ -541,7 +549,8 @@ export class AkariExportSessionService implements Disposable {
             outputName,
             rerunLint: this.settings.rerunLint
         }).replaceAll('edit.json', editName);
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        this.finishPartnerHandoff(result);
     }
 
     async handOffFinished(): Promise<void> {
@@ -565,7 +574,8 @@ export class AkariExportSessionService implements Disposable {
             bytes: this.status.artifactSize,
             engine: this.status.progressEngine
         });
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        this.finishPartnerHandoff(result);
     }
 
     async handOffLintFailure(): Promise<void> {
@@ -581,7 +591,36 @@ export class AkariExportSessionService implements Disposable {
             }).join('\n')
             : t('shell.export.session.fixLintIssuesExportingSeeLintReportDetailsMessage');
         const report = this.status.reportPath ? t('shell.export.session.lintReportLabel', { value1: this.status.reportPath }) : '';
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, `${formatted}${report}`);
+        const result = await this.commands.executeCommand<true | 'copied' | false>(PARTNER_INJECT_PROMPT_COMMAND_ID, `${formatted}${report}`);
+        this.finishPartnerHandoff(result);
+    }
+
+    protected finishPartnerHandoff(result: true | 'copied' | false | undefined): void {
+        if (!this.dialogVisible) return;
+        if (!this.running) {
+            const close = document.querySelector<HTMLButtonElement>('.akari-export-dialog-host [data-akari-onboarding-target="export-close"]');
+            if (close) { close.click(); return; }
+        }
+        this.handoffNotice = result === 'copied'
+            ? t('shell.export.session.requestCopiedPastePartnerInputInfo')
+            : result === false ? t('shell.export.session.partnerNotOpenMessage') : undefined;
+        if (!this.handoffNotice) return;
+        const host = document.querySelector<HTMLElement>('.akari-export-dialog-host');
+        if (!host) return;
+        const show = (): void => {
+            const footer = host.querySelector<HTMLElement>('.popup .pf');
+            if (!footer || footer.querySelector('[data-akari-export-handoff-notice]')) return;
+            const notice = document.createElement('span');
+            notice.setAttribute('data-akari-export-handoff-notice', '');
+            notice.setAttribute('role', 'status');
+            notice.className = 'fn';
+            notice.textContent = this.handoffNotice ?? '';
+            footer.prepend(notice);
+        };
+        show();
+        this.handoffNoticeObserver?.disconnect();
+        this.handoffNoticeObserver = new MutationObserver(show);
+        this.handoffNoticeObserver.observe(host, { childList: true, subtree: true });
     }
 
     protected async refreshProject(): Promise<void> {

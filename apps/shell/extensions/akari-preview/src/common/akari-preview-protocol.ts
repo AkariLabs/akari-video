@@ -61,7 +61,7 @@ export interface OverlayRuntimeAssetUrls {
     scrubAudioJavaScriptUrl?: string;
     captionFontUrl: string;
     latinCaptionFontUrl: string;
-    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }>;
+    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string; source?: 'library' }>;
 }
 
 export interface ReadVideoFxLutRequest {

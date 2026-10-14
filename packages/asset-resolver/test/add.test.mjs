@@ -36,6 +36,89 @@ function apply(f, p, options = {}) { return applyAdd(p, { env: f.env, waveform: 
 function metaOf(row) { return JSON.parse(readFileSync(path.join(row.libraryDir, 'meta.json'), 'utf8')); }
 function assertNoTemps(root) { assert.ok(readdirSync(root).every(name => !name.startsWith('.')), 'no staging or lock remains'); }
 
+function namedFont(family, japanese) {
+  const records = [{ value: family, language: 0x0409 }, { value: japanese, language: 0x0411 }];
+  const strings = records.map(row => {
+    const bytes = Buffer.alloc(row.value.length * 2);
+    for (let i = 0; i < row.value.length; i++) bytes.writeUInt16BE(row.value.charCodeAt(i), i * 2);
+    return bytes;
+  });
+  const bytes = Buffer.alloc(28 + 6 + records.length * 12 + strings.reduce((n, item) => n + item.length, 0));
+  bytes.writeUInt32BE(0x00010000, 0);
+  bytes.writeUInt16BE(1, 4);
+  bytes.write('name', 12, 'ascii');
+  bytes.writeUInt32BE(28, 20);
+  bytes.writeUInt32BE(bytes.length - 28, 24);
+  bytes.writeUInt16BE(records.length, 30);
+  bytes.writeUInt16BE(6 + records.length * 12, 32);
+  let offset = 0;
+  records.forEach((record, index) => {
+    const at = 34 + index * 12;
+    bytes.writeUInt16BE(3, at);
+    bytes.writeUInt16BE(1, at + 2);
+    bytes.writeUInt16BE(record.language, at + 4);
+    bytes.writeUInt16BE(1, at + 6);
+    bytes.writeUInt16BE(strings[index].length, at + 8);
+    bytes.writeUInt16BE(offset, at + 10);
+    strings[index].copy(bytes, 34 + records.length * 12 + offset);
+    offset += strings[index].length;
+  });
+  return bytes;
+}
+
+test('font import uses internal Japanese family and catalog id; distinct second file gets a unique id', async t => {
+  const f = fixture(t);
+  const catalogRoot = path.join(f.root, 'catalog');
+  const catalogDir = path.join(catalogRoot, 'font', 'sample-face');
+  mkdirSync(catalogDir, { recursive: true });
+  writeFileSync(path.join(catalogDir, 'meta.json'), JSON.stringify({ id: 'sample-face', title: '見本書体', aliases: ['見本書体-かなA', '見本書体-かなB'] }));
+  const first = f.file('first.ttf', namedFont('Sample Face A', '見本書体-かなA'));
+  const second = f.file('second.ttf', namedFont('Sample Face B', '見本書体-かなB'));
+  const planned = await planAdd([first, second], { env: f.env, catalogRoot });
+  assert.deepEqual(planned.items.map(row => row.proposedId), ['sample-face', 'sample-face-2']);
+  assert.equal(planned.items[0].title, '見本書体-かなA');
+  assert.ok(planned.items[0].aliases.includes('見本書体'));
+  assert.ok(!planned.items[0].aliases.includes('見本書体-かなB'));
+  assert.ok(!planned.items[1].aliases.includes('見本書体'));
+  planned.items[0].title = 'untrusted';
+  planned.items[0].aliases = ['untrusted'];
+  const result = await apply(f, planned, { catalogRoot });
+  assert.equal(result.failures.length, 0, JSON.stringify(result.failures));
+  assert.deepEqual(result.added.map(row => row.id), ['sample-face', 'sample-face-2']);
+  assert.equal(metaOf(result.added[0]).title, '見本書体-かなA');
+  assert.ok(metaOf(result.added[0]).aliases.includes('見本書体'));
+  assert.ok(!metaOf(result.added[0]).aliases.includes('見本書体-かなB'));
+  assert.ok(!metaOf(result.added[1]).aliases.includes('見本書体'));
+});
+
+test('font catalog aliases follow the final apply id after a plan race', async t => {
+  const f = fixture(t);
+  const catalogRoot = path.join(f.root, 'catalog');
+  const catalogDir = path.join(catalogRoot, 'font', 'sample-face');
+  mkdirSync(catalogDir, { recursive: true });
+  writeFileSync(path.join(catalogDir, 'meta.json'), JSON.stringify({ id: 'sample-face', title: '見本書体', aliases: ['見本書体-かなA'] }));
+  const source = f.file('first.ttf', namedFont('Sample Face A', '見本書体-かなA'));
+  const planned = await planAdd([source], { env: f.env, catalogRoot });
+  assert.equal(planned.items[0].proposedId, 'sample-face');
+  mkdirSync(path.join(f.env.AKARI_LIBRARY_ROOT, 'font', 'sample-face'), { recursive: true });
+  const result = await apply(f, planned, { catalogRoot });
+  assert.equal(result.failures.length, 0, JSON.stringify(result.failures));
+  assert.equal(result.added[0].id, 'sample-face-2');
+  assert.ok(!metaOf(result.added[0]).aliases.includes('見本書体'));
+});
+
+test('unreadable font names retain the filename title and independent id', async t => {
+  const f = fixture(t);
+  const catalogRoot = path.join(f.root, 'catalog');
+  const dir = path.join(catalogRoot, 'font', 'sample-face');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id: 'sample-face', title: '見本書体', aliases: [] }));
+  const source = f.file('見本書体.ttf', 'not a font');
+  const result = await planAdd([source], { env: f.env, catalogRoot });
+  assert.equal(result.items[0].title, '見本書体');
+  assert.equal(result.items[0].proposedId, proposedAssetId('見本書体.ttf'));
+});
+
 for (const [seconds, kind, ambiguous] of [[9.9, 'sfx', false], [10, 'sfx', true], [29.9, 'sfx', true], [30, 'bgm', false]]) {
   test(`injected ffprobe boundary ${seconds}s`, async t => {
     const f = fixture(t);

@@ -16,9 +16,9 @@
 preview.png の有無は検証対象外（存在してもエラーにならない）。生成スクリプトは `scripts/render-font-specimens.mjs`
 （対象・スキップ理由・DL 元 URL をマニフェストとして保持し再現可能）。
 
-**パックタグ（2026-08-06 追記）**: パック対象の無料 23 件（同梱 9 + 参照 OFL 7 + 参照配布のみ 7）の meta.json `tags` に
-`pack:telop-standard`（`pack:<pack-id>` 形式）を付与している。パック台帳の正本は `catalog/packs.json`
-（`akari-catalog-packs/v0`）。参照 OFL の別の 1 件と有料/サブスク 7 件にはパックタグを付けない。
+**パックタグ（2026-08-06 追記）**: 無料 24 件（同梱 9 + 参照 OFL 8 + 参照（独自規約・再配布可）2 + 参照配布のみ 5）のうち 23 件の meta.json `tags` に
+`pack:telop-standard`（`pack:<pack-id>` 形式）を付与している。`zen-kaku-gothic-new` は対象外。パック台帳の正本は `catalog/packs.json`
+（`akari-catalog-packs/v0`）。有料/サブスク 7 件にはパックタグを付けない（無料前提のパックのため）。
 
 ## 分類の凡例（2026-08-05 拡充）
 
@@ -26,6 +26,7 @@ preview.png の有無は検証対象外（存在してもエラーにならな�
 |---|---|
 | **同梱済み** | 実体を `assets/font/` にバンドル。全環境で同じ字形（bake 決定論の対象） |
 | **参照（OFL・同梱昇格可）** | 無料・再配布可（OFL-1.1）。現状は索引のみで実体は各自取得。裁定があれば `assets/font/` へ昇格できる |
+| **参照（独自規約・再配布可）** | 無料・商用利用可。改変・再配布可で、フォントファイルのそのままの単品販売は不可。実体は各自取得 |
 | **参照配布のみ（無料・再配布不可）** | 使用は無料・商用可だが、フォントファイルの再配布が禁止。索引のみ・取得は本人承認のうえ配布元から |
 | **各自入手（有料/サブスク）** | 「持っている環境でだけ効く」。fontFamily ツマミに選択肢はあるが、未所持環境ではフォールバック書体に落ちる |
 
@@ -58,12 +59,17 @@ preview.png の有無は検証対象外（存在してもエラーにならな�
 - [corporate-logo-rounded](./corporate-logo-rounded/meta.json) — ロゴ向け角丸ゴシック「コーポレート・ロゴ（ラウンド）ver3」。（OFL-1.1 / direct）
 - [zen-kaku-gothic-new](./zen-kaku-gothic-new/meta.json) — 直線的な角ゴシック「Zen Kaku Gothic New」。3D テキスト演出（texts[]）の既定書体（Black 既定）。（OFL-1.1 / direct）
 
+## エントリ — 参照（独自規約・再配布可）
+
+配布元の条件に従えば改変・再配布可。そのままのフォントファイルの単品販売は不可。
+
+- [851-chikara-dzuyoku](./851-chikara-dzuyoku/meta.json) — 太マジック手書き「851チカラヅヨク」。ツッコミテロップの定番。（無料・商用可 / direct）
+- [851-chikara-yowaku](./851-chikara-yowaku/meta.json) — ヨレ弱々手書き「851チカラヨワク」。脱力・自虐ツッコミ。（無料・商用可 / direct）
+
 ## エントリ — 参照配布のみ（無料・再配布不可）
 
 使用は無料・商用可（各配布元規約）。フォントファイルの再配布・同梱は不可のため、取得は本人承認のうえ配布元から。
 
-- [851-chikara-dzuyoku](./851-chikara-dzuyoku/meta.json) — 太マジック手書き「851チカラヅヨク」。ツッコミテロップの超定番。（無料・商用可 / direct）
-- [851-chikara-yowaku](./851-chikara-yowaku/meta.json) — ヨレ弱々手書き「851チカラヨワク」。脱力・自虐ツッコミ。（無料・商用可 / direct）
 - [ranobe-pop](./ranobe-pop/meta.json) — ラノベ風ポップ体「07ラノベPOP」（fontna）。ポップ系定番。（無料・商用可 / direct）
 - [check-and-oudan](./check-and-oudan/meta.json) — ウルトラクイズ風「チェックアンド横断フォント」。クイズ・レトロ演出。（無料 / direct・規約は取得時に最終確認）
 - [togebara](./togebara/meta.json) — 棘のあるアンチック「棘薔薇フォント」。高貴・ゴシックホラー。（無料・商用可 / direct・規約は取得時に最終確認）

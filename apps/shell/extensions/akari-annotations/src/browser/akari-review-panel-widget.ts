@@ -1733,9 +1733,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
             text: annotation.text,
             hasStrokes: Array.isArray(annotation.strokes) && annotation.strokes.length > 0
         });
-        let sent: boolean | undefined;
+        let sent: true | 'copied' | false | undefined;
         try {
-            sent = await this.commands.executeCommand<boolean>('akari.partner.injectPrompt', packet);
+            sent = await this.commands.executeCommand<true | 'copied' | false>('akari.partner.injectPrompt', packet);
         } catch {
             sent = undefined;
         }

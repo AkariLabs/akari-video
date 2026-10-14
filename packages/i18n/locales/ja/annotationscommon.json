@@ -856,6 +856,7 @@
   "annotationscommon.audioKeyframeEditor.notice.minimumPoints": "キーフレームは 2 点以上必要です。点を追加するか、この 1 点を削除してください。",
   "annotationscommon.audioKeyframeEditor.error.duplicateTime": "同じ時刻には複数のキーフレームを置けません。",
   "annotationscommon.captionPanelState.font.rowDetail": "Aa Bb 123 · 同梱{fallback}",
+  "annotationscommon.captionPanelState.font.rowDetailUnbundled": "Aa Bb 123{fallback}",
   "annotationscommon.captionPanelState.font.japaneseFallback": " · 日本語は代わりの書体で表示",
   "annotationscommon.captionSourceMap.warning.hiddenCaptions_one": "出自を特定できない字幕 {count} 件を表示していません。複数 source のプロジェクトでは captions.json の各字幕に src が必要です。",
   "annotationscommon.captionSourceMap.warning.hiddenCaptions_other": "出自を特定できない字幕 {count} 件を表示していません。複数 source のプロジェクトでは captions.json の各字幕に src が必要です。",
