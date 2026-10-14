@@ -20,6 +20,11 @@ export function validateGeometryFitCompat(rawEdit, internalEdit, findings) {
   });
 }
 
+// 指摘の文に出す秒数。浮動小数点の端数（0.04999999999999999 など）を出さない。
+function secondsLabel(seconds) {
+  return Number(seconds.toFixed(3));
+}
+
 export function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
   const sourcePaths = new Map((Array.isArray(sources) ? sources : [])
     .filter(source => isRecord(source) && typeof source.id === "string")
@@ -42,7 +47,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
         addFinding(findings, {
           severity: 'info', check: 'cuts.transition-out.freeze',
           message: lintText('lint-messages.cuts.transition.freeze',
-            { seconds: plan.freezeIncomingSeconds }),
+            { seconds: secondsLabel(plan.freezeIncomingSeconds) }),
           path,
           range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
         });
@@ -67,8 +72,8 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
         addFinding(findings, {
           severity: 'info', check: 'cuts.transition-out.shortened',
           message: lintTextWithFallback('lint-messages.cuts.transition.shortened',
-            { seconds, declared: plan.declaredSeconds, reason },
-            `Transition shortened from ${plan.declaredSeconds} s to ${seconds} s (${reason}).`),
+            { seconds: secondsLabel(seconds), declared: secondsLabel(plan.declaredSeconds), reason },
+            `Transition shortened from ${secondsLabel(plan.declaredSeconds)} s to ${secondsLabel(seconds)} s (${reason}).`),
           path,
           range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
         });

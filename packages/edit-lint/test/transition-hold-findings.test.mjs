@@ -38,3 +38,15 @@ for (const entry of cases) {
       .filter(finding => finding.check === 'cuts.transition-out.freeze').length, 0);
   });
 }
+
+test('the held seconds are reported without floating point noise', () => {
+  // 0.25 s of the window falls before the cut and the head has 0.2 s: 0.25 - 0.2 is 0.04999999999999999.
+  const cuts = [
+    { at: 0, in: 8.2, out: 9.7, src: 'a', transition_out: { type: 'dissolve', duration: 0.5, fill: 'freeze' } },
+    { at: 1.5, in: 0.2, out: 1.7, src: 'b' },
+  ];
+  const [finding] = findingsFor(cuts, 30).filter(entry => entry.check === 'cuts.transition-out.freeze');
+  assert.ok(finding);
+  assert.match(finding.message, /0\.05/u);
+  assert.doesNotMatch(finding.message, /0\.049/u);
+});
