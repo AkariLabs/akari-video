@@ -72,11 +72,14 @@ test('unmigrated detached captions resolve their preset and scaled-run output', 
       .find(item => item.id === 'c2-out');
     assert.equal(overlay.vars['--caption-color'], '#ffcc00');
     assert.equal(overlay.vars['--caption-font-size'], '46px');
+    assert.equal(overlay.vars['--caption-stroke'], '4px #000000');
+    assert.equal(overlay.vars['--caption-rounded-stroke'], undefined);
     assert.match(overlay.html, /max-width: var\(--caption-line-max-width, none\)/u);
+    assert.match(overlay.html, /-webkit-text-stroke:var\(--caption-webkit-text-stroke,var\(--caption-stroke,0\.14em rgba\(0,0,0,\.9\)\)\)/u);
     assert.doesNotMatch(overlay.html, /#aefcff/u);
     const bodyAndVars = { html: overlay.html.replace(/<style>[\s\S]*?<\/style>/u, ''), vars: overlay.vars };
     assert.equal(createHash('sha256').update(JSON.stringify(bodyAndVars)).digest('hex'),
-      '6974c35f57c4f207ba47691e3f6bd3a7d776b6e6a023aec0cf135587f8e2d62a');
+      'dd849a35cd27cc55a7d5481854cffa3ce963703e5d551fbc89481e23ede03f3f');
     const migrated = planCaptionLookMigration(root, TEXTSTYLE_CATALOG).next;
     await writeFile(join(projectRoot, 'captions.json'), `${JSON.stringify(migrated)}\n`);
     const after = readRenderEdit(edit, undefined, { projectRoot }).edit.overlays

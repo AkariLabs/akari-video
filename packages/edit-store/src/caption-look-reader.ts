@@ -254,7 +254,7 @@ export function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' | 'resol
 }
 
 export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null,
-    output?: { width: number; height: number }, layout?: unknown, policy = false, roundedStroke = false): { style: NonNullable<CaptionRun['style']>;
+    output?: { width: number; height: number }, layout?: unknown, policy = false): { style: NonNullable<CaptionRun['style']>;
         resolved_look?: CaptionRun['resolved_look'] } {
     const color = (value: unknown): value is string => typeof value === 'string'
         && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
@@ -304,28 +304,17 @@ export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: 
         ? captionTextShadowValue(shadowValue, undefined, pxScale) : null;
     const glow = hasGlow && glowValue && finite(glowValue.density, 50) > 0
         ? captionTextShadowValue(undefined, glowValue, pxScale) : null;
-    const lineStroke = lineStyle?.stroke && typeof lineStyle.stroke === 'object'
-        ? lineStyle.stroke as Record<string, unknown> : null;
     const lineHasStyle = Boolean(lineStyle && Object.keys(lineStyle).length);
     const lineTextShadow = lineStyle ? captionRichTextShadowValue(lineStyle, lineScale) : null;
     const extras = !hasStroke && lineStyle
         ? captionRichTextShadowValue({ ...lineStyle, shadow: undefined, glow: undefined }, lineScale) : null;
-    const lineUsesRoundedStroke = roundedStroke && lineStroke && !Array.isArray(lineStyle?.strokes)
-        && finite(lineStroke.width_px, 1.5) > 0;
-    const roundOutline = !hasStroke && lineUsesRoundedStroke ? Array.from({ length: 32 }, (_, index) => {
-            const radius = scaleCaptionPx(finite(lineStroke.width_px, 1.5), lineScale);
-            const angle = index * Math.PI / 16;
-            const x = Number((Math.cos(angle) * radius).toFixed(3));
-            const y = Number((Math.sin(angle) * radius).toFixed(3));
-            return `${x}px ${y}px 0 ${color(lineStroke.color) ? lineStroke.color : 'rgba(0,0,0,.9)'}`;
-        }).join(',') : null;
     const defaultOutline = policy && !hasStroke && !lineHasStyle
         ? '-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85)'
         : null;
     const defaultDrop = policy ? '0 0 8px rgba(0,0,0,.6)' : '0 2px 8px rgba(0,0,0,.35)';
     const inheritedShadow = hasShadow ? null : lineStyle?.shadow
         ? captionTextShadowValue(lineStyle.shadow, undefined, lineScale)
-        : !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
+        : !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
     const inheritedGlow = hasGlow ? null : lineStyle?.glow
         ? captionTextShadowValue(undefined, lineStyle.glow, lineScale) : null;
     const shadowExtent = shadowValue && finite(shadowValue.opacity, 1) > 0
@@ -338,7 +327,7 @@ export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: 
     const extrude = lineStyle?.extrude as Record<string, unknown> | undefined;
     const lineExtent = hasStroke ? 0 : scaleCaptionPx(Math.max(finite(inner?.width_px),
         finite(extrude?.depth_px)), lineScale);
-    const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow
+    const defaultDropExtent = !hasShadow && !lineTextShadow
         && (!policy || !lineHasStyle) ? 8 : 0;
     const inkOutset = Math.max(plate && plate.opacity > 0 ? plate.padding_px : 0,
         shadowExtent, glowExtent,
@@ -362,7 +351,7 @@ export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: 
         ...(gradientCss ? { gradient: gradientCss } : {}),
         replace_stroke: hasStroke,
         replace_shadow: hasShadow,
-        ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [roundOutline, extras, defaultOutline,
+        ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [extras, defaultOutline,
             shadow ?? inheritedShadow, glow ?? inheritedGlow]
             .filter(Boolean).join(', ') || 'none' } : {})
     } } : {}) };
@@ -438,7 +427,7 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
                 const layout = (row.text_style as Record<string, unknown> | undefined)?.layout
                     ?? (defaultStyle as Record<string, unknown> | undefined)?.layout;
                 const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output, layout,
-                    !Array.isArray(copy) && Boolean(copy.display_policy), row.time_domain === 'output');
+                    !Array.isArray(copy) && Boolean(copy.display_policy));
                 if (!next.style) next.style = resolved.style;
                 if (resolved.resolved_look) next.resolved_look = resolved.resolved_look;
             }

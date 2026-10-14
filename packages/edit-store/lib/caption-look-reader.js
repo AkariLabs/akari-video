@@ -292,7 +292,7 @@ function captionRunHasOutsideEffect(run) {
     return active(look.background, 'opacity', 1)
         || active(look.shadow, 'opacity', 1) || active(look.glow, 'density', 50);
 }
-function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, roundedStroke = false) {
+function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false) {
     const color = (value) => typeof value === 'string'
         && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
     const finite = (value, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -343,28 +343,17 @@ function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, 
         ? (0, caption_display_1.captionTextShadowValue)(shadowValue, undefined, pxScale) : null;
     const glow = hasGlow && glowValue && finite(glowValue.density, 50) > 0
         ? (0, caption_display_1.captionTextShadowValue)(undefined, glowValue, pxScale) : null;
-    const lineStroke = lineStyle?.stroke && typeof lineStyle.stroke === 'object'
-        ? lineStyle.stroke : null;
     const lineHasStyle = Boolean(lineStyle && Object.keys(lineStyle).length);
     const lineTextShadow = lineStyle ? (0, caption_display_1.captionRichTextShadowValue)(lineStyle, lineScale) : null;
     const extras = !hasStroke && lineStyle
         ? (0, caption_display_1.captionRichTextShadowValue)({ ...lineStyle, shadow: undefined, glow: undefined }, lineScale) : null;
-    const lineUsesRoundedStroke = roundedStroke && lineStroke && !Array.isArray(lineStyle?.strokes)
-        && finite(lineStroke.width_px, 1.5) > 0;
-    const roundOutline = !hasStroke && lineUsesRoundedStroke ? Array.from({ length: 32 }, (_, index) => {
-        const radius = (0, caption_display_1.scaleCaptionPx)(finite(lineStroke.width_px, 1.5), lineScale);
-        const angle = index * Math.PI / 16;
-        const x = Number((Math.cos(angle) * radius).toFixed(3));
-        const y = Number((Math.sin(angle) * radius).toFixed(3));
-        return `${x}px ${y}px 0 ${color(lineStroke.color) ? lineStroke.color : 'rgba(0,0,0,.9)'}`;
-    }).join(',') : null;
     const defaultOutline = policy && !hasStroke && !lineHasStyle
         ? '-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85)'
         : null;
     const defaultDrop = policy ? '0 0 8px rgba(0,0,0,.6)' : '0 2px 8px rgba(0,0,0,.35)';
     const inheritedShadow = hasShadow ? null : lineStyle?.shadow
         ? (0, caption_display_1.captionTextShadowValue)(lineStyle.shadow, undefined, lineScale)
-        : !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
+        : !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
     const inheritedGlow = hasGlow ? null : lineStyle?.glow
         ? (0, caption_display_1.captionTextShadowValue)(undefined, lineStyle.glow, lineScale) : null;
     const shadowExtent = shadowValue && finite(shadowValue.opacity, 1) > 0
@@ -375,7 +364,7 @@ function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, 
     const inner = lineStyle?.stroke_inner;
     const extrude = lineStyle?.extrude;
     const lineExtent = hasStroke ? 0 : (0, caption_display_1.scaleCaptionPx)(Math.max(finite(inner?.width_px), finite(extrude?.depth_px)), lineScale);
-    const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow
+    const defaultDropExtent = !hasShadow && !lineTextShadow
         && (!policy || !lineHasStyle) ? 8 : 0;
     const inkOutset = Math.max(plate && plate.opacity > 0 ? plate.padding_px : 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
     const gradient = lineStyle?.fill_gradient;
@@ -398,7 +387,7 @@ function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, 
                 ...(gradientCss ? { gradient: gradientCss } : {}),
                 replace_stroke: hasStroke,
                 replace_shadow: hasShadow,
-                ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [roundOutline, extras, defaultOutline,
+                ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [extras, defaultOutline,
                         shadow ?? inheritedShadow, glow ?? inheritedGlow]
                         .filter(Boolean).join(', ') || 'none' } : {})
             } } : {}) };
@@ -484,7 +473,7 @@ function captionRenderInputFromV1(root, options = {}) {
             if (next.look) {
                 const layout = row.text_style?.layout
                     ?? defaultStyle?.layout;
-                const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output, layout, !Array.isArray(copy) && Boolean(copy.display_policy), row.time_domain === 'output');
+                const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output, layout, !Array.isArray(copy) && Boolean(copy.display_policy));
                 if (!next.style)
                     next.style = resolved.style;
                 if (resolved.resolved_look)

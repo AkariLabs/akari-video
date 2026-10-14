@@ -67,10 +67,6 @@ function overlayFor(route, style, look, outputTime = false) {
 }
 
 function lineShadow(overlay) {
-  if (overlay.vars['--caption-rounded-stroke']
-      && /\.akari-caption__line,\.akari-caption__block\{[^}]*text-shadow:var\(--caption-rounded-stroke\)/u.test(overlay.html)) {
-    return overlay.vars['--caption-rounded-stroke'];
-  }
   return overlay.vars['--caption-text-shadow']
     ?? /text-shadow:\s*var\(--caption-text-shadow,\s*([^;]+)\);/u.exec(overlay.html)?.[1].trim();
 }
@@ -103,25 +99,35 @@ for (const route of [false, true]) for (const { name, style, edgeCount } of line
   });
 }
 
-for (const route of [false, true]) test(`${route ? 'display_policy' : 'legacy'} rounded line stroke is inherited only when the line draws it as text-shadow`, () => {
-  const style = lineStyles[1].style;
+for (const route of [false, true]) test(`${route ? 'display_policy' : 'legacy'} output-time run inherits the line stroke through CSS and keeps shadow and glow separately`, () => {
+  const style = { ...lineStyles[1].style, glow };
   const line = overlayFor(route, style, undefined, true);
-  assert.ok(line.vars['--caption-rounded-stroke']);
+  assert.equal(line.vars['--caption-rounded-stroke'], undefined);
+  assert.match(line.html, /-webkit-text-stroke:\s*var\(--caption-(?:webkit-text-stroke|stroke)/u);
   const source = splitShadows(lineShadow(line));
-  assert.equal(source.length, 33);
+  assert.equal(source.length, 3, 'the text shadow contains only the line drop shadow and two glow layers');
   const glowZero = overlayFor(route, style, choices[0].look, true);
-  assert.deepEqual(splitShadows(runShadow(glowZero)), source);
+  assert.deepEqual(splitShadows(runShadow(glowZero)), source.slice(0, 1));
+  assert.doesNotMatch(glowZero.html, /class="akari-caption__run"[^>]*style="[^"]*-webkit-text-stroke:0px/u);
   const strokeZero = overlayFor(route, style, choices[2].look, true);
-  assert.deepEqual(splitShadows(runShadow(strokeZero)), source.slice(32));
+  assert.deepEqual(splitShadows(runShadow(strokeZero)), source);
+  assert.match(strokeZero.html, /class="akari-caption__run"[^>]*style="[^"]*-webkit-text-stroke:0px currentColor/u);
+  const shadowZero = overlayFor(route, style, { shadow: { color: '#000000', opacity: 0 } }, true);
+  assert.deepEqual(splitShadows(runShadow(shadowZero)), source.slice(1));
 });
 
-test('legacy rounded stroke without a line shadow has only its actual circle shadows', () => {
+test('legacy output-time run with a stroke and no line shadow keeps only the CSS drop shadow', () => {
   const style = { stroke: { color: '#000000', width_px: 6 } };
   const line = overlayFor(false, style, undefined, true);
-  assert.equal(splitShadows(lineShadow(line)).length, 32);
+  assert.equal(line.vars['--caption-rounded-stroke'], undefined);
+  assert.equal(line.vars['--caption-text-shadow'], undefined);
+  assert.deepEqual(splitShadows(lineShadow(line)), ['0 2px 8px rgba(0,0,0,.35)']);
   const glowZero = overlayFor(false, style, choices[0].look, true);
   assert.deepEqual(splitShadows(runShadow(glowZero)), splitShadows(lineShadow(line)));
-  assert.equal(runShadow(overlayFor(false, style, choices[2].look, true)), 'none');
+  const strokeZero = overlayFor(false, style, choices[2].look, true);
+  assert.deepEqual(splitShadows(runShadow(strokeZero)), splitShadows(lineShadow(line)));
+  assert.match(strokeZero.html, /class="akari-caption__run"[^>]*style="[^"]*-webkit-text-stroke:0px currentColor/u);
+  assert.equal(runShadow(overlayFor(false, style, { shadow: { color: '#000000', opacity: 0 } }, true)), 'none');
 });
 
 test('legacy stroke without a line shadow inherits the CSS drop shadow', () => {

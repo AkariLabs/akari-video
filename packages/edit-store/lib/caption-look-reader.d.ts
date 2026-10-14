@@ -47,7 +47,7 @@ export declare function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' 
 export declare function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null, output?: {
     width: number;
     height: number;
-}, layout?: unknown, policy?: boolean, roundedStroke?: boolean): {
+}, layout?: unknown, policy?: boolean): {
     style: NonNullable<CaptionRun['style']>;
     resolved_look?: CaptionRun['resolved_look'];
 };
