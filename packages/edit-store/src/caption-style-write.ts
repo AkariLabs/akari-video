@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { assertCaptionsWritable, CaptionsInvalidError, validateCaptionLookV1Shape } from './caption-look-shape';
 import { planCaptionStyleEdit, planCaptionStyleClear, planCaptionStyleReapply,
-    planCaptionSizeEdit, type CaptionRoot, type CaptionStyleEditInput,
+    planCaptionSizeEdit, assertChangedCaptionStyles, captionNoticeCodes, type CaptionRoot, type CaptionStyleEditInput,
     type CaptionClearTarget, type CaptionStyleTarget } from './caption-style-command';
 import { planCaptionLookMigration } from './caption-look-reader';
 import { loadTextstyleCatalogSync } from './textstyle-library-node';
@@ -25,7 +25,9 @@ export type CaptionWriteOptions = {
     hooks?: TransactionOptions['hooks'];
     beforeCommit?: () => void | Promise<void>;
 };
-type WriteResult = { written: string[]; notices: string[]; changed: string[]; recovered?: string;
+type WriteResult = { written: string[]; notices: string[];
+    notice_codes: Array<{ code: string; params?: Record<string, string | number> }>;
+    changed: string[]; recovered?: string;
     before: Record<string, FileVersion>; after: Record<string, FileVersion> };
 
 async function readVersions(projectRoot: string, options: CaptionWriteOptions): Promise<Record<string, FileVersion>> {
@@ -44,7 +46,7 @@ function parsed(value: FileVersion): unknown {
 }
 
 async function commit(projectRoot: string, before: Record<string, FileVersion>, captions: CaptionRoot,
-    changed: string[], notices: string[], options: CaptionWriteOptions, label: string,
+    changed: string[], notices: string[], noticeCodes: WriteResult['notice_codes'], options: CaptionWriteOptions, label: string,
     dryRun = false): Promise<WriteResult> {
     const captionsName = options.files?.captions ?? 'captions.json';
     const editName = options.files?.edit ?? 'edit.json';
@@ -55,7 +57,8 @@ async function commit(projectRoot: string, before: Record<string, FileVersion>, 
         after[captionsName] = { text: content, hash: projectFileHash(content) };
     }
     if (dryRun || after[captionsName].text === before[captionsName].text) {
-        return { written: [], notices: [...new Set(notices)], changed: after[captionsName].text === before[captionsName].text ? [] : changed,
+        return { written: [], notices: [...new Set(notices)], notice_codes: noticeCodes,
+            changed: after[captionsName].text === before[captionsName].text ? [] : changed,
             before, after };
     }
     await captureProjectLintBaseline(projectRoot);
@@ -79,7 +82,8 @@ async function commit(projectRoot: string, before: Record<string, FileVersion>, 
         }
     });
     if (written.written.length) scheduleProjectLint(projectRoot, options);
-    return { written: written.written, notices: [...new Set(notices)], changed, ...(written.recovered ? { recovered: written.recovered } : {}),
+    return { written: written.written, notices: [...new Set(notices)], notice_codes: noticeCodes,
+        changed, ...(written.recovered ? { recovered: written.recovered } : {}),
         before, after };
 }
 
@@ -99,14 +103,14 @@ export async function applyCaptionStyle(projectRoot: string, input: Omit<Caption
     const result = planCaptionStyleEdit({ ...input, catalog: input.catalog ?? options.catalog
         ?? loadTextstyleCatalogSync({ env: process.env }).catalog, captions,
         edit: parsed(before[options.files?.edit ?? 'edit.json']), assetReferences: parsed(before['.akari/asset-references.json']) });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-style');
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-style');
 }
 
 export async function clearCaptionStyle(projectRoot: string,
     input: { targets: CaptionClearTarget[]; mode: 'run' | 'range' }, options: CaptionWriteOptions = {}): Promise<WriteResult> {
     const { before, captions } = await readCaptions(projectRoot, options);
     const result = planCaptionStyleClear({ ...input, captions });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-clear');
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-clear');
 }
 
 export async function reapplyCaptionStyle(projectRoot: string,
@@ -116,15 +120,16 @@ export async function reapplyCaptionStyle(projectRoot: string,
     const { before, captions } = await readCaptions(projectRoot, options);
     const result = planCaptionStyleReapply({ ...input, captions });
     const write = await commit(projectRoot, before, result.next?.captions ?? captions,
-        result.next ? [options.files?.captions ?? 'captions.json'] : [], result.notices, options, 'caption-reapply');
+        result.next ? [options.files?.captions ?? 'captions.json'] : [], result.notices, result.notice_codes, options, 'caption-reapply');
     return { ...write, items: result.items };
 }
 
 export async function setCaptionSize(projectRoot: string,
     input: { targets: Array<{ caption_id: string }>; size_px: number }, options: CaptionWriteOptions = {}): Promise<WriteResult> {
     const { before, captions } = await readCaptions(projectRoot, options);
-    const result = planCaptionSizeEdit({ ...input, captions });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-size');
+    const result = planCaptionSizeEdit({ ...input, captions, catalog: options.catalog
+        ?? loadTextstyleCatalogSync({ env: process.env }).catalog });
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-size');
 }
 
 export async function applyCaptionLookMigration(projectRoot: string,
@@ -133,7 +138,9 @@ export async function applyCaptionLookMigration(projectRoot: string,
     const { before, captions } = await readCaptions(projectRoot, options);
     const plan = planCaptionLookMigration(captions, options.catalog
         ?? loadTextstyleCatalogSync({ env: process.env }).catalog, parsed(before[options.files?.edit ?? 'edit.json']));
+    assertChangedCaptionStyles(captions, plan.next as CaptionRoot, plan.diff.map(item => item.path));
     const result = await commit(projectRoot, before, plan.next as CaptionRoot,
-        plan.diff.length ? [options.files?.captions ?? 'captions.json'] : [], plan.notices, options, 'caption-migrate-look', options.dryRun);
+        plan.diff.length ? [options.files?.captions ?? 'captions.json'] : [], plan.notices,
+        captionNoticeCodes(plan.notices, []), options, 'caption-migrate-look', options.dryRun);
     return { ...result, diff: plan.diff };
 }

@@ -22,6 +22,7 @@ const { writeProjectFilesGuarded } = createRequire(import.meta.url)("../../edit-
 const { applyCaptionLookMigration } = createRequire(import.meta.url)("../../edit-store/lib/caption-style-write.js");
 const usage = () => [
   toolsText('tools.captions.help.usage'), "",
+  toolsText('tools.captions.help.migrateLook'),
   ...['source', 'retime', 'readout', 'minDuration', 'split', 'maxChars', 'maxSeconds', 'pause', 'wordBook', 'noWordBook', 'force', 'dryRun'].map((name) => toolsText(`tools.captions.help.${name}`)),
   "  --json", "  --help",
 ].join("\n");

@@ -1,5 +1,5 @@
 export interface DeliveryTarget {
-    form: 'cli' | 'extension' | 'none';
+    form: 'cli' | 'extension' | 'web' | 'none';
     agent?: string;
     focusCommandId?: string;
 }
@@ -17,6 +17,7 @@ const focusCommands: Record<string, string> = {
 
 export function resolveDeliveryTarget(input: {
     cliAgent?: string;
+    webAgent?: string;
     visibleWidgetIds: readonly string[];
     catalog: readonly ExtensionDeliveryEntry[];
 }): DeliveryTarget {
@@ -28,5 +29,6 @@ export function resolveDeliveryTarget(input: {
             return { form: 'extension', agent: entry.agent, focusCommandId: focusCommands[entry.agent] };
         }
     }
+    if (input.webAgent) return { form: 'web', agent: input.webAgent };
     return { form: 'none' };
 }

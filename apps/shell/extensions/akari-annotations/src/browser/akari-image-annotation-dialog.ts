@@ -3,9 +3,7 @@ import URI from '@theia/core/lib/common/uri';
 import { AbstractDialog, DialogError, DialogMode, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import {
-    createGlowSprite,
-    createPlatinumGradient,
-    drawPenSegment,
+    drawPenStroke,
     PEN_TUNING
 } from 'akari-preview/lib/common/pen-canvas-visuals';
 import { AnnotationStroke, AnnotationStrokeImageRect } from '../common/annotation-store';
@@ -70,8 +68,6 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
     protected readonly errorNotice = document.createElement('div');
 
     protected readonly ctx: CanvasRenderingContext2D;
-    protected readonly glowSprite: HTMLCanvasElement;
-    protected platinumGradient: CanvasGradient | null = null;
 
     /** 確定済みストローク（作成モードのみ・持ち回りは正規化 0..1 点列）。 */
     protected readonly completedStrokes: Array<[number, number][]> = [];
@@ -90,7 +86,6 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
     ) {
         super(props);
         this.ctx = this.canvas.getContext('2d')!;
-        this.glowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
         this.buildDom();
     }
 
@@ -201,7 +196,6 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
         this.canvas.style.width = `${this.canvasWidth}px`;
         this.canvas.style.height = `${this.canvasHeight}px`;
         this.ctx.setTransform(this.canvasDpr, 0, 0, this.canvasDpr, 0, 0);
-        this.platinumGradient = createPlatinumGradient(this.ctx, this.canvasWidth, this.canvasHeight);
     }
 
     protected wirePointerEvents(): void {
@@ -272,14 +266,7 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
     }
 
     protected paintPolyline(points: ReadonlyArray<readonly [number, number]>): void {
-        for (let index = 0; index < points.length - 1; index += 1) {
-            drawPenSegment(
-                this.ctx, this.glowSprite, this.platinumGradient,
-                points[index], points[index + 1],
-                this.canvasWidth, this.canvasHeight,
-                PEN_TUNING.staticCoreWidthPx
-            );
-        }
+        drawPenStroke(this.ctx, points, this.canvasWidth, this.canvasHeight, PEN_TUNING.staticCoreWidthPx);
     }
 
     protected override async isValid(value: boolean, mode: DialogMode): Promise<DialogError> {

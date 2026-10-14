@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -43,6 +43,17 @@ test('resolver の全形式と rejected をシート用のグループに変換�
     assert.equal(plan.rejected.length, 2);
     assert.match(plan.rejected.find(item => item.name === 'grade.cube').reason, /presets/);
     assert.ok(plan.items.every(item => item.folder === 'input'));
+});
+
+test('フォントの書体名は取り込み plan からシート用グループへ届く', async t => {
+    const f = await fixture(t);
+    const source = join(f.input, 'mystery.ttf');
+    await copyFile(fileURLToPath(new URL('../../../../../assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf', import.meta.url)), source);
+    const plan = await planAdd([source], { env: f.env });
+    const font = libraryImportGroups(plan).find(group => group.kind === 'font')?.items[0];
+    assert.equal(font?.title, 'Dela Gothic One');
+    assert.equal(font?.name, 'mystery.ttf');
+    assert.equal(font?.catalogId, plan.items[0].catalogId);
 });
 
 for (const [seconds, kind, ambiguous] of [[9.9, 'sfx', false], [10, 'sfx', true], [29.9, 'sfx', true], [30, 'bgm', false]]) {

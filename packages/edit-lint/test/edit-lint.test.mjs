@@ -1744,7 +1744,7 @@ test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.ma
   });
 });
 
-test("cuts[].transition_out は正準 29 種をすべて受理し未知種別を拒否する", async () => {
+test("cuts[].transition_out accepts all known types and warns once for an unknown type", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-transition-vocabulary-"));
   try {
     const editPath = join(root, "edit.json");
@@ -1768,17 +1768,23 @@ test("cuts[].transition_out は正準 29 種をすべて受理し未知種別を
       await writeFile(editPath, `${JSON.stringify(editFor(type))}\n`);
       const result = parseResult(run(root));
       assert.equal(
-        result.findings.some((finding) => finding.check === "cuts.transition-out.type"),
+        result.findings.some((finding) =>
+          finding.check === "cuts.transition-out.type" || finding.check === "cuts.transition-out.unknown-type"),
         false,
         type,
       );
     }
-    await writeFile(editPath, `${JSON.stringify(editFor("future-transition"))}\n`);
-    const invalid = parseResult(run(root));
-    assert.equal(
-      invalid.findings.some((finding) => finding.check === "cuts.transition-out.type"),
-      true,
-    );
+    const fixture = parseResult(run(join(preparedFixtures, 'v2-unknown-transition-warning')));
+    assert.equal(fixture.verdict, 'pass', JSON.stringify(fixture.findings));
+    assert.equal(fixture.findings.filter(finding => finding.severity === 'error').length, 0);
+    const unknown = fixture.findings.filter(finding => finding.check === 'cuts.transition-out.unknown-type');
+    assert.equal(unknown.length, 1, JSON.stringify(fixture.findings));
+    assert.equal(unknown[0].severity, 'warning');
+    assert.equal(unknown[0].message,
+      '知らない種類のトランジション「future-kind」です。クロスフェードで代用して表示・書き出しします。');
+    const english = parseResult(run(join(preparedFixtures, 'v2-unknown-transition-warning'), [], { AKARI_LANG: 'en' }));
+    assert.equal(english.findings.find(finding => finding.check === 'cuts.transition-out.unknown-type')?.message,
+      'Unknown transition type "future-kind". A crossfade will be used for preview and export.');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

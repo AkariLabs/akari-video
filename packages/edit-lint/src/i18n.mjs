@@ -22,6 +22,12 @@ export function lintText(key, params = {}, language = getLanguage()) {
   return value.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (match, name) => params[name] === undefined ? match : String(params[name]));
 }
 
+/** Keep diagnostics readable while their catalog entries are being added. */
+export function lintTextWithFallback(key, params, fallback) {
+  const translated = lintText(key, params);
+  return translated === key ? fallback : translated;
+}
+
 export function lintValue(prefix, value) {
   if (getLanguage() === 'ja' || typeof value !== 'string') return value;
   const entry = Object.entries(catalogs.ja).find(([key, source]) => key.startsWith(prefix) && source === value);

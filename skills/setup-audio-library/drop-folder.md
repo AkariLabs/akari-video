@@ -17,7 +17,7 @@ use a dedicated audio location to avoid incorrect registration of unrelated down
 ## 2. Check plan-only first (default, safe)
 
 ```sh
-node packages/audio-library-setup/bin/register-drop-folder.mjs \
+akari assets audio drop \
   --drop-dir ~/.akari/audio-drop
 ```
 
@@ -27,13 +27,13 @@ Show stdout JSON (`matched_candidates` / `quarantined`) to the user and confirm 
 ## 3. Apply with `--apply` if correct
 
 ```sh
-node packages/audio-library-setup/bin/register-drop-folder.mjs \
+akari assets audio drop \
   --drop-dir ~/.akari/audio-drop --apply
 ```
 
 - **Matched files**: Move actual files to `<ライブラリの置き場>/audio/<candidate-id>/` (existing library-location
   placeholder; user scope, same hierarchy as [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md)).
-  Write `meta.json` (actual files present, no `remote` key). Also create `catalog/audio/<candidate-id>/meta.json`
+  Write `meta.json` (actual files present, no `remote` key). Also create `<candidate-id>/meta.json` in the reference-record location
   (`remote: true` reference SSOT) if absent. **Never overwrite an existing one** (hard rule 6).
   With `ffmpeg`, generate waveform `preview.png`; otherwise log the reason without generating it.
   Do not make a mock differing from the actual asset.
@@ -50,12 +50,12 @@ Filename matching works only for candidates identified down to individual filena
 DOVA-SYNDROME, Pixabay, and Freesound tag/search-page candidates cannot be matched automatically because
 user-chosen save filenames are unpredictable; they go to `_quarantine/`. Follow the audio-import precedent:
 review `_quarantine/manifest.json`, ask the user for sources, then add `expected_filenames` to the corresponding
-`catalog/audio/candidates.json` candidate or manually create `catalog/audio/<id>/meta.json`.
+candidate in the candidate file at `audioCandidatesPath`, or manually create `<id>/meta.json` in the reference-record location.
 
 ## 5. Validate
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs <ライブラリの置き場>/audio/<candidate-id>
+akari assets validate <ライブラリの置き場>/audio/<candidate-id>
 ```
 
 Report failures honestly (usually missing `preview.png` because ffmpeg is unavailable).
@@ -64,5 +64,5 @@ Report failures honestly (usually missing `preview.png` because ffmpeg is unavai
 
 - Claiming registration without `--apply` (plan-only changes nothing).
 - Arbitrarily choosing one of multiple matching candidates.
-- Overwriting existing `catalog/audio/<id>/meta.json`.
+- Overwriting existing `<id>/meta.json` in the reference-record location.
 - Ignoring `_quarantine/` and reporting completion while unknown-source files remain unresolved.

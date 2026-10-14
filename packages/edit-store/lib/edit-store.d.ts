@@ -1,4 +1,5 @@
 import { type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
+import type { TransitionAlign } from './transition-plan';
 export interface EditCut {
     audio?: false;
     mute?: unknown;
@@ -18,9 +19,17 @@ export interface EditCut {
     transitionOut?: {
         type: ReadableTransitionType;
         duration: number;
+        [key: string]: unknown;
     };
     at?: number;
     track?: number;
+    /**
+     * 描画用の宣言だけが持つ（edit.json には書かない）。このクリップの最初のコマを、at の手前
+     * headSeconds 秒のあいだ出しておく。at・in・out・表示の長さ・素材の時計には数えない。
+     */
+    transitionHold?: {
+        headSeconds: number;
+    };
 }
 export interface EditSource {
     id: string;
@@ -196,6 +205,9 @@ export declare function updateCutOpacityInSource(source: string, cutIndex: numbe
 export declare function setCutTransitionOutInSource(source: string, cutIndex: number, transitionOut: {
     type: TransitionType;
     duration: number;
+    align?: TransitionAlign | null;
+    /** 省けば保つ・null で消す。 */
+    fill?: 'freeze' | null;
 } | null): string;
 export interface RemoveV2TransitionOutWithHandleRetractInput {
     itemId: string;

@@ -61,7 +61,7 @@ export interface OverlayRuntimeAssetUrls {
     scrubAudioJavaScriptUrl?: string;
     captionFontUrl: string;
     latinCaptionFontUrl: string;
-    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }>;
+    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string; source?: 'library' }>;
 }
 
 export interface ReadVideoFxLutRequest {
@@ -96,6 +96,8 @@ export interface FragmentAssetPreviewResult {
     html: string;
     streams: (VideoStreamReference & { uri: string })[];
     warnings: string[];
+    /** プロジェクト内を指すが配信できなかった参照（まだ届いていない画像など）の file URI。 */
+    unserved?: string[];
 }
 
 export interface RasterizeTelopPreviewRequest {
@@ -119,7 +121,9 @@ export interface PreviewAudioSidecarRequest {
     inSec: number;
     outSec?: number;
     speed: number;
+    /** Source seconds requested before the source trim. */
     padBeforeSec?: number;
+    /** Source seconds requested after the source trim. */
     padAfterSec?: number;
     heavyWavOnly?: boolean;
     clipFx?: import('./audio-clip-fx').AudioClipFx;
@@ -263,6 +267,11 @@ export interface ListReviewSessionsRequest {
     projectRootUri: string;
 }
 
+export interface DeleteReviewSessionRequest {
+    projectRootUri: string;
+    sessionId: string;
+}
+
 export interface ReadReviewSessionBundleRequest {
     projectRootUri: string;
     sessionId: string;
@@ -313,6 +322,7 @@ export interface ReviewSessionSummary {
     ranges: import('./review-session-ranges').ReviewSessionRange[];
     status: ReviewSessionLifecycleStatus | null;
     compiledAnnotations: string[] | null;
+    strokeCount: number;
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
@@ -468,6 +478,7 @@ export interface AkariPreviewService {
     readReviewSessionStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
+    deleteReviewSession(request: DeleteReviewSessionRequest): Promise<boolean>;
     readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
     prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;

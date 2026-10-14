@@ -290,6 +290,17 @@ test('buildCutSummaryFields: framing and freeze from a realistic edit.json cut r
     assert.deepEqual(result.fields.freeze, { at_sec: 3, duration_sec: 1.5 });
 });
 
+test('buildCutSummaryFields passes only a positive finite held head to the preview', () => {
+    const fieldsFor = headSeconds => buildCutSummaryFields({
+        src: 'main', in: 0, out: 5, at: 4.8,
+        transitionHold: { headSeconds }
+    }, 'main', id => id === 'main', identityTransform, noopWarn).fields;
+    assert.deepEqual(fieldsFor(0.8).transitionHold, { headSeconds: 0.8 });
+    for (const value of [0, -1, Infinity, NaN, '0.8', null]) {
+        assert.equal(Object.prototype.hasOwnProperty.call(fieldsFor(value), 'transitionHold'), false);
+    }
+});
+
 test('buildCutSummaryFields: cut-level crop, perspective, and keyframes reach the summary fields', () => {
     const cut = {
         src: 'main',
@@ -349,6 +360,14 @@ test('buildCutSummaryFields: 正準 29 種をすべて summary へ保持する',
         assert.equal(result.ok, true, type);
         assert.deepEqual(result.fields.transitionOut, { type, duration: 0.5 });
     }
+});
+
+test('buildCutSummaryFields keeps an unknown transition and its align field', () => {
+    const transition = { type: 'future-kind', duration: 0.5, align: 'before-cut' };
+    const result = buildCutSummaryFields({ src: 'main', in: 0, out: 2,
+        transition_out: transition }, 'main', id => id === 'main', identityTransform, noopWarn);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.fields.transitionOut, transition);
 });
 
 test('buildCutSummaryFields: 未知の非空 type もフォールバック描画のため保持する', () => {

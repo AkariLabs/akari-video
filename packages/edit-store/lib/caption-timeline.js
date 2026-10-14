@@ -4,7 +4,7 @@ exports.buildCaptionTimelineSegments = buildCaptionTimelineSegments;
 const timeline_map_1 = require("./timeline-map");
 /** Preserve visual projection and add voice ranges that visual cuts do not cover. */
 function buildCaptionTimelineSegments(cuts, edit, options = {}) {
-    const visual = (0, timeline_map_1.buildTimelineMap)(cuts, options).segments;
+    const visual = (0, timeline_map_1.buildTimelineMap)(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
     if (!edit)
         return visual;
     const audio = [];

@@ -2,6 +2,17 @@
   "lint-messages.geometry.fit.compat": "Rendering in fit compatibility mode. Use `normalize-geometry` to migrate to source-size geometry.",
   "lint-messages.cuts.transition.zeroOverlap": "The transition has no usable source handles and will not apply. Adjust the trim or remove the transition.",
   "lint-messages.cuts.transition.nonAdjacent": "There is a gap after transition_out. Close the gap or remove the transition.",
+  "lint-messages.cuts.transition.unknownType": "Unknown transition type \"{type}\". A crossfade will be used for preview and export.",
+  "lint-messages.cuts.transition.unknownAlign": "Unknown transition position \"{align}\". It will display and export centered.",
+  "lint-messages.cuts.transition.unknownFill": "Unknown transition fill \"{fill}\". It will display and export without fill.",
+  "lint-messages.cuts.transition.shortened": "This transition is shortened to {seconds} seconds ({reason}).",
+  "lint-messages.cuts.transition.reasonMaterial": "insufficient source footage",
+  "lint-messages.cuts.transition.reasonClipLength": "the clip is too short",
+  "lint-messages.cuts.transition.reasonNeighbor": "it conflicts with a neighboring transition",
+  "lint-messages.cuts.transition.reasonTooShort": "shorter than one frame",
+  "lint-messages.cuts.transition.unknownAlignCheck": "Unknown position. This transition displays and exports centered.",
+  "lint-messages.cuts.transition.unknownFillCheck": "Unknown fill. This transition displays and exports without fill.",
+  "lint-messages.cuts.transition.shortenedCheck": "This transition is shortened.",
   "lint-messages.captions.track.undeclared": "captions.json has renderable cues, but no caption track is declared. Captions currently display through implicit completion. Add { \"id\": \"captions\", \"name\": \"Captions\", \"at\": 0, \"duration\": <output duration>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } to visual track items[].",
   "lint-messages.overlays.root.attributes": "data-start / data-duration on the fragment root are ignored. Timing in edit.json takes precedence. Record the asset length in data-akari-natural-duration.",
   "lint-messages.edit.version.future": "edit.json version {version} is too new to validate. Update the skills and app.",
@@ -142,5 +153,7 @@
   "lint-messages.item.duration.sourceMismatch_one": "item {id}: duration {duration} frame ({seconds}s) differs from source interval in {sourceIn}s to out {sourceOut}s ({sourceSeconds}s{speed}) by a factor of {ratio}. at / duration use frames; source.in / out use seconds. Check the units (if duration was written in seconds, multiply by fps = {fps}).",
   "lint-messages.item.duration.sourceMismatch_other": "item {id}: duration {duration} frames ({seconds}s) differs from source interval in {sourceIn}s to out {sourceOut}s ({sourceSeconds}s{speed}) by a factor of {ratio}. at / duration use frames; source.in / out use seconds. Check the units (if duration was written in seconds, multiply by fps = {fps}).",
   "lint-messages.audio.bgm.example_one": " (for example, an overlap of {frames} frame = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
-  "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})"
+  "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
+  "lint-messages.cuts.transition.freeze": "The first {seconds} s of the later clip is filled with a held frame.",
+  "lint-messages.cuts.transition.freezeCheck": "Part of this transition is filled with a held frame."
 }

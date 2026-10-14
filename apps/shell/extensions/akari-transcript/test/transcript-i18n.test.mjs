@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { setLanguage } from '@akari-video/i18n';
@@ -22,7 +23,7 @@ test('every static transcript key exists in matching catalogs', () => {
             }
         }
     };
-    walk(new URL('../src/', import.meta.url).pathname);
+    walk(fileURLToPath(new URL('../src/', import.meta.url)));
     assert.deepEqual(Object.keys(ja).sort(), Object.keys(en).sort());
     for (const key of keys) {
         assert.ok(Object.hasOwn(ja, key) || Object.hasOwn(ja, `${key}_other`), `Missing Japanese: ${key}`);

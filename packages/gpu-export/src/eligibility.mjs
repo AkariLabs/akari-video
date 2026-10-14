@@ -5,6 +5,10 @@ import { runtimes as overlayRuntimes, readDeclarations } from "../../overlay-run
 import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
 import { captionLanguageDefaults, normalizeLanguage } from '../../content-language/src/index.mjs';
 import { accessSync, constants, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { captionRunHasOutsideEffect } = require('../../edit-store/lib/index.js');
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -432,6 +436,19 @@ export function evaluateGpuEligibility({
       emphasisWords: validEmphasis,
       locale: Array.isArray(captions) ? 'ja' : captions?.display_policy?.locale,
     });
+    const gradientEffects = textStyle?.fill_gradient && !textStyle?.fill
+      && (textStyle?.stroke || textStyle?.stroke_inner || textStyle?.extrude
+        || textStyle?.shadow || textStyle?.glow);
+    const richRun = !gradientEffects && Array.isArray(cue?.runs)
+      && cue.runs.some(run => run && captionRunHasOutsideEffect(run));
+    if (richRun && [animation?.in?.id, animation?.out?.id].includes('typewriter')) {
+      entries.push(entry('caption', id, 'unsupported', 'caption-run-effects-typewriter', ['runs', 'text_style.animation']));
+      continue;
+    }
+    if (wordSupport.hasWordDisplay && richRun) {
+      entries.push(entry("caption", id, "unsupported", "caption-run-plate-words-native", ["runs", "words"]));
+      continue;
+    }
     if (wordSupport.hasWordDisplay && textStyle?.vertical === true) {
       entries.push(entry("caption", id, "unsupported", "caption-text-style-vertical-unsupported", ["text_style.vertical"]));
       continue;

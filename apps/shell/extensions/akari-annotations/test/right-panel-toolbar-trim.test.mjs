@@ -15,19 +15,22 @@ const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales
 const panel = readFileSync(new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8');
 const timeline = readAllSourceText();
 
-test('注釈の重複見出しを空のスロットにし、フィルタとボードボタンの位置を維持する', () => {
-    const heading = panel.slice(panel.indexOf('const heading ='), panel.indexOf("this.filterSelect.setAttribute('aria-label'"));
-    assert.match(heading, /document\.createElement\('span'\)/);
-    assert.doesNotMatch(heading, /textContent|innerHTML/);
-    assert.match(heading, /heading\.style\.width = '2em'/);
-    assert.match(heading, /heading\.style\.flexShrink = '0'/);
-    assert.match(heading, /heading\.style\.marginRight = 'auto'/);
-    assert.match(heading, /setAttribute\('aria-hidden', 'true'\)/);
-    assert.match(panel, /this\.toolbar\.append\(heading, this\.filterSelect, this\.openBoardButton\)/);
-    assert.match(panel, /this\.title\.label = t\('annotations\.reviewPanelWidget\.text\.annotation'\)/);
+test('見出し、件数、メニューと 4 件数フィルタを並べる', () => {
+    assert.match(panel, /this\.toolbar\.append\(heading, this\.countLabel, this\.openBoardButton, menu\)/);
+    assert.match(panel, /heading\.textContent = t\('annotations\.reviewPanelWidget\.text\.annotation'\)/);
     assert.equal(ja['annotations.reviewPanelWidget.text.annotation'], '注釈');
-    assert.match(panel, /this\.filterSelect\.addEventListener\('change'/);
+    assert.match(panel, /this\.filterButtons\.appendChild\(button\)/);
+    assert.doesNotMatch(panel, /this\.filterSelect/);
     assert.match(panel, /this\.openBoardButton\.addEventListener\('click'/);
+});
+
+test('選択中の絞り込みと録音道具はテーマの secondary 規則より優先して表示する', () => {
+    assert.match(panel, /\[data-review-filter\]\[aria-pressed="true"\]/);
+    assert.match(panel, /\[data-review-tool-mode-button\]\[aria-pressed="true"\]/);
+    assert.match(panel, /border-color: var\(--theia-focusBorder\) !important/);
+    assert.match(panel, /background-color: var\(--theia-list-activeSelectionBackground\) !important/);
+    assert.match(panel, /color: var\(--theia-list-activeSelectionForeground, var\(--theia-foreground\)\) !important/);
+    assert.match(panel, /font-weight: 650 !important/);
 });
 
 test('タイムラインの注釈・録音帯ボタンは DOM に追加しない', () => {
@@ -45,5 +48,5 @@ test('録音帯は保存済み true を読まず非表示で初期化し、描�
     assert.match(timeline, /this\.recordingRangesVisible && this\.reviewSessionBandsCache\.length > 0/);
     assert.match(timeline, /protected focusReviewSession\(/);
     assert.match(panel, /recordingTitle\.textContent = t\('annotations\.reviewPanelWidget\.text\.recordingSession'\)/);
-    assert.equal(ja['annotations.reviewPanelWidget.text.recordingSession'], '録音セッション');
+    assert.equal(ja['annotations.reviewPanelWidget.text.recordingSession'], '録音');
 });

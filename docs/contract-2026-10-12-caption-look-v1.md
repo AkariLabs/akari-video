@@ -5,7 +5,7 @@
 
 ## 移行と書き出し
 
-移行は主経路（`resolveCaptionPlan` を通る書き出しとプレビュー）で、前後の HTML と CSS 変数を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と移行前の配列内の位置から `emphasis_words` へ戻す。残った項目の順を保ち、移した項目を位置の昇順に差し込む。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。
+移行は、主経路（`resolveCaptionPlan` を通る書き出しとプレビュー）と取り出した字幕の両方で、前後の HTML と CSS 変数を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と移行前の配列内の位置から `emphasis_words` へ戻す。残った項目の順を保ち、移した項目を位置の昇順に差し込む。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。取り出した字幕も、未移行を含めて主経路と同じプリセット解決・v1 描画入力の前処理を通す。GPU の適格判定もこの結果を使う。
 
 | `style_hint`（省略時の `emotion`） | `motion.in.id` |
 |---|---|
@@ -18,6 +18,30 @@
 v1 の `look` を持つ run は px 系の値を `scale: 1` の値として保存し、描画時に run の `scale` を掛ける。旧 `stroke.width_px` を移す際は `scale` で割った値を丸めずに保存し、描画時に掛けた後だけ px 値を丸める。旧 runs v0 の `style` は保存値を従来どおり直接描く。旧 `animation` は `dormant_animation` に保管し、描画しない。
 
 `lookForCaptionRow` は `size: "keep"` なら当て先の実効 `size_px` を明示して保ち、`k = 当て先の size_px ÷ スタイルの size_px` で px 系の値を換算する。当て先の `reference_height_px` と `layout` も保つ。`size: "style"` で `layout` と `reference_height_px` が衝突するときは値を書かず、理由を返す。範囲への適用も行の実効サイズを使い、許可外の項目を落として通知する。
+
+## 範囲の描画
+
+範囲の `stroke.width_px`、台紙の `padding_px` と `radius_px`、影とグローの px 値は、保存時には行の座標系で `scale: 1` の値とする。描画時に行の実効倍率（`reference_height_px` なら出力高さとの比、`layout` ならその解決倍率）と範囲の `scale` を一度ずつ掛ける。解決済みの値を再解決しても倍率は重ねない。
+
+台紙は範囲と見た目の行の交差部分ごとに作る。断片は通常 `display:inline` とし、背景・角丸・余白を断片自身へ適用する。`box-decoration-break:clone` と同じ大きさの負の margin により、幅で折り返す横書きと縦書きでも文字の位置を変えず、見た目の行ごとに箱を作る。不透明度は背景色に畳み、文字には掛けない。断片の `getClientRects()` が各箱の矩形である。幅・高さ・合わせ方・位置・モードの指定は範囲の台紙には使わない。空白の書記素は幅を保つ。箱は背景なので、文字の読み取り・選択・コピーには加わらない。
+
+重なり順は行の台紙 → 範囲の台紙（run の配列順で後ろほど上）→ 範囲の影・グロー → 全部の文字とする。台紙・影・グローの置き換えがある字幕では、断片の背景と幅 0 の影の写しを通常の流れに残し、全部の行の文字を `position:relative`（z-index なし）の層へ上げる。範囲外の文字は `akari-caption__run-lift`、影を置き換える範囲の文字は `akari-caption__run-ink` で包む。これにより折り返しや `<p>` をまたぐときも、後の行の台紙が前の行の文字を隠さない。影の写しは台紙の有無で同じ形にし、すべての形の範囲の台紙には `pointer-events:none` を指定する。グラデーションの行と rich 層の字幕は従来の描画の形を保つ。拡大は断片の font-size に、上下のずらしは断片の相対位置に掛ける。回転は折り返さない行の断片を inline-block にして中心で掛ける。折り返しうる行では回転を掛けず warning を出す。typewriter では断片の背景色と影の写しを最初の字が出る時刻まで隠し、文字は字ごとの出現時刻と読み取り・選択を保つ。台紙のない字幕には箱の keyframes を追加しない。
+
+入れ子で後の run が外側のときは、内側にある前の run の断片に後の run の台紙の色を重ね、後の run が上に見えるようにする。流れの形では台紙を行の流れの順に塗る。別々の run の台紙が隣り合う行の余白どうしで重なる部分は、run の順ではなく行の順で後の行が上になる。文字は常に全部の台紙の上に描く。グラデーションの行・層の行など負の z-index の断片を使う字幕では、入れ子の内側の断片を外側の断片の文脈の流れの中に描く。
+
+| 範囲が明示する成分 | 置き換える行の描画 |
+|---|---|
+| `stroke`（幅 0 を含む） | 既定の縁、外側の縁、内側の縁、押し出し、層の縁 |
+| `shadow`（不透明度 0 を含む） | 既定の落ち影、行の落ち影、層の影 |
+| `glow`（密度 0 を含む） | 行のグロー |
+
+明示しない成分は、その描画経路で行に実際に描かれているものを継ぐ。旧経路の既定は `-webkit-text-stroke` の縁と `0 2px 8px rgba(0,0,0,.35)` の落ち影である。display_policy の既定は text-shadow の四方向の縁と `0 0 8px rgba(0,0,0,.6)` の落ち影である。行の外側の `stroke` は `-webkit-text-stroke` で描き、範囲が縁を明示しなければ CSS の継承で行の縁を使い、明示した場合は範囲の縁に置き換える。範囲の text-shadow に行の外側の縁を追加しない。行の `--caption-text-shadow` が無ければその経路の CSS 既定値を使い、行が縁・影・グローを明示している場合は、実際の text-shadow の描画成分を分けて範囲の明示成分だけ置き換える。下線・打ち消しの行では旧い `style` 範囲を描かない。v1 の `look` 範囲は色・台紙・影・グロー・縁を描き、形を変える成分は描かず warning を出す。行のグラデーションに縁・内側の縁・押し出し・影・グローのいずれかがあるときは、範囲の台紙・影・グローを描かず warning を出す。グラデーションだけの行では台紙を描く。グラデーションの行では範囲の色は効かず、warning を出す。
+
+文書の意味検証で error となった run は描かない。範囲が 1 つの語要素の中に収まるか、語要素を端から端まで含む場合は台紙を 1 つにする。語要素の途中から別の語要素へ続く場合、および交差する run の重なり順を保つ必要がある場合は、台紙を分けて `data-akari-plate-split` を付ける。どの断片も語要素・文字要素・強調要素・ほかの断片の境界を途中で切らない。前後の run が端を共有して包含するだけなら分けない。語の途中から別の語へ続く台紙には warning を出す。
+
+GPU は断片の見た目の行ごとの矩形に、解決済みの余白と影・グローのはみ出しを足し、回転した断片の矩形も広げる。語ごとのタイル表示、または typewriter の in / out と範囲の台紙・影・グローが重なる場合は GPU を非対応として OSR へ送る。明示の「無し」だけを持つ範囲は効果なしとして GPU のまま描く。帯とスプライトには字幕ごとに限定した CSS 規則と変数を渡す。OSR の一つの文書では範囲の共通規則を一度だけ置く。解決の入口は入力にあった `resolved_look` を捨て、色と数値を検査してから属性へ出す。意味検証が例外を投げた場合は範囲を省き、行は描く。
+
+旧形式の範囲に `stroke.width_px` があり、行または既定スタイルに `reference_height_px` か `layout` がある場合、その範囲は自動移行せず旧形式のまま残して通知する。他の範囲は `style` を `look` に移し、同じ run に両方を残さない。
 
 ## 保存形と互換
 
@@ -33,13 +57,25 @@ v1 の `look` を持つ run は px 系の値を `scale: 1` の値として保存
 
 ## look と大きさ
 
-行の許可項目は `color`、`size_px`、`reference_height_px`、`font_family`、`font_weight`、`weight`、`line_height`、`letter_spacing_em`、`text_transform`、`fill`、`strokes`、`stroke`、`background`、`shadow`、`glow`。範囲の許可項目は `color`、`font_weight`、`italic`、`underline`、`letter_spacing_em`、`scale`、`baseline_shift_em`、`rotate_deg`、`stroke`、`shadow`、`glow`、`background`。範囲に `size_px` と `font_family` は保存しない。許可外の項目は除く。`size_px` と `reference_height_px` は範囲に元から無いため通知せず、`font_family` などは通知する。
+スタイルを既存の字幕や選んだ文字に当てるときは、大きさを運ばない。既存の `size_px` を保ち、値が無い場合だけ実効の大きさを明示する。新しい文字を置くときだけ、スタイルの推奨 `size_px` と `reference_height_px` を初期値にする。大きさはスタイルの適用とは別の操作で変える。
+
+CLI の既存の大きさ指定の互換経路を除き、画面から `size: "style"` は使わない。
+
+大きさを変えると、その行の look と範囲の look の px 系の値は同じ比で変わる。行が受け継いだ成分は描画と同じ `mergeCaptionDisplayStyles` で実効値に解き、影・グローの色や濃さも含むオブジェクト全体を、px 値を換算して行へ保存する。換算対象の px 値を持たない成分は行へ書かない。既定値そのものとほかの行は変更しない。旧 `style_preset` を持つ行は現在のカタログで先に値へ解いてから換算する。
+
+スタイルを範囲に当てる操作は、その範囲の look 全体を置き換える。スタイルに縁・影・グローの指定が無ければ、それぞれ `stroke: {width_px: 0}`、`shadow: {opacity: 0}`、`glow: {density: 0}` のように「無し」を明示する。これらを明示した範囲では行の同じ成分を描かない。色・太さ・字間はスタイルに無ければ行を継ぐ。
+
+行の許可項目は `color`、`size_px`、`reference_height_px`、`font_family`、`font_weight`、`weight`、`line_height`、`letter_spacing_em`、`text_transform`、`fill`、`strokes`、`stroke`、`background`、`shadow`、`glow`。範囲の許可項目は `color`、`font_weight`、`italic`、`underline`、`letter_spacing_em`、`scale`、`baseline_shift_em`、`rotate_deg`、`stroke`、`shadow`、`glow`、`background`。スタイルの `weight` が 1～1000 の整数で、`font_weight` が無い場合は、範囲の `font_weight` に写す。範囲に `size_px` と `font_family` は保存しない。範囲に写せない行用項目は外し、`size_px` と `reference_height_px` を除いて名前を挙げて通知する。
 
 大きさを保って当てる場合、保存値に `k = 当て先の size_px ÷ スタイルの size_px` を掛ける。換算対象は `stroke.width_px`、`strokes[].width_px / offset_x / offset_y`、`shadow.blur_px / distance_px`、`glow.spread / offset_x / offset_y`、`background.padding_px / radius_px`、`fill.pattern.scale`。色、透明度、角度、em 値は換算しない。当て先の `size_px` と `reference_height_px` を保ち、`size_px` が未指定なら実効値を明示する。`layout` のときも基準の `size_px` の比で計算し、描画の最終段で layout 倍率を一度掛ける。範囲の px 値は行の座標系で `scale: 1` の値として保存し、描画時に範囲の `scale` を掛ける。出力高さによる `output.height / reference_height_px` も一度だけ掛ける。
 
 ## 文字範囲の寿命
 
-文字の変更では書記素単位の複数差分を対応付ける。共通の先頭と末尾を確定してから中央を対応付ける。通常の文字編集では、置換・削除の内側に丸ごと入る run を外す。表示文字列と原文の座標変換および単語帳の置換では、置換の内側に丸ごと入る run を置換後の区間へ写して `needs_review` を付け、挿入の無い削除の内側だけを外す。境界をまたぐ run は伸縮して `needs_review` を付ける。同点の対応も `needs_review` を付ける。行を分割して境界をまたぐ場合、左は元の id、右は新 id と `split_from` を持つ。anchor は両側の行の時刻へ切り詰め、空になった `spoken` 側は `shown`、`fire_was: "spoken"`、`needs_review: true` にする。隣接 run は自動結合しない。行が消えたか対応先が決まらない run はルートの `unresolved_runs[]` に `{ run, old_caption_id, old_text, old_src, old_start, old_end, reason }` として保持し、描画対象から外す。選んだ文字を行の見た目に戻す操作は、重なる各 run からその部分を切り取り、必要なら右側に新 id を与える。
+台本では選んだ語を、表示文字列の書記素による半開区間へ写す。語の両端の空白は含めず、行の見た目へ戻すときは範囲を外側に隣り合う空白まで広げる。実測 `words` の連結が本文に一致しなければ当てない。本文と表示文字列が異なる場合は、選んだ語の境界の対応で決まる範囲と重なる同じ文字列だけを候補にし、一意ならその範囲を使う。重なる候補が無いか一意に決まらなければ境界の対応で決まる範囲（置換後の文字を含む）を使い、境界も決まらなければ当てない。置換した語の隣に同じ語があっても、その隣には当てない。置換に触れていない語は、同じ文字列の範囲にだけ当てる。台本の語の印も、対応の取れない行の run からは作らない。選んだ文字の枠は出力プレビューの編集用の層に描く。表示中の文字の見た目の行ごとに点線の枠を置き、字幕の DOM や書き出しには含めず、タイムラインやプロジェクトを切り替えると消す。
+
+範囲への適用と範囲を行の見た目へ戻す操作では、選択範囲の両端の空白を除いてから、重なる旧 `emphasis_words` を同じ書き込みで除く。`time_domain: "output"` の行と、双方に `src` があり素材が食い違う強調は対象外。範囲の実測時刻が取れるときは強調の `[t_start, t_end]` と 1e-6 秒を超えて重なることを要する。取れないときは強調の時刻が行の `[start, end]` に収まることを要する。実測時刻が取れ、双方に `src` がある場合はここで重なりとし、それ以外は強調の `word` が表示文字列で選択範囲と重なる位置に現れることも要する。
+
+文字の変更では書記素単位の複数差分を対応付ける。共通の先頭と末尾を確定してから中央を対応付ける。通常の文字編集では、置換・削除の内側に丸ごと入る run を外す。表示文字列と原文の座標変換および単語帳の置換では、置換の内側に丸ごと入る run を置換後の区間へ写して `needs_review` を付け、挿入の無い削除の内側だけを外す。境界をまたぐ run は伸縮して `needs_review` を付ける。同点の対応も `needs_review` を付ける。行を分割して境界をまたぐ場合、左は元の id、右は新 id と `split_from` を持つ。anchor は両側の行の時刻へ切り詰め、空になった `spoken` 側は `shown`、`fire_was: "spoken"`、`needs_review: true` にする。隣接 run は自動結合しない。行が消えたか対応先が決まらない run はルートの `unresolved_runs[]` に `{ run, old_caption_id, old_text, old_src, old_start, old_end, reason }` として保持し、描画対象から外す。選んだ文字を行の見た目に戻す操作は、重なる各 run からその部分を切り取り、必要なら右側に新 id を与える。残した各部分の anchor はその範囲で取り直し、取れなければ外す。anchor を失った `spoken` は `shown`、`fire_was: "spoken"`、`needs_review: true` にする。run が無くなれば空の `runs` は残さない。
 
 ## anchor と発火
 
@@ -50,6 +86,10 @@ source anchor は字幕が描かれる同じ素材の配置ごとに、速度と
 動きの in は発火から始まり、out は字幕の終わりに終える。残る時間が in と out の合計より短ければ両者を同じ比で縮め、loop は回さない。
 
 ## 検証
+
+下線・打ち消しの行では旧い `style` 範囲を描かず、v1 の `look` 範囲は色・台紙・影・グロー・縁だけ描く。v1 の形を変える成分は `captions.run.decoration-shape` を通知して描かない。空白・改行の書記素は v1 範囲の文字 span で包まない。範囲の scale が 1 以外なら、下線・打ち消しの有無にかかわらず字幕の箱は字に合わせる。
+
+旧経路で手動改行により複数の `<p>` に分かれた字幕では、v1 範囲の文字と台紙の位置に各行間の改行書記素を数える。旧い `style` 範囲の改行後の文字飾りは従来どおり描かない。すべての形の範囲の台紙には `pointer-events:none` を指定する。層の行で台紙つき範囲が途中まで交差するときは、後の範囲の台紙と余白を省き、色などの文字成分は描いて `captions.run.layer-crossing` を通知する。入れ子・同じ範囲・重ならない範囲の台紙は描く。
 
 構造は captions schema が判定する。文書の意味では v1 run の範囲外、ファイル内の run id 重複、anchor のない `spoken` を error として保存を拒む。`validate-captions` も文書の意味の層を呼び、error があれば非 0 で終了する。旧 runs v0 の範囲外・空の区間は従来どおり `captions.run-range` の warning とする。意味の error は診断を出す。描画経路での除外は後の版で行う（除外に使う純関数 `renderableCaptionRuns` は用意済み）。プロジェクトの意味では anchor の写像不能や表示窓の外を warning とし、経路の対応では選んだ描画経路が motion を描けるか判定する。診断はコード・重大度・パス・日本語メッセージを共有する。
 
@@ -69,9 +109,9 @@ lock を待つ側は `.akari/write.lock.wait` に印を置く。放す側は loc
 
 ## 見た目の編集コマンド
 
-`planCaptionStyleEdit` は `captions`、`targets`、`parts`、`source` を受け、副作用なしに `next`、`changed`、`notices` を返す。対象は `{caption_id}`（行）、`{caption_id, range}`（文字範囲）、`{default:true}`（既定スタイル）。対象ごとに `parts` を上書きできる。`range` は書記素の半開区間 `{from,to}`、または `{quote,occurrence}` で指定する。引用の候補は NFC にそろえ、左から重ならないように数える。一致後はその末尾から次を探す（「ああああ」の「ああ」は 2 件）。返す位置は元の文字列の書記素単位。同じ引用が複数あれば 1 始まりの `occurrence` が必要。引用が見つからない場合や範囲が空・範囲外の場合は失敗する。範囲の効果音と効果は使えず、行の効果音と効果は従来の attach 経路で扱う。
+見た目の編集コマンドは文の `notices` と種類を示す `notice_codes`（`{code, params?}`）を返し、画面はコードから表示言語の文を作る。`planCaptionStyleEdit` は `captions`、`targets`、`parts`、`source` を受け、副作用なしに `next` と `changed` も返す。対象は `{caption_id}`（行）、`{caption_id, range}`（文字範囲）、`{default:true}`（既定スタイル）。対象ごとに `parts` を上書きできる。`range` は書記素の半開区間 `{from,to}`、または `{quote,occurrence}` で指定する。引用の候補は NFC にそろえ、左から重ならないように数える。一致後はその末尾から次を探す（「ああああ」の「ああ」は 2 件）。返す位置は元の文字列の書記素単位。同じ引用が複数あれば 1 始まりの `occurrence` が必要。引用が見つからない場合や範囲が空・範囲外の場合は失敗する。範囲の効果音と効果は使えず、行の効果音と効果は従来の attach 経路で扱う。
 
-行の look は許可項目を部品ごとに置換し、動きは `animation` 全体を置換する。範囲は `runs[].look` と `runs[].motion` を置換し、許可外の look 項目を外して通知する。同じ区間の v1 run は更新し、新しい区間にはファイル全体で一意の id を付ける。実測 words に対応付けられる場合だけ anchor を付ける。行の旧 `style_preset` は現在のカタログで値に解き、出所を記録してから外す。カタログに無ければ元の指定を保って通知する。配列ルートに `{default:true}` を当てた場合は `{default_text_style,captions}` にする。
+行の look は許可項目を部品ごとに置換し、動きは `animation` 全体を置換する。範囲は `runs[].look` と `runs[].motion` を置換し、許可外の look 項目を外して通知する。範囲に look を当てるときは、重なる既存の run を行の見た目へ戻す操作と同じように切ってから置く。同じ区間の v1 run は id を保って置き換え、新しい区間にはファイル全体で一意の id を付ける。実測 words に対応付けられる場合だけ anchor を付ける。行の旧 `style_preset` は現在のカタログで値に解き、出所を記録してから外す。カタログに無ければ元の指定を保って通知する。配列ルートに `{default:true}` を当てた場合は `{default_text_style,captions}` にする。
 
 スタイルを当てても大きさは変えない。行の既存の `size_px` と `reference_height_px` を保ち、`size_px` が無ければ実効値を明示する。px 系の値は当て先の大きさに換算する。`style_sources.look` の hash は look の許可項目から `size_px` と `reference_height_px` を除いた値に付ける。`original_hash` は出所の値、`applied_hash` は換算後に保存した値である。`applied_at` には適用時刻を記録する。
 
@@ -79,12 +119,16 @@ lock を待つ側は `.akari/write.lock.wait` に印を置く。放す側は loc
 
 `planCaptionSizeEdit({captions,targets,size_px})` は行の大きさと、その行の look および範囲の look の px 系の値を、`新しい大きさ ÷ 変更前の実効の大きさ` で変える。小数は 6 桁に丸め、`reference_height_px` を保つ。比が 1 なら変更しない。元の `applied_hash` と値が一致していた部品は換算後の hash に更新し、大きさの変更だけで手直しとは判定しない。
 
+編集コマンドは変更した行の `text_style` を書く前後で描画と同じ合成・検査へ通し、すべてのエラーを集めて比べる。書いた後にだけあるエラーがあるときだけ拒むため、複数のエラーがある行も一つずつ直せる。変更していない行は対象にしない。
+
 Node 側の `applyCaptionStyle`、`clearCaptionStyle`、`reapplyCaptionStyle`、`setCaptionSize` は読んだ全文の hash を比較してから保存し、書く前と後の全文・hash を返す。対象ファイルは既定の `captions.json` / `edit.json` に加え、プロジェクト直下の対応する `captions.<slug>.json` / `edit.<slug>.json` を指定できる。期待 hash は役割名（`captions` / `edit`）または実ファイル名で受け、前後の全文と `written` は実ファイル名を鍵にする。読んだだけのファイルも競合の比較に含める。保存前に v1 の項目の形と文書の意味を検査し、error があれば `AKARI_CAPTIONS_INVALID` と診断を返して書かない。形の検査は旧い行の他の項目や v0 の run の形を理由に拒まない。edit-lint も同じ v1 の形の診断を表示する。
 
-書き込み lock の奪取に使う `.akari/write.lock.claim` は、5 秒を超えて残ったものを取り除いてから再取得する。書き込み先のフォルダで作成権限が無いと確かめたときは、待ち上限を待たずに権限エラーを返す。
+書き込み lock の奪取に使う `.akari/write.lock.claim` は所有者の pid と host を記録し、同じホストの正の整数 pid だけを生存判定する。使用中の claim は保ち、自分の取り残しはすぐ消す。生きた所有者の claim も作成から 30 秒を超えれば消し、死んだ所有者や読めない claim は 5 秒を超えれば消す。claim を取った後、古い lock は claim の中へ退かしてから中身を確かめる。奪取対象だった lock と異なれば元の場所へ戻して取得せず、退かす直前に claim が自分のものでなくなっていれば奪わない。書き込み先のフォルダに作成権限が無いと確かめたときは権限エラーを返し、書けると分かった後の lock 作成は待ち上限まで再試行する。
 `.akari/write.lock.claim` とその下、および試し書き名 `.akari/write.lock.probe-*` は書き込み先に指定できない。
 
 ## 移行と CLI
+
+アプリはプロジェクトを開いたとき、未移行の行があれば一度だけ見た目の固定を提案する。確認前には書かない。「あとで」または実行の後はそのプロジェクトの同じ字幕ファイルには再提案しない。固定の保存は読んだときの hash を比較し、履歴の 1 件として記録するため、1 回の取り消しで元のバイト列へ戻せる。CLI からは `akari captions migrate-look <project> [--dry-run] [--json]` で差分の確認と保存ができる。
 
 移行と preset の解決には同梱とライブラリを合わせた現在の textstyle カタログを使う。移行は現在の edit.json も読んで計画し、書き込む前の字幕データを保存境界の期待 hash として扱う。出所を指定せず look または motion を当てた場合、その部品の古い `style_sources` を消す。両部品の出所が無くなれば `style_sources` 自体を消す。
 
@@ -92,6 +136,6 @@ CLI の `--caption <index>` は id の無い行や id が重複した行にも i
 
 アプリの `applyCaptionStyle`、`clearCaptionStyle`、`reapplyCaptionStyle`、`setCaptionSize`、`migrateCaptionLook` は projectRootUri と対象 URI を検査し、`captionsUri` と対になる edit のあるフォルダを根として別名の組も扱い、任意の期待 hash を受ける。成功は実ファイル名で書いたファイル、通知、前後の全文と hash を返す。`writeEditSnapshot` の期待 hash も edit と captions の役割に対応する候補を比較する。競合は `conflict: true`、検証エラーは `invalid: true` と診断を返し、どちらも書かない。中断した書き込みは `recoverInterruptedWrite` で元に戻す。アプリはプロジェクトを開いたときに回復を試み、通知を表示する。字幕スタイルの undo と redo は前後の全文を各 1 件の履歴に持ち、保存後の hash と一致するときだけ逆向きに書く。競合したら読み直して取り消しややり直しを失敗として知らせる。
 
-移行の保存はプロジェクト直下の `captions.json` と `captions.<slug>.json` を対象にし、対応する edit を比較する。強調語の id は移行済みと未解決の run に残る `migrated_from` も予約済みとして採番する。古い強調語と run の id が重なれば、強調語に新しい id を与えてから移す。主経路（`resolveCaptionPlan` を通る書き出しとプレビュー）では移行の前後で HTML と CSS 変数が同じ。取り出した字幕と GPU の適格判定の入口は未対応のため、移行の保存はまだ一般の利用に勧めない。
+移行の保存はプロジェクト直下の `captions.json` と `captions.<slug>.json` を対象にし、対応する edit を比較する。強調語の id は移行済みと未解決の run に残る `migrated_from` も予約済みとして採番する。古い強調語と run の id が重なれば、強調語に新しい id を与えてから移す。旧い強調と同じ範囲・同じ内容の run があれば増やさず、未解決 run を含めて採番する。主経路と取り出した字幕は移行の前後で同じ見た目になる。
 
 `akari-apply-textstyle` の既存の対象指定、`--dry-run`、JSON 出力と終了コードは保つ。保存には同じ書き込み境界を使う。行に当てた場合は `style_sources.look` を記録し、旧 `style_preset` を値に解いて外す。既存の CLI が行っていた深い合成は互換のため維持する。

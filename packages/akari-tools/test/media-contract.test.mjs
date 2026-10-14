@@ -9,7 +9,7 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import test from "node:test";
 import Ajv2020 from "ajv/dist/2020.js";
 
@@ -22,7 +22,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { runMediaCli } from "../bin/media.mjs";
 import { formatTimecode } from "../src/media/common.mjs";
 import { probeMedia } from "../src/media/probe.mjs";
-import { normalizeWhisperJson, transcribeMedia } from "../src/media/transcribe.mjs";
+import { normalizeWhisperJson, runSilenceDetect, transcribeMedia } from "../src/media/transcribe.mjs";
 import { waveformMedia } from "../src/media/waveform.mjs";
 import { writeWordBookFile } from "../../word-book/src/index.mjs";
 
@@ -121,6 +121,21 @@ test("waveform は無音 2 秒 + トーン 3 秒 + 無音 1 秒を ±1 frame で
   assert.ok(Math.abs(result.silences[0].end - 2) <= 1 / 30);
   assert.ok(Math.abs(result.silences[1].start - 5) <= 1 / 30);
   assert.ok(Math.abs(result.silences[1].end - 6) <= 1 / 30);
+});
+
+test("音声だけの解析パス（-f null）は映像をデコードしない（4K 素材で数十分かかる回帰の防止）", async () => {
+  const calls = [];
+  const spawn = (command, args, spawnOptions) => {
+    calls.push(args);
+    return spawnSync(command, args, spawnOptions);
+  };
+  await waveformMedia(wavPath, { ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe, noRecord: true, spawn });
+  runSilenceDetect({ inputPath: wavPath, range: { in: 0, out: 6 }, ffmpeg, silenceDb: -35, silenceMinSec: 0.6, options: { spawn } });
+  const nullSinkCalls = calls.filter((args) => args.includes("null"));
+  assert.equal(nullSinkCalls.length, 3);
+  for (const args of nullSinkCalls) {
+    for (const flag of ["-vn", "-sn", "-dn"]) assert.ok(args.includes(flag), `${flag} missing: ${args.join(" ")}`);
+  }
 });
 
 test("transcribe の 2 回目は内容ハッシュ cache hit で backend を起動しない", async () => {

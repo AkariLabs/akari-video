@@ -50,6 +50,7 @@ Assume none is on PATH. Outside the partner PTY, run the full path: `~/.akari/cl
 
 - Inspect the account's asset library (all free + purchased assets) with `akari assets list`.
 - Import into this project with `akari assets fetch <id> --project .` (including sha256 verification).
+- For free external sound effects, BGM, fonts, and other site references, use `akari assets list --source site`; inspect acquisition, license, and source with `akari assets show <category/id>`. An entry marked `同梱済み` is already bundled in the app and ready to use. A `↗` (`reference`) entry cannot be fetched; if it is not marked `同梱済み`, follow `/setup-library` with explicit approval, then run `akari assets validate <dir>`. Do not guess `catalog/` or `packages/` paths.
 - Paid assets are available if purchased through the account connected with `akari store connect`.
   Unpurchased assets display `locked` and their price.
 - Library files live in `<library-location>/` (the existing library-location placeholder). Operate through these commands rather than editing directly.

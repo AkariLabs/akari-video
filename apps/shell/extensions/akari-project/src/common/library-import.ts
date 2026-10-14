@@ -6,6 +6,7 @@ export interface LibraryImportItem extends LibraryImportFile {
     category: string; kind: LibraryImportKind; ambiguous: boolean;
     durationSec: number | null; durationSource: 'ffprobe' | 'size' | null;
     proposedId: string; mtimeMs: number; folder?: string; selected?: boolean; credit?: string;
+    title?: string; catalogId?: string;
 }
 export interface LibraryImportDuplicate extends LibraryImportFile {
     category: string; id: string; libraryDir: string; title?: string;

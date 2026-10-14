@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import {
   filterSupportedTransitionBoundaries,
-  hitTestTransitionBoundary,
+  nearestTransitionBoundary,
   parseLibraryTransitionDragPayload,
   parseLibraryDragPayload,
   libraryAssetMaterialKind,
@@ -41,20 +41,28 @@ test('ライブラリの transition payload は正準語彙だけを受理する
   }
 });
 
-test('ドロップ座標から許容距離内の最近傍境界を決定的に選ぶ', () => {
+test('見えている適用可能な境目から横の最近傍を選び、同距離なら左を選ぶ', () => {
   const candidates = [
-    { earlierIndex: 4, laterIndex: 5, x: 180, y: 60 },
-    { earlierIndex: 2, laterIndex: 3, x: 120, y: 60 },
-    { earlierIndex: 1, laterIndex: 6, x: 120, y: 140 },
+    { earlierIndex: 4, laterIndex: 5, x: 180, applicable: true },
+    { earlierIndex: 2, laterIndex: 3, x: 120, applicable: true },
+    { earlierIndex: 1, laterIndex: 6, x: 140, applicable: false },
+    { earlierIndex: 7, laterIndex: 8, x: 300, applicable: true },
   ];
 
-  assert.deepEqual(hitTestTransitionBoundary({ x: 126, y: 62 }, candidates, 20), candidates[1]);
-  assert.equal(hitTestTransitionBoundary({ x: 145, y: 60 }, candidates, 20), undefined);
-  assert.deepEqual(
-    hitTestTransitionBoundary({ x: 150, y: 60 }, candidates, 40),
-    candidates[1],
-    '同距離なら earlierIndex の小さい境界を選ぶ',
-  );
+  assert.deepEqual(nearestTransitionBoundary(175, candidates, 100, 200), candidates[0]);
+  assert.deepEqual(nearestTransitionBoundary(150, candidates, 100, 200), candidates[1]);
+  assert.deepEqual(nearestTransitionBoundary(290, candidates, 100, 200), candidates[0], '見えない境目は選ばない');
+  assert.equal(nearestTransitionBoundary(150, candidates, 201, 250), undefined);
+  assert.equal(nearestTransitionBoundary(140, [candidates[2]], 100, 200), undefined);
+});
+
+test('寄せた帯の上ではカット点が遠くてもその帯の境目を選ぶ', () => {
+  const candidates = [
+    { earlierIndex: 0, laterIndex: 1, x: 500, windowStartX: 500, windowEndX: 600, applicable: true },
+    { earlierIndex: 1, laterIndex: 2, x: 600, applicable: true }
+  ];
+  assert.equal(nearestTransitionBoundary(580, candidates, 450, 650), candidates[0]);
+  assert.equal(nearestTransitionBoundary(610, candidates, 450, 650), candidates[1]);
 });
 
 test('unsupported 集合に含まれる境界を適用候補から除外する', () => {

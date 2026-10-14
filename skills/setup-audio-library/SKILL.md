@@ -11,6 +11,8 @@ The library defaults to the workspace's `library/`. Without a workspace, use the
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
 Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
+The reference-record location (the default `--catalog-dir`) is the repository's `catalog/audio/` in a checkout and `<AKARI_HOME>/catalog/audio/` otherwise (`AKARI_HOME` defaults to `~/.akari`). Never write into the installed app. Find the candidate file through `akari assets catalog --json` → `audioCandidatesPath`.
+
 Never proceed with audio setup in violation of any rule below. These always override detailed leaf documents.
 
 > **Scope**: Acquisition rules 1 and 2 protect **third-party distributors** (such as Sound Effect Lab and
@@ -34,16 +36,16 @@ Never proceed with audio setup in violation of any rule below. These always over
    - After evaluation, discard everything except keep selections (acquisition is temporary staging for listening and selection).
 2. **Candidate-list links must always be download-page URLs.** Never link directly to audio files.
 3. **Do not invent inventory or existence.** Do not invent sites, URLs, or license statements absent from
-   `catalog/audio/candidates.json`. If page existence or filenames cannot be verified, record the uncertainty
+   the candidate file at `audioCandidatesPath` returned by `akari assets catalog --json`. If page existence or filenames cannot be verified, record the uncertainty
    honestly, for example `confidence: "blocked_unverifiable"`.
 4. **Set `ai_training_allowed` conservatively.** Use `false` unless source terms explicitly permit AI training;
    absence of permission is not permission. Only explicit CC0 gets `true`.
 5. **Do not commit audio files to this repository.** Actual files always belong outside the repository
    (user scope, e.g., `<ライブラリの置き場>/audio/<id>/`, the existing library-location placeholder).
-   Put only `remote: true` reference metadata in `catalog/audio/`.
-6. **Do not overwrite existing `catalog/audio/<id>/` without permission.** On ID collision, skip the write
+   Put only `remote: true` reference metadata in the reference-record location.
+6. **Do not overwrite an existing `<id>/` in the reference-record location without permission.** On ID collision, skip the write
    and log it (same discipline as harvest-asset / setup-library).
-7. **Do not report registration complete without running `node packages/schemas/bin/validate-asset.mjs`.**
+7. **Do not report registration complete without running `akari assets validate <dir>`.**
    This targets actual library-scope entries only; validator design exempts `remote: true` catalog references
    from preview.png checks.
 8. **If a source has an official description, record the original unchanged; do not invent meaning from guesses.**
@@ -57,7 +59,7 @@ Never proceed with audio setup in violation of any rule below. These always over
 1. [first-party.md](first-party.md) — **Default**: Bulk-acquire AKARI Sounds from GitHub Releases and register
    in user scope (all BGM/jingles; start here for first-time setup).
 2. [candidate-list.md](candidate-list.md) — Supplement families missing from AKARI Sounds: generate candidate HTML
-   from `catalog/audio/candidates.json`. Already-owned (catalog-registered) assets are grayed out.
+   from the candidate file at `audioCandidatesPath` returned by `akari assets catalog --json`. Already-owned (catalog-registered) assets are grayed out.
 3. [drop-folder.md](drop-folder.md) — Scan user-saved files, match candidates, place in library + register catalog
    metadata, or quarantine (default third-party flow).
 4. [assisted-fetch.md](assisted-fetch.md) — Only on user instruction: acquire on their behalf and place in `_staging/` with provenance.

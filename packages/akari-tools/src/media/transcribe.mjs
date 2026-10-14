@@ -944,7 +944,7 @@ async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, optio
 export function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
   const result = runChecked(ffmpeg, [
     "-hide_banner", "-nostdin",
-    "-ss", String(range.in), "-to", String(range.out), "-i", inputPath,
+    "-ss", String(range.in), "-to", String(range.out), "-i", inputPath, "-vn", "-sn", "-dn",
     "-af", `silencedetect=noise=${silenceDb}dB:d=${silenceMinSec}`,
     "-f", "null", "-",
   ], options);

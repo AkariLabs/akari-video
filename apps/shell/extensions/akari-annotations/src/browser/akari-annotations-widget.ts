@@ -1,6 +1,5 @@
 import { pluralCountForDisplay } from '../common/plural-display-count';
 import { t } from '@akari-video/i18n';
-import { transitionCategoryLabel, transitionOptionLabel } from './inspector/transition-fields';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
@@ -72,6 +71,7 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, OpenerService, StorageService, WidgetManager, open } from '@theia/core/lib/browser';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { webviewKeydownSource } from './webview-keydown-source';
 import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
@@ -118,11 +118,22 @@ import {
     collectExcludedCaptionIds,
     isStillImageSourcePath,
     isTransitionType,
-    planTransitionHandleWindow,
+    planTrackTransitions,
+    transitionPlanClipsFromCuts,
+    chooseTransitionAlign,
+    isTransitionAlign,
+    type TransitionAlign,
+    type TransitionPlanTrack,
+    type TransitionBoundaryPlan,
+    type TransitionShortenReason,
     removeV2TransitionOutWithHandleRetractInSource,
     serializeMotion,
-    TRANSITION_CATEGORIES,
-    TRANSITION_VOCABULARY,
+    TRANSITION_FAMILIES,
+    transitionFamilyOf,
+    transitionFamilyLabelKey,
+    transitionDirectionLabelKey,
+    TRANSITION_NAME_WITH_DIRECTION_KEY,
+    TRANSITION_UNKNOWN_LABEL_KEY,
     toAnchorCaptions,
     resolveItemAnchors,
     removeStyleAttachedItems,
@@ -131,7 +142,7 @@ import {
     withNewerVersionLintPrefix,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
-import type { InternalTrack, ProjectItemV2, TransitionType } from '@akari-video/edit-store';
+import type { InternalTrack, ProjectItemV2, TransitionFamily, TransitionDirection } from '@akari-video/edit-store';
 import { scanHtmlParts } from 'akari-preview/lib/common/preview-parts';
 import {
     AkariAnnotationsService,
@@ -354,7 +365,15 @@ import {
     TimelineTrackDropLayout
 } from '../common/timeline-track-drop';
 import { hitTestTimelineTreeDrop, TimelineTreeDropHit } from '../common/timeline-tree-drop';
-import { computeCutBoundaries } from '../common/cut-boundaries';
+import { computeCutBoundaryCandidates } from '../common/cut-boundaries';
+import { boundaryBandGeometry, placeBoundary, primaryBoundaryBlock,
+    sameBoundary, sourceEdgeMarks, TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID,
+    type BoundaryRef, type BoundaryBlock } from '../common/transition-boundary-model';
+import { resolveBoundaryInDocument, validateTransitionBoundaryWrite } from '../common/transition-boundary-write';
+import { renderTransitionBoundaryView, renderSourceEdgeMarks } from './transition-boundary-view';
+import { createTransitionPicker, type TransitionPicker, type TransitionPreviewUrls } from './transition-picker';
+import { createTransitionFillAsk, type TransitionFillAsk } from './transition-fill-ask';
+import { transitionDeclarationIsDead, transitionWriteIsBlocked } from '../common/transition-boundary-state';
 import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
@@ -369,7 +388,12 @@ import {
     TimelineAnnotationTargetKind
 } from '../common/timeline-context-menu-items';
 import { parseTimelineUiTarget } from '../common/doc-target';
-import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
+import { formatTransitionSeconds } from '../common/transition-duration';
+import { cachedTransitionHandleInput } from '../common/transition-handle-plan';
+import { transitionMaterialDuration, transitionDeclarationPatch } from '../common/transition-write-plan';
+import { canFillTransition, compareTransitionConfirmation, confirmedTransitionPatch, decideTransitionWrite,
+    refreshedTransitionConfirmation, transitionFillBodyKey, type TransitionFillFacts } from '../common/transition-fill-write';
+import { transitionFreezeSnapshot, transitionFreezeGrowth } from '../common/transition-freeze-growth';
 import {
     collectEdgeCandidates,
     readStoredSnapEnabled,
@@ -401,7 +425,7 @@ import { closeTimelineContextMenu, openTimelineContextMenu, withAudioTrimMenuIte
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
 import {
     filterSupportedTransitionBoundaries,
-    hitTestTransitionBoundary,
+    nearestTransitionBoundary,
     LibraryTransitionDragPayload,
     LibraryAssetDragPayload,
     LibraryTextStyleDragPayload,
@@ -505,6 +529,7 @@ import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { projectFileContentHash } from '@akari-video/edit-store';
 import { captionCommandHistory } from './caption-command-history';
+import { offerCaptionLookMigration } from './caption-look-migration-offer';
 import { ReviewModel } from './review-model';
 import {
     AudioMasterWriteRequest,
@@ -518,6 +543,7 @@ import {
     TimelineItemSelectionSnapshot,
     TimelineWorldSelection,
     TimelineGapSelection,
+    TimelineTransitionSelection,
     TimelineGapEndpoint,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
@@ -530,6 +556,7 @@ import {
     togglePreviewSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
+import { createTransitionSelection } from '../common/transition-selection-model';
 
 // スキーマは akari-surfaces が所有。拡張間の依存を増やさず文字列をミラーする。
 const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
@@ -650,22 +677,10 @@ const STRIP_TOP_MARGIN = 24;
 const STRIP_BOTTOM_MARGIN = 24;
 const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
-const TRANSITION_BADGE_SIZE_PX = 16;
-const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
-const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'var(--akari-tl-transition-neutral)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
-const TRANSITION_DROP_HIT_TOLERANCE_PX = 24;
 const NON_ADJACENT_TRANSITION_MESSAGE = (): string => t('annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere')
     + t('annotations.timeline.text.pleaseCloseTheGapOrRemoveTheTransition');
-const ZERO_OVERLAP_TRANSITION_MESSAGE = (): string => t('annotations.timeline.text.thisTransitionDoesnTWorkThereIsNo')
-    + t('annotations.timeline.text.thereIsNoMaterialLeftOverForGluing');
-const TRANSITION_MIN_DURATION_SECONDS = 0.1;
-const TRANSITION_MAX_DURATION_SECONDS = 3;
-const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY.map(entry => ({
-    type: entry.id,
-    category: entry.category,
-    glyph: entry.glyph
-}));
+const ZERO_OVERLAP_TRANSITION_MESSAGE = (): string => t('transition.boundary.dead.noHandle');
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
@@ -977,6 +992,18 @@ export function generationOverhangLabelLayout(
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
+    protected override onAfterHide(msg: Message): void {
+        this.transitionPicker?.close(false);
+        this.transitionFillAsk?.close();
+        super.onAfterHide(msg);
+    }
+
+    override dispose(): void {
+        this.transitionPicker?.close(false);
+        this.transitionFillAsk?.close();
+        super.dispose();
+    }
+
     protected lastCaptionRunNotice: string | undefined;
     protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
         withCaptionPreviewFailure(request, this.handleInspectorWrite(request));
@@ -1154,7 +1181,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 || this.timelineRange.inFrame !== undefined || this.timelineRange.outFrame !== undefined);
         }
         if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide' || id === 'akari.timeline.rippleDelete') {
-            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
+            return !!(this.activeBoundary || this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
                 || this.selectedGap || completeTimelineRange(this.timelineRange));
         }
         if (id === 'akari.timeline.selectParent' || id === 'akari.timeline.selectChild') {
@@ -1259,6 +1286,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected vZoomDragOrigin = { scale: 1, scrollTop: 0 };
     protected clipEdgeScroller!: TimelineEdgeAutoScroll;
     protected materialEdgeScroller!: TimelineEdgeAutoScroll;
+    protected transitionEdgeScroller!: TimelineEdgeAutoScroll;
 
     @inject(ReviewModel)
     protected readonly review!: ReviewModel;
@@ -1296,6 +1324,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
     protected captionDisplayLocale = 'ja';
+    protected hasCaptionDisplayPolicy = false;
     protected lastAppliedCaptionsSource: string | undefined;
     protected captionDisplayCuesBySource = new Map<string, CaptionDisplayCueLike[]>();
     protected captionDisplayReloadGeneration = 0;
@@ -1353,6 +1382,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected itemLocations = new Map<string, ItemLocation>();
     /** 旧表示ビューの cuts[index] を v2 item id へ結ぶ読み取り専用の橋。 */
     protected cutItemIds: string[] = [];
+    protected activeBoundary: BoundaryRef | undefined;
+    protected transitionPreviewUrls: Record<string, TransitionPreviewUrls> = {};
+    protected readonly transitionDirections = new Map<TransitionFamily, TransitionDirection>();
+    protected transitionPicker: TransitionPicker | undefined;
+    protected transitionFillAsk: TransitionFillAsk | undefined;
+    protected transitionWriteGeneration = 0;
     /**
      * 表示専用のトラック一覧（R7-3・読み込み時の重なり自動配置）。this.timelineTracks（実体・
      * 書き込み経路の基準）に、重なりを解消するための「表示上」追加トラック行を足したもの。
@@ -1384,6 +1419,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialDragPayload: MaterialDragPayload | undefined;
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
+    protected hoveredTransitionDropKey: string | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
     protected libraryLockedDragKey: string | undefined;
     protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined;
@@ -1502,6 +1538,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected audioDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
     protected videoDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
+    protected transitionPlanRevision = 0;
+    protected transitionPlanCache?: { cuts: readonly EditCut[]; revision: number;
+        tracks: TransitionPlanTrack[]; plans: TransitionBoundaryPlan[] };
     protected videoDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
     protected ffmpegMissingNoticeShown = false;
     protected videoDurationNoticeShown = false;
@@ -1594,6 +1633,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        void this.annotationsService.getTransitionBoundaryPreviewUrls().then(urls => {
+            this.transitionPreviewUrls = urls;
+            this.scheduleStripRender();
+            if (this.activeBoundary) this.pushSelectionSnapshot();
+        }).catch(() => undefined);
         // Theia switches the body class; AKARI tokens are then written on the document root.
         // Observe both so existing canvas pixels are repainted without reopening the timeline.
         let timelineThemeSignature = '';
@@ -2322,9 +2366,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const point = this.materialPanelDropPoint(x, y);
             if (point.zone === 'strip') this.updateMaterialGhost(point.x, point.y);
         });
+        this.transitionEdgeScroller = new TimelineEdgeAutoScroll(edgeView, advanceEdge, (x, y) => {
+            this.setHoveredTransitionDropTarget(this.hitLibraryTransitionDropTarget(x, y));
+        });
         this.toDispose.push(Disposable.create(() => {
             this.clipEdgeScroller.stop();
             this.materialEdgeScroller.stop();
+            this.transitionEdgeScroller.stop();
         }));
         this.stripScroll.appendChild(this.strip);
         this.stripScroll.addEventListener('scroll', () => {
@@ -2463,6 +2511,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
+                return;
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.activeBoundary) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
+                void this.performTimelineDelete(event.shiftKey, event.altKey);
                 return;
             }
             if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectionModel.keyframeSelection) {
@@ -2779,9 +2834,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
-        const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload
-                || this.libraryLockedDragKey || this.libraryShapeDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+        const onWindowLibraryDrop = (event: DragEvent): void => {
+            if (this.libraryDragPayload && !event.composedPath().includes(this.stripScroll)) {
+                this.showNotice(t('transition.library.notice.outsideVideoRow'));
+            }
+            if (this.libraryDragPayload) setTimeout(() => this.clearLibraryTransitionDragState(), 0);
+            else if (this.libraryAssetDragPayload || this.libraryTextStyleDragPayload
+                || this.libraryLockedDragKey || this.libraryShapeDragPayload)
+                queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
             if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload
@@ -3025,6 +3085,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
+        const hadBoundary = this.releaseTransitionBoundaryForOtherSelection();
         if (this.selectionKey(this.selection) !== this.selectionKey(selection)) this.setPendingPreviewKeyframes?.(undefined);
         this.exitFocusUnlessSelected?.(selection);
         if (!this.preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
@@ -3042,7 +3103,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection || hadMultiSelection || hadGap) {
+            if (selection || hadMultiSelection || hadGap || hadBoundary) {
                 this.claimInspectorOwner?.();
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
@@ -3144,6 +3205,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applyPreviewMixedSelection(selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         const selected = selection.map(item => {
             const row = this.timelineTreeRows.find(candidate => candidate.id === item.id
                 || item.kind === 'caption' && this.rawKeyframeItem(candidate.id)?.source?.id === item.id);
@@ -3166,6 +3228,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         this.previewBagSelection = undefined;
         const candidates = togglePreviewSelection(this.multiSelection.length > 0
             ? this.multiSelection : this.selection ? [this.selection] : [], item,
@@ -3176,6 +3239,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         this.publishPrimaryPreviewSelection(this.selection ?? candidates[candidates.length - 1]);
+    }
+
+    protected releaseTransitionBoundaryForOtherSelection(): boolean {
+        if (this.transitionPicker || !this.activeBoundary) return false;
+        this.activeBoundary = undefined;
+        this.scheduleStripRender();
+        return true;
     }
 
     /**
@@ -3592,12 +3662,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
-        if (request.kind === 'cut-transition-out') {
+        if (request.kind === 'transition-boundary') {
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'align')
+                && request.value.align !== null && !isTransitionAlign(request.value.align)) {
+                return { ok: false, message: t('transition.inspector.error.unknownAlign') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'recommendAlign')
+                && request.value.recommendAlign !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'alignOnly')
+                && request.value.alignOnly !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'fillOnly')
+                && request.value.fillOnly !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
+            if (request.value && !request.value.fillOnly && !isTransitionType(request.value.type)) {
+                return { ok: false, message: t('transition.inspector.error.unknownType') };
+            }
+            const currentDuration = this.rawV2Item?.(request.ref.earlierItemId)?.source?.transition_out?.duration;
+            if (request.value && request.value.duration !== currentDuration
+                && (!Number.isFinite(request.value.duration)
+                    || request.value.duration < 0.1 || request.value.duration > 3)) {
+                return { ok: false, message: t('transition.inspector.error.durationRange') };
+            }
             if (this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks)) {
                 return { ok: false, message: t('annotations.timeline.text.editingThisItemIsOnlySupportedByEdit') };
             }
             try {
-                return await this.applyTransitionOut(request.index, request.value);
+                const result = await this.applyTransitionOut(request.ref, request.value);
+                if (result.ok && request.value) {
+                    const family = transitionFamilyOf(request.value.type);
+                    if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+                }
+                const inspectorMessage = (result as typeof result & { inspectorMessage?: string }).inspectorMessage;
+                return inspectorMessage !== undefined ? { ...result, message: inspectorMessage || undefined } : result;
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };
             }
@@ -3699,7 +3800,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const before = (await this.fileService.readFile(captionsUri)).value.toString();
                     const after = replaceMyStylePartsInSource(before, ids,
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
-                        { keepSize: request.value.keepSize === true,
+                        { keepSize: true,
                             catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
                             motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined,
                             source: request.value.style_source as { kind: 'builtin' | 'library' | 'my'; id: string;
@@ -3750,8 +3851,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = feedback?.footer ?? t('annotations.timeline.text.iGuessedMyStyle');
                     return { ok: true };
                 }
+                case 'caption-style-size': {
+                    if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
+                    const targets = [...new Set(request.targets
+                        ? request.targets.flatMap(target => target.kind === 'caption' ? [target.id] : [])
+                        : [request.id])].map(caption_id => ({ caption_id }));
+                    if (request.targets && targets.length !== request.targets.length) {
+                        throw new Error(t('annotations.timeline.text.batchEditingOfSubtitleStylesIncludesItemsOther'));
+                    }
+                    const [captionsSource, editSource] = await Promise.all([
+                        this.fileService.readFile(location.captionsUri).then(file => file.value.toString()),
+                        this.fileService.readFile(location.editUri).then(file => file.value.toString())
+                    ]);
+                    const destination = { projectRootUri: location.root.toString(),
+                        captionsUri: location.captionsUri.toString(), editUri: location.editUri.toString() };
+                    const result = await this.annotationsService.setCaptionSize({ ...destination,
+                        expectedHashes: { captions: projectFileContentHash(captionsSource),
+                            edit: projectFileContentHash(editSource) },
+                        input: { targets, size_px: request.value } });
+                    if (!result.ok) {
+                        await this.reloadCaptions();
+                        return { ok: false, message: 'conflict' in result
+                            ? t('annotations.captionCommandHistory.text.reloadAfterConflict')
+                            : 'invalid' in result ? result.message : t('annotations.timeline.error.unknown') };
+                    }
+                    if (result.written.length) this.pushHistory(captionCommandHistory({ ...result,
+                        roles: { captions: location.captionsUri.path.base, edit: location.editUri.path.base } },
+                    t('annotations.timeline.text.changeSubtitleStyle'), destination,
+                    write => this.annotationsService.writeEditSnapshot(write), () => this.reloadCaptions()));
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = t('annotations.timeline.text.updatedSubtitleStyle');
+                    return { ok: true };
+                }
                 case 'caption-style-color':
-                case 'caption-style-size':
                 case 'caption-style-wrap-width':
                 case 'caption-style-font-weight':
                 case 'caption-style-line-height':
@@ -3774,9 +3907,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     switch (request.kind) {
                         case 'caption-style-color':
                             nextStyle = { color: request.value };
-                            break;
-                        case 'caption-style-size':
-                            nextStyle = { sizePx: request.value };
                             break;
                         case 'caption-style-wrap-width':
                             nextStyle = { wrapWidthPct: request.value };
@@ -4791,6 +4921,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const itemDuration = rawKeyframe?.duration ?? 0;
             const itemFrame = keyframeWrite ? Math.max(0, Math.min(itemDuration,
                 Math.round(((this.playheadT ?? itemStart) - itemStart) * this.fps))) : 0;
+            const trackFreezeGrowth = request.kind === 'cut-speed'
+                || request.kind === 'cut-source-in' || request.kind === 'cut-source-out';
+            const beforeFreeze = trackFreezeGrowth
+                ? transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds) : [];
             await this.commitEditMutation(label, doc => keyframeField && numericValue !== undefined
                 ? writeV2ItemTransformAt(doc, { itemId, t: itemFrame, patch: { [keyframeField]: numericValue } })
                 : keyframeOpacity && numericValue !== undefined
@@ -4825,6 +4959,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showNotice(t('annotations.timeline.text.textChangedThePreviewIsStillTheFired'));
             }
             this.footer.textContent = label === t('annotations.timeline.text.eraseTheBackground') ? t('annotations.timeline.text.iDeletedTheBackground') : t('annotations.timeline.text.iDid', { action: label });
+            const grown = trackFreezeGrowth
+                ? transitionFreezeGrowth(beforeFreeze, this.transitionPlans().plans, this.cutItemIds)
+                    .map(entry => t('transition.fill.notice.grown',
+                        { from: entry.from, to: entry.to, seconds: entry.seconds })) : [];
+            if (grown.length) this.footer.textContent += ` ${grown.join(' ')}`;
             return { ok: true, ...(adoptedRegion ? { photoRegion: adoptedRegion } : {}) };
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -4952,7 +5091,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : (style.slug ?? style.id ?? style.uid)
                             ? { style_source: { kind: 'my', id: style.slug ?? style.id ?? style.uid,
                                 uid: style.uid, revision: style.revision } } : {}),
-                    keepSize: (style as { keepSize?: boolean }).keepSize === true,
+                    keepSize: true,
                     catalog: (style as { catalog?: Record<string, { style: Record<string, unknown> }> }).catalog },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
             if (!result.ok) { this.showNotice(result.message ?? t('annotations.timeline.text.iCouldnTGuessTheStyle')); return false; }
@@ -5990,6 +6129,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!snapshot) { this.selectedGap = undefined; this.gapBand?.remove(); }
             return;
         }
+        if (this.activeBoundary) {
+            const snapshot = this.transitionSelectionSnapshot();
+            this.selectionModel.materialSwapTarget = undefined;
+            this.selectionModel.treeSelection = undefined;
+            this.selectionModel.snapshot = snapshot;
+            this.selectionModel.fps = this.fps;
+            if (!snapshot) this.activeBoundary = undefined;
+            return;
+        }
         const target = this.selectedMaterialSwapTarget();
         if (this.materialSwap && this.selectedMaterialSwapItemId() !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
         this.selectionModel.materialSwapTarget = target;
@@ -6497,10 +6645,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performTimelineDelete(shift: boolean, oneSide = false, forceLift = false): Promise<void> {
         const range = completeTimelineRange(this.timelineRange);
-        const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection, gap: !!this.selectedGap,
+        const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection,
+            transition: !!this.activeBoundary, gap: !!this.selectedGap,
             range: !!range, selection: !!this.selection || this.multiSelection.length > 0,
             shift, autoRipple: forceLift ? false : this.autoRipple, oneSide });
         if (plan.target === 'keyframe') { await this.removeSelectedKeyframes(); return; }
+        if (plan.target === 'transition') { await this.removeActiveTransition(); return; }
         if (plan.target === 'gap' && this.selectedGap) {
             const gap = this.selectedGap;
             await this.commitTimelineRipple(t('annotations.timeline.text.fillThisGap'), doc => runTimelineCutKernel(doc,
@@ -8114,9 +8264,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
         event.preventDefault();
         event.stopPropagation();
-        let hit = this.libraryDragPayload
-            ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY)
-            : undefined;
+        this.transitionEdgeScroller?.update(event.clientX, event.clientY);
+        let hit = this.hitLibraryTransitionDropTarget(event.clientX, event.clientY);
         if (hit) {
             for (const index of [hit.earlierIndex, hit.laterIndex]) {
                 const trackId = this.trackIdOfItem(this.cutItemId(index));
@@ -8128,13 +8277,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.setHoveredTransitionDropTarget(hit);
-        if (event.dataTransfer) event.dataTransfer.dropEffect = hit ? 'copy' : 'none';
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
     }
 
     protected handleLibraryTransitionDragLeave(event: DragEvent): void {
         if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
         const next = event.relatedTarget;
         if (next instanceof Node && this.stripScroll.contains(next)) return;
+        this.transitionEdgeScroller?.stop();
         this.setHoveredTransitionDropTarget(undefined);
     }
 
@@ -8144,8 +8294,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         event.stopPropagation();
         const payload = this.readLibraryTransitionDropPayload(event.dataTransfer);
         const hit = payload ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY) : undefined;
+        const reason = !hit ? this.libraryTransitionDropReason(event.clientX, event.clientY) : undefined;
         this.clearLibraryTransitionDragState();
-        if (!payload || !hit) return;
+        if (!payload || !hit) {
+            const message = reason ?? t('transition.library.notice.nearBoundary');
+            this.showNotice(message);
+            this.footer.textContent = message;
+            return;
+        }
         for (const index of [hit.earlierIndex, hit.laterIndex]) {
             const lockedTrackId = this.trackIdOfItem(this.cutItemId(index));
             if (this.isTrackLocked(lockedTrackId)) {
@@ -8160,25 +8316,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         transfer: DataTransfer | null
     ): LibraryTransitionDragPayload | undefined {
         const raw = transfer?.getData(LIBRARY_DRAG_MIME);
-        // drop 時に MIME の本文が存在する場合はそれを正とし、不正値をミラー状態で救済しない。
-        // 本文が空の環境だけ dragStart の CustomEvent ミラーへフォールバックする。
         return raw ? parseLibraryTransitionDragPayload(raw) : this.libraryDragPayload;
     }
 
-    protected transitionDropHitCandidates(): TransitionBoundaryHitCandidate[] {
+    protected transitionDropHitCandidates(clientY: number): TransitionBoundaryHitCandidate[] {
         const candidates: TransitionBoundaryHitCandidate[] = [];
-        for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
-            '[data-akari-transition-drop-target]'
-        ))) {
-            const earlierIndex = Number(element.dataset.akariTransitionEarlierIndex);
-            const laterIndex = Number(element.dataset.akariTransitionLaterIndex);
-            if (!Number.isInteger(earlierIndex) || !Number.isInteger(laterIndex)) continue;
-            const rect = element.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) continue;
+        const stripRect = this.strip.getBoundingClientRect();
+        const contentRect = this.stripContent.getBoundingClientRect();
+        for (const boundary of this.transitionBoundaryCandidates()) {
+            const trackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            const row = resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track);
+            if (!row || row.hidden || clientY < contentRect.top + row.top
+                || clientY > contentRect.top + row.top + row.height) continue;
+            const plan = this.transitionPlanFor(boundary.earlierIndex, boundary.laterIndex);
+            const windowStartX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.startOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
+            const windowEndX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.endOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
             candidates.push({
-                earlierIndex, laterIndex,
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2
+                earlierIndex: boundary.earlierIndex, laterIndex: boundary.laterIndex,
+                x: stripRect.left + (boundary.boundaryT - this.viewStart) / this.visibleDuration() * stripRect.width,
+                windowStartX, windowEndX,
+                applicable: boundary.blocks.length === 0
+                    && this.unsupportedTransitionTrack(boundary.earlierIndex) === undefined
             });
         }
         return candidates;
@@ -8188,25 +8350,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
         clientX: number,
         clientY: number
     ): TransitionBoundaryHitCandidate | undefined {
-        return hitTestTransitionBoundary(
-            { x: clientX, y: clientY },
-            this.transitionDropHitCandidates(),
-            TRANSITION_DROP_HIT_TOLERANCE_PX
-        );
+        const rect = this.stripScroll.getBoundingClientRect();
+        if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right) return undefined;
+        return nearestTransitionBoundary(clientX, this.transitionDropHitCandidates(clientY), rect.left, rect.right);
+    }
+
+    protected libraryTransitionDropReason(clientX: number, clientY: number): string {
+        const rect = this.stripScroll.getBoundingClientRect();
+        if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right)
+            return t('transition.library.notice.outsideVideoRow');
+        const contentTop = this.stripContent.getBoundingClientRect().top;
+        const inVideoRow = this.laneLayout.tracks.some(row => row.kind === 'cuts' && !row.hidden
+            && clientY >= contentTop + row.top && clientY <= contentTop + row.top + row.height);
+        if (!inVideoRow) return t('transition.library.notice.outsideVideoRow');
+        const visible = this.transitionDropHitCandidates(clientY).filter(candidate => candidate.x >= rect.left && candidate.x <= rect.right);
+        const blocked = nearestTransitionBoundary(clientX, visible.map(candidate => ({ ...candidate, applicable: true })), rect.left, rect.right);
+        const boundary = this.transitionBoundaryCandidates().find(candidate => candidate.earlierIndex === blocked?.earlierIndex);
+        return boundary?.blocks.length ? this.boundaryBlockMessage(primaryBoundaryBlock(boundary.blocks))
+            : t('transition.library.notice.nearBoundary');
     }
 
     protected setHoveredTransitionDropTarget(hit: TransitionBoundaryHitCandidate | undefined): void {
         const key = hit ? `${hit.earlierIndex}-${hit.laterIndex}` : undefined;
+        this.hoveredTransitionDropKey = key;
         for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
             '[data-akari-transition-drop-target]'
         ))) {
-            element.dataset.akariTransitionDropHover = String(
-                key !== undefined && element.dataset.akariTransitionDropTarget === key
-            );
+            const selected = key !== undefined && element.dataset.akariTransitionDropTarget === key;
+            element.dataset.akariTransitionDropHover = String(selected);
+            element.textContent = selected ? t('transition.library.target.applyHere') : '';
         }
     }
 
     protected clearLibraryTransitionDragState(): void {
+        this.transitionEdgeScroller?.stop();
         this.libraryLockedDragKey = undefined;
         const hadTextStyle = this.libraryTextStyleDragPayload !== undefined;
         if (this.libraryShapeDragPayload) {
@@ -8226,6 +8403,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
+        this.hoveredTransitionDropKey = undefined;
         this.setHoveredTransitionDropTarget(undefined);
         if (hadTextStyle) this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
             element.removeAttribute('data-akari-library-apply-target'));
@@ -8236,14 +8414,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
         payload: LibraryTransitionDragPayload,
         earlierIndex: number
     ): Promise<void> {
-        if (!this.location?.editUri || this.unsupportedTransitionTrack(earlierIndex) !== undefined) return;
+        if (!this.location?.editUri) {
+            this.showNotice(t('annotations.timeline.text.unableToLocateProject'));
+            return;
+        }
         const currentDuration = this.cuts[earlierIndex]?.transitionOut?.duration;
-        await this.applyTransitionOut(earlierIndex, {
+        const result = await this.applyTransitionOut(earlierIndex, {
             type: payload.id,
             duration: typeof currentDuration === 'number' && currentDuration > 0
                 ? currentDuration : TRANSITION_DEFAULT_DURATION_SECONDS
         });
-        this.footer.textContent = t('annotations.timeline.text.appliedTransition', { name: payload.name });
+        if (!result.ok) {
+            if (result.message && !(result as typeof result & { cancelled?: boolean }).cancelled)
+                this.showNotice(result.message);
+            return;
+        }
+        const family = transitionFamilyOf(payload.id);
+        if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+        this.hideNotice();
+        this.footer.textContent = t('transition.picker.notice.applied', {
+            from: earlierIndex + 1, to: (this.nextSameTrackSegment(earlierIndex)?.index ?? earlierIndex + 1) + 1,
+            name: family ? t(transitionFamilyLabelKey(family.family)) : payload.name
+        });
+        if (result.message) this.footer.textContent = result.message;
     }
 
     /**
@@ -8521,6 +8714,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async adoptTimelineEdit(uri: URI): Promise<void> {
         if (!this.location || this.location.editUri || !await this.fileService.exists(uri)) return;
+        this.transitionFillAsk?.close();
         const location = await this.refreshLocationEditUri?.(uri);
         this.location = location ?? {
             ...this.location, editUri: uri,
@@ -8571,6 +8765,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         location: ProjectLocation,
         refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>
     ): Promise<void> {
+        this.transitionFillAsk?.close();
         if (this.configured) {
             if (!this.location?.editUri && location.editUri) await this.adoptTimelineEdit(location.editUri);
             return;
@@ -8592,6 +8787,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
+        if (location.editUri) void offerCaptionLookMigration({
+            projectRootUri: location.root.toString(), editUri: location.editUri.toString(),
+            captionsUri: location.captionsUri.toString(),
+            captionsName: location.captionsUri.path.base, editName: location.editUri.path.base,
+            getRemembered: key => this.storage.getData<boolean>(key, false).then(value => value === true),
+            remember: key => this.storage.setData(key, true),
+            migrate: request => this.annotationsService.migrateCaptionLook(request),
+            ask: async count => {
+                const fix = t('annotations.captionLookMigration.offer.fixAction');
+                const later = t('annotations.captionLookMigration.offer.laterAction');
+                const choice = await this.messages.info(t('annotations.captionLookMigration.offer.fixAppearanceNotice',
+                    { count }), { timeout: 0 }, fix, later);
+                return choice === fix ? 'fix' : choice === later ? 'later' : undefined;
+            },
+            notifySaved: async count => await this.messages.info(
+                t('annotations.captionLookMigration.offer.fixedNotice', { count }),
+                { timeout: 0 },
+                t('annotations.captionLookMigration.offer.undoAction'))
+                === t('annotations.captionLookMigration.offer.undoAction'),
+            notifyConflict: () => { void this.messages.warn(
+                t('annotations.captionCommandHistory.text.reloadAfterConflict')); },
+            pushHistory: entry => this.pushHistory(entry),
+            undo: async entry => {
+                if (this.historyService.isTop(entry)) await this.performUndo();
+                else this.showNotice(t('annotations.captionLookMigration.offer.undoAfterOtherChangesNotice'));
+            },
+            write: request => this.annotationsService.writeEditSnapshot(request),
+            reload: () => this.reloadCaptions(),
+            historyLabel: t('annotations.captionLookMigration.offer.historyLabel')
+        });
         // The onboarding example is written by its backend service, outside this widget's
         // file service. Let it request a read after each staged write on file systems
         // whose watcher does not report those writes promptly (notably Windows drives).
@@ -10709,6 +10934,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     catch { /* The parsed caption rows remain available. */ }
                 }
                 this.captionDisplayLocale = typeof locale === 'string' && locale.trim() ? locale : 'ja';
+                try { this.hasCaptionDisplayPolicy = JSON.parse(nextSource)?.display_policy !== undefined; }
+                catch { this.hasCaptionDisplayPolicy = false; }
                 this.captionSources = readCaptionSourceMap(nextSource);
                 this.defaultTextStyle = parsed.defaultTextStyle;
                 this.lastAppliedCaptionsSource = nextSource;
@@ -10721,6 +10948,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.invalidateContentExtent();
                 this.captions = [];
                 this.captionDisplayLocale = 'ja';
+                this.hasCaptionDisplayPolicy = false;
                 this.captionSources.clear();
                 this.defaultTextStyle = undefined;
                 this.lastAppliedCaptionsSource = undefined;
@@ -10812,6 +11040,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         });
         this.nextSameTrackSegmentByCutIndex.clear();
+        if (this.activeBoundary && !validateTransitionBoundaryWrite(this.activeBoundary,
+            this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length).pairExists) {
+            this.clearActiveTransitionBoundary();
+        }
         this.unsupportedTrackTransitionByCutIndex.clear();
         this.nonAdjacentTransitionTargetByCutIndex.clear();
         this.zeroOverlapTransitionIndexes.clear();
@@ -10838,7 +11071,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.nextSameTrackSegmentByCutIndex.set(earlier.index, later);
                 const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
                 if (overlapFrames === 0) {
-                    if (earlier.transitionOut && this.transitionHandlePlanSync(earlier, later).effectiveSeconds <= 0) {
+                    if (earlier.transitionOut && placeBoundary(this.transitionPlanFor(earlier.index, later.index)).state === 'dead') {
                         this.zeroOverlapTransitionIndexes.add(earlier.index);
                         this.declaredTransitionAdjacencyWarnings.add(earlier.index);
                     }
@@ -12107,9 +12340,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, bgmInlineId, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, bgm.path);
         }
@@ -12216,9 +12453,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, narration.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, narration.path);
             const speech = this.audioSpeech?.find(item => item.id === narration.id);
@@ -12395,9 +12636,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, sfx.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, sfx.path);
         });
@@ -12407,6 +12652,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 揺れないようにする）。
         const trimmerActiveIndex = this.trimmerItemId;
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
+        const deadBoundaryIndexes = new Set(this.transitionBoundaryCandidates().filter(boundary => {
+            if (!unsupportedDeclaredTransitions.has(boundary.earlierIndex)) return false;
+            const trackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            return !!resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track)
+                && this.isRangeMounted(boundary.boundaryT, boundary.boundaryT);
+        }).map(boundary => boundary.earlierIndex));
         this.segments.forEach(segment => {
             const cutItemId = this.cutItemIds[segment.index] ?? '';
             if (timelineItemRenderRoute(cutItemId, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
@@ -12541,7 +12792,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.applyGenerationChip(element, cutGeneration, clipWidth);
             this.applyGenerationOverhang(element, cut, segment, clipWidth, cutGeneration, cutItemId);
             this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
-            if (created && unsupportedDeclaredTransitions.has(segment.index)) {
+            if (deadBoundaryIndexes.has(segment.index) || !unsupportedDeclaredTransitions.has(segment.index)) {
+                element.querySelector('[data-akari-unsupported-transition]')?.remove();
+            }
+            if (unsupportedDeclaredTransitions.has(segment.index) && !deadBoundaryIndexes.has(segment.index)
+                && !element.querySelector('[data-akari-unsupported-transition]')) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariUnsupportedTransition = String(segment.index);
@@ -12564,6 +12819,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 element.appendChild(warning);
             }
+            const cachedDuration = this.videoDurationCache.get(this.cutVideoUri(cut));
+            renderSourceEdgeMarks(element, sourceEdgeMarks({
+                inSeconds: cut.in, outSeconds: cut.out,
+                sourceDurationSeconds: typeof cachedDuration === 'number' ? cachedDuration : undefined,
+                still: this.isStillImageCut(cut)
+            }));
         });
         this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
         this.finishKeyedRender('strip');
@@ -12732,295 +12993,620 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 同じ判定基準 = computeCutBoundaries）に常時バッジを描く。transition_out 未設定は
      * 控えめなニュートラル丸、設定済みはアクセント色 + 種別頭文字。クリックでポップオーバー編集。
      */
+    protected transitionBoundaryInputs() {
+        return this.segments.map(segment => ({
+            ...segment, itemId: this.cutItemIds[segment.index],
+            locked: this.isTrackLocked(this.trackIdOfItem(this.cutItemId(segment.index))),
+            trackOrderValid: this.unsupportedTransitionTrack(segment.index) === undefined
+        }));
+    }
+
+    protected transitionBoundaryCandidates() {
+        return computeCutBoundaryCandidates(this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
+    }
+
+    protected boundaryBlockMessage(block: BoundaryBlock | undefined): string {
+        const key = block === 'multi-track' ? 'transition.boundary.block.multiTrack'
+            : block === 'track-order' ? 'transition.boundary.block.trackOrder'
+                : block === 'locked' ? 'transition.boundary.block.locked'
+                    : 'transition.boundary.block.gap';
+        return t(key);
+    }
+
+    protected deadTransitionMessage(block: BoundaryBlock | undefined, earlierIndex: number): string {
+        if (block === 'gap' || this.nonAdjacentTransitionTarget(earlierIndex) !== undefined)
+            return t('transition.boundary.dead.gap');
+        if (block === 'track-order') return t('transition.boundary.dead.trackOrder');
+        if (block === 'multi-track' || this.unsupportedTransitionTrack(earlierIndex) !== undefined)
+            return t('transition.boundary.dead.multiTrack');
+        return block ? this.boundaryBlockMessage(block) : ZERO_OVERLAP_TRANSITION_MESSAGE();
+    }
+
     protected renderTransitionBoundaries(unsupported: ReadonlySet<number>): void {
-        const boundaries = computeCutBoundaries(this.segments, this.fps);
-        const unsupportedDropEarlierIndexes = new Set(unsupported);
-        for (const cutIndex of this.unsupportedTrackTransitionByCutIndex.keys()) {
-            unsupportedDropEarlierIndexes.add(cutIndex);
-        }
+        const boundaries = this.transitionBoundaryCandidates();
         const supportedDropEarlierIndexes = new Set((this.libraryDragPayload
-            ? filterSupportedTransitionBoundaries(
-                boundaries,
-                unsupportedDropEarlierIndexes
-            )
+            ? filterSupportedTransitionBoundaries(boundaries.filter(boundary => boundary.blocks.length === 0), unsupported)
             : []).map(boundary => boundary.earlierIndex));
         for (const boundary of boundaries) {
-            const itemTrackId = this.itemLocations.get(this.cutItemIds[boundary.earlierIndex] ?? '')?.trackId;
-            const cutLayout = resolveItemRowLayout(
-                this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track
-            );
-            if (!cutLayout || !this.isRangeMounted(boundary.boundaryT, boundary.boundaryT)) {
-                continue;
+            const itemTrackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            const cutLayout = resolveItemRowLayout(this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track);
+            if (!cutLayout || !this.isRangeMounted(boundary.boundaryT, boundary.boundaryT)) continue;
+            const earlier = this.segments.find(segment => segment.index === boundary.earlierIndex);
+            const later = this.segments.find(segment => segment.index === boundary.laterIndex);
+            if (!earlier || !later) continue;
+            const declared = boundary.transitionOut;
+            if (declared && !this.isStillImageCut(this.cuts[boundary.earlierIndex])) {
+                const uri = this.cutVideoUri(this.cuts[boundary.earlierIndex]);
+                if (uri && !this.videoDurationCache.has(uri)) void this.ensureVideoDurationFetch(uri);
             }
-            const option = boundary.transitionOut
-                ? TRANSITION_TYPE_OPTIONS.find(candidate => candidate.type === boundary.transitionOut!.type)
-                : undefined;
-            const { element: badge, created } = this.keyedNode(
-                'strip', `boundary:${boundary.earlierIndex}-${boundary.laterIndex}`,
-                JSON.stringify([boundary, unsupported.has(boundary.earlierIndex), cutLayout.hidden]),
-                () => document.createElement('button')
-            );
-            badge.type = 'button';
-            Object.assign(badge.style, {
-                position: 'absolute',
-                left: `${this.layoutPercent(boundary.boundaryT)}%`,
-                top: `${cutLayout.top + cutLayout.height / 2}px`,
-                transform: 'translate(-50%, -50%)',
-                width: `${TRANSITION_BADGE_SIZE_PX}px`,
-                height: `${TRANSITION_BADGE_SIZE_PX}px`,
-                borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '8px', fontWeight: '700', lineHeight: '1', padding: '0',
-                cursor: 'pointer', pointerEvents: 'auto', zIndex: '5', boxSizing: 'border-box',
-                opacity: cutLayout.hidden ? '.28' : '1'
+            const placement = declared ? placeBoundary(this.transitionPlanFor(earlier.index, later.index)) : undefined;
+            const dead = transitionDeclarationIsDead(!!declared, boundary.blocks,
+                unsupported.has(boundary.earlierIndex), placement?.state === 'dead');
+            const family = declared ? transitionFamilyOf(declared.type) : undefined;
+            const unknown = !!declared && !family;
+            const kind = dead ? 'dead' : unknown ? 'unknown' : declared ? 'band'
+                : boundary.blocks.length > 0 ? 'blocked' : 'add';
+            const pxPerSecond = this.layoutViewDuration > 0 ? this.stripLayoutWidthPx / this.layoutViewDuration : 0;
+            const micro = (kind === 'add' || kind === 'blocked') && Math.min(
+                earlier.tlEnd - earlier.tlStart, later.tlEnd - later.tlStart
+            ) * pxPerSecond < MICRO_CLIP_WIDTH_PX;
+            const familyName = family ? t(transitionFamilyLabelKey(family.family)) : '';
+            const label = unknown ? t(TRANSITION_UNKNOWN_LABEL_KEY)
+                : family?.direction ? t(TRANSITION_NAME_WITH_DIRECTION_KEY, {
+                    family: familyName, direction: t(transitionDirectionLabelKey(family.direction))
+                }) : familyName;
+            const reason = primaryBoundaryBlock(boundary.blocks);
+            const pairLabel = t('transition.picker.boundary.pair', {
+                from: boundary.earlierIndex + 1, to: boundary.laterIndex + 1
             });
-            if (unsupported.has(boundary.earlierIndex)) {
-                Object.assign(badge.style, {
-                    background: '#9a3412',
-                    border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
-                    color: '#fff'
-                });
-                badge.textContent = '!';
-                badge.dataset.akariUnsupportedTransition = String(boundary.earlierIndex);
-                badge.title = this.unsupportedTransitionMessage(boundary.earlierIndex);
-            } else if (boundary.transitionOut) {
-                Object.assign(badge.style, {
-                    background: TRANSITION_BADGE_ACCENT_COLOR,
-                    border: `1px solid ${TRANSITION_BADGE_ACCENT_COLOR}`,
-                    color: '#fff'
-                });
-                badge.textContent = option?.glyph ?? '✨';
-                badge.title = `${option ? transitionOptionLabel(option.type) : boundary.transitionOut.type} `
-                    + t('annotations.timeline.text.sClickToEdit', { duration: boundary.transitionOut.duration.toFixed(2) });
-            } else {
-                Object.assign(badge.style, {
-                    background: 'transparent',
-                    border: `1px solid ${TRANSITION_BADGE_NEUTRAL_BORDER_COLOR}`,
-                    color: TRANSITION_BADGE_NEUTRAL_BORDER_COLOR
-                });
-                badge.textContent = '';
-                badge.title = t('annotations.timeline.text.addTransition');
-            }
-            badge.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
-            badge.setAttribute('aria-label', badge.title);
-            if (created) {
-                badge.addEventListener('pointerdown', event => event.stopPropagation());
-                badge.addEventListener('contextmenu', event => event.stopPropagation());
-                badge.addEventListener('click', event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
-                });
-            }
-            if (supportedDropEarlierIndexes.has(boundary.earlierIndex)) {
+            const ariaLabel = `${pairLabel}: ${declared
+                ? t('transition.picker.boundary.declared', { name: label, duration: declared.duration.toFixed(2) })
+                : kind === 'blocked' ? this.boundaryBlockMessage(reason) : t('transition.picker.boundary.empty')}`
+                + (placement?.state === 'shortened' ? ` ${t('transition.boundary.status.shortened',
+                    { reason: this.transitionReasonText(placement.reasons) })}` : '')
+                + (placement && !dead && placement.freezeIncomingSeconds > 0
+                    ? ` ${t('transition.fill.band.incoming', { seconds: placement.freezeIncomingSeconds.toFixed(2) })}` : '')
+                + (placement && !dead && placement.freezeOutgoingSeconds > 0 && !placement.freezeOutgoingUnknown
+                    ? ` ${t('transition.fill.band.outgoing', { seconds: placement.freezeOutgoingSeconds.toFixed(2) })}` : '');
+            const { element } = this.keyedNode('strip',
+                `boundary:${boundary.ref.earlierItemId}:${boundary.ref.laterItemId}`,
+                'transition-boundary', () => document.createElement('button'));
+            const button = element as HTMLButtonElement;
+            renderTransitionBoundaryView(button, {
+                kind, label, ariaLabel, leftPercent: this.layoutPercent(boundary.boundaryT),
+                rowTopPx: cutLayout.top, rowHeightPx: cutLayout.height, hidden: cutLayout.hidden,
+                geometry: placement && !dead ? boundaryBandGeometry(placement, pxPerSecond) : undefined,
+                previewUrl: declared ? this.transitionPreviewUrls[declared.type]?.preview : undefined,
+                selected: sameBoundary(this.activeBoundary, boundary.ref), micro
+            });
+            button.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
+            button.dataset.akariBoundaryEarlierId = boundary.ref.earlierItemId;
+            button.dataset.akariBoundaryLaterId = boundary.ref.laterItemId;
+            const messageForDead = (): string => this.deadTransitionMessage(reason, boundary.earlierIndex);
+            button.onpointerdown = event => event.stopPropagation();
+            button.oncontextmenu = event => event.stopPropagation();
+            button.onclick = event => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.selectTransitionBoundary(boundary.ref);
+                this.hideNotice();
+                this.footer.textContent = ariaLabel;
+                this.scheduleStripRender();
+                if (kind === 'blocked' || kind === 'dead') {
+                    const message = kind === 'dead' ? messageForDead() : this.boundaryBlockMessage(reason);
+                    if (kind === 'blocked') this.showNotice(message);
+                    this.footer.textContent = message;
+                    if (kind === 'blocked') return;
+                }
+                if (boundary.blocks.includes('locked')) {
+                    const message = this.boundaryBlockMessage('locked');
+                    this.showNotice(message);
+                    this.footer.textContent = message;
+                    return;
+                }
+                this.openTransitionPicker(boundary.ref, kind === 'dead' ? messageForDead() : undefined);
+            };
+            if (supportedDropEarlierIndexes.has(boundary.earlierIndex) && !cutLayout.hidden) {
                 const { element: dropTarget } = this.keyedNode(
                     'strip', `transition-drop:${boundary.earlierIndex}-${boundary.laterIndex}`,
-                    JSON.stringify([boundary, cutLayout.hidden]),
-                    () => document.createElement('div')
-                );
+                    JSON.stringify([boundary, cutLayout.hidden]), () => document.createElement('div'));
                 dropTarget.className = 'akari-annotations-transition-drop-target';
-                const locked = this.isTrackLocked(this.trackIdOfItem(this.cutItemId(boundary.earlierIndex)))
-                    || this.isTrackLocked(this.trackIdOfItem(this.cutItemId(boundary.laterIndex)));
-                // Keep geometry available for a drop refusal while hiding the target affordance.
-                dropTarget.style.visibility = locked ? 'hidden' : '';
-                dropTarget.setAttribute('aria-hidden', String(locked));
+                dropTarget.style.visibility = '';
+                dropTarget.setAttribute('aria-hidden', 'false');
                 dropTarget.dataset.akariTransitionDropTarget = `${boundary.earlierIndex}-${boundary.laterIndex}`;
                 dropTarget.dataset.akariTransitionEarlierIndex = String(boundary.earlierIndex);
                 dropTarget.dataset.akariTransitionLaterIndex = String(boundary.laterIndex);
-                dropTarget.dataset.akariTransitionDropHover = 'false';
-                dropTarget.setAttribute('role', 'button');
-                dropTarget.setAttribute('aria-label', t('annotations.timeline.text.appliedToTheBoundaryBetweenCAndC', { fromClip: boundary.earlierIndex + 1, toClip: boundary.laterIndex + 1 }));
-                dropTarget.title = t('annotations.timeline.text.applyTransitionHere');
+                dropTarget.dataset.akariTransitionDropHover = String(this.hoveredTransitionDropKey ===
+                    `${boundary.earlierIndex}-${boundary.laterIndex}`);
+                dropTarget.textContent = this.hoveredTransitionDropKey === `${boundary.earlierIndex}-${boundary.laterIndex}`
+                    ? t('transition.library.target.applyHere') : '';
                 Object.assign(dropTarget.style, {
                     left: `${this.layoutPercent(boundary.boundaryT)}%`,
                     top: `${cutLayout.top + cutLayout.height / 2}px`,
-                    opacity: cutLayout.hidden ? '.45' : '1'
+                    height: `${cutLayout.height}px`
                 });
             }
         }
     }
 
-    /** ㉔ 境界バッジのクリックで開くポップオーバー: type（カテゴリ別）・duration・削除。 */
-    protected openTransitionPopup(anchorX: number, anchorY: number, earlierIndex: number, laterIndex: number): void {
-        this.closeAnnotationPopup();
-        const popup = document.createElement('div');
-        popup.className = 'akari-annotations-transition-popover';
-        const popoverWidth = 440;
-        const margin = 8;
-        const left = Math.max(margin, Math.min(anchorX - popoverWidth / 2, window.innerWidth - popoverWidth - margin));
-        const top = anchorY + 12;
-        Object.assign(popup.style, {
-            position: 'fixed', left: `${left}px`, top: `${top}px`, zIndex: '10000',
-            display: 'flex', flexDirection: 'column', gap: '6px', width: `${popoverWidth}px`,
-            padding: '8px', borderRadius: '6px', border: '1px solid var(--theia-widget-border)',
-            background: 'var(--theia-menu-background)', boxShadow: '0 3px 12px rgba(0,0,0,.35)',
-            fontSize: '11px', maxHeight: `calc(100vh - ${top + margin}px)`, overflowY: 'auto'
+    public get activeBoundaryRef(): BoundaryRef | undefined { return this.activeBoundary; }
+
+    protected transitionSelectionSnapshot(): TimelineTransitionSelection | undefined {
+        const ref = this.activeBoundary;
+        if (!ref || !this.editDocument) return undefined;
+        const boundary = this.transitionBoundaryCandidates().find(candidate => sameBoundary(candidate.ref, ref));
+        if (!boundary) return undefined;
+        const earlier = this.segments.find(segment => segment.index === boundary.earlierIndex);
+        const later = this.segments.find(segment => segment.index === boundary.laterIndex);
+        if (!earlier || !later) return undefined;
+        const declaration = boundary.transitionOut;
+        const handle = declaration ? this.transitionHandleInputSync(earlier, later) : undefined;
+        const outgoingCut = this.cuts[earlier.index];
+        const outgoingUri = outgoingCut && !this.isStillImageCut(outgoingCut)
+            ? this.cutVideoUri(outgoingCut) : undefined;
+        const hasOutgoingDuration = outgoingUri
+            && typeof this.videoDurationCache.get(outgoingUri) === 'number';
+        const showHandles = !boundary.blocks.some(block => block === 'gap'
+            || block === 'multi-track' || block === 'track-order');
+        const placement = declaration ? placeBoundary(this.transitionPlanFor(earlier.index, later.index)) : undefined;
+        const rawAlign = this.rawV2Item(boundary.ref.earlierItemId)?.source?.transition_out?.align
+            ?? this.cuts[earlier.index]?.transitionOut?.align;
+        const track = this.transitionPlanTrackFor(earlier.index);
+        const rawTransition = this.rawV2Item(boundary.ref.earlierItemId)?.source?.transition_out;
+        const canFill = track ? !!canFillTransition({ clips: track.clips, earlierId: String(earlier.index),
+            existing: rawTransition && typeof rawTransition === 'object'
+                ? rawTransition as Record<string, unknown> : undefined,
+            fps: this.fps, blocked: boundary.blocks.length > 0, legacyOverlap: placement?.legacyOverlap }) : false;
+        const recommendedAlign = declaration && track && cutOverlapFrames(earlier, later, this.fps) === 0
+            ? chooseTransitionAlign(track.clips, String(earlier.index), declaration.duration,
+                { fps: this.fps, tailRoom: 'ignore', allowFill: false })?.align : undefined;
+        const name = (index: number): string => {
+            const itemName = this.rawKeyframeItem(this.cutItemIds[index])?.name;
+            return typeof itemName === 'string' && itemName.trim()
+                ? itemName : this.cuts[index] ? this.cutSourceName(this.cuts[index]) : '';
+        };
+        return createTransitionSelection({
+            ref,
+            earlier: { index: boundary.earlierIndex + 1, name: name(boundary.earlierIndex) },
+            later: { index: boundary.laterIndex + 1, name: name(boundary.laterIndex) },
+            ...(declaration ? { declaration: { type: declaration.type, duration: declaration.duration,
+                align: rawAlign }, recommendedAlign } : {}),
+            placement,
+            outgoingTailRoomSeconds: showHandles && hasOutgoingDuration ? handle?.outgoingTailRoomSeconds : undefined,
+            incomingHeadRoomSeconds: showHandles ? handle?.incomingHeadRoomSeconds : undefined,
+            block: primaryBoundaryBlock(boundary.blocks), locked: boundary.blocks.includes('locked'),
+            stripUrl: declaration ? this.transitionPreviewUrls[declaration.type]?.strip : undefined,
+            canFill, captionConflict: this.hasCaptionDisplayPolicy && !!declaration
+                && placement?.state !== 'dead' && !!placement
         });
-        const render = (): void => {
-            popup.replaceChildren();
-            const current = this.cuts[earlierIndex]?.transitionOut;
-            const unsupportedTrack = this.unsupportedTransitionTrack(earlierIndex);
-            const unsupportedAdjacency = this.nonAdjacentTransitionTarget(earlierIndex);
-            const zeroOverlap = this.zeroOverlapTransitionIndexes.has(earlierIndex);
-            const heading = document.createElement('div');
-            heading.textContent = `C${earlierIndex + 1} → C${laterIndex + 1}`;
-            heading.style.opacity = '.7';
-            popup.appendChild(heading);
-            if (unsupportedTrack !== undefined || unsupportedAdjacency !== undefined || zeroOverlap) {
-                const warning = document.createElement('div');
-                warning.dataset.akariTransitionGuard = String(earlierIndex);
-                warning.textContent = this.unsupportedTransitionMessage(earlierIndex);
-                Object.assign(warning.style, {
-                    padding: '6px', borderRadius: '4px', border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
-                    color: 'var(--theia-list-warningForeground, #cca700)', lineHeight: '1.4'
-                });
-                popup.appendChild(warning);
-            }
-            for (const category of TRANSITION_CATEGORIES) {
-                const categorySection = document.createElement('section');
-                categorySection.dataset.akariTransitionCategory = category;
-                const categoryHeading = document.createElement('div');
-                categoryHeading.textContent = transitionCategoryLabel(category);
-                categoryHeading.style.opacity = '.72';
-                categoryHeading.style.marginTop = '2px';
-                categorySection.appendChild(categoryHeading);
-                const typeGrid = document.createElement('div');
-                Object.assign(typeGrid.style, {
-                    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px'
-                });
-                for (const option of TRANSITION_TYPE_OPTIONS.filter(candidate => candidate.category === category)) {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
-                    button.textContent = transitionOptionLabel(option.type);
-                    button.style.padding = '3px 4px';
-                    button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
-                    button.dataset.akariTransitionType = option.type;
-                    button.setAttribute('aria-pressed', String(current?.type === option.type));
-                    button.addEventListener('click', () => {
-                        void this.applyTransitionOut(earlierIndex, {
-                            type: option.type,
-                            duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
-                        }).then(render);
-                    });
-                    typeGrid.appendChild(button);
-                }
-                categorySection.appendChild(typeGrid);
-                popup.appendChild(categorySection);
-            }
-            if (current) {
-                const sliderRow = document.createElement('div');
-                Object.assign(sliderRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
-                const slider = document.createElement('input');
-                slider.type = 'range';
-                slider.min = String(TRANSITION_MIN_DURATION_SECONDS);
-                slider.max = String(TRANSITION_MAX_DURATION_SECONDS);
-                slider.step = '0.05';
-                slider.value = String(current.duration);
-                const currentType = isTransitionType(current.type) ? current.type : undefined;
-                slider.disabled = currentType === undefined;
-                slider.setAttribute('aria-label', t('annotations.timeline.text.transitionLength'));
-                slider.style.flex = '1';
-                const durationLabel = document.createElement('span');
-                durationLabel.textContent = `${current.duration.toFixed(2)}s`;
-                Object.assign(durationLabel.style, { fontVariantNumeric: 'tabular-nums', minWidth: '34px' });
-                slider.addEventListener('input', () => {
-                    durationLabel.textContent = `${Number(slider.value).toFixed(2)}s`;
-                });
-                slider.addEventListener('change', () => {
-                    if (!currentType) return;
-                    void this.applyTransitionOut(earlierIndex, {
-                        type: currentType, duration: Number(slider.value)
-                    }).then(render);
-                });
-                sliderRow.append(slider, durationLabel);
-                popup.appendChild(sliderRow);
-                const removeButton = document.createElement('button');
-                removeButton.type = 'button';
-                removeButton.className = 'theia-button secondary';
-                removeButton.textContent = t('annotations.timeline.text.deleteTransition');
-                removeButton.addEventListener('click', () => {
-                    void this.applyTransitionOut(earlierIndex, null).then(() => this.closeAnnotationPopup());
-                });
-                popup.appendChild(removeButton);
-            }
-        };
-        render();
-        popup.addEventListener('contextmenu', popupEvent => popupEvent.preventDefault());
-        popup.addEventListener('pointerdown', popupEvent => popupEvent.stopPropagation());
-        document.body.appendChild(popup);
-        this.contextPopup = popup;
-        const close = (outsideEvent: PointerEvent): void => {
-            if (!popup.contains(outsideEvent.target as Node)) {
-                document.removeEventListener('pointerdown', close, true);
-                this.closeAnnotationPopup();
-            }
-        };
-        setTimeout(() => document.addEventListener('pointerdown', close, true), 0);
     }
 
-    /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
+    protected selectTransitionBoundary(ref: BoundaryRef): void {
+        const changed = !this.activeBoundary || !sameBoundary(this.activeBoundary, ref);
+        this.selection = undefined;
+        this.multiSelection = [];
+        this.selectedGap = undefined;
+        this.gapBand?.remove();
+        this.gapBand = undefined;
+        this.setTimelineRange({});
+        this.selectionModel.keyframeSelection = undefined;
+        this.clearMarqueeRange();
+        this.activeBoundary = ref;
+        if (changed) {
+            const boundary = this.transitionBoundaryCandidates().find(candidate => sameBoundary(candidate.ref, ref));
+            const cut = boundary ? this.cuts[boundary.earlierIndex] : undefined;
+            if (cut && !this.isStillImageCut(cut)) {
+                const videoUri = this.cutVideoUri(cut);
+                if (videoUri && !this.videoDurationCache.has(videoUri)) void this.ensureVideoDurationFetch(videoUri);
+            }
+        }
+        this.applySelectionClass();
+        this.publishPrimaryPreviewSelection(undefined);
+        this.pushSelectionSnapshot();
+    }
+
+    protected clearActiveTransitionBoundary(ref?: BoundaryRef): void {
+        if (!this.activeBoundary || (ref && !sameBoundary(this.activeBoundary, ref))) return;
+        this.activeBoundary = undefined;
+        this.transitionPicker?.close(false);
+        this.scheduleStripRender();
+        this.pushSelectionSnapshot();
+    }
+
+    public showTransitionSelectionPrompt(): void {
+        this.footer.textContent = t('transition.picker.notice.selectBoundaryFirst');
+    }
+
+    public rememberTransitionDirection(family: TransitionFamily, direction: TransitionDirection): void {
+        const definition = TRANSITION_FAMILIES.find(entry => entry.family === family);
+        if (definition?.directions.includes(direction)) {
+            this.transitionDirections.set(family, direction);
+            this.transitionPicker?.update();
+        }
+    }
+
+    protected transitionBoundaryElement(ref: BoundaryRef): HTMLButtonElement | undefined {
+        return Array.from(this.node.querySelectorAll<HTMLButtonElement>('[data-akari-boundary-earlier-id]')).find(button =>
+            button.dataset.akariBoundaryEarlierId === ref.earlierItemId
+            && button.dataset.akariBoundaryLaterId === ref.laterItemId);
+    }
+
+    public openActiveTransitionPicker(): boolean {
+        if (!this.activeBoundary) return false;
+        const candidate = this.transitionBoundaryCandidates().find(boundary =>
+            sameBoundary(boundary.ref, this.activeBoundary));
+        if (candidate?.blocks.includes('locked')) {
+            const message = this.boundaryBlockMessage('locked');
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return false;
+        }
+        const button = this.transitionBoundaryElement(this.activeBoundary);
+        if (button?.dataset.akariBoundaryKind === 'blocked') {
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(candidate?.blocks ?? []));
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return false;
+        }
+        const blockedReason = button?.dataset.akariBoundaryKind === 'dead'
+            ? this.deadTransitionMessage(primaryBoundaryBlock(candidate?.blocks ?? []),
+                this.cutItemIds.indexOf(this.activeBoundary.earlierItemId)) : undefined;
+        this.openTransitionPicker(this.activeBoundary, blockedReason);
+        return true;
+    }
+
+    protected openTransitionPicker(ref: BoundaryRef, blockedReason?: string): void {
+        if (!this.transitionBoundaryElement(ref)) return;
+        this.hideNotice();
+        this.transitionPicker?.close();
+        this.closeAnnotationPopup();
+        const current = () => this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        const snapshot = this.transitionSelectionSnapshot();
+        this.transitionPicker = createTransitionPicker({
+            anchor: () => this.transitionBoundaryElement(ref),
+            fallbackFocus: () => this.node,
+            current,
+            blockedReason,
+            fill: blockedReason && snapshot?.canFill && current() ? () => {
+                this.transitionPicker?.close(false);
+                const declaration = current();
+                if (declaration) void this.applyTransitionOut(ref, { type: declaration.type,
+                    duration: declaration.duration, fillOnly: true });
+            } : undefined,
+            previews: this.transitionPreviewUrls,
+            rememberedDirection: family => this.transitionDirections.get(family),
+            apply: async type => {
+                const result = await this.applyTransitionOut(ref, {
+                    type, duration: current()?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
+                });
+                if (!result.ok) return false;
+                this.hideNotice();
+                const family = transitionFamilyOf(type);
+                if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+                const from = this.cutItemIds.indexOf(ref.earlierItemId) + 1;
+                const to = this.cutItemIds.indexOf(ref.laterItemId) + 1;
+                const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+                this.footer.textContent = result.message ?? t('transition.picker.notice.applied', { from, to, name });
+                return true;
+            },
+            remove: async () => (await this.applyTransitionOut(ref, null)).ok,
+            reveal: () => void this.commands.executeCommand(TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID),
+            closed: () => {
+                this.transitionPicker = undefined;
+            }
+        });
+    }
+
+    public async applyToActiveTransitionBoundary(type: unknown): Promise<boolean> {
+        const ref = this.activeBoundary;
+        if (!ref || !isTransitionType(type)) return false;
+        const current = this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        const result = await this.applyTransitionOut(ref, { type, duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS });
+        if (!result.ok) return false;
+        this.hideNotice();
+        const family = transitionFamilyOf(type);
+        if (family?.direction) this.rememberTransitionDirection(family.family, family.direction);
+        this.transitionPicker?.update();
+        const from = this.cutItemIds.indexOf(ref.earlierItemId) + 1;
+        const to = this.cutItemIds.indexOf(ref.laterItemId) + 1;
+        this.footer.textContent = result.message ?? t('transition.picker.notice.applied', {
+            from, to, name: family ? t(transitionFamilyLabelKey(family.family)) : type
+        });
+        return true;
+    }
+
+    public async removeActiveTransition(): Promise<boolean> {
+        const ref = this.activeBoundary;
+        if (!ref) return false;
+        const current = this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        if (!current) return false;
+        const result = await this.applyTransitionOut(ref, null);
+        if (!result.ok && result.message) {
+            this.footer.textContent = result.message;
+            this.showNotice(result.message);
+        }
+        return result.ok;
+    }
+
+    public revealActiveTransitionInInspector(): boolean {
+        const ref = this.activeBoundary;
+        if (!ref) return false;
+        if (!this.transitionSelectionSnapshot()) return false;
+        this.transitionPicker?.close();
+        this.pushSelectionSnapshot();
+        return true;
+    }
+
     protected async applyTransitionOut(
-        cutIndex: number,
-        next: { type: TransitionType; duration: number } | null
+        cutIndexOrRef: number | BoundaryRef,
+        next: { type: string; duration: number; align?: TransitionAlign | null;
+            recommendAlign?: true; alignOnly?: true; fillOnly?: true } | null
     ): Promise<{ ok: boolean; message?: string }> {
+        const generation = this.transitionWriteGeneration = (this.transitionWriteGeneration || 0) + 1;
+        const cutIndex = typeof cutIndexOrRef === 'number' ? cutIndexOrRef
+            : this.cutItemIds.indexOf(cutIndexOrRef.earlierItemId);
+        const nextSegment = this.nextSameTrackSegment(cutIndex);
+        const ref: BoundaryRef = typeof cutIndexOrRef === 'number'
+            ? { earlierItemId: this.cutItemIds[cutIndex] ?? '',
+                laterItemId: nextSegment ? this.cutItemIds[nextSegment.index] ?? '' : '' }
+            : cutIndexOrRef;
         const location = this.location;
         if (!location?.editUri) {
             return { ok: false, message: t('annotations.timeline.text.unableToLocateProject') };
         }
-        if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined
-            || this.nonAdjacentTransitionTarget(cutIndex) !== undefined)) {
-            const message = this.unsupportedTransitionMessage(cutIndex);
+        this.transitionFillAsk?.close();
+        const projectUri = location.editUri.toString();
+        const current = (): boolean => this.transitionWriteGeneration === generation && !this.isDisposed
+            && this.location?.editUri?.toString() === projectUri;
+        const startingDeclaration = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
+        const startedKind = !next ? 'remove' : next.fillOnly ? 'fill'
+            : !startingDeclaration ? 'attach'
+                : next.duration === startingDeclaration.duration && next.align === undefined
+                    && !next.recommendAlign && !next.alignOnly ? 'retype' : 'change';
+        const validation = validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
+        if (!validation.pairExists || transitionWriteIsBlocked(next, validation.blocks)) {
+            if (!validation.pairExists) this.clearActiveTransitionBoundary(ref);
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(validation.blocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: false, message };
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
-        if (!next && earlier?.transitionOut && later) {
-            const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
-            if (overlapFrames > 0 && areCutsAdjacent(earlier, later, this.fps)) {
-                await this.commitEditTextMutation(t('annotations.timeline.text.deleteTransition'), text =>
-                    removeV2TransitionOutWithHandleRetractInSource(text, {
-                        itemId: this.cutItemId(cutIndex), retractFrames: overlapFrames, fps: this.fps
-                    })
-                );
-                this.hideNotice();
-                this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe');
-                return { ok: true };
-            }
-        }
-        let handle: ReturnType<typeof planTransitionHandleWindow> | undefined;
-        let writtenNext = next;
+        let beforePlans: TransitionBoundaryPlan[] = [];
+        const beforeFreeze = transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds);
+        let incomingFeedback: number | undefined;
+        let wroteFill = false;
+        let writeKind: 'attach' | 'fill' | 'retype' | 'change' | undefined;
         if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
-            handle = await this.transitionHandlePlan(earlier, later, next.duration);
-            if (handle.outcome === 'clamped') {
-                const roundedSeconds = roundTransitionDurationForWrite(handle.effectiveSeconds);
-                handle = roundedSeconds > 0
-                    ? { ...handle, effectiveSeconds: roundedSeconds, halfSeconds: roundedSeconds / 2 }
-                    : { ...handle, effectiveSeconds: 0, halfSeconds: 0, outcome: 'none' };
-                if (handle.outcome === 'clamped') {
-                    writtenNext = { ...next, duration: handle.effectiveSeconds };
+            await this.waitForTransitionMaterial(earlier.index);
+            if (!current()) return { ok: false };
+        }
+        let confirmed: TransitionFillFacts | undefined;
+        let confirmedKind: 'attach' | 'fill' | undefined;
+        let confirmedAlign: unknown;
+        let confirmedType: unknown;
+        if (next && this.editDocument) {
+            const initial = this.transitionPlanInDocument(this.editDocument, ref);
+            const raw = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
+            const existing = raw && typeof raw === 'object' ? raw as Record<string, unknown> : undefined;
+            const decision = initial ? decideTransitionWrite({ clips: initial.track.clips,
+                earlierId: String(initial.earlierIndex), existing, request: next,
+                fps: this.fps, blocked: validation.blocks.length > 0,
+                legacyOverlap: initial.plans.some(plan => plan.earlierId === String(initial.earlierIndex)
+                    && plan.legacyOverlap) }) : undefined;
+            if (decision && decision.kind !== 'none' && decision.kind !== startedKind) {
+                const message = t('transition.fill.notice.changed');
+                this.footer.textContent = message;
+                this.showNotice(message);
+                return { ok: false, message };
+            }
+            if (decision?.kind === 'none' && next.fillOnly) return { ok: false };
+            if (decision && (decision.kind === 'attach' || decision.kind === 'fill') && decision.confirmation) {
+                confirmed = decision.confirmation;
+                confirmedKind = decision.kind;
+                confirmedAlign = existing?.align;
+                confirmedType = existing?.type;
+                this.transitionPicker?.close(false);
+                this.selectTransitionBoundary(ref);
+                const family = transitionFamilyOf(next.type);
+                const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+                const fullName = family?.direction ? t(TRANSITION_NAME_WITH_DIRECTION_KEY, {
+                    family: name, direction: t(transitionDirectionLabelKey(family.direction)) }) : name;
+                const lead = t(decision.kind === 'attach' ? 'transition.fill.ask.leadAttach'
+                    : 'transition.fill.ask.leadFill', { name: fullName });
+                const body = t(transitionFillBodyKey(confirmed), { lead,
+                    from: (initial?.earlierIndex ?? cutIndex) + 1,
+                    to: (later?.index ?? cutIndex + 1) + 1,
+                    outgoing: confirmed.freezeOutgoingSeconds.toFixed(2),
+                    incoming: confirmed.freezeIncomingSeconds.toFixed(2) });
+                if (!current()) return { ok: false };
+                this.transitionFillAsk?.close();
+                const ask = createTransitionFillAsk({ anchor: () => this.transitionBoundaryElement(ref),
+                    body, action: decision.kind, captionConflict: this.hasCaptionDisplayPolicy });
+                this.transitionFillAsk = ask;
+                const approved = await ask.result;
+                if (this.transitionFillAsk === ask) this.transitionFillAsk = undefined;
+                if (!current()) return { ok: false };
+                if (!approved) {
+                    const message = t(decision.kind === 'attach' ? 'transition.fill.notice.cancelled'
+                        : 'transition.fill.notice.fillCancelled');
+                    this.footer.textContent = message;
+                    return Object.assign({ ok: false, message }, { cancelled: true });
                 }
             }
         }
-        await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => updateV2Item(doc, {
-            itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: writtenNext } }
-        }));
-        if (handle?.outcome === 'clamped') {
-            const seconds = formatTransitionSeconds(handle.effectiveSeconds);
-            const message = t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial', { duration: seconds, n: seconds });
-            this.showNotice(message);
-            this.footer.textContent = message;
-            this.messages.warn(message);
-            return { ok: true, message };
+        let writeBlocks: BoundaryBlock[] | undefined;
+        let missingPair = false;
+        let didRetract = false;
+        const rejected = new Error('transition boundary changed before write');
+        let changedDuringConfirmation = false;
+        try {
+            await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => {
+                if (!current()) { changedDuringConfirmation = true; throw rejected; }
+                const boundary = resolveBoundaryInDocument(doc, ref, new Set(this.timelineLockedTrackIds()));
+                if (!boundary.pairExists || transitionWriteIsBlocked(next, boundary.blocks)) {
+                    writeBlocks = boundary.blocks;
+                    missingPair = !boundary.pairExists;
+                    changedDuringConfirmation = !!confirmed;
+                    throw rejected;
+                }
+                if (!next && boundary.earlierTransition && boundary.overlapFrames > 0) {
+                    didRetract = true;
+                    return JSON.parse(removeV2TransitionOutWithHandleRetractInSource(stringifyEditV2(doc), {
+                        itemId: ref.earlierItemId, retractFrames: boundary.overlapFrames, fps: this.fps
+                    })) as EditV2Document;
+                }
+                const fresh = next ? this.transitionPlanInDocument(doc, ref) : undefined;
+                if (next && !fresh) {
+                    missingPair = true;
+                    writeBlocks = ['gap'];
+                    changedDuringConfirmation = !!confirmed;
+                    throw rejected;
+                }
+                beforePlans = fresh?.plans ?? [];
+                let writtenNext: { type: string; duration: number; align?: TransitionAlign | null;
+                    fill?: 'freeze' | null } | null = next;
+                if (next && fresh) {
+                    const existing = boundary.earlierTransition && typeof boundary.earlierTransition === 'object'
+                        ? boundary.earlierTransition as Record<string, unknown> : undefined;
+                    let decision = decideTransitionWrite({ clips: fresh.track.clips,
+                        earlierId: String(fresh.earlierIndex), existing, request: next,
+                        fps: this.fps, blocked: boundary.blocks.length > 0,
+                        legacyOverlap: boundary.overlapFrames > 0 });
+                    if (decision.kind === 'none' && confirmedKind === 'fill' && existing
+                        && existing.fill !== 'freeze') {
+                        decision = { kind: 'fill', patch: { type: String(existing.type),
+                            duration: Number(existing.duration), fill: null } };
+                    }
+                    if (decision.kind === 'none') {
+                        changedDuringConfirmation = true;
+                        throw rejected;
+                    }
+                    if (decision.kind !== startedKind || ((decision.kind === 'attach' || decision.kind === 'fill')
+                        && decision.confirmation && !confirmed)) {
+                        changedDuringConfirmation = true;
+                        throw rejected;
+                    }
+                    writeKind = decision.kind;
+                    writtenNext = decision.patch;
+                    incomingFeedback = decision.kind === 'change' ? decision.incomingSeconds : undefined;
+                    if (confirmed) {
+                        if (decision.kind !== confirmedKind || (confirmedKind === 'attach' && existing)
+                            || (confirmedKind === 'fill' && (!existing
+                                || existing.duration !== confirmed.declaredSeconds
+                                || existing.align !== confirmedAlign || existing.type !== confirmedType
+                                || existing.fill === 'freeze'))) {
+                            changedDuringConfirmation = true;
+                            throw rejected;
+                        }
+                        const after = refreshedTransitionConfirmation(fresh.track.clips,
+                            String(fresh.earlierIndex), confirmed, this.fps);
+                        if (!after || !compareTransitionConfirmation(confirmed, after)) {
+                            changedDuringConfirmation = true;
+                            throw rejected;
+                        }
+                        const patch = confirmedTransitionPatch({ confirmed, decision, after, type: next.type });
+                        if (!patch) { changedDuringConfirmation = true; throw rejected; }
+                        writtenNext = patch;
+                    }
+                    wroteFill = writtenNext.fill === 'freeze';
+                }
+                const patchNext = writtenNext ? transitionDeclarationPatch(writtenNext) : null;
+                return updateV2Item(doc, {
+                    itemId: ref.earlierItemId, patch: { source: { transition_out: patchNext } }
+                });
+            });
+        } catch (error) {
+            if (error !== rejected) throw error;
         }
-        if (handle?.outcome === 'none') {
-            const message = ZERO_OVERLAP_TRANSITION_MESSAGE();
+        if (changedDuringConfirmation) {
+            const message = t('transition.fill.notice.changed');
+            this.footer.textContent = message;
+            this.showNotice(message);
+            return { ok: false, message };
+        }
+        if (writeBlocks) {
+            if (missingPair) this.clearActiveTransitionBoundary(ref);
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(writeBlocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
+            return { ok: false, message };
+        }
+        if (didRetract) {
+            this.hideNotice();
+            this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe');
+            return { ok: true };
+        }
+        const messages: string[] = [];
+        const grownMessages: string[] = [];
+        let materialNotice = false;
+        let captionConflict = false;
+        if (next) {
+            const afterPlans = this.transitionPlans().plans;
+            const currentIndex = this.cutItemIds.indexOf(ref.earlierItemId);
+            const current = afterPlans.find(plan => plan.earlierId === String(currentIndex));
+            const family = transitionFamilyOf(next.type);
+            const name = family ? t(transitionFamilyLabelKey(family.family)) : t(TRANSITION_UNKNOWN_LABEL_KEY);
+            if (confirmedKind === 'attach') messages.push(t('transition.picker.notice.applied', {
+                from: currentIndex + 1, to: this.cutItemIds.indexOf(ref.laterItemId) + 1, name }));
+            else if (confirmedKind === 'fill') messages.push(t('annotations.timeline.text.changedTheTransition'));
+            if (confirmedKind && wroteFill) messages.push(t('transition.fill.notice.applied'));
+            if (incomingFeedback !== undefined) messages.push(t('transition.fill.feedback.incoming', {
+                index: this.cutItemIds.indexOf(ref.laterItemId) + 1,
+                seconds: incomingFeedback.toFixed(2) }));
+            for (const plan of afterPlans) {
+                if (plan.earlierId === String(currentIndex)) continue;
+                const before = beforePlans.find(entry => entry.earlierId === plan.earlierId
+                    && entry.laterId === plan.laterId);
+                if (before && plan.effectiveSeconds < before.effectiveSeconds - 0.000001) {
+                    messages.push(t('transition.boundary.notice.neighborShortened', {
+                        from: Number(plan.earlierId) + 1, to: Number(plan.laterId) + 1,
+                        seconds: formatTransitionSeconds(plan.effectiveSeconds)
+                    }));
+                }
+            }
+            for (const growth of transitionFreezeGrowth(beforeFreeze, afterPlans, this.cutItemIds,
+                [ref.earlierItemId, ref.laterItemId])) {
+                grownMessages.push(t('transition.fill.notice.grown',
+                    { from: growth.from, to: growth.to, seconds: growth.seconds }));
+            }
+            if (current?.state === 'shortened' && current.reasons.some(reason =>
+                reason === 'neighbor' || reason === 'outgoing-length' || reason === 'incoming-length')) {
+                messages.push(t('transition.boundary.notice.shortened', {
+                    seconds: formatTransitionSeconds(current.effectiveSeconds),
+                    reason: this.transitionReasonText(current.reasons)
+                }));
+            }
+            if (current?.state === 'shortened' && current.reasons.includes('incoming-room')) {
+                const seconds = formatTransitionSeconds(current.effectiveSeconds);
+                messages.push(t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial',
+                    { duration: seconds, n: seconds }));
+                materialNotice = true;
+            } else if (current?.state === 'none' && writeKind !== 'retype') {
+                messages.push(ZERO_OVERLAP_TRANSITION_MESSAGE());
+                materialNotice = true;
+            }
+            if (this.hasCaptionDisplayPolicy && writeKind !== 'retype' && current?.state !== 'none' && current) {
+                captionConflict = true;
+                messages.push(t('transition.fill.notice.captionConflict'));
+            }
+            if (writeKind === 'attach' && !confirmedKind && (messages.length || grownMessages.length)) {
+                messages.unshift(t('transition.picker.notice.applied', {
+                    from: currentIndex + 1, to: this.cutItemIds.indexOf(ref.laterItemId) + 1, name }));
+            }
+        }
+        if (messages.length || grownMessages.length) {
+            const message = [...messages, ...grownMessages].join(' ');
+            if (materialNotice) this.showNotice(messages.join(' '));
+            else this.hideNotice();
+            this.footer.textContent = message;
+            if (captionConflict) {
+                const inspectorMessage = [...messages.slice(0, -1), ...grownMessages].join(' ');
+                return Object.assign({ ok: true, message }, { inspectorMessage });
+            }
             return { ok: true, message };
         }
         if (!next && earlier && later && cutOverlapFrames(earlier, later, this.fps) > 0) {
@@ -13046,68 +13632,104 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return isStillImageSourcePath(declaredPath);
     }
 
-    protected transitionHandlePlanSync(
-        earlier: OutputSegment,
-        later: OutputSegment,
-        declaredSeconds = earlier.transitionOut?.duration ?? 0
-    ): ReturnType<typeof planTransitionHandleWindow> {
-        const outgoing = this.cuts[earlier.index];
-        const incoming = this.cuts[later.index];
-        const outgoingSpeed = typeof outgoing?.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
-        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-        let tailSeconds = Number.POSITIVE_INFINITY;
-        if (!this.isStillImageCut(outgoing)) {
-            const videoUri = outgoing ? this.cutVideoUri(outgoing) : undefined;
-            const cached = videoUri ? this.videoDurationCache.get(videoUri) : undefined;
-            tailSeconds = typeof cached === 'number'
-                ? Math.max(0, cached - (outgoing?.out ?? 0)) / outgoingSpeed
-                : cached === 'unavailable' ? 0 : Number.POSITIVE_INFINITY;
+    protected transitionPlanInDocument(doc: EditV2Document, ref: BoundaryRef): {
+        earlierIndex: number; track: TransitionPlanTrack; plans: TransitionBoundaryPlan[];
+        earlierTransition: boolean;
+    } | undefined {
+        const internal = this.readEdit(stringifyEditV2(doc));
+        const view = projectLegacyEdit(internal);
+        const ids: string[] = [];
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'cuts') ids[item.legacy.index] = item.id;
         }
-        return planTransitionHandleWindow({
-            declaredSeconds,
-            outgoingTailRoomSeconds: tailSeconds,
-            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+        const earlierIndex = ids.indexOf(ref.earlierItemId);
+        const laterIndex = ids.indexOf(ref.laterItemId);
+        if (earlierIndex < 0 || laterIndex < 0) return undefined;
+        const cuts = (view.cuts as Array<EditCut & { transition_out?: EditCut['transitionOut'] }>).map((cut, index) => {
+            const raw = internal.tracks.flatMap(track => track.items).find(entry => entry.id === ids[index])
+                ?.declaration.transition_out as { align?: unknown; fill?: unknown } | undefined;
+            const transitionOut = cut.transitionOut ?? cut.transition_out;
+            return raw && transitionOut ? { ...cut, transitionOut: { ...transitionOut,
+                align: raw.align, fill: raw.fill } } : { ...cut, transitionOut };
         });
+        const tracks = transitionPlanClipsFromCuts(cuts, { fps: this.fps, resolve: (cut, index) => {
+            const stillImage = this.isStillImageCut(cut);
+            const item = internal.tracks.flatMap(track => track.items).find(entry => entry.id === ids[index]);
+            const freeze = item?.declaration.freeze;
+            const freezeSeconds = freeze && typeof freeze === 'object'
+                ? Number((freeze as { duration_sec?: unknown }).duration_sec) || 0 : 0;
+            const videoUri = stillImage ? undefined : this.cutVideoUri(cut);
+            const duration = transitionMaterialDuration({ videoUri,
+                cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined, outSeconds: cut.out });
+            return { stillImage, freezeSeconds,
+                ...(duration !== undefined ? { materialDurationSeconds: duration } : {}) };
+        } });
+        const track = tracks.find(candidate => candidate.clips.some(clip => clip.id === String(earlierIndex))
+            && candidate.clips.some(clip => clip.id === String(laterIndex)));
+        if (!track) return undefined;
+        return { earlierIndex, track, plans: tracks.flatMap(candidate => planTrackTransitions(candidate.clips,
+            { fps: this.fps, tailRoom: 'ignore' })),
+            earlierTransition: !!cuts[earlierIndex]?.transitionOut };
     }
 
-    protected async transitionHandlePlan(
-        earlier: OutputSegment,
-        later: OutputSegment,
-        declaredSeconds: number
-    ): Promise<ReturnType<typeof planTransitionHandleWindow>> {
-        const outgoing = this.cuts[earlier.index];
-        if (!outgoing || this.isStillImageCut(outgoing)) {
-            return this.transitionHandlePlanSync(earlier, later, declaredSeconds);
-        }
-        const videoUri = this.cutVideoUri(outgoing);
-        if (!videoUri) {
-            const incoming = this.cuts[later.index];
-            const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-            return planTransitionHandleWindow({
-                declaredSeconds,
-                outgoingTailRoomSeconds: 0,
-                incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                    ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-                outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-                incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
-            });
-        }
-        const duration = await this.ensureVideoDurationFetch(videoUri);
-        const incoming = this.cuts[later.index];
-        const outgoingSpeed = typeof outgoing.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
-        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
-        return planTransitionHandleWindow({
-            declaredSeconds,
-            outgoingTailRoomSeconds: typeof duration === 'number'
-                ? Math.max(0, duration - outgoing.out) / outgoingSpeed : 0,
-            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
-                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
-            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
-            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+    protected transitionPlans(): { tracks: TransitionPlanTrack[]; plans: TransitionBoundaryPlan[] } {
+        const cached = this.transitionPlanCache;
+        if (cached?.cuts === this.cuts && cached.revision === this.transitionPlanRevision) return cached;
+        const cuts = this.cuts.map((cut, index) => {
+            const raw = this.rawV2Item(this.cutItemIds[index])?.source?.transition_out;
+            return raw && typeof raw === 'object' && cut.transitionOut
+                ? { ...cut, transitionOut: { ...cut.transitionOut, align: raw.align, fill: raw.fill } } : cut;
         });
+        const tracks = transitionPlanClipsFromCuts(cuts, { fps: this.fps, resolve: (cut, index) => {
+            const stillImage = this.isStillImageCut(cut);
+            const raw = this.rawV2Item(this.cutItemIds[index]);
+            const freezeSeconds = Number(raw?.source?.freeze?.duration_sec) || 0;
+            const videoUri = stillImage ? undefined : this.cutVideoUri(cut);
+            const duration = transitionMaterialDuration({ videoUri,
+                cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined, outSeconds: cut.out });
+            return { stillImage, freezeSeconds,
+                ...(duration !== undefined ? { materialDurationSeconds: duration } : {}) };
+        } });
+        const plans = tracks.flatMap(track => planTrackTransitions(track.clips,
+            { fps: this.fps, tailRoom: 'ignore' }));
+        this.transitionPlanCache = { cuts: this.cuts, revision: this.transitionPlanRevision, tracks, plans };
+        return this.transitionPlanCache;
+    }
+
+    protected transitionPlanFor(earlierIndex: number, laterIndex: number): TransitionBoundaryPlan | undefined {
+        return this.transitionPlans().plans.find(plan => plan.earlierId === String(earlierIndex)
+            && plan.laterId === String(laterIndex));
+    }
+
+    protected transitionReasonText(reasons: readonly TransitionShortenReason[]): string {
+        const reason = reasons.includes('neighbor') ? 'neighbor'
+            : reasons.includes('outgoing-length') || reasons.includes('incoming-length') ? 'clipLength'
+                : 'material';
+        return t(`transition.boundary.reason.${reason}`);
+    }
+
+    protected transitionPlanTrackFor(earlierIndex: number): TransitionPlanTrack | undefined {
+        return this.transitionPlans().tracks.find(track => track.clips.some(clip => clip.id === String(earlierIndex)));
+    }
+
+    protected transitionHandleInputSync(
+        earlier: OutputSegment, later: OutputSegment,
+        declaredSeconds = earlier.transitionOut?.duration ?? 0
+    ): ReturnType<typeof cachedTransitionHandleInput> {
+        const outgoing = this.cuts[earlier.index];
+        const incoming = this.cuts[later.index];
+        const outgoingStill = this.isStillImageCut(outgoing);
+        const videoUri = outgoing && !outgoingStill ? this.cutVideoUri(outgoing) : undefined;
+        return cachedTransitionHandleInput({ earlier, later, outgoing, incoming, declaredSeconds,
+            outgoingStill, incomingStill: this.isStillImageCut(incoming),
+            videoUri, cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined });
+    }
+
+    protected async waitForTransitionMaterial(earlierIndex: number): Promise<void> {
+        const outgoing = this.cuts[earlierIndex];
+        if (!outgoing || this.isStillImageCut(outgoing)) return;
+        const videoUri = this.cutVideoUri(outgoing);
+        if (videoUri) await this.ensureVideoDurationFetch(videoUri);
     }
 
     protected async removeLayerEvacuatedTransition(itemId: string): Promise<void> {
@@ -13440,10 +14062,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.commitEditMutation(t('annotations.timeline.text.hitAKeyFrame'), doc => setV2Keyframe(doc, {
             itemId, property, t: timeValue15, value, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
+        const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
         this.selectionModel.keyframeSelection = {
             kind: 'keyframe', itemId, property, times: [timeValue15],
             easing: this.segmentEasingAt(itemId, property, timeValue15)
         };
+        if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
     }
 
     protected async moveTimelineKeyframe(
@@ -13619,10 +14243,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (times.length === 0) throw new Error(t('annotations.timeline.text.thereAreNoKeyframes'));
                 const nearest = times.reduce((best, candidate) =>
                     Math.abs(candidate - timeValue17) < Math.abs(best - timeValue17) ? candidate : best);
+                const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                 this.selectionModel.keyframeSelection = {
                     kind: 'keyframe', itemId, property, times: [nearest],
                     easing: this.segmentEasingAt(itemId, property, nearest)
                 };
+                if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                 this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
                 this.applyKeyframePropertySelectionClass();
                 if (!this.scrollTimelineKeyframeRowIntoView(itemId, property)) {
@@ -13643,10 +14269,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.playheadT = row.at + target / this.fps;
                     this.selectedSourceT = this.outputToSource(this.playheadT);
                     await this.requestSeek(this.playheadT, { domain: 'output' });
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                     this.selectionModel.keyframeSelection = {
                         kind: 'keyframe', itemId, property, times: [target],
                         easing: this.segmentEasingAt(itemId, property, target)
                     };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                     this.applyKeyframePropertySelectionClass();
                 }
                 return { ok: true };
@@ -14396,6 +15024,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             candidate.id === track.id ? { ...candidate, [field]: next } : candidate);
         if (field !== 'locked') this.syncTimelineTrackTogglesToPreview();
         this.renderStrip();
+        if (field === 'locked' && this.activeBoundary) this.pushSelectionSnapshot();
         this.footer.textContent = t('annotations.timeline.text.iDid', { action: label });
     }
 
@@ -14737,6 +15366,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setTimelineRange(state: TimelineRangeState): void {
+        if (state.inFrame !== undefined || state.outFrame !== undefined) {
+            if (this.releaseTransitionBoundaryForOtherSelection()) {
+                this.pushSelectionSnapshot();
+                this.applySelectionClass();
+            }
+        }
         this.timelineRange = state;
         this.renderTimelineRangeState();
     }
@@ -16949,6 +17584,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const value: number | 'unavailable' = result.status === 'ready' && result.durationSeconds !== undefined
                 ? result.durationSeconds : 'unavailable';
             this.videoDurationCache.set(videoUri, value);
+            this.transitionPlanRevision++;
+            if (this.activeBoundary) this.pushSelectionSnapshot();
             if (value === 'unavailable') {
                 this.showVideoDurationUnavailableNotice();
             }
@@ -16956,6 +17593,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return value;
         }).catch((): number | 'unavailable' => {
             this.videoDurationCache.set(videoUri, 'unavailable');
+            this.transitionPlanRevision++;
+            if (this.activeBoundary) this.pushSelectionSnapshot();
             this.showVideoDurationUnavailableNotice();
             this.renderStrip();
             return 'unavailable';
@@ -18660,6 +19299,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 default:
                     return;
             }
+            const beforeFreeze = preview.kind === 'cut-trim'
+                ? transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds) : [];
             const movedId = preview.kind === 'cut-move' ? this.cutItemId(preview.index)
                 : preview.kind === 'layer' || preview.kind === 'audio' || preview.kind === 'overlay-move'
                     ? preview.id : undefined;
@@ -18677,7 +19318,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 this.hideNotice();
             }
-            this.footer.textContent = message;
+            const grown = preview.kind === 'cut-trim'
+                ? transitionFreezeGrowth(beforeFreeze, this.transitionPlans().plans, this.cutItemIds)
+                    .map(entry => t('transition.fill.notice.grown',
+                        { from: entry.from, to: entry.to, seconds: entry.seconds })) : [];
+            this.footer.textContent = [message, ...grown].join(' ');
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -19833,6 +20478,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (selected.length === 1) {
                     this.applySelection(selected[0]);
                 } else if (selected.length > 1) {
+                    this.releaseTransitionBoundaryForOtherSelection();
                     this.exitTrimmerModeUnlessSelected(undefined);
                     this.selection = undefined;
                     this.multiSelection = selected;

@@ -46,6 +46,11 @@ try {
   finish();
 }
 
+const legacyOflFont = isPlainObject(meta) && meta.category === "font"
+  && Object.keys(meta).sort().join(",") === "aliases,category,id,license,tags,title"
+  && isPlainObject(meta.license) && Object.keys(meta.license).join(",") === "spdx"
+  && meta.license.spdx === "OFL-1.1" && isRegularFile(path.join(assetDir, "OFL.txt"));
+
 validateMeta(meta);
 validateDirectoryContract(meta);
 validateFiles();
@@ -77,8 +82,8 @@ function validateMeta(value) {
   // min_overlay_runtime_version は 2026-08-06 層ミラー規約の導入で新設。motion_presets は同日 laptop-live-asset
   // タスクで新設 — scene3d ライブ経路の glb 内蔵クリップ一覧を機械可読にする）。
   const optionalFields = [
-    "source",
     "aliases",
+    "source",
     "i18n",
     "remote",
     "matched_by",
@@ -90,7 +95,7 @@ function validateMeta(value) {
   ];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
-    if (!hasOwn(value, field)) fail(`必須フィールドがありません: ${field}`);
+    if (!hasOwn(value, field)) (legacyOflFont ? warn : fail)(`必須フィールドがありません: ${field}`);
   }
 
   const unknownFields = Object.keys(value).filter((field) => !allowedFields.includes(field));
@@ -108,18 +113,21 @@ function validateMeta(value) {
   }
 
   for (const field of ["title", "description", "when_to_use", "ai_usage", "author"]) {
-    validateNonEmptyString(value[field], field);
+    if (!legacyOflFont || hasOwn(value, field)) validateNonEmptyString(value[field], field);
   }
 
   validateStringArray(value.tags, "tags");
-  if (hasOwn(value, "aliases")) validateStringArray(value.aliases, "aliases");
-  validateStringArray(value.requires, "requires");
-  validateKnobs(value.knobs);
+  if (hasOwn(value, "aliases") && (!Array.isArray(value.aliases)
+      || value.aliases.some(alias => typeof alias !== "string" || !alias.trim()))) {
+    fail("aliases は空でない文字列の配列である必要があります");
+  }
+  if (!legacyOflFont || hasOwn(value, "requires")) validateStringArray(value.requires, "requires");
+  if (!legacyOflFont || hasOwn(value, "knobs")) validateKnobs(value.knobs);
   if (hasOwn(value, "i18n")) validateI18n(value.i18n, value.knobs);
-  validateProvenance(value.provenance);
-  validateLicense(value.license);
+  if (!legacyOflFont || hasOwn(value, "provenance")) validateProvenance(value.provenance);
+  if (!legacyOflFont) validateLicense(value.license);
 
-  if (value.tier !== "free" && value.tier !== "pro") {
+  if ((!legacyOflFont || hasOwn(value, "tier")) && value.tier !== "free" && value.tier !== "pro") {
     fail("tier は free / pro のいずれかである必要があります");
   }
   if (value.tier === "pro" && value.license?.spdx === "CC0-1.0") {
@@ -456,7 +464,9 @@ function validateFiles() {
   }
 
   if (!isRegularFile(previewPath)) {
-    fail(`preview.png が見つかりません: ${previewPath}`);
+    const oflFont = meta?.category === "font" && meta.license?.spdx === "OFL-1.1"
+      && isRegularFile(path.join(assetDir, "OFL.txt"));
+    (oflFont ? warn : fail)(`preview.png が見つかりません: ${previewPath}`);
   } else {
     validatePng(previewPath);
   }

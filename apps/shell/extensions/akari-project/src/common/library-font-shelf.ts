@@ -1,5 +1,6 @@
 import { t } from '../common/project-text';
 import type { AssetCatalogViewItem } from './akari-project-protocol';
+import { fontFamily } from './font-apply-flow';
 
 export interface FontSelection { kind: 'cut' | 'caption'; id: string }
 
@@ -19,7 +20,8 @@ export function selectedFontStyleFromCaptions(source: string, captionId: string,
 }
 
 /** 既存の文字スタイル適用イベントへ渡す、見た目だけの部品。 */
-export function planFontApply(item: Pick<AssetCatalogViewItem, 'category' | 'id' | 'title'>,
+export function planFontApply(item: Pick<AssetCatalogViewItem, 'category' | 'id' | 'title' | 'baseTitle'>
+    & { fontAvailability?: AssetCatalogViewItem['fontAvailability'] },
     selection: FontSelection | null | undefined, previousStyle: Record<string, unknown> = {}): { ok: true; captionId: string; detail: {
         ids: string[]; selectedParts: string[]; style: { parts: Array<{ kind: 'look'; text_style: Record<string, unknown> }> }
     } } | { ok: false; message: string } {
@@ -27,7 +29,7 @@ export function planFontApply(item: Pick<AssetCatalogViewItem, 'category' | 'id'
     if (!selection || selection.kind !== 'caption' || !selection.id.trim()) {
         return { ok: false, message: t('project.library.fontShelf.selectTextFirstAction') };
     }
-    const family = item.title.replace(/（.*$/, '').trim();
+    const family = fontFamily(item);
     if (!family) return { ok: false, message: t('project.library.fontShelf.couldNotVerifyFontNameError') };
     return { ok: true, captionId: selection.id, detail: {
         ids: [selection.id], selectedParts: ['look'],

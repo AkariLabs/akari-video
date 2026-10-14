@@ -32,7 +32,7 @@ import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../
 import { registerLibraryTextstylePresets } from '@akari-video/edit-store';
 import { LIST_MY_STYLES_COMMAND_ID, MyStyleListItem } from '../common/my-style';
 import { BRAND_KIT_ADD_COLOR_COMMAND_ID, BRAND_KIT_GET_COMMAND_ID, BRAND_KIT_REMOVE_COLOR_COMMAND_ID } from '../common/brand-kit';
-import { isDelegatedDragOverInput, isDelegatedDropInput } from '../common/delegated-drop';
+import { isDelegatedDragOverInput, isDelegatedLibraryDropInput } from '../common/delegated-drop';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
@@ -287,16 +287,23 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
 
     /**
      * `data-akari-dropzone` の内側で起きた **AKARI 内部ドラッグ**（自前 MIME 付き）だけを
-     * その場所の実装に委ねる（task 2026-09-08-timeline-file-drop 指示2）。判定本体は DOM 非依存の
-     * 純関数 `isDelegatedDropInput`（common/delegated-drop.ts）で、ここはその薄い DOM 層。
+     * その場所の実装に委ねる（task 2026-09-08-timeline-file-drop 指示2）。基本の判定は DOM 非依存の
+     * 純関数 `isDelegatedDropInput`（common/delegated-drop.ts）で、ここで呼ぶ
+     * `isDelegatedLibraryDropInput` がそれを使う。ここは対象要素を調べる薄い DOM 層。
      *
      * OS からのファイルドロップ（`types` が `Files` だけ）は委譲しない — 委譲先の drop ハンドラは
      * 自 MIME 以外を無視して return するため、委譲すると受け皿が消えて無反応になる（issue #63）。
+     *
+     * 例外はライブラリ面（ライブラリを表示中のライブラリパネル。取り込みシートを含む）。
+     * ここでは OS のファイルドロップも委譲する。パネル自身の drop が動画・音・画像・フォントを
+     * まとめて取り込みシートへ渡す受け皿を持つため。ここで横取りすると動画だけがプロジェクトに入り、
+     * 残りがライブラリに届かない。
      */
     protected isDelegatedDrop(event: DragEvent): boolean {
         const target = event.target;
-        return isDelegatedDropInput({
+        return isDelegatedLibraryDropInput({
             insideDropzone: target instanceof Element && !!target.closest('[data-akari-dropzone]'),
+            insideLibrarySurface: this.isLibrarySurfaceDropTarget(target),
             types: event.dataTransfer ? Array.from(event.dataTransfer.types) : []
         });
     }
@@ -304,11 +311,24 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     /** task 2026-09-23-finder-drop-frame: Files だけの dragover は素材パネルへ通す。 */
     protected isDelegatedDragOver(event: DragEvent): boolean {
         const target = event.target;
-        return isDelegatedDragOverInput({
+        const input = {
             insideDropzone: target instanceof Element && !!target.closest('[data-akari-dropzone]'),
-            insideOsFileDropTarget: target instanceof Element && !!target.closest('[data-akari-os-file-drop-target]'),
             types: event.dataTransfer ? Array.from(event.dataTransfer.types) : []
+        };
+        return isDelegatedLibraryDropInput({
+            ...input,
+            insideLibrarySurface: this.isLibrarySurfaceDropTarget(target)
+        }) || isDelegatedDragOverInput({
+            ...input,
+            insideOsFileDropTarget: target instanceof Element && !!target.closest('[data-akari-os-file-drop-target]')
         });
+    }
+
+    /** シートはルート直下に入るため、表示面はルートの子孫から調べる。 */
+    protected isLibrarySurfaceDropTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return false;
+        const root = target.closest('[data-akari-os-file-drop-target]');
+        return !!root?.querySelector('[data-akari-top-view="catalog"]');
     }
 
     /** ドロップ先がタイムライン widget の内側か（落とした位置へ置くかどうかの判定）。 */

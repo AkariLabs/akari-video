@@ -23,14 +23,16 @@ export async function waveformMedia(targetArgument, options = {}) {
   if (!Number.isFinite(silenceDb)) throw new Error(toolsText('tools.waveform.error.silenceDb'));
   if (!Number.isFinite(minSilence) || minSilence <= 0) throw new Error(toolsText('tools.waveform.error.minSilence'));
 
+  // -f null は映像も既定で選ぶため、-vn 等が無いと 4K HEVC を毎回フルデコードして数十分かかる
+  // （826 秒の 4K 素材で 1 パス約 44 分 → 映像を外すと約 5 秒）。
   const silenceResult = runChecked(ffmpeg, [
-    "-hide_banner", "-nostdin", "-i", target.inputPath,
+    "-hide_banner", "-nostdin", "-i", target.inputPath, "-vn", "-sn", "-dn",
     "-af", `silencedetect=noise=${silenceDb}dB:d=${minSilence}`,
     "-f", "null", "-",
   ], options);
   const silences = parseSilences(silenceResult.stderr, duration);
   const loudnessResult = runChecked(ffmpeg, [
-    "-hide_banner", "-nostdin", "-i", target.inputPath,
+    "-hide_banner", "-nostdin", "-i", target.inputPath, "-vn", "-sn", "-dn",
     "-af", "ebur128=peak=true", "-f", "null", "-",
   ], options);
   const loudness = parseLoudness(loudnessResult.stderr);

@@ -71,7 +71,13 @@ test('style patches including color preserve rich fields', () => {
   ];
   for (const [name, patch] of patches) {
     const result = updateCaptionTextStyleInSource(source(), 'a', patch);
-    preserved(style(result));
+    if (name === 'size') {
+      assert.deepEqual(style(result).fill, rich.fill);
+      assert.deepEqual(style(result).strokes, [
+        { color: '#000000', width_px: 1.714286 },
+        { color: '#ffffff', width_px: 3.428571, offset_x: 0.857143, offset_y: -0.857143 }
+      ]);
+    } else preserved(style(result));
     assert.equal(style(result, 1).fill.type, 'gradient', name);
   }
   assert.equal(style(updateCaptionTextStyleInSource(source(), 'a', { color: '#123456' })).color, '#123456');

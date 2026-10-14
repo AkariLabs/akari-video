@@ -14,7 +14,7 @@ const ts = require('typescript');
 const { planDaihonUpdate } = require('../lib/common/daihon-reconcile.js');
 const { rowSourceIds, duplicateSpeechPairs } = require('../lib/common/daihon-source-badges.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
-const start = source.indexOf('    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {');
+const start = source.indexOf('    protected renderRows(next: DaihonRow[], refreshCutMarks = false, changedWordMarks = new Set<string>()): void {');
 assert.ok(start >= 0);
 const method = source.slice(start, source.indexOf('    protected placedRanges(', start));
 const compiled = ts.transpileModule(`class RenderHarness { ${method} }`, {

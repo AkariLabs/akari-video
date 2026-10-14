@@ -161,6 +161,7 @@ export interface LayerSummaryBaseResult {
 export interface CutSummaryTransitionOut {
     type: ReadableTransitionType;
     duration: number;
+    [key: string]: unknown;
 }
 
 export interface CutSummaryFields {
@@ -178,6 +179,7 @@ export interface CutSummaryFields {
     motion?: MotionSummary;
     speed?: number;
     transitionOut?: CutSummaryTransitionOut;
+    transitionHold?: { headSeconds: number };
     at?: number;
     // contract-2026-07-22-render-basics.md #6/#7. Deep validation stays with the consumers
     // (common/cut-framing-visual.ts computeCutFramingVisual / common/cut-freeze-visual.ts
@@ -461,7 +463,7 @@ export function buildCutSummaryFields(
         const validDuration = typeof transition?.duration === 'number'
             && Number.isFinite(transition.duration) && transition.duration > 0;
         if (isPlainObject(transition) && validType && validDuration) {
-            transitionOut = { type: transition.type as ReadableTransitionType, duration: transition.duration as number };
+            transitionOut = { ...transition } as CutSummaryTransitionOut;
         } else {
             warn('[akari-preview] cut.transition_out を無視しました（type/duration 不正）', transition);
         }
@@ -490,6 +492,11 @@ export function buildCutSummaryFields(
             && record.opacity >= 0 && record.opacity <= 1 ? { opacity: record.opacity } : {}),
         ...(speed !== undefined ? { speed } : {}),
         ...(transitionOut ? { transitionOut } : {}),
+        ...(isPlainObject(record?.transitionHold)
+            && typeof record.transitionHold.headSeconds === 'number'
+            && Number.isFinite(record.transitionHold.headSeconds)
+            && record.transitionHold.headSeconds > 0
+            ? { transitionHold: { headSeconds: record.transitionHold.headSeconds } } : {}),
         ...(at !== undefined ? { at } : {}),
         ...(isPlainObject(record?.framing) ? { framing: record?.framing as unknown as CutFraming } : {}),
         ...(isPlainObject(record?.freeze) ? { freeze: record?.freeze as unknown as CutFreeze } : {})

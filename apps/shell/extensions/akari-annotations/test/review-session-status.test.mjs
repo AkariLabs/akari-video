@@ -13,13 +13,16 @@ test.after(() => setLanguage(undefined));
 
 test('状態バッジをライフサイクルへ写像し orphaned を優先する', () => {
     assert.deepEqual(reviewSessionBadge({ id: 's-1', startedAt: '', status: 'recorded' }), {
-        key: 'recorded', label: '録音済み', hint: 'まだチケットになっていません — コンパイルでチケット化'
+        key: 'recorded', label: 'まだ渡していません'
     });
     assert.deepEqual(reviewSessionBadge({ id: 's-2', startedAt: '', status: 'transcribed' }), {
-        key: 'transcribed', label: '文字起こし済み'
+        key: 'transcribed', label: 'まだ渡していません'
     });
     assert.deepEqual(reviewSessionBadge({ id: 's-3', startedAt: '', status: 'compiled' }), {
-        key: 'compiled', label: 'コンパイル済み'
+        key: 'compiled', label: 'コメントになりました'
+    });
+    assert.deepEqual(reviewSessionBadge({ id: 's-3', startedAt: '', status: 'compiled', compiledAnnotations: ['a-0001', 'a-0002'] }), {
+        key: 'compiled', label: 'コメント 2 件になりました'
     });
     assert.deepEqual(reviewSessionBadge({ id: 's-4', startedAt: '', status: 'compiled', orphaned: true }), {
         key: 'orphaned', label: '未完了'

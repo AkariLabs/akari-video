@@ -375,6 +375,7 @@
   "inspector.captionPanels.label.close": "Close",
   "inspector.captionPanels.label.open": "Open",
   "inspector.captionPanels.text.available": "Available",
+  "inspector.captionPanels.text.addedByYou": "Added by you",
   "inspector.captionPanels.label.recentStyles": "Recent styles",
   "inspector.captionPanels.label.textStyle": "Text style",
   "inspector.captionPanels.label.myStyle": "My style",

@@ -15,19 +15,17 @@ import {
   normalizeCaptionClock,
   outputToSource,
   resolveCaptionLineStyleVars,
+  captionOutlineRuntime,
   TRANSITION_BY_ID,
   transitionProgressAt,
 } from '/edit-kernel.bundle.js';
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
-  createGlowSprite,
   createSparkleSprite,
-  createPlatinumGradient,
-  drawPenSegment as drawPenSegmentShared,
+  drawPenStroke,
 } from '/pen-visuals.bundle.js';
 import { replaceCaptionStyleVariables, applyRichCaptionLayers } from '/caption-style.js';
-import { roundedCaptionStrokeShadows } from '/caption-rounded-stroke.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
 import { composeCutVisualStyle } from '/cut-transform-visual.js';
@@ -52,7 +50,7 @@ import {
   waitForMediaSeekCompletion,
 } from '/audio-declick.js';
 import { createScrubAudioController } from '/audio-scrub.js';
-import { editForPut } from '/transition-write-guard.js';
+import { editForPut, escapeTransitionOptionAttribute, transitionTypeOptions } from '/transition-write-guard.js';
 import { relocateCutIndex } from '/cut-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
@@ -72,6 +70,8 @@ import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWor
 import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
 import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
 import { engineRenderTime, transitionAudioBoundaries, snapToCut } from '/timeline-read.js';
+
+captionOutlineRuntime().install(document);
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -612,7 +612,7 @@ function buildSegments() {
     ...cut,
     ...(cut.transition_out !== undefined ? { transitionOut: cut.transition_out } : {}),
   }));
-  const built = buildTimelineMap(kernelCuts, { trackZ: track => track });
+  const built = buildTimelineMap(kernelCuts, { trackZ: track => track, fps });
   timelineMap = built;
   refreshCaptionClock();
   segments = built.segments.map(s => s.kind === 'gap'
@@ -1778,7 +1778,7 @@ wrapper.addEventListener('pointerdown', (e) => {
   window.addEventListener('pointercancel', onCancel);
 }, true);
 
-// --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
+// --- Pen annotation canvas ---
 function setupPenCanvas() {
   // DPR クランプは shell と同じ正本値（PEN_TUNING.maxDevicePixelRatio）に従う。
   // 裏バッファは表示 px（出力フレーム矩形）基準 — CSS サイズは論理ステージの 100% で、
@@ -1789,35 +1789,20 @@ function setupPenCanvas() {
   penCanvas.height = Math.max(1, Math.round(rect.height * dpr));
   penCanvas.style.width = '100%';
   penCanvas.style.height = '100%';
-  rebuildPlatinumGradient();
 }
 let penCtx = penCanvas.getContext('2d');
-let platinumGradient = null;
 let penCurrentStroke = null;
 let penFadingStrokes = [];
 let penSparkles = [];
-let penGlowSprite = null;
 let penSparkleSprite = null;
 let penAnimHandle = 0;
 
-// PEN_TUNING / スプライト生成は pen-visuals.bundle.js（単一正本）から import する。
-
-function rebuildPlatinumGradient() {
-  const w = penCanvas.width, h = penCanvas.height;
-  platinumGradient = (w > 0 && h > 0) ? createPlatinumGradient(penCtx, w, h) : null;
-}
-
-function drawPenSegment(ctx, from, to) {
-  drawPenSegmentShared(
-    ctx, penGlowSprite, platinumGradient,
-    [from.x, from.y], [to.x, to.y],
-    penCanvas.width, penCanvas.height
-  );
-}
+// PEN_TUNING / 描画プリミティブは pen-visuals.bundle.js（単一正本）から import する。
 
 function spawnPenSparkles(point) {
   const w = penCanvas.width, h = penCanvas.height;
   for (let i = 0; i < PEN_TUNING.sparklesPerSegment; i++) {
+    if (Math.random() >= PEN_TUNING.sparkleProbability) continue;
     if (penSparkles.length >= PEN_TUNING.sparkleMaxPoolSize) penSparkles.shift();
     const angle = Math.random() * Math.PI * 2;
     const jitter = Math.random() * PEN_TUNING.sparkleJitterPx;
@@ -1836,7 +1821,6 @@ function drawPenSparkles(ctx, timestamp) {
   if (!penSparkles.length) return;
   const alive = [];
   ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
   for (const s of penSparkles) {
     const age = timestamp - s.bornAt;
     if (age >= s.lifetimeMs) continue;
@@ -1862,19 +1846,22 @@ function penRecomposite(timestamp) {
   penCtx.clearRect(0, 0, w, h);
   for (const fading of penFadingStrokes) {
     penCtx.globalAlpha = penFadeAlpha(fading, timestamp);
-    drawPenStrokePoints(fading);
+    paintPenStroke(fading);
   }
   penCtx.globalAlpha = 1;
-  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  if (penCurrentStroke) paintPenStroke(penCurrentStroke);
   drawPenSparkles(penCtx, timestamp || performance.now());
 }
 
-function drawPenStrokePoints(stroke) {
+function paintPenStroke(stroke) {
   const pts = stroke.points;
-  if (pts.length < 2) return;
+  drawPenStroke(penCtx, pts.map(point => [point.x, point.y]), penCanvas.width, penCanvas.height);
+}
+
+function spawnPendingPenSparkles(stroke) {
+  const pts = stroke.points;
   let i = stroke.drawnIndex || 0;
   while (i < pts.length - 1) {
-    drawPenSegment(penCtx, pts[i], pts[i + 1]);
     spawnPenSparkles(pts[i + 1]);
     i++;
   }
@@ -1882,7 +1869,7 @@ function drawPenStrokePoints(stroke) {
 }
 
 function penTick(timestamp) {
-  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  if (penCurrentStroke) spawnPendingPenSparkles(penCurrentStroke);
   penFadingStrokes = penFadingStrokes.filter(f => penFadeAlpha(f, timestamp) > 0);
   penRecomposite(timestamp);
   const stillActive = penCurrentStroke !== null || penFadingStrokes.length > 0 || penSparkles.length > 0;
@@ -1894,7 +1881,6 @@ function ensurePenLoop() {
 }
 
 function initPenSprites() {
-  if (!penGlowSprite) penGlowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
   if (!penSparkleSprite) penSparkleSprite = createSparkleSprite(Math.max(48, PEN_TUNING.sparkleSpritePx * 3));
 }
 
@@ -1918,6 +1904,7 @@ function onPenPointerMove(e) {
 }
 function onPenPointerUp(e) {
   if (!penCurrentStroke) return;
+  spawnPendingPenSparkles(penCurrentStroke);
   penCurrentStroke.fadeStartedAt = performance.now();
   penFadingStrokes.push(penCurrentStroke);
   penCurrentStroke = null;
@@ -1931,6 +1918,7 @@ function penEnable(enabled) {
   document.body.style.cursor = enabled ? 'crosshair' : '';
   if (!enabled && !penCurrentStroke) return;
   if (!enabled && penCurrentStroke) {
+    spawnPendingPenSparkles(penCurrentStroke);
     penCurrentStroke.fadeStartedAt = performance.now();
     penFadingStrokes.push(penCurrentStroke);
     penCurrentStroke = null;
@@ -3087,11 +3075,7 @@ function renderCutInfoContent(seg) {
       <label style="flex:1;color:#888;font-size:11px">OUT トランジション
         <select id="cut-inp-to-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
           <option value="">なし</option>
-          <option value="dissolve"${toType==='dissolve'?' selected':''}>dissolve</option>
-          <option value="fade-black"${toType==='fade-black'?' selected':''}>fade-black</option>
-          <option value="fade-white"${toType==='fade-white'?' selected':''}>fade-white</option>
-          <option value="reveal-down"${toType==='reveal-down'?' selected':''}>reveal-down</option>
-          <option value="reveal-up"${toType==='reveal-up'?' selected':''}>reveal-up</option>
+          ${transitionTypeOptions(toType).map(type => `<option value="${escapeTransitionOptionAttribute(type)}"${toType === type ? ' selected' : ''}>${esc(type)}</option>`).join('')}
      </select>
         <input id="cut-inp-to-dur" type="number" step="0.01" min="0" value="${toDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
       </label>
@@ -3132,7 +3116,7 @@ function renderCutInfoContent(seg) {
     const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transition_out: cut.transition_out };
     cut.in = inVal; cut.out = outVal; cut.speed = speedVal;
     cut.at = atVal ? Number(atVal) : undefined;
-    cut.transition_out = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
+    cut.transition_out = toType ? { ...cut.transition_out, type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
     try {
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
@@ -4070,7 +4054,7 @@ const CAPTION_STYLE_VARS = [
   '--caption-color', '--caption-font-size', '--caption-font-family', '--caption-font-weight',
   '--caption-font-style', '--caption-text-decoration', '--caption-letter-spacing',
   '--caption-text-transform', '--caption-writing-mode', '--caption-line-height',
-  '--caption-text-shadow', '--caption-stroke', '--caption-webkit-text-stroke', '--caption-rounded-stroke', '--caption-paint-order',
+  '--caption-text-shadow', '--caption-stroke', '--caption-webkit-text-stroke', '--caption-paint-order',
   '--caption-fill-gradient', '--caption-fill-clip', '--caption-fill-color', '--caption-fill-filter',
   '--plate-bg', '--plate-radius', '--plate-pad-x', '--plate-pad-y',
   '--plate-block-pad-x', '--plate-block-pad-y',
@@ -4093,10 +4077,6 @@ function applyCaptionStyle(caption, captionPlate) {
     if (typeof caption?.text_style?.rotate === 'number' && Number.isFinite(caption.text_style.rotate)
       && caption.text_style.rotate !== 0) vars['--caption-rotate'] = `${caption.text_style.rotate}deg`;
     replaceCaptionStyleVariables(captionPlate.style, vars);
-    const roundedStroke = caption?.cut_index === -1
-      ? roundedCaptionStrokeShadows(caption.style_vars?.['--caption-stroke'], caption.style_vars?.['--caption-text-shadow']) : null;
-    if (roundedStroke) captionPlate.style.setProperty('--caption-rounded-stroke', roundedStroke);
-    captionPlate.classList.toggle('akari-caption--rounded-stroke', Boolean(roundedStroke));
     captionPlate.classList.toggle('akari-caption--fill-gradient', Boolean(vars['--caption-fill-gradient']));
     captionPlate.classList.add('akari-caption-resolved', 'akari-caption-styled');
     return;
@@ -4113,10 +4093,6 @@ function applyCaptionStyle(caption, captionPlate) {
   if (typeof scale === 'number' && Number.isFinite(scale) && scale !== 1) vars['--caption-scale'] = String(scale);
   if (typeof rotate === 'number' && Number.isFinite(rotate) && rotate !== 0) vars['--caption-rotate'] = `${rotate}deg`;
   replaceCaptionStyleVariables(captionPlate.style, vars);
-  const roundedStroke = caption?.time_domain === 'output'
-    ? roundedCaptionStrokeShadows(vars['--caption-stroke'], vars['--caption-text-shadow']) : null;
-  if (roundedStroke) captionPlate.style.setProperty('--caption-rounded-stroke', roundedStroke);
-  captionPlate.classList.toggle('akari-caption--rounded-stroke', Boolean(roundedStroke));
   captionPlate.classList.toggle('akari-caption--fill-gradient', Boolean(vars['--caption-fill-gradient']));
   captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
@@ -4153,9 +4129,6 @@ function injectCaptionStyles() {
 .akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9))); paint-order:var(--caption-paint-order,stroke fill); text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif); font-size:var(--caption-font-size,38px); font-weight:var(--caption-font-weight,700); font-style:var(--caption-font-style,normal); text-decoration:var(--caption-text-decoration,none); letter-spacing:var(--caption-letter-spacing,normal); text-transform:var(--caption-text-transform,none); line-height:var(--caption-word-line-height,var(--caption-line-height,1.42)); writing-mode:var(--caption-writing-mode,horizontal-tb); text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); translate:var(--caption-translate,none); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1)); transform-origin:center; }
 .akari-caption__line { position:relative; isolation:isolate; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-radius,10px); background:var(--plate-bg,transparent); background-image:var(--caption-fill-gradient,none); -webkit-background-clip:var(--caption-fill-clip,border-box); -webkit-text-fill-color:var(--caption-fill-color,currentColor); text-align:var(--caption-text-align,center); white-space:pre; }
-.caption-row-plate.akari-caption--rounded-stroke .akari-caption__line,
-.caption-row-plate.akari-caption--rounded-stroke .akari-caption__block,
-.caption-row-plate.akari-caption--rounded-stroke .akari-caption__resolved-line { -webkit-text-stroke:0 transparent; text-shadow:var(--caption-rounded-stroke); }
 .caption-row-plate.akari-caption--fill-gradient .akari-caption__line { -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }
 .caption-row-plate.akari-caption--fill-gradient .akari-caption__resolved-line { display:inline-block; background-image:var(--caption-fill-gradient,none); -webkit-background-clip:text; -webkit-text-fill-color:transparent; -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }
 .caption-row-plate.akari-caption--fill-gradient .akari-caption__line:has(.akari-caption__tok),
@@ -4184,7 +4157,7 @@ function injectCaptionStyles() {
 .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--karaoke-done { color:var(--caption-highlight-color,#ffd94a); }
 .akari-caption__tok--karaoke-smooth { position:relative;animation:none; }
-.akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+.akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
 .akari-caption__tok--reveal-word { animation:akari-caption-reveal-word 0.01s var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--emphasis { }

@@ -42,9 +42,7 @@ const cutSections = compile(cutFactory.getText(inspector), {
   cutFreezeFields: () => [],
   MOTION_SUMMARY_SECTION: () => ({ id: 'motion-summary', label: '動き', fields: [] }),
   MOTION_EMPTY_SECTION: () => ({ id: 'motion-empty', label: '動き', fields: [] }),
-  MOTION_FIELDS: () => [],
-  // S3 で timing 節に加わった transition_out 行。本テストは audio 節だけを見るので空にする。
-  cutTransitionFields: () => []
+  MOTION_FIELDS: () => []
 }, 'CUT_SECTIONS');
 
 const { ast: timeline } = findMember('handleInspectorWriteV2', { in: 'widget' });

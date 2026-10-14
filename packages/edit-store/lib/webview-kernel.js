@@ -54,7 +54,10 @@ var AkariEditKernel = (() => {
     TEXTSTYLE_CATALOG: () => TEXTSTYLE_CATALOG,
     TRANSITION_BY_ID: () => TRANSITION_BY_ID,
     TRANSITION_CATEGORIES: () => TRANSITION_CATEGORIES,
+    TRANSITION_FAMILIES: () => TRANSITION_FAMILIES,
+    TRANSITION_NAME_WITH_DIRECTION_KEY: () => TRANSITION_NAME_WITH_DIRECTION_KEY,
     TRANSITION_TYPE_IDS: () => TRANSITION_TYPE_IDS,
+    TRANSITION_UNKNOWN_LABEL_KEY: () => TRANSITION_UNKNOWN_LABEL_KEY,
     TRANSITION_VOCABULARY: () => TRANSITION_VOCABULARY,
     applyCaptionStylePresets: () => applyCaptionStylePresets,
     audioFadeFfmpegCurve: () => audioFadeFfmpegCurve,
@@ -67,6 +70,7 @@ var AkariEditKernel = (() => {
     captionAnchorPositionVars: () => captionAnchorPositionVars,
     captionClockDomainOf: () => captionClockDomainOf,
     captionFragmentWindows: () => captionFragmentWindows,
+    captionOutlineRuntime: () => captionOutlineRuntime,
     captionSpeechWindow: () => captionSpeechWindow,
     captionWindowSeconds: () => captionWindowSeconds,
     composeEnvelopesDb: () => composeEnvelopesDb,
@@ -93,6 +97,7 @@ var AkariEditKernel = (() => {
     projectAudioFadeShapes: () => projectAudioFadeShapes,
     projectLayerSpeechDeclarations: () => projectLayerSpeechDeclarations,
     projectSpeechDeclarations: () => projectSpeechDeclarations,
+    projectSpeechDeclarationsFromWindows: () => projectSpeechDeclarationsFromWindows,
     projectSpeechKeyIntervals: () => projectSpeechKeyIntervals,
     removeStyleAttachedItems: () => removeStyleAttachedItems,
     resolveCaptionLineStyleVars: () => resolveCaptionLineStyleVars,
@@ -102,41 +107,45 @@ var AkariEditKernel = (() => {
     sampleEnvelopeLinear: () => sampleEnvelopeLinear,
     sourceToOutput: () => sourceToOutput,
     toAnchorCaptions: () => toAnchorCaptions,
+    transitionDirectionLabelKey: () => transitionDirectionLabelKey,
+    transitionFamilyLabelKey: () => transitionFamilyLabelKey,
+    transitionFamilyOf: () => transitionFamilyOf,
     transitionProgressAt: () => transitionProgressAt,
+    transitionTypeOf: () => transitionTypeOf,
     withoutItemAnchors: () => withoutItemAnchors
   });
 
   // src/transition-vocabulary.ts
   var TRANSITION_VOCABULARY = [
-    { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D" },
-    { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F" },
-    { id: "fade-black", xfadeName: "fadeblack", labelJa: "\u9ED2\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-black", glyph: "B" },
-    { id: "fade-white", xfadeName: "fadewhite", labelJa: "\u767D\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-white", glyph: "W" },
-    { id: "fade-grays", xfadeName: "fadegrays", labelJa: "\u30E2\u30CE\u30AF\u30ED\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-grays", glyph: "G" },
-    { id: "wipe-left", xfadeName: "wipeleft", labelJa: "\u30EF\u30A4\u30D7\uFF08\u5DE6\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-left", glyph: "\u2190" },
-    { id: "wipe-right", xfadeName: "wiperight", labelJa: "\u30EF\u30A4\u30D7\uFF08\u53F3\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-right", glyph: "\u2192" },
-    { id: "wipe-up", xfadeName: "wipeup", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0A\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-up", glyph: "\u2191" },
-    { id: "wipe-down", xfadeName: "wipedown", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0B\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-down", glyph: "\u2193" },
-    { id: "radial", xfadeName: "radial", labelJa: "\u6642\u8A08\u30EF\u30A4\u30D7", category: "\u30EF\u30A4\u30D7", previewKind: "radial", glyph: "\u25F7" },
-    { id: "slide-left", xfadeName: "slideleft", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u5DE6\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-left", glyph: "\u2190" },
-    { id: "slide-right", xfadeName: "slideright", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u53F3\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-right", glyph: "\u2192" },
-    { id: "slide-up", xfadeName: "slideup", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0A\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-up", glyph: "\u2191" },
-    { id: "slide-down", xfadeName: "slidedown", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0B\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-down", glyph: "\u2193" },
-    { id: "cover-left", xfadeName: "coverleft", labelJa: "\u30AB\u30D0\u30FC\uFF08\u5DE6\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-left", glyph: "\u2190" },
-    { id: "cover-right", xfadeName: "coverright", labelJa: "\u30AB\u30D0\u30FC\uFF08\u53F3\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-right", glyph: "\u2192" },
-    { id: "cover-up", xfadeName: "coverup", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0A\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-up", glyph: "\u2191" },
-    { id: "cover-down", xfadeName: "coverdown", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0B\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-down", glyph: "\u2193" },
-    { id: "reveal-left", xfadeName: "revealleft", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u5DE6\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-left", glyph: "\u2190" },
-    { id: "reveal-right", xfadeName: "revealright", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u53F3\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-right", glyph: "\u2192" },
-    { id: "reveal-down", xfadeName: "revealdown", labelJa: "\u4E0A\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-down", glyph: "\u2193" },
-    { id: "reveal-up", xfadeName: "revealup", labelJa: "\u4E0B\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-up", glyph: "\u2191" },
-    { id: "circle-open", xfadeName: "circleopen", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u958B\u304F\uFF09", category: "\u5F62\u72B6", previewKind: "circle-open", glyph: "\u25CB" },
-    { id: "circle-close", xfadeName: "circleclose", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u9589\u3058\u308B\uFF09", category: "\u5F62\u72B6", previewKind: "circle-close", glyph: "\u25CF" },
-    { id: "zoom-in", xfadeName: "zoomin", labelJa: "\u30BA\u30FC\u30E0\u30A4\u30F3", category: "\u5909\u5F62", previewKind: "zoom-in", glyph: "\uFF0B" },
-    { id: "squeeze-h", xfadeName: "squeezeh", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u7E26\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-h", glyph: "\u2195" },
-    { id: "squeeze-v", xfadeName: "squeezev", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u6A2A\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-v", glyph: "\u2194" },
-    { id: "blur", xfadeName: "hblur", labelJa: "\u30D6\u30E9\u30FC", category: "\u8CEA\u611F", previewKind: "blur", glyph: "B" },
-    { id: "pixelize", xfadeName: "pixelize", labelJa: "\u30D4\u30AF\u30BB\u30EC\u30FC\u30C8", category: "\u8CEA\u611F", previewKind: "pixelize", glyph: "P" }
+    { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D", family: "dissolve" },
+    { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F", family: "fade" },
+    { id: "fade-black", xfadeName: "fadeblack", labelJa: "\u9ED2\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-black", glyph: "B", family: "fade-black" },
+    { id: "fade-white", xfadeName: "fadewhite", labelJa: "\u767D\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-white", glyph: "W", family: "fade-white" },
+    { id: "fade-grays", xfadeName: "fadegrays", labelJa: "\u30E2\u30CE\u30AF\u30ED\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade-grays", glyph: "G", family: "fade-grays" },
+    { id: "wipe-left", xfadeName: "wipeleft", labelJa: "\u30EF\u30A4\u30D7\uFF08\u5DE6\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-left", glyph: "\u2190", family: "wipe", direction: "left" },
+    { id: "wipe-right", xfadeName: "wiperight", labelJa: "\u30EF\u30A4\u30D7\uFF08\u53F3\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-right", glyph: "\u2192", family: "wipe", direction: "right" },
+    { id: "wipe-up", xfadeName: "wipeup", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0A\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-up", glyph: "\u2191", family: "wipe", direction: "up" },
+    { id: "wipe-down", xfadeName: "wipedown", labelJa: "\u30EF\u30A4\u30D7\uFF08\u4E0B\u3078\uFF09", category: "\u30EF\u30A4\u30D7", previewKind: "wipe-down", glyph: "\u2193", family: "wipe", direction: "down" },
+    { id: "radial", xfadeName: "radial", labelJa: "\u6642\u8A08\u30EF\u30A4\u30D7", category: "\u30EF\u30A4\u30D7", previewKind: "radial", glyph: "\u25F7", family: "radial" },
+    { id: "slide-left", xfadeName: "slideleft", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u5DE6\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-left", glyph: "\u2190", family: "slide", direction: "left" },
+    { id: "slide-right", xfadeName: "slideright", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u53F3\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-right", glyph: "\u2192", family: "slide", direction: "right" },
+    { id: "slide-up", xfadeName: "slideup", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0A\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-up", glyph: "\u2191", family: "slide", direction: "up" },
+    { id: "slide-down", xfadeName: "slidedown", labelJa: "\u30B9\u30E9\u30A4\u30C9\uFF08\u4E0B\u3078\uFF09", category: "\u30B9\u30E9\u30A4\u30C9", previewKind: "slide-down", glyph: "\u2193", family: "slide", direction: "down" },
+    { id: "cover-left", xfadeName: "coverleft", labelJa: "\u30AB\u30D0\u30FC\uFF08\u5DE6\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-left", glyph: "\u2190", family: "cover", direction: "left" },
+    { id: "cover-right", xfadeName: "coverright", labelJa: "\u30AB\u30D0\u30FC\uFF08\u53F3\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-right", glyph: "\u2192", family: "cover", direction: "right" },
+    { id: "cover-up", xfadeName: "coverup", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0A\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-up", glyph: "\u2191", family: "cover", direction: "up" },
+    { id: "cover-down", xfadeName: "coverdown", labelJa: "\u30AB\u30D0\u30FC\uFF08\u4E0B\u3078\uFF09", category: "\u30AB\u30D0\u30FC", previewKind: "cover-down", glyph: "\u2193", family: "cover", direction: "down" },
+    { id: "reveal-left", xfadeName: "revealleft", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u5DE6\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-left", glyph: "\u2190", family: "reveal", direction: "left" },
+    { id: "reveal-right", xfadeName: "revealright", labelJa: "\u30EA\u30D3\u30FC\u30EB\uFF08\u53F3\u3078\uFF09", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-right", glyph: "\u2192", family: "reveal", direction: "right" },
+    { id: "reveal-down", xfadeName: "revealdown", labelJa: "\u4E0A\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-down", glyph: "\u2193", family: "reveal", direction: "down" },
+    { id: "reveal-up", xfadeName: "revealup", labelJa: "\u4E0B\u304B\u3089\u30EA\u30D3\u30FC\u30EB", category: "\u30EA\u30D3\u30FC\u30EB", previewKind: "reveal-up", glyph: "\u2191", family: "reveal", direction: "up" },
+    { id: "circle-open", xfadeName: "circleopen", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u958B\u304F\uFF09", category: "\u5F62\u72B6", previewKind: "circle-open", glyph: "\u25CB", family: "circle", direction: "open" },
+    { id: "circle-close", xfadeName: "circleclose", labelJa: "\u30B5\u30FC\u30AF\u30EB\uFF08\u9589\u3058\u308B\uFF09", category: "\u5F62\u72B6", previewKind: "circle-close", glyph: "\u25CF", family: "circle", direction: "close" },
+    { id: "zoom-in", xfadeName: "zoomin", labelJa: "\u30BA\u30FC\u30E0\u30A4\u30F3", category: "\u5909\u5F62", previewKind: "zoom-in", glyph: "\uFF0B", family: "zoom-in" },
+    { id: "squeeze-h", xfadeName: "squeezeh", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u7E26\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-h", glyph: "\u2195", family: "squeeze", direction: "h" },
+    { id: "squeeze-v", xfadeName: "squeezev", labelJa: "\u30B9\u30AF\u30A4\u30FC\u30BA\uFF08\u6A2A\u3064\u3076\u3057\uFF09", category: "\u5909\u5F62", previewKind: "squeeze-v", glyph: "\u2194", family: "squeeze", direction: "v" },
+    { id: "blur", xfadeName: "hblur", labelJa: "\u30D6\u30E9\u30FC", category: "\u8CEA\u611F", previewKind: "blur", glyph: "B", family: "blur" },
+    { id: "pixelize", xfadeName: "pixelize", labelJa: "\u30D4\u30AF\u30BB\u30EC\u30FC\u30C8", category: "\u8CEA\u611F", previewKind: "pixelize", glyph: "P", family: "pixelize" }
   ];
   var TRANSITION_TYPE_IDS = TRANSITION_VOCABULARY.map((entry) => entry.id);
   var TRANSITION_CATEGORIES = [...new Set(TRANSITION_VOCABULARY.map((entry) => entry.category))];
@@ -144,6 +153,41 @@ var AkariEditKernel = (() => {
   function isTransitionType(value) {
     return typeof value === "string" && Object.prototype.hasOwnProperty.call(TRANSITION_BY_ID, value);
   }
+  var TRANSITION_DIRECTION_ORDER = ["left", "right", "up", "down", "open", "close", "h", "v"];
+  function directionOfEntry(entry) {
+    return "direction" in entry ? entry.direction : void 0;
+  }
+  var TRANSITION_FAMILIES = (() => {
+    const families = /* @__PURE__ */ new Map();
+    for (const entry of TRANSITION_VOCABULARY) {
+      const directions = families.get(entry.family) ?? [];
+      const direction = directionOfEntry(entry);
+      if (direction) directions.push(direction);
+      families.set(entry.family, directions);
+    }
+    return [...families].map(([family, directions]) => ({
+      family,
+      directions: [...directions].sort((a, b) => TRANSITION_DIRECTION_ORDER.indexOf(a) - TRANSITION_DIRECTION_ORDER.indexOf(b))
+    }));
+  })();
+  function transitionFamilyOf(type) {
+    if (!isTransitionType(type)) return void 0;
+    const entry = TRANSITION_BY_ID[type];
+    const direction = directionOfEntry(entry);
+    return direction ? { family: entry.family, direction } : { family: entry.family };
+  }
+  function transitionTypeOf(family, direction) {
+    return TRANSITION_VOCABULARY.find((entry) => entry.family === family && directionOfEntry(entry) === (direction ?? void 0))?.id;
+  }
+  var camelKeySegment = (value) => value.replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+  function transitionFamilyLabelKey(family) {
+    return `transition.family.label.${camelKeySegment(family)}`;
+  }
+  function transitionDirectionLabelKey(direction) {
+    return `transition.direction.label.${camelKeySegment(direction)}`;
+  }
+  var TRANSITION_UNKNOWN_LABEL_KEY = "transition.family.label.unknown";
+  var TRANSITION_NAME_WITH_DIRECTION_KEY = "transition.name.format.withDirection";
 
   // src/edit-store.ts
   function computeCutTrackSegments(cuts) {
@@ -176,25 +220,255 @@ var AkariEditKernel = (() => {
     const resolvedFps = effectiveCutFps(fps);
     return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
   }
-  var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
-  function planTransitionHandleWindow(input) {
-    const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
-    const effectiveSeconds = Math.max(0, Math.min(
-      declaredSeconds,
-      2 * nonNegativeRoom(input.outgoingTailRoomSeconds),
-      2 * nonNegativeRoom(input.incomingHeadRoomSeconds),
-      2 * nonNegativeRoom(input.outgoingDurationSeconds),
-      2 * nonNegativeRoom(input.incomingDurationSeconds)
-    ));
-    return {
-      effectiveSeconds,
-      halfSeconds: effectiveSeconds / 2,
-      outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
-    };
-  }
   var STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
   function isStillImageSourcePath(path) {
     return typeof path === "string" && STILL_IMAGE_SOURCE_PATTERN.test(path);
+  }
+
+  // src/transition-plan.ts
+  var TRANSITION_ALIGN_IDS = ["center", "before-cut", "after-cut"];
+  function isTransitionAlign(value) {
+    return typeof value === "string" && TRANSITION_ALIGN_IDS.includes(value);
+  }
+  function readTransitionAlign(value) {
+    return isTransitionAlign(value) ? value : "center";
+  }
+  function readTransitionFill(value) {
+    return value === "freeze" ? "freeze" : void 0;
+  }
+  var EPSILON = 1e-6;
+  var room = (value) => value === void 0 || value === Number.POSITIVE_INFINITY ? Number.POSITIVE_INFINITY : Number.isFinite(value) && value > 0 ? value : 0;
+  var earlierShare = (align, x) => align === "before-cut" ? x : align === "after-cut" ? 0 : x / 2;
+  var laterShare = (align, x) => align === "after-cut" ? x : align === "before-cut" ? 0 : x / 2;
+  var lengthWithin = (align, a, b) => align === "before-cut" ? a : align === "after-cut" ? b : 2 * Math.min(a, b);
+  function planTrackTransitions(clips, options) {
+    return planTrack(clips, options);
+  }
+  function planTrack(clips, options) {
+    const fps = effectiveCutFps(options.fps);
+    const boundaries = [];
+    for (let index = 0; index + 1 < clips.length; index++) {
+      const earlier = clips[index];
+      const later = clips[index + 1];
+      const declared = earlier.transitionOut?.declaredSeconds;
+      if (typeof declared !== "number" || !Number.isFinite(declared) || declared <= 0) {
+        boundaries.push(void 0);
+        continue;
+      }
+      const earlierEnd = earlier.startSeconds + earlier.lengthSeconds;
+      const laterEnd = later.startSeconds + later.lengthSeconds;
+      const overlapFrames = cutOverlapFrames({ tlEnd: earlierEnd }, { tlStart: later.startSeconds }, fps);
+      if (overlapFrames === 0) {
+        boundaries.push({
+          kind: "new",
+          earlier: index,
+          later: index + 1,
+          cutSeconds: later.startSeconds,
+          align: earlier.transitionOut.align,
+          declaredSeconds: declared,
+          requested: 0,
+          reasons: /* @__PURE__ */ new Set(),
+          blockedByLegacy: false,
+          fillHead: false,
+          reportTail: false,
+          headRoomSeconds: 0,
+          tailRoomSeconds: void 0
+        });
+        continue;
+      }
+      const overlap = earlierEnd - later.startSeconds;
+      if (overlapFrames < 0 || !(overlap > EPSILON) || overlap - declared > EPSILON) {
+        boundaries.push(void 0);
+        continue;
+      }
+      const windowEnd = Math.min(earlierEnd, laterEnd, later.startSeconds + declared);
+      const windowSeconds = windowEnd - later.startSeconds;
+      if (!(windowSeconds > EPSILON)) {
+        boundaries.push(void 0);
+        continue;
+      }
+      boundaries.push({
+        kind: "legacy",
+        earlier: index,
+        later: index + 1,
+        cutSeconds: later.startSeconds,
+        declaredSeconds: declared,
+        overlapSeconds: overlap,
+        windowSeconds,
+        coversLater: windowEnd >= laterEnd - EPSILON
+      });
+    }
+    const ownLength = clips.map((clip, index) => {
+      const tail = boundaries[index];
+      return Math.max(0, tail?.kind === "new" ? tail.cutSeconds - clip.startSeconds : clip.lengthSeconds);
+    });
+    for (const boundary of boundaries) {
+      if (boundary?.kind !== "new") continue;
+      const earlier = clips[boundary.earlier];
+      const later = clips[boundary.later];
+      const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
+      const fill = earlier.transitionOut?.fill === true;
+      const knownTailRoom = earlier.tailRoomSeconds === void 0 ? void 0 : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+      const knownHeadRoom = room(later.headRoomSeconds);
+      boundary.fillHead = fill && later.holdBlocked !== true;
+      boundary.reportTail = fill || options.tailRoom === "ignore" && options.strictTailIndex !== boundary.earlier;
+      boundary.headRoomSeconds = knownHeadRoom;
+      boundary.tailRoomSeconds = knownTailRoom;
+      const tailRoom = knownTailRoom === void 0 || boundary.reportTail ? Number.POSITIVE_INFINITY : knownTailRoom;
+      const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
+      const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
+      const laterCap = Math.min(ownLength[boundary.later], tailRoom);
+      const requested = Math.max(0, Math.min(
+        boundary.declaredSeconds,
+        lengthWithin(boundary.align, earlierCap, laterCap)
+      ));
+      if (requested < boundary.declaredSeconds - EPSILON) {
+        const a = earlierShare(boundary.align, requested);
+        const b = laterShare(boundary.align, requested);
+        const uses = (share, cap2) => share >= cap2 - EPSILON;
+        if (boundary.align !== "after-cut") {
+          if (uses(a, ownLength[boundary.earlier])) boundary.reasons.add("outgoing-length");
+          if (uses(a, headRoom)) boundary.reasons.add("incoming-room");
+        }
+        if (boundary.align !== "before-cut") {
+          if (uses(b, ownLength[boundary.later])) boundary.reasons.add("incoming-length");
+          if (uses(b, tailRoom)) boundary.reasons.add("outgoing-room");
+        }
+      }
+      boundary.requested = requested;
+    }
+    const tailLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+    const headLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+    for (let index = 0; index < clips.length; index++) {
+      const head = index > 0 ? boundaries[index - 1] : void 0;
+      const tail = boundaries[index];
+      if (!head || !tail) continue;
+      if (head.kind === "legacy" && head.coversLater && tail.kind === "new") {
+        tail.blockedByLegacy = true;
+        continue;
+      }
+      const length = ownLength[index];
+      const headUse = head.kind === "legacy" ? head.windowSeconds : laterShare(head.align, head.requested);
+      const tailUse = tail.kind === "legacy" ? tail.overlapSeconds : earlierShare(tail.align, tail.requested);
+      if (!(headUse + tailUse > length + EPSILON)) continue;
+      if (head.kind === "legacy" && tail.kind === "legacy") continue;
+      if (head.kind === "legacy") tailLimit[index] = Math.max(0, length - headUse);
+      else if (tail.kind === "legacy") headLimit[index] = Math.max(0, length - tailUse);
+      else {
+        headLimit[index] = Math.max(length / 2, length - tailUse);
+        tailLimit[index] = Math.max(length / 2, length - headUse);
+      }
+    }
+    const minimumSeconds = 1 / fps;
+    const plans = [];
+    for (const boundary of boundaries) {
+      if (!boundary) continue;
+      const earlier = clips[boundary.earlier];
+      const later = clips[boundary.later];
+      if (boundary.kind === "legacy") {
+        plans.push({
+          earlierId: earlier.id,
+          laterId: later.id,
+          cutSeconds: boundary.cutSeconds,
+          legacyOverlap: true,
+          align: "center",
+          declaredSeconds: boundary.declaredSeconds,
+          effectiveSeconds: boundary.windowSeconds,
+          startOffsetSeconds: 0,
+          endOffsetSeconds: boundary.windowSeconds,
+          state: "ok",
+          reasons: [],
+          freezeIncomingSeconds: 0,
+          freezeOutgoingSeconds: 0
+        });
+        continue;
+      }
+      const reasons = new Set(boundary.reasons);
+      let effective = boundary.requested;
+      if (boundary.blockedByLegacy) {
+        effective = 0;
+        reasons.add("neighbor");
+      } else {
+        const limited = lengthWithin(boundary.align, tailLimit[boundary.earlier], headLimit[boundary.later]);
+        if (limited < effective - EPSILON) {
+          effective = Math.max(0, limited);
+          reasons.add("neighbor");
+        }
+      }
+      if (effective > 0 && (effective < minimumSeconds - EPSILON || cutOverlapFrames(
+        { tlEnd: boundary.cutSeconds + laterShare(boundary.align, effective) },
+        { tlStart: boundary.cutSeconds - earlierShare(boundary.align, effective) },
+        fps
+      ) < 1)) {
+        effective = 0;
+        reasons.add("too-short");
+      }
+      const state = effective <= 0 ? "none" : effective < boundary.declaredSeconds - EPSILON ? "shortened" : "ok";
+      plans.push({
+        earlierId: earlier.id,
+        laterId: later.id,
+        cutSeconds: boundary.cutSeconds,
+        legacyOverlap: false,
+        align: boundary.align,
+        declaredSeconds: boundary.declaredSeconds,
+        effectiveSeconds: effective,
+        startOffsetSeconds: effective > 0 ? -earlierShare(boundary.align, effective) : 0,
+        endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
+        state,
+        reasons: state === "ok" ? [] : [...reasons],
+        ...freezeOf(boundary, effective)
+      });
+    }
+    return plans;
+  }
+  function freezeOf(boundary, effective) {
+    const over = (used, available) => {
+      const excess = used - available;
+      return excess > EPSILON ? excess : 0;
+    };
+    const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+    const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+    const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+    if (!boundary.reportTail) return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    if (boundary.tailRoomSeconds === void 0) {
+      return after > EPSILON ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true } : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    }
+    return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
+  }
+  function transitionPlanClipsFromCuts(cuts, options) {
+    const usable = [];
+    cuts.forEach((cut, index) => {
+      if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
+        usable.push({ cut, index });
+      }
+    });
+    const tracks = /* @__PURE__ */ new Map();
+    for (const segment of computeCutTrackSegments(usable.map((entry) => entry.cut))) {
+      const { cut, index } = usable[segment.index];
+      const facts = options.resolve(cut, index);
+      const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+      const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+      const list = tracks.get(segment.track) ?? [];
+      const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 && list.length > 0 && list[list.length - 1].transitionOut !== void 0 ? facts.holdHeadSeconds : 0;
+      const transition = cut.transitionOut;
+      const clip = {
+        id: String(index),
+        // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+        startSeconds: segment.at - holdHeadSeconds,
+        lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
+        headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
+        tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : typeof facts.materialDurationSeconds === "number" && Number.isFinite(facts.materialDurationSeconds) ? Math.max(0, (facts.materialDurationSeconds - cut.out) / speed) : void 0,
+        ...transition && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? { transitionOut: {
+          declaredSeconds: transition.duration,
+          align: readTransitionAlign(transition.align),
+          fill: readTransitionFill(transition.fill) === "freeze"
+        } } : {},
+        ...facts.holdBlocked ?? freezeSeconds > 0 ? { holdBlocked: true } : {}
+      };
+      list.push(clip);
+      tracks.set(segment.track, list);
+    }
+    return [...tracks.entries()].sort((left, right) => left[0] - right[0]).map(([track, clips]) => ({ track, clips }));
   }
 
   // src/timeline-map.ts
@@ -257,38 +531,55 @@ var AkariEditKernel = (() => {
       cutIndex: usable[segment.index].index
     }));
     const fps = options?.fps ?? DEFAULT_CUT_ADJACENCY_FPS;
-    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-      const outgoing = resolved[outgoingIndex];
-      const transition = outgoing.cut.transitionOut;
-      if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
-      const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-      if (!incoming || cutOverlapFrames(
-        { tlEnd: outgoing.end },
-        { tlStart: incoming.start },
-        fps
-      ) !== 0) continue;
-      const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-      const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-      const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
-      const plan = planTransitionHandleWindow({
-        declaredSeconds: transition.duration,
-        outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-        incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-        outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-        incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+    const plannedWindows = /* @__PURE__ */ new Map();
+    const suppressedWindows = /* @__PURE__ */ new Set();
+    const planTracks = transitionPlanClipsFromCuts(usableCuts, {
+      fps,
+      resolve: (cut) => ({
+        stillImage: false,
+        freezeSeconds: 0,
+        holdHeadSeconds: cut.transitionHold?.headSeconds,
+        // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+        holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
+      })
+    });
+    for (const track of planTracks) {
+      const clips = track.clips.map((clip) => {
+        const originalIndex = usable[Number(clip.id)].index;
+        const handleRoom = options?.handleRoom?.(originalIndex);
+        return {
+          ...clip,
+          headRoomSeconds: handleRoom?.headSeconds ?? clip.headRoomSeconds,
+          tailRoomSeconds: handleRoom?.tailSeconds ?? Number.POSITIVE_INFINITY
+        };
       });
-      if (plan.effectiveSeconds <= 0) continue;
-      const cutPoint = outgoing.end;
-      outgoing.end = cutPoint + plan.halfSeconds;
-      outgoing.cut = {
-        ...outgoing.cut,
-        transitionOut: { ...transition, duration: plan.effectiveSeconds }
-      };
-      incoming.start = cutPoint - plan.halfSeconds;
-      incoming.cut = {
-        ...incoming.cut,
-        in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-      };
+      for (const plan of planTrackTransitions(clips, { fps })) {
+        if (plan.legacyOverlap) continue;
+        if (plan.state === "none") {
+          const originalIndex = usable[Number(plan.earlierId)].index;
+          suppressedWindows.add(originalIndex);
+          const outgoing2 = resolved.find((entry) => entry.cutIndex === originalIndex);
+          if (outgoing2) outgoing2.cut = { ...outgoing2.cut, transitionOut: void 0 };
+          continue;
+        }
+        const outgoing = resolved.find((entry) => entry.cutIndex === usable[Number(plan.earlierId)].index);
+        const incoming = resolved.find((entry) => entry.cutIndex === usable[Number(plan.laterId)].index);
+        if (!outgoing || !incoming || !outgoing.cut.transitionOut) continue;
+        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
+        outgoing.end = plan.cutSeconds + plan.endOffsetSeconds;
+        outgoing.cut = {
+          ...outgoing.cut,
+          transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
+        };
+        const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+        const early = -plan.startOffsetSeconds - hold;
+        incoming.start = plan.cutSeconds - early;
+        incoming.cut = {
+          ...incoming.cut,
+          in: Math.max(0, incoming.cut.in - early * incomingSpeed)
+        };
+        plannedWindows.set(outgoing.cutIndex, plan);
+      }
     }
     const segmentSlice = (entry, start, end, transitionOut = null) => {
       const cut = entry.cut;
@@ -309,11 +600,15 @@ var AkariEditKernel = (() => {
     const transitionWindows = [];
     for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
       const outgoing = resolved[outgoingIndex];
+      if (suppressedWindows.has(outgoing.cutIndex)) continue;
       const transition = outgoing.cut.transitionOut;
       if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
       const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
       if (!incoming) continue;
-      const start = incoming.start;
+      const plannedHold = plannedWindows.get(outgoing.cutIndex)?.freezeIncomingSeconds ?? 0;
+      const declaredHold = incoming.cut.transitionHold?.headSeconds;
+      const hold = typeof declaredHold === "number" && Number.isFinite(declaredHold) && declaredHold > 0 ? declaredHold : plannedHold;
+      const start = incoming.start - hold;
       const actualOverlap = outgoing.end - start;
       if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6) continue;
       const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
@@ -324,7 +619,21 @@ var AkariEditKernel = (() => {
         duration: end - start,
         type: transition.type,
         outgoing: segmentSlice(outgoing, start, end, transition),
-        incoming: segmentSlice(incoming, start, end)
+        incoming: {
+          ...segmentSlice(incoming, start, end),
+          ...hold > 0 ? {
+            holdHeadSeconds: hold,
+            in: incoming.cut.in,
+            out: incoming.cut.in + Math.max(0, end - incoming.start) * (typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1)
+          } : {}
+        },
+        ...plannedWindows.has(outgoing.cutIndex) ? {
+          cutSeconds: plannedWindows.get(outgoing.cutIndex).cutSeconds,
+          effectiveSeconds: plannedWindows.get(outgoing.cutIndex).effectiveSeconds,
+          state: plannedWindows.get(outgoing.cutIndex).state,
+          reasons: plannedWindows.get(outgoing.cutIndex).reasons,
+          ...plannedHold > 0 ? { freezeIncomingSeconds: plannedHold } : {}
+        } : {}
       });
     }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
@@ -1592,7 +1901,7 @@ var AkariEditKernel = (() => {
 
   // src/caption-timeline.ts
   function buildCaptionTimelineSegments(cuts, edit, options = {}) {
-    const visual = buildTimelineMap(cuts, options).segments;
+    const visual = buildTimelineMap(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
     if (!edit) return visual;
     const audio = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;
@@ -2367,9 +2676,348 @@ var AkariEditKernel = (() => {
   function fail(code, message) {
     throw new CaptionDisplayError(code, message);
   }
+  function captionOutlineRuntime() {
+    const ns = "http://www.w3.org/2000/svg";
+    const states = /* @__PURE__ */ new WeakMap();
+    const installs = /* @__PURE__ */ new WeakMap();
+    const wraps = /* @__PURE__ */ new Set(["normal", "pre-wrap", "pre-line", "break-spaces"]);
+    const collapses = /* @__PURE__ */ new Set(["normal", "nowrap", "pre-line"]);
+    const svgCss = "float:left;width:1px;height:1px;margin:0 -1px -1px 0;overflow:visible;pointer-events:none;user-select:none;-webkit-user-select:none;";
+    const textCss = "fill:none;stroke-linejoin:round;stroke-linecap:round;white-space:pre;text-shadow:none;text-decoration:none;text-rendering:geometricPrecision;";
+    function hosts(root) {
+      const doc = root.ownerDocument || root;
+      const found = /* @__PURE__ */ new Set();
+      const walker = doc.createTreeWalker(root, 4);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const parent = node.parentElement;
+        if (parent && parent.namespaceURI !== ns && !["STYLE", "SCRIPT", "TEMPLATE"].includes(parent.tagName) && node.data.trim()) found.add(parent);
+      }
+      if (root.nodeType === 1 && states.has(root)) found.add(root);
+      for (const element of root.querySelectorAll?.("*") || []) if (states.has(element)) found.add(element);
+      return [...found];
+    }
+    function details(host) {
+      const computed = host.ownerDocument.defaultView.getComputedStyle(host);
+      const style = {};
+      for (const name of [
+        "webkitTextStrokeWidth",
+        "webkitTextStrokeColor",
+        "whiteSpace",
+        "writingMode",
+        "font",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "fontStyle",
+        "fontStretch",
+        "fontFeatureSettings",
+        "fontVariationSettings",
+        "letterSpacing",
+        "lineHeight",
+        "textTransform",
+        "display"
+      ]) style[name] = computed[name];
+      const children = [...host.childNodes];
+      const texts = children.filter((child) => child.nodeType === 3 && child.data.trim());
+      let container = host;
+      while (container.parentElement && host.ownerDocument.defaultView.getComputedStyle(container).display.startsWith("inline")) {
+        container = container.parentElement;
+      }
+      const signature = [
+        style.webkitTextStrokeWidth,
+        style.webkitTextStrokeColor,
+        style.whiteSpace,
+        style.writingMode,
+        style.font,
+        style.fontFamily,
+        style.fontSize,
+        style.fontWeight,
+        style.fontStyle,
+        style.fontStretch,
+        style.fontFeatureSettings,
+        style.fontVariationSettings,
+        style.letterSpacing,
+        style.lineHeight,
+        style.textTransform,
+        style.display,
+        wraps.has(style.whiteSpace) ? container.clientWidth + "x" + container.clientHeight : "",
+        children.length,
+        texts.map((child) => child.data).join("")
+      ].join("");
+      return { style, children, texts, width: Number.parseFloat(style.webkitTextStrokeWidth) || 0, signature };
+    }
+    function outlineText(node, data, start, end) {
+      const value = node.data.slice(start, end);
+      if (!collapses.has(data.style.whiteSpace)) return value;
+      const collapsed = value.replace(/\s+/gu, " ");
+      return start > 0 || !node.previousSibling ? collapsed.replace(/^ /u, "") : collapsed;
+    }
+    function makeSvg(doc, node, data, inline) {
+      const svg2 = doc.createElementNS(ns, "svg");
+      svg2.setAttribute("aria-hidden", "true");
+      svg2.setAttribute("width", "1");
+      svg2.setAttribute("height", "1");
+      if (inline) {
+        svg2.setAttribute("class", "akari-caption__outline");
+        svg2.setAttribute("style", svgCss);
+      }
+      const text = doc.createElementNS(ns, "text");
+      if (inline) text.setAttribute("style", textCss);
+      text.textContent = outlineText(node, data, 0, node.data.length);
+      text.setAttribute("stroke", data.style.webkitTextStrokeColor);
+      text.setAttribute("stroke-width", String(data.width));
+      text.setAttribute("x", "0");
+      text.setAttribute("y", "0");
+      svg2.appendChild(text);
+      return svg2;
+    }
+    function split(svg2, node, data) {
+      const vertical = data.style.writingMode.startsWith("vertical");
+      const matrix = svg2.getScreenCTM();
+      if (!matrix) return false;
+      let inverse;
+      try {
+        inverse = matrix.inverse();
+      } catch {
+        return false;
+      }
+      const doc = node.ownerDocument;
+      const height = Number.parseFloat(data.style.lineHeight) || Number.parseFloat(data.style.fontSize) * 1.2;
+      const range = doc.createRange();
+      const lines = [];
+      const canWrap = wraps.has(data.style.whiteSpace);
+      let offset = 0;
+      let previousEnd = 0;
+      for (const character of node.data) {
+        range.setStart(node, offset);
+        range.setEnd(node, offset + character.length);
+        const rect = range.getClientRects()[0];
+        if (rect && rect.width > 0 && rect.height > 0) {
+          const center = new doc.defaultView.DOMPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2
+          ).matrixTransform(inverse);
+          const along = vertical ? -center.x : center.y;
+          if (!lines.length || Math.abs(along - lines[lines.length - 1].along) > height / 2) {
+            lines.push({ start: previousEnd, anchor: offset, length: character.length, center, along });
+          }
+          previousEnd = offset + character.length;
+          if (!canWrap) break;
+        }
+        offset += character.length;
+      }
+      if (!lines.length) return false;
+      const original = svg2.firstChild;
+      for (let index = 0; index < lines.length; index += 1) {
+        const text = index ? original.cloneNode(false) : original;
+        text.textContent = outlineText(
+          node,
+          data,
+          lines[index].start,
+          index + 1 < lines.length ? lines[index + 1].start : node.data.length
+        );
+        if (index) svg2.appendChild(text);
+        const anchor = outlineText(node, data, lines[index].start, lines[index].anchor).length;
+        if (anchor >= text.getNumberOfChars()) continue;
+        const extent = text.getExtentOfChar(anchor);
+        text.setAttribute("x", String(Number(text.getAttribute("x")) + lines[index].center.x - extent.x - extent.width / 2));
+        text.setAttribute("y", String(Number(text.getAttribute("y")) + lines[index].center.y - extent.y - extent.height / 2));
+      }
+      return {
+        svg: svg2,
+        node,
+        offset: lines[0].anchor,
+        length: lines[0].length,
+        center: lines[0].center
+      };
+    }
+    function moved(anchors) {
+      if (!anchors.length) return false;
+      const range = anchors[0].node.ownerDocument.createRange();
+      for (const anchor of anchors) {
+        const matrix = anchor.svg.getScreenCTM();
+        if (!matrix) continue;
+        let inverse;
+        try {
+          inverse = matrix.inverse();
+        } catch {
+          continue;
+        }
+        range.setStart(anchor.node, anchor.offset);
+        range.setEnd(anchor.node, anchor.offset + anchor.length);
+        const rect = range.getClientRects()[0];
+        if (!rect || !(rect.width > 0 && rect.height > 0)) return true;
+        const center = new anchor.node.ownerDocument.defaultView.DOMPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2
+        ).matrixTransform(inverse);
+        if (Math.abs(center.x - anchor.center.x) > 0.05 || Math.abs(center.y - anchor.center.y) > 0.05) return true;
+      }
+      return false;
+    }
+    function syncHost(host, remeasureAll = false) {
+      const data = details(host);
+      let state = states.get(host);
+      if (host.isContentEditable || !(data.width > 0) || !data.texts.length || data.style.display === "none" || ["flex", "inline-flex", "grid", "inline-grid"].includes(data.style.display)) {
+        if (state) {
+          state.slotStyle.textContent = "";
+          state.body.replaceChildren(state.plain);
+          state.plain.assign(...data.children);
+          state.signature = "";
+          state.children = data.children;
+          state.anchors = [];
+        }
+        return false;
+      }
+      if (state && !remeasureAll && state.signature === data.signature && state.children.length === data.children.length && state.children.every((node, index) => node === data.children[index]) && !moved(state.anchors)) return true;
+      if (!state) {
+        if (host.shadowRoot || typeof host.attachShadow !== "function") return false;
+        let shadow;
+        try {
+          shadow = host.attachShadow({ mode: "open", slotAssignment: "manual" });
+        } catch {
+          return false;
+        }
+        const base = host.ownerDocument.createElement("style");
+        base.textContent = "svg{" + svgCss + "}text{" + textCss + "}";
+        const slotStyle = host.ownerDocument.createElement("style");
+        const body = host.ownerDocument.createElement("span");
+        body.style.display = "contents";
+        const plain = host.ownerDocument.createElement("slot");
+        shadow.append(base, slotStyle, body);
+        state = { slotStyle, body, plain, signature: "", children: [], anchors: [] };
+        states.set(host, state);
+      }
+      state.slotStyle.textContent = "slot.akari-outline-text{-webkit-text-stroke:0 transparent;}";
+      const fragment = host.ownerDocument.createDocumentFragment();
+      const measurements = [];
+      const assignments = [];
+      for (const child of data.children) {
+        const slot = host.ownerDocument.createElement("slot");
+        if (child.nodeType === 3 && child.data.trim()) {
+          slot.className = "akari-outline-text";
+          const svg2 = makeSvg(host.ownerDocument, child, data, false);
+          fragment.appendChild(svg2);
+          measurements.push([svg2, child]);
+        }
+        fragment.appendChild(slot);
+        assignments.push([slot, child]);
+      }
+      state.body.replaceChildren(fragment);
+      for (const [slot, child] of assignments) slot.assign(child);
+      let measured = true;
+      const anchors = [];
+      for (const [svg2, child] of measurements) {
+        const anchor = split(svg2, child, data);
+        if (anchor) anchors.push(anchor);
+        else measured = false;
+      }
+      state.signature = measured ? data.signature : "";
+      state.children = data.children;
+      state.anchors = anchors;
+      return true;
+    }
+    function sync(root, remeasureAll = false) {
+      let count = 0;
+      for (const host of hosts(root)) if (syncHost(host, remeasureAll)) count += 1;
+      return count;
+    }
+    function nearby(node, selector) {
+      if (!node || node.nodeType !== 1) return false;
+      if (node.closest?.(selector)) return true;
+      for (const child of node.children || []) {
+        if (child.matches?.(selector)) return true;
+        for (const grandchild of child.children || []) if (grandchild.matches?.(selector)) return true;
+      }
+      return false;
+    }
+    function affectsMutation(record2, selector) {
+      if (nearby(record2.target, selector)) return true;
+      if (record2.type === "attributes" && record2.attributeName === "contenteditable" && record2.target.querySelector?.(selector)) return true;
+      if (record2.type === "characterData") return nearby(record2.target.parentElement, selector);
+      if (record2.type !== "childList") return false;
+      for (const node of [...record2.addedNodes, ...record2.removedNodes]) {
+        if (nearby(node, selector) || node.querySelector?.(selector)) return true;
+      }
+      return false;
+    }
+    function install(doc, options = {}) {
+      const previous = installs.get(doc) || doc.__akariCaptionOutlineInstall;
+      if (previous) return previous;
+      const selector = options.selector || ".akari-caption";
+      let scheduled = false;
+      let disposed = false;
+      let remeasureAll = false;
+      const run = () => {
+        scheduled = false;
+        if (disposed) return;
+        const remeasure = remeasureAll;
+        remeasureAll = false;
+        for (const root of doc.querySelectorAll(selector)) sync(root, remeasure);
+      };
+      const schedule = (remeasure = false) => {
+        if (remeasure) remeasureAll = true;
+        if (scheduled || disposed) return;
+        scheduled = true;
+        doc.defaultView.queueMicrotask(run);
+      };
+      const scheduleRemeasure = () => schedule(true);
+      const observer = new doc.defaultView.MutationObserver((records) => {
+        if (records.some((record2) => affectsMutation(record2, selector))) schedule();
+      });
+      observer.observe(doc.documentElement, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["style", "class", "contenteditable"]
+      });
+      doc.fonts?.addEventListener?.("loadingdone", scheduleRemeasure);
+      doc.defaultView.addEventListener("resize", scheduleRemeasure);
+      const handle = { observer, run, dispose: () => {
+        disposed = true;
+        observer.disconnect();
+        doc.fonts?.removeEventListener?.("loadingdone", scheduleRemeasure);
+        doc.defaultView.removeEventListener("resize", scheduleRemeasure);
+        installs.delete(doc);
+        if (doc.__akariCaptionOutlineInstall === handle) delete doc.__akariCaptionOutlineInstall;
+      } };
+      installs.set(doc, handle);
+      doc.__akariCaptionOutlineInstall = handle;
+      run();
+      return handle;
+    }
+    function bake(root) {
+      for (const svg2 of root.querySelectorAll(".akari-caption__outline")) svg2.remove();
+      const bakedHosts = [root, ...root.querySelectorAll("[data-akari-outline-original]")];
+      for (const host of bakedHosts) {
+        if (!host.hasAttribute?.("data-akari-outline-original")) continue;
+        const value = host.getAttribute("data-akari-outline-original");
+        const priority = host.getAttribute("data-akari-outline-priority") || "";
+        if (value) host.style.setProperty("-webkit-text-stroke", value, priority);
+        else host.style.removeProperty("-webkit-text-stroke");
+        host.removeAttribute("data-akari-outline-original");
+        host.removeAttribute("data-akari-outline-priority");
+      }
+      const entries = hosts(root).map((host) => ({ host, data: details(host) })).filter((entry) => !entry.host.isContentEditable && entry.data.width > 0 && entry.data.texts.length && entry.data.style.display !== "none" && !["flex", "inline-flex", "grid", "inline-grid"].includes(entry.data.style.display));
+      for (const { host, data } of entries) {
+        for (const child of data.texts) {
+          const svg2 = makeSvg(host.ownerDocument, child, data, true);
+          child.before(svg2);
+          split(svg2, child, data);
+        }
+        host.setAttribute("data-akari-outline-original", host.style.getPropertyValue("-webkit-text-stroke"));
+        host.setAttribute("data-akari-outline-priority", host.style.getPropertyPriority("-webkit-text-stroke"));
+        host.style.setProperty("-webkit-text-stroke", "0 transparent");
+      }
+      return entries.length;
+    }
+    return { sync, install, bake, affectsMutation };
+  }
 
   // src/caption-clock.ts
-  var EPSILON = 1e-6;
+  var EPSILON2 = 1e-6;
   function rebaseDisplayedRuns(oldText, newText, runs) {
     const graphemes = (text) => {
       const Segmenter = Reflect.get(Intl, "Segmenter");
@@ -2397,7 +3045,7 @@ var AkariEditKernel = (() => {
     const output = [];
     for (const caption of captions) {
       const legacyOutputCue = caption.clockDomain === "legacy" && segments.some(
-        (segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON
+        (segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON2 && caption.end <= segment.outEnd + EPSILON2
       );
       const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
       if (domain === "output" || segments.length === 0) {
@@ -2422,7 +3070,7 @@ var AkariEditKernel = (() => {
       for (const segment of sourceSegments) {
         const sourceStart = Math.max(caption.start, segment.in);
         const sourceEnd = Math.min(caption.end, segment.out);
-        if (!(sourceEnd - sourceStart > EPSILON)) continue;
+        if (!(sourceEnd - sourceStart > EPSILON2)) continue;
         const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
         const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
         occurrence += 1;
@@ -2430,7 +3078,7 @@ var AkariEditKernel = (() => {
         const words = (projected?.words ?? caption.words)?.flatMap((word) => {
           const wordStart = Math.max(word.start, sourceStart);
           const wordEnd = Math.min(word.end, sourceEnd);
-          return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+          return wordEnd - wordStart > EPSILON2 ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
         });
         output.push({
           ...caption,
@@ -3220,16 +3868,29 @@ var AkariEditKernel = (() => {
     const baked = sidecar ?? atempo;
     const crossfadeInSec = finitePositive2(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
     const crossfadeOutSec = finitePositive2(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
-    const effectiveAtSec = spec.atSec - crossfadeInSec;
-    const effectiveDurationSec = spec.durationSec + crossfadeInSec;
-    const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
-    if (elapsedIntoItemSec >= effectiveDurationSec) return null;
-    const delaySec = Math.max(0, effectiveAtSec - startAtSec);
-    const timelineStartSec = startAtSec + delaySec;
+    const incomingLeadSec = spec.fadeInAtStart ? 0 : crossfadeInSec;
+    const effectiveAtSec = spec.atSec - incomingLeadSec;
+    const effectiveDurationSec = spec.durationSec + incomingLeadSec;
     const playbackRate = baked ? 1 : spec.speed;
     const padBeforeSec = sidecar && finiteNonNegative2(sidecar.padBeforeSec) ? sidecar.padBeforeSec : finiteNonNegative2(spec.padBeforeSec) ? spec.padBeforeSec : 0;
-    const bakedContentOffsetSec = sidecar ? padBeforeSec / spec.speed : 0;
-    const sourceOffsetSec = baked ? Math.max(0, bakedContentOffsetSec - crossfadeInSec + elapsedIntoItemSec) : Math.max(0, spec.inSec - crossfadeInSec * spec.speed + elapsedIntoItemSec * spec.speed);
+    const bakedContentOffsetSec = sidecar ? finiteNonNegative2(sidecar.actualStartSeconds) ? (spec.inSec - sidecar.actualStartSeconds) / spec.speed : padBeforeSec / spec.speed : 0;
+    const availableLeadSec = baked ? bakedContentOffsetSec : spec.inSec / spec.speed;
+    const missingLeadSec = incomingLeadSec - availableLeadSec;
+    let elapsedIntoItemSec;
+    let delaySec;
+    let timelineStartSec;
+    if (missingLeadSec <= 1e-9) {
+      elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
+      delaySec = Math.max(0, effectiveAtSec - startAtSec);
+      timelineStartSec = startAtSec + delaySec;
+    } else {
+      const readableAtSec = effectiveAtSec + missingLeadSec;
+      timelineStartSec = Math.max(startAtSec, readableAtSec);
+      delaySec = timelineStartSec - startAtSec;
+      elapsedIntoItemSec = timelineStartSec - effectiveAtSec;
+    }
+    if (elapsedIntoItemSec >= effectiveDurationSec) return null;
+    const sourceOffsetSec = baked ? Math.max(0, bakedContentOffsetSec - incomingLeadSec + elapsedIntoItemSec) : Math.max(0, spec.inSec - incomingLeadSec * spec.speed + elapsedIntoItemSec * spec.speed);
     const sourceEndSec = baked ? Math.min(baked.durationSec, spec.materialDurationSec) : Math.min(spec.outSec, spec.materialDurationSec);
     const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
     if (!(sourceAvailableSec > 0)) return null;
@@ -3246,7 +3907,8 @@ var AkariEditKernel = (() => {
       durationSec,
       crossfadeInSec,
       crossfadeOutSec,
-      baseGain
+      baseGain,
+      finiteNonNegative2(spec.fadeInWindowStartSec) ? spec.atSec - spec.fadeInWindowStartSec : 0
     );
     return {
       kind: "speech",
@@ -3267,6 +3929,23 @@ var AkariEditKernel = (() => {
   }
   function projectSpeechDeclarations(cuts, options) {
     const fps = finitePositive2(options?.fps) ? options.fps : 30;
+    const virtualCuts = cuts.map((cut) => {
+      const speed = finitePositive2(cut?.speed) ? cut.speed : 1;
+      const holdSec = freezeDuration(cut?.freeze);
+      return {
+        ...cut,
+        transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0,
+        out: cut.out + holdSec * speed
+      };
+    });
+    return projectSpeechDeclarationsFromWindows(
+      cuts,
+      options,
+      buildTimelineMap(virtualCuts, { fps }).transitionWindows
+    );
+  }
+  function projectSpeechDeclarationsFromWindows(cuts, options, transitionWindows) {
+    const fps = finitePositive2(options?.fps) ? options.fps : 30;
     const normalizedCuts = cuts.map((cut) => ({
       ...cut,
       transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
@@ -3276,26 +3955,30 @@ var AkariEditKernel = (() => {
       const holdSec = freezeDuration(cut?.freeze);
       return { ...cut, out: cut.out + holdSec * speed };
     });
-    const map = buildTimelineMap(virtualCuts, { fps });
     const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
     const clipWindows = new Map(computeCutTrackSegments(usable.map((entry) => entry.cut)).map((segment) => [
       usable[segment.index].index,
       { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
     ]));
-    for (const window of map.transitionWindows) {
+    const outgoingEnds = /* @__PURE__ */ new Map();
+    for (const window of transitionWindows) {
       for (const participant of [window.outgoing, window.incoming]) {
         const clip = clipWindows.get(participant.cutIndex);
         const cut = normalizedCuts[participant.cutIndex];
         if (!clip || !cut || typeof participant.in !== "number") continue;
         const speed = finitePositive2(cut.speed) ? cut.speed : 1;
-        clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+        clip.cutTimelineStart = finitePositive2(participant.holdHeadSeconds) ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed : participant.outStart - (participant.in - cut.in) / speed;
       }
       const outgoing = clipWindows.get(window.outgoing.cutIndex);
       const incoming = clipWindows.get(window.incoming.cutIndex);
-      if (outgoing) outgoing.end = Math.max(outgoing.end, window.end);
+      if (outgoing) {
+        outgoing.end = Math.max(outgoing.end, window.end);
+        outgoingEnds.set(window.outgoing.cutIndex, outgoing.end);
+      }
       if (incoming) incoming.start = Math.max(incoming.start, window.end);
     }
     const declarations = [];
+    const declarationsByCut = /* @__PURE__ */ new Map();
     for (const [cutIndex, clip] of clipWindows) {
       const cut = normalizedCuts[cutIndex];
       if (!cut || typeof cut.src !== "string" || !cut.src) continue;
@@ -3306,6 +3989,7 @@ var AkariEditKernel = (() => {
       const gainDb = speechGainDb(cut);
       const baseId = speechBaseId(cut, cutIndex);
       const holdSec = freezeDuration(cut.freeze);
+      const firstDeclaration = declarations.length;
       if (!(holdSec > 0)) {
         appendSpeechIntersection(declarations, {
           id: `${baseId}-speech`,
@@ -3314,11 +3998,12 @@ var AkariEditKernel = (() => {
           speed,
           sourceIn: cut.in,
           outputStart: cutTimelineStart,
-          outputEnd: cutTimelineStart + baseDurationSec,
+          outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec,
           clipStart: clip.start,
           clipEnd: clip.end,
           track: cut.track
         });
+        declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
         continue;
       }
       const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
@@ -3342,26 +4027,65 @@ var AkariEditKernel = (() => {
         speed,
         sourceIn: freezeSourceIn,
         outputStart: cutTimelineStart + freezeAtSec + holdSec,
-        outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+        outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec + holdSec,
         clipStart: clip.start,
         clipEnd: clip.end,
         track: cut.track
       });
+      declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
     }
-    for (const window of map.transitionWindows) {
+    for (const window of transitionWindows) {
       if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null) continue;
-      const outgoingCut = normalizedCuts[window.outgoing.cutIndex];
       const incomingCut = normalizedCuts[window.incoming.cutIndex];
-      const outgoingBase = speechBaseId(outgoingCut, window.outgoing.cutIndex);
       const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
-      const outgoing = [...declarations].reverse().find((item) => item.id.startsWith(`${outgoingBase}-speech`) && item.atSec <= window.start + 1e-9 && item.atSec + item.durationSec >= window.end - 1e-9);
-      const incoming = declarations.find((item) => item.id.startsWith(`${incomingBase}-speech`) && item.atSec >= window.end - 1e-9);
+      const outgoing = [...declarationsByCut.get(window.outgoing.cutIndex) ?? []].reverse().find((item) => item.atSec <= window.start + 1e-9 && item.atSec + item.durationSec >= window.end - 1e-9);
+      let incoming = (declarationsByCut.get(window.incoming.cutIndex) ?? []).find((item) => item.atSec <= window.end + 1e-9 && item.atSec + item.durationSec > window.start + 1e-9);
+      if (!incoming && incomingCut && !(freezeDuration(incomingCut.freeze) > 0) && typeof incomingCut.src === "string" && incomingCut.src && isCutAudioAudible(incomingCut)) {
+        const clip = clipWindows.get(window.incoming.cutIndex);
+        const speed = finitePositive2(incomingCut.speed) ? incomingCut.speed : 1;
+        if (clip && clip.end <= window.end + 1e-9 && window.end > window.start) {
+          const rawSourceIn = incomingCut.in + (window.start - clip.cutTimelineStart) * speed;
+          const sourceIn = rawSourceIn >= -1e-9 ? Math.max(0, rawSourceIn) : 0;
+          const availableStart = rawSourceIn >= -1e-9 ? window.start : window.start - rawSourceIn / speed;
+          if (availableStart < window.end - 1e-9) {
+            const replacement = [];
+            appendSpeechIntersection(replacement, {
+              id: `${incomingBase}-speech`,
+              src: incomingCut.src,
+              gainDb: speechGainDb(incomingCut),
+              speed,
+              sourceIn,
+              outputStart: availableStart,
+              outputEnd: window.end,
+              clipStart: availableStart,
+              clipEnd: window.end,
+              track: incomingCut.track
+            });
+            incoming = replacement[0];
+            if (incoming) {
+              incoming.fadeInAtStart = true;
+              if (availableStart > window.start + 1e-9) incoming.fadeInWindowStartSec = window.start;
+              let insertAt = declarations.length;
+              for (const [index, items] of declarationsByCut) {
+                if (index > window.incoming.cutIndex && items.length) {
+                  insertAt = Math.min(insertAt, declarations.indexOf(items[0]));
+                }
+              }
+              declarations.splice(insertAt, 0, incoming);
+              declarationsByCut.set(window.incoming.cutIndex, [incoming]);
+            }
+          }
+        }
+      }
       if (outgoing) {
         outgoing.padAfterSec = Math.max(outgoing.padAfterSec ?? 0, window.duration);
         outgoing.crossfadeOutSec = Math.max(outgoing.crossfadeOutSec ?? 0, window.duration);
       }
       if (incoming) {
-        incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, window.duration);
+        incoming.padBeforeSec = Math.max(
+          incoming.padBeforeSec ?? 0,
+          incoming.fadeInAtStart ? 0 : window.duration
+        );
         incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
       }
     }
@@ -3419,23 +4143,27 @@ var AkariEditKernel = (() => {
   function validSidecar(value) {
     return value && typeof value.path === "string" && value.path && finitePositive2(value.durationSec) && finiteNonNegative2(value.padBeforeSec) && finiteNonNegative2(value.padAfterSec) ? value : void 0;
   }
-  function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain) {
+  function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain, fadeInClockOffsetSec = 0) {
     if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
       return [{ offsetSec: 0, value: baseGain, method: "set" }];
     }
     const multiplierAt = (localSec) => {
       let value = 1;
-      if (fadeInSec > 0 && localSec < fadeInSec) value = Math.min(value, localSec / fadeInSec);
+      if (fadeInSec > 0 && localSec + fadeInClockOffsetSec < fadeInSec) {
+        value = Math.min(value, (localSec + fadeInClockOffsetSec) / fadeInSec);
+      }
       if (fadeOutSec > 0 && localSec > itemDurationSec - fadeOutSec) {
         value = Math.min(value, (itemDurationSec - localSec) / fadeOutSec);
       }
       return Math.max(0, Math.min(1, value));
     };
     const windowEnd = elapsedIntoItemSec + availableSec;
+    const intersection = fadeInSec > 0 && fadeOutSec > 0 ? (fadeInSec * itemDurationSec - fadeOutSec * fadeInClockOffsetSec) / (fadeInSec + fadeOutSec) : NaN;
     return uniqueSorted([
       elapsedIntoItemSec,
-      fadeInSec,
+      fadeInSec - fadeInClockOffsetSec,
       itemDurationSec - fadeOutSec,
+      ...intersection > itemDurationSec - fadeOutSec && intersection < fadeInSec - fadeInClockOffsetSec ? [intersection] : [],
       windowEnd
     ].filter((point2) => point2 >= elapsedIntoItemSec && point2 <= windowEnd)).map((point2, index) => ({
       offsetSec: point2 - elapsedIntoItemSec,
@@ -5783,40 +6511,65 @@ var AkariEditKernel = (() => {
       const cuts = track.items.filter(
         (item) => item.legacy.collection === "cuts" && item.source.kind === "media"
       );
-      for (let index = 0; index + 1 < cuts.length; index++) {
-        const outgoing = cuts[index];
-        const incoming = cuts[index + 1];
-        if (cutOverlapFrames(
-          { tlEnd: outgoing.at + outgoing.duration },
-          { tlStart: incoming.at },
-          fps
-        ) !== 0) continue;
+      const clips = cuts.map((item, index) => {
+        const still = isStillImageSourcePath(item.source.path);
+        const transition = item.declaration.transition_out;
+        return {
+          id: String(index),
+          startSeconds: item.at,
+          lengthSeconds: item.duration,
+          headRoomSeconds: still ? Number.POSITIVE_INFINITY : Math.max(0, item.source.in / speedOf(item)),
+          tailRoomSeconds: still ? Number.POSITIVE_INFINITY : void 0,
+          ...isRecord3(transition) && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? {
+            transitionOut: {
+              declaredSeconds: transition.duration,
+              align: readTransitionAlign(transition.align),
+              fill: readTransitionFill(transition.fill) === "freeze"
+            }
+          } : {},
+          // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+          ...isRecord3(item.declaration.freeze) ? { holdBlocked: true } : {}
+        };
+      });
+      const plans = planTrackTransitions(clips, { fps });
+      for (const plan of plans) {
+        if (plan.legacyOverlap) continue;
+        const outgoing = cuts[Number(plan.earlierId)];
+        const incoming = cuts[Number(plan.laterId)];
+        if (!outgoing || !incoming) continue;
+        if (plan.state === "none") {
+          const { transition_out: unused, ...declaration } = outgoing.declaration;
+          outgoing.declaration = declaration;
+          continue;
+        }
         const transition = outgoing.declaration.transition_out;
-        if (!isRecord3(transition) || typeof transition.duration !== "number" || !Number.isFinite(transition.duration) || transition.duration <= 0) continue;
+        if (!isRecord3(transition)) continue;
+        const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
+        const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+        const head = -plan.startOffsetSeconds - hold;
+        const tail = plan.endOffsetSeconds;
+        const outgoingSpeed = speedOf(outgoing);
         const incomingSpeed = speedOf(incoming);
         const incomingStill = isStillImageSourcePath(incoming.source.path);
-        const plan = planTransitionHandleWindow({
-          declaredSeconds: transition.duration,
-          outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
-          incomingHeadRoomSeconds: incomingStill ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
-          outgoingDurationSeconds: outgoing.duration,
-          incomingDurationSeconds: incoming.duration
-        });
-        if (plan.effectiveSeconds <= 0) continue;
-        const outgoingSpeed = speedOf(outgoing);
+        const currentEnd = outgoing.at + outgoing.duration;
         outgoing.declaration = {
           ...outgoing.declaration,
-          out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
-          transition_out: { ...transition, duration: plan.effectiveSeconds }
+          out: Number(outgoing.declaration.out) + (plan.cutSeconds + tail - currentEnd) * outgoingSpeed,
+          transition_out: { ...renderTransition, duration: plan.effectiveSeconds }
         };
+        const freeze = incoming.declaration.freeze;
+        const shiftedFreeze = isRecord3(freeze) && typeof freeze.at_sec === "number" ? { freeze: { ...freeze, at_sec: freeze.at_sec + head } } : {};
         incoming.declaration = incomingStill ? {
           ...incoming.declaration,
-          at: Number(incoming.declaration.at) - plan.halfSeconds,
-          out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+          at: Number(incoming.declaration.at) - head,
+          out: Number(incoming.declaration.out) + head * incomingSpeed,
+          ...shiftedFreeze
         } : {
           ...incoming.declaration,
-          at: Number(incoming.declaration.at) - plan.halfSeconds,
-          in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+          at: Number(incoming.declaration.at) - head,
+          in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+          ...shiftedFreeze,
+          ...hold > 0 ? { transitionHold: { headSeconds: hold } } : {}
         };
       }
     }

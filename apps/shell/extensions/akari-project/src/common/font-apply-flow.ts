@@ -1,5 +1,9 @@
 import type { AssetCatalogViewItem } from './akari-project-protocol';
 
+export function fontFamily(item: { title: string; baseTitle?: string; fontAvailability?: { family: string } }): string {
+    return item.fontAvailability?.family || (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim();
+}
+
 export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     resolveBeforeApply(item: AssetCatalogViewItem): Promise<AssetCatalogViewItem['fontAvailability']>;
     confirmDownload(title: string, bytes: number): Promise<boolean>;
@@ -13,10 +17,10 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     if (!availability || availability.status === 'pending' || availability.status === 'failed') {
         availability = await actions.resolveBeforeApply(item) ?? {
             status: 'failed',
-            family: (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim(), bytes: availability?.bytes
+            family: fontFamily(item), bytes: availability?.bytes
         };
     }
-    const family = availability?.family || (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim();
+    const family = fontFamily({ ...item, fontAvailability: availability });
     if (availability?.status === 'download') {
         if (!await actions.confirmDownload(item.title, availability.bytes ?? 0)) return;
         await actions.download(item.id);

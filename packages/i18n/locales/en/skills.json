@@ -1,5 +1,5 @@
 {
-  "skills.catalog.addressReview.summary": "Apply open review tickets, run edit-lint, and update ticket status",
+  "skills.catalog.addressReview.summary": "Apply open review comments, run edit-lint, and update comment status",
   "skills.catalog.addressReview.title": "address-review",
   "skills.catalog.akari.summary": "Create, open, or resume an AKARI Video project",
   "skills.catalog.akari.title": "akari",
@@ -11,7 +11,7 @@
   "skills.catalog.bake3d.title": "bake-3d",
   "skills.catalog.beatSyncEdit.summary": "Generate an edit and overlays aligned to declared beats and accents",
   "skills.catalog.beatSyncEdit.title": "beat-sync-edit",
-  "skills.catalog.compileReviewSession.summary": "Turn a recorded review session into open review tickets",
+  "skills.catalog.compileReviewSession.summary": "Turn a recorded review session into open review comments",
   "skills.catalog.compileReviewSession.title": "compile-review-session",
   "skills.catalog.createProject.summary": "Create a project from the template without opening the app",
   "skills.catalog.createProject.title": "create-project",

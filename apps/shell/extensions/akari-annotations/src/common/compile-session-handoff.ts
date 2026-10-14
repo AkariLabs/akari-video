@@ -35,7 +35,7 @@ export function planCompileHandoff(
                 ? left.startedAt.localeCompare(right.startedAt)
                 : leftOrder - rightOrder;
         }).pop()!;
-    const prompt = `review セッション ${session.id} をコンパイルして`;
+    const prompt = t('annotationscommon.compileSessionHandoff.text.prompt', { id: session.id });
     return { kind: 'copy', sessionId: session.id, prompt };
 }
 

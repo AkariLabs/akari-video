@@ -669,13 +669,12 @@ function transitionFragmentBody(type: ResolvedTransition['type']): string {
     vec2 q = texelOf(vec2(sx, sy));
     result = A(q) * P + B(q) * (1.0 - P);`;
     default:
-      throw new Error(`unsupported transition type: ${String(type)}`);
+      return transitionFragmentBody('fade');
   }
 }
 
 export function buildBaseFragment(type: ResolvedTransition['type']): string {
-  if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type))
-    throw new Error(`unsupported transition type: ${String(type)}`);
+  if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type)) type = 'fade';
   const blurHelper = type === 'blur'
     ? `vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
   int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});

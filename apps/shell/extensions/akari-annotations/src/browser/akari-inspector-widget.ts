@@ -12,7 +12,8 @@ import { INSPECTOR_WIDGET_CSS } from './style/inspector-widget-style';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
 import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
-import { captionPanelChangedDetail, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelChangedDetail, captionPanelFontRows, captionPanelLookWrite, firstCaptionFontFamilies, nextCaptionPanel,
+    recentCaptionFontId, renderableCaptionFonts, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
 import { captionPanelSelection, captionPanelFontRequest } from './inspector/caption-panel-selection';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
@@ -45,9 +46,11 @@ import {
     TimelineTreeItemSnapshot,
     TimelineWorldSelection,
     TimelineGapSelection,
+    TimelineTransitionSelection,
     captionIdForTreeSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
+import { renderTransitionPanel } from './inspector/transition-panel';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
@@ -198,7 +201,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
     protected captionPanelStyles: CaptionPanelPreset[] = [];
     protected captionPanelItemSize?: number;
-    protected captionPanelFontFaces = new Map<string, string>();
+    protected captionPanelFontFaces = Object.assign(new Map<string, string>(), { libraryIds: new Set<string>() });
+    protected captionPanelFontGeneration = 0;
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
     protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
@@ -219,10 +223,10 @@ export class AkariInspectorWidget extends BaseWidget {
         if (selection.primaryCaption) {
             const currentFamily = selection.primaryCaption.effectiveTextStyle?.fontFamily
                 ?? selection.primaryCaption.textStyle?.fontFamily;
-            const current = CAPTION_PANEL_FONTS.find(font => this.captionPanelFontFaces.get(font.id) === currentFamily
-                || font.id === 'noto-sans-jp' && currentFamily === CAPTION_FONT_FAMILY);
-            if (current && !this.captionPanelState.recentFonts.includes(current.id)) {
-                this.captionPanelState.recentFonts.unshift(current.id);
+            const currentId = recentCaptionFontId(currentFamily, captionPanelFontRows(
+                renderableCaptionFonts(CAPTION_PANEL_FONTS, this.captionPanelFontFaces), this.captionPanelFontFaces));
+            if (currentId && !this.captionPanelState.recentFonts.includes(currentId)) {
+                this.captionPanelState.recentFonts.unshift(currentId);
             }
         }
         this.captionPanel = nextCaptionPanel(this.captionPanel, panel, true);
@@ -252,8 +256,9 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async loadCaptionPanelData(): Promise<void> {
+        const fontGeneration = ++this.captionPanelFontGeneration;
         const fonts = this.captionPreviewService?.getOverlayRuntimeAssetUrls().then(assets => {
-            if (assets) this.registerCaptionPanelFonts(assets);
+            if (assets && fontGeneration === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, fontGeneration);
             if (this.captionPanel) this.render();
         }).catch(error => this.showFieldNotice(String(error)));
         const myStyles = this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles')
@@ -287,7 +292,7 @@ export class AkariInspectorWidget extends BaseWidget {
         await Promise.allSettled([fonts, myStyles, presets, itemSize]);
     }
 
-    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
+    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls, generation: number): void {
         this.captionPanelFontsLoaded = true;
         const faces = [...assets.bundledCaptionFontFaces,
             { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
@@ -300,23 +305,28 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         css.textContent = faces.filter(face => face.id !== 'noto-sans-jp').map(face => {
             const weight = face.id === 'noto-serif-jp' ? '200 900' : face.weight;
-            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('truetype');font-weight:${weight};font-style:normal;font-display:swap}`;
+            const format = face.file.toLowerCase().endsWith('.woff2') ? 'woff2'
+                : face.file.toLowerCase().endsWith('.woff') ? 'woff'
+                    : face.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype';
+            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('${format}');font-weight:${weight};font-style:normal;font-display:swap}`;
         }).join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
         void Promise.all(faces.map(async face => {
             const weight = face.id === 'noto-serif-jp' ? '200' : face.weight.split(' ')[0];
             const descriptor = face.id === 'noto-sans-jp' ? CAPTION_FONT_LOAD_DESCRIPTOR
                 : `${weight} 19px ${JSON.stringify(face.family)}`;
             try {
-                if ((await document.fonts.load(descriptor, 'Aa あいう')).length > 0) {
-                    this.captionPanelFontFaces.set(face.id, face.family);
-                }
+                return (await document.fonts.load(descriptor, 'Aa あいう')).length > 0 ? face : undefined;
             } catch { /* A failed font is not offered as an applicable row. */ }
-        })).then(() => {
+            return undefined;
+        })).then(loadedFaces => {
+            if (generation !== this.captionPanelFontGeneration) return;
+            const registered = firstCaptionFontFamilies(loadedFaces);
             const available = (window as Window & { akariFontAvailability?: Record<string,
                 { status: string; family: string }> }).akariFontAvailability ?? {};
             for (const [id, status] of Object.entries(available)) {
-                if (status?.status === 'available') this.captionPanelFontFaces.set(id, status.family);
+                if (status?.status === 'available' && !registered.has(id)) registered.set(id, status.family);
             }
+            this.captionPanelFontFaces = registered;
             if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
                 || this.model.snapshot?.kind === 'overlay'
                 || this.model.snapshot?.kind === 'multi') this.render();
@@ -326,8 +336,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected ensureCaptionRowFontFace(): void {
         if (this.captionPanelFontsLoaded || this.captionRowFontsLoading || !this.captionPreviewService) return;
         this.captionRowFontsLoading = true;
+        const generation = ++this.captionPanelFontGeneration;
         void this.captionPreviewService.getOverlayRuntimeAssetUrls()
-            .then(assets => this.registerCaptionPanelFonts(assets))
+            .then(assets => { if (generation === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, generation); })
             .catch(() => { this.captionRowFontsLoading = false; });
     }
     protected readonly fieldNotice = document.createElement('div');
@@ -467,13 +478,17 @@ export class AkariInspectorWidget extends BaseWidget {
         this.node.classList.add('akari-inspector-widget');
         const refreshFonts = (): void => {
             if (!this.captionPreviewService) return;
+            const generation = ++this.captionPanelFontGeneration;
             void this.captionPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
-                this.registerCaptionPanelFonts(assets);
+                if (generation !== this.captionPanelFontGeneration) return;
+                this.registerCaptionPanelFonts(assets, generation);
                 this.render();
             }).catch(() => undefined);
         };
         window.addEventListener('akari.fontAvailability.changed', refreshFonts);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.fontAvailability.changed', refreshFonts) });
+        window.addEventListener('akari.library.fontsChanged', refreshFonts);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.library.fontsChanged', refreshFonts) });
         const openImageAi = (event: Event): void => {
             const itemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId;
             const selectedId = () => this.model.snapshot?.kind === 'item' ? this.model.snapshot.id
@@ -704,7 +719,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return false;
         }
         const snapshot = this.model.snapshot;
-        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap') {
+        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap' || snapshot.kind === 'transition') {
             if (clearedSolo) this.render();
             return false;
         }
@@ -878,6 +893,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const snapshot = this.model.snapshot;
         if (!snapshot) return undefined;
         if (snapshot.kind === 'gap') return `gap:${snapshot.trackId}:${snapshot.startSeconds}:${snapshot.endSeconds}`;
+        if (snapshot.kind === 'transition') return `transition:${snapshot.ref.earlierItemId}:${snapshot.ref.laterItemId}`;
         const itemKey = (item: InspectorSnapshot): string => item.kind === 'cut'
             ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`;
         const selectionKey = snapshot.kind === 'multi'
@@ -961,6 +977,12 @@ export class AkariInspectorWidget extends BaseWidget {
             });
         });
         this.body.appendChild(panel);
+    }
+
+    protected renderTransitionSelection(snapshot: TimelineTransitionSelection): void {
+        this.body.append(renderTransitionPanel(snapshot,
+            request => this.commitWrite(request),
+            id => this.commandRegistry.executeCommand(id), this.node));
     }
 
     protected matchesGapAiFrame(selection: TimelineSelectionModel['snapshot'], gap: TimelineGapSelection): boolean {
@@ -1216,6 +1238,14 @@ export class AkariInspectorWidget extends BaseWidget {
             empty.className = 'akari-inspector-empty';
             empty.textContent = t('annotations.inspectorWidget.text.selectAnItemOnTheTimeline');
             this.body.appendChild(empty);
+            return;
+        }
+        if (snapshot.kind === 'transition') {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
+            this.explicitTabId = undefined;
+            this.syncAdjustCompare(undefined, '');
+            this.renderTransitionSelection(snapshot);
             return;
         }
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
@@ -4680,16 +4710,18 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         try {
             const result = await this.model.requestWrite(request);
-            return result.ok ? result : this.reportWriteFailure(result.message ?? t('annotations.inspectorWidget.text.writingFailed'));
+            return result.ok ? result : this.reportWriteFailure(
+                result.message ?? t('annotations.inspectorWidget.text.writingFailed'), request.kind === 'caption-style-size');
         } catch (error) {
-            return this.reportWriteFailure(error instanceof Error ? error.message : String(error));
+            return this.reportWriteFailure(error instanceof Error ? error.message : String(error),
+                request.kind === 'caption-style-size');
         }
     }
 
-    protected reportWriteFailure(message: string): InspectorWriteResult {
+    protected reportWriteFailure(message: string, fieldOnly = false): InspectorWriteResult {
         this.showFieldNotice(message);
         const now = Date.now();
-        if (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000) {
+        if (!fieldOnly && (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000)) {
             this.messageService.error(message);
             this.lastWriteError = { message, at: now };
         }

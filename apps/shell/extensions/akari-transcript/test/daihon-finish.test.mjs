@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
+import { captionGraphemes, getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
   updateCaptionFieldsInSourceWithReport } from '@akari-video/edit-store';
 import { openWordContextMenu, wordContextMenuGroups } from '../lib/browser/daihon/daihon-word-context-menu.js';
 
@@ -426,6 +426,7 @@ test('Esc は登録順のまま置いた文字を優先し、通常のポップ�
 
 test('選択バーの実際の文言は 400px 幅で全状態 2 段以内に収まる', () => {
   const Harness = method('    protected renderActionBar(', '    protected updateToastPlacement(', {
+    captionGraphemes,
     wordRangeSummary: () => ({ text: 'あいうえおかきくけこ' }),
     canMergeRows: () => ({ ok: true }), clearSelection: () => ({ selected: [] })
   });
@@ -449,7 +450,7 @@ test('選択バーの実際の文言は 400px 幅で全状態 2 段以内に収�
       { name: '複数行', selected: ['a', 'b'], words: [], candidate: undefined,
         labels: ['2 行を選択中', '🔊 読み上げ', '🎙 アフレコ', '🎨 見た目', 'T 文字を置く', '✂ カット', '結合', '⋯', '✕'] },
       { name: '語の範囲', selected: ['a'], words: [{ row: 'a', a: 0, b: 0 }], candidate: undefined,
-        labels: ['「あいうえおかきくけこ」', '✎ 直す', '✦ 強調', '✂ 映像ごとカット',
+        labels: ['「あいうえお…」', '✎ 直す', '✦ 選んだ文字だけ', '✂ 映像ごとカット',
           '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕'] },
       { name: '無音', selected: [], words: [],
         candidate: candidate('無音 1.00 秒', ['▶ 聞く', '✂ 範囲を決めてカット']),

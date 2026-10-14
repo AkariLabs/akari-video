@@ -26,6 +26,10 @@ export type CaptionWriteOptions = {
 type WriteResult = {
     written: string[];
     notices: string[];
+    notice_codes: Array<{
+        code: string;
+        params?: Record<string, string | number>;
+    }>;
     changed: string[];
     recovered?: string;
     before: Record<string, FileVersion>;

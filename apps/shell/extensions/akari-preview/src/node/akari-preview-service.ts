@@ -25,6 +25,7 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     EndReviewSessionRequest,
+    DeleteReviewSessionRequest,
     GpuPreferenceState,
     SetHighPerformanceGpuResult,
     LintEditCandidateRequest,
@@ -99,6 +100,7 @@ interface PrepareSpeechAtempoResult {
     ok: boolean;
     skipped: boolean;
     durationSec: number;
+    actualStartSeconds?: number;
     generatedMs: number;
     eligible?: boolean;
     key?: string;
@@ -118,6 +120,7 @@ interface PreviewAudioSidecarModuleResult {
     frames?: number;
     bytesPerSample?: number;
     durationSec?: number;
+    actualStartSeconds?: number;
     bytes?: number;
     sampleRate?: number;
     channels?: number;
@@ -336,6 +339,7 @@ type SpeechAtempoModule = {
         skipped: boolean;
         path: string | null;
         durationSec: number;
+        actualStartSeconds?: number;
         reason: string | null;
         key: string | null;
         sampleRate: number;
@@ -576,15 +580,21 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const url = (name: string, body: Buffer, mimeType: string): string =>
             `${origin}${this.registerStaticAsset(name, body, mimeType)}`;
         const fontBuffers = this.loadBundledCaptionFontBuffers();
-        let libraryFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }> = [];
+        let libraryFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string; source: 'library' }> = [];
         try {
+            const registeredByPath = new Map<string, { body: Buffer; url: string }>();
             libraryFontFaces = (await this.loadLibraryCaptionFontFaces()).map(face => {
-                const body = readFileSync(face.path);
-                const suffix = extname(face.file).toLowerCase();
-                const mime = new Map([['.otf', 'font/otf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']]).get(suffix) ?? 'font/ttf';
-                const name = `caption-library-${createHash('sha256').update(face.path).update(body).digest('hex').slice(0, 16)}${suffix}`;
+                let registered = registeredByPath.get(face.path);
+                if (!registered) {
+                    const body = readFileSync(face.path);
+                    const suffix = extname(face.file).toLowerCase();
+                    const mime = new Map([['.otf', 'font/otf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']]).get(suffix) ?? 'font/ttf';
+                    const name = `caption-library-${createHash('sha256').update(face.path).update(body).digest('hex').slice(0, 16)}${suffix}`;
+                    registered = { body, url: url(name, body, mime) };
+                    registeredByPath.set(face.path, registered);
+                }
                 return { id: face.id, family: face.family, file: face.file, weight: face.weight,
-                    url: url(name, body, mime) };
+                    url: registered.url, source: 'library' as const };
             });
         } catch (error) {
             if (!this.libraryCaptionFontWarningReported) {
@@ -1024,6 +1034,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 sampleRate: result.sampleRate,
                 channels: result.channels,
                 durationSec: result.durationSec,
+                ...(result.actualStartSeconds !== undefined
+                    ? { actualStartSeconds: result.actualStartSeconds } : {}),
                 generatedMs,
                 stream
             };
@@ -1402,6 +1414,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return this.reviewSessionWriter.list(request);
     }
 
+    async deleteReviewSession(request: DeleteReviewSessionRequest): Promise<boolean> {
+        return this.reviewSessionWriter.delete(request);
+    }
+
     async readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult> {
         return this.reviewSessionWriter.readBundle(request);
     }
@@ -1638,9 +1654,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // display_policy 経路だけ前処理を欠き、行の style_preset が無視されていた。
         // legacy の parsePreviewCaptions、Web UI、render-cut、page-builder は解決済みで、
         // 公開字幕プリセット契約 §3 も captions.json 消費側での前処理を必須としている。
-        captionsRoot = captionRenderInputFromV1(captionsRoot);
-        captionsRoot = applyCaptionStylePresets(captionsRoot, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
-        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
         const legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
@@ -1651,6 +1664,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
             rawEdit = JSON.parse(planned.nextText);
         }
+        captionsRoot = applyCaptionStylePresets(captionsRoot, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
+        captionsRoot = captionRenderInputFromV1(captionsRoot, { output: rawEdit.output });
+        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const internal = readInternalEdit(rawEdit, { captions: toAnchorCaptions(captionsRoot) });
         const legacy = projectLegacyEdit(internal);
         const edit = {

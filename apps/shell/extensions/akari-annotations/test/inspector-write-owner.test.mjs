@@ -32,7 +32,7 @@ const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
     'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',
     'inspectorRequestAdjustLutList', 'inspectorRequestAdjustLutImport', 'inspectorRequestKeyframe',
     'inspectorRequestMaterialSwap', 'claimInspectorOwner', 'activateInspectorSelection',
-    'releaseInspectorOwner', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
+    'releaseInspectorOwner', 'releaseTransitionBoundaryForOtherSelection', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
     'remapCaptionSelections'
 ]);
 const timelineCode = ts.transpileModule(`class Timeline { ${timelineMembers} }`, {
@@ -196,4 +196,16 @@ test('write failures show a field notice and one MessageService error per repeat
     now += 4000;
     await inspector.commitWrite(request);
     assert.equal(errors.filter(message => message === '保存できません。').length, 2);
+});
+
+test('字幕サイズの競合は欄の一か所にだけ知らせる', async () => {
+    const notices = [];
+    const errors = [];
+    const inspector = new Inspector();
+    inspector.model = { requestWrite: async () => ({ ok: false, message: '読み直しました。' }) };
+    inspector.showFieldNotice = message => notices.push(message);
+    inspector.messageService = { error: message => errors.push(message) };
+    await inspector.commitWrite({ kind: 'caption-style-size', id: 'c-0001', value: 72 });
+    assert.deepEqual(notices, ['読み直しました。']);
+    assert.deepEqual(errors, []);
 });

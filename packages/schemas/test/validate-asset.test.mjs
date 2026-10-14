@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -16,6 +16,44 @@ function run(fixture) {
     encoding: "utf8",
   });
 }
+
+test("all font catalog entries validate", () => {
+  const root = join(repoRoot, "catalog", "font");
+  const entries = readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory());
+  assert.equal(entries.length, 31);
+  for (const entry of entries) {
+    const result = spawnSync(process.execPath, [cliPath, join(root, entry.name)], { encoding: "utf8" });
+    assert.equal(result.status, 0, `${entry.name}: ${result.stderr}`);
+  }
+});
+
+test("only exact legacy OFL font metadata receives missing-field warnings", t => {
+  const root = mkdtempSync(join(tmpdir(), "legacy-ofl-font-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = join(root, "font", "legacy");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "OFL.txt"), "Open Font License");
+  writeFileSync(join(dir, "legacy.ttf"), "font");
+  const meta = { id: "legacy", category: "font", title: "Legacy", aliases: ["Legacy Family"], tags: ["font"], license: { spdx: "OFL-1.1" } };
+  const check = value => {
+    writeFileSync(join(dir, "meta.json"), JSON.stringify(value));
+    return spawnSync(process.execPath, [cliPath, dir], { encoding: "utf8" });
+  };
+  const legacy = check(meta);
+  assert.equal(legacy.status, 0, legacy.stderr);
+  assert.match(legacy.stderr, /WARN: 必須フィールドがありません: description/);
+  assert.match(legacy.stderr, /WARN: preview.png が見つかりません/);
+  const current = check({ ...meta, description: "OFL font", when_to_use: "Captions", knobs: [],
+    ai_usage: "Use under OFL-1.1", requires: [], provenance: { origin: "Font distributor", generator: null },
+    author: "Font authors", license: { spdx: "OFL-1.1", scope: "commercial-ok",
+      attribution_required: false, ai_training_allowed: true }, tier: "free" });
+  assert.equal(current.status, 0, current.stderr);
+  assert.match(current.stderr, /WARN: preview.png が見つかりません/);
+  assert.doesNotMatch(current.stderr, /必須フィールドがありません/);
+  const altered = check({ ...meta, extra: true });
+  assert.equal(altered.status, 1);
+  assert.match(altered.stderr, /必須フィールドがありません: description/);
+});
 
 test("library meta with title-normalized matched_by passes", () => {
   const executed = run("valid-library/overlay/lower-third-clean");
@@ -54,6 +92,21 @@ test("catalog meta with title-normalized matched_by passes", () => {
   assert.match(executed.stdout, /^OK: /);
   assert.match(executed.stdout, /source: external/);
   assert.equal(executed.stderr.trim(), "");
+});
+
+test("aliases accepts nonempty strings and rejects other values", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "akari-aliases-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = join(root, "overlay", "lower-third-clean");
+  cpSync(join(fixtureRoot, "valid-library", "overlay", "lower-third-clean"), dir, { recursive: true });
+  const metaPath = join(dir, "meta.json");
+  const original = JSON.parse(readFileSync(metaPath, "utf8"));
+  for (const [aliases, expected] of [[[], 0], [["別名", "alias"], 0], ["alias", 1], [["valid", ""], 1], [[42], 1]]) {
+    writeFileSync(metaPath, JSON.stringify({ ...original, aliases }));
+    const result = spawnSync(process.execPath, [cliPath, dir], { encoding: "utf8" });
+    assert.equal(result.status, expected, result.stderr);
+    if (expected) assert.match(result.stderr, /aliases は空でない文字列の配列/);
+  }
 });
 
 test("source union accepts external and akari-r2, rejects mixed and absent discriminators", (t) => {

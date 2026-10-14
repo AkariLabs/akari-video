@@ -244,6 +244,22 @@ test('host ready fields copy PCM metadata and omit all undefined metadata fields
     f.dispose();
 });
 
+test('speech requests convert output pads once and ready sidecars retain the actual source start', () => {
+    const load = section(source, '    protected async loadPreviewModel(', '    protected async resolveAudioAssets(');
+    assert.match(load, /padBeforeSec: \(declaration\.padBeforeSec \?\? 0\) \* declaration\.speed/u);
+    assert.match(load, /padAfterSec: \(declaration\.padAfterSec \?\? 0\) \* declaration\.speed/u);
+    const f = lifecycle();
+    const result = f.host.previewAudioSidecarFields({ kind: 'speech', label: 'speech',
+        request: { padBeforeSec: 2, padAfterSec: 1 } }, {
+        state: 'ready', stream: { url: 'sidecar' }, durationSec: 1.625,
+        actualStartSeconds: 0
+    });
+    assert.equal(result.sidecar.actualStartSeconds, 0);
+    assert.equal(result.sidecar.padBeforeSec, 2);
+    assert.equal(result.sidecar.padAfterSec, 1);
+    f.dispose();
+});
+
 test('poll 完了は audio だけ更新し最新 key/probe を sweep に渡す', async () => {
     const f = lifecycle(async () => ({
         state: 'ready', key: 'ready-key', probe: { fingerprint: 'ready-probe' },

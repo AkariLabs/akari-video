@@ -23,7 +23,8 @@ export function baseCatalogItemForAgent(item: AssetCatalogViewItem): CatalogItem
         tags: item.tags,
         when_to_use: item.baseWhenToUse ?? item.whenToUse,
         license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-        source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
+        source: (item.sourceUrl || item.previewUrl || item.sourceAcquisition)
+            ? { url: item.sourceUrl, preview_url: item.previewUrl, acquisition: item.sourceAcquisition } : undefined
     };
 }
 

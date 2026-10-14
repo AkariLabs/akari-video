@@ -1,6 +1,7 @@
 {
   "lint.check.cuts.trackTransitionUnsupported": "This transition cannot be exported with PiP or multiple video tracks. Remove it or return the video to a single track.",
   "lint.check.cuts.transitionOutNonAdjacent": "There is a gap before the clip after this transition. Close the gap or remove the transition.",
+  "lint.check.cuts.transitionOutUnknownType": "This transition type is unknown. A crossfade will be used for preview and export.",
   "lint.check.cuts.transitionOutZeroOverlap": "This transition has no spare source footage to overlap, so it has no effect. Adjust the clip trim or remove the transition.",
   "lint.check.cuts.transitionOutLayerEvacuated": "This clip is routed through PiP, so its transition will not be exported. Resolve the overlap or remove the transition.",
   "lint.check.captions.cutVisibility": "More than half of this caption's display time falls in a cut section, so it barely appears. Move its start and end into the kept section, or delete it.",

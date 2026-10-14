@@ -1,8 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.captionNoticeCodes = void 0;
+exports.assertChangedCaptionStyles = assertChangedCaptionStyles;
+exports.captionEmphasisOverlapsRange = captionEmphasisOverlapsRange;
 exports.planCaptionStyleEdit = planCaptionStyleEdit;
 exports.planCaptionStyleClear = planCaptionStyleClear;
 exports.planCaptionStyleReapply = planCaptionStyleReapply;
+exports.resizeCaptionRow = resizeCaptionRow;
 exports.planCaptionSizeEdit = planCaptionSizeEdit;
 const caption_hash_1 = require("./caption-hash");
 const caption_anchor_map_1 = require("./caption-anchor-map");
@@ -10,6 +14,9 @@ const caption_look_v1_1 = require("./caption-look-v1");
 const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
+const caption_display_1 = require("./caption-display");
+const caption_look_shape_1 = require("./caption-look-shape");
+const caption_look_reader_1 = require("./caption-look-reader");
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const rowsOf = (root) => Array.isArray(root) ? root : root.captions;
 const defaultOf = (root) => !Array.isArray(root) && record(root.default_text_style)
@@ -28,6 +35,151 @@ const catalogRecord = (catalog) => catalog instanceof Map ? Object.fromEntries(c
 const allRuns = (root) => [...rowsOf(root).flatMap(row => Array.isArray(row.runs) ? row.runs : []),
     ...(!Array.isArray(root) && Array.isArray(root.unresolved_runs)
         ? root.unresolved_runs.flatMap(item => item.run ? [item.run] : []) : [])];
+function styleErrors(row, base) {
+    const style = record(row.text_style) ? row.text_style : {};
+    const errors = new Set();
+    const collect = (candidate) => {
+        for (const [key, value] of Object.entries(candidate)) {
+            try {
+                (0, caption_display_1.validateCaptionTextStyle)({ [key]: value });
+            }
+            catch (error) {
+                errors.add(error.message);
+            }
+        }
+        if (Object.prototype.hasOwnProperty.call(candidate, 'zone')
+            && Object.prototype.hasOwnProperty.call(candidate, 'layout'))
+            errors.add('text_style cannot contain both zone and layout');
+        if (Object.prototype.hasOwnProperty.call(candidate, 'layout')
+            && Object.prototype.hasOwnProperty.call(candidate, 'reference_height_px'))
+            errors.add('text_style cannot contain both layout and reference_height_px');
+    };
+    collect(style);
+    try {
+        collect((0, caption_display_1.mergeCaptionDisplayStyles)(base, style) ?? {});
+    }
+    catch (error) {
+        errors.add(error.message);
+    }
+    return [...errors];
+}
+function assertChangedCaptionStyles(before, after, changed) {
+    const indices = new Set();
+    for (const path of changed) {
+        const match = /^captions\[(\d+)\]/.exec(path);
+        if (match)
+            indices.add(Number(match[1]));
+    }
+    const diagnostics = [...indices].flatMap(index => {
+        const previous = styleErrors(rowsOf(before)[index], defaultOf(before));
+        return styleErrors(rowsOf(after)[index], defaultOf(after))
+            .filter(message => !previous.includes(message))
+            .map(message => ({ code: 'captions.style.invalid', severity: 'error',
+            path: `captions[${index}].text_style`, message, layer: 'document' }));
+    });
+    if (diagnostics.length)
+        throw new caption_look_shape_1.CaptionsInvalidError(diagnostics);
+}
+function noticeCodes(notices, omitted) {
+    return notices.map((message) => {
+        const field = omitted.find(key => (0, caption_look_v1_1.sanitizeCaptionRunLook)({ [key]: true }).notices.includes(message));
+        if (field)
+            return { code: 'run-look-omitted', params: { field } };
+        if (message.includes('実測の単語に対応付けられません'))
+            return { code: 'anchor-unmapped' };
+        if (message.includes('スタイル') && message.includes('見つかりません'))
+            return { code: 'style-not-found' };
+        return { code: 'other', params: { message } };
+    });
+}
+exports.captionNoticeCodes = noticeCodes;
+function splitCaptionRuns(row, runs, range, newRunId, preserve) {
+    return runs.flatMap(run => {
+        if (run === preserve)
+            return [run];
+        if (run.to <= range.from || run.from >= range.to)
+            return [run];
+        const id = run.id ?? newRunId();
+        const pieces = [];
+        if (run.from < range.from)
+            pieces.push({ ...run, id, to: range.from });
+        if (run.to > range.to) {
+            const rightId = run.from < range.from ? newRunId() : id;
+            pieces.push({ ...run, id: rightId, from: range.to,
+                ...(rightId !== id ? { split_from: id } : {}) });
+        }
+        for (const piece of pieces)
+            if (run.anchor) {
+                const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, piece.from, piece.to).anchor;
+                if (anchor)
+                    piece.anchor = anchor;
+                else {
+                    delete piece.anchor;
+                    if (piece.fire === 'spoken') {
+                        piece.fire = 'shown';
+                        piece.fire_was = 'spoken';
+                        piece.needs_review = true;
+                    }
+                }
+            }
+        return pieces;
+    });
+}
+function captionEmphasisOverlapsRange(row, range, emphasis, resolvedAnchor) {
+    if (row.time_domain === 'output')
+        return false;
+    if (emphasis.src && row.src && emphasis.src !== row.src)
+        return false;
+    const anchor = (resolvedAnchor ?? (0, caption_anchor_map_1.anchorForCaptionRange)(row, range.from, range.to)).anchor;
+    if (anchor && Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) <= 1e-6)
+        return false;
+    if (!anchor && (typeof row.start !== 'number' || typeof row.end !== 'number'
+        || emphasis.t_start < row.start || emphasis.t_end > row.end))
+        return false;
+    if (anchor && emphasis.src && row.src)
+        return true;
+    return (0, caption_look_reader_1.captionEmphasisWordIntervals)(row, emphasis.word.trim())
+        .some(interval => interval.from < range.to && interval.to > range.from);
+}
+function nonWhitespaceRange(row, range) {
+    const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
+    let { from, to } = range;
+    while (from < to && /^\s$/u.test(chars[from]))
+        from++;
+    while (to > from && /^\s$/u.test(chars[to - 1]))
+        to--;
+    return from < to ? { from, to } : undefined;
+}
+function removeOverlappingEmphasis(root, row, range, changed) {
+    if (Array.isArray(root) || !Array.isArray(root.emphasis_words))
+        return;
+    const selected = nonWhitespaceRange(row, range);
+    if (!selected)
+        return;
+    const emphasis = root.emphasis_words;
+    const before = emphasis.length;
+    const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, selected.from, selected.to);
+    root.emphasis_words = emphasis.filter(item => !record(item)
+        || !captionEmphasisOverlapsRange(row, selected, item, anchor));
+    if (root.emphasis_words.length !== before && !changed.includes('emphasis_words'))
+        changed.push('emphasis_words');
+}
+function rowIndexOf(root) {
+    const index = new Map();
+    rowsOf(root).forEach((row, number) => {
+        if (typeof row.id !== 'string')
+            return;
+        const previous = index.get(row.id);
+        index.set(row.id, { row, index: number, count: (previous?.count ?? 0) + 1 });
+    });
+    return index;
+}
+function indexedRow(index, id) {
+    const found = index.get(id);
+    if (!found || found.count !== 1)
+        throw new Error(`字幕 ${id} が一意に見つかりません。`);
+    return found;
+}
 function resolveRange(row, range) {
     const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
     if ('from' in range) {
@@ -138,6 +290,8 @@ function migratePreset(row, catalog, notices, at, legacy) {
     row.text_style = resolved.record.text_style;
     const sources = record(row.style_sources) ? { ...row.style_sources } : {};
     sources.look = sourceRecord({ kind: 'builtin', id }, projectedLook(original ?? {}), projectedLook(record(row.text_style) ? row.text_style : {}), at);
+    if (record(original?.animation) && record(row.text_style) && record(row.text_style.animation))
+        sources.motion = sourceRecord({ kind: 'builtin', id }, original.animation, row.text_style.animation, at);
     row.style_sources = sources;
     delete row.style_preset;
 }
@@ -174,6 +328,7 @@ function planCaptionStyleEdit(input) {
     const catalogObject = catalogRecord(catalog);
     const changed = [];
     const notices = [];
+    const omittedFields = [];
     const at = input.now instanceof Date ? input.now.toISOString()
         : typeof input.now === 'string' ? new Date(input.now).toISOString() : new Date().toISOString();
     for (const target of input.targets) {
@@ -218,11 +373,22 @@ function planCaptionStyleEdit(input) {
         const { row } = indexed;
         if (target.range) {
             const { from, to } = resolveRange(row, target.range);
-            const runs = Array.isArray(row.runs) ? row.runs : [];
+            let runs = Array.isArray(row.runs) ? row.runs : [];
             let run;
             for (const candidate of runs)
                 if (candidate.id && candidate.from === from && candidate.to === to)
                     run = candidate;
+            const overlapIndex = !run && parts.look && !input.legacy
+                ? runs.findIndex(candidate => candidate.from < to && candidate.to > from) : -1;
+            const insertionIndex = overlapIndex < 0 ? runs.length
+                : overlapIndex + (runs[overlapIndex].from < from ? 1 : 0);
+            if (parts.look && !input.legacy) {
+                runs = splitCaptionRuns(row, runs, { from, to }, newRunId, run);
+                if (runs.length)
+                    row.runs = runs;
+                else
+                    delete row.runs;
+            }
             if (!run) {
                 run = { id: newRunId(), from, to };
                 const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
@@ -230,13 +396,23 @@ function planCaptionStyleEdit(input) {
                     run.anchor = anchor.anchor;
                 else
                     notices.push(...anchor.diagnostics.map(item => item.message));
-                runs.push(run);
+                runs.splice(insertionIndex, 0, run);
                 row.runs = runs;
             }
             if (parts.look) {
                 const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), parts.look, catalogObject);
-                run.look = input.legacy ? result.look : roundPixels(result.look);
+                const look = input.legacy ? result.look : roundPixels(result.look);
+                if (!input.legacy) {
+                    if (!Object.prototype.hasOwnProperty.call(look, 'stroke'))
+                        look.stroke = { width_px: 0 };
+                    if (!Object.prototype.hasOwnProperty.call(look, 'shadow'))
+                        look.shadow = { color: '#000000', opacity: 0 };
+                    if (!Object.prototype.hasOwnProperty.call(look, 'glow'))
+                        look.glow = { color: '#000000', density: 0 };
+                }
+                run.look = look;
                 notices.push(...result.notices);
+                omittedFields.push(...(0, caption_look_v1_1.sanitizeCaptionRunLook)(parts.look).omitted);
             }
             if (parts.motion) {
                 if (Object.keys(parts.motion).length)
@@ -245,6 +421,7 @@ function planCaptionStyleEdit(input) {
                     delete run.motion;
             }
             updateSources(run, parts, input.source, parts.look ? projectedRunLook(parts.look) : {}, parts.motion ?? {}, at);
+            removeOverlappingEmphasis(captions, row, { from, to }, changed);
             changed.push(`captions[${indexed.index}].runs`);
             continue;
         }
@@ -265,14 +442,23 @@ function planCaptionStyleEdit(input) {
         updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at);
         changed.push(`captions[${indexed.index}].text_style`);
     }
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    const uniqueNotices = [...new Set(notices)];
     return { next: { captions, ...(input.edit === undefined ? {} : { edit: input.edit }),
-            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) }, changed, notices: [...new Set(notices)] };
+            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) },
+        changed, notices: uniqueNotices, notice_codes: noticeCodes(uniqueNotices, omittedFields) };
 }
 function planCaptionStyleClear(input) {
     const captions = structuredClone(input.captions);
     const changed = [];
+    const index = rowIndexOf(captions);
+    let nextRun = allRuns(captions).reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run.id ?? '');
+        return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+    const newRunId = () => `r-${String(nextRun++).padStart(4, '0')}`;
     for (const target of input.targets) {
-        const row = findRow(captions, target.caption_id);
+        const { row, index: rowNumber } = indexedRow(index, target.caption_id);
         if (!target.range && !target.run_id) {
             if (record(row.text_style)) {
                 const style = { ...row.text_style };
@@ -287,27 +473,41 @@ function planCaptionStyleClear(input) {
             }
             delete row.style_sources;
             delete row.style_preset;
-            changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+            changed.push(`captions[${rowNumber}].text_style`);
             continue;
         }
         const runs = Array.isArray(row.runs) ? row.runs : [];
         const range = target.range ? resolveRange(row, target.range) : undefined;
         if (input.mode === 'run') {
+            const removed = runs.filter(run => target.run_id ? run.id === target.run_id
+                : run.from === range?.from && run.to === range?.to);
             const before = runs.length;
-            row.runs = runs.filter(run => target.run_id ? run.id !== target.run_id
+            const remaining = runs.filter(run => target.run_id ? run.id !== target.run_id
                 : run.from !== range?.from || run.to !== range?.to);
-            if (row.runs.length === before)
+            if (remaining.length === before)
                 throw new Error('外す文字範囲がありません。');
+            if (remaining.length)
+                row.runs = remaining;
+            else
+                delete row.runs;
+            for (const run of removed)
+                removeOverlappingEmphasis(captions, row, run, changed);
         }
         else {
             const selected = range ?? runs.find(run => run.id === target.run_id);
             if (!selected)
                 throw new Error('戻す文字範囲がありません。');
-            row.runs = (0, caption_runs_1.clearCaptionRunRange)(runs, selected.from, selected.to, allRuns(captions));
+            const remaining = splitCaptionRuns(row, runs, selected, newRunId);
+            if (remaining.length)
+                row.runs = remaining;
+            else
+                delete row.runs;
+            removeOverlappingEmphasis(captions, row, selected, changed);
         }
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].runs`);
+        changed.push(`captions[${rowNumber}].runs`);
     }
-    return { next: { captions }, changed, notices: [] };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices: [], notice_codes: [] };
 }
 function planCaptionStyleReapply(input) {
     const items = [];
@@ -358,51 +558,79 @@ function planCaptionStyleReapply(input) {
             }
         }
     }
-    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: [...new Set(notices)] };
+    const uniqueNotices = [...new Set(notices)];
+    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: uniqueNotices,
+        notice_codes: noticeCodes(uniqueNotices, []) };
+}
+function resizeCaptionRow(row, defaultStyle, size, catalog = textstyle_catalog_1.TEXTSTYLE_CATALOG, notices = [], at = new Date().toISOString()) {
+    const beforeSize = (0, caption_look_v1_1.captionEffectiveSize)(row, defaultStyle, catalogRecord(catalog));
+    if (beforeSize === size)
+        return false;
+    migratePreset(row, catalog, notices, at);
+    const style = record(row.text_style) ? row.text_style : {};
+    let effective;
+    try {
+        effective = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, style) ?? {};
+    }
+    catch {
+        effective = { ...defaultStyle, ...style };
+    }
+    const oldRunHashes = Array.isArray(row.runs) ? row.runs.map(run => run.look ? (0, caption_hash_1.captionValueHash)(run.look) : undefined) : [];
+    const scaled = roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...effective, size_px: beforeSize }, size));
+    const nextStyle = { ...style, size_px: size };
+    for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern' || !record(scaled[key]))
+            continue;
+        if (fields.some(field => typeof scaled[key][field] === 'number'))
+            nextStyle[key] = scaled[key];
+    }
+    if (Array.isArray(scaled.strokes) && scaled.strokes.some(stroke => record(stroke)
+        && caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes.some(field => typeof stroke[field] === 'number')))
+        nextStyle.strokes = scaled.strokes;
+    if (record(scaled.fill) && record(scaled.fill.pattern)
+        && typeof scaled.fill.pattern.scale === 'number')
+        nextStyle.fill = scaled.fill;
+    const sources = record(row.style_sources) ? row.style_sources : undefined;
+    const lookSource = sources && record(sources.look) ? sources.look : undefined;
+    const matched = !!lookSource && (0, caption_hash_1.captionValueHash)(projectedLook(style)) === lookSource.applied_hash;
+    row.text_style = nextStyle;
+    if (matched && lookSource)
+        lookSource.applied_hash = (0, caption_hash_1.captionValueHash)(projectedLook(nextStyle));
+    if (Array.isArray(row.runs))
+        row.runs = row.runs.map((run, index) => {
+            if (!run.look)
+                return run;
+            const look = roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...run.look, size_px: beforeSize }, size));
+            delete look.size_px;
+            const next = { ...run, look };
+            const source = record(next.style_sources) && record(next.style_sources.look) ? next.style_sources.look : undefined;
+            if (source && oldRunHashes[index] === source.applied_hash)
+                source.applied_hash = (0, caption_hash_1.captionValueHash)(look);
+            return next;
+        });
+    return true;
 }
 function planCaptionSizeEdit(input) {
     if (!Number.isFinite(input.size_px) || input.size_px <= 0)
         throw new Error('大きさは正の数にしてください。');
     const captions = structuredClone(input.captions);
     const changed = [];
+    const notices = [];
+    const index = rowIndexOf(captions);
+    const catalog = catalogRecord(input.catalog ?? textstyle_catalog_1.TEXTSTYLE_CATALOG);
     for (const target of input.targets) {
-        const row = findRow(captions, target.caption_id);
-        const beforeSize = (0, caption_look_v1_1.captionEffectiveSize)(row, defaultOf(captions));
-        if (beforeSize === input.size_px)
-            continue;
-        const style = record(row.text_style) ? row.text_style : {};
-        const oldRunHashes = Array.isArray(row.runs) ? row.runs.map(run => run.look ? (0, caption_hash_1.captionValueHash)(run.look) : undefined) : [];
-        const scaled = (0, caption_look_v1_1.scaleCaptionLookPixels)({ ...style, size_px: beforeSize }, input.size_px);
-        const nextStyle = roundPixels(scaled);
-        nextStyle.size_px = input.size_px;
-        row.text_style = nextStyle;
-        if (Array.isArray(row.runs))
-            row.runs = row.runs.map(run => run.look
-                ? { ...run, look: roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...run.look, size_px: beforeSize }, input.size_px)) }
-                : run).map(run => {
-                if (run.look)
-                    delete run.look.size_px;
-                return run;
-            });
-        const sources = record(row.style_sources) ? row.style_sources : undefined;
-        const lookSource = sources && record(sources.look) ? sources.look : undefined;
-        if (lookSource && (0, caption_hash_1.captionValueHash)(projectedLook(style)) === lookSource.applied_hash) {
-            lookSource.applied_hash = (0, caption_hash_1.captionValueHash)(projectedLook(nextStyle));
-        }
-        if (Array.isArray(row.runs))
-            for (const [index, run] of row.runs.entries()) {
-                const source = record(run.style_sources) && record(run.style_sources.look) ? run.style_sources.look : undefined;
-                if (source && run.look && oldRunHashes[index] === source.applied_hash)
-                    source.applied_hash = (0, caption_hash_1.captionValueHash)(run.look);
-            }
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+        const found = indexedRow(index, target.caption_id);
+        if (resizeCaptionRow(found.row, defaultOf(captions), input.size_px, catalog, notices))
+            changed.push(`captions[${found.index}].text_style`);
     }
-    return { next: { captions }, changed, notices: [] };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices, notice_codes: noticeCodes(notices, []) };
 }
 function roundPixels(value) {
     const next = structuredClone(value);
-    for (const [key, fields] of Object.entries({ stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'] })) {
+    for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern')
+            continue;
         const object = next[key];
         if (!record(object))
             continue;
@@ -413,7 +641,7 @@ function roundPixels(value) {
     if (Array.isArray(next.strokes))
         for (const stroke of next.strokes)
             if (record(stroke))
-                for (const field of ['width_px', 'offset_x', 'offset_y'])
+                for (const field of caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes)
                     if (typeof stroke[field] === 'number')
                         stroke[field] = (0, caption_runs_1.roundCaptionPixel)(stroke[field]);
     if (record(next.fill) && record(next.fill.pattern) && typeof next.fill.pattern.scale === 'number')

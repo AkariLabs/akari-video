@@ -49,6 +49,26 @@ export const MAX_AUDIO_INPUTS_PER_COMMAND = process.platform === "win32" ? 25 : 
 export const SHARED_AUDIO_INPUT_MAX_SECONDS = 30;
 export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
+function transitionHoldHeadSeconds(cut) {
+  const value = cut?.transitionHold?.headSeconds;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+// 前出し（transitionHold）を持つクリップの、逐次の並びでの見え方。
+function sequentialInputCuts(cuts) {
+  if (!cuts.some((cut) => transitionHoldHeadSeconds(cut) > 0)) return cuts;
+  return cuts.map((cut) => {
+    const hold = transitionHoldHeadSeconds(cut);
+    if (!(hold > 0)) return cut;
+    const { transitionHold, ...inputCut } = cut;
+    return {
+      ...inputCut,
+      at: cut.at - hold,
+      out: Number.isFinite(cut.out) ? cut.out + hold * cutSpeed(cut) : cut.out,
+    };
+  });
+}
+
 export function buildPlan({
   edit,
   internalEdit,
@@ -101,7 +121,7 @@ export function buildPlan({
   }
   const layers = (edit.layers ?? []).map(layer => mutedLayerIds.has(layer.id)
     ? { ...layer, mute: true } : layer);
-  const cutAudio = needsGapAwareCutTimeline(edit.cuts)
+  const cutAudio = needsGapAwareCutTimeline(sequentialInputCuts(edit.cuts))
     ? buildGapAwareMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
         cutPath: cutAudioPath,
@@ -1190,7 +1210,7 @@ function buildSequentialAudioCutCommand({
   if (!hasAnyTransition) {
     filters.push(`${audioLabels.join("")}concat=n=${cuts.length}:v=0:a=1[joineda]`);
   } else {
-    const transitionDurations = effectiveTransitionDurations(cuts);
+    const transitionDurations = effectiveTransitionDurations(sequentialInputCuts(cuts));
     let audioAcc = "[a0]";
     for (let index = 1; index < cuts.length; index += 1) {
       const boundary = cuts[index - 1].transition_out;
@@ -1241,10 +1261,12 @@ function appendInputSeekedCutAudioFilter({
       id: `v1_${index}`,
       normalize: true,
       padToSeconds: Number.isFinite(cut.out) ? segmentDuration(cut) : undefined,
+      leadSilenceSeconds: transitionHoldHeadSeconds(cut),
     });
   } else {
+    const hold = transitionHoldHeadSeconds(cut);
     filters.push(
-      `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
+      `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(hold > 0 ? segmentDuration(cut) + hold : segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
     );
   }
 }
@@ -1623,12 +1645,13 @@ export function predictedDuration(cuts, sourceDuration = 0) {
   // short-circuit to sequentialDurationWithTransitionOverlap before this check ever ran, so an at/
   // track v1 project got the wrong predicted_duration_seconds even after the render itself became
   // gap-aware -- verify.duration would then reject a now-correctly-rendered file.
-  if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(cuts)) {
+  const inputCuts = Array.isArray(cuts) ? sequentialInputCuts(cuts) : cuts;
+  if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(inputCuts)) {
     const segments = resolveCutSegments(cuts);
     return Math.max(0, ...segments.map((segment) => segment.end));
   }
   if (Array.isArray(cuts) && cuts.length > 0) {
-    return sequentialDurationWithTransitionOverlap(cuts);
+    return sequentialDurationWithTransitionOverlap(inputCuts);
   }
   return sourceDuration;
 }

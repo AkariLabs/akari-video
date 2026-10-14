@@ -45,8 +45,10 @@ const normalizeTransition = cut => {
 };
 
 const comparableMap = map => ({
-  transitionWindows: map.transitionWindows,
-  segments: map.segments,
+  transitionWindows: map.transitionWindows.map(({ cutSeconds, effectiveSeconds, state, reasons, ...window }) => window),
+  // A boundary without a usable window loses its render declaration on projection.
+  segments: map.transitionWindows.length === 0
+    ? map.segments.map(({ transitionOut, ...segment }) => segment) : map.segments,
   totalDuration: map.totalDuration,
 });
 
@@ -66,6 +68,14 @@ const comparePaths = edit => {
       : undefined,
   });
   const declarationMap = buildTimelineMap(declarationCuts, { fps: edit.output.fps });
+  for (const window of rawMap.transitionWindows) {
+    if (window.state === undefined) continue;
+    assert.equal(typeof window.cutSeconds, 'number');
+    assert.equal(typeof window.effectiveSeconds, 'number');
+    assert.ok(Array.isArray(window.reasons));
+  }
+  assert.ok(declarationMap.transitionWindows.every(window => window.cutSeconds === undefined
+    && window.effectiveSeconds === undefined && window.state === undefined && window.reasons === undefined));
   assert.deepEqual(comparableMap(rawMap), comparableMap(declarationMap));
 };
 

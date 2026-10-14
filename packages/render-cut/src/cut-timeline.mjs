@@ -15,6 +15,12 @@ export function segmentDuration(cut) {
   return (cut.out - cut.in) / cutSpeed(cut) + freezeDurationSeconds(cut?.freeze);
 }
 
+/** Return the seconds of the incoming first frame shown before a cut's media clock starts. */
+export function cutHoldHeadSeconds(cut) {
+  const value = cut?.transitionHold?.headSeconds;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 const EPSILON = 1e-6;
 
 export function resolveCutSegments(cuts) {
@@ -74,7 +80,7 @@ export function effectiveTransitionDurations(cuts) {
     if (declared > 0 && next) {
       const nextExplicitAt = typeof next.at === "number" && Number.isFinite(next.at) && next.at >= 0;
       if (nextExplicitAt) {
-        const availableOverlap = end - next.at;
+        const availableOverlap = end - (next.at - cutHoldHeadSeconds(next));
         if (availableOverlap > EPSILON && availableOverlap < declared - EPSILON) {
           duration = availableOverlap;
         }
@@ -96,7 +102,7 @@ export function needsGapAwareCutTimeline(cuts) {
     if (track !== 0) return true;
     const explicitAt = typeof cut.at === "number" && Number.isFinite(cut.at) && cut.at >= 0;
     const start = explicitAt ? cut.at : cursor;
-    if (Math.abs(start - cursor) > EPSILON) return true;
+    if (Math.abs(start - cutHoldHeadSeconds(cut) - cursor) > EPSILON) return true;
     cursor = start + segmentDuration(cut) - durations[index];
   }
   return false;
@@ -158,9 +164,25 @@ export function computeCutTimelineOffsets(cuts) {
   let duration = segmentDuration(cuts[0]);
   offsets.push({ start, duration });
   for (let index = 1; index < cuts.length; index += 1) {
-    start = start + duration - durations[index - 1];
+    start = start + duration - durations[index - 1] + cutHoldHeadSeconds(cuts[index]);
     duration = segmentDuration(cuts[index]);
     offsets.push({ start, duration });
   }
   return offsets;
+}
+
+/**
+ * Return each sequential input's output-timeline start and duration. inputStart is the
+ * first frame fed to the transition, while computeCutTimelineOffsets().start remains
+ * the media clock origin. inputDuration includes the held head; the media duration does not.
+ */
+export function computeCutTimelineInputs(cuts) {
+  return computeCutTimelineOffsets(cuts).map((offset, index) => {
+    const holdHeadSeconds = cutHoldHeadSeconds(cuts[index]);
+    return {
+      inputStart: offset.start - holdHeadSeconds,
+      inputDuration: offset.duration + holdHeadSeconds,
+      holdHeadSeconds,
+    };
+  });
 }

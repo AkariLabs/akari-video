@@ -35,6 +35,7 @@ export * from './track-z';
 export * from './media-planes';
 export * from './track-transition-compatibility';
 export * from './cut-adjacency';
+export * from './transition-plan';
 export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';

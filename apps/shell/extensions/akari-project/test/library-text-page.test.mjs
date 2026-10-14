@@ -65,7 +65,17 @@ test('フォントは1行1書体で、名前は重複せず、元カードの押
     assert.equal(nodes(row, node => node.props['data-akari-font-name']).length, 1);
     assert.equal(nodes(row, node => node.props['data-akari-font-english']).length, 1);
     assert.equal(nodes(row, node => node.type === 'img').length, 0, '登録済みの面を使う');
-    assert.equal(nodes(row, node => node.props['data-akari-font-name'])[0].props.style.fontFamily, 'sans-serif');
+    assert.equal(nodes(row, node => node.props['data-akari-font-name'])[0].props.style.fontFamily,
+        '"AKARI Noto Sans JP", sans-serif');
+    const specimen = nodes(row, node => node.props['data-akari-font-specimen'])[0];
+    assert.ok(specimen);
+    assert.equal(specimen.props['aria-hidden'], 'true');
+    assert.deepEqual(specimen.children, ['文字もじモジ']);
+    assert.equal(nodes(row, node => node.props['data-akari-font-primary'])[0].props.style.height, '32px');
+    const withRaster = LibraryTextFontRow({ item: { ...item, previewUrl: 'file:///font/row.webp' },
+        faceFamily: 'AKARI Noto Sans JP', card });
+    assert.equal(nodes(withRaster, node => node.props['data-akari-font-preview']).length, 0);
+    assert.equal(nodes(withRaster, node => node.props['data-akari-font-name']).length, 1);
     assert.equal(row.props.style.flexDirection, 'column', 'どの書体も二段に並ぶ');
     assert.equal(row.props.style.height, '60px');
     for (const attribute of ['data-akari-font-name', 'data-akari-font-english']) {
@@ -85,6 +95,7 @@ test('フォントは1行1書体で、名前は重複せず、元カードの押
     assert.equal(remoteName.props.style.whiteSpace, 'nowrap');
     assert.equal(remoteName.props.style.textOverflow, 'ellipsis');
     assert.equal(nodes(remote, node => node.props['data-akari-font-preview']).length, 0);
+    assert.equal(nodes(remote, node => node.props['data-akari-font-specimen']).length, 0);
     assert.equal(nodes(remote, node => node.type === 'img').length, 0);
     assert.equal(nodes(remote, node => node.props['data-akari-font-english']).length, 1, '下段に小さい書体名を出す');
 

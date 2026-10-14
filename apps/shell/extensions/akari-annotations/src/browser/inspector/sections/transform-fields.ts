@@ -1,10 +1,8 @@
 import { t as translate } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
-import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { InspectorWriteRequest, InspectorWriteResult, TimelineCutSelection } from '../../timeline-selection-model';
 import { createInspectorCropWriteRequest, INSPECTOR_CROP_DISPLAY_SCALE, INSPECTOR_CROP_SCRUB_STEP, inspectorCropAxisMaximum, normalizeInspectorCrop, type InspectorCropAxis } from '../crop-fields';
 import { normalizeInspectorPerspective, updateInspectorPerspective, validateInspectorPerspective, type InspectorPerspectiveCorner, type InspectorPerspectiveAxis } from '../perspective-fields';
-import { createCutTransitionWriteRequest, transitionOptionLabel } from '../transition-fields';
 import { addCutFramingKeyframe, createCutFramingCropWriteRequest, readCutFraming, removeCutFramingKeyframe, replaceCutFramingKeyframe, type CutFramingKeyframe } from '../framing-fields';
 import { createCutFreezeWriteRequest, cutPlaybackDuration, resolveCutFreezeDisplayAt } from '../freeze-fields';
 import { type InspectorFieldDef } from './types';
@@ -82,40 +80,6 @@ export function PERSPECTIVE_FIELDS<TSnapshot extends {
         action: current => requestWrite({ kind: 'item-field', id: current.id, path: 'perspective', value: null })
     });
     return fields;
-}
-
-export function cutTransitionFields(
-    snapshot: TimelineCutSelection,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
-): InspectorFieldDef<TimelineCutSelection>[] {
-    const options: string[] = [translate('inspector.transformFields.label.none'), ...TRANSITION_VOCABULARY.map(entry => transitionOptionLabel(entry.id))];
-    const selected = transitionOptionLabel(snapshot.transitionOut?.type);
-    if (!options.includes(selected)) options.push(selected);
-    const blocked = snapshot.transitionOutBlocked !== undefined;
-    const write = async (
-        current: TimelineCutSelection, row: 'transition-type' | 'transition-duration', input: string | null
-    ): Promise<InspectorWriteResult> => {
-        try {
-            return await requestWrite(createCutTransitionWriteRequest(current, row, input));
-        } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
-        }
-    };
-    return [{
-        name: 'transition-type', label: translate('inspector.transformFields.label.transition'), inputKind: 'select', options,
-        getValue: () => selected, getEditValue: () => selected,
-        disabled: blocked, title: snapshot.transitionOutBlocked,
-        write: (current, input) => write(current, 'transition-type', input)
-    }, {
-        name: 'transition-duration', label: translate('inspector.transformFields.label.transitionScale'), inputKind: 'scrub-number',
-        unit: 's', min: 0.1, max: 3, scrubStep: 0.05, displayPrecision: 2,
-        getValue: () => String(snapshot.transitionOut?.duration ?? 0.5),
-        getEditValue: () => String(snapshot.transitionOut?.duration ?? 0.5),
-        disabled: blocked || !snapshot.transitionOut,
-        title: snapshot.transitionOutBlocked ?? (!snapshot.transitionOut ? translate('inspector.transformFields.label.changesCanBeSelectedChoosingTransition') : undefined),
-        write: (current, input) => write(current, 'transition-duration', input),
-        reset: current => write(current, 'transition-duration', null)
-    }];
 }
 
 export const CUT_FRAMING_CROP_DISABLED_TITLE = translate('inspector.transformFields.label.whenZoomKfPresentWindowIgnored');

@@ -48,6 +48,9 @@ test('フォントを選択中の文字だけへ当てる計画は、他の文�
     assert.deepEqual(plan.detail.ids, ['c-1']);
     assert.deepEqual(plan.detail.style.parts[0].text_style,
         { color: '#ff0000', size_px: 56, font_family: 'Noto Sans JP' });
+    const available = planFontApply({ ...item, fontAvailability: { status: 'available', family: 'Installed Family' } },
+        { kind: 'caption', id: 'c-1' });
+    assert.equal(available.detail.style.parts[0].text_style.font_family, 'Installed Family');
 });
 
 test('字幕の配列と captions 包みから、プリセットと文字固有の見た目を合成する', () => {

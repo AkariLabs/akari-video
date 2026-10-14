@@ -261,6 +261,28 @@ class CandidateInputsCliManager extends GenerationCliManager {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    async getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>> {
+        const index = await this.findGenerationAsset('presets/transitions/index.jsonl').catch(() => undefined);
+        if (!index) return {};
+        const urls: Record<string, { preview?: string; strip?: string }> = {};
+        try {
+            for (const line of (await fs.readFile(index, 'utf8')).split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                const item = JSON.parse(line) as { id?: string; preview?: string; preview_strip?: string };
+                const id = item.id;
+                if (!id || !/^[a-z0-9][a-z0-9-]*$/u.test(id)
+                    || item.preview !== `${id}/preview.webp`
+                    || item.preview_strip !== `${id}/preview-strip.webp`) continue;
+                const preview = await this.findGenerationAsset(`presets/transitions/${id}/preview.webp`).catch(() => undefined);
+                const strip = await this.findGenerationAsset(`presets/transitions/${id}/preview-strip.webp`).catch(() => undefined);
+                if (preview || strip) urls[id] = {
+                    ...(preview ? { preview: pathToFileURL(preview).toString() } : {}),
+                    ...(strip ? { strip: pathToFileURL(strip).toString() } : {})
+                };
+            }
+        } catch { return {}; }
+        return urls;
+    }
     @inject(ApplicationServer)
     protected readonly applicationServer!: ApplicationServer;
     private writerVersionPromise?: Promise<string | undefined>;
@@ -2259,7 +2281,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
+        const updated = request.textStyle?.sizePx === undefined || request.textStyle.sizePx === null
+            ? updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {})
+            : updateCaptionTextStyleInSource(source, request.captionId, request.textStyle,
+                loadTextstyleCatalogSync({ env: process.env }).catalog);
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
     }
@@ -2821,7 +2846,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const root = dirname(editPath);
         const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : timelineCaptionsPath(editPath);
         this.requireWriteRequest(URI.fromFilePath(captionsPath).toString(), request.projectRootUri);
-        if (resolve(timelineEditPathForCaptions(captionsPath, projectRoot)) !== resolve(editPath))
+        if (relative(resolve(timelineEditPathForCaptions(captionsPath, projectRoot)), resolve(editPath)) !== '')
             throw new Error(t('annotationscommon.akariAnnotationsService.error.editDataCaptionsDoNotMatch'));
         return { root, captionsName: basename(captionsPath), editName: basename(editPath) };
     }

@@ -52,7 +52,7 @@
     },
     "managedCli": {
       "preference": "chatgpt.cliExecutable",
-      "platforms": ["win32-x64"]
+      "platforms": ["win32-x64", "darwin-arm64", "darwin-x64"]
     }
   },
   {

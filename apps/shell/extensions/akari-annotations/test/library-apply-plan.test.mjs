@@ -29,7 +29,7 @@ test('文字の動き、見た目、マイスタイル、フォントを位置�
     assert.equal(plans[3].parts[0].text_style.font_family, 'Zen Kaku');
 });
 
-test('用意されたスタイルだけにサイズ保持の印を付ける', () => {
+test('ライブラリのマイスタイルも既存字幕の大きさを保つ', () => {
     const catalog = { 'title-impact': { style: { size_px: 168 } } };
     const preset = planLibraryApply({ kind: 'mystyle', style: { keepSize: true, catalog,
         parts: [{ kind: 'look', text_style: { size_px: 168 } }] } }, caption);
@@ -37,7 +37,7 @@ test('用意されたスタイルだけにサイズ保持の印を付ける', ()
         parts: [{ kind: 'look', text_style: { size_px: 80 } }] } }, caption);
     assert.equal(preset.keepSize, true);
     assert.ok(preset.catalog['title-impact']);
-    assert.equal(saved.keepSize, undefined);
+    assert.equal(saved.keepSize, true);
     assert.equal(saved.catalog, undefined);
 });
 

@@ -22,6 +22,7 @@ async function openProject(dir, opts = {}) {
         throw new Error('openProject は version: 2 の edit.json を必要とします。');
     }
     const edit = parsedEdit;
+    let originalUnknownTransitionTypes = (0, tree_ops_1.unknownTransitionTypesIn)(edit);
     (0, tree_ops_1.attachEditHelpers)(edit);
     const captionsPath = (0, path_1.join)(dir, 'captions.json');
     let captionsText = await readOptional(captionsPath);
@@ -64,6 +65,11 @@ async function openProject(dir, opts = {}) {
             return (await loadMotionPath(`motion/${groupId}.json`, groupId)).doc;
         },
         async save(options = {}) {
+            const currentUnknownTransitionTypes = (0, tree_ops_1.unknownTransitionTypesIn)(edit);
+            for (const type of currentUnknownTransitionTypes) {
+                if (!originalUnknownTransitionTypes.has(type))
+                    (0, tree_ops_1.assertKnownTransitionChange)(undefined, { transition_out: { type } });
+            }
             (0, tree_ops_1.normalizeTracks)(edit);
             await distributeKeyframes(edit, loadMotionPath);
             const candidates = {};
@@ -103,6 +109,8 @@ async function openProject(dir, opts = {}) {
                 else if (key === 'captions.json')
                     captionsText = candidates[key];
             }
+            if (editName in candidates)
+                originalUnknownTransitionTypes = currentUnknownTransitionTypes;
             for (const state of motionStates.values()) {
                 if (state.path in candidates)
                     state.originalText = candidates[state.path];
