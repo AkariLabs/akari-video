@@ -193,3 +193,57 @@ test('固定種の単一置換では触れていない語に別の字を当て�
   assert.ok(checked > 1000);
   assert.ok(refused < oldRefused, `${refused} >= ${oldRefused}`);
 });
+
+test('置き換えた語の隣に同じ語があってもそれぞれの表示位置を返す', () => {
+  const cases = [
+    [['はい', 'はい', 'そうです'], 'ええはいそうです', [[0, 0, 2, 'ええ'], [1, 2, 4, 'はい']]],
+    [['猫', 'が', '猫', 'を', '見た'], 'ネコが猫を見た', [[0, 0, 2, 'ネコ'], [2, 3, 4, '猫']]],
+    [['り', 'り'], 'はAAり', [[0, 0, 3, 'はAA']]]
+  ];
+  for (const [tokens, display, expected] of cases) {
+    const fixture = make(tokens.join(''), tokens, display);
+    for (const [index, from, to, text] of expected)
+      assert.deepEqual(selected(fixture, index), { range: { from, to }, text });
+  }
+});
+
+test('固定の種の置換では選択した語を置換範囲の外の同文へ移さない', () => {
+  let seed = 12345;
+  const random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const alphabet = ['あ', 'い', 'り', '猫', '犬', 'A', 'b', ' '];
+  const pick = () => alphabet[Math.floor(random() * alphabet.length)];
+  let checked = 0;
+  for (let trial = 0; trial < 3000; trial++) {
+    const length = 2 + Math.floor(random() * 8);
+    const chars = Array.from({ length }, pick);
+    const tokens = [];
+    const offsets = [];
+    for (let index = 0; index < length;) {
+      offsets.push(index);
+      const width = Math.min(length - index, 1 + Math.floor(random() * 3));
+      tokens.push(chars.slice(index, index + width).join(''));
+      index += width;
+    }
+    offsets.push(length);
+    const first = Math.floor(random() * tokens.length);
+    const last = Math.min(tokens.length - 1, first + Math.floor(random() * 2));
+    const replacement = Array.from({ length: Math.floor(random() * 4) }, pick);
+    const changeFrom = offsets[first], changeTo = offsets[last + 1];
+    const displayChars = [...chars.slice(0, changeFrom), ...replacement, ...chars.slice(changeTo)];
+    const display = displayChars.join(''), source = chars.join('');
+    if (display === source) continue;
+    const fixture = { caption: { text: source, display_text: display,
+      words: tokens.map(text => ({ text })) },
+    units: tokens.map((text, index) => ({ text, tokenFrom: index, tokenTo: index })) };
+    for (let index = first; index <= last; index++) {
+      const result = selected(fixture, index);
+      if ('reason' in result) continue;
+      const selectedText = tokens[index].trim();
+      if (!replacement.length || !replacement.join('').trim() || result.text !== selectedText) continue;
+      checked++;
+      assert.ok(result.range.to > changeFrom && result.range.from < changeFrom + replacement.length,
+        JSON.stringify({ source, display, tokens, first, last, index, replacement, range: result.range }));
+    }
+  }
+  assert.ok(checked > 0);
+});

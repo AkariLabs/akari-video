@@ -706,6 +706,106 @@ test('生きた claim は作成から三十秒まで保持し死んだ claim は
   await assert.rejects(stat(claim), { code: 'ENOENT' });
 }));
 
+test('退避直前に claim の持ち主が替わったら lock を退かさない', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock'), claim = `${lock}.claim`;
+  await mkdir(dirname(lock));
+  const old = JSON.stringify({ pid: 123, host: hostname(), created_at: new Date(0).toISOString(), nonce: 'old' });
+  await writeFile(lock, old);
+  let attempts = 0, changed = false;
+  await assert.rejects(writeProjectFilesTransactional(root, { label: 'claim changed', files: {
+    'edit.json': { next: 'saved' }
+  } }, { hooks: { now: () => 31_000, processAlive: () => false, fs: {
+    writeFile: async (...args) => {
+      if (args[0] === lock && args[2]?.flag === 'wx' && ++attempts > 1) throw new Error('stopped');
+      return fs.writeFile(...args);
+    },
+    readFile: async (...args) => {
+      if (args[0] === join(claim, 'owner.json') && !changed) {
+        changed = true;
+        await fs.writeFile(args[0], JSON.stringify({ pid: 456, host: hostname(), nonce: 'another' }));
+      }
+      return fs.readFile(...args);
+    }
+  } } }), /stopped/);
+  assert.equal(await readFile(lock, 'utf8'), old);
+  assert.equal(JSON.parse(await readFile(join(claim, 'owner.json'), 'utf8')).nonce, 'another');
+  await assert.rejects(stat(join(root, 'edit.json')), { code: 'ENOENT' });
+}));
+
+test('退避した lock が新しい持ち主なら排他的に戻して保存しない', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  await mkdir(dirname(lock));
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(), created_at: new Date(0).toISOString(), nonce: 'old' }));
+  const newer = JSON.stringify({ pid: 456, host: hostname(), created_at: new Date(31_000).toISOString(), nonce: 'new' });
+  let attempts = 0, retired = false;
+  await assert.rejects(writeProjectFilesTransactional(root, { label: 'new lock', files: {
+    'edit.json': { next: 'saved' }
+  } }, { hooks: { now: () => 31_000, processAlive: () => true, fs: {
+    writeFile: async (...args) => {
+      if (args[0] === lock && args[2]?.flag === 'wx' && ++attempts > 1) throw new Error('stopped');
+      return fs.writeFile(...args);
+    },
+    rename: async (from, to) => {
+      if (from === lock) { retired = true; await fs.writeFile(lock, newer); }
+      return fs.rename(from, to);
+    }
+  } } }), /stopped/);
+  assert.equal(retired, true);
+  assert.equal(await readFile(lock, 'utf8'), newer);
+  await assert.rejects(stat(join(root, 'edit.json')), { code: 'ENOENT' });
+}));
+
+test('古い lock を退避して捨てた後は保存できる', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  await mkdir(dirname(lock));
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(), created_at: new Date(0).toISOString(), nonce: 'old' }));
+  let retired = false;
+  await writeProjectFilesTransactional(root, { label: 'retire', files: { 'edit.json': { next: 'saved' } } },
+    { hooks: { now: () => 31_000, processAlive: () => false, fs: {
+      rename: async (from, to) => { if (from === lock) retired = true; return fs.rename(from, to); }
+    } } });
+  assert.equal(retired, true);
+  assert.equal(await read(root, 'edit.json'), 'saved');
+}));
+
+test('退避の ENOENT 後は他人の lock を残して取り直す', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock'), claim = `${lock}.claim`;
+  const clock = Date.now();
+  const newer = JSON.stringify({ pid: 456, host: hostname(), created_at: new Date(clock).toISOString(), nonce: 'new' });
+  await mkdir(dirname(lock));
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date(clock - 31_000).toISOString(), nonce: 'old' }));
+  let lockAttempts = 0, retireAttempts = 0;
+  await writeProjectFilesTransactional(root, { label: 'retry after missing claim', files: {
+    'edit.json': { next: 'saved' }
+  } }, { hooks: { now: () => clock, processAlive: () => true, fs: {
+    writeFile: async (...args) => {
+      if (args[0] === lock && args[2]?.flag === 'wx' && ++lockAttempts === 2) {
+        assert.equal(await readFile(lock, 'utf8'), newer);
+        await fs.unlink(lock);
+      }
+      return fs.writeFile(...args);
+    },
+    rename: async (from, to) => {
+      if (from === lock) {
+        retireAttempts++;
+        assert.equal(dirname(to), claim);
+        await fs.rm(claim, { recursive: true });
+        await fs.writeFile(lock, newer);
+        throw Object.assign(new Error('missing claim'), { code: 'ENOENT' });
+      }
+      return fs.rename(from, to);
+    }
+  } } });
+  assert.equal(retireAttempts, 1);
+  assert.equal(lockAttempts, 2);
+  assert.equal(await read(root, 'edit.json'), 'saved');
+}));
+
 for (const sample of [
   { name: '生きた pid の claim は二十九秒で保持する', owner: { pid: 123, host: hostname() }, age: 29_000, blocked: true },
   { name: '生きた pid の claim は三十一秒で消す', owner: { pid: 123, host: hostname() }, age: 31_000 },

@@ -44,6 +44,40 @@ export function wordSelectionToCaptionRange(
     const map = inferCaptionDisplayToSource(display, caption.text);
     const chars = captionGraphemes(display);
     const sourceChars = captionGraphemes(caption.text);
+    let prefix = 0;
+    while (prefix < Math.min(chars.length, sourceChars.length) && chars[prefix] === sourceChars[prefix]) prefix++;
+    let suffix = 0;
+    while (suffix < Math.min(chars.length, sourceChars.length) - prefix
+        && chars[chars.length - suffix - 1] === sourceChars[sourceChars.length - suffix - 1]) suffix++;
+    const changedEnd = sourceChars.length - suffix;
+    const shownChangedEnd = chars.length - suffix;
+    const offset = chars.length - sourceChars.length;
+    const replacedSelection = sourceStart >= prefix && sourceEnd <= changedEnd;
+    const touchesChange = (from: number, to: number) =>
+        !replacedSelection || from < shownChangedEnd && to > prefix
+        || sourceStart >= 2 && from >= 2
+            && sourceChars.slice(sourceStart - 2, sourceStart).join('') === chars.slice(from - 2, from).join('')
+        || sourceEnd + 2 <= sourceChars.length && to + 2 <= chars.length
+            && sourceChars.slice(sourceEnd, sourceEnd + 2).join('') === chars.slice(to, to + 2).join('');
+    const selectedText = caption.text.slice(sourceFrom, sourceTo);
+    const width = sourceEnd - sourceStart;
+    const projected = sourceEnd <= prefix ? { from: sourceStart, to: sourceEnd }
+        : sourceStart >= changedEnd ? { from: sourceStart + offset, to: sourceEnd + offset }
+            : sourceStart <= prefix && sourceEnd >= changedEnd
+                ? { from: sourceStart, to: sourceEnd + offset } : undefined;
+    if (projected) {
+        const exact: number[] = [];
+        for (let index = 0; index + width <= chars.length; index++)
+            if (index < projected.to && index + width > projected.from
+                && chars.slice(index, index + width).join('') === selectedText) exact.push(index);
+        if (exact.length === 1)
+            return { range: { from: exact[0], to: exact[0] + width }, text: selectedText };
+        let { from, to } = projected;
+        while (from < to && /^\s+$/u.test(chars[from])) from++;
+        while (to > from && /^\s+$/u.test(chars[to - 1])) to--;
+        const text = chars.slice(from, to).join('');
+        if (text.trim()) return { range: { from, to }, text };
+    }
     const matched = new Map<number, number>();
     for (let index = 0; index < chars.length; index++) {
         const source = map[index];
@@ -54,11 +88,10 @@ export function wordSelectionToCaptionRange(
     if (first !== undefined && sourceChars.slice(sourceStart, sourceEnd).every((_, offset) =>
         matched.get(sourceStart + offset) === first + offset)) {
         const text = chars.slice(first, first + sourceEnd - sourceStart).join('');
-        if (text === caption.text.slice(sourceFrom, sourceTo))
+        if (text === caption.text.slice(sourceFrom, sourceTo)
+            && touchesChange(first, first + sourceEnd - sourceStart))
             return { range: { from: first, to: first + sourceEnd - sourceStart }, text };
     }
-    const selectedText = caption.text.slice(sourceFrom, sourceTo);
-    const width = sourceEnd - sourceStart;
     const starts: number[] = [];
     const ends: number[] = [];
     for (let index = 0; index < map.length; index++) {
@@ -78,7 +111,7 @@ export function wordSelectionToCaptionRange(
     if (exact.length) {
         const overlapping = boundary
             ? exact.filter(index => index < boundary.to && index + width > boundary.from) : [];
-        const candidates = overlapping.length ? overlapping : exact;
+        const candidates = boundary ? overlapping.filter(index => touchesChange(index, index + width)) : [];
         if (candidates.length === 1) {
             const from = candidates[0];
             return { range: { from, to: from + width }, text: selectedText };
@@ -88,6 +121,7 @@ export function wordSelectionToCaptionRange(
         const overlapping: number[] = [];
         for (let index = 0; index + width <= chars.length; index++) {
             if (index < boundary.to && index + width > boundary.from
+                && touchesChange(index, index + width)
                 && chars.slice(index, index + width).join('') === selectedText) overlapping.push(index);
         }
         if (overlapping.length === 1) {
@@ -95,7 +129,7 @@ export function wordSelectionToCaptionRange(
             return { range: { from, to: from + width }, text: selectedText };
         }
     }
-    if (!boundary) return { reason: reasons.display };
+    if (!boundary || !touchesChange(boundary.from, boundary.to)) return { reason: reasons.display };
     let { from, to } = boundary;
     while (from < to && /^\s+$/u.test(chars[from])) from++;
     while (to > from && /^\s+$/u.test(chars[to - 1])) to--;

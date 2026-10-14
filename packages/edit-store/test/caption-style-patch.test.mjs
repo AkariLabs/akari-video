@@ -9,6 +9,20 @@ const caption = style => JSON.stringify([{
 }]);
 const write = (source, patch) => JSON.parse(updateCaptionTextStyleInSource(source, 'c-1', patch))[0];
 
+test('既存の複数の不正値は一つずつ直せるが新しい不正値は拒む', () => {
+  const broken = caption({ color: 'red', shadow: { blur_px: 4 } });
+  const color = write(broken, { color: '#ff0000' }).text_style;
+  assert.equal(color.color, '#ff0000');
+  assert.deepEqual(color.shadow, { blur_px: 4 });
+  const shadow = write(broken, { shadow: { color: '#000000' } }).text_style;
+  assert.equal(shadow.color, 'red');
+  assert.equal(shadow.shadow.color, '#000000');
+  assert.throws(() => write(broken, { animation: { in: { id: 'typewriter', ease: null } } }),
+    /text_style\.animation/);
+  assert.throws(() => write(caption({ color: '#ffffff' }),
+    { animation: { in: { id: 'typewriter', ease: null } } }), /text_style\.animation/);
+});
+
 test('古い大きさ入口も行と範囲の px を同じ比で換算し色はその後に当てる', () => {
   const first = { id: 'c-1', start: 0, end: 2, text: '猫犬',
     text_style: { size_px: 38, stroke: { color: '#000000', width_px: 4 } },

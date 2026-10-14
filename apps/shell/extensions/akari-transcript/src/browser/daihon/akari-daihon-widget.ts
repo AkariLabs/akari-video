@@ -51,6 +51,7 @@ import {
     TEXTSTYLE_CATALOG,
     projectFileContentHash,
     captionEmphasisOverlapsRange,
+    captionGraphemes,
     type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
@@ -1847,7 +1848,8 @@ export class AkariDaihonWidget extends BaseWidget {
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
             const heading = summary.text.trim();
-            title.textContent = `「${heading.length > 6 ? `${heading.slice(0, 5)}…` : heading}」`;
+            const headingChars = captionGraphemes(heading);
+            title.textContent = `「${headingChars.length > 6 ? `${headingChars.slice(0, 5).join('')}…` : heading}」`;
             title.title = summary.text; bar.append(title);
             add(t('transcript.daihon.editor.editLabel'), () => {
                 const row = this.rows.find(item => item.id === this.wordRanges[0]?.row);

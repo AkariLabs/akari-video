@@ -615,24 +615,51 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                     }
                 };
                 let claimed = false;
+                let claimOwner = '';
+                let keepClaim = false;
                 try {
                     await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
                     sharedState.activeClaims.add(claim);
-                    await retryFs(() => ops.writeFile(join(claim, 'owner.json'), JSON.stringify({ pid: process.pid,
-                        host, created_at: new Date(now()).toISOString() })));
-                    const current = await readBytes(lock);
-                    if (current?.equals(existing)) {
-                        await retryFs(() => ops.unlink(lock)).catch(error => { if (!absent(error)) throw error; });
-                        sharedState.unreleased.delete(lock);
+                    claimOwner = JSON.stringify({ pid: process.pid, host, created_at: new Date(now()).toISOString(), nonce });
+                    await retryFs(() => ops.writeFile(join(claim, 'owner.json'), claimOwner));
+                    const current = await readBytes(lock, ops);
+                    const ownerBytes = await readBytes(join(claim, 'owner.json'), ops);
+                    if (current?.equals(existing) && ownerBytes?.toString('utf8') === claimOwner) {
+                        const retired = join(claim, `retired-${nonce}`);
+                        let renameSucceeded = false;
+                        try {
+                            await retryFs(() => ops.rename(lock, retired));
+                            renameSucceeded = true;
+                        } catch (error) {
+                            if (!absent(error)) throw error;
+                        }
+                        if (renameSucceeded) {
+                            const retiredBytes = await readBytes(retired, ops);
+                            if (retiredBytes?.equals(existing)) {
+                                await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                                sharedState.unreleased.delete(lock);
+                            } else {
+                                const restored = await retryFs(() => ops.link(retired, lock))
+                                    .then(() => true, () => false);
+                                if (!restored && !await readBytes(lock, ops)) {
+                                    keepClaim = true;
+                                    throw new Error('退避した lock を元の場所へ戻せませんでした。');
+                                }
+                                if (restored)
+                                    await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                            }
+                        }
                     }
                 } catch (error) {
                     if ((error as NodeJS.ErrnoException).code === 'EEXIST') await clearStaleClaim();
                     if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
                         && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
                 } finally { if (claimed) {
-                    await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
+                    const ownerBytes = await readBytes(join(claim, 'owner.json'), ops).catch(() => undefined);
+                    if (!keepClaim && ownerBytes?.toString('utf8') === claimOwner)
+                        await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
                     sharedState.activeClaims.delete(claim);
                 } }
             } else if (typeof owner.pid === 'number' && Number.isInteger(owner.pid) && owner.pid > 0

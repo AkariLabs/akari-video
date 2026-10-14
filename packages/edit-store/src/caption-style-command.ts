@@ -50,13 +50,23 @@ const allRuns = (root: CaptionRoot): CaptionRun[] => [...rowsOf(root).flatMap(ro
 
 function styleErrors(row: Row, base: Record<string, unknown>): string[] {
     const style = record(row.text_style) ? row.text_style : {};
-    const errors: string[] = [];
-    try { validateCaptionTextStyle(style); } catch (error) { errors.push((error as Error).message); }
-    try {
-        const merged = mergeCaptionDisplayStyles(base, style);
-        if (merged) validateCaptionTextStyle(merged);
-    } catch (error) { errors.push((error as Error).message); }
-    return errors;
+    const errors = new Set<string>();
+    const collect = (candidate: Record<string, unknown>) => {
+        for (const [key, value] of Object.entries(candidate)) {
+            try { validateCaptionTextStyle({ [key]: value }); }
+            catch (error) { errors.add((error as Error).message); }
+        }
+        if (Object.prototype.hasOwnProperty.call(candidate, 'zone')
+            && Object.prototype.hasOwnProperty.call(candidate, 'layout'))
+            errors.add('text_style cannot contain both zone and layout');
+        if (Object.prototype.hasOwnProperty.call(candidate, 'layout')
+            && Object.prototype.hasOwnProperty.call(candidate, 'reference_height_px'))
+            errors.add('text_style cannot contain both layout and reference_height_px');
+    };
+    collect(style);
+    try { collect(mergeCaptionDisplayStyles(base, style) ?? {}); }
+    catch (error) { errors.add((error as Error).message); }
+    return [...errors];
 }
 
 export function assertChangedCaptionStyles(before: CaptionRoot, after: CaptionRoot, changed: string[]): void {

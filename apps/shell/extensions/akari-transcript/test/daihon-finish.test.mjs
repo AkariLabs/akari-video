@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
+import { captionGraphemes, getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
   updateCaptionFieldsInSourceWithReport } from '@akari-video/edit-store';
 import { openWordContextMenu, wordContextMenuGroups } from '../lib/browser/daihon/daihon-word-context-menu.js';
 
@@ -426,6 +426,7 @@ test('Esc は登録順のまま置いた文字を優先し、通常のポップ�
 
 test('選択バーの実際の文言は 400px 幅で全状態 2 段以内に収まる', () => {
   const Harness = method('    protected renderActionBar(', '    protected updateToastPlacement(', {
+    captionGraphemes,
     wordRangeSummary: () => ({ text: 'あいうえおかきくけこ' }),
     canMergeRows: () => ({ ok: true }), clearSelection: () => ({ selected: [] })
   });

@@ -1163,6 +1163,21 @@ test('語の題は頭と末尾の空白を除いて六字で省略し全文を�
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 
+test('語の題は絵文字を書記素で数えて省略する', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const heading = '👩‍🚀'.repeat(7);
+  const actionBar = fakeNode();
+  const instance = widget({ actionBar, selection: { selected: ['r1'], anchorId: 'r1' },
+    wordRanges: [{ row: 'r1', a: 0, b: 0 }],
+    selectionRows: () => [{ id: 'r1', words: [{ text: heading, start: 0, end: 1 }] }] });
+  try {
+    instance.renderActionBar();
+    assert.equal(actionBar.children[0].textContent, `「${'👩‍🚀'.repeat(5)}…」`);
+    assert.equal(actionBar.children[0].title, heading);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
 test('候補バーの ▶ 聞くは残し、書き込む操作の後だけ消す', () => {
   const oldDocument = globalThis.document;
   globalThis.document = { createElement: tag => fakeNode(tag) };
