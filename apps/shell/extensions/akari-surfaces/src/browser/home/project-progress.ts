@@ -2,10 +2,12 @@ import URI from '@theia/core/lib/common/uri';
 import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { FileChangeType } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { hasPreviewContent } from './home-model';
 import { computeProjectStages, ProjectPresence, ProjectStage } from './project-progress-model';
+import { classifyPresenceChange } from './project-progress-change-model';
 
 export * from './project-progress-model';
 
@@ -38,6 +40,10 @@ export class ProjectProgressService implements FrontendApplicationContribution {
     protected _presence: ProjectPresence | undefined;
     protected _root: URI | undefined;
     protected refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    protected pendingCount = false;
+    protected pendingEdit = false;
+    protected readonly knownFiles = new Set<string>();
+    protected refreshRun?: Promise<void>;
 
     get presence(): ProjectPresence | undefined { return this._presence; }
     get stages(): ProjectStage[] | undefined { return this._presence ? computeProjectStages(this._presence) : undefined; }
@@ -48,6 +54,7 @@ export class ProjectProgressService implements FrontendApplicationContribution {
     }
 
     onStop(): void {
+        if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.rootWatches.dispose();
         this.watches.dispose();
         this.changed.dispose();
@@ -55,20 +62,24 @@ export class ProjectProgressService implements FrontendApplicationContribution {
 
     /** 任意のプロジェクトを 1 回だけ読む（一覧のカードの札用）。 */
     async readPresence(root: URI): Promise<ProjectPresence> {
+        const known = new Set<string>();
         const [planningDocs, assetFiles, editHasContent, rootReport, managedReports, exportFiles] = await Promise.all([
-            this.countRecursive(root.resolve('planning'), name => /\.md$/i.test(name), 3),
-            this.countTopLevel(root.resolve('assets'), name => MEDIA_EXT.test(name)),
+            this.countRecursive(root.resolve('planning'), name => /\.md$/i.test(name), 3, known),
+            this.countTopLevel(root.resolve('assets'), name => MEDIA_EXT.test(name), known),
             this.readEditHasContent(root.resolve('edit.json')),
-            this.files.exists(root.resolve('analysis-report.html')).then(exists => exists ? 1 : 0, () => 0),
+            this.files.exists(root.resolve('analysis-report.html')).then(exists => { if (exists) known.add('analysis-report.html'); return exists ? 1 : 0; }, () => 0),
             // scaffold が作成時に置く作成レポート・空の lint レポートは「確認」に数えない（作ったばかりで ✓ にならないように）
-            this.countTopLevel(root.resolve('.akari/reports'), name => /\.html?$/i.test(name) && !/^(create-project-report|edit-lint-report)/i.test(name)),
-            this.countTopLevel(root.resolve('exports'), name => VIDEO_EXT.test(name))
+            this.countTopLevel(root.resolve('.akari/reports'), name => /\.html?$/i.test(name) && !/^(create-project-report|edit-lint-report)/i.test(name), known),
+            this.countTopLevel(root.resolve('exports'), name => VIDEO_EXT.test(name), known)
         ]);
+        if (this._root?.isEqual(root)) { this.knownFiles.clear(); for (const name of known) this.knownFiles.add(name); }
         return { planningDocs, assetFiles, editHasContent, reportFiles: rootReport + managedReports, exportFiles };
     }
 
     protected async refreshRoot(): Promise<void> {
         this.rootWatches.dispose();
+        if (this.refreshTimer) clearTimeout(this.refreshTimer);
+        this.pendingCount = this.pendingEdit = false;
         this.rootWatches = new DisposableCollection();
         const root = (await this.workspace.roots)[0]?.resource;
         this._root = root;
@@ -81,15 +92,39 @@ export class ProjectProgressService implements FrontendApplicationContribution {
             try { this.rootWatches.push(await this.files.watch(root.resolve(rel))); } catch { /* 無いものは見張れない */ }
         }
         this.rootWatches.push(this.files.onDidFilesChange(event => {
-            if (WATCHED_RELATIVE.some(rel => event.contains(root.resolve(rel)) || event.changes.some(c => c.resource.toString().startsWith(root.resolve(rel).toString())))) {
-                this.scheduleRefresh();
+            for (const change of event.changes) {
+                const relative = root.relative(change.resource)?.toString();
+                if (!relative) continue;
+                const known = this.knownFiles.has(relative);
+                const kind = classifyPresenceChange(relative, change.type, known);
+                if (kind === 'count') {
+                    if (change.type === FileChangeType.ADDED) this.knownFiles.add(relative);
+                    if (change.type === FileChangeType.DELETED) this.knownFiles.delete(relative);
+                    this.pendingCount = true;
+                } else if (kind === 'edit') this.pendingEdit = true;
             }
+            if (this.pendingCount || this.pendingEdit) this.scheduleRefresh();
         }));
     }
 
     protected scheduleRefresh(): void {
         if (this.refreshTimer) { clearTimeout(this.refreshTimer); }
-        this.refreshTimer = setTimeout(() => { this.refreshTimer = undefined; void this.refresh(); }, 400);
+        this.refreshTimer = setTimeout(() => {
+            this.refreshTimer = undefined;
+            if (this.refreshRun) { void this.refreshRun.finally(() => this.scheduleRefresh()); return; }
+            const count = this.pendingCount;
+            const edit = this.pendingEdit;
+            this.pendingCount = this.pendingEdit = false;
+            this.refreshRun = (count ? this.refresh() : edit ? this.refreshEdit() : Promise.resolve())
+                .finally(() => { this.refreshRun = undefined; if (this.pendingCount || this.pendingEdit) this.scheduleRefresh(); });
+        }, 700);
+    }
+
+    protected async refreshEdit(): Promise<void> {
+        const root = this._root;
+        if (!root || !this._presence) return;
+        const editHasContent = await this.readEditHasContent(root.resolve('edit.json'));
+        if (this._root?.isEqual(root)) this.update({ ...this._presence, editHasContent });
     }
 
     protected async refresh(): Promise<void> {
@@ -113,21 +148,23 @@ export class ProjectProgressService implements FrontendApplicationContribution {
         } catch { return false; }
     }
 
-    protected async countTopLevel(dir: URI, accept: (name: string) => boolean): Promise<number> {
+    protected async countTopLevel(dir: URI, accept: (name: string) => boolean, known?: Set<string>): Promise<number> {
         try {
             const stat = await this.files.resolve(dir);
-            return (stat.children ?? []).filter(child => !child.isDirectory && !child.name.startsWith('.') && accept(child.name)).length;
+            const files = (stat.children ?? []).filter(child => !child.isDirectory && !child.name.startsWith('.') && accept(child.name));
+            for (const file of files) known?.add(this._root?.relative(file.resource)?.toString() ?? '');
+            return files.length;
         } catch { return 0; }
     }
 
-    protected async countRecursive(dir: URI, accept: (name: string) => boolean, depth: number): Promise<number> {
+    protected async countRecursive(dir: URI, accept: (name: string) => boolean, depth: number, known?: Set<string>): Promise<number> {
         try {
             const stat = await this.files.resolve(dir);
             let count = 0;
             for (const child of stat.children ?? []) {
                 if (child.name.startsWith('.')) { continue; }
-                if (child.isDirectory) { if (depth > 0) { count += await this.countRecursive(child.resource, accept, depth - 1); } }
-                else if (accept(child.name)) { count += 1; }
+                if (child.isDirectory) { if (depth > 0) { count += await this.countRecursive(child.resource, accept, depth - 1, known); } }
+                else if (accept(child.name)) { count += 1; known?.add(this._root?.relative(child.resource)?.toString() ?? ''); }
             }
             return count;
         } catch { return 0; }

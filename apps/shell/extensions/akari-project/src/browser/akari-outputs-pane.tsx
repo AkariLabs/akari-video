@@ -92,6 +92,8 @@ export class AkariOutputsPane {
     protected outputsWatch = new DisposableCollection();
     protected outputsWatchRootKey?: string;
     protected outputsWatchTimer?: ReturnType<typeof setTimeout>;
+    protected missingOutputNames?: string;
+    protected readonly changedOutputUris = new Set<string>();
 
     constructor(protected readonly host: OutputsPaneHost) {}
 
@@ -296,6 +298,8 @@ export class AkariOutputsPane {
         this.outputsWatch.dispose();
         this.outputsWatch = new DisposableCollection();
         this.outputsWatchRootKey = rootKey;
+        this.missingOutputNames = undefined;
+        this.changedOutputUris.clear();
         if (!root) {
             return;
         }
@@ -325,22 +329,98 @@ export class AkariOutputsPane {
             ...this.host.rootReportFiles
         ]);
         const relevant = event.changes.some(change =>
+            !/\.tmp(?:\.|$)/iu.test(change.resource.path.base) && (
             watched.exportsUri.isEqualOrParent(change.resource)
             || watched.reportsUri.isEqualOrParent(change.resource)
             || watched.planningUri.isEqualOrParent(change.resource)
             || (change.resource.parent.toString() === rootKey
                 && (watchedRootNames.has(change.resource.path.base) || isEditDataFileName(change.resource.path.base)))
+            )
         );
         if (!relevant) {
             return;
         }
+        for (const change of event.changes) this.changedOutputUris.add(change.resource.toString());
         if (this.outputsWatchTimer) {
             clearTimeout(this.outputsWatchTimer);
         }
         this.outputsWatchTimer = setTimeout(() => {
             this.outputsWatchTimer = undefined;
-            void this.loadOutputs();
-        }, 300);
+            void this.reconcileOutputs(root);
+        }, 900);
+    }
+
+    /** 保存時は名前の増減を確かめ、既存項目はその項目だけ更新する。 */
+    protected async reconcileOutputs(root: URI): Promise<void> {
+        if (!this.outputsLoadedOnce || this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+        const changedUris = new Set(this.changedOutputUris);
+        for (const uri of changedUris) this.changedOutputUris.delete(uri);
+        const exportsUri = root.resolve('exports');
+        const reportsUri = root.resolve('.akari/reports');
+        const planningUri = root.resolve('planning');
+        const scopeOf = (uri: URI): 'root' | 'exports' | 'reports' | 'planning' | undefined => {
+            if (exportsUri.isEqualOrParent(uri)) return 'exports';
+            if (reportsUri.isEqualOrParent(uri)) return 'reports';
+            if (planningUri.isEqualOrParent(uri)) return 'planning';
+            if (uri.parent.isEqual(root)) return 'root';
+            return undefined;
+        };
+        const scopes = new Set([...changedUris].map(value => scopeOf(new URI(value))).filter((scope): scope is NonNullable<typeof scope> => !!scope));
+        const [rootFiles, planFiles, exportFiles, reportFiles] = await Promise.all([
+            scopes.has('root') ? this.collectTopLevelFiles(root) : Promise.resolve([]),
+            scopes.has('planning') ? this.collectPlanFiles(root) : Promise.resolve([]),
+            scopes.has('exports') ? this.collectTopLevelFiles(exportsUri) : Promise.resolve([]),
+            scopes.has('reports') ? this.collectTopLevelFiles(reportsUri) : Promise.resolve([])
+        ]);
+        if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+        const files = [
+            ...rootFiles.filter(file => isEditDataFileName(file.resource.path.base)
+                || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base)
+                || this.host.rootPlanFiles.includes(file.resource.path.base)
+                || this.host.rootReportFiles.includes(file.resource.path.base)),
+            ...planFiles.filter(file => planningUri.isEqualOrParent(file.resource)),
+            ...exportFiles.filter(file => !/\.tmp(?:\.|$)/iu.test(file.resource.path.base)),
+            ...reportFiles.filter(file => /\.html?$/iu.test(file.resource.path.base)
+                && !/^create-project-report\.html?$/iu.test(file.resource.path.base))
+        ];
+        const byUri = new Map(files.map(file => [file.resource.toString(), file]));
+        const oldUris = new Set(this.outputs.filter(entry => {
+            const scope = scopeOf(entry.uri);
+            return scope !== undefined && scopes.has(scope);
+        })
+            .map(entry => entry.uri.toString()));
+        if (byUri.size !== oldUris.size || [...byUri.keys()].some(uri => !oldUris.has(uri))) {
+            const signature = `${[...oldUris].sort().join('\0')}|${[...byUri.keys()].sort().join('\0')}`;
+            if (this.missingOutputNames === signature) {
+                this.missingOutputNames = undefined;
+                await this.loadOutputs();
+            } else {
+                this.missingOutputNames = signature;
+                for (const uri of changedUris) this.changedOutputUris.add(uri);
+                if (this.outputsWatchTimer) clearTimeout(this.outputsWatchTimer);
+                this.outputsWatchTimer = setTimeout(() => {
+                    this.outputsWatchTimer = undefined;
+                    void this.reconcileOutputs(root);
+                }, 900);
+            }
+            return;
+        }
+        this.missingOutputNames = undefined;
+        const touched = changedUris;
+        let changed = false;
+        const next = await Promise.all(this.outputs.map(async entry => {
+            const scope = scopeOf(entry.uri);
+            if (scope === undefined || !scopes.has(scope)) return entry;
+            const file = byUri.get(entry.uri.toString());
+            if (!file || (!touched.has(entry.uri.toString()) && entry.mtime === file.mtime && entry.size === file.size)) return entry;
+            changed = true;
+            const updated = await this.buildOutputEntry(root, file, entry.kind);
+            return { ...updated, thumbnailUri: entry.thumbnailUri };
+        }));
+        if (changed) {
+            this.outputs = next;
+            this.host.update();
+        }
     }
 
     protected formatOutputTimestamp(mtime: number): string {
