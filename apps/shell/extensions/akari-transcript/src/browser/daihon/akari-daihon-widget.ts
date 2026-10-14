@@ -143,6 +143,7 @@ import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
     type DaihonWordRange
 } from '../../common/daihon-word-selection';
+import { matchWordDoublePress, type DaihonWordPress } from '../../common/daihon-word-double-click';
 import { stringifyEditV2, updateItem, updateItemDurationAndShiftFollowing } from 'akari-annotations/lib/common/edit-v2-mutations';
 import {
     fragmentBoundaries,
@@ -738,6 +739,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected lastWordSelectionPayload = '';
     protected wordDrag: { row: string; a: number; b: number; moved: boolean; add: boolean } | undefined;
     protected suppressWordClick = false;
+    protected lastWordPress: DaihonWordPress | undefined;
+    protected suppressWordDoubleClick = false;
     protected reloadPendingAfterDrag = false;
     protected suppressRowClick = false;
     protected qcFilter = false;
@@ -848,6 +851,10 @@ export class AkariDaihonWidget extends BaseWidget {
             event.preventDefault();
             event.stopPropagation();
         }, { capture: true });
+        this.node.addEventListener('pointerdown', event => this.handleWordDoubleClickPointerDown(event), { capture: true });
+        this.node.addEventListener('mousedown', event => this.handleWordDoubleClickMouseEvent(event), { capture: true });
+        this.node.addEventListener('click', event => this.handleWordDoubleClickMouseEvent(event), { capture: true });
+        this.node.addEventListener('dblclick', event => this.handleWordDoubleClickMouseEvent(event), { capture: true });
         this.rowsNode.addEventListener('pointerover', event => this.handleRowPointerOver(event));
         this.rowsNode.addEventListener('mousedown', event => this.handleRowButtonMouseDown(event), { capture: true });
         this.rowsNode.addEventListener('pointerdown', event => this.handleWordPointerDown(event), { capture: true });
@@ -5473,9 +5480,33 @@ export class AkariDaihonWidget extends BaseWidget {
         return span && row && Number.isInteger(index) ? { span, row, index } : undefined;
     }
 
+    protected handleWordDoubleClickPointerDown(event: PointerEvent): void {
+        const previous = this.lastWordPress;
+        this.lastWordPress = undefined;
+        this.suppressWordDoubleClick = false;
+        const press = { time: event.timeStamp, x: event.clientX, y: event.clientY, button: event.button,
+            altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey };
+        if (previous && !this.wordDrag?.moved && matchWordDoublePress(previous, press)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.wordDrag = undefined;
+            this.suppressWordDoubleClick = true;
+            this.wordRanges = [];
+            this.renderWordSelection();
+            this.closePop();
+            const row = this.rows.find(item => item.id === previous.row);
+            if (row) this.startEdit(row, previous.index);
+            return;
+        }
+    }
+
     protected handleWordPointerDown(event: PointerEvent): void {
         const hit = this.wordHit(event);
         if (event.button !== 0 || event.detail >= 2 || !hit) return;
+        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+            this.lastWordPress = { time: event.timeStamp, x: event.clientX, y: event.clientY,
+                row: hit.row, index: hit.index };
+        }
         event.preventDefault();
         event.stopPropagation();
         const add = event.metaKey || event.ctrlKey;
@@ -5495,11 +5526,19 @@ export class AkariDaihonWidget extends BaseWidget {
         const hit = this.wordHit(event);
         if (!hit || hit.row !== this.wordDrag.row || hit.index === this.wordDrag.b) return;
         this.wordDrag.b = hit.index; this.wordDrag.moved = true;
+        this.lastWordPress = undefined;
         const range = { row: hit.row, a: Math.min(this.wordDrag.a, hit.index), b: Math.max(this.wordDrag.a, hit.index) };
         const other = this.wordRanges.filter(current => !(current.row === hit.row
             && current.a <= this.wordDrag!.a && this.wordDrag!.a <= current.b));
         this.wordRanges = this.wordDrag.add ? addWordRange(other, range, this.rowOrder()) : [range];
         this.renderWordSelection();
+    }
+
+    protected handleWordDoubleClickMouseEvent(event: MouseEvent): void {
+        if (!this.suppressWordDoubleClick) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.type === 'dblclick') this.suppressWordDoubleClick = false;
     }
 
     protected renderWordSelection(): void {
@@ -6422,7 +6461,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected startEdit(row: DaihonRow): void {
+    protected startEdit(row: DaihonRow, wordIndex?: number): void {
         if (this.editing || !this.captionsUri || !this.rootUri) return;
         this.revealSourceGroupForRow(row.id);
         const elements = this.elements.get(row.id);
@@ -6473,6 +6512,10 @@ export class AkariDaihonWidget extends BaseWidget {
         input.addEventListener('blur', () => void this.finishEdit(state));
         input.focus();
         input.select();
+        if (wordIndex !== undefined && row.words?.map(word => word.text).join('') === row.text) {
+            const edit = selectedDaihonEdit(row.text, row.words, { a: wordIndex, b: wordIndex });
+            input.setSelectionRange(edit.start, edit.end);
+        }
     }
 
     protected restoreRowsFocusAfterEdit(): void {

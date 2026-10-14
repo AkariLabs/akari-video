@@ -113,8 +113,10 @@ export class AkariChatContribution implements CommandContribution, FrontendAppli
         registry.registerCommand(ChatCommands.ATTACH, {
             execute: async (arg: { attachments: ChatAttachment[] }) => {
                 if (!this.allowed()) return;
-                const widget = await this.show();
+                const widget = await this.widgets.getOrCreateWidget<AkariChatWidget>(AkariChatWidget.ID);
+                if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 90 });
                 widget.attach(arg.attachments);
+                void this.shell.activateWidget(widget.id);
             }
         });
     }
