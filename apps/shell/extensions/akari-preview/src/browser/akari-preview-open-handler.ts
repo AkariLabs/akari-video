@@ -1,6 +1,8 @@
 import { scriptDictionary, t, webviewScriptText } from '../common/preview-text';
 import { getLanguage, t as renderT } from '@akari-video/i18n';
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { selectedCaptionRangesMessage, type SelectedCaptionRange } from '../common/caption-word-selection-message';
+import { clearSelectedCaptionRanges } from '../common/caption-word-selection-state';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
@@ -200,7 +202,7 @@ import {
     parsePreviewCaptions,
     parseResolvedPreviewCaptions
 } from './akari-preview-captions';
-import { captionRenderInputFromV1 } from '@akari-video/edit-store';
+import { applyCaptionStylePresets, captionRenderInputFromV1, resolveTextstyleCatalog } from '@akari-video/edit-store';
 import { listen } from './akari-preview-listen';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } from './review-session-recorder';
@@ -500,6 +502,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly timelineLayerSelections = new Map<string, string | null>();
     protected readonly primaryTimelineSelections = new Map<string, { kind: 'cut' | 'caption'; id: string } | null>();
     protected readonly timelineCaptionSelections = new Map<string, { captionIds: string[]; primaryCaptionId: string | null }>();
+    protected readonly daihonWordSelections = new Map<string, SelectedCaptionRange[]>();
+    protected clearDaihonWordSelections(keep?: string): void {
+        clearSelectedCaptionRanges(this.daihonWordSelections, this.openOutputPreviews, keep);
+    }
     protected readonly timelineGroupSelections = new Map<string, Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>>();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
@@ -650,6 +656,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     onStart(): void {
+        this.lifecycleDisposables.push(this.workspaceService.onWorkspaceChanged(() =>
+            this.clearDaihonWordSelections()));
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
         const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
             if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
@@ -892,7 +900,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.captionWriteTail = this.captionWriteTail.then(async () => {
                     const captionsUri = widget.akariPreviewCaptionsUri;
                     if (!captionsUri) return;
-                    const parsed = captionRenderInputFromV1(JSON.parse(await this.readText(captionsUri))) as {
+                    const source = JSON.parse(await this.readText(captionsUri));
+                    const edit = JSON.parse(await this.readText(new URI(detail.editUri)));
+                    const presetRoot = applyCaptionStylePresets(source, resolveTextstyleCatalog().catalog).root;
+                    const parsed = captionRenderInputFromV1(presetRoot, { output: edit.output }) as {
                         captions?: Array<{ id: string; time_domain?: string }>;
                     } | Array<{ id: string; time_domain?: string }>;
                     const entries = Array.isArray(parsed) ? parsed : parsed.captions;
@@ -1019,6 +1030,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         };
         this.lifecycleDisposables.push(listen(window, 'akari.daihon.selectionChanged', onDaihonSelectionChanged));
+        const onDaihonWordSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: unknown; ranges?: unknown }>).detail;
+            if (typeof detail?.editUri !== 'string') return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            const message = selectedCaptionRangesMessage({ ...detail, editUri: key }, key);
+            if (!message) return;
+            if (message.ranges.length) {
+                this.clearDaihonWordSelections(key);
+                this.daihonWordSelections.set(key, message.ranges);
+            } else this.daihonWordSelections.delete(key);
+            this.openOutputPreviews.get(key)?.sendMessage(message);
+        };
+        this.lifecycleDisposables.push(listen(window, 'akari.daihon.wordSelectionChanged', onDaihonWordSelectionChanged));
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -2627,6 +2651,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const marker = widget as PreviewWidgetMarker;
         const seekKey = uri.normalizePath().toString();
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
+        if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
         if (previews.get(seekKey) === marker) {
             previews.delete(seekKey);
         }
@@ -3289,6 +3314,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         type: 'akari-preview-set-selected-captions', ...this.timelineCaptionSelections.get(key)
                     });
                 }
+                if (key && this.daihonWordSelections.has(key)) widget.sendMessage({
+                    type: 'akari-preview-set-selected-caption-ranges', ranges: this.daihonWordSelections.get(key)
+                });
                 if (key && this.timelineGroupSelections.has(key)) widget.sendMessage({
                     type: 'akari-preview-set-selected-group', selection: this.timelineGroupSelections.get(key)
                 });
@@ -3705,6 +3733,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.disposed.connect(() => {
             disposables.dispose();
             this.previewGestureGuards?.delete(widget);
+            if (kind === 'output') this.daihonWordSelections?.delete(seekKey);
             if (previews.get(seekKey) === widget) {
                 previews.delete(seekKey);
             }
@@ -6837,7 +6866,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // Legacy caption loading remains fail-open when edit output is unavailable.
             }
         }
-        const renderSource = JSON.stringify(captionRenderInputFromV1(JSON.parse(source)));
+        const presetRoot = applyCaptionStylePresets(JSON.parse(source), resolveTextstyleCatalog().catalog).root;
+        const renderSource = JSON.stringify(captionRenderInputFromV1(presetRoot, { output }));
         const parsed = parsePreviewCaptions(renderSource, output);
         const root: unknown = JSON.parse(renderSource);
         const emphasisWords = readCaptionsEmphasisWords(root);
@@ -8268,6 +8298,8 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #cut-select-box .akari-cut-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
 :root { --akari-caption-select-color: #4da3ff; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+#caption-word-selection-boxes { position:absolute; inset:0; z-index:1899; pointer-events:none; }
+.caption-word-selection-box { position:absolute; box-sizing:border-box; border:2px dashed var(--akari-caption-word-select-color,#ffcf57); box-shadow:0 0 0 1px #111, 0 0 5px #fff; pointer-events:none; }
 #caption-select-box.is-active { display: block; }
 #caption-multi-select-boxes { position: absolute; inset: 0; z-index: 1899; pointer-events: none; }
 .caption-multi-select-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
@@ -8483,6 +8515,7 @@ html.akari-gen-capturing #layer-select-box,
 html.akari-gen-capturing #layer-crop-box,
 html.akari-gen-capturing #cut-select-box,
 html.akari-gen-capturing #caption-select-box,
+html.akari-gen-capturing #caption-word-selection-boxes,
 html.akari-gen-capturing #caption-multi-select-boxes,
 html.akari-gen-capturing [data-akari-handle],
 html.akari-gen-capturing [data-akari-crop-handle],

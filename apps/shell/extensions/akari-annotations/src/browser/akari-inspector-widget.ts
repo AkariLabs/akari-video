@@ -4710,16 +4710,18 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         try {
             const result = await this.model.requestWrite(request);
-            return result.ok ? result : this.reportWriteFailure(result.message ?? t('annotations.inspectorWidget.text.writingFailed'));
+            return result.ok ? result : this.reportWriteFailure(
+                result.message ?? t('annotations.inspectorWidget.text.writingFailed'), request.kind === 'caption-style-size');
         } catch (error) {
-            return this.reportWriteFailure(error instanceof Error ? error.message : String(error));
+            return this.reportWriteFailure(error instanceof Error ? error.message : String(error),
+                request.kind === 'caption-style-size');
         }
     }
 
-    protected reportWriteFailure(message: string): InspectorWriteResult {
+    protected reportWriteFailure(message: string, fieldOnly = false): InspectorWriteResult {
         this.showFieldNotice(message);
         const now = Date.now();
-        if (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000) {
+        if (!fieldOnly && (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000)) {
             this.messageService.error(message);
             this.lastWriteError = { message, at: now };
         }

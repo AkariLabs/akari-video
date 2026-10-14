@@ -197,3 +197,15 @@ test('write failures show a field notice and one MessageService error per repeat
     await inspector.commitWrite(request);
     assert.equal(errors.filter(message => message === '保存できません。').length, 2);
 });
+
+test('字幕サイズの競合は欄の一か所にだけ知らせる', async () => {
+    const notices = [];
+    const errors = [];
+    const inspector = new Inspector();
+    inspector.model = { requestWrite: async () => ({ ok: false, message: '読み直しました。' }) };
+    inspector.showFieldNotice = message => notices.push(message);
+    inspector.messageService = { error: message => errors.push(message) };
+    await inspector.commitWrite({ kind: 'caption-style-size', id: 'c-0001', value: 72 });
+    assert.deepEqual(notices, ['読み直しました。']);
+    assert.deepEqual(errors, []);
+});

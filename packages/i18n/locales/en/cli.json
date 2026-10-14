@@ -9,6 +9,7 @@
   "cli.help.commands.update": "  update [--force]         Check for updates (--force reinstalls the app installed with install.sh)",
   "cli.help.commands.status": "  status                   Check connection status",
   "cli.help.commands.migrate": "  migrate [dir]            Convert an old edit.json to v2 with a backup",
+  "cli.help.commands.migrateLook": "  captions migrate-look <project> [--dry-run] [--json]  Lock existing subtitle appearance",
   "cli.help.commands.generate": "  generate                 Generate still-image clips from script beats",
   "cli.help.commands.storyboard": "  storyboard               Create a printable storyboard from the timeline",
   "cli.help.commands.clean": "  akari clean [dir]        List or remove temporary files (lists by default)",

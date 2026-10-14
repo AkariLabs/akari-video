@@ -291,15 +291,16 @@ test('右の見本は共有 CSS で光・多重縁・グラデーション・大
     assert.equal(face(cards[0]).style.textTransform, 'uppercase');
 });
 
-test('右から用意されたスタイルは動きとサイズ保持を渡し、マイスタイルは保存サイズを渡す', () => {
+test('右から当てる同梱とマイスタイルはいずれも既存の大きさを保つ', () => {
     const preset = { id: 'impact', style: { size_px: 168, animation: { in: { id: 'pop' } } } };
     const prepared = captionPanelLookWrite('one', preset.style, preset.id, [preset]);
     assert.equal(prepared.value.keepSize, true);
     assert.deepEqual(prepared.value.parts.map(part => part.kind), ['look', 'motion']);
     assert.deepEqual(prepared.value.parts[1].animation, { in: { id: 'pop' } });
     const saved = captionPanelLookWrite('one', { size_px: 80 }, 'mystyle/saved', [preset]);
-    assert.equal(saved.value.keepSize, undefined);
+    assert.equal(saved.value.keepSize, true);
     assert.equal(saved.value.parts[0].text_style.size_px, 80);
+    assert.equal(captionPanelLookWrite('one', { size_px: 80 }).value.keepSize, true);
 });
 
 test('右の同梱スタイルはカードと最近使った行の仮表示でも現在の大きさと px 比を保つ', () => {

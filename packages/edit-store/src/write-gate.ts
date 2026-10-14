@@ -349,13 +349,14 @@ type Journal = { version: 1; id: string; label: string; pid: number; host: strin
 const JOURNAL_VERSION = 1;
 
 type SharedWriteState = { chains: Map<string, Promise<void>>; unreleased: Map<string, string>;
-    committed: Set<string>; yieldUntil: Map<string, number> };
+    committed: Set<string>; yieldUntil: Map<string, number>; activeClaims: Set<string> };
 const sharedSymbol = Symbol.for('akari.edit-store.write-locks');
 const sharedGlobal = globalThis as typeof globalThis & { [key: symbol]: SharedWriteState | undefined };
 const sharedState = sharedGlobal[sharedSymbol] ?? (sharedGlobal[sharedSymbol] = {
-    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map()
+    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map(), activeClaims: new Set()
 });
 sharedState.yieldUntil ??= new Map();
+sharedState.activeClaims ??= new Set();
 const projectWriteChains = sharedState.chains;
 const pause = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
 const absent = (error: unknown) => (error as NodeJS.ErrnoException)?.code === 'ENOENT';
@@ -462,6 +463,8 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
     const nonce = randomUUID();
     let permissionFailures = 0;
     let permissionFailureAt = 0;
+    let probeAttempts = 0;
+    let probeSucceeded = false;
     let placedWaitMark = false;
     const clearOwnWaitMark = async () => {
         if (!placedWaitMark) return;
@@ -475,11 +478,11 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
             placedWaitMark = true;
         } catch { /* ほかの待ち手の印や一時的な失敗は待機を妨げない。 */ }
     };
-    const releaseOwned = (ownedNonce: string, acquiredAt: number): (() => Promise<void>) => async () => {
+    const releaseOwned = (ownedNonce: string, acquiredAt: number, reused = false): (() => Promise<void>) => async () => {
         // 長時間の処理中に lock を奪われた場合は、別の持ち主の lock を消さない。
-        if (now() - acquiredAt >= 30_000) {
+        if (reused || now() - acquiredAt >= 30_000) {
             try {
-                const current = await readBytes(lock);
+                const current = await readBytes(lock, ops);
                 if (!current || (JSON.parse(current.toString('utf8')) as { nonce?: string }).nonce !== ownedNonce) return;
             } catch { return; }
         }
@@ -503,6 +506,15 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
     };
     const yieldMs = (sharedState.yieldUntil.get(resolve(projectRoot)) ?? 0) - Date.now();
     if (yieldMs > 0) await pause(yieldMs);
+    try {
+        const probes = (await ops.readdir(folder)).filter(name => name.startsWith('write.lock.probe-')).slice(0, 16);
+        for (const name of probes) {
+            const probe = join(folder, name);
+            try {
+                if (now() - (await ops.stat(probe)).mtimeMs > 5_000) await ops.unlink(probe);
+            } catch (error) { if (!absent(error) && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error; }
+        }
+    } catch (error) { if (!absent(error)) throw error; }
     for (;;) {
         const acquiredAt = now();
         try {
@@ -524,15 +536,21 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                 if (code === 'EPERM' || code === 'EACCES') {
                     if (permissionFailures++ === 0) permissionFailureAt = Date.now();
                     if (permissionFailures >= 5 && Date.now() - permissionFailureAt >= 50) {
-                        const probe = join(folder, `write.lock.probe-${randomUUID()}`);
-                        try {
-                            await ops.writeFile(probe, '', { flag: 'wx' });
-                        } catch (probeError) {
-                            const probeCode = (probeError as NodeJS.ErrnoException).code;
-                            if (probeCode === 'EPERM' || probeCode === 'EACCES') throw error;
-                            throw probeError;
+                        if (!probeSucceeded && probeAttempts < 2) {
+                            probeAttempts++;
+                            const probe = join(folder, `write.lock.probe-${randomUUID()}`);
+                            try {
+                                await ops.writeFile(probe, '', { flag: 'wx' });
+                            } catch (probeError) {
+                                const probeCode = (probeError as NodeJS.ErrnoException).code;
+                                if (probeCode === 'EPERM' || probeCode === 'EACCES') throw error;
+                                throw probeError;
+                            }
+                            probeSucceeded = true;
+                            await retryFs(() => ops.unlink(probe)).catch(() => undefined);
+                        } else if (!probeSucceeded) {
+                            throw error;
                         }
-                        await ops.unlink(probe);
                         permissionFailures = 0;
                     }
                 } else permissionFailures = 0;
@@ -542,7 +560,7 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
             permissionFailures = 0;
         }
         let existing: Buffer | undefined;
-        try { existing = await readBytes(lock); }
+        try { existing = await readBytes(lock, ops); }
         catch (error) { if (!retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error; }
         if (!existing) {
             await wait(true);
@@ -551,13 +569,13 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
         if (existing) {
             let owner: { pid?: number; host?: string; created_at?: string; nonce?: string } = {};
             try { owner = JSON.parse(existing.toString('utf8')) as typeof owner; } catch { /* 壊れた lock は期限後に奪う */ }
+            const created = Date.parse(owner.created_at ?? '');
             if (owner.host === host && owner.pid === process.pid && typeof owner.nonce === 'string'
                 && owner.nonce === sharedState.unreleased.get(lock)) {
                 sharedState.unreleased.delete(lock);
                 await clearOwnWaitMark();
-                return releaseOwned(owner.nonce, now());
+                return releaseOwned(owner.nonce, Number.isFinite(created) ? created : now(), true);
             }
-            const created = Date.parse(owner.created_at ?? '');
             let age: number;
             try { age = now() - (Number.isFinite(created) ? created : (await fs.stat(lock)).mtimeMs); }
             catch (error) {
@@ -573,28 +591,77 @@ async function acquireProjectLock(projectRoot: string, options: TransactionOptio
                 // 奪取だけ claim で直列化し、取得済みの相手の lock を消さない。
                 const clearStaleClaim = async () => {
                     try {
-                        const stat = await fs.stat(claim);
-                        if (Date.now() - stat.mtimeMs > 5_000)
+                        const stat = await ops.stat(claim);
+                        let claimant: { pid?: number; host?: string; created_at?: string } = {};
+                        try {
+                            const parsed: unknown = JSON.parse((await ops.readFile(join(claim, 'owner.json'))).toString('utf8'));
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) claimant = parsed as typeof claimant;
+                        }
+                        catch { /* 識別できない claim は期限後だけ取り除く */ }
+                        if (sharedState.activeClaims.has(claim)) return;
+                        if (claimant.host === host && claimant.pid === process.pid) {
+                            await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
+                            return;
+                        }
+                        const live = claimant.host === host && Number.isInteger(claimant.pid)
+                            && (claimant.pid ?? 0) > 0 && (options.hooks?.processAlive ?? ownerAlive)(claimant.pid!);
+                        const createdAt = Date.parse(claimant.created_at ?? '');
+                        const age = live && Number.isFinite(createdAt) && createdAt <= now()
+                            ? now() - createdAt : now() - stat.mtimeMs;
+                        if (age > (live ? 30_000 : 5_000))
                             await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
                     } catch (error) {
                         if (!absent(error) && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
                     }
                 };
                 let claimed = false;
+                let claimOwner = '';
+                let keepClaim = false;
                 try {
                     await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
-                    const current = await readBytes(lock);
-                    if (current?.equals(existing)) {
-                        await retryFs(() => ops.unlink(lock)).catch(error => { if (!absent(error)) throw error; });
-                        sharedState.unreleased.delete(lock);
+                    sharedState.activeClaims.add(claim);
+                    claimOwner = JSON.stringify({ pid: process.pid, host, created_at: new Date(now()).toISOString(), nonce });
+                    await retryFs(() => ops.writeFile(join(claim, 'owner.json'), claimOwner));
+                    const current = await readBytes(lock, ops);
+                    const ownerBytes = await readBytes(join(claim, 'owner.json'), ops);
+                    if (current?.equals(existing) && ownerBytes?.toString('utf8') === claimOwner) {
+                        const retired = join(claim, `retired-${nonce}`);
+                        let renameSucceeded = false;
+                        try {
+                            await retryFs(() => ops.rename(lock, retired));
+                            renameSucceeded = true;
+                        } catch (error) {
+                            if (!absent(error)) throw error;
+                        }
+                        if (renameSucceeded) {
+                            const retiredBytes = await readBytes(retired, ops);
+                            if (retiredBytes?.equals(existing)) {
+                                await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                                sharedState.unreleased.delete(lock);
+                            } else {
+                                const restored = await retryFs(() => ops.link(retired, lock))
+                                    .then(() => true, () => false);
+                                if (!restored && !await readBytes(lock, ops)) {
+                                    keepClaim = true;
+                                    throw new Error('退避した lock を元の場所へ戻せませんでした。');
+                                }
+                                if (restored)
+                                    await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                            }
+                        }
                     }
                 } catch (error) {
                     if ((error as NodeJS.ErrnoException).code === 'EEXIST') await clearStaleClaim();
                     if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
                         && !retryCodes.has((error as NodeJS.ErrnoException).code ?? '')) throw error;
-                } finally { if (claimed) await retryFs(() => ops.rmdir(claim)).catch(() => undefined); }
+                } finally { if (claimed) {
+                    const ownerBytes = await readBytes(join(claim, 'owner.json'), ops).catch(() => undefined);
+                    if (!keepClaim && ownerBytes?.toString('utf8') === claimOwner)
+                        await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
+                    sharedState.activeClaims.delete(claim);
+                } }
             } else if (typeof owner.pid === 'number' && Number.isInteger(owner.pid) && owner.pid > 0
                 && typeof owner.host === 'string' && owner.host.length > 0
                 && typeof owner.nonce === 'string' && owner.nonce.length > 0
@@ -699,6 +766,7 @@ async function writeJournal(destination: string, content: string, options: Trans
     }
 }
 
+/** 保存の onDidWrite 通知の中から await しない。 */
 export async function recoverInterruptedProjectWrite(projectRoot: string): Promise<string | undefined> {
     const detail = await recoverInterruptedProjectWriteDetailed(projectRoot);
     return detail && recoveryNotice(detail);

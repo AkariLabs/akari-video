@@ -34,6 +34,7 @@ test('bin/akari.mjs: --version は1行目の CLI 版を維持し、本体版と�
 for (const [name, args, expected] of [
   ['decision-log', ['decision-log', '--help'], 'akari decision-log <subcommand>'],
   ['captions', ['captions', '--help'], 'akari captions <project-dir>'],
+  ['migrate-look', ['captions', '--help'], 'akari captions migrate-look <project>'],
   ['new', ['new', '--help'], 'akari new <target-dir>'],
   ['narration', ['narration', '--help'], 'akari narration generate'],
   ['voice', ['voice', '--help'], 'akari voice <scripts'],

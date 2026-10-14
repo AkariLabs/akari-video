@@ -529,6 +529,7 @@ import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { projectFileContentHash } from '@akari-video/edit-store';
 import { captionCommandHistory } from './caption-command-history';
+import { offerCaptionLookMigration } from './caption-look-migration-offer';
 import { ReviewModel } from './review-model';
 import {
     AudioMasterWriteRequest,
@@ -3799,7 +3800,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const before = (await this.fileService.readFile(captionsUri)).value.toString();
                     const after = replaceMyStylePartsInSource(before, ids,
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
-                        { keepSize: request.value.keepSize === true,
+                        { keepSize: true,
                             catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
                             motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined,
                             source: request.value.style_source as { kind: 'builtin' | 'library' | 'my'; id: string;
@@ -3850,8 +3851,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = feedback?.footer ?? t('annotations.timeline.text.iGuessedMyStyle');
                     return { ok: true };
                 }
+                case 'caption-style-size': {
+                    if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
+                    const targets = [...new Set(request.targets
+                        ? request.targets.flatMap(target => target.kind === 'caption' ? [target.id] : [])
+                        : [request.id])].map(caption_id => ({ caption_id }));
+                    if (request.targets && targets.length !== request.targets.length) {
+                        throw new Error(t('annotations.timeline.text.batchEditingOfSubtitleStylesIncludesItemsOther'));
+                    }
+                    const [captionsSource, editSource] = await Promise.all([
+                        this.fileService.readFile(location.captionsUri).then(file => file.value.toString()),
+                        this.fileService.readFile(location.editUri).then(file => file.value.toString())
+                    ]);
+                    const destination = { projectRootUri: location.root.toString(),
+                        captionsUri: location.captionsUri.toString(), editUri: location.editUri.toString() };
+                    const result = await this.annotationsService.setCaptionSize({ ...destination,
+                        expectedHashes: { captions: projectFileContentHash(captionsSource),
+                            edit: projectFileContentHash(editSource) },
+                        input: { targets, size_px: request.value } });
+                    if (!result.ok) {
+                        await this.reloadCaptions();
+                        return { ok: false, message: 'conflict' in result
+                            ? t('annotations.captionCommandHistory.text.reloadAfterConflict')
+                            : 'invalid' in result ? result.message : t('annotations.timeline.error.unknown') };
+                    }
+                    if (result.written.length) this.pushHistory(captionCommandHistory({ ...result,
+                        roles: { captions: location.captionsUri.path.base, edit: location.editUri.path.base } },
+                    t('annotations.timeline.text.changeSubtitleStyle'), destination,
+                    write => this.annotationsService.writeEditSnapshot(write), () => this.reloadCaptions()));
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = t('annotations.timeline.text.updatedSubtitleStyle');
+                    return { ok: true };
+                }
                 case 'caption-style-color':
-                case 'caption-style-size':
                 case 'caption-style-wrap-width':
                 case 'caption-style-font-weight':
                 case 'caption-style-line-height':
@@ -3874,9 +3907,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     switch (request.kind) {
                         case 'caption-style-color':
                             nextStyle = { color: request.value };
-                            break;
-                        case 'caption-style-size':
-                            nextStyle = { sizePx: request.value };
                             break;
                         case 'caption-style-wrap-width':
                             nextStyle = { wrapWidthPct: request.value };
@@ -5061,7 +5091,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : (style.slug ?? style.id ?? style.uid)
                             ? { style_source: { kind: 'my', id: style.slug ?? style.id ?? style.uid,
                                 uid: style.uid, revision: style.revision } } : {}),
-                    keepSize: (style as { keepSize?: boolean }).keepSize === true,
+                    keepSize: true,
                     catalog: (style as { catalog?: Record<string, { style: Record<string, unknown> }> }).catalog },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
             if (!result.ok) { this.showNotice(result.message ?? t('annotations.timeline.text.iCouldnTGuessTheStyle')); return false; }
@@ -8757,6 +8787,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
+        if (location.editUri) void offerCaptionLookMigration({
+            projectRootUri: location.root.toString(), editUri: location.editUri.toString(),
+            captionsUri: location.captionsUri.toString(),
+            captionsName: location.captionsUri.path.base, editName: location.editUri.path.base,
+            getRemembered: key => this.storage.getData<boolean>(key, false).then(value => value === true),
+            remember: key => this.storage.setData(key, true),
+            migrate: request => this.annotationsService.migrateCaptionLook(request),
+            ask: async count => {
+                const fix = t('annotations.captionLookMigration.offer.fixAction');
+                const later = t('annotations.captionLookMigration.offer.laterAction');
+                const choice = await this.messages.info(t('annotations.captionLookMigration.offer.fixAppearanceNotice',
+                    { count }), { timeout: 0 }, fix, later);
+                return choice === fix ? 'fix' : choice === later ? 'later' : undefined;
+            },
+            notifySaved: async count => await this.messages.info(
+                t('annotations.captionLookMigration.offer.fixedNotice', { count }),
+                { timeout: 0 },
+                t('annotations.captionLookMigration.offer.undoAction'))
+                === t('annotations.captionLookMigration.offer.undoAction'),
+            notifyConflict: () => { void this.messages.warn(
+                t('annotations.captionCommandHistory.text.reloadAfterConflict')); },
+            pushHistory: entry => this.pushHistory(entry),
+            undo: async entry => {
+                if (this.historyService.isTop(entry)) await this.performUndo();
+                else this.showNotice(t('annotations.captionLookMigration.offer.undoAfterOtherChangesNotice'));
+            },
+            write: request => this.annotationsService.writeEditSnapshot(request),
+            reload: () => this.reloadCaptions(),
+            historyLabel: t('annotations.captionLookMigration.offer.historyLabel')
+        });
         // The onboarding example is written by its backend service, outside this widget's
         // file service. Let it request a read after each staged write on file systems
         // whose watcher does not report those writes promptly (notably Windows drives).

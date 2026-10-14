@@ -116,6 +116,7 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
     parts: readonly { kind: string; text_style?: unknown; animation?: unknown }[],
     options: { keepSize?: boolean; catalog?: Record<string, { style: Record<string, unknown> }>;
         motionDelta?: CaptionMotionDelta; source?: CaptionStyleSource; now?: string | Date } = {}): string {
+    const keepSize = options.keepSize !== false;
     const lookPart = parts.find(part => part.kind === 'look');
     const motionPart = parts.find(part => part.kind === 'motion');
     const look = sanitizeMyStyleLook(lookPart?.text_style);
@@ -151,7 +152,7 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
     if (targets.length) try {
         next = planCaptionStyleEdit({ captions: document, targets,
             parts: {}, source: options.source, now: options.now, catalog: catalog as TextstyleCatalog,
-            legacy: { preset: 'drop', ...(options.keepSize ? {} : { size: 'style' }) } }).next.captions;
+            legacy: { preset: 'drop', ...(keepSize ? {} : { size: 'style' }) } }).next.captions;
     } catch (error) {
             if (error instanceof Error && (error as Error & { code?: string }).code
                 === 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT') {
@@ -166,9 +167,9 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
             const style = nextRow.text_style;
             const order = [
                 ...Object.keys(before).filter(key => !lookPart || !Object.prototype.hasOwnProperty.call(LOOK_FIELDS, key)),
-                ...(lookPart ? [...Object.keys(look).filter(key => !options.keepSize
+                ...(lookPart ? [...Object.keys(look).filter(key => !keepSize
                     || key !== 'size_px' && key !== 'reference_height_px'),
-                    ...(options.keepSize ? ['size_px', 'reference_height_px'] : [])] : []),
+                    ...(keepSize ? ['size_px', 'reference_height_px'] : [])] : []),
                 ...(motionPart ? ['animation'] : []), ...Object.keys(style)
             ];
             const ordered: Record<string, unknown> = {};

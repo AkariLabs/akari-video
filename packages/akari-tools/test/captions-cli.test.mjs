@@ -233,6 +233,7 @@ test("help and no arguments print usage", async () => {
     const lines = [];
     assert.equal(await runCaptionsCli(args, { stdout: (line) => lines.push(line) }), 0);
     assert.equal(lines[0].split("\n")[0], "使い方: akari captions <project-dir> [options]");
+    assert.match(lines[0], /akari captions migrate-look <project> \[--dry-run\] \[--json\]/u);
   }
 });
 

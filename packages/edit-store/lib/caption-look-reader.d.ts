@@ -29,6 +29,10 @@ type CaptionsRoot = {
 /** 旧い強調の ID は移行済み run に残った出所 ID も予約済みとして扱う。 */
 export declare function nextEmphasisWordId(root: CaptionsRoot | CaptionRow[]): string;
 export declare const CAPTION_EMPHASIS_MOTION: Readonly<Record<string, string>>;
+export declare function captionEmphasisWordIntervals(row: Pick<CaptionRow, 'text' | 'display_text'>, wordText: string): Array<{
+    from: number;
+    to: number;
+}>;
 export declare function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: TextstyleCatalog): {
     captions: CaptionRow[];
     notices: string[];
@@ -43,6 +47,19 @@ export declare function planCaptionLookMigration(captions: CaptionsRoot | Captio
     unresolved: Emphasis[];
     notices: string[];
 };
+export declare function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' | 'resolved_look'>): boolean;
+export declare function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null, output?: {
+    width: number;
+    height: number;
+}, layout?: unknown, policy?: boolean): {
+    style: NonNullable<CaptionRun['style']>;
+    resolved_look?: CaptionRun['resolved_look'];
+};
 /** Restore the renderer's legacy input without changing a legacy-only document. */
-export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T;
+export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T, options?: {
+    output?: {
+        width: number;
+        height: number;
+    };
+}): T;
 export {};

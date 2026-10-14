@@ -38,6 +38,7 @@ import {
     TRANSITION_VOCABULARY
 } from '@akari-video/edit-store';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
+import { captionWordSelectionBoxes } from '../common/caption-word-selection-geometry';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionInkClipRecipe, setCaptionInkClipVariables } from '../../../../../../packages/render-cut/src/caption-ink-clip.mjs';
 import { captionRowWrapRect } from '../common/caption-row-box';
@@ -4626,7 +4627,7 @@ export function previewBootstrapScript(): string {
             for (const id of ['layer-select-box', 'layer-crop-box', 'photo-crop-controls',
                 'layer-crop-toggle', 'layer-perspective-toggle', 'layer-perspective-panel',
                 'cut-select-box', 'caption-zone-highlight', 'zone-hint-layer', 'caption-row-box',
-                'caption-select-box', 'caption-multi-select-boxes']) {
+                'caption-select-box', 'caption-multi-select-boxes', 'caption-word-selection-boxes']) {
                 const element = document.getElementById(id);
                 if (element) previewChrome.appendChild(element);
             }
@@ -4817,6 +4818,12 @@ export function previewBootstrapScript(): string {
                 selection.addRange(range);
                 return true;
             };
+            const syncRunShadowText = element => {
+                for (const run of element.querySelectorAll('.akari-caption__run[data-akari-shadow-text]')) {
+                    // Editing may place the new text inside or beside the positioned ink span.
+                    run.setAttribute('data-akari-shadow-text', run.textContent || '');
+                }
+            };
             const refreshActiveCaptionRuns = () => {
                 const edit = activeCaptionEdit;
                 if (!edit) return;
@@ -4842,11 +4849,18 @@ export function previewBootstrapScript(): string {
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                     const holder = document.createElement('div');
                     holder.innerHTML = renderCaptionRuns('<p class="akari-caption__line">' + escaped + '</p>',
-                        text, caption.runs);
+                        text, caption.runs, false,
+                        caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined);
+                    const runRules = holder.querySelector('style');
+                    if (runRules && !document.getElementById('akari-caption-run-rules')) {
+                        runRules.id = 'akari-caption-run-rules';
+                        document.head.appendChild(runRules);
+                    }
                     const line = holder.querySelector('.akari-caption__line');
                     const content = line?.querySelector('.akari-caption__tok') || line;
                     if (!content) return;
                     element.replaceChildren(...Array.from(content.childNodes));
+                    syncRunShadowText(element);
                 } else if (element.querySelector('.akari-caption__run')) {
                     element.textContent = text;
                 } else return;
@@ -5702,10 +5716,9 @@ export function previewBootstrapScript(): string {
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
-                if (layoutPlate && editorWidth && caption?.runs?.some(run =>
-                    Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+                if (layoutPlate && editorWidth && caption?.runs?.length > 0
                     && lineCount(element) > targetLines) {
-                    // offsetWidth rounds away the subpixel width reserved by font-size runs.
+                    // offsetWidth rounds away the subpixel width reserved by styled runs.
                     element.style.width = Math.max(parseFloat(element.style.width) || 0, editorWidth + 1) + 'px';
                 }
                 window.akari.syncRunSelection?.();
@@ -5722,6 +5735,10 @@ export function previewBootstrapScript(): string {
                     void commitCaptionEdit();
                 }
             }, true);
+            captionLayer.addEventListener('input', event => {
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
+                syncRunShadowText(activeCaptionEdit.element);
+            });
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
                 const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));
@@ -8142,8 +8159,8 @@ export function previewBootstrapScript(): string {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
                     const wrapWidthActive = Boolean(caption?.textStyleVars?.['--caption-wrap-width']);
-                    if (wrapWidthActive
-                        || caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                    if (wrapWidthActive || Boolean(caption?.runs?.some(run =>
+                        Number.isFinite(run?.style?.scale) && run.style.scale !== 1))) {
                         captionPlate.dataset.captionSizedRun = '';
                         const captionPositionX = caption?.textStyle?.position?.x;
                         const captionAnchor = caption?.textStyle?.text_anchor;
@@ -8203,7 +8220,10 @@ export function previewBootstrapScript(): string {
                                     + captionTextAnimationPlateAttrs(captionAnimation) + '>');
                         }
                         captionHtml = caption.runs?.length
-                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs,
+                                Boolean(caption.textStyleVars?.['--plate-ext-bg']),
+                                caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined)
+                            : captionHtml;
                         if (caption.textStyle?.animation?.in?.id === 'typewriter'
                             || caption.textStyle?.animation?.out?.id === 'typewriter') {
                             captionHtml = decorateCaptionTypewriterHtml(captionHtml,
@@ -12166,6 +12186,166 @@ export function previewBootstrapScript(): string {
             window.addEventListener('pointercancel', () => {
                 if (motionDraw) stopMotionDraw();
             }, true);
+
+            {
+            const captionWordSelectionLayer = document.createElement('div');
+            captionWordSelectionLayer.id = 'caption-word-selection-boxes';
+            captionWordSelectionLayer.hidden = true;
+            previewChrome.appendChild(captionWordSelectionLayer);
+            const captionWordSelectionBoxesFn = (${captionWordSelectionBoxes.toString()});
+            const captionWordGraphemes = value => Array.from(
+                new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value), part => part.segment);
+            let selectedCaptionWordRanges = [];
+            const updateSelectedCaptionWordBoxes = () => {
+                captionWordSelectionLayer.replaceChildren();
+                captionWordSelectionLayer.hidden = !selectedCaptionWordRanges.length;
+                if (!selectedCaptionWordRanges.length || captionLayer.style.visibility === 'hidden') return;
+                const chromeRect = previewChrome.getBoundingClientRect();
+                const chromeScaleX = chromeRect.width / previewChrome.offsetWidth || 1;
+                const chromeScaleY = chromeRect.height / previewChrome.offsetHeight || 1;
+                for (const selected of selectedCaptionWordRanges) {
+                    for (const row of captionRows.values()) {
+                        const caption = row.caption;
+                        if ((caption.sourceCueId || caption.id) !== selected.captionId
+                            || !row.plate.isConnected || row.plate.querySelector('[contenteditable="true"]')) continue;
+                        if (row.plate.querySelector('.akari-caption__reveal-group')) continue;
+                        if (caption.manualFragment) continue;
+                        let offset = 0;
+                        if (caption.fragmentCount > 1) {
+                            const prefix = String(caption.id).replace(/-part-[0-9]+$/u, '');
+                            const parts = captions.filter(item => item.sourceCueId === caption.sourceCueId
+                                && String(item.id).replace(/-part-[0-9]+$/u, '') === prefix)
+                                .sort((a, b) => a.fragmentIndex - b.fragmentIndex);
+                            if (parts.length !== caption.fragmentCount
+                                || parts.some((part, index) => part.fragmentIndex !== index + 1)) continue;
+                            offset = parts.slice(0, caption.fragmentIndex - 1)
+                                .reduce((sum, part) => sum + captionWordGraphemes(part.text).length, 0);
+                        }
+                        const count = captionWordGraphemes(caption.text).length;
+                        const from = Math.max(0, selected.from - offset);
+                        const to = Math.min(count, selected.to - offset);
+                        if (from >= to) continue;
+                        const lines = [...row.plate.querySelectorAll('.akari-caption__line')];
+                        if (!lines.length) continue;
+                        const walker = document.createTreeWalker(row.plate,
+                            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+                        const nodes = [];
+                        let text = '';
+                        let previousLine = null;
+                        const appendExpectedBreak = () => {
+                            const next = caption.text.slice(text.length);
+                            const crlf = String.fromCharCode(13, 10);
+                            const lf = String.fromCharCode(10);
+                            if (next.startsWith(crlf)) text += crlf;
+                            else if (next.startsWith(lf)) text += lf;
+                        };
+                        while (walker.nextNode()) {
+                            const node = walker.currentNode;
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                if (node.nodeName === 'BR' && node.closest('.akari-caption__line')
+                                    && !node.closest('rt, rp'))
+                                    appendExpectedBreak();
+                                continue;
+                            }
+                            if (!node.parentElement?.closest('.akari-caption__line')
+                                || node.parentElement.closest('rt, rp, style, script')) continue;
+                            const line = node.parentElement.closest('.akari-caption__line');
+                            if (previousLine && line !== previousLine) appendExpectedBreak();
+                            previousLine = line;
+                            nodes.push({ node, start: text.length, end: text.length + node.textContent.length });
+                            text += node.textContent;
+                        }
+                        if (text !== caption.text) continue;
+                        const graphemes = captionWordGraphemes(text);
+                        let character = 0;
+                        const rects = [];
+                        for (let index = 0; index < graphemes.length; index++) {
+                            const start = character;
+                            character += graphemes[index].length;
+                            if (index < from || index >= to) continue;
+                            const first = nodes.find(item => item.start <= start && start < item.end);
+                            const last = nodes.find(item => item.start < character && character <= item.end);
+                            if (!first || !last) {
+                                if (graphemes[index].charCodeAt(graphemes[index].length - 1) === 10
+                                    && graphemes[index].length <= 2) continue;
+                                rects.length = 0; break;
+                            }
+                            const range = document.createRange();
+                            range.setStart(first.node, start - first.start);
+                            range.setEnd(last.node, character - last.start);
+                            rects.push(...range.getClientRects());
+                        }
+                        const vertical = Boolean(caption.textStyle?.vertical);
+                        for (const rect of captionWordSelectionBoxesFn(rects, vertical)) {
+                            const box = document.createElement('div');
+                            box.className = 'caption-word-selection-box';
+                            box.style.left = (rect.left - chromeRect.left) / chromeScaleX + 'px';
+                            box.style.top = (rect.top - chromeRect.top) / chromeScaleY + 'px';
+                            box.style.width = rect.width / chromeScaleX + 'px';
+                            box.style.height = rect.height / chromeScaleY + 'px';
+                            captionWordSelectionLayer.appendChild(box);
+                        }
+                    }
+                }
+                captionWordSelectionLayer.hidden = captionWordSelectionLayer.childElementCount === 0;
+            };
+            let wordBoxFrame = 0;
+            let wordBoxTimer = 0;
+            let lastWordBoxDraw = 0;
+            const drawSelectedCaptionWordBoxes = () => {
+                wordBoxFrame = 0;
+                if (!selectedCaptionWordRanges.length) return;
+                const delay = isPlaying ? 100 - (Date.now() - lastWordBoxDraw) : 0;
+                if (delay > 0) {
+                    if (!wordBoxTimer) wordBoxTimer = setTimeout(() => {
+                        wordBoxTimer = 0;
+                        queueSelectedCaptionWordBoxes();
+                    }, delay);
+                    return;
+                }
+                lastWordBoxDraw = Date.now();
+                updateSelectedCaptionWordBoxes();
+            };
+            const queueSelectedCaptionWordBoxes = () => {
+                if (selectedCaptionWordRanges.length && !wordBoxFrame)
+                    wordBoxFrame = requestAnimationFrame(drawSelectedCaptionWordBoxes);
+            };
+            const wordBoxObserver = new MutationObserver(queueSelectedCaptionWordBoxes);
+            const wordBoxResize = new ResizeObserver(queueSelectedCaptionWordBoxes);
+            const stopSelectedCaptionWordBoxes = () => {
+                wordBoxObserver.disconnect();
+                wordBoxResize.disconnect();
+                window.removeEventListener('resize', queueSelectedCaptionWordBoxes);
+                window.removeEventListener('akari-frame-engine-seek', queueSelectedCaptionWordBoxes);
+                if (wordBoxFrame) cancelAnimationFrame(wordBoxFrame);
+                if (wordBoxTimer) clearTimeout(wordBoxTimer);
+                wordBoxFrame = 0;
+                wordBoxTimer = 0;
+                captionWordSelectionLayer.replaceChildren();
+                captionWordSelectionLayer.hidden = true;
+            };
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message?.type !== 'akari-preview-set-selected-caption-ranges') return;
+                const ranges = Array.isArray(message.ranges) ? message.ranges.filter(range =>
+                    range && typeof range.captionId === 'string' && Number.isInteger(range.from)
+                    && Number.isInteger(range.to) && range.from >= 0 && range.from < range.to) : [];
+                stopSelectedCaptionWordBoxes();
+                selectedCaptionWordRanges = ranges;
+                if (!ranges.length) return;
+                wordBoxObserver.observe(captionLayer, {
+                    childList: true, characterData: true, attributes: true, subtree: true,
+                    attributeFilter: ['style', 'class']
+                });
+                wordBoxObserver.observe(previewStage, { attributes: true, attributeFilter: ['style', 'class'] });
+                wordBoxObserver.observe(previewChrome, { attributes: true, attributeFilter: ['style', 'class'] });
+                wordBoxResize.observe(previewStage);
+                wordBoxResize.observe(previewChrome);
+                window.addEventListener('resize', queueSelectedCaptionWordBoxes);
+                window.addEventListener('akari-frame-engine-seek', queueSelectedCaptionWordBoxes);
+                queueSelectedCaptionWordBoxes();
+            });
+            }
 
             // Attach nearby metadata sources before the frame engine can report its first frame.
             if (frameEngineMediaIdle) renderLayers(Number.isFinite(initialSeekTarget) ? initialSeekTarget : outputTime);

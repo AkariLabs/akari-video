@@ -862,6 +862,7 @@ export type ReapplyCaptionStyleRequest = CaptionCommandRequest<{ targets?: Capti
     apply?: Array<{ target: CaptionStyleTarget; part: 'look' | 'motion' }> }>;
 export type MigrateCaptionLookRequest = CaptionCommandRequest<{ dryRun?: boolean }>;
 export type CaptionCommandResult = { ok: true; written: string[]; notices: string[]; changed: string[];
+    notice_codes?: Array<{ code: string; params?: Record<string, string | number> }>;
     recovered?: string; before: Record<string, { hash: string | null; text: string | null }>;
     after: Record<string, { hash: string | null; text: string | null }>;
     items?: unknown[]; diff?: unknown[] } | { ok: false; conflict: true; files: string[]; message: string }

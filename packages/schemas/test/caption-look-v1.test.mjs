@@ -2,11 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { createRequire } from 'node:module';
 
 const schema = JSON.parse(readFileSync(new URL('../captions.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: false, formats: { 'date-time': true } }).compile(schema);
 const row = extra => ({ id: 'c-0001', start: 0, end: 2, text: '猫', speaker: null,
   sourceRef: null, edited: false, ...extra });
+
+test('スキーマ: 同梱の全スタイルを既定にした行の 38→56→72→38 を受理する', () => {
+  const { planCaptionSizeEdit, TEXTSTYLE_CATALOG } = createRequire(import.meta.url)('../../edit-store/lib/index.js');
+  for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
+    const { animation, ...style } = preset.style;
+    let captions = { default_text_style: { ...style, size_px: 38 }, captions: [row({})] };
+    for (const size of [56, 72, 38]) {
+      captions = planCaptionSizeEdit({ captions, targets: [{ caption_id: 'c-0001' }], size_px: size }).next.captions;
+      assert.equal(validate(captions), true, `${id}: ${JSON.stringify(validate.errors)}`);
+    }
+  }
+});
 
 test('スキーマ: runs v1 と unresolved_runs と style_sources を受理する', () => {
   const run = { id: 'r-0001', from: 0, to: 1, look: { color: '#fff', scale: 1.5,

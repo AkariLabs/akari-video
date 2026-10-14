@@ -70,8 +70,20 @@ test('Windows / Linux は帯にファイル・編集・ヘルプを描き、Mac 
     assert.equal(showsMenuInTitleBar('other'), true);
     assert.equal(showsMenuInTitleBar('mac'), false);
     const source = readFileSync(new URL('../src/browser/title-bar/akari-title-bar-contribution.ts', import.meta.url), 'utf8');
-    const body = source.slice(source.indexOf('protected createCustomTitleBar('));
-    // 帯をページへ付けた後にメニューバーを埋め込む（Lumino の attach は付いていない親を拒む）
-    assert.ok(body.indexOf("app.shell.addWidget(bar, { area: 'top' })") < body.indexOf('Widget.attach(menuBar, left)'));
     assert.match(source, /\.akari-title-left \.lm-MenuBar \{ -webkit-app-region: no-drag !important;/u);
+});
+
+test('メニューバーは画面がページに付いてから埋め込み、失敗しても中央と窓のボタンは描かれる', () => {
+    const source = readFileSync(new URL('../src/browser/title-bar/akari-title-bar-contribution.ts', import.meta.url), 'utf8');
+    const create = source.slice(source.indexOf('protected createCustomTitleBar('), source.indexOf('protected async attachMenuBar('));
+    // onStart は attachShell より前に走るので、その場で Lumino の attach を呼ぶと「Host is not attached.」で
+    // 落ちて中央と窓のボタンが描かれなかった（v1.3.0-beta.7〜v1.4.0-beta.1 の Windows）
+    assert.doesNotMatch(create, /Widget\.attach\(/u);
+    assert.ok(create.indexOf('this.renderControls();') < create.indexOf('this.attachMenuBar(left)'));
+    assert.ok(create.indexOf('void this.renderCenter();') < create.indexOf('this.attachMenuBar(left)'));
+    const attach = source.slice(source.indexOf('protected async attachMenuBar('));
+    const waits = attach.indexOf("await this.stateService.reachedState('attached_shell');");
+    assert.ok(waits >= 0);
+    assert.ok(waits < attach.indexOf('try {'));
+    assert.ok(attach.indexOf('try {') < attach.indexOf('Widget.attach(menuBar, left)'));
 });

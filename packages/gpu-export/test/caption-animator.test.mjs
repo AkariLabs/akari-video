@@ -67,10 +67,12 @@ function measured(chars = true) {
     querySelector: () => null,
     querySelectorAll: selector => selector === ".akari-caption__reveal-group" ? []
       : selector === ".akari-caption__char" ? chars ? elements : []
-      : selector === ".akari-caption__line" ? [line] : words,
+      : selector === ".akari-caption__line" ? [line]
+      : selector === ".akari-caption__run-frag" ? [] : words,
   };
   const { measureCaptionUnit } = extract(
-    ["measureCaptionUnit", "relativeRect", "tokenRole", "tokenStyle", "tokenTiming", "cssSeconds"],
+    ["measureCaptionUnit", "measureCaptionRunEffectRects", "relativeRect", "expandedCaptionRunRect",
+      "tokenRole", "tokenStyle", "tokenTiming", "cssSeconds"],
     { getComputedStyle: () => ({ fontSize: "20px" }) },
   );
   return measureCaptionUnit(root, 0);

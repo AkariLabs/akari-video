@@ -1148,5 +1148,12 @@
   "annotations.timeline.text.couldNotSetScene3dScreen": "画面を入れられませんでした: {reason}",
   "annotations.timeline.text.invalidRotation3dValue": "3D 回転の値が不正です。",
   "annotations.timeline.text.changeRotation3d": "3D 回転を変更",
-  "annotations.timeline.text.addPreviewKeyframes": "プレビューの変形にキーフレームを打つ"
+  "annotations.timeline.text.addPreviewKeyframes": "プレビューの変形にキーフレームを打つ",
+  "annotations.captionLookMigration.offer.fixAppearanceNotice": "字幕 {count} 行の見た目を、いまの見た目のまま固定できます。あとでスタイルを更新・削除しても、この動画の見た目は変わりません。",
+  "annotations.captionLookMigration.offer.fixAction": "固定する",
+  "annotations.captionLookMigration.offer.laterAction": "あとで",
+  "annotations.captionLookMigration.offer.fixedNotice": "字幕 {count} 行の見た目を固定しました。",
+  "annotations.captionLookMigration.offer.undoAction": "元に戻す",
+  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "ほかの操作のあとなので、取り消しで戻してください",
+  "annotations.captionLookMigration.offer.historyLabel": "字幕の見た目を固定"
 }
