@@ -683,6 +683,7 @@
   "preview.previewChatReviewText.ui.pinLabel": "Pin",
   "preview.previewChatReviewText.ui.rangeLabel": "Range",
   "preview.previewChatReviewText.ui.nearElementsLabel": "(near {elements})",
+  "preview.previewChatReviewText.punctuation.listSeparator": ", ",
   "preview.previewChatReviewText.ui.reviewAttachmentText": "[Review] {sourceLabel} {timeSpan} {tool}{context}{bodySuffix} [{source}]",
   "preview.previewChatReviewText.ui.baseTextLabel": "{baseText} [Panel picture: {image}]",
   "preview.chatReviewAttachments.ui.captionLabel": "Caption “{caption}”",

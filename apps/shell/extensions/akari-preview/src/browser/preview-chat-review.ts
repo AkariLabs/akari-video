@@ -1,5 +1,5 @@
 import { t as translate } from '@akari-video/i18n';
-import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt,
+import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt, reviewAttachmentUiText,
     reviewEscapeStep, reviewMemoEnterAction } from '../common/chat-review-attachments';
 import type { ChatAttachment } from '../common/chat-review-attachments';
 
@@ -41,13 +41,7 @@ export function previewChatReviewScript(): string {
     };
     return `(() => {
         const ui = ${JSON.stringify(uiText).replace(/</g, '\\u003c')};
-        const helperCopy = ${JSON.stringify(Object.fromEntries([
-            'preview.chatReviewAttachments.ui.captionLabel',
-            'preview.chatReviewAttachments.ui.videoSourcePathLabel',
-            'preview.chatReviewAttachments.ui.imageLabel',
-            'preview.chatReviewAttachments.ui.videoLabel'
-        ].map(key => [key, translate(key)]))).replace(/</g, '\\u003c')};
-        const t = (key, params = {}) => formatUi(helperCopy[key] ?? key, params);
+        const attachmentUi = ${JSON.stringify(reviewAttachmentUiText()).replace(/</g, '\\u003c')};
         const formatUi = (text, params) => text.replace(/\\{(\\w+)\\}/g, (_, key) => String(params[key] ?? ''));
         const initial = window.__akariPreview;
         const post = message => window.akari?.reviewChatPost?.(message);
@@ -368,9 +362,9 @@ export function previewChatReviewScript(): string {
                     bottom: stageRect.top + (shape.y + (shape.h || 0)) * stageRect.height }
                 : Number.isFinite(clientX) && Number.isFinite(clientY)
                     ? { kind: 'point', x: clientX, y: clientY } : null;
-            const domLabels = initial.kind === 'output' && hit ? captionLabelsAt(captionLines(), hit) : [];
+            const domLabels = initial.kind === 'output' && hit ? captionLabelsAt(captionLines(), hit, attachmentUi) : [];
             const elements = initial.kind === 'output'
-                ? [...new Set([...domLabels, ...elementsAt({ ...initial.summary, captions: window.akari?.previewCaptions || initial.captions }, time, point)])]
+                ? [...new Set([...domLabels, ...elementsAt({ ...initial.summary, captions: window.akari?.previewCaptions || initial.captions }, time, point, attachmentUi)])]
                 : [];
             const review = { id: crypto.randomUUID(), tool: kind, source, sourceLabel, time,
                 ...(kind === 'range' ? { timeEnd: currentTime() } : {}),

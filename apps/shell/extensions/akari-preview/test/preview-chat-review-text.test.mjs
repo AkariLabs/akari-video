@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
 
 const require = createRequire(import.meta.url);
 const { describeReviewAttachments } = require('../lib/browser/preview-chat-review-text.js');
@@ -31,5 +32,15 @@ test('メモが空でも時刻・道具・対象・ソースを渡す', () => {
     const empty = [{ ...attachments[0], review: { ...attachments[0].review, text: '' } }];
     const text = describeReviewAttachments(empty);
     assert.match(text, /0:12 ペン（テロップ「軽い」付近） \[exports\/draft\.mp4\]/u);
-    assert.doesNotMatch(text, /:  \[/u);
+    assert.doesNotMatch(text, /: {2}\[/u);
+});
+
+test('review element lists use the selected language separator', () => {
+    const twoElements = [{ ...attachments[0], review: { ...attachments[0].review, elements: ['first', 'second'] } }];
+    try {
+        setLanguage('ja');
+        assert.match(describeReviewAttachments(twoElements), /first、second/u);
+        setLanguage('en');
+        assert.match(describeReviewAttachments(twoElements), /first, second/u);
+    } finally { setLanguage(undefined); }
 });

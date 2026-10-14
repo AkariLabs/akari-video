@@ -19,6 +19,7 @@
   "chat.akariChatContribution.ui.couldNotCloseConversationError": "[akari-chat] Could not close conversation",
   "chat.akariChatContribution.ui.akariChatTrialMustEnabledSettingsPartnerMessage": "AKARI Chat (trial) must be enabled in Settings › Partner",
   "chat.akariChatWidget.ui.connectingNamesStatus": "Connecting: {names}",
+  "chat.akariChatWidget.punctuation.listSeparator": ", ",
   "chat.akariChatWidget.ui.noItemsConnectedLabel": "No items connected",
   "chat.akariChatWidget.ui.lowLabel": "Low",
   "chat.akariChatWidget.ui.mediumLabel": "Medium",

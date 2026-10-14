@@ -23,7 +23,7 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
         const createStack = (): HTMLElement => {
             const stack = document.createElement('span');
             stack.className = 'akari-connect-stack';
-            stack.setAttribute('aria-label', t('connect.connectContribution.ui.availableNamesLabel', { names: items.map(item => item.name).join('、') }));
+            stack.setAttribute('aria-label', t('connect.connectContribution.ui.availableNamesLabel', { names: items.map(item => item.name).join(t('connect.connectContribution.punctuation.listSeparator')) }));
             for (const item of items.slice(0, 5)) {
                 const icon = document.createElement('span');
                 icon.className = 'akari-connect-stack-icon';

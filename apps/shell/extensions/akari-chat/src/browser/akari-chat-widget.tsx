@@ -34,7 +34,7 @@ import { ChatMenuCommand as ChatCommand, optionalRpc, commandMatches, commandGro
 interface ConnectStackItem { id: string; icon: string; name: string }
 function ConnectStack({ items, limit = 5 }: { items: readonly ConnectStackItem[]; limit?: number }): React.ReactElement {
     return <span className='akari-connect-stack' aria-label={items.length
-        ? t('chat.akariChatWidget.ui.connectingNamesStatus', { names: items.map(item => item.name).join('、') }) : t('chat.akariChatWidget.ui.noItemsConnectedLabel')}>
+        ? t('chat.akariChatWidget.ui.connectingNamesStatus', { names: items.map(item => item.name).join(t('chat.akariChatWidget.punctuation.listSeparator')) }) : t('chat.akariChatWidget.ui.noItemsConnectedLabel')}>
         {items.slice(0, limit).map(item => <span className='akari-connect-stack-icon' title={item.name} key={item.id}>{item.icon}</span>)}
         {items.length > limit && <span className='akari-connect-stack-more'>+{items.length - limit}</span>}
     </span>;

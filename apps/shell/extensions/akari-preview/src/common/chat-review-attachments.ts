@@ -42,7 +42,24 @@ export type ReviewCaptionHit =
     | { kind: 'point'; x: number; y: number }
     | { kind: 'rect'; left: number; top: number; right: number; bottom: number };
 
-export function reviewCaptionLabelsAt(lines: readonly ReviewCaptionLine[], hit: ReviewCaptionHit): string[] {
+export interface ReviewAttachmentUiText {
+    caption: string;
+    videoSourcePath: string;
+    image: string;
+    video: string;
+}
+
+export function reviewAttachmentUiText(): ReviewAttachmentUiText {
+    return {
+        caption: t('preview.chatReviewAttachments.ui.captionLabel'),
+        videoSourcePath: t('preview.chatReviewAttachments.ui.videoSourcePathLabel'),
+        image: t('preview.chatReviewAttachments.ui.imageLabel'),
+        video: t('preview.chatReviewAttachments.ui.videoLabel')
+    };
+}
+
+export function reviewCaptionLabelsAt(lines: readonly ReviewCaptionLine[], hit: ReviewCaptionHit,
+    uiText: ReviewAttachmentUiText = reviewAttachmentUiText()): string[] {
     const labels: string[] = [];
     for (const line of lines) {
         const rect = line.rect;
@@ -54,13 +71,14 @@ export function reviewCaptionLabelsAt(lines: readonly ReviewCaptionLine[], hit: 
         if (!overlaps) continue;
         const value = line.text.replace(/\s+/gu, ' ').trim().slice(0, 80);
         if (!value) continue;
-        const label = t('preview.chatReviewAttachments.ui.captionLabel', { caption: value });
+        const label = uiText.caption.split('{caption}').join(value);
         if (!labels.includes(label)) labels.push(label);
     }
     return labels;
 }
 
-export function reviewElementsAt(edit: any, time: number, point: { x: number; y: number }): string[] {
+export function reviewElementsAt(edit: any, time: number, point: { x: number; y: number },
+    uiText: ReviewAttachmentUiText = reviewAttachmentUiText()): string[] {
     const result: string[] = [];
     const add = (value: string): void => { if (!result.includes(value)) result.push(value); };
     const active = (item: any): boolean => {
@@ -83,14 +101,14 @@ export function reviewElementsAt(edit: any, time: number, point: { x: number; y:
     for (const caption of captions) {
         if (active(caption) && (caption.box || caption.rect || caption.bounds) && hits(caption)) {
             const value = caption.text ?? caption.plainText ?? caption.label;
-            if (typeof value === 'string' && value.trim()) add(t('preview.chatReviewAttachments.ui.captionLabel', { caption: value.trim() }));
+            if (typeof value === 'string' && value.trim()) add(uiText.caption.split('{caption}').join(value.trim()));
         }
     }
     for (const cut of Array.isArray(edit?.cuts) ? edit.cuts : []) {
-        if (active(cut) && hits(cut)) add(t('preview.chatReviewAttachments.ui.videoSourcePathLabel', { sourcePath: String(cut.sourcePath ?? cut.src ?? cut.id ?? '').trim() }));
+        if (active(cut) && hits(cut)) add(uiText.videoSourcePath.split('{sourcePath}').join(String(cut.sourcePath ?? cut.src ?? cut.id ?? '').trim()));
     }
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
-        if (active(layer) && hits(layer)) add(`${layer.isImage ? t('preview.chatReviewAttachments.ui.imageLabel') : t('preview.chatReviewAttachments.ui.videoLabel')} ${String(layer.sourcePath ?? layer.src ?? layer.id ?? '').trim()}`);
+        if (active(layer) && hits(layer)) add(`${layer.isImage ? uiText.image : uiText.video} ${String(layer.sourcePath ?? layer.src ?? layer.id ?? '').trim()}`);
     }
     if (edit?.version === 2 && Array.isArray(edit?.tracks)) {
         const fps = Number(edit.output?.fps) || 30;
@@ -100,7 +118,7 @@ export function reviewElementsAt(edit: any, time: number, point: { x: number; y:
                 if (item?.source?.kind !== 'media' || !hits(item)) continue;
                 if (time < Number(item.at) / fps || time >= (Number(item.at) + Number(item.duration)) / fps) continue;
                 const path = String(sources.get(item.source.src) ?? item.source.src ?? item.id);
-                add(`${/\.(png|jpe?g|webp|gif)$/i.test(path) ? t('preview.chatReviewAttachments.ui.imageLabel') : t('preview.chatReviewAttachments.ui.videoLabel')} ${path}`);
+                add(`${/\.(png|jpe?g|webp|gif)$/i.test(path) ? uiText.image : uiText.video} ${path}`);
             }
         }
     }

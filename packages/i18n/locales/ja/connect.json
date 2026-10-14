@@ -1,6 +1,7 @@
 {
   "connect.connectContribution.ui.connectLabel": "つなぐ",
   "connect.connectContribution.ui.availableNamesLabel": "使える: {names}",
+  "connect.connectContribution.punctuation.listSeparator": "、",
   "connect.connectSettingsSection.ui.akariToolsLabel": "AKARI の道具",
   "connect.connectSettingsSection.ui.createAssetsLabel": "素材を作る",
   "connect.connectSettingsSection.ui.allLabel": "すべて",

@@ -10,7 +10,7 @@ export function describeReviewAttachments(attachments: readonly ChatAttachment[]
         const time = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
         const span = mark.timeEnd === undefined ? time(mark.time) : `${time(mark.time)}〜${time(mark.timeEnd)}`;
         const tool = { pen: t('preview.previewChatReviewText.ui.penLabel'), pin: t('preview.previewChatReviewText.ui.pinLabel'), range: t('preview.previewChatReviewText.ui.rangeLabel') }[mark.tool];
-        const context = mark.elements?.length ? t('preview.previewChatReviewText.ui.nearElementsLabel', { elements: mark.elements.map(oneLine).join('、') }) : '';
+        const context = mark.elements?.length ? t('preview.previewChatReviewText.ui.nearElementsLabel', { elements: mark.elements.map(oneLine).join(t('preview.previewChatReviewText.punctuation.listSeparator')) }) : '';
         const body = oneLine(mark.text);
         const base = t('preview.previewChatReviewText.ui.reviewAttachmentText', { sourceLabel: oneLine(mark.sourceLabel), timeSpan: span, tool: tool, context: context, bodySuffix: body ? `: ${body}` : '', source: oneLine(mark.source) });
         const image = imagePaths.get(index);

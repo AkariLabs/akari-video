@@ -1,6 +1,7 @@
 {
   "connect.connectContribution.ui.connectLabel": "Connect",
   "connect.connectContribution.ui.availableNamesLabel": "Available: {names}",
+  "connect.connectContribution.punctuation.listSeparator": ", ",
   "connect.connectSettingsSection.ui.akariToolsLabel": "AKARI tools",
   "connect.connectSettingsSection.ui.createAssetsLabel": "Create assets",
   "connect.connectSettingsSection.ui.allLabel": "All",

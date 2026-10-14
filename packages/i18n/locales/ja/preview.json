@@ -683,6 +683,7 @@
   "preview.previewChatReviewText.ui.pinLabel": "ピン",
   "preview.previewChatReviewText.ui.rangeLabel": "範囲",
   "preview.previewChatReviewText.ui.nearElementsLabel": "（{elements}付近）",
+  "preview.previewChatReviewText.punctuation.listSeparator": "、",
   "preview.previewChatReviewText.ui.reviewAttachmentText": "[レビュー] {sourceLabel} {timeSpan} {tool}{context}{bodySuffix} [{source}]",
   "preview.previewChatReviewText.ui.baseTextLabel": "{baseText} [コマの絵: {image}]",
   "preview.chatReviewAttachments.ui.captionLabel": "テロップ「{caption}」",

@@ -19,6 +19,7 @@
   "chat.akariChatContribution.ui.couldNotCloseConversationError": "[akari-chat] 会話を閉じられませんでした",
   "chat.akariChatContribution.ui.akariChatTrialMustEnabledSettingsPartnerMessage": "AKARI チャット（お試し）は設定 › パートナーで有効にしてください",
   "chat.akariChatWidget.ui.connectingNamesStatus": "接続中: {names}",
+  "chat.akariChatWidget.punctuation.listSeparator": "、",
   "chat.akariChatWidget.ui.noItemsConnectedLabel": "接続中の項目なし",
   "chat.akariChatWidget.ui.lowLabel": "低い",
   "chat.akariChatWidget.ui.mediumLabel": "ふつう",
