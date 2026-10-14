@@ -450,10 +450,10 @@ function updateCaptionTextStyleInSource(source, captionId, updates, catalog = te
     }
     const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
     if (updated !== source) {
-        const original = JSON.parse(source);
-        const rows = Array.isArray(original) ? original : original.captions;
-        const index = rows.findIndex(row => row.id === captionId);
-        (0, caption_style_command_1.assertChangedCaptionStyles)(original, JSON.parse(updated), [`captions[${index}].text_style`]);
+        const base = array.defaultTextStyle;
+        const before = { captions: [JSON.parse(element.text)], default_text_style: base };
+        const after = { captions: [JSON.parse(nextElement)], default_text_style: base };
+        (0, caption_style_command_1.assertChangedCaptionStyles)(before, after, ['captions[0].text_style']);
     }
     return updated;
 }
@@ -792,29 +792,35 @@ function normalizeCaption(value, onTextStyleUnknownKeys) {
     };
 }
 function locateCaptionArray(source) {
-    const value = JSON.parse(source);
     const rootStart = source.search(/\S/);
     if (rootStart < 0) {
         throw new Error('字幕データの形式を確認できません。');
     }
     let openIndex;
-    if (Array.isArray(value) && source[rootStart] === '[') {
+    let defaultTextStyle;
+    if (source[rootStart] === '[') {
         openIndex = rootStart;
     }
-    else if (isRecord(value) && Array.isArray(value.captions) && source[rootStart] === '{') {
+    else if (source[rootStart] === '{') {
         const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
         if (source.slice(rootClose + 1).trim()) {
             throw new Error('字幕データの形式を確認できません。');
         }
         const rootInner = source.slice(rootStart + 1, rootClose);
-        const captionsProperties = (0, edit_store_1.splitTopLevelElements)(rootInner)
+        const properties = (0, edit_store_1.splitTopLevelElements)(rootInner);
+        const captionsProperties = properties
             .filter(element => /^"captions"\s*:/.test(element.text));
         if (captionsProperties.length !== 1) {
             throw new Error('字幕データの captions 配列を特定できません。');
         }
         const property = captionsProperties[0];
+        const defaultProperty = properties.find(element => /^"default_text_style"\s*:/.test(element.text));
+        if (defaultProperty)
+            defaultTextStyle = JSON.parse(defaultProperty.text.slice(defaultProperty.text.indexOf(':') + 1));
         const propertyOffset = rootStart + 1 + property.start;
         const colonIndex = property.text.indexOf(':');
+        if (!/^\s*\[/.test(property.text.slice(colonIndex + 1)))
+            throw new Error('字幕データの captions 配列を特定できません。');
         openIndex = source.indexOf('[', propertyOffset + colonIndex + 1);
         if (openIndex < 0 || openIndex >= rootStart + 1 + property.end) {
             throw new Error('字幕データの captions 配列を特定できません。');
@@ -824,7 +830,7 @@ function locateCaptionArray(source) {
         throw new Error('字幕データの形式を確認できません。');
     }
     const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
-    if (Array.isArray(value) && source.slice(closeIndex + 1).trim()) {
+    if (source[rootStart] === '[' && source.slice(closeIndex + 1).trim()) {
         throw new Error('字幕データの形式を確認できません。');
     }
     const inner = source.slice(openIndex + 1, closeIndex);
@@ -832,7 +838,8 @@ function locateCaptionArray(source) {
         openIndex,
         closeIndex,
         inner,
-        elements: (0, edit_store_1.splitTopLevelElements)(inner)
+        elements: (0, edit_store_1.splitTopLevelElements)(inner),
+        defaultTextStyle
     };
 }
 function captionElementEntries(elements) {

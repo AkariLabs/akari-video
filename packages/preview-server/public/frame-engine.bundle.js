@@ -7394,20 +7394,27 @@ var require_caption_style_command = __commonJS({
     ];
     function styleErrors(row, base) {
       const style = record(row.text_style) ? row.text_style : {};
-      const errors = [];
+      const errors = /* @__PURE__ */ new Set();
+      const collect = (candidate) => {
+        for (const [key, value] of Object.entries(candidate)) {
+          try {
+            (0, caption_display_1.validateCaptionTextStyle)({ [key]: value });
+          } catch (error) {
+            errors.add(error.message);
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(candidate, "zone") && Object.prototype.hasOwnProperty.call(candidate, "layout"))
+          errors.add("text_style cannot contain both zone and layout");
+        if (Object.prototype.hasOwnProperty.call(candidate, "layout") && Object.prototype.hasOwnProperty.call(candidate, "reference_height_px"))
+          errors.add("text_style cannot contain both layout and reference_height_px");
+      };
+      collect(style);
       try {
-        (0, caption_display_1.validateCaptionTextStyle)(style);
+        collect((0, caption_display_1.mergeCaptionDisplayStyles)(base, style) ?? {});
       } catch (error) {
-        errors.push(error.message);
+        errors.add(error.message);
       }
-      try {
-        const merged = (0, caption_display_1.mergeCaptionDisplayStyles)(base, style);
-        if (merged)
-          (0, caption_display_1.validateCaptionTextStyle)(merged);
-      } catch (error) {
-        errors.push(error.message);
-      }
-      return errors;
+      return [...errors];
     }
     function assertChangedCaptionStyles(before, after, changed) {
       const indices = /* @__PURE__ */ new Set();
@@ -8410,10 +8417,10 @@ var require_caption_store = __commonJS({
       }
       const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
       if (updated !== source) {
-        const original = JSON.parse(source);
-        const rows = Array.isArray(original) ? original : original.captions;
-        const index = rows.findIndex((row) => row.id === captionId);
-        (0, caption_style_command_1.assertChangedCaptionStyles)(original, JSON.parse(updated), [`captions[${index}].text_style`]);
+        const base = array.defaultTextStyle;
+        const before = { captions: [JSON.parse(element.text)], default_text_style: base };
+        const after = { captions: [JSON.parse(nextElement)], default_text_style: base };
+        (0, caption_style_command_1.assertChangedCaptionStyles)(before, after, ["captions[0].text_style"]);
       }
       return updated;
     }
@@ -8711,27 +8718,33 @@ var require_caption_store = __commonJS({
       };
     }
     function locateCaptionArray(source) {
-      const value = JSON.parse(source);
       const rootStart = source.search(/\S/);
       if (rootStart < 0) {
         throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
       }
       let openIndex;
-      if (Array.isArray(value) && source[rootStart] === "[") {
+      let defaultTextStyle;
+      if (source[rootStart] === "[") {
         openIndex = rootStart;
-      } else if (isRecord2(value) && Array.isArray(value.captions) && source[rootStart] === "{") {
+      } else if (source[rootStart] === "{") {
         const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
         if (source.slice(rootClose + 1).trim()) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
         }
         const rootInner = source.slice(rootStart + 1, rootClose);
-        const captionsProperties = (0, edit_store_1.splitTopLevelElements)(rootInner).filter((element) => /^"captions"\s*:/.test(element.text));
+        const properties = (0, edit_store_1.splitTopLevelElements)(rootInner);
+        const captionsProperties = properties.filter((element) => /^"captions"\s*:/.test(element.text));
         if (captionsProperties.length !== 1) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
         }
         const property = captionsProperties[0];
+        const defaultProperty = properties.find((element) => /^"default_text_style"\s*:/.test(element.text));
+        if (defaultProperty)
+          defaultTextStyle = JSON.parse(defaultProperty.text.slice(defaultProperty.text.indexOf(":") + 1));
         const propertyOffset = rootStart + 1 + property.start;
         const colonIndex = property.text.indexOf(":");
+        if (!/^\s*\[/.test(property.text.slice(colonIndex + 1)))
+          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
         openIndex = source.indexOf("[", propertyOffset + colonIndex + 1);
         if (openIndex < 0 || openIndex >= rootStart + 1 + property.end) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
@@ -8740,7 +8753,7 @@ var require_caption_store = __commonJS({
         throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
       }
       const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
-      if (Array.isArray(value) && source.slice(closeIndex + 1).trim()) {
+      if (source[rootStart] === "[" && source.slice(closeIndex + 1).trim()) {
         throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
       }
       const inner = source.slice(openIndex + 1, closeIndex);
@@ -8748,7 +8761,8 @@ var require_caption_store = __commonJS({
         openIndex,
         closeIndex,
         inner,
-        elements: (0, edit_store_1.splitTopLevelElements)(inner)
+        elements: (0, edit_store_1.splitTopLevelElements)(inner),
+        defaultTextStyle
       };
     }
     function captionElementEntries(elements) {

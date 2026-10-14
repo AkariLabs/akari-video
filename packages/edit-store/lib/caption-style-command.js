@@ -37,22 +37,31 @@ const allRuns = (root) => [...rowsOf(root).flatMap(row => Array.isArray(row.runs
         ? root.unresolved_runs.flatMap(item => item.run ? [item.run] : []) : [])];
 function styleErrors(row, base) {
     const style = record(row.text_style) ? row.text_style : {};
-    const errors = [];
+    const errors = new Set();
+    const collect = (candidate) => {
+        for (const [key, value] of Object.entries(candidate)) {
+            try {
+                (0, caption_display_1.validateCaptionTextStyle)({ [key]: value });
+            }
+            catch (error) {
+                errors.add(error.message);
+            }
+        }
+        if (Object.prototype.hasOwnProperty.call(candidate, 'zone')
+            && Object.prototype.hasOwnProperty.call(candidate, 'layout'))
+            errors.add('text_style cannot contain both zone and layout');
+        if (Object.prototype.hasOwnProperty.call(candidate, 'layout')
+            && Object.prototype.hasOwnProperty.call(candidate, 'reference_height_px'))
+            errors.add('text_style cannot contain both layout and reference_height_px');
+    };
+    collect(style);
     try {
-        (0, caption_display_1.validateCaptionTextStyle)(style);
+        collect((0, caption_display_1.mergeCaptionDisplayStyles)(base, style) ?? {});
     }
     catch (error) {
-        errors.push(error.message);
+        errors.add(error.message);
     }
-    try {
-        const merged = (0, caption_display_1.mergeCaptionDisplayStyles)(base, style);
-        if (merged)
-            (0, caption_display_1.validateCaptionTextStyle)(merged);
-    }
-    catch (error) {
-        errors.push(error.message);
-    }
-    return errors;
+    return [...errors];
 }
 function assertChangedCaptionStyles(before, after, changed) {
     const indices = new Set();
