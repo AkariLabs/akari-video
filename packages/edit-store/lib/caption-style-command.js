@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.captionNoticeCodes = void 0;
+exports.assertChangedCaptionStyles = assertChangedCaptionStyles;
 exports.captionEmphasisOverlapsRange = captionEmphasisOverlapsRange;
 exports.planCaptionStyleEdit = planCaptionStyleEdit;
 exports.planCaptionStyleClear = planCaptionStyleClear;
@@ -12,6 +14,9 @@ const caption_look_v1_1 = require("./caption-look-v1");
 const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
+const caption_display_1 = require("./caption-display");
+const caption_look_shape_1 = require("./caption-look-shape");
+const caption_look_reader_1 = require("./caption-look-reader");
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const rowsOf = (root) => Array.isArray(root) ? root : root.captions;
 const defaultOf = (root) => !Array.isArray(root) && record(root.default_text_style)
@@ -30,32 +35,123 @@ const catalogRecord = (catalog) => catalog instanceof Map ? Object.fromEntries(c
 const allRuns = (root) => [...rowsOf(root).flatMap(row => Array.isArray(row.runs) ? row.runs : []),
     ...(!Array.isArray(root) && Array.isArray(root.unresolved_runs)
         ? root.unresolved_runs.flatMap(item => item.run ? [item.run] : []) : [])];
+function styleErrors(row, base) {
+    const style = record(row.text_style) ? row.text_style : {};
+    const errors = [];
+    try {
+        (0, caption_display_1.validateCaptionTextStyle)(style);
+    }
+    catch (error) {
+        errors.push(error.message);
+    }
+    try {
+        const merged = (0, caption_display_1.mergeCaptionDisplayStyles)(base, style);
+        if (merged)
+            (0, caption_display_1.validateCaptionTextStyle)(merged);
+    }
+    catch (error) {
+        errors.push(error.message);
+    }
+    return errors;
+}
+function assertChangedCaptionStyles(before, after, changed) {
+    const indices = new Set();
+    for (const path of changed) {
+        const match = /^captions\[(\d+)\]/.exec(path);
+        if (match)
+            indices.add(Number(match[1]));
+    }
+    const diagnostics = [...indices].flatMap(index => {
+        const previous = styleErrors(rowsOf(before)[index], defaultOf(before));
+        return styleErrors(rowsOf(after)[index], defaultOf(after))
+            .filter(message => !previous.includes(message))
+            .map(message => ({ code: 'captions.style.invalid', severity: 'error',
+            path: `captions[${index}].text_style`, message, layer: 'document' }));
+    });
+    if (diagnostics.length)
+        throw new caption_look_shape_1.CaptionsInvalidError(diagnostics);
+}
+function noticeCodes(notices, omitted) {
+    return notices.map((message) => {
+        const field = omitted.find(key => (0, caption_look_v1_1.sanitizeCaptionRunLook)({ [key]: true }).notices.includes(message));
+        if (field)
+            return { code: 'run-look-omitted', params: { field } };
+        if (message.includes('実測の単語に対応付けられません'))
+            return { code: 'anchor-unmapped' };
+        if (message.includes('スタイル') && message.includes('見つかりません'))
+            return { code: 'style-not-found' };
+        return { code: 'other', params: { message } };
+    });
+}
+exports.captionNoticeCodes = noticeCodes;
+function splitCaptionRuns(row, runs, range, newRunId, preserve) {
+    return runs.flatMap(run => {
+        if (run === preserve)
+            return [run];
+        if (run.to <= range.from || run.from >= range.to)
+            return [run];
+        const id = run.id ?? newRunId();
+        const pieces = [];
+        if (run.from < range.from)
+            pieces.push({ ...run, id, to: range.from });
+        if (run.to > range.to) {
+            const rightId = run.from < range.from ? newRunId() : id;
+            pieces.push({ ...run, id: rightId, from: range.to,
+                ...(rightId !== id ? { split_from: id } : {}) });
+        }
+        for (const piece of pieces)
+            if (run.anchor) {
+                const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, piece.from, piece.to).anchor;
+                if (anchor)
+                    piece.anchor = anchor;
+                else {
+                    delete piece.anchor;
+                    if (piece.fire === 'spoken') {
+                        piece.fire = 'shown';
+                        piece.fire_was = 'spoken';
+                        piece.needs_review = true;
+                    }
+                }
+            }
+        return pieces;
+    });
+}
 function captionEmphasisOverlapsRange(row, range, emphasis, resolvedAnchor) {
+    if (row.time_domain === 'output')
+        return false;
     if (emphasis.src && row.src && emphasis.src !== row.src)
         return false;
     const anchor = (resolvedAnchor ?? (0, caption_anchor_map_1.anchorForCaptionRange)(row, range.from, range.to)).anchor;
-    if (anchor)
-        return Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) > 1e-6;
-    if (typeof row.start !== 'number' || typeof row.end !== 'number'
-        || emphasis.t_start < row.start || emphasis.t_end > row.end)
+    if (anchor && Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) <= 1e-6)
         return false;
-    const shown = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
-    const word = (0, caption_runs_1.captionGraphemes)(emphasis.word);
-    for (let from = 0; from <= shown.length - word.length; from++) {
-        if (from < range.to && from + word.length > range.from
-            && word.every((char, offset) => shown[from + offset] === char))
-            return true;
-    }
-    return false;
+    if (!anchor && (typeof row.start !== 'number' || typeof row.end !== 'number'
+        || emphasis.t_start < row.start || emphasis.t_end > row.end))
+        return false;
+    if (anchor && emphasis.src && row.src)
+        return true;
+    return (0, caption_look_reader_1.captionEmphasisWordIntervals)(row, emphasis.word.trim())
+        .some(interval => interval.from < range.to && interval.to > range.from);
+}
+function nonWhitespaceRange(row, range) {
+    const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
+    let { from, to } = range;
+    while (from < to && /^\s$/u.test(chars[from]))
+        from++;
+    while (to > from && /^\s$/u.test(chars[to - 1]))
+        to--;
+    return from < to ? { from, to } : undefined;
 }
 function removeOverlappingEmphasis(root, row, range, changed) {
     if (Array.isArray(root) || !Array.isArray(root.emphasis_words))
         return;
+    const selected = nonWhitespaceRange(row, range);
+    if (!selected)
+        return;
     const emphasis = root.emphasis_words;
     const before = emphasis.length;
-    const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, range.from, range.to);
+    const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, selected.from, selected.to);
     root.emphasis_words = emphasis.filter(item => !record(item)
-        || !captionEmphasisOverlapsRange(row, range, item, anchor));
+        || !captionEmphasisOverlapsRange(row, selected, item, anchor));
     if (root.emphasis_words.length !== before && !changed.includes('emphasis_words'))
         changed.push('emphasis_words');
 }
@@ -223,6 +319,7 @@ function planCaptionStyleEdit(input) {
     const catalogObject = catalogRecord(catalog);
     const changed = [];
     const notices = [];
+    const omittedFields = [];
     const at = input.now instanceof Date ? input.now.toISOString()
         : typeof input.now === 'string' ? new Date(input.now).toISOString() : new Date().toISOString();
     for (const target of input.targets) {
@@ -267,11 +364,22 @@ function planCaptionStyleEdit(input) {
         const { row } = indexed;
         if (target.range) {
             const { from, to } = resolveRange(row, target.range);
-            const runs = Array.isArray(row.runs) ? row.runs : [];
+            let runs = Array.isArray(row.runs) ? row.runs : [];
             let run;
             for (const candidate of runs)
                 if (candidate.id && candidate.from === from && candidate.to === to)
                     run = candidate;
+            const overlapIndex = !run && parts.look && !input.legacy
+                ? runs.findIndex(candidate => candidate.from < to && candidate.to > from) : -1;
+            const insertionIndex = overlapIndex < 0 ? runs.length
+                : overlapIndex + (runs[overlapIndex].from < from ? 1 : 0);
+            if (parts.look && !input.legacy) {
+                runs = splitCaptionRuns(row, runs, { from, to }, newRunId, run);
+                if (runs.length)
+                    row.runs = runs;
+                else
+                    delete row.runs;
+            }
             if (!run) {
                 run = { id: newRunId(), from, to };
                 const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
@@ -279,7 +387,7 @@ function planCaptionStyleEdit(input) {
                     run.anchor = anchor.anchor;
                 else
                     notices.push(...anchor.diagnostics.map(item => item.message));
-                runs.push(run);
+                runs.splice(insertionIndex, 0, run);
                 row.runs = runs;
             }
             if (parts.look) {
@@ -295,6 +403,7 @@ function planCaptionStyleEdit(input) {
                 }
                 run.look = look;
                 notices.push(...result.notices);
+                omittedFields.push(...(0, caption_look_v1_1.sanitizeCaptionRunLook)(parts.look).omitted);
             }
             if (parts.motion) {
                 if (Object.keys(parts.motion).length)
@@ -324,8 +433,11 @@ function planCaptionStyleEdit(input) {
         updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at);
         changed.push(`captions[${indexed.index}].text_style`);
     }
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    const uniqueNotices = [...new Set(notices)];
     return { next: { captions, ...(input.edit === undefined ? {} : { edit: input.edit }),
-            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) }, changed, notices: [...new Set(notices)] };
+            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) },
+        changed, notices: uniqueNotices, notice_codes: noticeCodes(uniqueNotices, omittedFields) };
 }
 function planCaptionStyleClear(input) {
     const captions = structuredClone(input.captions);
@@ -361,10 +473,14 @@ function planCaptionStyleClear(input) {
             const removed = runs.filter(run => target.run_id ? run.id === target.run_id
                 : run.from === range?.from && run.to === range?.to);
             const before = runs.length;
-            row.runs = runs.filter(run => target.run_id ? run.id !== target.run_id
+            const remaining = runs.filter(run => target.run_id ? run.id !== target.run_id
                 : run.from !== range?.from || run.to !== range?.to);
-            if (row.runs.length === before)
+            if (remaining.length === before)
                 throw new Error('外す文字範囲がありません。');
+            if (remaining.length)
+                row.runs = remaining;
+            else
+                delete row.runs;
             for (const run of removed)
                 removeOverlappingEmphasis(captions, row, run, changed);
         }
@@ -372,25 +488,17 @@ function planCaptionStyleClear(input) {
             const selected = range ?? runs.find(run => run.id === target.run_id);
             if (!selected)
                 throw new Error('戻す文字範囲がありません。');
-            row.runs = runs.flatMap(run => {
-                if (run.to <= selected.from || run.from >= selected.to)
-                    return [run];
-                const id = run.id ?? newRunId();
-                const pieces = [];
-                if (run.from < selected.from)
-                    pieces.push({ ...run, id, to: selected.from });
-                if (run.to > selected.to) {
-                    const rightId = run.from < selected.from ? newRunId() : id;
-                    pieces.push({ ...run, id: rightId, from: selected.to,
-                        ...(rightId !== id ? { split_from: id } : {}) });
-                }
-                return pieces;
-            });
+            const remaining = splitCaptionRuns(row, runs, selected, newRunId);
+            if (remaining.length)
+                row.runs = remaining;
+            else
+                delete row.runs;
             removeOverlappingEmphasis(captions, row, selected, changed);
         }
         changed.push(`captions[${rowNumber}].runs`);
     }
-    return { next: { captions }, changed, notices: [] };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices: [], notice_codes: [] };
 }
 function planCaptionStyleReapply(input) {
     const items = [];
@@ -441,40 +549,34 @@ function planCaptionStyleReapply(input) {
             }
         }
     }
-    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: [...new Set(notices)] };
+    const uniqueNotices = [...new Set(notices)];
+    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: uniqueNotices,
+        notice_codes: noticeCodes(uniqueNotices, []) };
 }
-const PIXEL_FIELDS = {
-    stroke: ['width_px'], shadow: ['blur_px', 'distance_px'],
-    glow: ['spread', 'offset_x', 'offset_y'], background: ['radius_px', 'padding_px']
-};
 function resizeCaptionRow(row, defaultStyle, size, catalog = textstyle_catalog_1.TEXTSTYLE_CATALOG, notices = [], at = new Date().toISOString()) {
     const beforeSize = (0, caption_look_v1_1.captionEffectiveSize)(row, defaultStyle, catalogRecord(catalog));
     if (beforeSize === size)
         return false;
     migratePreset(row, catalog, notices, at);
     const style = record(row.text_style) ? row.text_style : {};
-    const effective = { ...defaultStyle, ...style };
-    for (const key of Object.keys(PIXEL_FIELDS)) {
-        if (record(defaultStyle[key]) || record(style[key]))
-            effective[key] = { ...(record(defaultStyle[key]) ? defaultStyle[key] : {}),
-                ...(record(style[key]) ? style[key] : {}) };
+    let effective;
+    try {
+        effective = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, style) ?? {};
+    }
+    catch {
+        effective = { ...defaultStyle, ...style };
     }
     const oldRunHashes = Array.isArray(row.runs) ? row.runs.map(run => run.look ? (0, caption_hash_1.captionValueHash)(run.look) : undefined) : [];
     const scaled = roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...effective, size_px: beforeSize }, size));
     const nextStyle = { ...style, size_px: size };
-    for (const [key, fields] of Object.entries(PIXEL_FIELDS)) {
-        if (!record(scaled[key]))
+    for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern' || !record(scaled[key]))
             continue;
-        const current = record(style[key]) ? style[key] : {};
-        const values = { ...current };
-        for (const field of fields)
-            if (typeof scaled[key][field] === 'number')
-                values[field] = scaled[key][field];
-        if (Object.keys(values).length)
-            nextStyle[key] = values;
+        if (fields.some(field => typeof scaled[key][field] === 'number'))
+            nextStyle[key] = scaled[key];
     }
     if (Array.isArray(scaled.strokes) && scaled.strokes.some(stroke => record(stroke)
-        && ['width_px', 'offset_x', 'offset_y'].some(field => typeof stroke[field] === 'number')))
+        && caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes.some(field => typeof stroke[field] === 'number')))
         nextStyle.strokes = scaled.strokes;
     if (record(scaled.fill) && record(scaled.fill.pattern)
         && typeof scaled.fill.pattern.scale === 'number')
@@ -512,12 +614,14 @@ function planCaptionSizeEdit(input) {
         if (resizeCaptionRow(found.row, defaultOf(captions), input.size_px, catalog, notices))
             changed.push(`captions[${found.index}].text_style`);
     }
-    return { next: { captions }, changed, notices };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices, notice_codes: noticeCodes(notices, []) };
 }
 function roundPixels(value) {
     const next = structuredClone(value);
-    for (const [key, fields] of Object.entries({ stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'] })) {
+    for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern')
+            continue;
         const object = next[key];
         if (!record(object))
             continue;
@@ -528,7 +632,7 @@ function roundPixels(value) {
     if (Array.isArray(next.strokes))
         for (const stroke of next.strokes)
             if (record(stroke))
-                for (const field of ['width_px', 'offset_x', 'offset_y'])
+                for (const field of caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes)
                     if (typeof stroke[field] === 'number')
                         stroke[field] = (0, caption_runs_1.roundCaptionPixel)(stroke[field]);
     if (record(next.fill) && record(next.fill.pattern) && typeof next.fill.pattern.scale === 'number')

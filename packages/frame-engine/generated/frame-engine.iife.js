@@ -6388,7 +6388,7 @@ ${indent}`);
     "packages/edit-store/lib/caption-look-v1.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CAPTION_DEFAULT_SIZE_PX = exports.CAPTION_RUN_LOOK_FIELDS = exports.CAPTION_ROW_LOOK_FIELDS = void 0;
+      exports.CAPTION_PIXEL_FIELDS = exports.CAPTION_DEFAULT_SIZE_PX = exports.CAPTION_RUN_LOOK_FIELDS = exports.CAPTION_ROW_LOOK_FIELDS = void 0;
       exports.sanitizeMyStyleLook = sanitizeMyStyleLook;
       exports.sanitizeCaptionRunLook = sanitizeCaptionRunLook;
       exports.scaleCaptionLookPixels = scaleCaptionLookPixels;
@@ -6439,6 +6439,14 @@ ${indent}`);
         reference_height_px: "\u57FA\u6E96\u306E\u9AD8\u3055"
       };
       exports.CAPTION_DEFAULT_SIZE_PX = 38;
+      exports.CAPTION_PIXEL_FIELDS = {
+        stroke: ["width_px"],
+        background: ["radius_px", "padding_px"],
+        shadow: ["blur_px", "distance_px"],
+        glow: ["spread", "offset_x", "offset_y"],
+        strokes: ["width_px", "offset_x", "offset_y"],
+        "fill.pattern": ["scale"]
+      };
       function record2(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value);
       }
@@ -6475,12 +6483,9 @@ ${indent}`);
         const presetSize = look.size_px;
         const ratio = typeof presetSize === "number" && Number.isFinite(presetSize) && presetSize > 0 ? targetSize / presetSize : 1;
         const scaled = { ...look };
-        for (const [key, fields] of Object.entries({
-          stroke: ["width_px"],
-          background: ["radius_px", "padding_px"],
-          shadow: ["blur_px", "distance_px"],
-          glow: ["spread", "offset_x", "offset_y"]
-        })) {
+        for (const [key, fields] of Object.entries(exports.CAPTION_PIXEL_FIELDS)) {
+          if (key === "strokes" || key === "fill.pattern")
+            continue;
           const value = look[key];
           if (!record2(value))
             continue;
@@ -6497,7 +6502,7 @@ ${indent}`);
             if (!record2(entry))
               return entry;
             const stroke = { ...entry };
-            for (const field of ["width_px", "offset_x", "offset_y"]) {
+            for (const field of exports.CAPTION_PIXEL_FIELDS.strokes) {
               const current = stroke[field];
               if (typeof current === "number")
                 stroke[field] = current * ratio;
@@ -6575,11 +6580,790 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/caption-semantics.js
+  var require_caption_semantics = __commonJS({
+    "packages/edit-store/lib/caption-semantics.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.validateCaptionsSemantics = validateCaptionsSemantics;
+      exports.renderableCaptionRuns = renderableCaptionRuns;
+      var caption_runs_1 = require_caption_runs();
+      var caption_anchor_map_1 = require_caption_anchor_map();
+      function validateCaptionsSemantics(ctx) {
+        const root = ctx.captions;
+        const rows = Array.isArray(root) ? root : root && Array.isArray(root.captions) ? root.captions : [];
+        const diagnostics = [];
+        const counts = /* @__PURE__ */ new Map();
+        for (const row of rows)
+          for (const run of row && typeof row === "object" && Array.isArray(row.runs) ? row.runs : []) {
+            if (run && typeof run === "object" && run.id)
+              counts.set(run.id, (counts.get(run.id) ?? 0) + 1);
+          }
+        const unresolved = !root || Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs : [];
+        for (const item of unresolved)
+          if (item && typeof item === "object" && item.run?.id) {
+            counts.set(item.run.id, (counts.get(item.run.id) ?? 0) + 1);
+          }
+        const add = (code, severity, path, message, layer) => {
+          diagnostics.push({ code, severity, path, message, layer });
+        };
+        for (const [index, row] of rows.entries()) {
+          if (!row || typeof row !== "object" || Array.isArray(row))
+            continue;
+          const sources = [
+            row.style_sources,
+            ...Array.isArray(row.runs) ? row.runs.map((run) => run && typeof run === "object" ? run.style_sources : void 0) : []
+          ];
+          if (ctx.assetHashes)
+            for (const source of sources) {
+              if (!source || typeof source !== "object")
+                continue;
+              for (const part of Object.values(source)) {
+                if (!part || typeof part !== "object")
+                  continue;
+                const requires = part.requires;
+                if (!Array.isArray(requires))
+                  continue;
+                for (const dependency of requires) {
+                  if (!dependency || typeof dependency !== "object")
+                    continue;
+                  const required = dependency;
+                  if (!required.id)
+                    continue;
+                  const current = ctx.assetHashes[required.id];
+                  const path = `captions.json#captions[${index}].style_sources`;
+                  if (!current)
+                    add("captions.style.dependency-missing", ctx.path === "render-cut" || ctx.path === "osr" || ctx.path === "gpu" ? "error" : "warning", path, `\u4F9D\u5B58\u7D20\u6750 ${required.id} \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`, "project");
+                  else if (current !== required.hash)
+                    add("captions.style.dependency-changed", "warning", path, `\u4F9D\u5B58\u7D20\u6750 ${required.id} \u304C\u5F53\u3066\u305F\u3068\u304D\u3068\u7570\u306A\u308A\u307E\u3059\u3002`, "project");
+                }
+              }
+            }
+          const chars = (0, caption_runs_1.captionGraphemes)(typeof row.display_text === "string" ? row.display_text : String(row.text ?? ""));
+          const runs = Array.isArray(row.runs) ? row.runs : [];
+          for (const [runIndex, run] of runs.entries()) {
+            if (!run || typeof run !== "object" || Array.isArray(run))
+              continue;
+            const path = `captions.json#captions[${index}].runs[${runIndex}]`;
+            const v1 = ["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key));
+            if (v1 && (!Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > chars.length || run.from >= run.to)) {
+              add("captions.run.range", "error", path, "\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u6570\u306E\u5916\u306B\u3042\u308A\u307E\u3059\u3002", "document");
+            }
+            if (run.id) {
+              if ((counts.get(run.id) ?? 0) > 1)
+                add("captions.run.id", "error", path, `\u7BC4\u56F2 ID ${run.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059\u3002`, "document");
+            }
+            if (run.fire === "spoken" && !run.anchor) {
+              add("captions.run.anchor", "error", path, "\u767A\u8A71\u6642\u306B\u52D5\u304B\u3059\u7BC4\u56F2\u306B\u306F\u5B9F\u6E2C\u6642\u523B\u304C\u5FC5\u8981\u3067\u3059\u3002", "document");
+            }
+            if (run.anchor) {
+              const domain = row.time_domain === "output" ? "output" : "source";
+              const outsideWindow = run.anchor.domain === domain && (run.anchor.start < Number(row.start) || run.anchor.end > Number(row.end) || run.anchor.start >= run.anchor.end);
+              const mappedCodes = /* @__PURE__ */ new Set();
+              if (ctx.timeline) {
+                const mapped = (0, caption_anchor_map_1.anchorToOutput)(run.anchor, {
+                  src: typeof row.src === "string" ? row.src : void 0,
+                  start: Number(row.start),
+                  end: Number(row.end),
+                  time_domain: domain
+                }, ctx.timeline, run.fire);
+                for (const result of mapped)
+                  for (const warning of result.diagnostics) {
+                    if (mappedCodes.has(warning.code))
+                      continue;
+                    mappedCodes.add(warning.code);
+                    add(warning.code, warning.severity, path, warning.message, "project");
+                  }
+              }
+              if (outsideWindow && !mappedCodes.has("captions.run.anchor-window")) {
+                add("captions.run.anchor-window", "warning", path, "\u7BC4\u56F2\u306E\u5B9F\u6E2C\u6642\u523B\u3092\u884C\u306E\u8868\u793A\u7A93\u3078\u5207\u308A\u8A70\u3081\u307E\u3059\u3002", "project");
+              }
+            }
+            if (ctx.path === "gpu" && run.motion) {
+              for (const slot of Object.values(run.motion)) {
+                if (slot && ctx.gpuMotionIds && !ctx.gpuMotionIds.has(slot.id)) {
+                  add("captions.style.unsupported-path", "error", path, `GPU \u7D4C\u8DEF\u3067\u52D5\u304D ${slot.id} \u3092\u63CF\u3051\u307E\u305B\u3093\u3002`, "path");
+                }
+              }
+            }
+          }
+        }
+        for (const [index, item] of unresolved.entries()) {
+          if (item && typeof item === "object" && item.run?.id && (counts.get(item.run.id) ?? 0) > 1) {
+            add("captions.run.id", "error", `captions.json#unresolved_runs[${index}].run`, `\u7BC4\u56F2 ID ${item.run.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059\u3002`, "document");
+          }
+        }
+        return diagnostics;
+      }
+      function renderableCaptionRuns(caption, document2) {
+        const rows = Array.isArray(document2) ? document2 : Array.isArray(document2?.captions) ? document2.captions : [];
+        const index = rows.indexOf(caption);
+        const invalid = new Set(validateCaptionsSemantics({ captions: document2 }).filter((item) => item.severity === "error" && item.layer === "document").flatMap((item) => {
+          const match = /captions\[(\d+)\]\.runs\[(\d+)\]/.exec(item.path);
+          return match && Number(match[1]) === index ? [Number(match[2])] : [];
+        }));
+        if (!Array.isArray(caption?.runs))
+          return caption?.runs ?? [];
+        return caption.runs.filter((_run, runIndex) => !invalid.has(runIndex));
+      }
+    }
+  });
+
+  // packages/edit-store/lib/caption-look-shape.js
+  var require_caption_look_shape = __commonJS({
+    "packages/edit-store/lib/caption-look-shape.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CaptionsInvalidError = exports.CAPTION_LOOK_SHAPE_KEYS = exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = void 0;
+      exports.validateCaptionLookV1Shape = validateCaptionLookV1Shape;
+      exports.assertCaptionsWritable = assertCaptionsWritable;
+      var caption_semantics_1 = require_caption_semantics();
+      var isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      var has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+      var number2 = (value) => typeof value === "number" && Number.isFinite(value);
+      var positive = (value) => number2(value) && value > 0;
+      var nonnegative = (value) => number2(value) && value >= 0;
+      var integer = (value) => Number.isInteger(value);
+      var nonempty = (value) => typeof value === "string" && value.length > 0;
+      var hex = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+      var runId = (value) => typeof value === "string" && /^r-\d{4,}$/.test(value);
+      var fire = (value) => ["shown", "spoken", "whole"].includes(String(value));
+      var enumOf = (...values) => (value) => typeof value === "string" && values.includes(value);
+      function objectRule(fields, required = [], minProperties = 0) {
+        return (value) => isObject(value) && Object.keys(value).length >= minProperties && required.every((key) => has(value, key)) && Object.entries(value).every(([key, entry]) => fields[key] !== void 0 && fields[key](entry));
+      }
+      var stroke = objectRule({ method: enumOf("webkit-outline"), color: hex, width_px: nonnegative });
+      var shadow = objectRule({
+        color: hex,
+        opacity: (value) => number2(value) && value >= 0 && value <= 1,
+        blur_px: nonnegative,
+        distance_px: nonnegative,
+        angle_deg: number2
+      }, ["color"]);
+      var glow = objectRule({ color: hex, density: nonnegative, spread: nonnegative, offset_x: number2, offset_y: number2 }, ["color"]);
+      var background = objectRule({
+        color: hex,
+        opacity: (value) => number2(value) && value >= 0 && value <= 1,
+        radius_px: nonnegative,
+        padding_px: nonnegative,
+        width_pct: nonnegative,
+        height_pct: nonnegative,
+        fit: enumOf("text", "frame"),
+        offset_x: number2,
+        offset_y: number2,
+        mode: enumOf("per-line", "block")
+      });
+      var lookFields = {
+        color: hex,
+        font_weight: (value) => integer(value) && value >= 1 && value <= 1e3,
+        italic: (value) => typeof value === "boolean",
+        underline: (value) => typeof value === "boolean",
+        letter_spacing_em: number2,
+        scale: positive,
+        baseline_shift_em: number2,
+        rotate_deg: (value) => number2(value) && Math.abs(value) <= 180,
+        stroke,
+        shadow,
+        glow,
+        background
+      };
+      var look = objectRule(lookFields);
+      exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = [
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "caption-rise",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ];
+      var animationIds = new Set(exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS);
+      var slot = objectRule({
+        id: (value) => typeof value === "string" && animationIds.has(value),
+        duration_sec: positive,
+        ease: (value) => value === null || typeof value === "string" && /\S/.test(value),
+        amp: (value) => value === null || positive(value)
+      }, ["id"]);
+      var motion2 = objectRule({ in: slot, loop: slot, out: slot }, [], 1);
+      var anchorFields = {
+        src: nonempty,
+        start: nonnegative,
+        end: nonnegative,
+        domain: enumOf("source", "output")
+      };
+      var anchor = objectRule(anchorFields, ["start", "end", "domain"]);
+      var sourceFields = {
+        kind: enumOf("builtin", "library", "my"),
+        id: nonempty,
+        uid: nonempty,
+        revision: (value) => integer(value) && value >= 0,
+        original_hash: nonempty,
+        applied_hash: nonempty,
+        applied_at: nonempty,
+        requires: (value) => Array.isArray(value) && value.every(objectRule({
+          id: nonempty,
+          version: (value2) => typeof value2 === "string",
+          hash: nonempty
+        }, ["id", "version", "hash"]))
+      };
+      var source = objectRule(sourceFields, ["kind", "id", "original_hash", "applied_hash"]);
+      var styleSourcesFields = { look: source, motion: source };
+      var styleSources = objectRule(styleSourcesFields);
+      var migratedEmphasis = objectRule({ index: nonnegative, item: (value) => isObject(value) }, ["index", "item"]);
+      var v1Fields = {
+        id: runId,
+        from: integer,
+        to: integer,
+        role: nonempty,
+        look,
+        motion: motion2,
+        emotion: nonempty,
+        anchor,
+        fire,
+        fire_was: fire,
+        style_sources: styleSources,
+        needs_review: (value) => typeof value === "boolean",
+        split_from: runId,
+        migrated_from: (value) => typeof value === "string" && /^e-\d{4,}$/.test(value),
+        dormant_animation: motion2,
+        migrated_emphasis: migratedEmphasis
+      };
+      var unresolvedFields = ["run", "old_caption_id", "old_text", "old_src", "old_start", "old_end", "reason"];
+      exports.CAPTION_LOOK_SHAPE_KEYS = {
+        run: [...Object.keys(v1Fields), "style", "animation"],
+        look: Object.keys(lookFields),
+        anchor: Object.keys(anchorFields),
+        styleSources: Object.keys(styleSourcesFields),
+        source: Object.keys(sourceFields),
+        unresolvedRun: unresolvedFields
+      };
+      var idRequired = ["look", "motion", "anchor", "fire", "style_sources", "migrated_from"];
+      function validateCaptionLookV1Shape(captionsRoot) {
+        const diagnostics = [];
+        const add = (path, field) => diagnostics.push({
+          code: "captions.look.shape",
+          severity: "error",
+          path,
+          message: `${field} \u306E\u5F62\u304C\u5B57\u5E55\u306E\u898F\u5247\u306B\u5408\u3044\u307E\u305B\u3093\u3002`,
+          layer: "document"
+        });
+        const rows = Array.isArray(captionsRoot) ? captionsRoot : isObject(captionsRoot) ? captionsRoot.captions : void 0;
+        const checkRun = (run, path) => {
+          if (!isObject(run)) {
+            add(path, "run");
+            return;
+          }
+          const v1 = Object.keys(v1Fields).some((key) => has(run, key));
+          if (v1) {
+            for (const key of ["from", "to"])
+              if (!has(run, key))
+                add(path, key);
+          }
+          if (idRequired.some((key) => has(run, key)) && !has(run, "id"))
+            add(path, "id");
+          for (const [key, rule] of Object.entries(v1Fields))
+            if (has(run, key) && !rule(run[key]))
+              add(`${path}.${key}`, key);
+          for (const key of Object.keys(run))
+            if (!has(v1Fields, key) && !["style", "animation"].includes(key))
+              add(`${path}.${key}`, key);
+        };
+        if (Array.isArray(rows))
+          rows.forEach((row, index) => {
+            if (!isObject(row))
+              return;
+            if (has(row, "style_sources") && !styleSources(row.style_sources))
+              add(`captions.json#captions[${index}].style_sources`, "style_sources");
+            if (Array.isArray(row.runs))
+              row.runs.forEach((run, runIndex) => checkRun(run, `captions.json#captions[${index}].runs[${runIndex}]`));
+          });
+        if (isObject(captionsRoot) && has(captionsRoot, "unresolved_runs")) {
+          const value = captionsRoot.unresolved_runs;
+          const valid = Array.isArray(value) && value.every((item, index) => {
+            if (!isObject(item))
+              return false;
+            checkRun(item.run, `captions.json#unresolved_runs[${index}].run`);
+            return unresolvedFields.every((key) => has(item, key)) && Object.keys(item).every((key) => unresolvedFields.includes(key)) && isObject(item.run) && typeof item.old_caption_id === "string" && typeof item.old_text === "string" && (item.old_src === null || typeof item.old_src === "string") && number2(item.old_start) && number2(item.old_end) && nonempty(item.reason);
+          });
+          if (!valid)
+            add("captions.json#unresolved_runs", "unresolved_runs");
+        }
+        return diagnostics;
+      }
+      var CaptionsInvalidError = class extends Error {
+        constructor(diagnostics) {
+          super(`\u5B57\u5E55\u306E\u5185\u5BB9\u3092\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093: ${diagnostics.map((item) => item.message).join("\u3001")}`);
+          this.diagnostics = diagnostics;
+          this.code = "AKARI_CAPTIONS_INVALID";
+          this.name = "CaptionsInvalidError";
+        }
+      };
+      exports.CaptionsInvalidError = CaptionsInvalidError;
+      function assertCaptionsWritable(captionsRoot, ctx = {}) {
+        const diagnostics = [...validateCaptionLookV1Shape(captionsRoot), ...(0, caption_semantics_1.validateCaptionsSemantics)({ ...ctx, captions: captionsRoot })];
+        if (diagnostics.some((item) => item.severity === "error"))
+          throw new CaptionsInvalidError(diagnostics);
+      }
+    }
+  });
+
+  // packages/edit-store/lib/caption-look-reader.js
+  var require_caption_look_reader = __commonJS({
+    "packages/edit-store/lib/caption-look-reader.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CAPTION_EMPHASIS_MOTION = void 0;
+      exports.nextEmphasisWordId = nextEmphasisWordId;
+      exports.captionEmphasisWordIntervals = captionEmphasisWordIntervals;
+      exports.readCaptionLookV1 = readCaptionLookV1;
+      exports.planCaptionLookMigration = planCaptionLookMigration;
+      exports.captionRenderInputFromV1 = captionRenderInputFromV1;
+      var caption_runs_1 = require_caption_runs();
+      var caption_hash_1 = require_caption_hash();
+      var caption_look_v1_1 = require_caption_look_v1();
+      var caption_style_preset_1 = require_caption_style_preset();
+      var isRecord2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      var captionRows = (root) => Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+      var emphasisWords = (root) => Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
+      var unresolvedRuns = (root) => Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? [] : root.unresolved_runs.flatMap((item) => isRecord2(item) && isRecord2(item.run) ? [item.run] : []);
+      function nextEmphasisWordId(root) {
+        const used = new Set(emphasisWords(root).flatMap((item) => isRecord2(item) && typeof item.id === "string" ? [item.id] : []));
+        for (const row of captionRows(root))
+          for (const run of rowRuns(row))
+            if (isRecord2(run) && typeof run.migrated_from === "string")
+              used.add(run.migrated_from);
+        for (const run of unresolvedRuns(root))
+          if (typeof run.migrated_from === "string")
+            used.add(run.migrated_from);
+        let number2 = 1;
+        while (used.has(`e-${String(number2).padStart(4, "0")}`))
+          number2++;
+        if (number2 > 9999)
+          throw new Error("\u5F37\u8ABF\u8A9E\u306E id \u306B\u7A7A\u304D\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+        return `e-${String(number2).padStart(4, "0")}`;
+      }
+      function migratedRunMatches(run, interval, item, motion2) {
+        return run.from === interval.from && run.to === interval.to && run.emotion === item.emotion && run.motion?.in?.id === motion2 && Object.keys(run.motion ?? {}).length === 1 && run.anchor?.start === item.t_start && run.anchor?.end === item.t_end && (run.anchor?.src ?? void 0) === (item.src ?? void 0);
+      }
+      exports.CAPTION_EMPHASIS_MOTION = {
+        "one-char-bang": "pop",
+        "one-char-jumble": "jitter",
+        "size-pulse": "zoom-pulse"
+      };
+      var DEFAULT_HINT = {
+        pain: "one-char-bang",
+        surprise: "one-char-bang",
+        anger: "one-char-bang",
+        disgust: "one-char-jumble",
+        joy: "size-pulse",
+        emphasis: "size-pulse"
+      };
+      function captionEmphasisWordIntervals(row, wordText) {
+        const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "");
+        const word = (0, caption_runs_1.captionGraphemes)(wordText);
+        const matches = [];
+        if (!word.length)
+          return matches;
+        for (let i2 = 0; i2 <= chars.length - word.length; i2++) {
+          if (word.every((char, n2) => chars[i2 + n2] === char))
+            matches.push({ from: i2, to: i2 + word.length });
+        }
+        return matches;
+      }
+      function intervalForEmphasis(row, emphasis) {
+        if (emphasis.src && emphasis.src !== row.src)
+          return void 0;
+        if (typeof row.start !== "number" || typeof row.end !== "number" || emphasis.t_start < row.start || emphasis.t_end > row.end || emphasis.t_start >= emphasis.t_end)
+          return void 0;
+        const matches = captionEmphasisWordIntervals(row, emphasis.word);
+        return matches.length === 1 ? matches[0] : void 0;
+      }
+      function projectEmphasis(rows, item) {
+        if (item.style_preset)
+          return void 0;
+        const hint = item.style_hint ?? DEFAULT_HINT[item.emotion];
+        if (!hint)
+          return void 0;
+        const motion2 = exports.CAPTION_EMPHASIS_MOTION[hint];
+        if (!motion2)
+          return void 0;
+        const candidates = rows.flatMap((row) => {
+          if (!isRecord2(row))
+            return [];
+          if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
+            return [];
+          const interval = intervalForEmphasis(row, item);
+          return interval ? [{ row, interval, hint, motion: motion2 }] : [];
+        });
+        return candidates.length === 1 ? candidates[0] : void 0;
+      }
+      function rowRuns(row) {
+        return isRecord2(row) && Array.isArray(row.runs) ? row.runs : [];
+      }
+      function invalidLegacyRun(run, row) {
+        if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
+          return false;
+        }
+        const length = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").length;
+        return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
+      }
+      function readCaptionLookV1(root, catalog) {
+        const rows = captionRows(root);
+        const emphasis = emphasisWords(root).map((item) => isRecord2(item) ? { ...item } : item);
+        const projected = /* @__PURE__ */ new Map();
+        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
+        for (const item of emphasis)
+          if (isRecord2(item) && allRuns.some((run) => run?.migrated_from === item.id))
+            item.id = nextEmphasisWordId({
+              captions: rows,
+              emphasis_words: emphasis,
+              unresolved_runs: Array.isArray(root) ? [] : root.unresolved_runs
+            });
+        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
+        let originalIndex = 0;
+        for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
+          while (occupiedIndices.has(originalIndex))
+            originalIndex++;
+          const index = originalIndex++;
+          const candidate = projectEmphasis(rows, item);
+          if (candidate)
+            projected.set(item.id, {
+              id: candidate.row.id,
+              ...candidate.interval,
+              motion: candidate.motion,
+              index
+            });
+        }
+        const notices = [];
+        const captions = rows.map((row) => {
+          if (!isRecord2(row))
+            return row;
+          const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
+          const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
+            ...run,
+            ...run.style && !run.look ? { look: { ...run.style } } : {},
+            ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
+          });
+          for (const item of emphasis) {
+            if (!isRecord2(item))
+              continue;
+            if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
+              continue;
+            const interval = projected.get(item.id);
+            if (!interval || interval.id !== row.id)
+              continue;
+            if (runs.some((run) => run && typeof run === "object" && migratedRunMatches(run, interval, item, interval.motion)))
+              continue;
+            const projection = {
+              id: (0, caption_runs_1.nextCaptionRunId)(allRuns),
+              from: interval.from,
+              to: interval.to,
+              role: "emphasis",
+              emotion: item.emotion,
+              migrated_from: item.id,
+              migrated_emphasis: { index: interval.index, item: structuredClone(item) },
+              anchor: {
+                ...item.src ? { src: item.src } : {},
+                start: item.t_start,
+                end: item.t_end,
+                domain: "source"
+              },
+              fire: "spoken",
+              motion: { in: { id: interval.motion } }
+            };
+            runs.push(projection);
+            allRuns.push(projection);
+          }
+          if (row.style_preset && !resolved.resolved)
+            notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+          return { ...resolved.record, ...runs.length || Array.isArray(row.runs) ? { runs } : Object.prototype.hasOwnProperty.call(row, "runs") ? { runs: row.runs } : {} };
+        });
+        return { captions, notices };
+      }
+      function planCaptionLookMigration(captions, catalog, _edit) {
+        const source = structuredClone(captions);
+        const rows = captionRows(source);
+        const emphasis = emphasisWords(source);
+        const unresolved = [];
+        const notices = [];
+        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
+        let invalidLegacyCount = 0;
+        for (const row of rows) {
+          if (!isRecord2(row))
+            continue;
+          if (row.style_preset) {
+            const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
+            if (preset.resolved) {
+              const id = row.style_preset;
+              const original = (catalog instanceof Map ? catalog.get(id) : catalog[id])?.style ?? {};
+              const applied = preset.record.text_style ?? {};
+              row.text_style = structuredClone(applied);
+              row.style_sources = {
+                ...row.style_sources ?? {},
+                look: {
+                  kind: "builtin",
+                  id,
+                  original_hash: (0, caption_hash_1.captionValueHash)((0, caption_look_v1_1.sanitizeMyStyleLook)(original)),
+                  applied_hash: (0, caption_hash_1.captionValueHash)((0, caption_look_v1_1.sanitizeMyStyleLook)(row.text_style))
+                },
+                ...applied.animation ? { motion: {
+                  kind: "builtin",
+                  id,
+                  original_hash: (0, caption_hash_1.captionValueHash)(original.animation ?? {}),
+                  applied_hash: (0, caption_hash_1.captionValueHash)(applied.animation)
+                } } : {}
+              };
+              delete row.style_preset;
+            } else
+              notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+          }
+          if (Array.isArray(row.runs))
+            row.runs = row.runs.map((run) => {
+              if (!run || typeof run !== "object" || Array.isArray(run))
+                return run;
+              if (invalidLegacyRun(run, row)) {
+                invalidLegacyCount++;
+                return run;
+              }
+              const result = { ...run };
+              if (result.style) {
+                const scale = typeof result.style.scale === "number" && result.style.scale > 0 ? result.style.scale : 1;
+                const look = { ...result.style };
+                if (look.stroke?.width_px !== void 0)
+                  look.stroke = {
+                    ...look.stroke,
+                    width_px: look.stroke.width_px / scale
+                  };
+                result.look = look;
+                delete result.style;
+              }
+              if (result.animation) {
+                result.dormant_animation = result.animation;
+                delete result.animation;
+              }
+              if (!result.id) {
+                result.id = (0, caption_runs_1.nextCaptionRunId)(allRuns);
+                allRuns.push(result);
+              }
+              return result;
+            });
+        }
+        if (invalidLegacyCount)
+          notices.push(`\u7BC4\u56F2\u306E\u5916\u306E\u53E4\u3044\u6307\u5B9A ${invalidLegacyCount} \u4EF6\u306F\u305D\u306E\u307E\u307E\u6B8B\u3057\u307E\u3057\u305F`);
+        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
+        const migrated = /* @__PURE__ */ new Set();
+        let originalIndex = 0;
+        for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
+          while (occupiedIndices.has(originalIndex))
+            originalIndex++;
+          const index = originalIndex++;
+          const candidate = projectEmphasis(rows, item);
+          if (candidate && rowRuns(candidate.row).some((run2) => migratedRunMatches(run2, candidate.interval, item, candidate.motion))) {
+            migrated.add(item.id);
+            continue;
+          }
+          if (allRuns.some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id)) {
+            const old = item.id;
+            item.id = nextEmphasisWordId(source);
+            notices.push(`\u5F37\u8ABF\u8A9E ${old} \u306F id \u304C\u91CD\u306A\u3063\u3066\u3044\u305F\u306E\u3067 ${item.id} \u306B\u632F\u308A\u76F4\u3057\u307E\u3057\u305F`);
+          }
+          if (!candidate) {
+            unresolved.push(item);
+            notices.push(`\u5F37\u8ABF\u8A9E ${item.id} \u306F\u53EF\u9006\u306B\u79FB\u884C\u3067\u304D\u307E\u305B\u3093`);
+            continue;
+          }
+          const { row, interval, motion: motion2 } = candidate;
+          const run = {
+            id: (0, caption_runs_1.nextCaptionRunId)(allRuns),
+            ...interval,
+            role: "emphasis",
+            emotion: item.emotion,
+            migrated_from: item.id,
+            migrated_emphasis: { index, item: structuredClone(item) },
+            fire: "spoken",
+            anchor: {
+              ...item.src ? { src: item.src } : {},
+              start: item.t_start,
+              end: item.t_end,
+              domain: "source"
+            },
+            motion: { in: { id: motion2 } }
+          };
+          (row.runs ??= []).push(run);
+          allRuns.push(run);
+          migrated.add(item.id);
+          occupiedIndices.add(index);
+        }
+        if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
+          source.emphasis_words = emphasis.filter((item) => !isRecord2(item) || !migrated.has(item.id));
+        }
+        const originalRows = captionRows(captions);
+        const diff = [];
+        rows.forEach((row, index) => {
+          if (!isRecord2(row))
+            return;
+          const before = isRecord2(originalRows[index]) ? originalRows[index] : {};
+          for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(row)])) {
+            if (JSON.stringify(before[key]) !== JSON.stringify(row[key]))
+              diff.push({
+                path: `captions[${index}].${key}`,
+                before: before[key],
+                after: row[key]
+              });
+          }
+        });
+        if (!Array.isArray(source) && !Array.isArray(captions) && JSON.stringify(captions.emphasis_words) !== JSON.stringify(source.emphasis_words)) {
+          diff.push({ path: "emphasis_words", before: captions.emphasis_words, after: source.emphasis_words });
+        }
+        return {
+          next: source,
+          diff,
+          unresolved,
+          notices: [...new Set(notices)]
+        };
+      }
+      function captionRenderInputFromV1(root) {
+        const rows = captionRows(root);
+        const legacyIds = emphasisWords(root).flatMap((item) => isRecord2(item) ? [item.id] : []);
+        if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))) && new Set(legacyIds).size === legacyIds.length)
+          return root;
+        const copy = structuredClone(root);
+        const nextRows = captionRows(copy);
+        const emphasis = [...emphasisWords(copy)];
+        const nextId = (items) => nextEmphasisWordId({
+          captions: nextRows,
+          emphasis_words: items,
+          unresolved_runs: Array.isArray(copy) ? [] : copy.unresolved_runs
+        });
+        const migratedIds = /* @__PURE__ */ new Set();
+        for (const row of nextRows)
+          for (const run of rowRuns(row))
+            if (typeof run?.migrated_from === "string")
+              migratedIds.add(run.migrated_from);
+        for (const run of unresolvedRuns(copy))
+          if (typeof run.migrated_from === "string")
+            migratedIds.add(run.migrated_from);
+        const ids = /* @__PURE__ */ new Set();
+        for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
+          if (ids.has(item.id) || migratedIds.has(item.id))
+            item.id = nextId(emphasis);
+          ids.add(item.id);
+        }
+        const migrated = [];
+        for (const row of nextRows) {
+          if (!isRecord2(row))
+            continue;
+          if (!Array.isArray(row.runs))
+            continue;
+          row.runs = row.runs.flatMap((run) => {
+            if (!run || typeof run !== "object" || Array.isArray(run))
+              return [run];
+            if (run.migrated_from && !run.look && run.anchor) {
+              const hint = Object.keys(exports.CAPTION_EMPHASIS_MOTION).find((key) => exports.CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
+              const restored = run.migrated_emphasis?.item;
+              if (restored) {
+                const item = structuredClone(restored);
+                if (ids.has(item.id))
+                  item.id = nextId([...emphasis, ...migrated.map((entry) => entry.item)]);
+                ids.add(item.id);
+                migrated.push({ index: run.migrated_emphasis.index, item });
+              } else if (hint) {
+                let id = run.migrated_from;
+                if (ids.has(id))
+                  id = nextId([...emphasis, ...migrated.map((entry) => entry.item)]);
+                ids.add(id);
+                emphasis.push({
+                  id,
+                  word: (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").slice(run.from, run.to).join(""),
+                  t_start: run.anchor.start,
+                  t_end: run.anchor.end,
+                  emotion: run.emotion ?? "emphasis",
+                  style_hint: hint,
+                  ...run.anchor.src ? { src: run.anchor.src } : {}
+                });
+              }
+              return [];
+            }
+            const next = { ...run };
+            if (next.look && !next.style) {
+              const style = { ...next.look };
+              const scale = typeof style.scale === "number" && style.scale > 0 ? style.scale : 1;
+              if (style.stroke?.width_px !== void 0)
+                style.stroke = {
+                  ...style.stroke,
+                  width_px: (0, caption_runs_1.roundCaptionPixel)(style.stroke.width_px * scale)
+                };
+              next.style = style;
+            }
+            delete next.dormant_animation;
+            return [next];
+          });
+        }
+        if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
+          const restored = [...emphasis];
+          for (const entry of migrated.sort((left, right) => left.index - right.index)) {
+            restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
+          }
+          copy.emphasis_words = restored;
+        }
+        return copy;
+      }
+    }
+  });
+
   // packages/edit-store/lib/caption-style-command.js
   var require_caption_style_command = __commonJS({
     "packages/edit-store/lib/caption-style-command.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.captionNoticeCodes = void 0;
+      exports.assertChangedCaptionStyles = assertChangedCaptionStyles;
       exports.captionEmphasisOverlapsRange = captionEmphasisOverlapsRange;
       exports.planCaptionStyleEdit = planCaptionStyleEdit;
       exports.planCaptionStyleClear = planCaptionStyleClear;
@@ -6592,6 +7376,9 @@ ${indent}`);
       var caption_runs_1 = require_caption_runs();
       var caption_style_preset_1 = require_caption_style_preset();
       var textstyle_catalog_1 = require_textstyle_catalog();
+      var caption_display_1 = require_caption_display();
+      var caption_look_shape_1 = require_caption_look_shape();
+      var caption_look_reader_1 = require_caption_look_reader();
       var record2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
       var rowsOf = (root) => Array.isArray(root) ? root : root.captions;
       var defaultOf = (root) => !Array.isArray(root) && record2(root.default_text_style) ? root.default_text_style : {};
@@ -6613,29 +7400,125 @@ ${indent}`);
         ...rowsOf(root).flatMap((row) => Array.isArray(row.runs) ? row.runs : []),
         ...!Array.isArray(root) && Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
       ];
+      function styleErrors(row, base) {
+        const style = record2(row.text_style) ? row.text_style : {};
+        const errors = [];
+        try {
+          (0, caption_display_1.validateCaptionTextStyle)(style);
+        } catch (error) {
+          errors.push(error.message);
+        }
+        try {
+          const merged = (0, caption_display_1.mergeCaptionDisplayStyles)(base, style);
+          if (merged)
+            (0, caption_display_1.validateCaptionTextStyle)(merged);
+        } catch (error) {
+          errors.push(error.message);
+        }
+        return errors;
+      }
+      function assertChangedCaptionStyles(before, after, changed) {
+        const indices = /* @__PURE__ */ new Set();
+        for (const path of changed) {
+          const match = /^captions\[(\d+)\]/.exec(path);
+          if (match)
+            indices.add(Number(match[1]));
+        }
+        const diagnostics = [...indices].flatMap((index) => {
+          const previous = styleErrors(rowsOf(before)[index], defaultOf(before));
+          return styleErrors(rowsOf(after)[index], defaultOf(after)).filter((message) => !previous.includes(message)).map((message) => ({
+            code: "captions.style.invalid",
+            severity: "error",
+            path: `captions[${index}].text_style`,
+            message,
+            layer: "document"
+          }));
+        });
+        if (diagnostics.length)
+          throw new caption_look_shape_1.CaptionsInvalidError(diagnostics);
+      }
+      function noticeCodes(notices, omitted) {
+        return notices.map((message) => {
+          const field = omitted.find((key) => (0, caption_look_v1_1.sanitizeCaptionRunLook)({ [key]: true }).notices.includes(message));
+          if (field)
+            return { code: "run-look-omitted", params: { field } };
+          if (message.includes("\u5B9F\u6E2C\u306E\u5358\u8A9E\u306B\u5BFE\u5FDC\u4ED8\u3051\u3089\u308C\u307E\u305B\u3093"))
+            return { code: "anchor-unmapped" };
+          if (message.includes("\u30B9\u30BF\u30A4\u30EB") && message.includes("\u898B\u3064\u304B\u308A\u307E\u305B\u3093"))
+            return { code: "style-not-found" };
+          return { code: "other", params: { message } };
+        });
+      }
+      exports.captionNoticeCodes = noticeCodes;
+      function splitCaptionRuns(row, runs, range, newRunId, preserve) {
+        return runs.flatMap((run) => {
+          if (run === preserve)
+            return [run];
+          if (run.to <= range.from || run.from >= range.to)
+            return [run];
+          const id = run.id ?? newRunId();
+          const pieces = [];
+          if (run.from < range.from)
+            pieces.push({ ...run, id, to: range.from });
+          if (run.to > range.to) {
+            const rightId = run.from < range.from ? newRunId() : id;
+            pieces.push({
+              ...run,
+              id: rightId,
+              from: range.to,
+              ...rightId !== id ? { split_from: id } : {}
+            });
+          }
+          for (const piece of pieces)
+            if (run.anchor) {
+              const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, piece.from, piece.to).anchor;
+              if (anchor)
+                piece.anchor = anchor;
+              else {
+                delete piece.anchor;
+                if (piece.fire === "spoken") {
+                  piece.fire = "shown";
+                  piece.fire_was = "spoken";
+                  piece.needs_review = true;
+                }
+              }
+            }
+          return pieces;
+        });
+      }
       function captionEmphasisOverlapsRange(row, range, emphasis, resolvedAnchor) {
+        if (row.time_domain === "output")
+          return false;
         if (emphasis.src && row.src && emphasis.src !== row.src)
           return false;
         const anchor = (resolvedAnchor ?? (0, caption_anchor_map_1.anchorForCaptionRange)(row, range.from, range.to)).anchor;
-        if (anchor)
-          return Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) > 1e-6;
-        if (typeof row.start !== "number" || typeof row.end !== "number" || emphasis.t_start < row.start || emphasis.t_end > row.end)
+        if (anchor && Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) <= 1e-6)
           return false;
-        const shown = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "");
-        const word = (0, caption_runs_1.captionGraphemes)(emphasis.word);
-        for (let from = 0; from <= shown.length - word.length; from++) {
-          if (from < range.to && from + word.length > range.from && word.every((char, offset) => shown[from + offset] === char))
-            return true;
-        }
-        return false;
+        if (!anchor && (typeof row.start !== "number" || typeof row.end !== "number" || emphasis.t_start < row.start || emphasis.t_end > row.end))
+          return false;
+        if (anchor && emphasis.src && row.src)
+          return true;
+        return (0, caption_look_reader_1.captionEmphasisWordIntervals)(row, emphasis.word.trim()).some((interval) => interval.from < range.to && interval.to > range.from);
+      }
+      function nonWhitespaceRange(row, range) {
+        const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "");
+        let { from, to } = range;
+        while (from < to && /^\s$/u.test(chars[from]))
+          from++;
+        while (to > from && /^\s$/u.test(chars[to - 1]))
+          to--;
+        return from < to ? { from, to } : void 0;
       }
       function removeOverlappingEmphasis(root, row, range, changed) {
         if (Array.isArray(root) || !Array.isArray(root.emphasis_words))
           return;
+        const selected = nonWhitespaceRange(row, range);
+        if (!selected)
+          return;
         const emphasis = root.emphasis_words;
         const before = emphasis.length;
-        const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, range.from, range.to);
-        root.emphasis_words = emphasis.filter((item) => !record2(item) || !captionEmphasisOverlapsRange(row, range, item, anchor));
+        const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, selected.from, selected.to);
+        root.emphasis_words = emphasis.filter((item) => !record2(item) || !captionEmphasisOverlapsRange(row, selected, item, anchor));
         if (root.emphasis_words.length !== before && !changed.includes("emphasis_words"))
           changed.push("emphasis_words");
       }
@@ -6784,6 +7667,7 @@ ${indent}`);
         const catalogObject = catalogRecord(catalog);
         const changed = [];
         const notices = [];
+        const omittedFields = [];
         const at2 = input.now instanceof Date ? input.now.toISOString() : typeof input.now === "string" ? new Date(input.now).toISOString() : (/* @__PURE__ */ new Date()).toISOString();
         for (const target of input.targets) {
           const parts = "parts" in target && target.parts ? { ...input.parts, ...target.parts } : input.parts;
@@ -6824,11 +7708,20 @@ ${indent}`);
           const { row } = indexed;
           if (target.range) {
             const { from, to } = resolveRange(row, target.range);
-            const runs = Array.isArray(row.runs) ? row.runs : [];
+            let runs = Array.isArray(row.runs) ? row.runs : [];
             let run;
             for (const candidate of runs)
               if (candidate.id && candidate.from === from && candidate.to === to)
                 run = candidate;
+            const overlapIndex = !run && parts.look && !input.legacy ? runs.findIndex((candidate) => candidate.from < to && candidate.to > from) : -1;
+            const insertionIndex = overlapIndex < 0 ? runs.length : overlapIndex + (runs[overlapIndex].from < from ? 1 : 0);
+            if (parts.look && !input.legacy) {
+              runs = splitCaptionRuns(row, runs, { from, to }, newRunId, run);
+              if (runs.length)
+                row.runs = runs;
+              else
+                delete row.runs;
+            }
             if (!run) {
               run = { id: newRunId(), from, to };
               const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
@@ -6836,7 +7729,7 @@ ${indent}`);
                 run.anchor = anchor.anchor;
               else
                 notices.push(...anchor.diagnostics.map((item) => item.message));
-              runs.push(run);
+              runs.splice(insertionIndex, 0, run);
               row.runs = runs;
             }
             if (parts.look) {
@@ -6852,6 +7745,7 @@ ${indent}`);
               }
               run.look = look;
               notices.push(...result.notices);
+              omittedFields.push(...(0, caption_look_v1_1.sanitizeCaptionRunLook)(parts.look).omitted);
             }
             if (parts.motion) {
               if (Object.keys(parts.motion).length)
@@ -6881,11 +7775,18 @@ ${indent}`);
           updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at2);
           changed.push(`captions[${indexed.index}].text_style`);
         }
-        return { next: {
-          captions,
-          ...input.edit === void 0 ? {} : { edit: input.edit },
-          ...input.assetReferences === void 0 ? {} : { assetReferences: input.assetReferences }
-        }, changed, notices: [...new Set(notices)] };
+        assertChangedCaptionStyles(input.captions, captions, changed);
+        const uniqueNotices = [...new Set(notices)];
+        return {
+          next: {
+            captions,
+            ...input.edit === void 0 ? {} : { edit: input.edit },
+            ...input.assetReferences === void 0 ? {} : { assetReferences: input.assetReferences }
+          },
+          changed,
+          notices: uniqueNotices,
+          notice_codes: noticeCodes(uniqueNotices, omittedFields)
+        };
       }
       function planCaptionStyleClear(input) {
         const captions = structuredClone(input.captions);
@@ -6920,38 +7821,30 @@ ${indent}`);
           if (input.mode === "run") {
             const removed = runs.filter((run) => target.run_id ? run.id === target.run_id : run.from === range?.from && run.to === range?.to);
             const before = runs.length;
-            row.runs = runs.filter((run) => target.run_id ? run.id !== target.run_id : run.from !== range?.from || run.to !== range?.to);
-            if (row.runs.length === before)
+            const remaining = runs.filter((run) => target.run_id ? run.id !== target.run_id : run.from !== range?.from || run.to !== range?.to);
+            if (remaining.length === before)
               throw new Error("\u5916\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+            if (remaining.length)
+              row.runs = remaining;
+            else
+              delete row.runs;
             for (const run of removed)
               removeOverlappingEmphasis(captions, row, run, changed);
           } else {
             const selected = range ?? runs.find((run) => run.id === target.run_id);
             if (!selected)
               throw new Error("\u623B\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
-            row.runs = runs.flatMap((run) => {
-              if (run.to <= selected.from || run.from >= selected.to)
-                return [run];
-              const id = run.id ?? newRunId();
-              const pieces = [];
-              if (run.from < selected.from)
-                pieces.push({ ...run, id, to: selected.from });
-              if (run.to > selected.to) {
-                const rightId = run.from < selected.from ? newRunId() : id;
-                pieces.push({
-                  ...run,
-                  id: rightId,
-                  from: selected.to,
-                  ...rightId !== id ? { split_from: id } : {}
-                });
-              }
-              return pieces;
-            });
+            const remaining = splitCaptionRuns(row, runs, selected, newRunId);
+            if (remaining.length)
+              row.runs = remaining;
+            else
+              delete row.runs;
             removeOverlappingEmphasis(captions, row, selected, changed);
           }
           changed.push(`captions[${rowNumber}].runs`);
         }
-        return { next: { captions }, changed, notices: [] };
+        assertChangedCaptionStyles(input.captions, captions, changed);
+        return { next: { captions }, changed, notices: [], notice_codes: [] };
       }
       function planCaptionStyleReapply(input) {
         const items = [];
@@ -7003,43 +7896,36 @@ ${indent}`);
             }
           }
         }
-        return { items, ...input.apply ? { next: { captions: root } } : {}, notices: [...new Set(notices)] };
+        const uniqueNotices = [...new Set(notices)];
+        return {
+          items,
+          ...input.apply ? { next: { captions: root } } : {},
+          notices: uniqueNotices,
+          notice_codes: noticeCodes(uniqueNotices, [])
+        };
       }
-      var PIXEL_FIELDS = {
-        stroke: ["width_px"],
-        shadow: ["blur_px", "distance_px"],
-        glow: ["spread", "offset_x", "offset_y"],
-        background: ["radius_px", "padding_px"]
-      };
       function resizeCaptionRow(row, defaultStyle, size, catalog = textstyle_catalog_1.TEXTSTYLE_CATALOG, notices = [], at2 = (/* @__PURE__ */ new Date()).toISOString()) {
         const beforeSize = (0, caption_look_v1_1.captionEffectiveSize)(row, defaultStyle, catalogRecord(catalog));
         if (beforeSize === size)
           return false;
         migratePreset(row, catalog, notices, at2);
         const style = record2(row.text_style) ? row.text_style : {};
-        const effective = { ...defaultStyle, ...style };
-        for (const key of Object.keys(PIXEL_FIELDS)) {
-          if (record2(defaultStyle[key]) || record2(style[key]))
-            effective[key] = {
-              ...record2(defaultStyle[key]) ? defaultStyle[key] : {},
-              ...record2(style[key]) ? style[key] : {}
-            };
+        let effective;
+        try {
+          effective = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, style) ?? {};
+        } catch {
+          effective = { ...defaultStyle, ...style };
         }
         const oldRunHashes = Array.isArray(row.runs) ? row.runs.map((run) => run.look ? (0, caption_hash_1.captionValueHash)(run.look) : void 0) : [];
         const scaled = roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...effective, size_px: beforeSize }, size));
         const nextStyle = { ...style, size_px: size };
-        for (const [key, fields] of Object.entries(PIXEL_FIELDS)) {
-          if (!record2(scaled[key]))
+        for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+          if (key === "strokes" || key === "fill.pattern" || !record2(scaled[key]))
             continue;
-          const current = record2(style[key]) ? style[key] : {};
-          const values = { ...current };
-          for (const field of fields)
-            if (typeof scaled[key][field] === "number")
-              values[field] = scaled[key][field];
-          if (Object.keys(values).length)
-            nextStyle[key] = values;
+          if (fields.some((field) => typeof scaled[key][field] === "number"))
+            nextStyle[key] = scaled[key];
         }
-        if (Array.isArray(scaled.strokes) && scaled.strokes.some((stroke) => record2(stroke) && ["width_px", "offset_x", "offset_y"].some((field) => typeof stroke[field] === "number")))
+        if (Array.isArray(scaled.strokes) && scaled.strokes.some((stroke) => record2(stroke) && caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes.some((field) => typeof stroke[field] === "number")))
           nextStyle.strokes = scaled.strokes;
         if (record2(scaled.fill) && record2(scaled.fill.pattern) && typeof scaled.fill.pattern.scale === "number")
           nextStyle.fill = scaled.fill;
@@ -7076,16 +7962,14 @@ ${indent}`);
           if (resizeCaptionRow(found.row, defaultOf(captions), input.size_px, catalog, notices))
             changed.push(`captions[${found.index}].text_style`);
         }
-        return { next: { captions }, changed, notices };
+        assertChangedCaptionStyles(input.captions, captions, changed);
+        return { next: { captions }, changed, notices, notice_codes: noticeCodes(notices, []) };
       }
       function roundPixels(value) {
         const next = structuredClone(value);
-        for (const [key, fields] of Object.entries({
-          stroke: ["width_px"],
-          background: ["radius_px", "padding_px"],
-          shadow: ["blur_px", "distance_px"],
-          glow: ["spread", "offset_x", "offset_y"]
-        })) {
+        for (const [key, fields] of Object.entries(caption_look_v1_1.CAPTION_PIXEL_FIELDS)) {
+          if (key === "strokes" || key === "fill.pattern")
+            continue;
           const object = next[key];
           if (!record2(object))
             continue;
@@ -7096,7 +7980,7 @@ ${indent}`);
         if (Array.isArray(next.strokes)) {
           for (const stroke of next.strokes)
             if (record2(stroke)) {
-              for (const field of ["width_px", "offset_x", "offset_y"])
+              for (const field of caption_look_v1_1.CAPTION_PIXEL_FIELDS.strokes)
                 if (typeof stroke[field] === "number")
                   stroke[field] = (0, caption_runs_1.roundCaptionPixel)(stroke[field]);
             }
@@ -7532,7 +8416,14 @@ ${indent}`);
           }
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
         }
-        return replaceElement(source, array.openIndex + 1, element, nextElement);
+        const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+        if (updated !== source) {
+          const original = JSON.parse(source);
+          const rows = Array.isArray(original) ? original : original.captions;
+          const index = rows.findIndex((row) => row.id === captionId);
+          (0, caption_style_command_1.assertChangedCaptionStyles)(original, JSON.parse(updated), [`captions[${index}].text_style`]);
+        }
+        return updated;
       }
       function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
         if (captionIds.length === 0) {
@@ -9209,776 +10100,6 @@ ${indent}`);
           clockDomain,
           ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
         };
-      }
-    }
-  });
-
-  // packages/edit-store/lib/caption-look-reader.js
-  var require_caption_look_reader = __commonJS({
-    "packages/edit-store/lib/caption-look-reader.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CAPTION_EMPHASIS_MOTION = void 0;
-      exports.nextEmphasisWordId = nextEmphasisWordId;
-      exports.readCaptionLookV1 = readCaptionLookV1;
-      exports.planCaptionLookMigration = planCaptionLookMigration;
-      exports.captionRenderInputFromV1 = captionRenderInputFromV1;
-      var caption_runs_1 = require_caption_runs();
-      var caption_hash_1 = require_caption_hash();
-      var caption_look_v1_1 = require_caption_look_v1();
-      var caption_style_preset_1 = require_caption_style_preset();
-      var isRecord2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-      var captionRows = (root) => Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
-      var emphasisWords = (root) => Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
-      var unresolvedRuns = (root) => Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? [] : root.unresolved_runs.flatMap((item) => isRecord2(item) && isRecord2(item.run) ? [item.run] : []);
-      function nextEmphasisWordId(root) {
-        const used = new Set(emphasisWords(root).flatMap((item) => isRecord2(item) && typeof item.id === "string" ? [item.id] : []));
-        for (const row of captionRows(root))
-          for (const run of rowRuns(row))
-            if (isRecord2(run) && typeof run.migrated_from === "string")
-              used.add(run.migrated_from);
-        for (const run of unresolvedRuns(root))
-          if (typeof run.migrated_from === "string")
-            used.add(run.migrated_from);
-        let number2 = 1;
-        while (used.has(`e-${String(number2).padStart(4, "0")}`))
-          number2++;
-        if (number2 > 9999)
-          throw new Error("\u5F37\u8ABF\u8A9E\u306E id \u306B\u7A7A\u304D\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
-        return `e-${String(number2).padStart(4, "0")}`;
-      }
-      function migratedRunMatches(run, interval, item, motion2) {
-        return run.from === interval.from && run.to === interval.to && run.emotion === item.emotion && run.motion?.in?.id === motion2 && Object.keys(run.motion ?? {}).length === 1 && run.anchor?.start === item.t_start && run.anchor?.end === item.t_end && (run.anchor?.src ?? void 0) === (item.src ?? void 0);
-      }
-      exports.CAPTION_EMPHASIS_MOTION = {
-        "one-char-bang": "pop",
-        "one-char-jumble": "jitter",
-        "size-pulse": "zoom-pulse"
-      };
-      var DEFAULT_HINT = {
-        pain: "one-char-bang",
-        surprise: "one-char-bang",
-        anger: "one-char-bang",
-        disgust: "one-char-jumble",
-        joy: "size-pulse",
-        emphasis: "size-pulse"
-      };
-      function intervalForEmphasis(row, emphasis) {
-        if (emphasis.src && emphasis.src !== row.src)
-          return void 0;
-        if (typeof row.start !== "number" || typeof row.end !== "number" || emphasis.t_start < row.start || emphasis.t_end > row.end || emphasis.t_start >= emphasis.t_end)
-          return void 0;
-        const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "");
-        const word = (0, caption_runs_1.captionGraphemes)(emphasis.word);
-        const matches = [];
-        for (let i2 = 0; i2 <= chars.length - word.length; i2++) {
-          if (word.every((char, n2) => chars[i2 + n2] === char))
-            matches.push(i2);
-        }
-        return matches.length === 1 ? { from: matches[0], to: matches[0] + word.length } : void 0;
-      }
-      function projectEmphasis(rows, item) {
-        if (item.style_preset)
-          return void 0;
-        const hint = item.style_hint ?? DEFAULT_HINT[item.emotion];
-        if (!hint)
-          return void 0;
-        const motion2 = exports.CAPTION_EMPHASIS_MOTION[hint];
-        if (!motion2)
-          return void 0;
-        const candidates = rows.flatMap((row) => {
-          if (!isRecord2(row))
-            return [];
-          if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
-            return [];
-          const interval = intervalForEmphasis(row, item);
-          return interval ? [{ row, interval, hint, motion: motion2 }] : [];
-        });
-        return candidates.length === 1 ? candidates[0] : void 0;
-      }
-      function rowRuns(row) {
-        return isRecord2(row) && Array.isArray(row.runs) ? row.runs : [];
-      }
-      function invalidLegacyRun(run, row) {
-        if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
-          return false;
-        }
-        const length = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").length;
-        return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
-      }
-      function readCaptionLookV1(root, catalog) {
-        const rows = captionRows(root);
-        const emphasis = emphasisWords(root).map((item) => isRecord2(item) ? { ...item } : item);
-        const projected = /* @__PURE__ */ new Map();
-        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
-        for (const item of emphasis)
-          if (isRecord2(item) && allRuns.some((run) => run?.migrated_from === item.id))
-            item.id = nextEmphasisWordId({
-              captions: rows,
-              emphasis_words: emphasis,
-              unresolved_runs: Array.isArray(root) ? [] : root.unresolved_runs
-            });
-        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
-        let originalIndex = 0;
-        for (const item of emphasis) {
-          if (!isRecord2(item))
-            continue;
-          while (occupiedIndices.has(originalIndex))
-            originalIndex++;
-          const index = originalIndex++;
-          const candidate = projectEmphasis(rows, item);
-          if (candidate)
-            projected.set(item.id, {
-              id: candidate.row.id,
-              ...candidate.interval,
-              motion: candidate.motion,
-              index
-            });
-        }
-        const notices = [];
-        const captions = rows.map((row) => {
-          if (!isRecord2(row))
-            return row;
-          const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
-          const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
-            ...run,
-            ...run.style && !run.look ? { look: { ...run.style } } : {},
-            ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
-          });
-          for (const item of emphasis) {
-            if (!isRecord2(item))
-              continue;
-            if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
-              continue;
-            const interval = projected.get(item.id);
-            if (!interval || interval.id !== row.id)
-              continue;
-            if (runs.some((run) => run && typeof run === "object" && migratedRunMatches(run, interval, item, interval.motion)))
-              continue;
-            const projection = {
-              id: (0, caption_runs_1.nextCaptionRunId)(allRuns),
-              from: interval.from,
-              to: interval.to,
-              role: "emphasis",
-              emotion: item.emotion,
-              migrated_from: item.id,
-              migrated_emphasis: { index: interval.index, item: structuredClone(item) },
-              anchor: {
-                ...item.src ? { src: item.src } : {},
-                start: item.t_start,
-                end: item.t_end,
-                domain: "source"
-              },
-              fire: "spoken",
-              motion: { in: { id: interval.motion } }
-            };
-            runs.push(projection);
-            allRuns.push(projection);
-          }
-          if (row.style_preset && !resolved.resolved)
-            notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
-          return { ...resolved.record, ...runs.length || Array.isArray(row.runs) ? { runs } : Object.prototype.hasOwnProperty.call(row, "runs") ? { runs: row.runs } : {} };
-        });
-        return { captions, notices };
-      }
-      function planCaptionLookMigration(captions, catalog, _edit) {
-        const source = structuredClone(captions);
-        const rows = captionRows(source);
-        const emphasis = emphasisWords(source);
-        const unresolved = [];
-        const notices = [];
-        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
-        let invalidLegacyCount = 0;
-        for (const row of rows) {
-          if (!isRecord2(row))
-            continue;
-          if (row.style_preset) {
-            const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
-            if (preset.resolved) {
-              const id = row.style_preset;
-              const original = (catalog instanceof Map ? catalog.get(id) : catalog[id])?.style ?? {};
-              const applied = preset.record.text_style ?? {};
-              row.text_style = structuredClone(applied);
-              row.style_sources = {
-                ...row.style_sources ?? {},
-                look: {
-                  kind: "builtin",
-                  id,
-                  original_hash: (0, caption_hash_1.captionValueHash)((0, caption_look_v1_1.sanitizeMyStyleLook)(original)),
-                  applied_hash: (0, caption_hash_1.captionValueHash)((0, caption_look_v1_1.sanitizeMyStyleLook)(row.text_style))
-                },
-                ...applied.animation ? { motion: {
-                  kind: "builtin",
-                  id,
-                  original_hash: (0, caption_hash_1.captionValueHash)(original.animation ?? {}),
-                  applied_hash: (0, caption_hash_1.captionValueHash)(applied.animation)
-                } } : {}
-              };
-              delete row.style_preset;
-            } else
-              notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
-          }
-          if (Array.isArray(row.runs))
-            row.runs = row.runs.map((run) => {
-              if (!run || typeof run !== "object" || Array.isArray(run))
-                return run;
-              if (invalidLegacyRun(run, row)) {
-                invalidLegacyCount++;
-                return run;
-              }
-              const result = { ...run };
-              if (result.style) {
-                const scale = typeof result.style.scale === "number" && result.style.scale > 0 ? result.style.scale : 1;
-                const look = { ...result.style };
-                if (look.stroke?.width_px !== void 0)
-                  look.stroke = {
-                    ...look.stroke,
-                    width_px: look.stroke.width_px / scale
-                  };
-                result.look = look;
-                delete result.style;
-              }
-              if (result.animation) {
-                result.dormant_animation = result.animation;
-                delete result.animation;
-              }
-              if (!result.id) {
-                result.id = (0, caption_runs_1.nextCaptionRunId)(allRuns);
-                allRuns.push(result);
-              }
-              return result;
-            });
-        }
-        if (invalidLegacyCount)
-          notices.push(`\u7BC4\u56F2\u306E\u5916\u306E\u53E4\u3044\u6307\u5B9A ${invalidLegacyCount} \u4EF6\u306F\u305D\u306E\u307E\u307E\u6B8B\u3057\u307E\u3057\u305F`);
-        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
-        const migrated = /* @__PURE__ */ new Set();
-        let originalIndex = 0;
-        for (const item of emphasis) {
-          if (!isRecord2(item))
-            continue;
-          while (occupiedIndices.has(originalIndex))
-            originalIndex++;
-          const index = originalIndex++;
-          const candidate = projectEmphasis(rows, item);
-          if (candidate && rowRuns(candidate.row).some((run2) => migratedRunMatches(run2, candidate.interval, item, candidate.motion))) {
-            migrated.add(item.id);
-            continue;
-          }
-          if (allRuns.some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id)) {
-            const old = item.id;
-            item.id = nextEmphasisWordId(source);
-            notices.push(`\u5F37\u8ABF\u8A9E ${old} \u306F id \u304C\u91CD\u306A\u3063\u3066\u3044\u305F\u306E\u3067 ${item.id} \u306B\u632F\u308A\u76F4\u3057\u307E\u3057\u305F`);
-          }
-          if (!candidate) {
-            unresolved.push(item);
-            notices.push(`\u5F37\u8ABF\u8A9E ${item.id} \u306F\u53EF\u9006\u306B\u79FB\u884C\u3067\u304D\u307E\u305B\u3093`);
-            continue;
-          }
-          const { row, interval, motion: motion2 } = candidate;
-          const run = {
-            id: (0, caption_runs_1.nextCaptionRunId)(allRuns),
-            ...interval,
-            role: "emphasis",
-            emotion: item.emotion,
-            migrated_from: item.id,
-            migrated_emphasis: { index, item: structuredClone(item) },
-            fire: "spoken",
-            anchor: {
-              ...item.src ? { src: item.src } : {},
-              start: item.t_start,
-              end: item.t_end,
-              domain: "source"
-            },
-            motion: { in: { id: motion2 } }
-          };
-          (row.runs ??= []).push(run);
-          allRuns.push(run);
-          migrated.add(item.id);
-          occupiedIndices.add(index);
-        }
-        if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
-          source.emphasis_words = emphasis.filter((item) => !isRecord2(item) || !migrated.has(item.id));
-        }
-        const originalRows = captionRows(captions);
-        const diff = [];
-        rows.forEach((row, index) => {
-          if (!isRecord2(row))
-            return;
-          const before = isRecord2(originalRows[index]) ? originalRows[index] : {};
-          for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(row)])) {
-            if (JSON.stringify(before[key]) !== JSON.stringify(row[key]))
-              diff.push({
-                path: `captions[${index}].${key}`,
-                before: before[key],
-                after: row[key]
-              });
-          }
-        });
-        if (!Array.isArray(source) && !Array.isArray(captions) && JSON.stringify(captions.emphasis_words) !== JSON.stringify(source.emphasis_words)) {
-          diff.push({ path: "emphasis_words", before: captions.emphasis_words, after: source.emphasis_words });
-        }
-        return {
-          next: source,
-          diff,
-          unresolved,
-          notices: [...new Set(notices)]
-        };
-      }
-      function captionRenderInputFromV1(root) {
-        const rows = captionRows(root);
-        const legacyIds = emphasisWords(root).flatMap((item) => isRecord2(item) ? [item.id] : []);
-        if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))) && new Set(legacyIds).size === legacyIds.length)
-          return root;
-        const copy = structuredClone(root);
-        const nextRows = captionRows(copy);
-        const emphasis = [...emphasisWords(copy)];
-        const nextId = (items) => nextEmphasisWordId({
-          captions: nextRows,
-          emphasis_words: items,
-          unresolved_runs: Array.isArray(copy) ? [] : copy.unresolved_runs
-        });
-        const migratedIds = /* @__PURE__ */ new Set();
-        for (const row of nextRows)
-          for (const run of rowRuns(row))
-            if (typeof run?.migrated_from === "string")
-              migratedIds.add(run.migrated_from);
-        for (const run of unresolvedRuns(copy))
-          if (typeof run.migrated_from === "string")
-            migratedIds.add(run.migrated_from);
-        const ids = /* @__PURE__ */ new Set();
-        for (const item of emphasis) {
-          if (!isRecord2(item))
-            continue;
-          if (ids.has(item.id) || migratedIds.has(item.id))
-            item.id = nextId(emphasis);
-          ids.add(item.id);
-        }
-        const migrated = [];
-        for (const row of nextRows) {
-          if (!isRecord2(row))
-            continue;
-          if (!Array.isArray(row.runs))
-            continue;
-          row.runs = row.runs.flatMap((run) => {
-            if (!run || typeof run !== "object" || Array.isArray(run))
-              return [run];
-            if (run.migrated_from && !run.look && run.anchor) {
-              const hint = Object.keys(exports.CAPTION_EMPHASIS_MOTION).find((key) => exports.CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
-              const restored = run.migrated_emphasis?.item;
-              if (restored) {
-                const item = structuredClone(restored);
-                if (ids.has(item.id))
-                  item.id = nextId([...emphasis, ...migrated.map((entry) => entry.item)]);
-                ids.add(item.id);
-                migrated.push({ index: run.migrated_emphasis.index, item });
-              } else if (hint) {
-                let id = run.migrated_from;
-                if (ids.has(id))
-                  id = nextId([...emphasis, ...migrated.map((entry) => entry.item)]);
-                ids.add(id);
-                emphasis.push({
-                  id,
-                  word: (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").slice(run.from, run.to).join(""),
-                  t_start: run.anchor.start,
-                  t_end: run.anchor.end,
-                  emotion: run.emotion ?? "emphasis",
-                  style_hint: hint,
-                  ...run.anchor.src ? { src: run.anchor.src } : {}
-                });
-              }
-              return [];
-            }
-            const next = { ...run };
-            if (next.look && !next.style) {
-              const style = { ...next.look };
-              const scale = typeof style.scale === "number" && style.scale > 0 ? style.scale : 1;
-              if (style.stroke?.width_px !== void 0)
-                style.stroke = {
-                  ...style.stroke,
-                  width_px: (0, caption_runs_1.roundCaptionPixel)(style.stroke.width_px * scale)
-                };
-              next.style = style;
-            }
-            delete next.dormant_animation;
-            return [next];
-          });
-        }
-        if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
-          const restored = [...emphasis];
-          for (const entry of migrated.sort((left, right) => left.index - right.index)) {
-            restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
-          }
-          copy.emphasis_words = restored;
-        }
-        return copy;
-      }
-    }
-  });
-
-  // packages/edit-store/lib/caption-semantics.js
-  var require_caption_semantics = __commonJS({
-    "packages/edit-store/lib/caption-semantics.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.validateCaptionsSemantics = validateCaptionsSemantics;
-      exports.renderableCaptionRuns = renderableCaptionRuns;
-      var caption_runs_1 = require_caption_runs();
-      var caption_anchor_map_1 = require_caption_anchor_map();
-      function validateCaptionsSemantics(ctx) {
-        const root = ctx.captions;
-        const rows = Array.isArray(root) ? root : root && Array.isArray(root.captions) ? root.captions : [];
-        const diagnostics = [];
-        const counts = /* @__PURE__ */ new Map();
-        for (const row of rows)
-          for (const run of row && typeof row === "object" && Array.isArray(row.runs) ? row.runs : []) {
-            if (run && typeof run === "object" && run.id)
-              counts.set(run.id, (counts.get(run.id) ?? 0) + 1);
-          }
-        const unresolved = !root || Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs : [];
-        for (const item of unresolved)
-          if (item && typeof item === "object" && item.run?.id) {
-            counts.set(item.run.id, (counts.get(item.run.id) ?? 0) + 1);
-          }
-        const add = (code, severity, path, message, layer) => {
-          diagnostics.push({ code, severity, path, message, layer });
-        };
-        for (const [index, row] of rows.entries()) {
-          if (!row || typeof row !== "object" || Array.isArray(row))
-            continue;
-          const sources = [
-            row.style_sources,
-            ...Array.isArray(row.runs) ? row.runs.map((run) => run && typeof run === "object" ? run.style_sources : void 0) : []
-          ];
-          if (ctx.assetHashes)
-            for (const source of sources) {
-              if (!source || typeof source !== "object")
-                continue;
-              for (const part of Object.values(source)) {
-                if (!part || typeof part !== "object")
-                  continue;
-                const requires = part.requires;
-                if (!Array.isArray(requires))
-                  continue;
-                for (const dependency of requires) {
-                  if (!dependency || typeof dependency !== "object")
-                    continue;
-                  const required = dependency;
-                  if (!required.id)
-                    continue;
-                  const current = ctx.assetHashes[required.id];
-                  const path = `captions.json#captions[${index}].style_sources`;
-                  if (!current)
-                    add("captions.style.dependency-missing", ctx.path === "render-cut" || ctx.path === "osr" || ctx.path === "gpu" ? "error" : "warning", path, `\u4F9D\u5B58\u7D20\u6750 ${required.id} \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`, "project");
-                  else if (current !== required.hash)
-                    add("captions.style.dependency-changed", "warning", path, `\u4F9D\u5B58\u7D20\u6750 ${required.id} \u304C\u5F53\u3066\u305F\u3068\u304D\u3068\u7570\u306A\u308A\u307E\u3059\u3002`, "project");
-                }
-              }
-            }
-          const chars = (0, caption_runs_1.captionGraphemes)(typeof row.display_text === "string" ? row.display_text : String(row.text ?? ""));
-          const runs = Array.isArray(row.runs) ? row.runs : [];
-          for (const [runIndex, run] of runs.entries()) {
-            if (!run || typeof run !== "object" || Array.isArray(run))
-              continue;
-            const path = `captions.json#captions[${index}].runs[${runIndex}]`;
-            const v1 = ["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key));
-            if (v1 && (!Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > chars.length || run.from >= run.to)) {
-              add("captions.run.range", "error", path, "\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u6570\u306E\u5916\u306B\u3042\u308A\u307E\u3059\u3002", "document");
-            }
-            if (run.id) {
-              if ((counts.get(run.id) ?? 0) > 1)
-                add("captions.run.id", "error", path, `\u7BC4\u56F2 ID ${run.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059\u3002`, "document");
-            }
-            if (run.fire === "spoken" && !run.anchor) {
-              add("captions.run.anchor", "error", path, "\u767A\u8A71\u6642\u306B\u52D5\u304B\u3059\u7BC4\u56F2\u306B\u306F\u5B9F\u6E2C\u6642\u523B\u304C\u5FC5\u8981\u3067\u3059\u3002", "document");
-            }
-            if (run.anchor) {
-              const domain = row.time_domain === "output" ? "output" : "source";
-              const outsideWindow = run.anchor.domain === domain && (run.anchor.start < Number(row.start) || run.anchor.end > Number(row.end) || run.anchor.start >= run.anchor.end);
-              const mappedCodes = /* @__PURE__ */ new Set();
-              if (ctx.timeline) {
-                const mapped = (0, caption_anchor_map_1.anchorToOutput)(run.anchor, {
-                  src: typeof row.src === "string" ? row.src : void 0,
-                  start: Number(row.start),
-                  end: Number(row.end),
-                  time_domain: domain
-                }, ctx.timeline, run.fire);
-                for (const result of mapped)
-                  for (const warning of result.diagnostics) {
-                    if (mappedCodes.has(warning.code))
-                      continue;
-                    mappedCodes.add(warning.code);
-                    add(warning.code, warning.severity, path, warning.message, "project");
-                  }
-              }
-              if (outsideWindow && !mappedCodes.has("captions.run.anchor-window")) {
-                add("captions.run.anchor-window", "warning", path, "\u7BC4\u56F2\u306E\u5B9F\u6E2C\u6642\u523B\u3092\u884C\u306E\u8868\u793A\u7A93\u3078\u5207\u308A\u8A70\u3081\u307E\u3059\u3002", "project");
-              }
-            }
-            if (ctx.path === "gpu" && run.motion) {
-              for (const slot of Object.values(run.motion)) {
-                if (slot && ctx.gpuMotionIds && !ctx.gpuMotionIds.has(slot.id)) {
-                  add("captions.style.unsupported-path", "error", path, `GPU \u7D4C\u8DEF\u3067\u52D5\u304D ${slot.id} \u3092\u63CF\u3051\u307E\u305B\u3093\u3002`, "path");
-                }
-              }
-            }
-          }
-        }
-        for (const [index, item] of unresolved.entries()) {
-          if (item && typeof item === "object" && item.run?.id && (counts.get(item.run.id) ?? 0) > 1) {
-            add("captions.run.id", "error", `captions.json#unresolved_runs[${index}].run`, `\u7BC4\u56F2 ID ${item.run.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059\u3002`, "document");
-          }
-        }
-        return diagnostics;
-      }
-      function renderableCaptionRuns(caption, document2) {
-        const rows = Array.isArray(document2) ? document2 : Array.isArray(document2?.captions) ? document2.captions : [];
-        const index = rows.indexOf(caption);
-        const invalid = new Set(validateCaptionsSemantics({ captions: document2 }).filter((item) => item.severity === "error" && item.layer === "document").flatMap((item) => {
-          const match = /captions\[(\d+)\]\.runs\[(\d+)\]/.exec(item.path);
-          return match && Number(match[1]) === index ? [Number(match[2])] : [];
-        }));
-        if (!Array.isArray(caption?.runs))
-          return caption?.runs ?? [];
-        return caption.runs.filter((_run, runIndex) => !invalid.has(runIndex));
-      }
-    }
-  });
-
-  // packages/edit-store/lib/caption-look-shape.js
-  var require_caption_look_shape = __commonJS({
-    "packages/edit-store/lib/caption-look-shape.js"(exports) {
-      "use strict";
-      Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CaptionsInvalidError = exports.CAPTION_LOOK_SHAPE_KEYS = exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = void 0;
-      exports.validateCaptionLookV1Shape = validateCaptionLookV1Shape;
-      exports.assertCaptionsWritable = assertCaptionsWritable;
-      var caption_semantics_1 = require_caption_semantics();
-      var isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-      var has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
-      var number2 = (value) => typeof value === "number" && Number.isFinite(value);
-      var positive = (value) => number2(value) && value > 0;
-      var nonnegative = (value) => number2(value) && value >= 0;
-      var integer = (value) => Number.isInteger(value);
-      var nonempty = (value) => typeof value === "string" && value.length > 0;
-      var hex = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
-      var runId = (value) => typeof value === "string" && /^r-\d{4,}$/.test(value);
-      var fire = (value) => ["shown", "spoken", "whole"].includes(String(value));
-      var enumOf = (...values) => (value) => typeof value === "string" && values.includes(value);
-      function objectRule(fields, required = [], minProperties = 0) {
-        return (value) => isObject(value) && Object.keys(value).length >= minProperties && required.every((key) => has(value, key)) && Object.entries(value).every(([key, entry]) => fields[key] !== void 0 && fields[key](entry));
-      }
-      var stroke = objectRule({ method: enumOf("webkit-outline"), color: hex, width_px: nonnegative });
-      var shadow = objectRule({
-        color: hex,
-        opacity: (value) => number2(value) && value >= 0 && value <= 1,
-        blur_px: nonnegative,
-        distance_px: nonnegative,
-        angle_deg: number2
-      }, ["color"]);
-      var glow = objectRule({ color: hex, density: nonnegative, spread: nonnegative, offset_x: number2, offset_y: number2 }, ["color"]);
-      var background = objectRule({
-        color: hex,
-        opacity: (value) => number2(value) && value >= 0 && value <= 1,
-        radius_px: nonnegative,
-        padding_px: nonnegative,
-        width_pct: nonnegative,
-        height_pct: nonnegative,
-        fit: enumOf("text", "frame"),
-        offset_x: number2,
-        offset_y: number2,
-        mode: enumOf("per-line", "block")
-      });
-      var lookFields = {
-        color: hex,
-        font_weight: (value) => integer(value) && value >= 1 && value <= 1e3,
-        italic: (value) => typeof value === "boolean",
-        underline: (value) => typeof value === "boolean",
-        letter_spacing_em: number2,
-        scale: positive,
-        baseline_shift_em: number2,
-        rotate_deg: (value) => number2(value) && Math.abs(value) <= 180,
-        stroke,
-        shadow,
-        glow,
-        background
-      };
-      var look = objectRule(lookFields);
-      exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = [
-        "fade-in-out",
-        "soft-fade",
-        "fade-up",
-        "fade-down",
-        "cinematic-fade",
-        "slide-left",
-        "slide-right",
-        "slide-up",
-        "slide-down",
-        "push-left",
-        "push-right",
-        "push-up",
-        "push-down",
-        "rise-soft",
-        "drop-in",
-        "zoom-in-out",
-        "zoom-pop",
-        "zoom-pulse",
-        "pop",
-        "bounce",
-        "squash-pop",
-        "stretch-in",
-        "stomp",
-        "snap",
-        "rotate-in",
-        "spin-in",
-        "roll-in",
-        "spiral-in",
-        "swing",
-        "shake",
-        "jitter",
-        "glitch",
-        "flash",
-        "heartbeat",
-        "typewriter",
-        "wipe-left",
-        "wipe-right",
-        "wobble",
-        "float",
-        "breath",
-        "neon-flicker",
-        "hologram",
-        "retro-flicker",
-        "caption-rise",
-        "news-ticker",
-        "marquee-left",
-        "crawl-up"
-      ];
-      var animationIds = new Set(exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS);
-      var slot = objectRule({
-        id: (value) => typeof value === "string" && animationIds.has(value),
-        duration_sec: positive,
-        ease: (value) => value === null || typeof value === "string" && /\S/.test(value),
-        amp: (value) => value === null || positive(value)
-      }, ["id"]);
-      var motion2 = objectRule({ in: slot, loop: slot, out: slot }, [], 1);
-      var anchorFields = {
-        src: nonempty,
-        start: nonnegative,
-        end: nonnegative,
-        domain: enumOf("source", "output")
-      };
-      var anchor = objectRule(anchorFields, ["start", "end", "domain"]);
-      var sourceFields = {
-        kind: enumOf("builtin", "library", "my"),
-        id: nonempty,
-        uid: nonempty,
-        revision: (value) => integer(value) && value >= 0,
-        original_hash: nonempty,
-        applied_hash: nonempty,
-        applied_at: nonempty,
-        requires: (value) => Array.isArray(value) && value.every(objectRule({
-          id: nonempty,
-          version: (value2) => typeof value2 === "string",
-          hash: nonempty
-        }, ["id", "version", "hash"]))
-      };
-      var source = objectRule(sourceFields, ["kind", "id", "original_hash", "applied_hash"]);
-      var styleSourcesFields = { look: source, motion: source };
-      var styleSources = objectRule(styleSourcesFields);
-      var migratedEmphasis = objectRule({ index: nonnegative, item: (value) => isObject(value) }, ["index", "item"]);
-      var v1Fields = {
-        id: runId,
-        from: integer,
-        to: integer,
-        role: nonempty,
-        look,
-        motion: motion2,
-        emotion: nonempty,
-        anchor,
-        fire,
-        fire_was: fire,
-        style_sources: styleSources,
-        needs_review: (value) => typeof value === "boolean",
-        split_from: runId,
-        migrated_from: (value) => typeof value === "string" && /^e-\d{4,}$/.test(value),
-        dormant_animation: motion2,
-        migrated_emphasis: migratedEmphasis
-      };
-      var unresolvedFields = ["run", "old_caption_id", "old_text", "old_src", "old_start", "old_end", "reason"];
-      exports.CAPTION_LOOK_SHAPE_KEYS = {
-        run: [...Object.keys(v1Fields), "style", "animation"],
-        look: Object.keys(lookFields),
-        anchor: Object.keys(anchorFields),
-        styleSources: Object.keys(styleSourcesFields),
-        source: Object.keys(sourceFields),
-        unresolvedRun: unresolvedFields
-      };
-      var idRequired = ["look", "motion", "anchor", "fire", "style_sources", "migrated_from"];
-      function validateCaptionLookV1Shape(captionsRoot) {
-        const diagnostics = [];
-        const add = (path, field) => diagnostics.push({
-          code: "captions.look.shape",
-          severity: "error",
-          path,
-          message: `${field} \u306E\u5F62\u304C\u5B57\u5E55\u306E\u898F\u5247\u306B\u5408\u3044\u307E\u305B\u3093\u3002`,
-          layer: "document"
-        });
-        const rows = Array.isArray(captionsRoot) ? captionsRoot : isObject(captionsRoot) ? captionsRoot.captions : void 0;
-        const checkRun = (run, path) => {
-          if (!isObject(run)) {
-            add(path, "run");
-            return;
-          }
-          const v1 = Object.keys(v1Fields).some((key) => has(run, key));
-          if (v1) {
-            for (const key of ["from", "to"])
-              if (!has(run, key))
-                add(path, key);
-          }
-          if (idRequired.some((key) => has(run, key)) && !has(run, "id"))
-            add(path, "id");
-          for (const [key, rule] of Object.entries(v1Fields))
-            if (has(run, key) && !rule(run[key]))
-              add(`${path}.${key}`, key);
-          for (const key of Object.keys(run))
-            if (!has(v1Fields, key) && !["style", "animation"].includes(key))
-              add(`${path}.${key}`, key);
-        };
-        if (Array.isArray(rows))
-          rows.forEach((row, index) => {
-            if (!isObject(row))
-              return;
-            if (has(row, "style_sources") && !styleSources(row.style_sources))
-              add(`captions.json#captions[${index}].style_sources`, "style_sources");
-            if (Array.isArray(row.runs))
-              row.runs.forEach((run, runIndex) => checkRun(run, `captions.json#captions[${index}].runs[${runIndex}]`));
-          });
-        if (isObject(captionsRoot) && has(captionsRoot, "unresolved_runs")) {
-          const value = captionsRoot.unresolved_runs;
-          const valid = Array.isArray(value) && value.every((item, index) => {
-            if (!isObject(item))
-              return false;
-            checkRun(item.run, `captions.json#unresolved_runs[${index}].run`);
-            return unresolvedFields.every((key) => has(item, key)) && Object.keys(item).every((key) => unresolvedFields.includes(key)) && isObject(item.run) && typeof item.old_caption_id === "string" && typeof item.old_text === "string" && (item.old_src === null || typeof item.old_src === "string") && number2(item.old_start) && number2(item.old_end) && nonempty(item.reason);
-          });
-          if (!valid)
-            add("captions.json#unresolved_runs", "unresolved_runs");
-        }
-        return diagnostics;
-      }
-      var CaptionsInvalidError = class extends Error {
-        constructor(diagnostics) {
-          super(`\u5B57\u5E55\u306E\u5185\u5BB9\u3092\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093: ${diagnostics.map((item) => item.message).join("\u3001")}`);
-          this.diagnostics = diagnostics;
-          this.code = "AKARI_CAPTIONS_INVALID";
-          this.name = "CaptionsInvalidError";
-        }
-      };
-      exports.CaptionsInvalidError = CaptionsInvalidError;
-      function assertCaptionsWritable(captionsRoot, ctx = {}) {
-        const diagnostics = [...validateCaptionLookV1Shape(captionsRoot), ...(0, caption_semantics_1.validateCaptionsSemantics)({ ...ctx, captions: captionsRoot })];
-        if (diagnostics.some((item) => item.severity === "error"))
-          throw new CaptionsInvalidError(diagnostics);
       }
     }
   });

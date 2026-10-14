@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPTION_EMPHASIS_MOTION = void 0;
 exports.nextEmphasisWordId = nextEmphasisWordId;
+exports.captionEmphasisWordIntervals = captionEmphasisWordIntervals;
 exports.readCaptionLookV1 = readCaptionLookV1;
 exports.planCaptionLookMigration = planCaptionLookMigration;
 exports.captionRenderInputFromV1 = captionRenderInputFromV1;
@@ -46,6 +47,18 @@ const DEFAULT_HINT = {
     pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang',
     disgust: 'one-char-jumble', joy: 'size-pulse', emphasis: 'size-pulse'
 };
+function captionEmphasisWordIntervals(row, wordText) {
+    const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
+    const word = (0, caption_runs_1.captionGraphemes)(wordText);
+    const matches = [];
+    if (!word.length)
+        return matches;
+    for (let i = 0; i <= chars.length - word.length; i++) {
+        if (word.every((char, n) => chars[i + n] === char))
+            matches.push({ from: i, to: i + word.length });
+    }
+    return matches;
+}
 function intervalForEmphasis(row, emphasis) {
     if (emphasis.src && emphasis.src !== row.src)
         return undefined;
@@ -53,14 +66,8 @@ function intervalForEmphasis(row, emphasis) {
         || emphasis.t_start < row.start || emphasis.t_end > row.end
         || emphasis.t_start >= emphasis.t_end)
         return undefined;
-    const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? '');
-    const word = (0, caption_runs_1.captionGraphemes)(emphasis.word);
-    const matches = [];
-    for (let i = 0; i <= chars.length - word.length; i++) {
-        if (word.every((char, n) => chars[i + n] === char))
-            matches.push(i);
-    }
-    return matches.length === 1 ? { from: matches[0], to: matches[0] + word.length } : undefined;
+    const matches = captionEmphasisWordIntervals(row, emphasis.word);
+    return matches.length === 1 ? matches[0] : undefined;
 }
 function projectEmphasis(rows, item) {
     if (item.style_preset)

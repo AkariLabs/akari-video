@@ -448,7 +448,14 @@ function updateCaptionTextStyleInSource(source, captionId, updates, catalog = te
             ? removeObjectProperty(nextElement, 'text_style')
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
-    return replaceElement(source, array.openIndex + 1, element, nextElement);
+    const updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+    if (updated !== source) {
+        const original = JSON.parse(source);
+        const rows = Array.isArray(original) ? original : original.captions;
+        const index = rows.findIndex(row => row.id === captionId);
+        (0, caption_style_command_1.assertChangedCaptionStyles)(original, JSON.parse(updated), [`captions[${index}].text_style`]);
+    }
+    return updated;
 }
 function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
     if (captionIds.length === 0) {

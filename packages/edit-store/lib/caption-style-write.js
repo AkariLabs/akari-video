@@ -30,7 +30,7 @@ async function readVersions(projectRoot, options) {
 function parsed(value) {
     return value.text === null ? undefined : JSON.parse(value.text.replace(/^\uFEFF/, ''));
 }
-async function commit(projectRoot, before, captions, changed, notices, options, label, dryRun = false) {
+async function commit(projectRoot, before, captions, changed, notices, noticeCodes, options, label, dryRun = false) {
     const captionsName = options.files?.captions ?? 'captions.json';
     const editName = options.files?.edit ?? 'edit.json';
     const after = structuredClone(before);
@@ -40,7 +40,8 @@ async function commit(projectRoot, before, captions, changed, notices, options, 
         after[captionsName] = { text: content, hash: (0, write_gate_1.projectFileHash)(content) };
     }
     if (dryRun || after[captionsName].text === before[captionsName].text) {
-        return { written: [], notices: [...new Set(notices)], changed: after[captionsName].text === before[captionsName].text ? [] : changed,
+        return { written: [], notices: [...new Set(notices)], notice_codes: noticeCodes,
+            changed: after[captionsName].text === before[captionsName].text ? [] : changed,
             before, after };
     }
     await (0, write_gate_1.captureProjectLintBaseline)(projectRoot);
@@ -70,7 +71,8 @@ async function commit(projectRoot, before, captions, changed, notices, options, 
     });
     if (written.written.length)
         (0, write_gate_1.scheduleProjectLint)(projectRoot, options);
-    return { written: written.written, notices: [...new Set(notices)], changed, ...(written.recovered ? { recovered: written.recovered } : {}),
+    return { written: written.written, notices: [...new Set(notices)], notice_codes: noticeCodes,
+        changed, ...(written.recovered ? { recovered: written.recovered } : {}),
         before, after };
 }
 async function readCaptions(projectRoot, options) {
@@ -89,29 +91,30 @@ async function applyCaptionStyle(projectRoot, input, options = {}) {
     const result = (0, caption_style_command_1.planCaptionStyleEdit)({ ...input, catalog: input.catalog ?? options.catalog
             ?? (0, textstyle_library_node_1.loadTextstyleCatalogSync)({ env: process.env }).catalog, captions,
         edit: parsed(before[options.files?.edit ?? 'edit.json']), assetReferences: parsed(before['.akari/asset-references.json']) });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-style');
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-style');
 }
 async function clearCaptionStyle(projectRoot, input, options = {}) {
     const { before, captions } = await readCaptions(projectRoot, options);
     const result = (0, caption_style_command_1.planCaptionStyleClear)({ ...input, captions });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-clear');
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-clear');
 }
 async function reapplyCaptionStyle(projectRoot, input, options = {}) {
     const { before, captions } = await readCaptions(projectRoot, options);
     const result = (0, caption_style_command_1.planCaptionStyleReapply)({ ...input, captions });
-    const write = await commit(projectRoot, before, result.next?.captions ?? captions, result.next ? [options.files?.captions ?? 'captions.json'] : [], result.notices, options, 'caption-reapply');
+    const write = await commit(projectRoot, before, result.next?.captions ?? captions, result.next ? [options.files?.captions ?? 'captions.json'] : [], result.notices, result.notice_codes, options, 'caption-reapply');
     return { ...write, items: result.items };
 }
 async function setCaptionSize(projectRoot, input, options = {}) {
     const { before, captions } = await readCaptions(projectRoot, options);
     const result = (0, caption_style_command_1.planCaptionSizeEdit)({ ...input, captions, catalog: options.catalog
             ?? (0, textstyle_library_node_1.loadTextstyleCatalogSync)({ env: process.env }).catalog });
-    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-size');
+    return commit(projectRoot, before, result.next.captions, result.changed, result.notices, result.notice_codes, options, 'caption-size');
 }
 async function applyCaptionLookMigration(projectRoot, options = {}) {
     const { before, captions } = await readCaptions(projectRoot, options);
     const plan = (0, caption_look_reader_1.planCaptionLookMigration)(captions, options.catalog
         ?? (0, textstyle_library_node_1.loadTextstyleCatalogSync)({ env: process.env }).catalog, parsed(before[options.files?.edit ?? 'edit.json']));
-    const result = await commit(projectRoot, before, plan.next, plan.diff.length ? [options.files?.captions ?? 'captions.json'] : [], plan.notices, options, 'caption-migrate-look', options.dryRun);
+    (0, caption_style_command_1.assertChangedCaptionStyles)(captions, plan.next, plan.diff.map(item => item.path));
+    const result = await commit(projectRoot, before, plan.next, plan.diff.length ? [options.files?.captions ?? 'captions.json'] : [], plan.notices, (0, caption_style_command_1.captionNoticeCodes)(plan.notices, []), options, 'caption-migrate-look', options.dryRun);
     return { ...result, diff: plan.diff };
 }

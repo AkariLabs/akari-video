@@ -71,7 +71,14 @@ type Plan = {
     };
     changed: string[];
     notices: string[];
+    notice_codes: Array<{
+        code: string;
+        params?: Record<string, string | number>;
+    }>;
 };
+export declare function assertChangedCaptionStyles(before: CaptionRoot, after: CaptionRoot, changed: string[]): void;
+declare function noticeCodes(notices: string[], omitted: string[]): Plan['notice_codes'];
+export declare const captionNoticeCodes: typeof noticeCodes;
 type EmphasisWord = {
     src?: string;
     t_start: number;
@@ -127,6 +134,7 @@ export declare function planCaptionStyleReapply(input: {
         captions: CaptionRoot;
     };
     notices: string[];
+    notice_codes: Plan['notice_codes'];
 };
 export declare function resizeCaptionRow(row: Row, defaultStyle: Record<string, unknown>, size: number, catalog?: TextstyleCatalog, notices?: string[], at?: string): boolean;
 export declare function planCaptionSizeEdit(input: {
