@@ -32,11 +32,11 @@ test('Blender コマンドが PATH にあれば 3D レシピを使える', () =>
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, 'blender'), '', { mode: 0o755 });
   const snapshot = connectSnapshot({ env: { ...env, PATH: bin }, home, platform: 'darwin' });
-  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, '使える');
+  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, 'ready');
 }));
 
 test('素材を作る五行はメーカー印のロゴと色を持つ', () => fixture(({ home, apps, env }) => {
-  const rows = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.filter(row => row.group === '素材を作る');
+  const rows = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.filter(row => row.group === 'generate');
   assert.deepEqual(rows.map(row => row.maker), ['fal', 'fish', 'google', 'elevenlabs', 'groq']);
   assert.equal(rows.length, 5);
   for (const row of rows) {
@@ -50,7 +50,7 @@ test('素材を作る五行はメーカー印のロゴと色を持つ', () => fi
 test('メーカー印が読めなくても一覧と頭文字を維持する', () => fixture(({ root, home, apps, env }) => {
   const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin', makerRoots: [root] });
   assert.equal(snapshot.rows.length, 7);
-  for (const row of snapshot.rows.filter(item => item.group === '素材を作る')) {
+  for (const row of snapshot.rows.filter(item => item.group === 'generate')) {
     assert.equal(row.logo, undefined);
     assert.ok(row.icon);
   }
@@ -71,10 +71,10 @@ test('fake credentials change only presence and masked tail', () => fixture(({ h
   fs.writeFileSync(env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=fake-connect-key-1234\n', { mode: 0o600 });
   const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' });
   const fal = snapshot.rows.find(row => row.id === 'fal');
-  assert.equal(fal.status, '使える');
+  assert.equal(fal.status, 'ready');
   assert.equal(fal.maskedTail, '1234');
   assert.equal(fal.credentialSource, 'credentials.env');
-  assert.equal(snapshot.rows.find(row => row.id === 'fish-audio').status, '鍵が必要');
+  assert.equal(snapshot.rows.find(row => row.id === 'fish-audio').status, 'needs-key');
   assert.equal(JSON.stringify(snapshot).includes('fake-connect-key'), false);
 }));
 
@@ -99,7 +99,7 @@ test('偽の鍵は現行サービスだけに保存できる', () => fixture(({ 
   saveCredential('fish-audio', 'fake-fish-1234', env, home);
   assert.equal(fs.readFileSync(env.AKARI_CREDENTIALS_FILE, 'utf8'), 'FISH_AUDIO_API_KEY=fake-fish-1234\n');
   const row = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(item => item.id === 'fish-audio');
-  assert.equal(row.status, '使える');
+  assert.equal(row.status, 'ready');
   assert.equal(row.maskedTail, '1234');
   assert.throws(() => saveCredential('higgsfield', 'unused', env, home));
 }));
@@ -111,16 +111,16 @@ test('旧 id を無視して二群の順序と設定を維持する', () => fixt
   assert.deepEqual(readSettings(file).generationOrder, ['fal', 'fish-audio']);
   assert.equal(readSettings(file).enabled.higgsfield, undefined);
   const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' });
-  assert.deepEqual([...new Set(snapshot.rows.map(row => row.group))], ['AKARI の道具', '素材を作る']);
+  assert.deepEqual([...new Set(snapshot.rows.map(row => row.group))], ['tools', 'generate']);
   assert.deepEqual(snapshot.generationOrder.slice(0, 2), ['fal', 'fish-audio']);
   assert.equal(snapshot.fallbackOnFailure, true);
   assert.equal(snapshot.rows.find(row => row.id === 'fal').enabled, false);
   assert.equal(snapshot.rows.find(row => row.id === 'akari-video').enabled, true);
-  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, '使える');
-  assert.equal(connectSnapshot({ env, home, roots: [], platform: 'darwin' }).rows.find(row => row.id === '3d-recipes').status, 'Blender が必要');
-  assert.equal(snapshot.rows.find(row => row.id === 'akari-video').status, '使える');
-  assert.equal(connectorStatus({ kind: 'key' }, false, false), '鍵が必要');
-  assert.deepEqual(snapshot.rows.filter(row => row.group === '素材を作る').map(row => row.id), ['fal', 'fish-audio', 'google-ai', 'elevenlabs', 'groq']);
+  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, 'ready');
+  assert.equal(connectSnapshot({ env, home, roots: [], platform: 'darwin' }).rows.find(row => row.id === '3d-recipes').status, 'needs-blender');
+  assert.equal(snapshot.rows.find(row => row.id === 'akari-video').status, 'ready');
+  assert.equal(connectorStatus({ kind: 'key' }, false, false), 'needs-key');
+  assert.deepEqual(snapshot.rows.filter(row => row.group === 'generate').map(row => row.id), ['fal', 'fish-audio', 'google-ai', 'elevenlabs', 'groq']);
   assert.equal(fs.readFileSync(file, 'utf8').includes('KEY='), false);
 }));
 
@@ -130,5 +130,5 @@ test('登録した鍵は削除でき、接続設定には値を残さない', ()
   deleteCredential('fal', env, home);
   const file = env.AKARI_CREDENTIALS_FILE;
   assert.equal(fs.readFileSync(file, 'utf8').includes('fake-remove-WXYZ'), false);
-  assert.equal(connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(row => row.id === 'fal').status, '鍵が必要');
+  assert.equal(connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(row => row.id === 'fal').status, 'needs-key');
 }));

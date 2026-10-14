@@ -43,6 +43,59 @@ export function shouldRevealPartner(step: OnboardingStep, entrySerial: number, r
 
 export interface GuideRect { x: number; y: number; width: number; height: number }
 
+export interface GuideCoachHold<Element> { element: Element; basis: string; top: number }
+
+/** A typed prompt may reuse its top only when the same coach and placement inputs remain. */
+export function heldGuideCoachTop<Element>(hold: GuideCoachHold<Element> | undefined, element: Element,
+    basis: string, step: OnboardingStep, sub: number, forced: boolean): number | undefined {
+    return !forced && step === 'prompt' && sub === 0 && hold?.element === element && hold.basis === basis
+        ? hold.top : undefined;
+}
+
+/** Clamp the measured outer coach rectangle; reserve room below it for the guide chrome. */
+export function guideCoachBounds(viewport: { width: number; height: number },
+    coach: { width: number; height: number; actionsHeight?: number; actionsBottomInset?: number }, preferred: { x: number; y: number },
+    previousTop?: number): { left: number; top: number; maxHeight: number; height: number;
+        actionsHeight: number; actionsBottomInset: number } {
+    const maxHeight = Math.max(0, viewport.height - 40);
+    const height = Math.min(coach.height, maxHeight);
+    const left = Math.max(8, Math.min(preferred.x, viewport.width - coach.width - 8));
+    // Preserve the typing start position while the measured coach still fits in the viewport.
+    const top = previousTop !== undefined && Number.isFinite(previousTop) && previousTop >= 8
+        && previousTop + height <= viewport.height
+        ? previousTop : Math.max(8, Math.min(preferred.y, viewport.height - height - 32));
+    return { left, top, maxHeight, height,
+        actionsHeight: coach.actionsHeight ?? 0, actionsBottomInset: coach.actionsBottomInset ?? 0 };
+}
+
+/** Compute the coach's preferred position from its anchor before clamping the measured rectangle. */
+export function guideCoachPlacement(viewport: { width: number; height: number },
+    coach: { width: number; height: number; actionsHeight?: number; actionsBottomInset?: number }, anchor: GuideRect | undefined,
+    options: { minimal?: boolean; noDim?: boolean; place?: 'left' | 'right' | 'top' | 'bottom';
+        step?: OnboardingStep; sub?: number; previousTop?: number; captionPosition?: { x: number; y: number } } = {}) {
+    const { width, height } = coach;
+    let x = anchor ? anchor.x + anchor.width + 14 : (viewport.width - width) / 2;
+    let y = anchor ? anchor.y + (anchor.height - height) / 2 : (viewport.height - height) / 2;
+    if (options.minimal) {
+        x = (viewport.width - width) / 2;
+        y = viewport.height * (options.noDim ? .66 : .42) - height / 2;
+    } else if (options.place === 'left') x = (anchor?.x ?? viewport.width / 2) - width - 14;
+    else if (options.place === 'top') {
+        x = (anchor?.x ?? viewport.width / 2) + ((anchor?.width ?? 0) - width) / 2;
+        y = (anchor?.y ?? viewport.height / 2) - height - 14;
+    } else if (options.place === 'bottom') {
+        x = (anchor?.x ?? viewport.width / 2) + ((anchor?.width ?? 0) - width) / 2;
+        y = (anchor ? anchor.y + anchor.height : viewport.height / 2) + 14;
+    }
+    if (x + width > viewport.width - 12 && anchor) x = anchor.x - width - 14;
+    if (x < 8 && anchor && !options.minimal) x = anchor.x + anchor.width + 14;
+    if (options.step === 'work') { x = 20; y = viewport.height * .53; }
+    if (options.step === 'drag') { x = (anchor ? anchor.x + anchor.width : 240) + 14; y = viewport.height - height - 24; }
+    if (options.step === 'daihon' && (options.sub ?? 0) > 0) { x = 12; y = 66; }
+    if (options.step === 'caption' && (options.sub ?? 0) > 0 && options.captionPosition) ({ x, y } = options.captionPosition);
+    return guideCoachBounds(viewport, coach, { x, y }, options.previousTop);
+}
+
 /** The play control shifts horizontally in a narrow preview, so frame the full transport row. */
 export function materialPreviewTransportRect(frame: GuideRect): GuideRect {
     const height = Math.min(42, frame.height); // 34px controls and 8px seek/spacing above them.

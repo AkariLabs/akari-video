@@ -2,8 +2,15 @@
   "id": "maoudamashii-se-system-category",
   "category": "audio",
   "title": "魔王魂 システム（コイン系 / ポイント提示音）",
-  "description": "マリオのコイン風の上昇音 2 点と、解説のポイント提示で使うプロリン音 1 点。（収録数: 3点） 【audio-standard】部分参加 2/3 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
+  "description": "マリオのコイン風の上昇音 2 点と、解説のポイント提示で使うプロリン音 1 点。（収録数: 3点） 【audio-standard】部分参加 2/3 音（対象はローカル index.jsonl の standard フラグ）",
   "when_to_use": "コツ・ポイントの紹介（46/47）、解説の要点マーカー（49）",
+  "i18n": {
+    "en": {
+      "title": "Maoudamashii System SFX (Coins / Point Cues)",
+      "description": "Two rising Mario-coin-like sounds and one pling for calling out a key point in an explainer. Includes 3 items. Under audio-standard, 2 of 3 sounds participate; the local index.jsonl standard flag identifies them.",
+      "when_to_use": "For introducing tips or points (46/47) and marking key ideas in an explainer (49)."
+    }
+  },
   "tags": [
     "sfx",
     "coin",

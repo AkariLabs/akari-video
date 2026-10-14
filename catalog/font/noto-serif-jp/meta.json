@@ -5,6 +5,16 @@
   "aliases": ["Noto Serif JP","NotoSerifJP-Regular"],
   "description": "Google Fonts が公開する定番の日本語明朝体。Hiragino Mincho ProN 相当の明朝トーンを Windows/Linux でも同一グリフで再現するための標準選択肢。可変フォント（wght 100〜900 対応・1ファイル）で、和風・格式・ドキュメンタリー調のテロップに使う。実体は本リポの assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf に同梱済み（2026-07-23 追加。catalog/telop の Hiragino Mincho ProN 直書き置換に伴い新規カタログ化。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "和風・格式・ドキュメンタリー・ニュース調など、ゴシックより落ち着いた明朝体トーンの日本語テロップ・見出しが欲しいシーン",
+  "i18n": {
+    "en": {
+      "title": "Noto Serif JP",
+      "description": "A standard Japanese serif published by Google Fonts. It reproduces a Hiragino Mincho ProN-like tone with consistent glyphs on Windows and Linux. The single variable file supports wght 100-900 and suits Japanese, formal, and documentary captions. Bundled at assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf (added 2026-07-23 when direct Hiragino Mincho ProN references in catalog/telop were replaced). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For Japanese-style, formal, documentary, or news-like captions and headlines needing a calmer serif tone than sans serif.",
+      "aliases": [
+        "NotoSerifJP-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

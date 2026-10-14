@@ -345,3 +345,20 @@ test('フォント行・フィルターチップ・追加ボタンは安定し�
     assert.equal(expanded.children[0].attributes['aria-expanded'], 'true');
     assert.match(expanded.children[0].attributes['aria-label'], /太さを閉じる/u);
 });
+
+test('caption style cards and recent button use English names and specimen in English UI', () => {
+    const englishState = state(); englishState.recentStyles = ['subtitle-news'];
+    setLanguage('en');
+    try {
+        const panel = createCaptionPanel(document, 'style', englishState, [], faces, actions);
+        const nodes = descendants(panel);
+        assert.ok(nodes.some(node => node.textContent === 'News'));
+        assert.ok(nodes.some(node => node.className === 'akari-caption__line' && node.textContent === 'Aa12'));
+        assert.ok(nodes.some(node => node.textContent === 'Aa12'));
+    } finally {
+        setLanguage('ja');
+    }
+    const panel = createCaptionPanel(document, 'style', englishState, [], faces, actions);
+    assert.ok(descendants(panel).some(node => node.textContent === 'ニュース風'));
+    assert.ok(descendants(panel).some(node => node.className === 'akari-caption__line' && node.textContent === CAPTION_SAMPLE_TEXT));
+});

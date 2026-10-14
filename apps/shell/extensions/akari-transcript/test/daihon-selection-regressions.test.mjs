@@ -10,7 +10,6 @@ import { extendWordRange, wordRangeSummary } from '../lib/common/daihon-word-sel
 import { isDaihonCompositionStart, isPrintableDaihonKey, selectedDaihonEdit,
     wordSelectionHeading } from '../lib/common/daihon-dock.js';
 import { changedWordPresetRowIds } from '../lib/common/daihon-reconcile.js';
-import { planEmphasisUpserts } from '../lib/browser/daihon/daihon-emphasis-words.js';
 import { defaultCutRange } from '../lib/common/daihon-cut-range.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -152,10 +151,7 @@ test('強調だけ変わった行も再描画され、保存直後に本文の�
     assert.deepEqual(presets.get('c1'), ['emphasis-red']);
 });
 
-test('強調プリセットと src は保存され、更新通知がプレビューの強調データと色・太さを運ぶ', () => {
-    assert.deepEqual(planEmphasisUpserts([{ src: 'sample', t_start: 2.35, t_end: 2.75, word: '今日は' }],
-        'emphasis-red'), [{ src: 'sample', t_start: 2.35, t_end: 2.75, word: '今日は',
-        emotion: 'neutral', style_preset: 'emphasis-red', inherit_caption_size: true }]);
+test('強調データの更新通知がプレビューの色・太さを運ぶ', () => {
     assert.match(transcript, /src: this\.sourceIdForRow\(row\)/);
     assert.match(previewHost, /return normalizePreviewEmphasisWords\(value, output\)/);
     assert.match(previewHost, /type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords/);

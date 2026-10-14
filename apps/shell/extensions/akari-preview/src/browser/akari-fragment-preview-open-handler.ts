@@ -1,5 +1,5 @@
 import { t } from '../common/preview-text';
-import { getLanguage } from '@akari-video/i18n';
+import { getLanguage, localizedKnobLabel, localizedKnobGroup } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -13,10 +13,18 @@ interface FragmentPreviewKnob {
     cssVar: string;
     type: 'color' | 'slider' | 'text';
     label: string;
+    group?: string;
+    groupLabel?: string;
     default: string | number;
     min?: number;
     max?: number;
     unit?: string;
+}
+
+export function localizeFragmentPreviewKnobs(meta: { i18n?: Record<string, { knobs?: Record<string, string>; groups?: Record<string, string> }> },
+    knobs: FragmentPreviewKnob[], language: string): FragmentPreviewKnob[] {
+    return knobs.map(knob => ({ ...knob, label: localizedKnobLabel(meta, knob, language) ?? knob.label,
+        ...(knob.group ? { groupLabel: localizedKnobGroup(meta, knob.group, language) } : {}) }));
 }
 
 @injectable()
@@ -100,6 +108,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                     && (value.type !== 'slider' || (typeof value.min === 'number' && Number.isFinite(value.min)
                         && typeof value.max === 'number' && Number.isFinite(value.max) && value.max > value.min));
             }) : [];
+            const localizedKnobs = localizeFragmentPreviewKnobs(meta, knobs, getLanguage());
             const assets = await this.previewService.getOverlayRuntimeAssetUrls();
             const result = await this.previewService.rewriteFragmentAssets({
                 projectRootUri: uri.parent.toString(), html, htmlPath: 'fragment.html', overlayId: 'asset',
@@ -110,7 +119,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                 await release();
                 return;
             }
-            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`, knobs));
+            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`, localizedKnobs));
         } catch (error) {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
@@ -178,6 +187,7 @@ background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparen
 #knob-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding-top:8px}
 #knob-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px}
 #knob-fields input{width:100%}
+#knob-fields h4{grid-column:1/-1;margin:12px 0 4px;font-size:12px}
 #error{margin:auto;padding:32px;text-align:center;line-height:1.7}
 </style></head><body>
 <div id="viewport"><div class="akari-material-chip">${this.escapeHtml(filename)}</div><div id="canvas" data-background="checker"><div id="overlay-stage"></div></div></div>
@@ -196,7 +206,12 @@ ${scripts.map(url => `<script src="${this.escapeHtml(url)}"></script>`).join('')
  if(knobs.length){
    const panel=document.getElementById('knobs'),fields=document.getElementById('knob-fields');
    panel.hidden=false;
+   let currentGroup;
    for(const knob of knobs){
+     if(knob.group && knob.group!==currentGroup){
+       currentGroup=knob.group;
+       const heading=document.createElement('h4');heading.textContent=knob.groupLabel||knob.group;fields.append(heading);
+     }
      const label=document.createElement('label'),input=document.createElement('input'),value=document.createElement('span');
      label.textContent=knob.label;
      input.type=knob.type==='slider'?'range':knob.type==='color'?'color':'text';

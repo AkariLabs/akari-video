@@ -6,6 +6,7 @@ import {
     CATALOG_AUDIO_SFX_CATEGORY,
     CATALOG_CATEGORIES,
     classifyCatalogAudioItem,
+    catalogSearchTitles,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     filterCatalogItems,
@@ -246,4 +247,15 @@ test('normalizeCatalogViewMode: list だけを復元し、欠損・未知値は 
     assert.equal(normalizeCatalogViewMode('grid'), 'grid');
     assert.equal(normalizeCatalogViewMode('tiles'), 'grid');
     assert.equal(normalizeCatalogViewMode(undefined), 'grid');
+});
+
+
+test('search titles include base and every translation for filtering and title relevance', () => {
+    const item = { id: 'item', category: 'still', title: 'English title', baseTitle: '基底の題名',
+        i18n: { en: { title: 'English title' }, fr: { title: 'Titre français' }, ko: null } };
+    assert.deepEqual(catalogSearchTitles(item), ['English title', '基底の題名', 'English title', 'Titre français']);
+    for (const query of ['English', '基底', 'français']) {
+        assert.deepEqual(filterCatalogItems([item], query, 'all'), [item]);
+        assert.equal(catalogSearchTitles(item).some(title => title.toLocaleLowerCase().includes(query.toLocaleLowerCase())), true);
+    }
 });

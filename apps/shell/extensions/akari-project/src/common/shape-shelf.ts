@@ -1,4 +1,5 @@
 import { t } from '../common/project-text';
+import { localizedPresetText } from '@akari-video/i18n';
 /**
  * 図形の棚の組み立て（行・すべて表示・最近使用・検索）の純関数。
  *
@@ -14,6 +15,7 @@ export interface ShapeShelfPreset {
     readonly id: string;
     readonly category: string;
     readonly name: string;
+    readonly i18n?: Record<string, Record<string, string>>;
     readonly vb: readonly [number, number];
     readonly d: string;
     readonly kind: ShapeShelfKind;
@@ -77,7 +79,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** 1 行を棚の型へ絞り込む。壊れた行は捨てる（棚全体を落とさない）。 */
 export function parseShapeShelfPreset(value: unknown): ShapeShelfPreset | undefined {
     if (!isRecord(value)) return undefined;
-    const { id, category, name, vb, d, kind, rule, rounded_from: roundedFrom, defaults } = value;
+    const { id, category, name, vb, d, kind, rule, rounded_from: roundedFrom, defaults, i18n } = value;
     if (typeof id !== 'string' || !id || typeof category !== 'string' || !category
         || typeof name !== 'string' || !name || typeof d !== 'string' || !d
         || !KINDS.includes(kind as ShapeShelfKind) || !isRecord(defaults)
@@ -86,6 +88,7 @@ export function parseShapeShelfPreset(value: unknown): ShapeShelfPreset | undefi
     return {
         id, category, name, d, kind: kind as ShapeShelfKind, defaults,
         vb: [vb[0] as number, vb[1] as number],
+        ...(isRecord(i18n) ? { i18n: i18n as Record<string, Record<string, string>> } : {}),
         ...(rule === 'nonzero' || rule === 'evenodd' ? { rule } : {}),
         ...(isRecord(roundedFrom) && typeof roundedFrom.base === 'string' && typeof roundedFrom.radius === 'number'
             ? { rounded_from: { base: roundedFrom.base, radius: roundedFrom.radius } } : {})
@@ -109,6 +112,10 @@ export function parseShapeShelfJsonl(raw: string): ShapeShelfPreset[] {
 
 export function shapeShelfRowLabel(key: string): string {
     return SHAPE_SHELF_CATEGORY_LABELS[key] ?? key;
+}
+
+export function shapeShelfName(preset: ShapeShelfPreset, language: string): string {
+    return localizedPresetText({ id: preset.id, name: preset.name, i18n: preset.i18n }, 'name', language) ?? preset.id;
 }
 
 /** jsonl に現れた順のカテゴリ（ラインを除く）。 */
@@ -173,7 +180,7 @@ function normalizeQuery(value: string): string {
 export function searchShapeShelf(presets: readonly ShapeShelfPreset[], query: string): ShapeShelfPreset[] {
     const normalized = normalizeQuery(query);
     if (!normalized) return [];
-    return presets.filter(preset => normalizeQuery(`${preset.name} ${shapeShelfRowLabel(preset.kind === 'line' ? SHAPE_SHELF_LINE_KEY : preset.category)}`)
+    return presets.filter(preset => normalizeQuery(`${preset.name} ${Object.values(preset.i18n ?? {}).map(value => value.name).join(' ')} ${shapeShelfRowLabel(preset.kind === 'line' ? SHAPE_SHELF_LINE_KEY : preset.category)}`)
         .includes(normalized));
 }
 
@@ -210,7 +217,7 @@ export interface ShapeShelfDragPayload {
     readonly rule?: 'nonzero' | 'evenodd';
 }
 
-export function shapeShelfDragPayload(preset: ShapeShelfPreset): ShapeShelfDragPayload {
-    return { kind: 'shape', preset: preset.id, name: preset.name, vb: [preset.vb[0], preset.vb[1]],
+export function shapeShelfDragPayload(preset: ShapeShelfPreset, language = 'ja'): ShapeShelfDragPayload {
+    return { kind: 'shape', preset: preset.id, name: shapeShelfName(preset, language), vb: [preset.vb[0], preset.vb[1]],
         d: preset.d, ...(preset.rule ? { rule: preset.rule } : {}) };
 }

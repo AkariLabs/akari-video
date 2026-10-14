@@ -3,12 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 
 import { generateTextstyleCatalogSource } from '../scripts/gen-textstyle-catalog.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(packageRoot, '../..');
 const catalogRoot = join(repositoryRoot, 'presets/textstyle');
+const require = createRequire(import.meta.url);
 
 test('生成済み TEXTSTYLE_CATALOG は正本からの再生成結果と一致する', async () => {
   const tracked = await readFile(join(packageRoot, 'src/generated/textstyle-catalog.ts'), 'utf8');
@@ -27,5 +29,6 @@ test('index と個別 JSON の style・id・format が一致する', async () =>
     assert.equal(preset.id, entry.id);
     assert.equal(preset.format, 'akari-textstyle');
     assert.deepEqual(entry.style, preset.style, entry.id);
+    assert.deepEqual(require('../lib/generated/textstyle-catalog.js').TEXTSTYLE_CATALOG[entry.id].i18n, entry.i18n);
   }
 });

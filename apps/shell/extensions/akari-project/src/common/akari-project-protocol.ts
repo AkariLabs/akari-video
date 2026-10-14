@@ -1,3 +1,4 @@
+import type { AssetTranslation } from '@akari-video/i18n';
 import { LibraryImportPlan, LibraryImportResult } from './library-import';
 import { CatalogPack } from './catalog-packs';
 import { PresetShowcase } from './preset-showcase';
@@ -164,6 +165,11 @@ export interface AssetCatalogViewItem {
     category: string;
     title: string;
     aliases?: string[];
+    baseTitle?: string;
+    baseAliases?: string[];
+    baseDescription?: string;
+    baseWhenToUse?: string;
+    i18n?: Record<string, AssetTranslation>;
     fontAvailability?: { status: 'available' | 'download' | 'source' | 'pending' | 'failed'; family: string; source?: 'bundled' | 'library' | 'system'; bytes?: number };
     tags: string[];
     licenseSpdx?: string;
@@ -420,13 +426,13 @@ export interface AkariProjectService {
      * 到達不能（未デプロイ・開発配置なし等）でもローカル分は表示を継続する（fail-soft）。
      * intent 省略時は automatic。利用者が開く・再読み込みする経路だけ user を明示する。
      */
-    getAssetCatalogView(preferenceRoot: string | undefined, intent?: 'automatic' | 'user'): Promise<AssetCatalogView>;
+    getAssetCatalogView(preferenceRoot: string | undefined, intent?: 'automatic' | 'user', language?: 'ja' | 'en'): Promise<AssetCatalogView>;
     /** Already generated local thumbnails for catalog item keys; pending means another poll may find more. */
     getLibraryThumbnails(keys: string[]): Promise<{ urls: Record<string, string>; pending: boolean }>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
-    getPresetShowcase(): Promise<PresetShowcase>;
+    getPresetShowcase(language?: 'ja' | 'en'): Promise<PresetShowcase>;
     getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;
-    getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
+    getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }>>;
     /** 図形の棚（presets/shapes/index.jsonl）。読めなければ空配列。 */
     getShapeShelf(): Promise<ShapeShelfPreset[]>;
     listMyStyles(): Promise<MyStyle[]>;

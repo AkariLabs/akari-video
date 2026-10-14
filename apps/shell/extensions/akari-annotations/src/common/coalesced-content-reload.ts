@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /** Read once per notification burst, and repeat when a change arrives during the read. */
 export class CoalescedContentReload {
     private pending = false;
@@ -22,7 +23,7 @@ export class CoalescedContentReload {
                 try {
                     await this.readAndApply();
                 } catch (error) {
-                    console.warn('[akari-annotations] 変更通知を読み直せませんでした', error);
+                    console.warn(t('annotations.coalescedContentReload.ui.couldNotRereadChangeNotificationError'), error);
                 }
             }
         } finally {

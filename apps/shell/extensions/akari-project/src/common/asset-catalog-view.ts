@@ -1,3 +1,4 @@
+import { localizedAssetText, type AssetTranslation } from '@akari-video/i18n';
 import { t } from './project-text';
 /**
  * カタログ面「1 ビュー」の純関数群（ビューのマージ・resolver 生アイテムの正規化・
@@ -8,9 +9,24 @@ import { t } from './project-text';
 
 import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from './akari-project-protocol';
 import { CatalogPack } from './catalog-packs';
+import type { CatalogItemMeta } from './catalog-reader';
 import { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
 import { mixOrder } from './asset-mix-order';
 export { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
+
+export function baseCatalogItemForAgent(item: AssetCatalogViewItem): CatalogItemMeta {
+    return {
+        id: item.id,
+        category: item.category,
+        title: item.baseTitle ?? item.title,
+        description: item.baseDescription ?? item.description,
+        tags: item.tags,
+        when_to_use: item.baseWhenToUse ?? item.whenToUse,
+        license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
+        source: (item.sourceUrl || item.previewUrl || item.sourceAcquisition)
+            ? { url: item.sourceUrl, preview_url: item.previewUrl, acquisition: item.sourceAcquisition } : undefined
+    };
+}
 
 /** resolver カタログの files[] 1 件（akari-assets-catalog/v0 契約: url か key のどちらかを持つ）。 */
 export interface ResolverRawCatalogFile {
@@ -24,6 +40,8 @@ export interface ResolverRawCatalogItem {
     id: string;
     category: string;
     title: string;
+    aliases?: string[];
+    i18n?: Record<string, AssetTranslation>;
     tags?: string[];
     sourceKind?: AssetCatalogViewItem['sourceKind'];
     folder?: string | null;
@@ -105,7 +123,7 @@ export function selectResolverAudioFileRef(item: Pick<ResolverRawCatalogItem, 'c
  */
 export function toResolverAssetCatalogViewItem(
     item: ResolverRawCatalogItem, previewUrl: string | undefined, mediaUrl?: string,
-    thumbUrl?: string, previewStripUrl?: string
+    thumbUrl?: string, previewStripUrl?: string, language: 'ja' | 'en' = 'ja'
 ): AssetCatalogViewItem {
     const plannedMediaName = selectResolverPlannedMediaName(item);
     return {
@@ -113,7 +131,9 @@ export function toResolverAssetCatalogViewItem(
         key: `${item.category}/${item.id}`,
         id: item.id,
         category: item.category,
-        title: item.title,
+        title: localizedAssetText(item, 'title', language) ?? item.id,
+        ...(item.i18n ? { baseTitle: item.title, i18n: item.i18n } : {}),
+        ...(Array.isArray(item.aliases) ? { baseAliases: item.aliases.filter(alias => typeof alias === 'string' && !!alias.trim()) } : {}),
         tags: item.tags ?? [],
         sourceKind: item.sourceKind,
         folder: item.folder ?? undefined,

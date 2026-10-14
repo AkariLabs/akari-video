@@ -671,3 +671,29 @@ test('Markdown tables and HTML escaping', () => {
     assert.match(html, /&lt;script&gt;/);
     assert.doesNotMatch(html, /href="javascript:/);
 });
+
+test('English Claude permission label still grants the requested tool', async () => {
+    const { setLanguage } = require('@akari-video/i18n');
+    await withTempDirectory('akari-chat-permission-en-', async cwd => {
+        const rows = (await readFile(new URL('./fixtures/claude-permission-manual.jsonl', import.meta.url), 'utf8'))
+            .trim().split('\n').map(JSON.parse);
+        const request = rows.find(row => row.type === 'control_request' && row.request?.subtype === 'can_use_tool');
+        await writeFile(join(cwd, 'mode.txt'), 'permission');
+        await writeFile(join(cwd, 'permission-request.json'), JSON.stringify(request));
+        setLanguage('en');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'checkpoints' });
+        try {
+            const asked = new Promise(resolve => {
+                const subscription = session.onEvent(event => {
+                    if (event.type === 'ask') { subscription.dispose(); resolve(event); }
+                });
+            });
+            const turn = session.send('write', []);
+            assert.deepEqual((await asked).options.map(option => option.label), ['Allow', 'Deny']);
+            await session.send('Allow', []);
+            await turn;
+            const responses = (await readFile(join(cwd, 'received.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+            assert.equal(responses[1].response.response.behavior, 'allow');
+        } finally { await session.close(); setLanguage(undefined); }
+    });
+});

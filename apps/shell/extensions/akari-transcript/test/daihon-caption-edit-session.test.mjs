@@ -9,6 +9,7 @@ const { LiveCaptionEdit } = require('../../akari-preview/lib/common/live-caption
 const { DaihonCaptionEditSession, seedDaihonCaptionEdit } = require('../lib/common/daihon-caption-edit-session.js');
 const { decideDaihonCaptionEdit } = require('../lib/common/daihon-caption-edit-queue.js');
 const { nextCaptionNotices } = require('../lib/common/caption-notice-state.js');
+const { t: transcriptText } = require('../lib/browser/transcript-text.js');
 
 test('選択中に打った種の 1 文字を 150ms で保存し、IME 開始は種にしない', async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
@@ -53,7 +54,7 @@ function finishMethod() {
     assert.ok(start >= 0 && end > start);
     const compiled = ts.transpileModule(`class Harness { ${text.slice(start, end)} }`,
         { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-    return new Function('decideDaihonCaptionEdit', `${compiled}\nreturn Harness;`)(decideDaihonCaptionEdit).prototype.finishEdit;
+    return new Function('decideDaihonCaptionEdit', 't', `${compiled}\nreturn Harness;`)(decideDaihonCaptionEdit, transcriptText).prototype.finishEdit;
 }
 
 test('見放した保存が後から返しても通知の副作用を出さない', async () => {

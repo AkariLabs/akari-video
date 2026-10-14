@@ -193,16 +193,16 @@ export function readConnectorSummary(env = process.env, home = os.homedir()) {
 }
 
 function printConnectorSummary(summary) {
-  console.log(`${t("cli.connections.connectors.title")}:`);
+  console.log(`${t("cli.connections.connectors.connectorsTitle")}:`);
   if (!summary.exists) {
-    console.log(`  ${t("cli.connections.connectors.noSettings")}`);
+    console.log(`  ${t("cli.connections.connectors.noSettingsMessage")}`);
     return;
   }
   const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
-  console.log(`  ${t("cli.connections.connectors.enabled")}: ${connectorIds.map(id => `${id}=${state(summary.enabled[id])}`).join(" / ")}`);
-  console.log(`  ${t("cli.connections.connectors.order")}: ${summary.generationOrder.join(" → ")}`);
-  console.log(`  ${t("cli.connections.connectors.fallback")}: ${state(summary.fallbackOnFailure)}`);
-  console.log(`  ${t("cli.connections.connectors.stateList")}`);
+  console.log(`  ${t("cli.connections.connectors.enabledLabel")}: ${connectorIds.map(id => `${id}=${state(summary.enabled[id])}`).join(" / ")}`);
+  console.log(`  ${t("cli.connections.connectors.generationOrderLabel")}: ${summary.generationOrder.join(" → ")}`);
+  console.log(`  ${t("cli.connections.connectors.automaticFallbackLabel")}: ${state(summary.fallbackOnFailure)}`);
+  console.log(`  ${t("cli.connections.connectors.stateListLabel")}`);
 }
 
 function readRegistry(connectionsPath) {
@@ -551,8 +551,8 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
   const policy = registry.policy;
   const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
   const connectorsSection = connectors.exists
-    ? `<section class="policy"><h2>${t("cli.connections.connectors.title")}</h2><dl><dt>${t("cli.connections.connectors.enabled")}</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${state(connectors.enabled[id])}`).join(" / "))}</dd><dt>${t("cli.connections.connectors.order")}</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>${t("cli.connections.connectors.fallback")}</dt><dd>${state(connectors.fallbackOnFailure)}</dd></dl><p>${t("cli.connections.connectors.stateList")}</p></section>`
-    : `<section class="policy"><h2>${t("cli.connections.connectors.title")}</h2><p>${t("cli.connections.connectors.noSettings")}</p></section>`;
+    ? `<section class="policy"><h2>${t("cli.connections.connectors.connectorsTitle")}</h2><dl><dt>${t("cli.connections.connectors.enabledLabel")}</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${state(connectors.enabled[id])}`).join(" / "))}</dd><dt>${t("cli.connections.connectors.generationOrderLabel")}</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>${t("cli.connections.connectors.automaticFallbackLabel")}</dt><dd>${state(connectors.fallbackOnFailure)}</dd></dl><p>${t("cli.connections.connectors.stateListLabel")}</p></section>`
+    : `<section class="policy"><h2>${t("cli.connections.connectors.connectorsTitle")}</h2><p>${t("cli.connections.connectors.noSettingsMessage")}</p></section>`;
   return `<!doctype html>
 <html lang="${getLanguage()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${t("cli.connections.general.title")}</title><style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.card-head .layer-badge{background:#263b55}.layer-project .layer-badge{background:#4c356b}.layer-workspace .layer-badge{background:#27534c}.layer-default .layer-badge{background:#4e4930}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>

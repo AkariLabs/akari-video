@@ -1,7 +1,7 @@
 import type { AssetCatalogViewItem } from './akari-project-protocol';
 
-export function fontFamily(item: { title: string; fontAvailability?: { family: string } }): string {
-    return item.fontAvailability?.family || item.title.replace(/（.*$/u, '').trim();
+export function fontFamily(item: { title: string; baseTitle?: string; fontAvailability?: { family: string } }): string {
+    return item.fontAvailability?.family || (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim();
 }
 
 export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { constants } from 'fs';
 import { access } from 'fs/promises';
@@ -13,10 +14,10 @@ import { reapChildGroup, terminateChild } from './terminate';
 
 const AGENT: AcpAgentDefinition = {
     id: 'antigravity', name: 'Antigravity', executable: 'agy', args: [], extraDirs: [],
-    installHint: 'agy（Google の CLI）をインストールしてください', loginHint: 'agy'
+    installHint: t('chat.agyStreamJson.ui.installAgyGoogleSCliLabel'), loginHint: 'agy'
 };
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
-const AUTH_MESSAGE = 'ターミナルで agy を起動してログインしてください';
+const authMessage = () => t('chat.agyStreamJson.ui.startAgyTerminalLogAction');
 type Json = Record<string, any>;
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 
@@ -90,7 +91,7 @@ export class AgyStreamParser {
         const parameters: Json = step.tool_info?.parameters || {};
         if (kind === 'ask') {
             if (step.state === 'ACTIVE') {
-                const question = String(parameters.Question || parameters.question || '選んでください');
+                const question = String(parameters.Question || parameters.question || t('chat.agyStreamJson.ui.chooseLabel'));
                 const rawOptions = parameters.Options || parameters.options || [];
                 const options = Array.isArray(rawOptions) ? rawOptions.map((value: unknown) =>
                     typeof value === 'string' ? { label: value } : value as { label: string; description?: string }) : [];
@@ -102,8 +103,8 @@ export class AgyStreamParser {
             parameters.Path || parameters.Query || parameters.Url || name;
         const target = kind === 'read' || kind === 'write' ? this.displayPath(String(raw)) : String(raw);
         const verbs: Record<ToolKind, string> = {
-            think: '考えました', read: '読みました', write: '書きました', command: '実行しました',
-            search: '調べました', skill: '使いました', web: '調べました', other: '使いました'
+            think: t('chat.agyStreamJson.ui.thoughtLabel'), read: t('chat.agyStreamJson.ui.readLabel'), write: t('chat.agyStreamJson.ui.wroteLabel'), command: t('chat.agyStreamJson.ui.ranLabel'),
+            search: t('chat.agyStreamJson.ui.searchedLabel'), skill: t('chat.agyStreamJson.ui.usedLabel'), web: t('chat.agyStreamJson.ui.searchedLabel'), other: t('chat.agyStreamJson.ui.usedLabel')
         };
         const detail: NonNullable<ToolEvent['detail']> = {};
         if (kind === 'read' || kind === 'write') detail.path = target;
@@ -138,14 +139,14 @@ export class AgyStreamParser {
             const tool = candidates.find(candidate => candidate.detail?.output === undefined) || candidates[0];
             if (tool) {
                 matched.add(tool.id);
-                this.emit({ ...tool, status: 'error', title: tool.title.replace(/^[^ ]+/, '止められました') });
+                this.emit({ ...tool, status: 'error', title: tool.title.replace(/^[^ ]+/, t('chat.agyStreamJson.ui.wasStoppedLabel')) });
             }
-            const label = kind === 'command' ? 'コマンドの実行' : kind === 'write' ? 'ファイルの変更' : '操作';
+            const label = kind === 'command' ? t('chat.agyStreamJson.ui.executeCommandLabel') : kind === 'write' ? t('chat.agyStreamJson.ui.fileChangesLabel') : t('chat.agyStreamJson.ui.actionLabel');
             const displayName = safeErrorText(String(action.display_name || action.action || ''));
             descriptions.push(`${label}${displayName ? `（${displayName}）` : ''}`);
         }
         this.emit({ type: 'error', kind: 'other',
-            message: `agy が確認を出せないため、${descriptions.join('、')}を止めました` });
+            message: t('chat.agyStreamJson.ui.descriptionsStoppedBecauseAgyCannotIssueConfirmationError', { descriptions: descriptions.join('、') }) });
     }
 
     accept(row: Json): void {
@@ -190,7 +191,7 @@ export class AgyStreamParser {
                 for (const tool of this.tools.values()) this.emit({ ...tool, status: 'error' });
             }
             if (!ok && !this.errored && !result.denied_actions?.length) {
-                this.emit({ type: 'error', kind: auth ? 'auth' : 'other', message: auth ? AUTH_MESSAGE : safeErrorText(reason) });
+                this.emit({ type: 'error', kind: auth ? 'auth' : 'other', message: auth ? authMessage() : safeErrorText(reason) });
                 this.errored = true;
             }
             this.emit({ type: 'turn.end', ok, ...(!ok ? { reason: auth ? 'auth' : reason } : {}) });
@@ -212,14 +213,14 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
             id: 'antigravity', name: 'Antigravity', installed: !!executable,
             installHint: AGENT.installHint, loginHint: 'agy',
             transport: 'agy-stream-json', permissionModes: ['automatic'],
-            permissionReasons: { checkpoints: 'この相手では選べません（headless では確認を出せません）',
-                every: 'この相手では選べません（headless では確認を出せません）' }
+            permissionReasons: { checkpoints: t('chat.agyStreamJson.ui.partnerCannotUseModeBecauseHeadlessSessionsCannotError'),
+                every: t('chat.agyStreamJson.ui.partnerCannotUseModeBecauseHeadlessSessionsCannotError') }
         };
     }
 
     async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission }): Promise<ChatAdapterSession> {
         if (opts.permission === 'checkpoints' || opts.permission === 'every') {
-            throw new Error('この相手では確認モードを選べません');
+            throw new Error(t('chat.agyStreamJson.ui.partnerDoesNotSupportConfirmationModeMessage'));
         }
         const executable = this.executableOverride || await findAgy();
         if (!executable) throw new Error('not-installed');
@@ -325,7 +326,7 @@ class AgySession implements ChatAdapterSession {
         if (this.pending?.child !== child) return;
         const auth = /authentication required|authentication failed|log.?in/i.test(message + this.stderr);
         if (!this.interrupted) this.publish({ type: 'error', kind: auth ? 'auth' : 'crashed',
-            message: auth ? AUTH_MESSAGE : safeErrorText(message) });
+            message: auth ? authMessage() : safeErrorText(message) });
         this.publish({ type: 'turn.end', ok: false, reason: this.interrupted ? 'interrupted' : auth ? 'auth' : message });
         this.restart = true;
     }
@@ -355,15 +356,15 @@ class AgySession implements ChatAdapterSession {
             }
         });
         child.stderr.on('data', chunk => { if (this.child === child) this.stderr = (this.stderr + chunk).slice(-4000); });
-        child.stdin.on('error', error => this.failTurn(child, `agy に送れませんでした: ${error.message}`));
+        child.stdin.on('error', error => this.failTurn(child, t('chat.agyStreamJson.ui.couldNotSendAgyError', { error: error.message })));
         child.on('error', error => {
-            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: `agy を起動できませんでした: ${error.message}` });
-            this.failTurn(child, `agy を起動できませんでした: ${error.message}`);
+            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: t('chat.agyStreamJson.ui.failedStartAgyError', { error: error.message }) });
+            this.failTurn(child, t('chat.agyStreamJson.ui.failedStartAgyError', { error: error.message }));
             if (this.child === child) this.child = undefined;
         });
         child.on('close', code => {
             if (this.child !== child) return;
-            this.failTurn(child, `agy が終了しました (${code})`);
+            this.failTurn(child, t('chat.agyStreamJson.ui.agyTerminatedCodeLabel', { code: String(code) }));
             this.child = undefined;
             this.restart = true;
         });
@@ -380,10 +381,10 @@ class AgySession implements ChatAdapterSession {
         const content = [text, describeAttachments(attachments)].filter(Boolean).join('\n\n');
         const line = JSON.stringify({ event: 'user', message: { role: 'user', content } }) + '\n';
         return new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => this.failTurn(child, 'agy の応答がありません'), 300000);
+            const timeout = setTimeout(() => this.failTurn(child, t('chat.agyStreamJson.ui.agyDidNotRespondMessage')), 300000);
             timeout.unref();
             this.pending = { child, resolve, reject, timeout };
-            child.stdin.write(line, error => { if (error) this.failTurn(child, `agy に送れませんでした: ${error.message}`); });
+            child.stdin.write(line, error => { if (error) this.failTurn(child, t('chat.agyStreamJson.ui.couldNotSendAgyError', { error: error.message })); });
         });
     }
 

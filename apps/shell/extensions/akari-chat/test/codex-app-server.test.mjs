@@ -587,3 +587,17 @@ test('Codex confirmation modes set distinct approval policies', async () => {
         assert.equal(starts[2].approvalPolicy, 'untrusted');
     });
 });
+
+test('English approval labels retain their permission decision', async () => {
+    const { setLanguage } = require('@akari-video/i18n');
+    await withTemp(async cwd => {
+        setLanguage('en');
+        const session = await new CodexAppServerAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        try {
+            await session.send('permissions', []);
+            await session.send('Allow', []);
+            const approval = (await received(cwd)).find(row => row.id === 903);
+            assert.deepEqual(approval.result, { permissions: { network: { enabled: true } }, scope: 'turn' });
+        } finally { await session.close(); setLanguage(undefined); }
+    });
+});

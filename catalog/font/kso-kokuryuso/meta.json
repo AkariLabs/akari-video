@@ -5,6 +5,13 @@
   "aliases": ["KSO黒龍爽","KSO Kokuryuso"],
   "description": "昭和書体（コーエーサインワークス）の毛筆デザイン書体。黒龍の簡略・軽量版で小さめの文字にも向く。有料書体のため索引のみ。1 ライセンス 1 PC。",
   "when_to_use": "迫力の筆文字強調・和風の決めテロップに（所持環境限定）",
+  "i18n": {
+    "en": {
+      "title": "KSO Kokuryuso (Showa Shotai)",
+      "description": "A brush display typeface by Showa Shotai (Koei Signworks). A simplified, lighter version of Kokuryu that also works at smaller sizes. Paid font; reference-only listing. One license covers one PC.",
+      "when_to_use": "For forceful brush-letter emphasis and Japanese-style statement captions, only where licensed."
+    }
+  },
   "tags": [
     "font",
     "japanese",

@@ -1,16 +1,30 @@
-import { t } from '@akari-video/i18n';
+import { getLanguage, localizedPresetText, t } from '@akari-video/i18n';
 import { createCaptionHoverPreview } from '../../common/caption-hover-preview';
-import { CAPTION_PANEL_FONTS } from '../../common/caption-panel-catalog';
+import { CAPTION_PANEL_FONTS, CAPTION_PANEL_FONT_EN_TITLES } from '../../common/caption-panel-catalog';
 import { filterCaptionPanelFonts } from '../../common/caption-font-label';
 import { captionFontRowDetail, captionFontWeights, captionPanelFontRows, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
-import { CAPTION_SAMPLE_TEXT, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { applyLibraryTextStyleSample, CAPTION_DEFAULT_SIZE_PX, LIBRARY_TEXTSTYLE_SAMPLE_CSS,
     libraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
 import { scaledLookForCaption } from '../my-style-look';
 
 export const CAPTION_PANEL_STYLES = Object.values(TEXTSTYLE_CATALOG);
+
+export function captionPanelFontName(font: { id: string; title: string; displayName?: string }, language: string): string {
+    return language === 'ja' ? font.displayName ?? font.title : CAPTION_PANEL_FONT_EN_TITLES[font.id] ?? font.title;
+}
+
+export function captionPanelFontControlName(font: { id: string; title: string; displayName?: string }, language: string): string {
+    return language === 'ja' ? font.title : captionPanelFontName(font, language);
+}
+
+export function captionPanelPresetName(item: CaptionPanelPreset): string {
+    if (item.origin === 'library') return item.name;
+    const preset = TEXTSTYLE_CATALOG[item.id];
+    return preset ? localizedPresetText(preset, 'name', getLanguage()) ?? item.name : item.name;
+}
 
 export interface CaptionPanelPreset { id: string; name: string; style: Record<string, unknown>; origin?: 'builtin' | 'library' }
 
@@ -125,7 +139,7 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
     const card = button(document, '', () => { actions.confirm(); action(); }, ['data-akari-style-card', id]);
     card.className = 'akari-caption-style-card';
     const textStyle: CaptionTextStyle = captionPanelTextStyle(raw);
-    const sample = createCaptionHoverPreview(document, { text: CAPTION_SAMPLE_TEXT, textStyle, width: 640, height: 240,
+    const sample = createCaptionHoverPreview(document, { text: t('inspector.captionPanels.sample.captionText'), textStyle, width: 640, height: 240,
         bounds: { left: 0, right: 0, top: 0, bottom: 0 }, innerWidth: 640, innerHeight: 400,
         maxImageSize: 160 });
     sample.style.display = 'none';
@@ -148,7 +162,7 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
         for (const [index, kind] of ['shadow', ...look.strokes.map(() => 'stroke'), 'fill'].entries()) {
             const layer = document.createElement('span');
             layer.className = `akari-caption__rich-${kind}`;
-            layer.textContent = CAPTION_SAMPLE_TEXT;
+            layer.textContent = t('inspector.captionPanels.sample.captionText');
             if (kind !== 'fill') layer.setAttribute('aria-hidden', 'true');
             if (kind === 'stroke') {
                 const vars = look.strokes[index - 1];
@@ -158,7 +172,7 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
         }
         token.append(segment);
         line.append(token);
-    } else line.textContent = CAPTION_SAMPLE_TEXT;
+    } else line.textContent = t('inspector.captionPanels.sample.captionText');
     plate.append(line);
     face.append(plate);
     specimen.append(face);
@@ -232,7 +246,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const font = fontRows.find(item => item.id === id);
             if (!font) continue;
             const family = font.family;
-            recent.append(previewable(button(document, font.title, () => {
+            recent.append(previewable(button(document, captionPanelFontControlName(font, getLanguage()), () => {
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
@@ -254,7 +268,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             chevron.className = 'akari-caption-font-chevron';
             chevron.disabled = weights.length <= 1;
             chevron.setAttribute('aria-expanded', String(state.expandedFont === font.id && weights.length > 1));
-            chevron.setAttribute('aria-label', t('inspector.captionPanels.label.weight', { fontName: font.title, action: state.expandedFont === font.id ? t('inspector.captionPanels.label.close') : t('inspector.captionPanels.label.open') }));
+            chevron.setAttribute('aria-label', t('inspector.captionPanels.label.weight', { fontName: captionPanelFontControlName(font, getLanguage()), action: state.expandedFont === font.id ? t('inspector.captionPanels.label.close') : t('inspector.captionPanels.label.open') }));
             row.append(chevron);
             const face = button(document, '', () => {
                 actions.confirm(); actions.font(family, undefined, font.id);
@@ -263,9 +277,9 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const faceText = document.createElement('span'); faceText.className = 'akari-caption-font-face-text';
             const name = document.createElement('span'); name.className = 'akari-caption-font-name';
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
-            name.textContent = font.displayName ?? font.title;
+            name.textContent = captionPanelFontName(font, getLanguage());
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
-            english.textContent = font.own && font.title === family ? '' : family;
+            english.textContent = (font.own && font.title === family) || captionPanelFontName(font, getLanguage()) === family ? '' : family;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
             detail.textContent = font.own ? t('inspector.captionPanels.text.addedByYou')
                 : captionFontRowDetail(font.tags, font.bundled);
@@ -298,7 +312,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentStyles) {
             const item = presets.find(style => style.id === id);
-            if (item) recent.append(previewable(button(document, item.name, () => {
+            if (item) recent.append(previewable(button(document, captionPanelPresetName(item), () => {
                 actions.confirm(); actions.style(item.style, item.id);
             }), presetPreviewStyle(item.style, currentSize), actions));
             else if (id.startsWith('mystyle/')) {
@@ -310,7 +324,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         }
         root.append(recent, heading(document, t('inspector.captionPanels.label.textStyle')));
         const presetGrid = document.createElement('div'); presetGrid.className = 'akari-caption-style-grid';
-        for (const item of presets) presetGrid.append(sampleCard(document, item.id, item.name,
+        for (const item of presets) presetGrid.append(sampleCard(document, item.id, captionPanelPresetName(item),
             item.style, () => actions.style(item.style, item.id), actions, currentSize));
         root.append(presetGrid);
         root.append(heading(document, t('inspector.captionPanels.label.myStyle')));

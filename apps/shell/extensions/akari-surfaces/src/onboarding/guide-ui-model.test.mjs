@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { setLanguage } from '@akari-video/i18n';
 setLanguage('ja');
 afterI18nTest(() => setLanguage(undefined));
@@ -9,9 +10,114 @@ afterI18nTest(() => setLanguage(undefined));
 const require = createRequire(import.meta.url);
 const { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts, guideRequiredPanels,
     pointInGuideCutouts, guideBlockedRects, guideBlockerClipPath, shouldBlockGuidePointer,
-    materialPreviewTransportRect, outputCaptionBandRect, captionCoachPosition, needsCaptionStyleSelection,
+    materialPreviewTransportRect, outputCaptionBandRect, captionCoachPosition, guideCoachBounds, guideCoachPlacement,
+    heldGuideCoachTop, needsCaptionStyleSelection,
     partnerFallbackReady, askHighlightTarget,
     askConnectionCopy } = require('../../lib/onboarding/guide-ui-model.js');
+
+// The original placement uses the current measured height whenever it is asked to place again.
+// A text-only height change does not ask it to place again.
+function originalPromptTop(viewportHeight, coachHeight, anchor, previousTop, forced) {
+    if (!forced) return previousTop;
+    const preferredY = anchor.y + (anchor.height - coachHeight) / 2;
+    return Math.max(8, Math.min(preferredY, viewportHeight - coachHeight - 32));
+}
+
+function promptStages(language) {
+    return language === 'ja'
+        ? [{ height: 233, forced: true }, { height: 248, forced: false },
+            { height: 248, forced: true }, { height: 273.4, forced: false }]
+        : [{ height: 233, forced: true }, { height: 233, forced: true },
+            { height: 247.8, forced: false }, { height: 273.4, forced: false },
+            { height: 299, forced: false }];
+}
+
+test('STEP 4 の実測順で日本語は元の位置、英語は吹き出しとボタンが窓内', () => {
+    for (const viewportHeight of [720, 800, 900, 1080]) {
+        const viewport = { width: 1440, height: viewportHeight };
+        const anchor = { x: 1058, y: viewportHeight - 233 - 32, width: 340, height: 233 };
+        for (const language of ['ja', 'en']) {
+            const element = {};
+            const basis = `prompt:0/1440x${viewportHeight}/anchor-a`;
+            let hold;
+            let referenceTop;
+            let finalBounds;
+            const positions = [];
+            for (const { height, forced } of promptStages(language)) {
+                const previousTop = heldGuideCoachTop(hold, element, basis, 'prompt', 0, forced);
+                const bounds = guideCoachPlacement(viewport,
+                    { width: 390, height, actionsHeight: 42, actionsBottomInset: 16 }, anchor,
+                    { step: 'prompt', sub: 0, previousTop });
+                referenceTop = originalPromptTop(viewportHeight, height, anchor, referenceTop, forced);
+                positions.push(bounds.top);
+                hold = { element, basis, top: bounds.top };
+                finalBounds = bounds;
+                if (language === 'ja') assert.equal(bounds.top, referenceTop, `${viewportHeight} / ${height}`);
+                else {
+                    assert.ok(bounds.top >= 0, `${viewportHeight} / ${height} top`);
+                    assert.ok(bounds.top + bounds.height <= viewportHeight, `${viewportHeight} / ${height} bottom`);
+                }
+            }
+            assert.equal(positions[0], viewportHeight - 233 - 32);
+            assert.equal(finalBounds.left, 654);
+            assert.ok(finalBounds.left + 390 <= viewport.width);
+            if (language === 'en') {
+                const buttonTop = finalBounds.top + finalBounds.height - 16 - 42;
+                const buttonBottom = finalBounds.top + finalBounds.height - 16;
+                assert.ok(buttonTop >= 0 && buttonBottom <= viewportHeight);
+            }
+            if (viewportHeight === 900 && language === 'ja') {
+                assert.deepEqual(positions, [635, 635, 620, 620]);
+                assert.equal(finalBounds.top + finalBounds.height, 893.4);
+            }
+            if (viewportHeight === 900 && language === 'en') {
+                assert.deepEqual(positions, [635, 635, 635, 594.6, 594.6]);
+                assert.ok(positions[3] < 635);
+                assert.ok(finalBounds.top + finalBounds.height <= 900);
+            }
+        }
+    }
+});
+
+test('高さの上限では本文だけをスクロールできる寸法に抑える', () => {
+    const capped = guideCoachBounds({ width: 1440, height: 720 },
+        { width: 390, height: 800, actionsHeight: 42, actionsBottomInset: 16 }, { x: 654, y: 620 });
+    assert.equal(capped.maxHeight, 680);
+    assert.equal(capped.height, 680);
+    assert.ok(capped.top + capped.height - capped.actionsBottomInset <= 720);
+});
+
+test('別ステップの top を再利用せず、上限時は本文だけをスクロールする構造', () => {
+    const controller = readFileSync(new URL('./controller.ts', import.meta.url), 'utf8');
+    const style = readFileSync(new URL('./style.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(controller, /mountedCoachKey/u);
+    assert.match(controller, /const serial = typingPrompt/u);
+    assert.match(controller, /const forced = this\.lastRects === '';/u);
+    assert.match(controller, /const previousTop = heldGuideCoachTop\(this\.coachHold, coach, basis, this\.state\.step, this\.state\.sub, forced\);/u);
+    assert.match(controller, /coach\.style\.transition = 'none';[\s\S]*coach\.style\.top = `\$\{bounds\.top\}px`;/u);
+    const markup = controller.slice(controller.indexOf('protected coachMarkup('), controller.indexOf('protected async loadVideo('));
+    assert.ok(markup.includes('<h3>${spec.title}</h3><div class="ao-body">${spec.body}</div>'));
+    assert.ok(markup.includes('<div class="ao-actions">${back}${actions}</div>'));
+    assert.match(style, /\.ao-coach\.ao-coach-constrained \.ao-body \{ min-height:0; overflow-y:auto; \}/u);
+    assert.match(style, /\.ao-coach\.ao-coach-constrained \.ao-actions \{ flex-shrink:0; \}/u);
+    assert.match(style, /#akari-onboarding-v1 \* \{ box-sizing:border-box; \}/u);
+    assert.doesNotMatch(style, /\.ao-coach\.ao-coach-constrained \{[^}]*box-sizing/u);
+});
+
+test('STEP 4 の top 保持は高さだけの変化に限り、強制・的・窓・要素・段が変われば使わない', () => {
+    const coach = {}, replacement = {};
+    const hold = { element: coach, basis: 'prompt:0/1440x900/anchor-a', top: 620 };
+    assert.equal(heldGuideCoachTop(hold, coach, hold.basis, 'prompt', 0, false), 620);
+    assert.equal(heldGuideCoachTop(hold, coach, hold.basis, 'prompt', 0, true), undefined);
+    assert.equal(heldGuideCoachTop(hold, coach, 'prompt:0/1440x900/anchor-b', 'prompt', 0, false), undefined);
+    assert.equal(heldGuideCoachTop(hold, coach, 'prompt:0/800x900/anchor-a', 'prompt', 0, false), undefined);
+    assert.equal(heldGuideCoachTop(hold, replacement, hold.basis, 'prompt', 0, false), undefined);
+    assert.equal(heldGuideCoachTop(hold, coach, hold.basis, 'prompt', 1, false), undefined);
+    assert.equal(heldGuideCoachTop(hold, coach, hold.basis, 'work', 0, false), undefined);
+    const viewport = { width: 1440, height: 900 };
+    assert.equal(guideCoachBounds(viewport, { width: 390, height: 273.4 }, { x: 654, y: 635 }, 620).top, 620);
+    assert.equal(guideCoachBounds(viewport, { width: 390, height: 299 }, { x: 654, y: 635 }, 635).top, 569);
+});
 
 test('案内段の的から開くパネルを選ぶ', () => {
     assert.deepEqual(guideRequiredPanels(['assets']), ['left']);

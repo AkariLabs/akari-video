@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -9,7 +10,16 @@ import { credentialsFilePath, maskedTail, readCredentials, writeCredential } fro
 export interface ConnectSettings { version: 1; enabled: Record<string, boolean>; generationOrder: string[]; fallbackOnFailure: boolean; }
 export const DEFAULT_SETTINGS: ConnectSettings = { version: 1, enabled: {}, generationOrder: [], fallbackOnFailure: false };
 const entries = catalog as Connector[];
-const generationIds = entries.filter(entry => entry.group === '素材を作る').map(entry => entry.id);
+const connectorCopy = (): Record<string, { name?: string; description: string; tryLabel: string }> => ({
+    'akari-video': { description: t('connect.catalog.connector.akariVideoDescription'), tryLabel: t('connect.catalog.connector.akariVideoTryLabel') },
+    '3d-recipes': { name: t('connect.catalog.connector.recipesLabel'), description: t('connect.catalog.connector.recipesDescription'), tryLabel: t('connect.catalog.connector.recipesTryLabel') },
+    fal: { description: t('connect.catalog.connector.falDescription'), tryLabel: t('connect.catalog.connector.falTryLabel') },
+    'fish-audio': { description: t('connect.catalog.connector.fishDescription'), tryLabel: t('connect.catalog.connector.narrationTryLabel') },
+    'google-ai': { description: t('connect.catalog.connector.googleDescription'), tryLabel: t('connect.catalog.connector.narrationTryLabel') },
+    elevenlabs: { description: t('connect.catalog.connector.elevenlabsDescription'), tryLabel: t('connect.catalog.connector.transcriptionTryLabel') },
+    groq: { description: t('connect.catalog.connector.groqDescription'), tryLabel: t('connect.catalog.connector.transcriptionTryLabel') }
+});
+const generationIds = entries.filter(entry => entry.group === 'generate').map(entry => entry.id);
 interface MakerMark { logo?: string; background?: string; color?: string; initials?: string; }
 
 export function readMakerMarks(starts: readonly string[] = [__dirname, process.cwd(), process.resourcesPath].filter((value): value is string => !!value)): Record<string, MakerMark> {
@@ -44,7 +54,7 @@ export function readSettings(file: string): ConnectSettings {
         return { version: 1, enabled, generationOrder: [...new Set(order)], fallbackOnFailure: data.fallbackOnFailure === true };
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { ...DEFAULT_SETTINGS, enabled: {}, generationOrder: [] };
-        throw new Error('つなぐ設定を読めません。');
+        throw new Error(t('connect.connectState.ui.couldNotReadConnectionSettingsError'));
     }
 }
 
@@ -106,11 +116,11 @@ export function orderedGenerationIds(settings: ConnectSettings): string[] {
     return [...settings.generationOrder, ...generationIds.filter(id => !settings.generationOrder.includes(id))];
 }
 export function connectorStatus(entry: Connector, hasKey: boolean, detected: boolean): ConnectStatus {
-    if (entry.kind === 'built-in') return '使える';
-    if (entry.kind === 'planned') return '準備中';
-    if (entry.kind === 'key') return hasKey ? '使える' : '鍵が必要';
-    if (entry.kind === 'blender-recipe') return detected ? '使える' : 'Blender が必要';
-    return '準備中';
+    if (entry.kind === 'built-in') return 'ready';
+    if (entry.kind === 'planned') return 'planned';
+    if (entry.kind === 'key') return hasKey ? 'ready' : 'needs-key';
+    if (entry.kind === 'blender-recipe') return detected ? 'ready' : 'needs-blender';
+    return 'planned';
 }
 export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: string; roots?: string[]; platform?: NodeJS.Platform; makerRoots?: string[] } = {}): ConnectSnapshot {
     const env = options.env ?? process.env;
@@ -121,6 +131,7 @@ export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: strin
     const settings = readSettings(connectorsPath(env, home));
     const order = orderedGenerationIds(settings);
     const makers = readMakerMarks(options.makerRoots);
+    const localized = connectorCopy();
     const rows: ConnectorRow[] = entries.map(entry => {
         const detected = entry.kind === 'blender-recipe' ? detectApp('blender', roots, platform) || (!options.roots && detectBlenderCommand(env, platform)) : false;
         const credential = entry.env ? values.get(entry.env) : undefined;
@@ -131,21 +142,21 @@ export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: strin
             color: typeof mark.color === 'string' ? mark.color : undefined,
             initials: typeof mark.initials === 'string' ? mark.initials : undefined
         } : {};
-        return { ...entry, ...visual, status: connectorStatus(entry, !!credential, detected), enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
+        return { ...entry, ...localized[entry.id], ...visual, status: connectorStatus(entry, !!credential, detected), enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
             maskedTail: maskedTail(credential?.value), credentialSource: credential?.source ?? null, detected };
     });
-    rows.sort((a, b) => a.group === '素材を作る' && b.group === '素材を作る' ? order.indexOf(a.id) - order.indexOf(b.id) : 0);
+    rows.sort((a, b) => a.group === 'generate' && b.group === 'generate' ? order.indexOf(a.id) - order.indexOf(b.id) : 0);
     return { rows, generationOrder: order, fallbackOnFailure: settings.fallbackOnFailure };
 }
 
 export function saveCredential(id: string, value: string, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): void {
     const entry = entries.find(item => item.id === id);
-    if (!entry?.env) throw new Error('鍵を追加できない接続です。');
+    if (!entry?.env) throw new Error(t('connect.connectState.ui.connectionWhereCannotAddKeyError'));
     writeCredential(credentialsFilePath(env, home), entry.env, value);
 }
 export function deleteCredential(id: string, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): void {
     const entry = entries.find(item => item.id === id);
-    if (!entry?.env) throw new Error('鍵を削除できない接続です。');
+    if (!entry?.env) throw new Error(t('connect.connectState.ui.connectionWhoseKeyCannotDeletedError'));
     writeCredential(credentialsFilePath(env, home), entry.env, null);
 }
 export function updateSettings(change: (settings: ConnectSettings) => void, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): void {
@@ -156,6 +167,6 @@ export function updateSettings(change: (settings: ConnectSettings) => void, env:
 }
 export function validateGenerationOrder(ids: string[]): void {
     if (ids.length !== generationIds.length || new Set(ids).size !== generationIds.length || ids.some(id => !generationIds.includes(id))) {
-        throw new Error('生成サービスの並び順が不正です。');
+        throw new Error(t('connect.connectState.ui.orderGenerationServicesIncorrectMessage'));
     }
 }

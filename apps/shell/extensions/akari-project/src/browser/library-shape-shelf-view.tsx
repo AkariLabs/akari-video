@@ -1,9 +1,10 @@
 import { t } from '../common/project-text';
+import { getLanguage } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 import {
     buildShapeShelfRows, searchShapeShelf, SHAPE_SHELF_LINE_KEY, shapeShelfRowItems, shapeShelfRowLabel,
-    ShapeShelfPreset, ShapeShelfRow
+    ShapeShelfPreset, ShapeShelfRow, shapeShelfName
 } from '../common/shape-shelf';
 
 /**
@@ -140,7 +141,7 @@ function ShapeTile(props: { preset: ShapeShelfPreset; grid?: boolean } & Pick<Li
     const line = preset.kind === 'line';
     return (
         <button type='button' draggable data-akari-shape-tile={preset.id} data-akari-shape-kind={preset.kind}
-            title={preset.name} aria-label={preset.name}
+            title={shapeShelfName(preset, getLanguage())} aria-label={shapeShelfName(preset, getLanguage())}
             onClick={event => { event.stopPropagation(); props.onPlace(preset); }}
             onDragStart={event => props.onDragStart(event, preset)}
             onDragEnd={() => props.onDragEnd()}

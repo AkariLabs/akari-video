@@ -4,6 +4,13 @@
   "title": "ウッシュ・トランジション SFX",
   "description": "竹の棒を振って収録された短く鋭いウッシュ音。20万件超のダウンロード実績を持つ定番のトランジション SFX。尺 0.43秒",
   "when_to_use": "シーン転換、テロップ/画像のワイプ・スライドイン、カット切り替えのアクセントに",
+  "i18n": {
+    "en": {
+      "title": "Whoosh Transition SFX",
+      "description": "A short, sharp whoosh recorded by swinging a bamboo stick. A transition staple with more than 200,000 downloads. Duration: 0.43 seconds.",
+      "when_to_use": "For scene transitions, caption or image wipes and slide-ins, and accents at cut changes."
+    }
+  },
   "tags": ["sfx", "whoosh", "swoosh", "transition"],
   "knobs": [],
   "ai_usage": "音量調整・複数回の重ね掛けは自由。映像のタイミングに合わせたトリムも可。ピッチ・速度を大きく変えると素材の質感が崩れるため軽微な調整に留める",

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface TextOverride { text: string; unsaved: boolean }
 export interface DaihonEditAttempt { readonly abandoned: boolean }
 export type DaihonUnsavedNoticeEvent = 'show' | 'clear';
@@ -136,7 +137,7 @@ export class DaihonCaptionEditQueue {
             const attempt: DaihonEditAttempt = { get abandoned() { return abandoned; } };
             const timer = setTimeout(() => {
                 abandoned = true;
-                reject(new Error('字幕の保存が 15 秒以内に終わりませんでした。'));
+                reject(new Error(t('transcript.daihonCaptionEditQueue.ui.savingCaptionTimedOutAfterSecondsError')));
             }, this.timeoutMs);
             Promise.resolve().then(() => operation(attempt)).then(value => { clearTimeout(timer); resolve(value); },
                 error => { clearTimeout(timer); reject(error); });

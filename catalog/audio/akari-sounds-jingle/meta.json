@@ -4,6 +4,13 @@
   "title": "AKARI Sounds ジングル（v0）",
   "description": "自社音源ライブラリ AKARI Sounds のジングルパック。12 トラック / 12 テイク。全トラック AI 生成（Suno 有料プラン）で、生成記録（日時・プロンプト・生成元 URL）は akari-sounds の catalog.json に公開されている",
   "when_to_use": "イントロ / アウトロ / 場面転換 / 達成などの短尺スティンガー",
+  "i18n": {
+    "en": {
+      "title": "AKARI Sounds Jingles (v0)",
+      "description": "A jingle pack from the in-house AKARI Sounds library: 12 tracks and 12 takes. All tracks were AI-generated on a paid Suno plan. Generation records (dates, prompts, and source URLs) are published in akari-sounds catalog.json.",
+      "when_to_use": "For short stingers in intros, outros, scene transitions, and achievement moments."
+    }
+  },
   "tags": [
     "akari-sounds",
     "jingle",

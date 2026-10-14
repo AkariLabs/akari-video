@@ -4,6 +4,13 @@
   "title": "インパクト SFX パック",
   "description": "衝突・打撃・フォーリー系の効果音 130 点セット。テロップの強調出現やカット切り替え、アクセントを付けたい瞬間に使える短尺の衝撃音が中心",
   "when_to_use": "強調テロップの出現・カット切り替え・ビートに合わせたアクセント演出など、映像に「ドン」「ガツン」といった衝撃感を足したいシーン",
+  "i18n": {
+    "en": {
+      "title": "Impact SFX Pack",
+      "description": "A set of 130 collision, hit, and Foley sound effects, mostly short impacts for emphasized caption entrances, cut changes, and moments needing an accent.",
+      "when_to_use": "For emphasized caption entrances, cut changes, and beat-aligned accents that need a thump or sharp impact."
+    }
+  },
   "tags": ["sfx", "impact", "foley", "transition", "accent"],
   "knobs": [],
   "ai_usage": "取得後は音源をそのまま edit.json のカット点・強調ポイントに合わせて配置する用途を想定。音源そのもの（波形）は改変しない。音量調整はクリップ側のパラメータで行う",

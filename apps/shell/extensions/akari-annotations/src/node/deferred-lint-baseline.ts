@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { runEditLint, type EditLintGateResult } from '@akari-video/edit-store/lib/write-gate';
@@ -40,7 +41,7 @@ export class DeferredLintBaseline {
         if (!baseline) {
             baseline = {
                 snapshot: this.readSnapshot(key).catch(error => {
-                    console.warn('[akari-annotations] 保存前の指摘比較用ファイルを読めませんでした。', error);
+                    console.warn(t('annotations.deferredLintBaseline.ui.couldNotReadPreSaveComparisonFileError'), error);
                     return undefined;
                 }),
                 writtenFiles: new Set(),
@@ -78,7 +79,7 @@ export class DeferredLintBaseline {
                         ? cached.findings : (await this.lint(key,
                             { 'edit.json': before.edit, 'captions.json': before.captions }, false)).findings;
                     if (previous.some(finding => finding.check === 'edit-lint.execution')) {
-                        throw new Error('保存前の検証を利用できません。');
+                        throw new Error(t('annotations.deferredLintBaseline.ui.preSaveValidationNotAvailableError'));
                     }
                     blame = {
                         writtenFiles,
@@ -89,7 +90,7 @@ export class DeferredLintBaseline {
                 }
             }
         } catch (error) {
-            console.warn('[akari-annotations] 保存前の指摘比較に失敗しました。', error);
+            console.warn(t('annotations.deferredLintBaseline.ui.couldNotCompareFindingsBeforeSavingError'), error);
         }
         if (this.pending.get(key) !== baseline || baseline.generation !== generation) return undefined;
         if (after) this.completed.set(key, { snapshot: after, findings: result.findings });

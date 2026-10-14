@@ -505,10 +505,10 @@ export class PreviewContextBar implements Disposable {
 
     protected captionButton(key: string, overflow = false): string {
         const style = { ...(this.state?.item?.textStyle ?? {}), ...Object.fromEntries(this.captionPending ?? []) } as Record<string, any>;
-        const label: Record<string, string> = { captionFont: 'フォント', captionTextColor: '文字の色', captionBold: '太字',
-            captionItalic: '斜体', captionUnderline: '下線', captionStrike: '取り消し線', captionCase: '大文字小文字',
-            captionAlign: '配置', captionBullet: '箇条書き', captionSpacing: '間隔', captionVertical: '縦書き',
-            captionOpacity: '透明度', captionEffect: 'エフェクト', captionAnimation: 'アニメーション', captionStyle: 'スタイル' };
+        const label: Record<string, string> = { captionFont: t('preview.previewContextBar.ui.fontLabel'), captionTextColor: t('preview.previewContextBar.ui.fontColorLabel'), captionBold: t('preview.previewContextBar.ui.boldLabel'),
+            captionItalic: t('preview.previewContextBar.ui.italicLabel'), captionUnderline: t('preview.previewContextBar.ui.underlineLabel'), captionStrike: t('preview.previewContextBar.ui.strikethroughLabel'), captionCase: t('preview.previewContextBar.ui.letterCaseLabel'),
+            captionAlign: t('preview.previewContextBar.ui.alignmentLabel'), captionBullet: t('preview.previewContextBar.ui.bulletsLabel'), captionSpacing: t('preview.previewContextBar.ui.spacingLabel'), captionVertical: t('preview.previewContextBar.ui.verticalTextLabel'),
+            captionOpacity: t('preview.previewContextBar.ui.opacityLabel'), captionEffect: t('preview.previewContextBar.ui.effectsLabel'), captionAnimation: t('preview.previewContextBar.ui.animationLabel'), captionStyle: t('preview.previewContextBar.ui.styleLabel') };
         const pressed = captionItemPressed(key, style, this.captionPanel);
         const open = this.openWindow === key;
         const glyph: Record<string, string> = { captionBold: '<b>B</b>', captionItalic: '<i>I</i>',
@@ -618,7 +618,7 @@ export class PreviewContextBar implements Disposable {
             + `${ICON[icon]}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
         if (state.kind === 'caption') {
             this.more.innerHTML = this.captionOverflow.map(key => key === 'captionSize'
-                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${Math.round(captionSizeForState(this.state))}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
+                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="${t('preview.contextBar.toolbar.decreaseSizeAction')}">−</button><input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${Math.round(captionSizeForState(this.state))}" aria-label="${t('preview.contextBar.toolbar.sizeLabel')}"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="${t('preview.contextBar.toolbar.increaseSizeAction')}">＋</button></span>`
                 : this.captionButton(key, true)).join('');
             return;
         }

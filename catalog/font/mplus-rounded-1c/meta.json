@@ -5,6 +5,16 @@
   "aliases": ["M PLUS Rounded 1c","MPLUSRounded1c-Regular"],
   "description": "丸みを帯びたやわらかい印象の日本語ゴシック体。Thin〜Black の幅広いウェイトを持ち、角の取れたアウトラインでカジュアル・親しみやすいトーンを演出できる。Google Fonts 公開・日本語テロップで人気の高い書体。実体（静的ウェイト、telop カタログでの実使用に合わせ Medium/ExtraBold/Black の3ウェイトのみ）は本リポの assets/font/mplus-rounded-1c/ に同梱済み（2026-07-23 追記。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "VLOG・エンタメ系・チュートリアル・子ども/ファミリー向けなど、硬くなりすぎない柔らかい印象のテロップ見出しやポップな強調テキストが欲しいシーン",
+  "i18n": {
+    "en": {
+      "title": "M PLUS Rounded 1c",
+      "description": "A soft, rounded Japanese sans serif with weights from Thin to Black and friendly, casual outlines. Available on Google Fonts and popular for Japanese video captions. Static Medium, ExtraBold, and Black files, the three weights used by the caption catalog, are bundled in assets/font/mplus-rounded-1c/ (added 2026-07-23). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For friendly caption headlines and pop emphasis in vlogs, entertainment, tutorials, and content for children or families.",
+      "aliases": [
+        "MPLUSRounded1c-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

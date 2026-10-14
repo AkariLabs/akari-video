@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.mjs';
+import { loadCatalogForResolveAsync } from '../src/resolve-async-library.mjs';
 import { AssetResolverError, resolve as resolveAsset } from '../src/resolve.mjs';
 import { composeState } from '../src/state.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
@@ -17,7 +18,7 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload', tier }) {
+function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload', tier, i18n }) {
   const packRoot = path.join(home, 'assets', 'store', 'fixture-pack', 'fixture-pack-v1');
   const itemPath = category === 'pack' ? `custom/${id}` : `assets/${category}/${id}`;
   const assetRoot = path.join(packRoot, itemPath);
@@ -36,6 +37,7 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
           id,
           title,
           ...(tier ? { tier } : {}),
+          ...(i18n !== undefined ? { i18n } : {}),
           path: itemPath,
           version: 1,
           files: [{ path: 'payload.txt', bytes: Buffer.byteLength(payload), sha256: sha256(payload) }]
@@ -239,4 +241,30 @@ test('sync のキャッシュへ installed item を混ぜない', () => {
   const cached = JSON.parse(readFileSync(path.join(home, 'catalog-cache.json'), 'utf8'));
   assert.deepEqual(cached, catalog);
   assert.equal(cached.items.some((item) => item.source === 'installed'), false);
+});
+
+
+test('installed item carries index translations or falls back to metadata in sync and async catalogs', async () => {
+  const { env, home } = setupFixtureEnv();
+  const indexTranslation = { en: { title: 'Indexed name' } };
+  const metaTranslation = { en: { title: 'Metadata name' } };
+  const { assetRoot, indexPath } = writeInstalled({ home, category: 'still', i18n: indexTranslation });
+  writeFileSync(path.join(assetRoot, 'meta.json'), JSON.stringify({ i18n: metaTranslation }));
+  const readBoth = async () => [
+    (await loadCatalog({ env })).items.find(item => item.id === 'installed-one'),
+    (await loadCatalogForResolveAsync('still/installed-one', { env })).items.find(item => item.id === 'installed-one')
+  ];
+  for (const item of await readBoth()) assert.deepEqual(item.i18n, indexTranslation);
+
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  delete index.packs['fixture-pack'].items[0].i18n;
+  writeFileSync(indexPath, JSON.stringify(index));
+  for (const item of await readBoth()) assert.deepEqual(item.i18n, metaTranslation);
+
+  index.packs['fixture-pack'].items[0].i18n = [];
+  writeFileSync(indexPath, JSON.stringify(index));
+  for (const item of await readBoth()) assert.deepEqual(item.i18n, metaTranslation);
+
+  writeFileSync(path.join(assetRoot, 'meta.json'), JSON.stringify({ i18n: 'broken' }));
+  for (const item of await readBoth()) assert.equal(item.i18n, undefined);
 });

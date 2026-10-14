@@ -1,3 +1,5 @@
+import { matchesLocalizedValue } from '../../common/chat-localized-match';
+import { t } from '@akari-video/i18n';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { reapChildGroup, terminateChild } from './terminate';
 import { constants } from 'fs';
@@ -18,7 +20,7 @@ type WaitingAnswer = { id: number; method: string; params: any; questions: Quest
 type TurnWait = { resolve: () => void; reject: (error: Error) => void; timer?: ReturnType<typeof setTimeout>; turnId?: string };
 type TurnError = { message?: string; codexErrorInfo?: string | Record<string, unknown> | null };
 
-const AUTH_MESSAGE = 'Codex でログインしてください';
+const authMessage = () => t('chat.codexAppServer.ui.logCodexText');
 const AUTH_PATTERN = /not logged in|not authenticated|authentication required|unauthorized|login required|log in to|sign in to|401\b/i;
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
@@ -34,12 +36,12 @@ function classifyTurnError(error: TurnError | undefined): { kind: 'auth' | 'rate
     const info = error?.codexErrorInfo;
     const code = typeof info === 'string' ? info : info && typeof info === 'object' ? Object.keys(info)[0] : '';
     if (code === 'unauthorized' || AUTH_PATTERN.test(message)) {
-        return { kind: 'auth', message: AUTH_MESSAGE };
+        return { kind: 'auth', message: authMessage() };
     }
     if (['usageLimitExceeded', 'rateLimitExceeded', 'sessionBudgetExceeded'].includes(code || '')) {
-        return { kind: 'rate-limit', message: message || 'Codex の利用制限に達しました' };
+        return { kind: 'rate-limit', message: message || t('chat.codexAppServer.ui.codexUsageLimitReachedLabel') };
     }
-    return { kind: 'other', message: message || 'Codex の処理に失敗しました' };
+    return { kind: 'other', message: message || t('chat.codexAppServer.ui.codexProcessingFailedError') };
 }
 
 export function codexCandidates(home = homedir(), pathValue = process.env.PATH || ''): string[] {
@@ -129,28 +131,37 @@ function commandPresentation(item: { command?: string; commandActions?: CommandA
         const path = action.path ? displayPath(action.path, cwd) : action.name || '';
         const skill = path.match(/(?:^|\/)skills\/([^/]+)\/SKILL\.md$/);
         if (skill) {
-            return { kind: 'skill', title: `${completed ? '使いました' : '使っています'} ${skill[1]}`,
+            return { kind: 'skill', title: `${completed ? t('chat.codexAppServer.ui.usedLabel') : t('chat.codexAppServer.ui.usingLabel')} ${skill[1]}`,
                 detail: { command, path } };
         }
         const label = isAbsolute(path) ? action.name || path : path || action.name || '';
-        return { kind: 'read', title: `${completed ? '読みました' : '読んでいます'} ${label}`.trim(),
+        return { kind: 'read', title: `${completed ? t('chat.codexAppServer.ui.readLabel') : t('chat.codexAppServer.ui.readingLabel')} ${label}`.trim(),
             detail: { command, path: path || undefined } };
     }
     if (actions.length === 1 && actions[0].type === 'search') {
-        return { kind: 'search', title: `${completed ? '検索しました' : '検索しています'} ${actions[0].query || command}`.trim(),
+        return { kind: 'search', title: `${completed ? t('chat.codexAppServer.ui.searchedLabel') : t('chat.codexAppServer.ui.searchingStatus')} ${actions[0].query || command}`.trim(),
             detail: { command } };
     }
-    return { kind: 'command', title: `${completed ? '実行しました' : '実行しています'} ${command}`.trim(),
+    return { kind: 'command', title: `${completed ? t('chat.codexAppServer.ui.ranLabel') : t('chat.codexAppServer.ui.runningStatus')} ${command}`.trim(),
         detail: { command } };
 }
 
-function finishedTitle(title: string): string {
-    return title.replace(/^実行しています/, '実行しました')
-        .replace(/^書いています/, '書きました')
-        .replace(/^検索しています/, '検索しました')
-        .replace(/^使っています/, '使いました')
-        .replace(/^読んでいます/, '読みました')
-        .replace(/^考えています/, '考えました');
+export function finishedTitle(title: string): string {
+    const labels = [
+        ['chat.codexAppServer.ui.runningStatus', 'chat.codexAppServer.ui.ranLabel'],
+        ['chat.codexAppServer.ui.writingStatus', 'chat.codexAppServer.ui.wroteLabel'],
+        ['chat.codexAppServer.ui.searchingStatus', 'chat.codexAppServer.ui.searchedLabel'],
+        ['chat.codexAppServer.ui.usingLabel', 'chat.codexAppServer.ui.usedLabel'],
+        ['chat.codexAppServer.ui.readingLabel', 'chat.codexAppServer.ui.readLabel'],
+        ['chat.codexAppServer.ui.thinkingStatus', 'chat.codexAppServer.ui.thoughtLabel']
+    ];
+    for (const [present, complete] of labels) {
+        for (const language of ['ja', 'en'] as const) {
+            const prefix = t(present, {}, language);
+            if (title.startsWith(prefix)) return t(complete) + title.slice(prefix.length);
+        }
+    }
+    return title;
 }
 
 export class CodexNotificationParser {
@@ -201,19 +212,19 @@ export class CodexNotificationParser {
             if (params.delta) this.emit({ type: 'thinking.delta', id, text: params.delta });
             const prior = this.tools.get(id);
             const text = (prior?.detail?.text || '') + (params.delta || '');
-            if (text) { this.tool(id, 'think', '考えています', 'running', { text }); }
+            if (text) { this.tool(id, 'think', t('chat.codexAppServer.ui.thinkingStatus'), 'running', { text }); }
         } else if (method === 'item/commandExecution/outputDelta') {
             const prior = this.tools.get(id);
-            this.tool(id, prior?.kind || 'command', prior?.title || '実行しています', prior?.status || 'running', {
+            this.tool(id, prior?.kind || 'command', prior?.title || t('chat.codexAppServer.ui.runningStatus'), prior?.status || 'running', {
                 ...prior?.detail,
                 output: (prior?.detail?.output || '') + (params.delta || '')
             });
         } else if (method === 'item/fileChange/patchUpdated') {
             const detail = diffDetails(params.changes || [], this.cwd);
-            this.tool(id, 'write', `書いています ${detail?.path || 'ファイル'}`, 'running', detail);
+            this.tool(id, 'write', t('chat.codexAppServer.ui.writingPathStatus', { path: detail?.path || t('chat.codexAppServer.ui.fileLabel') }), 'running', detail);
         } else if (method === 'item/fileChange/outputDelta') {
             const prior = this.tools.get(id);
-            this.tool(id, 'write', prior?.title || '書いています', prior?.status || 'running', {
+            this.tool(id, 'write', prior?.title || t('chat.codexAppServer.ui.writingStatus'), prior?.status || 'running', {
                 ...prior?.detail, output: (prior?.detail?.output || '') + (params.delta || '')
             });
         } else if (method === 'item/started') {
@@ -225,13 +236,13 @@ export class CodexNotificationParser {
                 this.tool(id, presentation.kind, presentation.title, 'running', { ...presentation.detail, output: '' });
             } else if (item.type === 'fileChange') {
                 const detail = diffDetails(item.changes || [], this.cwd);
-                this.tool(id, 'write', `書いています ${detail?.path || 'ファイル'}`, 'running', detail);
+                this.tool(id, 'write', t('chat.codexAppServer.ui.writingPathStatus', { path: detail?.path || t('chat.codexAppServer.ui.fileLabel') }), 'running', detail);
             } else if (item.type === 'webSearch') {
-                this.tool(id, 'web', `検索しています ${item.query || ''}`.trim(), 'running');
+                this.tool(id, 'web', t('chat.codexAppServer.ui.searchingQueryStatus', { query: item.query || '' }).trim(), 'running');
             } else if (item.type === 'mcpToolCall') {
-                this.tool(id, 'other', `使っています ${item.server || 'MCP'} ${item.tool || ''}`.trim(), 'running');
+                this.tool(id, 'other', t('chat.codexAppServer.ui.usingServerToolLabel', { server: item.server || 'MCP', tool: item.tool || '' }).trim(), 'running');
             } else if (item.type === 'dynamicToolCall') {
-                this.tool(id, 'other', `使っています ${item.tool || 'ツール'}`, 'running');
+                this.tool(id, 'other', t('chat.codexAppServer.ui.usingToolLabel', { tool: item.tool || t('chat.codexAppServer.ui.toolLabel') }), 'running');
             }
         } else if (method === 'item/completed') {
             const duration = item.durationMs ?? (this.starts.has(id) ? (params.completedAtMs || Date.now()) - this.starts.get(id)! : undefined);
@@ -246,7 +257,7 @@ export class CodexNotificationParser {
                 }
             } else if (item.type === 'reasoning') {
                 const text = this.tools.get(id)?.detail?.text || (item.summary || []).join('\n');
-                if (text) { this.tool(id, 'think', '考えました', 'done', { text }, duration); }
+                if (text) { this.tool(id, 'think', t('chat.codexAppServer.ui.thoughtLabel'), 'done', { text }, duration); }
             } else if (item.type === 'commandExecution') {
                 const prior = this.tools.get(id);
                 const presentation = commandPresentation(item, this.cwd, true);
@@ -257,7 +268,7 @@ export class CodexNotificationParser {
                     }, duration);
             } else if (item.type === 'fileChange') {
                 const detail = diffDetails(item.changes || [], this.cwd);
-                this.tool(id, 'write', `書きました ${detail?.path || 'ファイル'}`,
+                this.tool(id, 'write', t('chat.codexAppServer.ui.wrotePathLabel', { path: detail?.path || t('chat.codexAppServer.ui.fileLabel') }),
                     item.status === 'completed' ? 'done' : 'error', detail, duration);
                 const files = (item.changes || []).map((change: { path: string }) => {
                     const path = displayPath(change.path, this.cwd);
@@ -274,15 +285,15 @@ export class CodexNotificationParser {
             } else if (item.type === 'webSearch' || item.type === 'mcpToolCall' || item.type === 'dynamicToolCall') {
                 const prior = this.tools.get(id);
                 const kind = item.type === 'webSearch' ? 'web' : 'other';
-                const title = kind === 'web' ? `検索しました ${item.query || ''}`.trim()
-                    : `使いました ${item.server || ''} ${item.tool || ''}`.trim();
+                const title = kind === 'web' ? t('chat.codexAppServer.ui.searchedQueryLabel', { query: item.query || '' }).trim()
+                    : t('chat.codexAppServer.ui.usedServerToolLabel', { server: item.server || '', tool: item.tool || '' }).trim();
                 this.tool(id, kind, title, item.status === 'failed' ? 'error' : 'done', prior?.detail, duration);
             }
         } else if (method === 'item/tool/requestUserInput') {
             const question = params.questions?.[0] as Question | undefined;
             if (question) {
                 this.emit({ type: 'ask', id: `${message.id ?? params.itemId}-${params.questionIndex || 0}`,
-                    question: question.question, options: question.options?.length ? question.options : [{ label: 'はい' }, { label: 'いいえ' }] });
+                    question: question.question, options: question.options?.length ? question.options : [{ label: t('chat.codexAppServer.ui.yesLabel') }, { label: t('chat.codexAppServer.ui.noLabel') }] });
             }
         } else if (method === 'thread/tokenUsage/updated') {
             const usage = params.tokenUsage || {};
@@ -326,10 +337,10 @@ export class CodexAppServerAdapter implements ChatAdapter {
         const executable = this.executableOverride || await findCodex();
         if (!executable) {
             return { id: 'codex', name: 'Codex', installed: false, transport: 'codex-app-server', permissionModes: ['automatic', 'checkpoints', 'every'],
-                installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
+                installHint: t('chat.codexAppServer.ui.installCodexMessage') };
         }
         return { id: 'codex', name: 'Codex', installed: true, transport: 'codex-app-server', permissionModes: ['automatic', 'checkpoints', 'every'],
-            installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
+            installHint: t('chat.codexAppServer.ui.installCodexMessage') };
     }
 
     async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission; signal?: AbortSignal }): Promise<ChatAdapterSession> {
@@ -386,7 +397,7 @@ class CodexSession implements ChatAdapterSession {
 
     get sessionRef(): string { return this.ref; }
     get initialError(): Extract<ChatEvent, { type: 'error' }> | undefined {
-        return this.unauthenticated ? { type: 'error', kind: 'auth', message: AUTH_MESSAGE } : undefined;
+        return this.unauthenticated ? { type: 'error', kind: 'auth', message: authMessage() } : undefined;
     }
 
     private publish(event: ChatEvent): void {
@@ -425,7 +436,7 @@ class CodexSession implements ChatAdapterSession {
         clearTimeout(waiting.timer);
         waiting.timer = setTimeout(() => {
             if (this.turnWait !== waiting) { return; }
-            this.publish({ type: 'error', kind: 'other', message: 'Codex の応答がありません' });
+            this.publish({ type: 'error', kind: 'other', message: t('chat.codexAppServer.ui.codexDidNotRespondMessage') });
             this.publish({ type: 'turn.end', ok: false, reason: 'timeout' });
         }, this.idleTimeoutMs);
         waiting.timer.unref();
@@ -440,7 +451,7 @@ class CodexSession implements ChatAdapterSession {
         const auth = AUTH_PATTERN.test(message + this.stderr);
         if (this.turnWait || this.turnId || this.waitingAnswer) {
             if (!this.interrupted) {
-                this.publish({ type: 'error', kind: auth ? 'auth' : 'crashed', message: auth ? AUTH_MESSAGE : message });
+                this.publish({ type: 'error', kind: auth ? 'auth' : 'crashed', message: auth ? authMessage() : message });
             }
             this.publish({ type: 'turn.end', ok: false, reason: this.interrupted ? 'interrupted' : auth ? 'auth' : 'crashed' });
         }
@@ -476,19 +487,19 @@ class CodexSession implements ChatAdapterSession {
             if (this.child === child) { this.stderr = (this.stderr + chunk).slice(-4000); }
         });
         child.stdin.on('error', error => {
-            if (this.child === child) { this.fail(`Codex に送れませんでした: ${error.message}`); }
+            if (this.child === child) { this.fail(t('chat.codexAppServer.ui.failedSendCodexError', { error: error.message })); }
         });
         child.on('error', error => {
-            if (this.child === child) { this.fail(`Codex を起動できませんでした: ${error.message}`); this.child = undefined; }
+            if (this.child === child) { this.fail(t('chat.codexAppServer.ui.couldNotStartCodexError', { error: error.message })); this.child = undefined; }
         });
         child.on('close', code => {
-            if (this.child === child) { this.fail(`Codex が終了しました (${code})`); this.child = undefined; }
+            if (this.child === child) { this.fail(t('chat.codexAppServer.ui.codexHasEndedCodeLabel', { code: String(code) })); this.child = undefined; }
         });
     }
 
     private write(message: RpcMessage): void {
         const child = this.child;
-        if (!child || !child.stdin.writable) { throw new Error('Codex の入力が閉じています'); }
+        if (!child || !child.stdin.writable) { throw new Error(t('chat.codexAppServer.ui.codexInputClosedLabel')); }
         child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
     }
 
@@ -569,7 +580,7 @@ class CodexSession implements ChatAdapterSession {
                 params: { ...waiting.params, questions: [question], questionIndex: waiting.index } });
         } else {
             this.publish({ type: 'ask', id: `${waiting.id}-${waiting.index}`, question: question.question,
-                options: question.options?.length ? question.options : [{ label: 'はい' }, { label: 'いいえ' }] });
+                options: question.options?.length ? question.options : [{ label: t('chat.codexAppServer.ui.yesLabel') }, { label: t('chat.codexAppServer.ui.noLabel') }] });
         }
         // The current UI serializes send() calls. Release it so the answer can be sent.
         if (this.turnWait) {
@@ -592,15 +603,15 @@ class CodexSession implements ChatAdapterSession {
             this.ask({ id, method, params: message.params, questions, answers: {}, index: 0 });
         } else if (method === 'item/permissions/requestApproval') {
             this.ask({ id, method, params: message.params,
-                questions: [{ id: 'permission', question: message.params?.reason || '追加の権限を許可しますか？',
-                    options: [{ label: '許可' }, { label: '拒否' }] }], answers: {}, index: 0 });
+                questions: [{ id: 'permission', question: message.params?.reason || t('chat.codexAppServer.ui.doWantAllowAdditionalPermissionsMessage'),
+                    options: [{ label: t('chat.codexAppServer.ui.allowLabel') }, { label: t('chat.codexAppServer.ui.denyLabel') }] }], answers: {}, index: 0 });
         } else if (method === 'mcpServer/elicitation/request') {
             const schema = message.params?.requestedSchema;
             const form = message.params?.mode !== 'url';
-            const question = `${message.params?.message || 'MCP の確認に答えてください'}${form ? '（複数項目は JSON で入力）' : ` ${message.params?.url || ''}`}`.trim();
+            const question = `${message.params?.message || t('chat.codexAppServer.ui.answerMCPConfirmationText')}${form ? t('chat.codexAppServer.ui.enterMultipleItemsJsonText') : ` ${message.params?.url || ''}`}`.trim();
             this.ask({ id, method, params: message.params,
                 questions: [{ id: 'elicitation', question,
-                    options: form && Object.keys(schema?.properties || {}).length ? [{ label: '拒否' }] : [{ label: '許可' }, { label: '拒否' }] }],
+                    options: form && Object.keys(schema?.properties || {}).length ? [{ label: t('chat.codexAppServer.ui.denyLabel') }] : [{ label: t('chat.codexAppServer.ui.allowLabel') }, { label: t('chat.codexAppServer.ui.denyLabel') }] }],
                 answers: {}, index: 0 });
         } else {
             this.write({ id, error: { code: -32601, message: `Method not supported: ${method}` } });
@@ -691,7 +702,7 @@ class CodexSession implements ChatAdapterSession {
             this.ask(waiting);
         } else if (waiting.method === 'item/permissions/requestApproval') {
             const requested = waiting.params.permissions || {};
-            const permissions = text === '許可' ? {
+            const permissions = matchesLocalizedValue(text, 'chat.codexAppServer.ui.allowLabel') ? {
                 ...(requested.network ? { network: requested.network } : {}),
                 ...(requested.fileSystem ? { fileSystem: requested.fileSystem } : {})
             } : {};
@@ -701,7 +712,7 @@ class CodexSession implements ChatAdapterSession {
             const schema = waiting.params?.requestedSchema;
             const fields = Object.keys(schema?.properties || {});
             let content: unknown = null;
-            if (text !== '拒否' && waiting.params?.mode !== 'url' && fields.length) {
+            if (!matchesLocalizedValue(text, 'chat.codexAppServer.ui.denyLabel') && waiting.params?.mode !== 'url' && fields.length) {
                 try { content = JSON.parse(text); } catch {
                     content = fields.length === 1 ? { [fields[0]]: text } : null;
                 }
@@ -710,7 +721,7 @@ class CodexSession implements ChatAdapterSession {
                     return;
                 }
             }
-            this.write({ id: waiting.id, result: { action: text === '拒否' ? 'decline' : 'accept', content, _meta: null } });
+            this.write({ id: waiting.id, result: { action: matchesLocalizedValue(text, 'chat.codexAppServer.ui.denyLabel') ? 'decline' : 'accept', content, _meta: null } });
             this.waitingAnswer = undefined;
         }
         if (this.waitingAnswer) { return; }
@@ -735,7 +746,7 @@ class CodexSession implements ChatAdapterSession {
             const account = await this.rpc('account/read', { refreshToken: false }).catch(() => undefined);
             this.unauthenticated = !!(account?.requiresOpenaiAuth && !account.account);
             if (this.unauthenticated) {
-                this.publish({ type: 'error', kind: 'auth', message: AUTH_MESSAGE });
+                this.publish({ type: 'error', kind: 'auth', message: authMessage() });
                 this.publish({ type: 'turn.end', ok: false, reason: 'auth' });
                 return;
             }
@@ -786,7 +797,7 @@ class CodexSession implements ChatAdapterSession {
             }
         } catch (error) {
             this.publish({ type: 'error', kind: AUTH_PATTERN.test(String(error)) ? 'auth' : 'other',
-                message: AUTH_PATTERN.test(String(error)) ? AUTH_MESSAGE : String(error) });
+                message: AUTH_PATTERN.test(String(error)) ? authMessage() : String(error) });
             this.publish({ type: 'turn.end', ok: false, reason: AUTH_PATTERN.test(String(error)) ? 'auth' : 'failed' });
         }
         return done;
@@ -805,11 +816,11 @@ class CodexSession implements ChatAdapterSession {
     }
 
     async setModel(model: string): Promise<void> {
-        if (this.catalogLoaded && !this.supportedModels.has(model)) throw new Error('このモデルは選べません');
+        if (this.catalogLoaded && !this.supportedModels.has(model)) throw new Error(t('chat.codexAppServer.ui.modelNotAvailableError'));
         this.opts.model = model;
     }
     async setEffort(effort: string): Promise<void> {
-        if (this.catalogLoaded && !this.validEffort(effort, this.opts.model || this.actualModel)) throw new Error('この深さは選べません');
+        if (this.catalogLoaded && !this.validEffort(effort, this.opts.model || this.actualModel)) throw new Error(t('chat.codexAppServer.ui.depthCannotSelectedError'));
         this.opts.effort = effort;
     }
 

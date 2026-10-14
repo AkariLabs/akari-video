@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { spawn } from 'child_process';
 import { constants } from 'fs';
 import { access } from 'fs/promises';
@@ -19,23 +20,23 @@ export const acpAgents: AcpAgentDefinition[] = [
     {
         id: 'opencode', name: 'opencode', executable: 'opencode', args: ['acp'],
         extraDirs: ['.opencode/bin'],
-        installHint: 'opencode をインストールしてください（curl -fsSL https://opencode.ai/install | bash、または npm install -g opencode-ai）',
+        installHint: t('chat.acpAgents.ui.installOpencodeMessage'),
         loginHint: 'opencode auth login'
     },
     {
         id: 'gemini', name: 'Gemini CLI', executable: 'gemini', args: ['--acp'],
-        extraDirs: [], installHint: 'Gemini CLI をインストールしてください（npm install -g @google/gemini-cli）',
+        extraDirs: [], installHint: t('chat.acpAgents.ui.installGeminiCliMessage'),
         loginHint: 'gemini'
     },
     {
         id: 'copilot', name: 'Copilot CLI', executable: 'copilot', args: ['--acp'],
-        extraDirs: [], installHint: 'Copilot CLI をインストールしてください（npm install -g @github/copilot）',
+        extraDirs: [], installHint: t('chat.acpAgents.ui.installCopilotCliMessage'),
         loginHint: 'copilot login'
     },
     {
         id: 'grok', name: 'Grok Build', executable: 'grok', args: ['agent', 'stdio'],
         extraDirs: ['.grok/bin'],
-        installHint: 'Grok Build をインストールしてください（curl -fsSL https://x.ai/cli/install.sh | bash、または npm install -g @xai-official/grok）',
+        installHint: t('chat.acpAgents.ui.installGrokMessage'),
         loginHint: 'grok login'
     }
 ];

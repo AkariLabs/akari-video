@@ -292,5 +292,9 @@
   "partner.web.externalNavigation.declineExternalOpenAction": "開かない",
   "partner.web.externalNavigation.leaveDeepseekHarnessText": "DeepSeek Harness の外へ移動",
   "partner.web.externalNavigation.openBrowserAction": "既定のブラウザで開く",
-  "partner.web.externalNavigation.openBrowserConfirmMessage": "{value1} を既定のブラウザで開きますか？"
+  "partner.web.externalNavigation.openBrowserConfirmMessage": "{value1} を既定のブラウザで開きますか？",
+  "partner.akariPartnerCommandContribution.ui.loginClaudeCodeLabel": "Claude Code でログイン",
+  "partner.akariPartnerWidget.ui.trialLabel": "お試し",
+  "partner.akariPartnerWidget.ui.canDiscussVideoCreationViaChatMessage": "動画づくりをチャットで相談できます",
+  "partner.partnerReviewTarget.ui.partnerLabel": "パートナー"
 }

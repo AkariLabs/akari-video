@@ -110,6 +110,10 @@ test('two full bakes are byte-identical; every index preview exists within budge
     const transitions = records('presets/transitions/index.jsonl');
     assert.equal(luts.length, 10);
     assert.equal(transitions.length, 29);
+    for (const row of [...luts, ...transitions]) {
+      assert.equal(typeof row.i18n?.en?.name, 'string', row.id);
+      assert.ok(row.i18n.en.name.length > 0, row.id);
+    }
     assert.deepEqual(transitions.map(entry => entry.id), transitionVocabulary().map(entry => entry.id));
     const files = ['presets/luts/index.jsonl', 'presets/luts/reference-frame.webp', 'presets/transitions/index.jsonl',
       'evidence/v1-preset-previews/contact-sheet.png'];

@@ -4,6 +4,13 @@
   "title": "DOVA-SYNDROME Cheerleaders（BGM）",
   "description": "明るく楽しい雰囲気のアップテンポBGM。DOVA-SYNDROME公式YouTubeチャンネルでもプレビュー公開されている楽曲。（収録数: 1点）",
   "when_to_use": "明るい/楽しい雰囲気を出したい場面のBGM、応援・盛り上げ系のシーンに",
+  "i18n": {
+    "en": {
+      "title": "DOVA-SYNDROME Cheerleaders (BGM)",
+      "description": "Up-tempo background music with a bright, fun mood. A preview is also published on DOVA-SYNDROME's official YouTube channel. Includes 1 item.",
+      "when_to_use": "For cheerful background music, encouragement, and high-energy scenes."
+    }
+  },
   "tags": [
     "bgm",
     "upbeat",

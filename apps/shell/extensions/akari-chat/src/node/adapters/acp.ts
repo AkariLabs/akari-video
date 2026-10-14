@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { constants } from 'fs';
 import { access, lstat, open, readFile, realpath } from 'fs/promises';
@@ -42,7 +43,7 @@ function within(root: string, target: string): boolean {
 }
 
 function classify(error: RpcError, stderr = ''): ChatEvent & { type: 'error' } {
-    const message = String(error.message || 'ACP エージェントのエラー');
+    const message = String(error.message || t('chat.acp.ui.acpAgentError'));
     const kind = error.crashed ? 'crashed'
         : error.code === -32000 || /auth|login|log in|sign in|unauthenticated|credentials/i.test(`${message} ${stderr}`)
             ? 'auth' : /rate.?limit|quota|too many requests|\b429\b/i.test(message) ? 'rate-limit' : 'other';
@@ -50,8 +51,8 @@ function classify(error: RpcError, stderr = ''): ChatEvent & { type: 'error' } {
 }
 
 function safeReason(message: string): string {
-    return message.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[伏せ字]')
-        .replace(/[A-Za-z0-9]{32,}/g, '[伏せ字]').replace(/\s+/g, ' ').trim().slice(0, 200);
+    return message.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, t('chat.acp.ui.messageLabel'))
+        .replace(/[A-Za-z0-9]{32,}/g, t('chat.acp.ui.messageLabel')).replace(/\s+/g, ' ').trim().slice(0, 200);
 }
 
 export class AcpAdapter implements ChatAdapter {
@@ -71,13 +72,13 @@ export class AcpAdapter implements ChatAdapter {
         return {
             id: this.agent.id, name: this.agent.name, installed: Boolean(executable),
             transport: 'acp', permissionModes: ['automatic', 'checkpoints'],
-            permissionReasons: { every: '確認の頻度は相手側が決めるため選べません' },
+            permissionReasons: { every: t('chat.acp.ui.partnerControlsHowOftenAsksConfirmationMessage') },
             installHint: this.agent.installHint, loginHint: this.agent.loginHint
         };
     }
 
     async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission; signal?: AbortSignal }): Promise<ChatAdapterSession> {
-        if (opts.permission === 'every') throw new Error('この相手は毎回確認に対応していません');
+        if (opts.permission === 'every') throw new Error(t('chat.acp.ui.partnerCannotAskBeforeEveryAction'));
         const executable = await this.executable();
         const session = new AcpSession(this.agent, executable, opts);
         const cancel = (): void => { void session.close(); };
@@ -161,7 +162,7 @@ export class AcpSession implements ChatAdapterSession {
             child.stdout.on('data', data => this.receive(data));
             child.stderr.on('data', data => { this.stderr = (this.stderr + data).slice(-2000); });
             child.on('error', error => this.processEnded(error.message));
-            child.on('close', code => this.processEnded(`ACP エージェントが終了しました (${code})`));
+            child.on('close', code => this.processEnded(t('chat.acp.ui.acpAgentTerminatedCodeLabel', { code: String(code) })));
             child.stdin.on('error', error => this.processEnded(error.message));
             const init = await this.request('initialize', {
                 protocolVersion: 1,
@@ -285,15 +286,15 @@ export class AcpSession implements ChatAdapterSession {
     private async safePath(path: string, writing: boolean): Promise<string> {
         const root = await realpath(this.opts.cwd);
         const candidate = resolve(root, path);
-        if (!within(root, candidate)) { throw new Error('プロジェクト外のパスは使えません'); }
+        if (!within(root, candidate)) { throw new Error(t('chat.acp.ui.pathsOutsideProjectCannotUsedError')); }
         const checked = writing ? await realpath(resolve(candidate, '..')) : await realpath(candidate);
-        if (!within(root, checked)) { throw new Error('プロジェクト外のパスは使えません'); }
+        if (!within(root, checked)) { throw new Error(t('chat.acp.ui.pathsOutsideProjectCannotUsedError')); }
         if (writing) {
             try {
                 const entry = await lstat(candidate);
-                if (entry.isSymbolicLink()) { throw new Error('シンボリックリンクには書き込めません'); }
+                if (entry.isSymbolicLink()) { throw new Error(t('chat.acp.ui.cannotWriteSymbolicLinkError')); }
                 const existing = await realpath(candidate);
-                if (!within(root, existing)) { throw new Error('プロジェクト外のパスは使えません'); }
+                if (!within(root, existing)) { throw new Error(t('chat.acp.ui.pathsOutsideProjectCannotUsedError')); }
             } catch (error) {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') { throw error; }
             }
@@ -317,13 +318,13 @@ export class AcpSession implements ChatAdapterSession {
                     this.pendingPermission = {
                         id, options: options.map(option => ({ optionId: string(option.optionId), name: string(option.name) }))
                     };
-                    this.emit({ type: 'ask', id: `permission-${id}`, question: string(object(params.toolCall).title) || '操作を許可しますか？',
+                    this.emit({ type: 'ask', id: `permission-${id}`, question: string(object(params.toolCall).title) || t('chat.acp.ui.doWantAllowOperationMessage'),
                         options: this.pendingPermission.options.map(option => ({ label: option.name })) });
                 }
                 return;
             }
             if (method === 'fs/read_text_file' || method === 'fs/write_text_file') {
-                if (params.sessionId !== this.ref) { throw new Error('セッションが一致しません'); }
+                if (params.sessionId !== this.ref) { throw new Error(t('chat.acp.ui.sessionsDoNotMatchLabel')); }
                 const path = await this.safePath(string(params.path), method === 'fs/write_text_file');
                 if (method === 'fs/read_text_file') {
                     const content = await readFile(path, 'utf8');
@@ -333,10 +334,10 @@ export class AcpSession implements ChatAdapterSession {
                     this.reply(id, { content: lines.slice(line - 1, Number.isFinite(limit) && limit >= 0 ? line - 1 + limit : undefined).join('\n') });
                 } else {
                     const parent = await realpath(resolve(path, '..'));
-                    if (!within(await realpath(this.opts.cwd), parent)) throw new Error('プロジェクト外のパスは使えません');
+                    if (!within(await realpath(this.opts.cwd), parent)) throw new Error(t('chat.acp.ui.pathsOutsideProjectCannotUsedError'));
                     const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o666);
                     try {
-                        if (!(await file.stat()).isFile()) throw new Error('通常のファイルにのみ書き込めます');
+                        if (!(await file.stat()).isFile()) throw new Error(t('chat.acp.ui.canOnlyWriteRegularFilesText'));
                         await file.truncate(0);
                         await file.writeFile(string(params.content), 'utf8');
                     } finally { await file.close(); }
@@ -385,7 +386,7 @@ export class AcpSession implements ChatAdapterSession {
 
     private finishThought(): void {
         if (this.thoughtId) {
-            this.emit({ type: 'tool', id: this.thoughtId, kind: 'think', title: '考えました', status: 'done', detail: { text: this.thoughtText } });
+            this.emit({ type: 'tool', id: this.thoughtId, kind: 'think', title: t('chat.acp.ui.thoughtLabel'), status: 'done', detail: { text: this.thoughtText } });
             this.thoughtId = ''; this.thoughtText = '';
         }
     }
@@ -442,11 +443,11 @@ export class AcpSession implements ChatAdapterSession {
                         : descriptiveTitle || location || namedTarget || displayTarget(kindHint)) || this.toolTargets.get(id) || '';
         if (kind === 'other' && !target && !namedTarget) return;
         this.toolTargets.set(id, target);
-        const running: Record<ToolKind, string> = { read: '読んでいます', write: '書いています', command: '実行しています',
-            search: '検索しています', web: '取得しています', think: '考えています', skill: '操作しています', other: '操作しています' };
-        const done: Record<ToolKind, string> = { read: '読みました', write: '書きました', command: '実行しました',
-            search: '検索しました', web: '取得しました', think: '考えました', skill: '操作しました', other: '操作しました' };
-        const verb = status === 'error' ? '失敗しました' : list ? status === 'done' ? '一覧を見ました' : '一覧を見ています'
+        const running: Record<ToolKind, string> = { read: t('chat.acp.ui.readingLabel'), write: t('chat.acp.ui.writingStatus'), command: t('chat.acp.ui.runningStatus'),
+            search: t('chat.acp.ui.searchingStatus'), web: t('chat.acp.ui.fetchingLabel'), think: t('chat.acp.ui.thinkingStatus'), skill: t('chat.acp.ui.workingLabel'), other: t('chat.acp.ui.workingLabel') };
+        const done: Record<ToolKind, string> = { read: t('chat.acp.ui.readLabel'), write: t('chat.acp.ui.wroteLabel'), command: t('chat.acp.ui.ranLabel'),
+            search: t('chat.acp.ui.searchedLabel'), web: t('chat.acp.ui.fetchedLabel'), think: t('chat.acp.ui.thoughtLabel'), skill: t('chat.acp.ui.workedLabel'), other: t('chat.acp.ui.workedLabel') };
+        const verb = status === 'error' ? t('chat.acp.ui.failedError') : list ? status === 'done' ? t('chat.acp.ui.listedLabel') : t('chat.acp.ui.listingLabel')
             : status === 'done' ? done[kind] : running[kind];
         const content = Array.isArray(update.content) ? update.content.map(object) : [];
         const output = content.filter(item => item.type === 'content' || item.type === 'text')
@@ -482,13 +483,13 @@ export class AcpSession implements ChatAdapterSession {
             if (!this.thoughtId) { this.thoughtId = `acp-thought-${++this.sequence}`; }
             this.thoughtText += text;
             if (text) this.emit({ type: 'thinking.delta', id: this.thoughtId, text });
-            this.emit({ type: 'tool', id: this.thoughtId, kind: 'think', title: '考えています', status: 'running', detail: { text: this.thoughtText } });
+            this.emit({ type: 'tool', id: this.thoughtId, kind: 'think', title: t('chat.acp.ui.thinkingStatus'), status: 'running', detail: { text: this.thoughtText } });
         } else if (type === 'tool_call' || type === 'tool_call_update') {
             this.toolUpdate(update);
         } else if (type === 'plan') {
             if (!this.planId) { this.planId = `acp-plan-${++this.sequence}`; }
             const entries = Array.isArray(update.entries) ? update.entries.map(object) : [];
-            this.emit({ type: 'tool', id: this.planId, kind: 'other', title: '計画', status: 'done',
+            this.emit({ type: 'tool', id: this.planId, kind: 'other', title: t('chat.acp.ui.planLabel'), status: 'done',
                 detail: { text: entries.map(item => `- [${string(item.status)}] ${string(item.content)}`).join('\n') } });
         } else if (type === 'available_commands_update') {
             this.commands = Array.isArray(update.availableCommands) ? update.availableCommands.map(item => ({
@@ -524,7 +525,7 @@ export class AcpSession implements ChatAdapterSession {
         }
         if (event.kind === 'auth') {
             const reason = safeReason(cause.message);
-            event.message = `${this.agent.name} にログインしてください（ターミナルで ${this.agent.loginHint}）${reason ? ` — ${reason}` : ''}`;
+            event.message = t('chat.acp.ui.logNameLoginCommandTerminalReasonAction', { name: this.agent.name, loginCommand: this.agent.loginHint, reason: reason ? ` — ${reason}` : '' });
         }
         if (cause.message.includes('ENOENT')) { event.kind = 'not-installed'; event.message = this.agent.installHint; }
         this.emit(event);
@@ -606,7 +607,7 @@ export class AcpSession implements ChatAdapterSession {
         const config = this.configOptions.find(item => item.category === 'model');
         if (config) { await this.request('session/set_config_option', { sessionId: this.ref, configId: config.id, value: model }, 60000); }
         else if (this.models.length) { await this.request('session/set_model', { sessionId: this.ref, modelId: model }, 60000); }
-        else throw new Error('この相手はモデル切替に対応していません');
+        else throw new Error(t('chat.acp.ui.partnerDoesNotSupportSwitchingModelsMessage'));
         this.model = model;
     }
 
@@ -626,7 +627,7 @@ export class AcpSession implements ChatAdapterSession {
         const config = this.configOptions.find(item => ['thought_level', 'effort'].includes(item.category || ''));
         if (config) { await this.request('session/set_config_option', { sessionId: this.ref, configId: config.id, value: effort }, 60000); }
         else if (this.modes.some(mode => mode.id === effort)) { await this.setMode(effort); }
-        else throw new Error('この相手は深さの切替に対応していません');
+        else throw new Error(t('chat.acp.ui.partnerDoesNotSupportChangingReasoningEffortMessage'));
     }
 
     async setMode(modeId: string): Promise<void> {

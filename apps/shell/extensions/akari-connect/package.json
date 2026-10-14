@@ -5,6 +5,6 @@
   "main": "lib/browser/connect-frontend-module.js",
   "theiaExtensions": [{"frontend":"lib/browser/connect-frontend-module","backend":"lib/node/connect-backend-module"}],
   "scripts": {"build":"tsc -b","test":"tsc -b && node --test test/*.test.mjs"},
-  "dependencies": {"@theia/core":"1.73.1","akari-surfaces":"file:../akari-surfaces"},
+  "dependencies": {"@akari-video/i18n": "file:../../../../packages/i18n", "@akari-video/i18n": "file:../../../../packages/i18n", "@theia/core":"1.73.1","akari-surfaces":"file:../akari-surfaces"},
   "devDependencies": {"typescript":"^5.4.0"}
 }

@@ -1543,8 +1543,8 @@ export class AkariPartnerWidget extends ReactWidget {
                     })}
                 </div>
                 {shouldShowChatCard(this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false)) && <button data-akari-chat-card style={{ width: '100%', textAlign: 'left', padding: '8px 10px', marginTop: 14, borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#bbb', cursor: 'pointer', fontSize: 12 }} onClick={() => { if (this.commandRegistry.getCommand('akari.chat.open')) void this.commandService.executeCommand('akari.chat.open'); }}>
-                    <strong>AKARI</strong> <small style={{ border: '1px solid #777', borderRadius: 4, padding: '1px 4px' }}>お試し</small>
-                    <span style={{ display: 'block' }}>動画づくりをチャットで相談できます</span>
+                    <strong>AKARI</strong> <small style={{ border: '1px solid #777', borderRadius: 4, padding: '1px 4px' }}>{t('partner.akariPartnerWidget.ui.trialLabel')}</small>
+                    <span style={{ display: 'block' }}>{t('partner.akariPartnerWidget.ui.canDiscussVideoCreationViaChatMessage')}</span>
                 </button>}
 
                 {this.installCancelledNotice && <p role='status'>{this.installCancelledNotice}</p>}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { generateIndexText, indexText } from './generate.mjs';
+import { generateIndexText, indexText, shapeEnglishName } from './generate.mjs';
 
 test('catalog generation is byte identical and has 219 shapes, 45 lines, and 12 bubbles', () => {
   const disk = readFileSync(new URL('./index.jsonl', import.meta.url), 'utf8');
@@ -14,4 +14,7 @@ test('catalog generation is byte identical and has 219 shapes, 45 lines, and 12 
   assert.equal(rows.filter((r) => r.kind !== 'line').length, 231);
   assert.equal(new Set(rows.map((r) => r.id)).size, rows.length);
   assert.equal(rows.filter((r) => !['line', 'bubble'].includes(r.kind)).length, 219);
+  const named = rows.filter((row) => row.kind !== 'line');
+  assert.equal(new Set(named.map((row) => row.i18n.en.name)).size, named.length);
+  assert.throws(() => shapeEnglishName('missing-shape'), /missing English shape name/u);
 });

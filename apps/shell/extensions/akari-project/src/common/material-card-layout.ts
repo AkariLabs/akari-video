@@ -1,7 +1,38 @@
 import { t } from '../common/project-text';
+import { localizedAssetText, type LocalizableAsset } from '@akari-video/i18n';
 // サムネイルは 16:9。名前は枠の外に置く。
 
 import type { MaterialMetaEntry } from './akari-project-protocol';
+
+export function materialCardTitle(meta: LocalizableAsset | undefined, fallback: string, language: string): string {
+    return meta ? localizedAssetText(meta, 'title', language) ?? fallback : fallback;
+}
+
+export interface ReferenceCardTitleSource { title?: string; id: string }
+export interface CatalogCardTitleSource extends LocalizableAsset { title: string; baseTitle?: string }
+export interface MaterialCardNameSource { name: string; baseName?: string }
+
+export function referenceMaterialBaseName(reference: ReferenceCardTitleSource, known?: CatalogCardTitleSource): string {
+    return reference.title ?? known?.baseTitle ?? known?.title ?? reference.id;
+}
+
+/** Keep the Japanese reference-card precedence, using an actual translation only outside Japanese. */
+export function referenceMaterialCardTitle(reference: ReferenceCardTitleSource, known: CatalogCardTitleSource | undefined,
+    card: MaterialCardNameSource | undefined, language: string): string {
+    const legacy = reference.title ?? known?.title ?? reference.id;
+    if (language === 'ja') return legacy;
+    const cardTranslation = card?.baseName && card.name !== card.baseName ? card.name : undefined;
+    const knownBase = known?.baseTitle ?? known?.title;
+    const translatedKnown = known && knownBase
+        ? localizedAssetText({ title: knownBase, i18n: known.i18n }, 'title', language) : undefined;
+    const knownTranslation = translatedKnown && translatedKnown !== knownBase ? translatedKnown
+        : known?.baseTitle && known.title !== known.baseTitle ? known.title : undefined;
+    return cardTranslation ?? knownTranslation ?? legacy;
+}
+
+export function materialStoredName(entry: MaterialCardNameSource): string {
+    return entry.baseName ?? entry.name;
+}
 
 /** analysis の尺を優先し、ファイル由来の日時と不足分の尺を補う。 */
 export function mergeMaterialCardMeta<T extends { durationSeconds?: number; createdAt?: string; importedAt?: string }>(

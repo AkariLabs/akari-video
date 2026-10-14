@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { ChatEvent } from '../common/chat-events';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatCommand } from '../common/chat-protocol';
@@ -89,7 +90,7 @@ export function commandMatches(commands: ChatMenuCommand[], query: string): Chat
 
 export function commandGroups(commands: ChatMenuCommand[]): { kind: 'skill' | 'command' | 'local'; label: string; rows: { command: ChatMenuCommand; index: number }[] }[] {
     return ([
-        ['skill', 'スキル'], ['command', 'コマンド'], ['local', '会話操作']
+        ['skill', t('chat.chatViewLogic.ui.skillsLabel')], ['command', t('chat.chatViewLogic.ui.commandLabel')], ['local', t('chat.chatViewLogic.ui.conversationActionsLabel')]
     ] as const).map(([kind, label]) => ({
         kind, label,
         rows: commands.flatMap((command, index) =>
@@ -103,8 +104,8 @@ export function commandMenuMaxHeight(panelTop: number, composerTop: number): num
 
 export function thinkingLabel(startedAt: number, now: number, hasText: boolean, done = false, durationMs?: number): string {
     const seconds = Math.max(0, Math.floor((durationMs ?? now - startedAt) / 1000));
-    if (done) return `考えました · ${seconds} 秒`;
-    return hasText ? '考えています' : `考えています… ${seconds} 秒`;
+    if (done) return t('chat.chatViewLogic.ui.thinkingCompletedDurationLabel', { seconds: seconds });
+    return hasText ? t('chat.chatViewLogic.ui.thinkingStatus') : t('chat.chatViewLogic.ui.thinkingDurationStatus', { seconds: seconds });
 }
 
 export function showElapsedThinking(busy: boolean, turnHasActivity: boolean, hasThinking: boolean): boolean {
@@ -116,7 +117,7 @@ export function preparationReady(readyEventSeen: boolean): boolean {
 }
 
 export function permissionLabel(permission: 'auto' | 'all' | 'checkpoints' | 'every'): string {
-    return { auto: '自動', all: '自動', checkpoints: '要所で確認', every: '毎回確認' }[permission];
+    return { auto: t('chat.chatViewLogic.ui.automaticLabel'), all: t('chat.chatViewLogic.ui.automaticLabel'), checkpoints: t('chat.chatViewLogic.ui.checkKeyPointsLabel'), every: t('chat.chatViewLogic.ui.askEveryTimeLabel') }[permission];
 }
 
 export function permissionSelection(permission: 'auto' | 'all' | 'checkpoints' | 'every'): 'automatic' | 'checkpoints' | 'every' {
@@ -128,11 +129,11 @@ export function contextUsage(used?: number, limit?: number, completed = false): 
 } {
     const number = (value: number): string => new Intl.NumberFormat('ja-JP').format(value);
     if (used === undefined) return completed
-        ? { state: 'unavailable', label: 'この相手は使用量を表示できません', percentage: 0 }
-        : { state: 'empty', label: 'まだ使用量はありません', percentage: 0 };
-    if (!limit) return { state: 'no-limit', label: `使用量 ${number(used)} トークン（上限は分かりません）`, percentage: 0 };
+        ? { state: 'unavailable', label: t('chat.chatViewLogic.ui.partnerDoesNotReportContextUsageText'), percentage: 0 }
+        : { state: 'empty', label: t('chat.chatViewLogic.ui.noUsageYetLabel'), percentage: 0 };
+    if (!limit) return { state: 'no-limit', label: t('chat.chatViewLogic.ui.usageWithoutLimitLabel', { usedTokens: number(used) }), percentage: 0 };
     const percentage = Math.min(100, Math.round(used / limit * 100));
-    return { state: 'known', label: `使用量 ${number(used)} / 上限 ${number(limit)} トークン · ${percentage}%`, percentage };
+    return { state: 'known', label: t('chat.chatViewLogic.ui.usageWithLimitLabel', { usedTokens: number(used), tokenLimit: number(limit), percentage: percentage }), percentage };
 }
 
 export function contextUsageLabel(used?: number, limit?: number, completed = false): string {

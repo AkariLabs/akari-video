@@ -1,3 +1,5 @@
+import { localizedPattern } from '../../common/chat-localized-match';
+import { t } from '@akari-video/i18n';
 import { basename, extname, isAbsolute, relative } from 'path';
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 
@@ -210,14 +212,14 @@ export class ClaudeStreamParser {
             ? this.displayPath(String(raw))
             : String(raw);
         const verbs: Record<ToolKind, string> = {
-            think: '考えました',
-            read: '読みました',
-            write: '書きました',
-            command: '実行しました',
-            search: '調べました',
-            skill: '使いました',
-            web: '調べました',
-            other: '使いました'
+            think: t('chat.claudeStreamParser.ui.thoughtLabel'),
+            read: t('chat.claudeStreamParser.ui.readLabel'),
+            write: t('chat.claudeStreamParser.ui.wroteLabel'),
+            command: t('chat.claudeStreamParser.ui.ranLabel'),
+            search: t('chat.claudeStreamParser.ui.searchedLabel'),
+            skill: t('chat.claudeStreamParser.ui.usedLabel'),
+            web: t('chat.claudeStreamParser.ui.searchedLabel'),
+            other: t('chat.claudeStreamParser.ui.usedLabel')
         };
         return `${verbs[kind]} ${target}`;
     }
@@ -231,7 +233,7 @@ export class ClaudeStreamParser {
             this.emit({
                 type: 'ask',
                 id,
-                question: question.question || '選んでください',
+                question: question.question || t('chat.claudeStreamParser.ui.chooseLabel'),
                 options: question.options || []
             });
             return;
@@ -261,8 +263,8 @@ export class ClaudeStreamParser {
         if (!this.tools.has(toolUseId)) this.tool({ id: toolUseId, name, input });
         const tracked = this.tools.get(toolUseId);
         if (!tracked) return;
-        const verbs: Record<ToolKind, string> = { think: '考えています', read: '読んでいます', write: '書いています',
-            command: '実行しています', search: '調べています', skill: '使っています', web: '調べています', other: '操作しています' };
+        const verbs: Record<ToolKind, string> = { think: t('chat.claudeStreamParser.ui.thinkingStatus'), read: t('chat.claudeStreamParser.ui.readingLabel'), write: t('chat.claudeStreamParser.ui.writingStatus'),
+            command: t('chat.claudeStreamParser.ui.runningStatus'), search: t('chat.claudeStreamParser.ui.checkingStatus'), skill: t('chat.claudeStreamParser.ui.usingLabel'), web: t('chat.claudeStreamParser.ui.checkingStatus'), other: t('chat.claudeStreamParser.ui.workingLabel') };
         this.emit({ type: 'tool', id: toolUseId, kind: tracked.kind,
             title: this.toolStatusTitle(tracked, verbs[tracked.kind]), status: 'running', detail: tracked.detail });
     }
@@ -278,12 +280,13 @@ export class ClaudeStreamParser {
             output: valueText(block.content),
             ...(diff ? { diff } : {})
         };
-        const blocked = block.is_error && /permission|denied|rejected|拒否|許可/i.test(valueText(block.content));
+        const blocked = block.is_error && localizedPattern(['chat.claudeStreamJson.ui.allowLabel', 'chat.claudeStreamJson.ui.denyLabel'],
+            ['permission', 'denied', 'rejected']).test(valueText(block.content));
         this.emit({
             type: 'tool',
             id: block.tool_use_id,
             kind: tracked.kind,
-            title: block.is_error ? this.toolStatusTitle(tracked, blocked ? '止められました' : '失敗しました') : tracked.title,
+            title: block.is_error ? this.toolStatusTitle(tracked, blocked ? t('chat.claudeStreamParser.ui.wasStoppedLabel') : t('chat.claudeStreamParser.ui.failedError')) : tracked.title,
             status: block.is_error ? 'error' : 'done',
             detail,
             durationMs: Date.now() - tracked.at
@@ -358,9 +361,9 @@ export class ClaudeStreamParser {
                 type: 'tool',
                 id: block.id,
                 kind: 'think',
-                title: '考えました',
+                title: t('chat.claudeStreamParser.ui.thoughtLabel'),
                 status: 'done',
-                detail: { text: block.text || '考えました' },
+                detail: { text: block.text || t('chat.claudeStreamParser.ui.thoughtLabel') },
                 durationMs: Date.now() - block.at
             });
         } else if (block.type === 'tool_use') {
@@ -379,7 +382,7 @@ export class ClaudeStreamParser {
         const content = row.message?.content || [];
         if (row.error === 'authentication_failed' ||
             content.some((block: Json) => /Not logged in/i.test(valueText(block.text)))) {
-            this.error('auth', 'Claude Code でログインしてください');
+            this.error('auth', t('chat.claudeStreamParser.ui.logClaudeCodeText'));
         }
         for (const [index, block] of content.entries()) {
             const streamed = this.streamBlocks.find(candidate =>
@@ -397,9 +400,9 @@ export class ClaudeStreamParser {
                     type: 'tool',
                     id: `think-${row.message?.id || 'fallback'}-${index}`,
                     kind: 'think',
-                    title: '考えました',
+                    title: t('chat.claudeStreamParser.ui.thoughtLabel'),
                     status: 'done',
-                    detail: { text: block.thinking || '考えました' }
+                    detail: { text: block.thinking || t('chat.claudeStreamParser.ui.thoughtLabel') }
                 });
             } else if (block.type === 'tool_use') {
                 this.tool(block);
@@ -411,7 +414,7 @@ export class ClaudeStreamParser {
 
     private acceptResult(row: Json): void {
         if (/Not logged in/i.test(row.result || '')) {
-            this.error('auth', 'Claude Code でログインしてください');
+            this.error('auth', t('chat.claudeStreamParser.ui.logClaudeCodeText'));
         }
         const usage = row.usage?.iterations?.at(-1) || row.usage;
         const usedTokens = [
@@ -467,7 +470,7 @@ export class ClaudeStreamParser {
         if (row.type === 'rate_limit_event') {
             const status = row.rate_limit_info?.status || row.status || '';
             if (/reject|error|limit/i.test(String(status))) {
-                this.error('rate-limit', '利用制限に達しました');
+                this.error('rate-limit', t('chat.claudeStreamParser.ui.usageLimitReachedLabel'));
             }
             return;
         }

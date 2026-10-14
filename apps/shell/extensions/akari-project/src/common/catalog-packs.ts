@@ -12,6 +12,16 @@ export interface CatalogPack {
     category: string;
     title: string;
     summary?: string;
+    i18n?: Record<string, { title?: string; description?: string }>;
+}
+
+export function localizedCatalogPackText(pack: CatalogPack, field: 'title' | 'description', language: string): string | undefined {
+    const translated = (lang: string): string | undefined => {
+        const value = pack.i18n?.[lang]?.[field];
+        return typeof value === 'string' && value.trim() ? value : undefined;
+    };
+    return (language === 'ja' ? undefined : translated(language) ?? translated('en'))
+        ?? (field === 'title' ? pack.title : pack.summary);
 }
 
 export function parseCatalogPacksFile(raw: string): CatalogPack[] {
@@ -39,7 +49,15 @@ function parsePack(value: Record<string, unknown>): CatalogPack | undefined {
         id,
         category,
         title,
-        summary: typeof value.summary === 'string' ? value.summary : undefined
+        summary: typeof value.summary === 'string' ? value.summary : undefined,
+        ...(isRecord(value.i18n) ? { i18n: Object.fromEntries(Object.entries(value.i18n)
+            .filter(([, entry]) => isRecord(entry))
+            .map(([lang, rawEntry]) => {
+                const entry = rawEntry as Record<string, unknown>;
+                return [lang, {
+                ...(isNonEmptyString(entry.title) ? { title: entry.title } : {}),
+                ...(isNonEmptyString(entry.description) ? { description: entry.description } : {})
+            }]; })) } : {})
     };
 }
 

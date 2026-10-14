@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
@@ -29,7 +30,7 @@ export async function writeDefaults(value: Record<string, ChatDefaults>): Promis
 }
 
 function transcriptPath(cwd: string, historyId: string): string {
-    if (!/^c-[a-zA-Z0-9-]+$/.test(historyId)) throw new Error('会話 ID が正しくありません');
+    if (!/^c-[a-zA-Z0-9-]+$/.test(historyId)) throw new Error(t('chat.chatStorage.ui.conversationIDIncorrectLabel'));
     return join(cwd, '.akari', 'chat', 'transcripts', `${historyId}.jsonl`);
 }
 

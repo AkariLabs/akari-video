@@ -1,3 +1,4 @@
+import { t as translate } from '@akari-video/i18n';
 import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt,
     reviewEscapeStep, reviewMemoEnterAction } from '../common/chat-review-attachments';
 import type { ChatAttachment } from '../common/chat-review-attachments';
@@ -11,7 +12,43 @@ export function reviewThumbnailEviction(attachments: readonly ChatAttachment[], 
 }
 
 export function previewChatReviewScript(): string {
+    const uiText = {
+        editingPreview: translate('preview.chatReview.ui.editingPreviewLabel'),
+        exportedVideo: translate('preview.chatReview.ui.exportedVideoLabel'),
+        clipboard: translate('preview.chatReview.ui.clipboardLabel'),
+        pen: translate('preview.chatReview.ui.penLabel'),
+        pin: translate('preview.chatReview.ui.pinLabel'),
+        range: translate('preview.chatReview.ui.rangeLabel'),
+        start: translate('preview.chatReview.ui.startLabel'),
+        end: translate('preview.chatReview.ui.endLabel'),
+        attachZero: translate('preview.chatReview.ui.attachZeroLabel'),
+        memoPlaceholder: translate('preview.chatReview.ui.memoPlaceholderLabel'),
+        delete: translate('preview.chatReview.ui.deleteLabel'),
+        done: translate('preview.chatReview.ui.doneLabel'),
+        copyToClipboard: translate('preview.chatReview.ui.copyToClipboardAction'),
+        attachToPartner: translate('preview.chatReview.ui.attachToPartnerLabel'),
+        attachCountOne: translate('preview.chatReview.ui.attachCountLabel_one'),
+        attachCountOther: translate('preview.chatReview.ui.attachCountLabel_other'),
+        penHint: translate('preview.chatReview.ui.penHintText'),
+        pinHint: translate('preview.chatReview.ui.pinHintText'),
+        rangeStartHint: translate('preview.chatReview.ui.rangeStartHintAction'),
+        rangeEndHint: translate('preview.chatReview.ui.rangeEndHintAction'),
+        separator: translate('preview.chatReview.ui.separatorLabel'),
+        noMemo: translate('preview.chatReview.ui.noMemoLabel'),
+        remove: translate('preview.chatReview.ui.removeLabel'),
+        memoTooLong: translate('preview.chatReview.ui.memoTooLongMessage'),
+        reviewLabel: translate('preview.chatReview.ui.reviewLabel')
+    };
     return `(() => {
+        const ui = ${JSON.stringify(uiText).replace(/</g, '\\u003c')};
+        const helperCopy = ${JSON.stringify(Object.fromEntries([
+            'preview.chatReviewAttachments.ui.captionLabel',
+            'preview.chatReviewAttachments.ui.videoSourcePathLabel',
+            'preview.chatReviewAttachments.ui.imageLabel',
+            'preview.chatReviewAttachments.ui.videoLabel'
+        ].map(key => [key, translate(key)]))).replace(/</g, '\\u003c')};
+        const t = (key, params = {}) => formatUi(helperCopy[key] ?? key, params);
+        const formatUi = (text, params) => text.replace(/\\{(\\w+)\\}/g, (_, key) => String(params[key] ?? ''));
         const initial = window.__akariPreview;
         const post = message => window.akari?.reviewChatPost?.(message);
         const normalizePoint = (${normalizeReviewPoint.toString()});
@@ -25,8 +62,8 @@ export function previewChatReviewScript(): string {
         const transport = document.querySelector('.transport');
         const seek = document.getElementById('seek');
         if (!stage || !transport || !seek) return;
-        const source = initial.reviewSource || (initial.kind === 'output' ? 'edit.json' : '動画');
-        const sourceLabel = initial.reviewSourceLabel || (initial.kind === 'output' ? '編集中のプレビュー' : '書き出し動画');
+        const source = initial.reviewSource || (initial.kind === 'output' ? 'edit.json' : ${JSON.stringify(translate('preview.chatReview.source.defaultVideoLabel', {}, 'ja'))});
+        const sourceLabel = initial.reviewSourceLabel || (initial.kind === 'output' ? ui.editingPreview : ui.exportedVideo);
         const currentTime = () => Number(seek.value) || 0;
         const clock = time => {
             const seconds = Math.max(0, Math.floor(time));
@@ -38,7 +75,7 @@ export function previewChatReviewScript(): string {
         const pendingAdds = new Map();
         const pendingUpdates = new Map();
         const pendingRemoves = new Set();
-        let partnerName = 'クリップボード';
+        let partnerName = ui.clipboard;
         let trayOpen = false;
         let drawing = null;
         let claimedPointerId = null;
@@ -94,7 +131,7 @@ export function previewChatReviewScript(): string {
         const marksNode = root.querySelector('[data-review-marks]');
         const toolbar = document.createElement('div');
         toolbar.className = 'review-toolbar';
-        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="ペン" aria-label="ペン" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="ピン" aria-label="ピン" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="範囲" aria-label="範囲" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>開始</button><button type="button" data-review-range-end>終了</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="添付 0 件" aria-label="添付 0 件" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>';
+        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="__AKARI_UI_pen__" aria-label="__AKARI_UI_pen__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="__AKARI_UI_pin__" aria-label="__AKARI_UI_pin__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="__AKARI_UI_range__" aria-label="__AKARI_UI_range__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>__AKARI_UI_start__</button><button type="button" data-review-range-end>__AKARI_UI_end__</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="__AKARI_UI_attachZero__" aria-label="__AKARI_UI_attachZero__" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
         transport.querySelector('.transport-controls').after(toolbar);
         const hint = toolbar.querySelector('[data-review-hint]');
         const buttons = toolbar.querySelector('.review-tools');
@@ -103,7 +140,7 @@ export function previewChatReviewScript(): string {
         const dock = document.createElement('div');
         dock.id = 'review-dock';
         dock.hidden = true;
-        dock.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><textarea data-review-memo placeholder="変更したい内容を入力" rows="2"></textarea><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="削除" aria-label="削除"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="完了" aria-label="完了"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>クリップボードにコピー</button></div></div>';
+        dock.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><textarea data-review-memo placeholder="__AKARI_UI_memoPlaceholder__" rows="2"></textarea><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="__AKARI_UI_delete__" aria-label="__AKARI_UI_delete__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="__AKARI_UI_done__" aria-label="__AKARI_UI_done__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>__AKARI_UI_copyToClipboard__</button></div></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
         toolbar.after(dock);
         const note = dock.querySelector('[data-review-note]');
         const elementsNode = note.querySelector('[data-review-elements]');
@@ -123,11 +160,11 @@ export function previewChatReviewScript(): string {
             if (badge.hasAttribute('data-review-badge')) badge.toggleAttribute('data-review-active', active);
         };
         const render = () => {
-            sendButton.textContent = partnerName === 'クリップボード' ? 'クリップボードにコピー' : partnerName + ' に添付';
+            sendButton.textContent = partnerName === ui.clipboard ? ui.copyToClipboard : formatUi(ui.attachToPartner, { name: partnerName });
             attachButton.hidden = marks.length === 0;
             attachButton.dataset.reviewAttachCount = String(marks.length);
             attachButton.querySelector('[data-review-attach-number]').textContent = String(marks.length);
-            attachButton.title = '添付 ' + marks.length + ' 件';
+            attachButton.title = formatUi(marks.length === 1 ? ui.attachCountOne : ui.attachCountOther, { count: marks.length });
             attachButton.setAttribute('aria-label', attachButton.title);
             for (const button of buttons.querySelectorAll('[data-review-tool]')) {
                 button.classList.toggle('on', button.dataset.reviewTool === tool);
@@ -136,9 +173,9 @@ export function previewChatReviewScript(): string {
             root.classList.toggle('is-active', Boolean(tool));
             rangeControls.hidden = tool !== 'range';
             hint.hidden = !tool;
-            hint.textContent = tool === 'pen' ? '動画の上をクリックして丸をつける'
-                : tool === 'pin' ? '動画の上をクリックしてピンを置く'
-                : tool === 'range' ? (rangeStart === null ? '開始位置を選ぶ' : '終了位置を選ぶ') : '';
+            hint.textContent = tool === 'pen' ? ui.penHint
+                : tool === 'pin' ? ui.pinHint
+                : tool === 'range' ? (rangeStart === null ? ui.rangeStartHint : ui.rangeEndHint) : '';
             if (activeNote) tray.hidden = true;
             else note.hidden = true;
             note.hidden = !activeNote;
@@ -210,19 +247,19 @@ export function previewChatReviewScript(): string {
                 }
                 const content = document.createElement('span');
                 content.className = 'review-row-text';
-                content.textContent = item.review.sourceLabel + ' ・ ' + clock(item.review.time)
+                content.textContent = item.review.sourceLabel + ui.separator + clock(item.review.time)
                     + (item.review.timeEnd === undefined ? '' : '〜' + clock(item.review.timeEnd))
-                    + ' ・ ' + ({ pen: 'ペン', pin: 'ピン', range: '範囲' })[item.review.tool]
+                    + ui.separator + ({ pen: ui.pen, pin: ui.pin, range: ui.range })[item.review.tool]
                     + ' — ';
                 const memoText = document.createElement('span');
-                memoText.textContent = item.review.text || 'メモなし';
+                memoText.textContent = item.review.text || ui.noMemo;
                 if (!item.review.text) memoText.className = 'review-empty-memo';
                 content.append(memoText);
                 row.append(content);
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.dataset.reviewRemove = String(index);
-                remove.setAttribute('aria-label', '外す');
+                remove.setAttribute('aria-label', ui.remove);
                 remove.textContent = '×';
                 row.append(remove);
                 rows.append(row);
@@ -278,7 +315,7 @@ export function previewChatReviewScript(): string {
             const size = item => new TextEncoder().encode(JSON.stringify(item)).byteLength;
             if (size(candidate) > 64 * 1024) review.thumbnail = undefined;
             if (size(candidate) > 64 * 1024) {
-                memo.setCustomValidity('メモが長すぎます。短くしてください');
+                memo.setCustomValidity(ui.memoTooLong);
                 memo.reportValidity();
                 return false;
             }
@@ -338,7 +375,7 @@ export function previewChatReviewScript(): string {
             const review = { id: crypto.randomUUID(), tool: kind, source, sourceLabel, time,
                 ...(kind === 'range' ? { timeEnd: currentTime() } : {}),
                 ...(shape ? { shape } : {}), elements, text: '', thumbnail: thumbnail() };
-            const item = { kind: 'review', label: review.sourceLabel + ' ' + review.time.toFixed(1) + '秒', review };
+            const item = { kind: 'review', label: formatUi(ui.reviewLabel, { sourceLabel: review.sourceLabel, time: review.time.toFixed(1) }), review };
             if (new TextEncoder().encode(JSON.stringify(item)).byteLength > 64 * 1024) review.thumbnail = undefined;
             marks.push(item);
             pendingAdds.set(review.id, item);
@@ -508,7 +545,7 @@ export function previewChatReviewScript(): string {
                 if (activeNote && markIndex(activeNote.id) < 0) activeNote = null;
             }
             partnerName = typeof event.data.partnerName === 'string' && /\\S/.test(event.data.partnerName)
-                ? event.data.partnerName : 'クリップボード';
+                ? event.data.partnerName : ui.clipboard;
             for (const done of [...stateWaiters]) done();
             if (marks.length === 0) trayOpen = false;
             render();

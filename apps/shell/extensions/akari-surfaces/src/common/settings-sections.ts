@@ -29,12 +29,12 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
 
 export const SETTINGS_PILLARS = [
-    { id: 'general', label: '一般', icon: 'user', sections: ['account', 'start', 'developer', 'help', 'about'] },
-    { id: 'partner', label: 'パートナー', icon: 'bot', sections: ['partner'] },
-    { id: 'connect', label: 'つなぐ', icon: 'key', sections: ['connections', 'ai-models', 'narration', 'transcribe', 'listening', 'export'] },
-    { id: 'workflow', label: '進め方と上限', icon: 'gauge', sections: ['quality', 'notifications', 'tools', 'statistics'] },
-    { id: 'display', label: '表示', icon: 'contrast', sections: ['appearance', 'shortcuts'] },
-    { id: 'data', label: 'データの場所', icon: 'disk', sections: ['storage', 'privacy'] }
+    { id: 'general', label: t('surfaces.settingsSections.ui.generalLabel'), icon: 'user', sections: ['account', 'start', 'developer', 'help', 'about'] },
+    { id: 'partner', label: t('surfaces.settingsSections.ui.partnerLabel'), icon: 'bot', sections: ['partner'] },
+    { id: 'connect', label: t('surfaces.settingsSections.ui.connectLabel'), icon: 'key', sections: ['connections', 'ai-models', 'narration', 'transcribe', 'listening', 'export'] },
+    { id: 'workflow', label: t('surfaces.settingsSections.ui.workflowLimitsLabel'), icon: 'gauge', sections: ['quality', 'notifications', 'tools', 'statistics'] },
+    { id: 'display', label: t('surfaces.settingsSections.ui.displayLabel'), icon: 'contrast', sections: ['appearance', 'shortcuts'] },
+    { id: 'data', label: t('surfaces.settingsSections.ui.dataLocationsLabel'), icon: 'disk', sections: ['storage', 'privacy'] }
 ] as const;
 export type SettingsPillarId = typeof SETTINGS_PILLARS[number]['id'];
 export function settingsPillarForSection(section: SettingsSectionId): SettingsPillarId {

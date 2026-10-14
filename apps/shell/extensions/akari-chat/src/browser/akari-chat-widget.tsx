@@ -1,3 +1,5 @@
+import { includesLocalizedValue } from '../common/chat-localized-match';
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -32,7 +34,7 @@ import { ChatMenuCommand as ChatCommand, optionalRpc, commandMatches, commandGro
 interface ConnectStackItem { id: string; icon: string; name: string }
 function ConnectStack({ items, limit = 5 }: { items: readonly ConnectStackItem[]; limit?: number }): React.ReactElement {
     return <span className='akari-connect-stack' aria-label={items.length
-        ? `接続中: ${items.map(item => item.name).join('、')}` : '接続中の項目なし'}>
+        ? t('chat.akariChatWidget.ui.connectingNamesStatus', { names: items.map(item => item.name).join('、') }) : t('chat.akariChatWidget.ui.noItemsConnectedLabel')}>
         {items.slice(0, limit).map(item => <span className='akari-connect-stack-icon' title={item.name} key={item.id}>{item.icon}</span>)}
         {items.length > limit && <span className='akari-connect-stack-more'>+{items.length - limit}</span>}
     </span>;
@@ -56,12 +58,12 @@ type Outgoing = { text: string; attachments: ChatAttachment[] };
 
 const MEDIA_EXTENSION = /\.(mp4|mov|webm|mkv|mp3|wav|m4a|aac|png|jpe?g|webp|gif)$/i;
 const READ_RPC_TIMEOUT_MS = 8000;
-const EFFORT_LABELS: Record<string, string> = {
-    low: '低い',
-    medium: 'ふつう',
-    high: '高い',
-    max: '最大'
-};
+const effortLabels = (): Record<string, string> => ({
+    low: t('chat.akariChatWidget.ui.lowLabel'),
+    medium: t('chat.akariChatWidget.ui.mediumLabel'),
+    high: t('chat.akariChatWidget.ui.highLabel'),
+    max: t('chat.akariChatWidget.ui.maximumLabel')
+});
 const TOOL_ICONS: Record<ToolKind, ChatIconName> = {
     think: 'brain',
     read: 'file',
@@ -271,7 +273,7 @@ export class AkariChatWidget extends ReactWidget {
                 this.preserveLiveText();
                 this.recording = false;
                 if (this.silenceTimer) clearTimeout(this.silenceTimer);
-                if (status.state === 'error') this.messages.warn(status.message || '聞き取りを続けられませんでした');
+                if (status.state === 'error') this.messages.warn(status.message || t('chat.akariChatWidget.ui.couldNotContinueListeningError'));
             }
             this.update();
         }));
@@ -331,7 +333,7 @@ export class AkariChatWidget extends ReactWidget {
 
     private readonly refreshConnect = async (): Promise<void> => {
         try {
-            this.connected = (await this.connect.list()).rows.filter(row => row.status === '使える' && row.enabled);
+            this.connected = (await this.connect.list()).rows.filter(row => row.status === 'ready' && row.enabled);
             this.update();
         } catch { this.connected = []; }
     };
@@ -352,17 +354,17 @@ export class AkariChatWidget extends ReactWidget {
         try {
             const capabilities = await this.earFrontend.capabilities();
             const live = capabilities.engines.find(engine => engine.id === 'speechanalyzer-live');
-            if (!live?.available) { this.messages.warn(live?.reason || 'この環境では聞き取りを使えません'); return; }
+            if (!live?.available) { this.messages.warn(live?.reason || t('chat.akariChatWidget.ui.voiceInputUnavailableEnvironmentMessage')); return; }
             const preview = (window as Window & { electronAkariPreview?: {
                 askForMicrophoneAccess?: () => Promise<boolean>
             } }).electronAkariPreview;
             if (!capabilities.testInput && preview?.askForMicrophoneAccess
                 && !await preview.askForMicrophoneAccess()) {
-                this.messages.warn('マイクの使用が許可されていません');
+                this.messages.warn(t('chat.akariChatWidget.ui.microphoneAccessNotAllowedMessage'));
                 return;
             }
             const status = await this.ear.start({ purpose: 'trial', engine: 'speechanalyzer-live' });
-            if (status.state === 'error') { this.messages.warn(status.message || '聞き取りを始められませんでした'); return; }
+            if (status.state === 'error') { this.messages.warn(status.message || t('chat.akariChatWidget.ui.couldNotStartListeningError')); return; }
             this.recording = true;
             this.level = 0;
             this.armSilence();
@@ -689,7 +691,7 @@ export class AkariChatWidget extends ReactWidget {
         }
         const cwd = await this.cwd();
         if (!cwd) {
-            this.messages.warn('先にプロジェクトを開いてください');
+            this.messages.warn(t('chat.akariChatWidget.ui.openProjectFirstMessage'));
             return undefined;
         }
         const sequence = ++this.startSequence;
@@ -848,7 +850,7 @@ export class AkariChatWidget extends ReactWidget {
                 });
                 if (!chatId) {
                     this.restoreUnsent(this.outbox.splice(0));
-                    this.error ||= { type: 'error', kind: 'other', message: '会話を開けませんでした。相手を選び直してください。' };
+                    this.error ||= { type: 'error', kind: 'other', message: t('chat.akariChatWidget.ui.couldNotOpenConversationChoosePartnerAgainError') };
                     this.errorIsStart = true;
                     this.update();
                     break;
@@ -859,7 +861,7 @@ export class AkariChatWidget extends ReactWidget {
                     let timer: ReturnType<typeof setTimeout> | undefined;
                     try {
                         const timeout = new Promise<never>((_resolve, reject) => {
-                            timer = setTimeout(() => reject(new Error('送信の応答がありません')), 300000);
+                            timer = setTimeout(() => reject(new Error(t('chat.akariChatWidget.ui.noResponseMessage'))), 300000);
                         });
                         await Promise.race([
                             this.chat.send(chatId, next.text, next.attachments),
@@ -872,7 +874,8 @@ export class AkariChatWidget extends ReactWidget {
                         }
                     }
                 } catch (error) {
-                    if (/akari-chat:not-delivered|会話が見つかりません/.test(String(error))) {
+                    if (String(error).includes('akari-chat:not-delivered')
+                        || includesLocalizedValue(String(error), 'chat.akariChatService.ui.conversationNotFoundError')) {
                         this.restoreUnsent([next, ...this.outbox.splice(0)]);
                         this.hasSentToChat = false;
                         break;
@@ -976,11 +979,11 @@ export class AkariChatWidget extends ReactWidget {
         try {
             await this.workspace.ready;
             const cwd = await this.cwd();
-            if (!cwd) throw new Error('先にプロジェクトを開いてください');
+            if (!cwd) throw new Error(t('chat.akariChatWidget.ui.openProjectFirstMessage'));
             const history = await this.chat.listHistory(cwd);
             if (request === this.historyRequest) this.history = history;
         } catch (error) {
-            if (request === this.historyRequest) this.historyError = `履歴を読み込めませんでした: ${String(error)}`;
+            if (request === this.historyRequest) this.historyError = t('chat.akariChatWidget.ui.failedReadHistoryError', { error: String(error) });
         } finally {
             if (request === this.historyRequest) this.historyLoading = false;
             this.update();
@@ -1055,7 +1058,7 @@ export class AkariChatWidget extends ReactWidget {
             if (previous) await this.chat.close(previous);
             if (sequence !== this.startSequence) return undefined;
             const cwd = await this.cwd();
-            if (!cwd) throw new Error('先にプロジェクトを開いてください');
+            if (!cwd) throw new Error(t('chat.akariChatWidget.ui.openProjectFirstMessage'));
             if (sequence !== this.startSequence) return undefined;
             await this.loadTranscript(cwd, entry.id, sequence);
             if (sequence !== this.startSequence) return undefined;
@@ -1153,7 +1156,7 @@ export class AkariChatWidget extends ReactWidget {
     private async addPath(sourcePath: string, label: string): Promise<void> {
         const cwd = await this.cwd();
         if (!cwd) {
-            this.messages.warn('先にプロジェクトを開いてください');
+            this.messages.warn(t('chat.akariChatWidget.ui.openProjectFirstMessage'));
             return;
         }
         let resolved: { path: string; inside: boolean; relative: string };
@@ -1166,7 +1169,7 @@ export class AkariChatWidget extends ReactWidget {
                 const root = (await this.workspace.roots)[0].resource;
                 const result = await this.project.recordDroppedAssets(root.toString(), [{ name: label, sourcePath: resolved.path }]);
                 if (!result[0]?.success || !result[0].assetPath) {
-                    this.messages.error('素材を取り込めませんでした');
+                    this.messages.error(t('chat.akariChatWidget.ui.couldNotImportAssetError'));
                     return;
                 }
                 path = result[0].assetPath;
@@ -1188,7 +1191,7 @@ export class AkariChatWidget extends ReactWidget {
         this.popup = undefined;
         this.update();
         if (this.commands.getCommand('akari.connect.open')) await this.commands.executeCommand('akari.connect.open', { id });
-        else this.messages.warn('つなぐ画面を開けません');
+        else this.messages.warn(t('chat.akariChatWidget.ui.couldNotOpenConnectionsError'));
     }
 
     private async recordScreen(): Promise<void> {
@@ -1199,13 +1202,13 @@ export class AkariChatWidget extends ReactWidget {
         this.popup = undefined;
         this.update();
         const cwd = await this.cwd();
-        if (!cwd) { this.messages.warn('先にプロジェクトを開いてください'); return; }
-        if (!window.electronAkariChat) { this.messages.warn('画面の録画はデスクトップ版で使えます'); return; }
+        if (!cwd) { this.messages.warn(t('chat.akariChatWidget.ui.openProjectFirstMessage')); return; }
+        if (!window.electronAkariChat) { this.messages.warn(t('chat.akariChatWidget.ui.screenRecordingAvailableDesktopVersionMessage')); return; }
         let stream: MediaStream | undefined;
         let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
             const source = await window.electronAkariChat.screenSource();
-            if (!source.id) { this.messages.warn(source.error || '画面を選べませんでした'); return; }
+            if (!source.id) { this.messages.warn(source.error || t('chat.akariChatWidget.ui.couldNotSelectScreenError')); return; }
             if (source.warning) this.messages.warn(source.warning);
             const video = { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: source.id } };
             stream = await navigator.mediaDevices.getUserMedia({ audio: false, video } as unknown as MediaStreamConstraints);
@@ -1215,31 +1218,31 @@ export class AkariChatWidget extends ReactWidget {
             this.screenRecorder = recorder;
             const completed = new Promise<Blob>((resolve, reject) => {
                 recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-                recorder.onerror = () => reject(new Error('画面の録画に失敗しました'));
+                recorder.onerror = () => reject(new Error(t('chat.akariChatWidget.ui.screenRecordingFailedError')));
                 recorder.onstop = () => resolve(new Blob(chunks, { type: format.blobMime }));
             });
             recorder.start(1000);
             this.update();
-            this.messages.info('画面を録画しています（最大 60 秒）');
+            this.messages.info(t('chat.akariChatWidget.ui.screenRecordingLimitStatus'));
             timeout = setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, 60_000);
             stream.getVideoTracks()[0]?.addEventListener('ended', () => {
                 if (recorder.state !== 'inactive') recorder.stop();
             }, { once: true });
             const blob = await completed;
             this.screenRecorder = undefined;
-            if (!blob.size) throw new Error('録画が空でした');
+            if (!blob.size) throw new Error(t('chat.akariChatWidget.ui.recordingWasEmptyMessage'));
             const data = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(String(reader.result));
-                reader.onerror = () => reject(new Error('録画を読み取れませんでした'));
+                reader.onerror = () => reject(new Error(t('chat.akariChatWidget.ui.couldNotReadRecordingError')));
                 reader.readAsDataURL(blob);
             });
             const path = await this.chat.saveScreenRecording(cwd, data);
-            this.attachments.push({ kind: 'file', path, label: '画面の録画' });
+            this.attachments.push({ kind: 'file', path, label: t('chat.akariChatWidget.ui.screenRecordingLabel') });
             this.update();
         } catch (error) {
             const reason = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')
-                ? '画面収録の許可が必要です。システム設定 › プライバシーとセキュリティ › 画面収録で AKARI を許可してください。'
+                ? t('chat.akariChatWidget.ui.screenRecordingPermissionMessage')
                 : String(error);
             this.messages.error(reason);
         }
@@ -1412,7 +1415,7 @@ export class AkariChatWidget extends ReactWidget {
 
     private async collectDrop(transfer: DataTransfer, libraryData: string): Promise<void> {
         const cwd = await this.cwd();
-        if (!cwd) { this.messages.warn('先にプロジェクトを開いてください'); return; }
+        if (!cwd) { this.messages.warn(t('chat.akariChatWidget.ui.openProjectFirstMessage')); return; }
         const types = ['application/x-akari-material', 'application/x-akari-library-item',
             'theia-editor-dnd', 'text/uri-list', 'application/vnd.code.uri-list',
             'tree-node', 'selected-tree-nodes', 'text/plain'];
@@ -1446,10 +1449,10 @@ export class AkariChatWidget extends ReactWidget {
             } catch (error) { lookupError = error; dropped.unsupported = true; }
         }
         if (dropped.unsupported) this.messages.warn(lookupError
-            ? `この項目はチャットに添付できません: ${String(lookupError)}` : 'この項目はチャットに添付できません');
+            ? t('chat.akariChatWidget.ui.couldNotAttachItemWithReasonError', { error: String(lookupError) }) : t('chat.akariChatWidget.ui.couldNotAttachItemError'));
         if (dropped.paths.length === 0) {
             if (dropped.unsupported) return;
-            this.messages.warn('ファイルの場所を読み取れませんでした。＋ から選び直してください。');
+            this.messages.warn(t('chat.akariChatWidget.ui.couldNotReadFileLocationSelectAgainError'));
             return;
         }
         for (const { path, label } of dropped.paths) {
@@ -1464,7 +1467,7 @@ export class AkariChatWidget extends ReactWidget {
         if (this.commands.getCommand(command)) {
             void this.commands.executeCommand(command);
         } else {
-            this.messages.warn('「パートナーを追加」を開いてください');
+            this.messages.warn(t('chat.akariChatWidget.ui.openAddPartnerAction'));
         }
     }
 
@@ -1511,8 +1514,8 @@ export class AkariChatWidget extends ReactWidget {
     private visibleCommands(): ChatCommand[] {
         if (this.commandDismissed || !this.input.startsWith('/') || this.input.includes(' ')) return [];
         const local: ChatCommand[] = [
-            { name: 'new', label: '新しい会話', kind: 'command', local: true },
-            ...(this.capabilities?.compact ? [{ name: 'compact', label: '要約して続ける', kind: 'command' as const, local: true }] : [])
+            { name: 'new', label: t('chat.akariChatWidget.ui.newConversationLabel'), kind: 'command', local: true },
+            ...(this.capabilities?.compact ? [{ name: 'compact', label: t('chat.akariChatWidget.ui.continueSummaryAction'), kind: 'command' as const, local: true }] : [])
         ];
         const ordered = [
             ...this.commandsList.filter(command => command.kind === 'skill'),
@@ -1551,9 +1554,9 @@ export class AkariChatWidget extends ReactWidget {
             ? commandMenuMaxHeight(panel.getBoundingClientRect().top, composer.getBoundingClientRect().top)
             : undefined;
         return <div className='akari-chat-pop akari-chat-commands' data-chat-commands style={{ maxHeight }}>
-            {this.commandsAddedNote > 0 && <div data-chat-commands-note>あとから {this.commandsAddedNote} 件増えました</div>}
+            {this.commandsAddedNote > 0 && <div data-chat-commands-note>{t('chat.akariChatWidget.ui.commandsAddedMessage', { count: this.commandsAddedNote, n: this.commandsAddedNote })}</div>}
             {!this.commandsList.length && (this.starting || this.commandsSettled < this.commandsRequest) &&
-                <div data-chat-commands-loading>一覧を読み込み中…</div>}
+                <div data-chat-commands-loading>{t('chat.akariChatWidget.ui.loadingCommandsStatus')}</div>}
             {commandGroups(commands).map(group => <React.Fragment key={group.kind}>
                 <strong>{group.label}</strong>
                 {group.rows.map(({ command, index }) => <button key={`${group.kind}-${command.name}`}
@@ -1604,7 +1607,7 @@ export class AkariChatWidget extends ReactWidget {
         const event = item.event;
         const detail = event.detail;
         const duration = event.durationMs !== undefined && event.durationMs >= 100
-            ? `${(event.durationMs / 1000).toFixed(1)}秒`
+            ? t('chat.akariChatWidget.ui.durationSecondsLabel', { seconds: (event.durationMs / 1000).toFixed(1) })
             : '';
         const path = chipPath;
         const visibleTitle = path && event.title.endsWith(` ${path}`)
@@ -1704,7 +1707,7 @@ export class AkariChatWidget extends ReactWidget {
             ><span className='akari-chat-ask-number'>{optionIndex + 1}.</span><span className='akari-chat-ask-copy'>
                 <span>{option.label}</span><small>{option.description || '\u00a0'}</small>
             </span></button>)}
-            <small>ほかの答えは入力欄へ</small>
+            <small>{t('chat.akariChatWidget.ui.enterOtherAnswersMessageBoxText')}</small>
         </div>;
     }
 
@@ -1725,10 +1728,10 @@ export class AkariChatWidget extends ReactWidget {
     private historyTime(iso: string): string {
         const elapsed = Math.max(0, Date.now() - new Date(iso).getTime());
         if (elapsed < 60 * 60 * 1000) {
-            return `${Math.max(1, Math.floor(elapsed / 60000))}分前`;
+            return t('chat.akariChatWidget.ui.minutesAgoLabel', { minutes: Math.max(1, Math.floor(elapsed / 60000)), n: Math.max(1, Math.floor(elapsed / 60000)) });
         }
         if (elapsed < 24 * 60 * 60 * 1000) {
-            return `${Math.floor(elapsed / (60 * 60 * 1000))}時間前`;
+            return t('chat.akariChatWidget.ui.hoursAgoLabel', { hours: Math.floor(elapsed / (60 * 60 * 1000)), n: Math.floor(elapsed / (60 * 60 * 1000)) });
         }
         return new Date(iso).toLocaleString('ja-JP', {
             month: 'numeric',
@@ -1743,7 +1746,7 @@ export class AkariChatWidget extends ReactWidget {
             return null;
         }
         return <div className='akari-chat-pop akari-chat-history' data-chat-history>
-            {this.historyLoading ? <span className='akari-chat-history-empty'>読み込み中…</span>
+            {this.historyLoading ? <span className='akari-chat-history-empty'>{t('chat.akariChatWidget.ui.loadingStatus')}</span>
                 : this.historyError ? <span className='akari-chat-history-empty' role='alert'>{this.historyError}</span>
                 : this.history.length ? this.history.map(entry => {
                 const agent = this.agents.find(candidate => candidate.id === entry.agent);
@@ -1754,7 +1757,7 @@ export class AkariChatWidget extends ReactWidget {
                     {this.renamingHistoryId === entry.id ? <input
                         data-chat-history-rename-input={entry.id}
                         autoFocus
-                        aria-label='会話の名前'
+                        aria-label={t('chat.akariChatWidget.ui.conversationNameLabel')}
                         value={this.renameDraft}
                         onChange={event => { this.renameDraft = event.currentTarget.value; this.update(); }}
                         onKeyDown={event => {
@@ -1767,60 +1770,60 @@ export class AkariChatWidget extends ReactWidget {
                         }}
                     /> : <button data-chat-history-item={entry.id} data-chat-history-row={entry.id}
                         data-chat-history-current={current ? 'true' : undefined}
-                        disabled={!available} title={!available ? 'この会話は開けません' : entry.title}
+                        disabled={!available} title={!available ? t('chat.akariChatWidget.ui.conversationCannotOpenedError') : entry.title}
                         onClick={() => void this.resume(entry)}>
                         <span className='akari-chat-history-title'>
-                            {current && <span className='akari-chat-history-current' aria-label='今の会話'>●</span>}{entry.title}
+                            {current && <span className='akari-chat-history-current' aria-label={t('chat.akariChatWidget.ui.currentConversationLabel')}>●</span>}{entry.title}
                         </span>
                         <small><AgentIcon id={entry.agent} name={name} /> {name} · {this.historyTime(entry.updatedAt)}</small>
-                        {!available && <small>この会話は開けません</small>}
+                        {!available && <small>{t('chat.akariChatWidget.ui.conversationCannotOpenedError')}</small>}
                     </button>}
                     <span className='akari-chat-history-actions'>
-                        <button data-chat-history-rename={entry.id} title='名前を変更' onClick={() => this.beginHistoryRename(entry)}>名前</button>
-                        <button data-chat-history-remove={entry.id} title='一覧から外す' onClick={() => void this.removeHistoryEntry(entry)}>外す</button>
+                        <button data-chat-history-rename={entry.id} title={t('chat.akariChatWidget.ui.renameLabel')} onClick={() => this.beginHistoryRename(entry)}>{t('chat.akariChatWidget.ui.nameLabel')}</button>
+                        <button data-chat-history-remove={entry.id} title={t('chat.akariChatWidget.ui.removeFromListAction')} onClick={() => void this.removeHistoryEntry(entry)}>{t('chat.akariChatWidget.ui.removeLabel')}</button>
                     </span>
                 </div>;
-            }) : <span className='akari-chat-history-empty'>まだ履歴はありません</span>}
+            }) : <span className='akari-chat-history-empty'>{t('chat.akariChatWidget.ui.noHistoryYetMessage')}</span>}
         </div>;
     }
 
     private renderAttachPopup(): React.ReactNode {
         if (this.popup !== 'attach') return null;
         return <div className='akari-chat-pop akari-chat-attach-menu' data-chat-attach-menu>
-            <strong>添付する</strong>
-            <button data-chat-attach-item='file' onClick={() => { this.popup = undefined; this.fileInput?.click(); this.update(); }}>ファイル</button>
-            <button data-chat-attach-item='folder' onClick={() => { this.popup = undefined; this.folderInput?.click(); this.update(); }}>フォルダ</button>
-            <button data-chat-attach-item='record' disabled title='近日'>画面を録画 <small className='akari-chat-soon-badge'>近日</small></button>
-            <strong>作る</strong>
-            <button data-chat-attach-item='create' onClick={() => { this.popup = 'create'; this.update(); }}>つないだサービスで作る</button>
-            <button data-chat-attach-item='connect' onClick={() => void this.openConnect()}>ほかをつなぐ…</button>
+            <strong>{t('chat.akariChatWidget.ui.attachmentSectionTitle')}</strong>
+            <button data-chat-attach-item='file' onClick={() => { this.popup = undefined; this.fileInput?.click(); this.update(); }}>{t('chat.akariChatWidget.ui.fileLabel')}</button>
+            <button data-chat-attach-item='folder' onClick={() => { this.popup = undefined; this.folderInput?.click(); this.update(); }}>{t('chat.akariChatWidget.ui.folderLabel')}</button>
+            <button data-chat-attach-item='record' disabled title={t('chat.akariChatWidget.ui.comingSoonLabel')}>{t('chat.akariChatWidget.ui.recordScreenLabel')}<small className='akari-chat-soon-badge'>{t('chat.akariChatWidget.ui.comingSoonLabel')}</small></button>
+            <strong>{t('chat.akariChatWidget.ui.createLabel')}</strong>
+            <button data-chat-attach-item='create' onClick={() => { this.popup = 'create'; this.update(); }}>{t('chat.akariChatWidget.ui.createConnectedServicesLabel')}</button>
+            <button data-chat-attach-item='connect' onClick={() => void this.openConnect()}>{t('chat.akariChatWidget.ui.connectMoreAction')}</button>
         </div>;
     }
 
     private renderCreatePopup(): React.ReactNode {
         if (this.popup !== 'create') return null;
-        const generators = this.connected.filter(row => row.group === '素材を作る');
+        const generators = this.connected.filter(row => row.group === 'generate');
         return <div className='akari-chat-pop akari-chat-attach-menu' data-chat-create-menu>
-            <strong>つないだサービスで作る</strong>
+            <strong>{t('chat.akariChatWidget.ui.createConnectedServicesLabel')}</strong>
             {generators.length ? generators.map(row => <button key={row.id} onClick={() => {
                 this.prefill(connectorPrefill(row.name, row.try));
                 this.popup = undefined;
                 this.update();
-            }}>{row.icon} {row.name}<small>{row.try}</small></button>) : <small>つながっている生成サービスはありません</small>}
-            <button onClick={() => void this.openConnect()}>ほかをつなぐ…</button>
+            }}>{row.icon} {row.name}<small>{row.try}</small></button>) : <small>{t('chat.akariChatWidget.ui.noGenerationServicesConnectedText')}</small>}
+            <button onClick={() => void this.openConnect()}>{t('chat.akariChatWidget.ui.connectMoreAction')}</button>
         </div>;
     }
 
     private renderPermissionPopup(): React.ReactNode {
         if (this.popup !== 'permission') return null;
         const modes: { id: ChatPermission; label: string; note: string }[] = [
-            { id: 'automatic', label: '自動', note: '書き出しまで進めます。お金がかかる生成と、公開・削除のときだけ聞きます' },
-            { id: 'checkpoints', label: '要所で確認', note: '構成を決めたとき・書き出しの前に止まって聞きます' },
-            { id: 'every', label: '毎回確認', note: '1 歩ずつ。ファイルを書く前に毎回聞きます' }
+            { id: 'automatic', label: t('chat.akariChatWidget.ui.automaticLabel'), note: t('chat.akariChatWidget.ui.automaticPermissionDescription') },
+            { id: 'checkpoints', label: t('chat.akariChatWidget.ui.checkMilestonesLabel'), note: t('chat.akariChatWidget.ui.checkpointPermissionDescription') },
+            { id: 'every', label: t('chat.akariChatWidget.ui.askEveryTimeLabel'), note: t('chat.akariChatWidget.ui.everyStepPermissionDescription') }
         ];
         const selected = permissionSelection(this.selectedPermission());
         return <div className='akari-chat-pop akari-chat-permission-menu' data-chat-permission-menu>
-            <strong>進め方</strong>
+            <strong>{t('chat.akariChatWidget.ui.howProceedLabel')}</strong>
             {modes.map(mode => {
                 const option = permissionOption(mode.id, this.partnerMode, this.selectedAgentInfo());
                 return <button key={mode.id} disabled={!option.available} title={option.reason || mode.note}
@@ -1861,20 +1864,20 @@ export class AkariChatWidget extends ReactWidget {
             </div>
             <div className='akari-chat-model-column'>
                 {!agent?.installed ? <div data-chat-install-guide>
-                    <strong>{agent?.name || this.selectedAgent} は入っていません</strong>
-                    <p>{agent?.installHint || 'パートナーをインストールしてください'}</p>
-                    <button onClick={() => this.openPartnerCatalog()}>パートナーを追加で入れる</button>
+                    <strong>{t('chat.akariChatWidget.ui.partnerNotInstalledLabel', { name: agent?.name || this.selectedAgent })}</strong>
+                    <p>{agent?.installHint || t('chat.akariChatWidget.ui.installPartnerFirstMessage')}</p>
+                    <button onClick={() => this.openPartnerCatalog()}>{t('chat.akariChatWidget.ui.addPartnerAction')}</button>
                 </div> : <>
-                <strong>モデル</strong>
-                {this.starting ? <small>起動しています…</small> : null}
+                <strong>{t('chat.akariChatWidget.ui.modelTitle')}</strong>
+                {this.starting ? <small>{t('chat.akariChatWidget.ui.startingStatus')}</small> : null}
                 {models.length > 12 && <input data-chat-model-search value={this.modelSearch}
-                    placeholder='モデルを検索' onChange={event => { this.modelSearch = event.currentTarget.value; this.update(); }} />}
-                {choices.frequent.length > 0 && <strong>よく使う</strong>}
+                    placeholder={t('chat.akariChatWidget.ui.searchModelsAction')} onChange={event => { this.modelSearch = event.currentTarget.value; this.update(); }} />}
+                {choices.frequent.length > 0 && <strong>{t('chat.akariChatWidget.ui.frequentlyUsedLabel')}</strong>}
                 {choices.frequent.map(model => <button key={`frequent-${model.id}`} data-chat-model={model.id}
                     onClick={() => void this.switchModel(model.id)}>{model.label}</button>)}
                 {choices.frequent.length > 0 && choices.matches.length > 0 &&
-                    <strong className='akari-chat-model-all'>すべて</strong>}
-                {!models.length && !this.starting && <small>既定</small>}
+                    <strong className='akari-chat-model-all'>{t('chat.akariChatWidget.ui.allLabel')}</strong>}
+                {!models.length && !this.starting && <small>{t('chat.akariChatWidget.ui.defaultLabel')}</small>}
                 {choices.matches.map(model => <button
                     key={model.id}
                     data-chat-model={model.id}
@@ -1884,7 +1887,7 @@ export class AkariChatWidget extends ReactWidget {
                     <span>{model.label}<small>{model.description}</small></span>
                     {selectedLabel === model.label && <ChatIcon name='check' size={16} />}
                 </button>)}
-                {efforts.length > 0 && <strong>考える深さ</strong>}
+                {efforts.length > 0 && <strong>{t('chat.akariChatWidget.ui.reasoningEffortLabel')}</strong>}
                 {efforts.length > 0 && <div className='akari-chat-efforts'>
                     {efforts.map(effort => <button
                         key={effort}
@@ -1892,9 +1895,9 @@ export class AkariChatWidget extends ReactWidget {
                         className={this.effort === effort ? 'selected' : undefined}
                         onClick={() => void this.switchEffort(effort)}
                         aria-pressed={this.effort === effort}
-                    >{EFFORT_LABELS[effort] || effort}</button>)}
+                    >{effortLabels()[effort] || effort}</button>)}
                 </div>}
-                {this.actualModel && <small title={this.actualModel}>実行中のモデル: {modelLabel(models, undefined, this.actualModel)}</small>}
+                {this.actualModel && <small title={this.actualModel}>{t('chat.akariChatWidget.ui.runningModelStatus')}{modelLabel(models, undefined, this.actualModel)}</small>}
                 </>}
             </div>
         </div>;
@@ -1908,7 +1911,7 @@ export class AkariChatWidget extends ReactWidget {
             ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent, this.errorIsResume)
             : undefined;
         const effortLabel = this.effort && this.capabilities?.efforts?.includes(this.effort)
-            ? EFFORT_LABELS[this.effort] || this.effort : undefined;
+            ? effortLabels()[this.effort] || this.effort : undefined;
         const contextUsed = this.contextInfo?.usedTokens ?? (this.usageSeen ? this.usedTokens : undefined);
         const contextLimit = this.contextInfo?.contextWindow ?? this.contextWindow;
         const context = contextUsage(contextUsed, contextLimit, this.turnCompleted);
@@ -1940,95 +1943,90 @@ export class AkariChatWidget extends ReactWidget {
                     }}
                 ><AgentIcon id={this.selectedAgent} name={agent?.name} /> <span>{agent?.name || 'Claude Code'}</span> <ChatIcon name='down' size={13} /></button>
                 <span className='akari-chat-spacer' />
-                <button className='akari-chat-plain' data-chat-new title='新しいチャット' onClick={() => void this.newChat()}>
+                <button className='akari-chat-plain' data-chat-new title={t('chat.akariChatWidget.ui.newChatLabel')} onClick={() => void this.newChat()}>
                     <ChatIcon name='plus' size={18} />
                 </button>
-                <button className='akari-chat-plain' data-chat-history-button title='履歴' onClick={() => void this.showHistory()}>
+                <button className='akari-chat-plain' data-chat-history-button title={t('chat.akariChatWidget.ui.historyLabel')} onClick={() => void this.showHistory()}>
                     <ChatIcon name='history' size={18} />
                 </button>
                 {this.renderHistory()}
             </div>
             <button className='akari-chat-connect-row' data-chat-connect-row onClick={() => void this.openConnect()}>
-                <span>つなぐ</span><span className='akari-chat-spacer' /><ConnectStack items={connectedItems} />
+                <span>{t('chat.akariChatWidget.ui.connectLabel')}</span><span className='akari-chat-spacer' /><ConnectStack items={connectedItems} />
                 <ChatIcon name='down' size={13} />
             </button>
             <div className='akari-chat-thread'>
                 {this.resumedTitle && <div className='akari-chat-resume' data-chat-resume-banner>
                     <AkariLamp size={16} />
-                    <span>前回の会話の続きです — 『{this.resumedTitle}』</span>
+                    <span>{t('chat.akariChatWidget.ui.resumedConversationText', { title: this.resumedTitle })}</span>
                 </div>}
                 {!this.items.length && !this.resumedTitle && !this.showStarting && <div className='akari-chat-empty'>
                     <AkariLamp size={42} />
-                    <strong>何から始めますか？</strong>
-                    <div>動画づくりのことを話しかけてください。</div>
+                    <strong>{t('chat.akariChatWidget.ui.whereWouldLikeStartMessage')}</strong>
+                    <div>{t('chat.akariChatWidget.ui.askAboutMakingVideoMessage')}</div>
                 </div>}
                 {this.items.map((item, index) => this.renderItem(item, index, seenPaths))}
                 {showElapsedThinking(this.busy, this.turnHasActivity, !!this.thinking) && <div className='akari-chat-thinking' data-chat-thinking>
                     {thinkingLabel(this.turnStartedAt, this.now, false)}
                 </div>}
-                {this.stopped && <div className='akari-chat-stopped' role='status' data-chat-stopped>止めました</div>}
+                {this.stopped && <div className='akari-chat-stopped' role='status' data-chat-stopped>{t('chat.akariChatWidget.ui.stoppedLabel')}</div>}
                 {agent && !agent.installed && <div data-chat-install-guide>
-                    <strong>{agent.name} は入っていません</strong><p>{agent.installHint}</p>
-                    <button onClick={() => this.openPartnerCatalog()}>パートナーを追加で入れる</button>
+                    <strong>{t('chat.akariChatWidget.ui.partnerNotInstalledLabel', { name: agent.name })}</strong><p>{agent.installHint}</p>
+                    <button onClick={() => this.openPartnerCatalog()}>{t('chat.akariChatWidget.ui.addPartnerAction')}</button>
                 </div>}
                 {this.error && errorDisplay && <div role='alert' className='akari-chat-error'>
                     {errorDisplay.heading && <strong>{errorDisplay.heading}</strong>}
                     <div>{errorDisplay.reason}</div>
                     {errorDisplay.nextStep && <div data-chat-next-step>
                         {this.errorIsResume && this.error && resumeFailureKind(this.error) !== 'missing' && this.resumeRetry &&
-                            <button data-chat-retry-resume onClick={() => void this.resume(this.resumeRetry!)}>もう一度開く</button>}
+                            <button data-chat-retry-resume onClick={() => void this.resume(this.resumeRetry!)}>{t('chat.akariChatWidget.ui.openAgainAction')}</button>}
                         {this.errorIsResume && <button data-chat-new-after-resume onClick={() => void this.newChat()}>
-                            新しいチャットを始める
-                        </button>}
+                            {t('chat.akariChatWidget.ui.startNewChatAction')}</button>}
                         {this.error.kind === 'auth' && this.selectedAgent === 'claude' && <button data-chat-login onClick={() => this.login()}>
-                            Claude Code でログイン
-                        </button>}
+                            {t('chat.akariChatWidget.ui.logClaudeCodeAction')}</button>}
                         {this.error.kind === 'auth' && this.selectedAgent !== 'claude' && agent?.loginHint &&
                             <button data-chat-login onClick={() => void navigator.clipboard.writeText(agent.loginHint!)}>
-                                ターミナルで {agent.loginHint} を実行（コピー）
-                            </button>}
-                        {!this.errorIsResume && <button onClick={() => { this.popup = 'model'; if (!this.chatId) void this.ensureChat(); this.update(); }}>別の相手を選ぶ</button>}
+                                {t('chat.akariChatWidget.ui.loginCommandText', { command: agent.loginHint })}</button>}
+                        {!this.errorIsResume && <button onClick={() => { this.popup = 'model'; if (!this.chatId) void this.ensureChat(); this.update(); }}>{t('chat.akariChatWidget.ui.chooseAnotherPartnerAction')}</button>}
                     </div>}
                 </div>}
             </div>
             <div className='akari-chat-composer'>
                 {(this.showStarting || this.startReturned) && !this.ready && <div className='akari-chat-warming' data-chat-starting>
-                    準備中…（{agent?.name || this.selectedAgent}）{Math.floor((this.now - this.startAt) / 1000)} 秒
-                    <button data-chat-start-cancel onClick={() => void this.cancelStarting()}>止める</button>
+                    {t('chat.akariChatWidget.ui.startingPartnerStatus', { name: agent?.name || this.selectedAgent, seconds: Math.floor((this.now - this.startAt) / 1000) })}<button data-chat-start-cancel onClick={() => void this.cancelStarting()}>{t('chat.akariChatWidget.ui.stopLabel')}</button>
                 </div>}
                 {this.screenRecorder && <button className='akari-chat-screen-recording' data-chat-screen-recording
-                    onClick={() => void this.recordScreen()}>● 画面を録画中 · 停止</button>}
+                    onClick={() => void this.recordScreen()}>{t('chat.akariChatWidget.ui.recordingScreenStopText')}</button>}
                 {this.renderModelPopup()}
                 {this.renderAttachPopup()}
                 {this.renderCreatePopup()}
                 {this.renderPermissionPopup()}
                 {this.renderCommands()}
                 {this.popup === 'context' && <div className='akari-chat-pop akari-chat-context-pop' data-chat-context-pop>
-                    <strong>コンテキスト</strong>
+                    <strong>{t('chat.akariChatWidget.ui.contextLabel')}</strong>
                     <div>{context.label}</div>
-                    <div title={this.contextInfo?.model || this.actualModel}>モデル: {modelLabel(models,
+                    <div title={this.contextInfo?.model || this.actualModel}>{t('chat.akariChatWidget.ui.activeModelLabel')}{modelLabel(models,
                         this.model, this.contextInfo?.model || this.actualModel)}</div>
                     {this.chatId && (this.contextInfo?.canCompact ?? this.capabilities?.compact) && <button onClick={() => {
                         this.popup = undefined;
                         if (this.chatId) void this.chat.compact(this.chatId).catch(() => undefined);
                         this.update();
-                    }}>要約して続ける</button>}
+                    }}>{t('chat.akariChatWidget.ui.continueSummaryAction')}</button>}
                 </div>}
                 {running.length >= 2 && <div className='akari-chat-activity-wrap'>
                     <button data-chat-activity onClick={() => { this.popup = this.popup === 'activity' ? undefined : 'activity'; this.update(); }}>
-                        作業中 {running.length}
+                        {t('chat.akariChatWidget.ui.runningTasksStatus', { count: running.length, n: running.length })}
                     </button>
                 </div>}
                 {running.length >= 2 && this.popup === 'activity' && <div
                     className='akari-chat-pop akari-chat-activity-list' data-chat-activity-list>
-                    <strong>アクティビティ</strong>
+                    <strong>{t('chat.akariChatWidget.ui.activityLabel')}</strong>
                     {running.map(tool => <div className='akari-chat-activity-row' key={tool.id} title={tool.title}>
                         <ChatIcon name={TOOL_ICONS[tool.kind]} size={14} /><span>{tool.title}</span>
                     </div>)}
                 </div>}
                 {this.pendingLibraryDrops > 0 && <div className='akari-chat-drop-pending' data-chat-drop-pending role='status'>
-                    準備中…
-                </div>}
+                    {t('chat.akariChatWidget.ui.preparingStatus')}</div>}
                 {this.attachments.length > 0 && <div className='akari-chat-attachments'>
                     {this.attachments.map((item, index) => this.renderAttachment(item, index, () => {
                         this.attachments.splice(index, 1);
@@ -2037,11 +2035,11 @@ export class AkariChatWidget extends ReactWidget {
                 </div>}
                 {this.recording && <div className='akari-chat-listening' data-chat-listening>
                     <span className='akari-chat-wave' style={{ transform: `scaleY(${Math.max(.3, Math.min(1.5, this.level * 10))})` }} />
-                    録音中 {this.liveText}
+                    {t('chat.akariChatWidget.ui.recordingSpeechStatus', { text: this.liveText })}
                 </div>}
                 <textarea
                     data-chat-input
-                    placeholder='話しかける…'
+                    placeholder={t('chat.akariChatWidget.ui.askAnythingLabel')}
                     defaultValue=''
                     ref={element => { if (element && !this.ime.composing && element.value !== this.input) element.value = this.input; }}
                     onCompositionStart={() => { this.ime.start(); }}
@@ -2089,7 +2087,7 @@ export class AkariChatWidget extends ReactWidget {
                             : 'repeating-conic-gradient(#666 0deg 12deg, transparent 12deg 22deg)' }}
                         onClick={() => void this.toggleContext()}
                     />
-                    <button className='akari-chat-plain' data-chat-attach title='添付' onClick={() => {
+                    <button className='akari-chat-plain' data-chat-attach title={t('chat.akariChatWidget.ui.attachButtonLabel')} onClick={() => {
                         this.popup = this.popup === 'attach' ? undefined : 'attach';
                         this.update();
                     }}>
@@ -2122,7 +2120,7 @@ export class AkariChatWidget extends ReactWidget {
                         }} />
                     <button className='akari-chat-plain akari-chat-mic' data-chat-mic
                         data-chat-mic-state={this.recording ? 'recording' : 'idle'}
-                        title={this.recording ? '録音を止める' : 'マイク'} onClick={() => void this.toggleRecording()}>
+                        title={this.recording ? t('chat.akariChatWidget.ui.stopRecordingAction') : t('chat.akariChatWidget.ui.microphoneLabel')} onClick={() => void this.toggleRecording()}>
                         <ChatIcon name='mic' size={18} />
                     </button>
                     <button
@@ -2130,14 +2128,14 @@ export class AkariChatWidget extends ReactWidget {
                         data-chat-send-stop
                         data-chat-send={!this.busy ? 'true' : undefined}
                         data-chat-stop={this.busy ? 'true' : undefined}
-                        title={this.busy ? '止める' : '送る'}
+                        title={this.busy ? t('chat.akariChatWidget.ui.stopLabel') : t('chat.akariChatWidget.ui.sendLabel')}
                         onClick={() => void (this.busy ? this.stop() : this.send())}
                     ><ChatIcon name={this.busy ? 'stop' : 'send'} size={17} /></button>
                 </div>
             </div>
             {this.dragActive && <div className='akari-chat-drop-overlay' data-chat-drop-overlay>
                 <ChatIcon name='clip' size={22} />
-                <span>ここにドロップして添付</span>
+                <span>{t('chat.akariChatWidget.ui.dropHereAttachLabel')}</span>
             </div>}
         </div>;
     }

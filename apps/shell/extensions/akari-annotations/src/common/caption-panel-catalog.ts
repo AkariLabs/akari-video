@@ -341,3 +341,38 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; displayN
         "bundled": false
     }
 ];
+
+/** English display names mirrored from catalog/font meta.json. */
+export const CAPTION_PANEL_FONT_EN_TITLES: Readonly<Record<string, string>> = {
+    "851-chikara-dzuyoku": "851 Chikara Dzuyoku",
+    "851-chikara-yowaku": "851 Chikara Yowaku",
+    "ab-kirigirisu": "AB Kirigirisu",
+    "biz-udgothic": "BIZ UDGothic",
+    "check-and-oudan": "Check and Oudan",
+    "corporate-logo-rounded": "Corporate Logo Rounded Ver. 3",
+    "dela-gothic-one": "Dela Gothic One",
+    "dotgothic16": "DotGothic16",
+    "isego": "Isego",
+    "klee-one": "Klee One",
+    "kso-kokuryuso": "KSO Kokuryuso (Showa Shotai)",
+    "mgen-plus": "Mgen+",
+    "mplus-1p": "M PLUS 1p",
+    "mplus-rounded-1c": "M PLUS Rounded 1c",
+    "noto-sans-jp": "Noto Sans JP",
+    "noto-serif-jp": "Noto Serif JP",
+    "ranobe-pop": "07 Ranobe POP",
+    "reggae-one": "Reggae One",
+    "rocknroll-one": "RocknRoll One",
+    "ruika": "Ruika (Free Trial)",
+    "shippori-mincho": "Shippori Mincho",
+    "ta-engeifude": "TA Engei Fude",
+    "ta-f1-blockline": "TA-F1 Blockline",
+    "ta-fugafude": "TA Fuga Fude",
+    "togebara": "Togebara Font",
+    "vdl-logojr-black": "VDL LogoJr Black",
+    "vdl-v7-mincho": "VDL V7 Mincho",
+    "wanpaku-ruika": "Wanpaku Ruika (Free Trial)",
+    "zen-kaku-gothic-new": "Zen Kaku Gothic New",
+    "zen-maru-gothic": "Zen Maru Gothic",
+    "zero-gothic": "Zero Gothic"
+};

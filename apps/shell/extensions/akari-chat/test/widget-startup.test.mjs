@@ -13,6 +13,7 @@ let AkariChatWidget;
 try {
     Module._load = function (request, parent, isMain) {
         if (parent?.filename === widgetPath) {
+            if (request === '@akari-video/i18n' || request === '../common/chat-localized-match') return originalLoad.call(this, request, parent, isMain);
             if (request === '../common/chat-ui-logic' || request === './chat-input-ime' || request === './chat-view-logic') return originalLoad.call(this, request, parent, isMain);
             if (request === '@theia/core/shared/inversify') return {
                 inject: () => () => undefined,

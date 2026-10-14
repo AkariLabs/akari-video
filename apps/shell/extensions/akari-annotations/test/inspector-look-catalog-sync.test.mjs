@@ -14,7 +14,7 @@ import ts from 'typescript';
 import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
-const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
 const { updateInspectorAdjust } = await import('../lib/browser/inspector/adjust-fields.js');
 const { buildLutOptions, lutOptionLabel } = await import('../lib/browser/inspector/lut-options.js');
 const { nextAdjustCompareState } = await import('../lib/browser/inspector/adjust-compare.js');
@@ -31,6 +31,20 @@ const catalog = readFileSync(new URL('index.jsonl', root), 'utf8').trim().split(
 
 test('look catalog ids, names and exact adjustments match in order', () => {
   assert.deepEqual(INSPECTOR_LOOK_PRESETS, catalog);
+});
+test('look and LUT names match both language catalogs', () => {
+  const looks = readFileSync(new URL('index.jsonl', root), 'utf8').trim().split('\n').map(JSON.parse);
+  const luts = readFileSync(new URL('../../../../../presets/luts/index.jsonl', import.meta.url), 'utf8')
+    .trim().split('\n').map(JSON.parse);
+  for (const language of ['ja', 'en']) {
+    setLanguage(language);
+    assert.deepEqual(INSPECTOR_LOOK_PRESETS.map(inspectorLookPresetLabel),
+      looks.map(row => language === 'ja' ? row.name : row.i18n.en.name));
+    assert.deepEqual(buildLutOptions([]).slice(1), luts.map(row => ({
+      value: row.id, label: language === 'ja' ? row.name : row.i18n.en.name
+    })));
+  }
+  setLanguage('ja');
 });
 test('missing look is named in synchronization assertion', () => {
   assert.throws(() => assert.deepEqual(catalog.slice(1), INSPECTOR_LOOK_PRESETS), error => {
@@ -99,7 +113,7 @@ test('look row sends exactly one replacement request and custom sends none', asy
     INSPECTOR_ADJUST_BASIC_FIELDS: fields.INSPECTOR_ADJUST_BASIC_FIELDS,
     formatInspectorAdjustValue: fields.formatInspectorAdjustValue,
     createInspectorAdjustWriteRequest: fields.createInspectorAdjustWriteRequest,
-    INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
+    INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset, buildLutOptions,
     INSPECTOR_ADJUST_FX, ACTIVE_ADJUST_SECTIONS };
   const js = ts.transpileModule(factory, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   const sections = new Function(...Object.keys(dependencies), js + '; return ADJUST_SECTIONS;')(...Object.values(dependencies));
@@ -117,4 +131,14 @@ test('look row sends exactly one replacement request and custom sends none', asy
   const disabled = sections({ ...snapshot, adjust: { sections: { basic: false } } }, write, { projectLutRefs: [] })[0].fields[0];
   assert.equal((await disabled.write(snapshot, catalog[0].name)).ok, false);
   assert.equal(writes.length, 1);
+  setLanguage('en');
+  try {
+    const english = sections(snapshot, write, { projectLutRefs: [] })[0].fields[0];
+    assert.equal(english.getValue(), 'Custom');
+    assert.equal(english.options[1], 'Teal & Orange');
+    await english.write(snapshot, 'Teal & Orange');
+    assert.deepEqual(writes.at(-1), { kind: 'item-field', id: 'media-1', path: 'adjust', value: catalog[0].adjust });
+  } finally {
+    setLanguage('ja');
+  }
 });

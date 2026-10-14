@@ -3794,11 +3794,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             await this.annotationsService.setCaptionFields({
                                 captionsUri, projectRootUri, captionId: request.id, text: request.value });
                             const after = await read();
-                            if (after !== session.before) this.pushHistory({ label: '字幕のテキストを変更',
+                            if (after !== session.before) this.pushHistory({ label: t('annotations.annotationsWidget.ui.captionTextChangedLabel'),
                                 undo: () => restore(session.before), redo: () => restore(after) });
                             await this.reloadCaptions();
                             this.hideNotice();
-                            this.footer.textContent = '字幕を更新しました。';
+                            this.footer.textContent = t('annotations.annotationsWidget.ui.captionUpdatedMessage');
                             return { ok: true };
                         }
                     }
@@ -4064,7 +4064,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>,
                         source?: string
                     ): Promise<string> => {
-                        if (!location.editUri) throw new Error('edit.json がありません。');
+                        if (!location.editUri) throw new Error(t('annotations.annotationsWidget.ui.missingEditJsonError'));
                         let afterSource = source;
                         await commitCaptionStyleBatch(styles, source,
                             async () => {
@@ -6694,7 +6694,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             await this.commitEditMutation(label, async doc => {
                 outcome = await this.applyHydratedCutKernel(doc, operation);
-                if (!outcome.changed) throw new Error(outcome.reason ?? '変更できませんでした。');
+                if (!outcome.changed) throw new Error(outcome.reason ?? t('annotations.annotationsWidget.ui.couldNotChangeError'));
                 return outcome.edit as unknown as EditV2Document;
             });
             if (!outcome) return;
@@ -6703,8 +6703,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.revealOutputPreview();
         } catch (error) {
             const message = this.errorMessage(error);
-            this.showNotice(`${label}を実行できません: ${/^(TypeError|ReferenceError|Error):/u.test(message)
-                ? 'この区間を変更できませんでした。編集データを確認してください。' : message}`);
+            this.showNotice(t('annotations.annotationsWidget.ui.couldNotRunError', { label, message: /^(TypeError|ReferenceError|Error):/u.test(message)
+                ? t('annotations.annotationsWidget.ui.couldNotChangeRangeError') : message }));
         }
     }
 
@@ -8758,7 +8758,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) return;
         try {
             const selectedId = this.selection?.kind === "cut" ? this.cutItemId(this.selection.index) : undefined;
-            await this.commitEditMutation("クリップ間の空白詰め", async doc => (await this.applyHydratedCutKernel(doc,
+            await this.commitEditMutation(t('annotations.annotationsWidget.ui.closeGapAction'), async doc => (await this.applyHydratedCutKernel(doc,
                 hydrated => runTimelineCutKernel(hydrated,
                     { kind: 'compact', ...(selectedId ? { fromItemId: selectedId } : {}),
                         lockedTrackIds: this.timelineLockedTrackIds() }))).edit as unknown as EditV2Document);

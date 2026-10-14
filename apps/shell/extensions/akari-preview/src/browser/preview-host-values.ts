@@ -1,5 +1,6 @@
 import { t } from '../common/preview-text';
-// F-50: akari-preview-open-handler.ts から機械移設した this 非依存の関数（本文は無改変。インデント 4 を除き、宣言行に export を足しただけ）。
+import { getLanguage, localizedPresetText } from '@akari-video/i18n';
+// F-50: akari-preview-open-handler.ts から移設した this 非依存の関数。
 import { TEXTSTYLE_CATALOG, captionRunStyleFromLook } from '@akari-video/edit-store';
 import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
 import { PREVIEW_RATE_PRESETS } from '../common/preview-playback-rate';
@@ -46,7 +47,8 @@ export function runStyleChoices(saved: Array<{ id: string; name: string;
             id: `mine:${item.id}`, name: item.name, look: part.text_style as Record<string, unknown>
         }))),
         ...Object.values(TEXTSTYLE_CATALOG).map(item => ({
-            id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
+            id: `preset:${item.id}`, name: localizedPresetText(item, 'name', getLanguage()) ?? item.name,
+            look: item.style as Record<string, unknown>
         }))
     ].map(item => {
         const converted = captionRunStyleFromLook(item.id.startsWith('preset:')

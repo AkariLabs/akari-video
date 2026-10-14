@@ -1,3 +1,5 @@
+import { t } from '@akari-video/i18n';
+import { matchesLocalizedValue } from '../../common/chat-localized-match';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { constants } from 'fs';
 import { access, readFile } from 'fs/promises';
@@ -14,12 +16,12 @@ import { reapChildGroup, terminateChild } from './terminate';
 
 export { ClaudeStreamParser } from './claude-stream-parser';
 
-const ASK_RULE = '選択肢を出すときは ```akari-ask と JSON {"question":"…","options":[{"label":"…","description":"…"}]} のフェンスで出してください。フェンス以外に選択肢の説明を繰り返さないでください。';
+const askRule = (): string => t('chat.claudeStreamJson.prompt.askFenceInstructionText');
 const MODELS = [
     { id: 'opus', label: 'Opus' },
     { id: 'sonnet', label: 'Sonnet' },
     { id: 'haiku', label: 'Haiku' },
-    { id: 'fable', label: 'Fable', description: '文章・台本向け' }
+    { id: 'fable', label: 'Fable', description: t('chat.claudeStreamJson.ui.textsScriptsLabel') }
 ];
 export function normalizeClaudeModel(model: unknown): string | undefined {
     if (typeof model !== 'string') return undefined;
@@ -138,18 +140,18 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
                 id: 'claude',
                 name: 'Claude Code',
                 installed: false,
-                installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
+                installHint: t('chat.claudeStreamJson.ui.installClaudeCodeMessage'),
                 transport: 'claude-stream-json', permissionModes: ['automatic', 'checkpoints'],
-                permissionReasons: { every: '読み取りは確認しないため選べません' }
+                permissionReasons: { every: t('chat.claudeStreamJson.ui.cannotSelectedBecauseReadingNotConfirmedError') }
             };
         }
         return {
             id: 'claude',
             name: 'Claude Code',
             installed: true,
-            installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
+            installHint: t('chat.claudeStreamJson.ui.installClaudeCodeMessage'),
             transport: 'claude-stream-json', permissionModes: ['automatic', 'checkpoints'],
-            permissionReasons: { every: '読み取りは確認しないため選べません' }
+            permissionReasons: { every: t('chat.claudeStreamJson.ui.cannotSelectedBecauseReadingNotConfirmedError') }
         };
     }
 
@@ -160,7 +162,7 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
         effort?: string;
         permission: ChatAdapterPermission;
     }): Promise<ChatAdapterSession> {
-        if (opts.permission === 'every') throw new Error('Claude Code は毎回確認に対応していません');
+        if (opts.permission === 'every') throw new Error(t('chat.claudeStreamJson.ui.claudeCodeDoesNotSupportConfirmationEveryTimeMessage'));
         const executable = this.executableOverride || await findClaude();
         if (!executable) {
             throw new Error('not-installed');
@@ -297,7 +299,7 @@ class ClaudeSession implements ChatAdapterSession {
             this.publish({
                 type: 'error',
                 kind: auth ? 'auth' : 'crashed',
-                message: auth ? 'Claude Code でログインしてください' : message
+                message: auth ? t('chat.claudeStreamJson.ui.logClaudeCodeText') : message
             });
         }
         this.publish({
@@ -316,7 +318,7 @@ class ClaudeSession implements ChatAdapterSession {
             pending.child.stdin.write(JSON.stringify({ type: 'control_response', response: {
                 subtype: 'success', request_id: pending.id, response: allow
                     ? { behavior: 'allow', updatedInput: pending.input }
-                    : { behavior: 'deny', message: '許可されませんでした' }
+                    : { behavior: 'deny', message: t('chat.claudeStreamJson.ui.permissionDeniedMessage') }
             } }) + '\n', () => resolve());
         });
     }
@@ -345,7 +347,7 @@ class ClaudeSession implements ChatAdapterSession {
         if (this.ref) {
             args.push('--resume', this.ref);
         }
-        args.push('--append-system-prompt', ASK_RULE);
+        args.push('--append-system-prompt', askRule());
 
         const child = spawn(this.executable, args, {
             cwd: this.opts.cwd,
@@ -400,8 +402,8 @@ class ClaudeSession implements ChatAdapterSession {
                             String(row.request.tool_name || 'Tool'), row.request.input || {});
                         const description = String(row.request.description || '').trim();
                         this.publish({ type: 'ask', id: `permission-${row.request_id}`,
-                            question: `${row.request.tool_name || '操作'} を許可しますか？${description ? ` ${description}` : ''}`,
-                            options: [{ label: '許可' }, { label: '拒否' }] });
+                            question: t('chat.claudeStreamJson.ui.allowToolNameDescription', { toolName: row.request.tool_name || t('chat.claudeStreamJson.ui.actionLabel'), description: description ? ` ${description}` : '' }),
+                            options: [{ label: t('chat.claudeStreamJson.ui.allowLabel') }, { label: t('chat.claudeStreamJson.ui.denyLabel') }] });
                     } else {
                         const commandsBefore = `${this.parser.slashCommands.join('\u0000')}|${this.parser.skills.join('\u0000')}`;
                         this.parser.accept(row);
@@ -434,12 +436,12 @@ class ClaudeSession implements ChatAdapterSession {
             if (this.pending?.child === child && !this.pending.writeAcknowledged) {
                 this.pending.onWriteError(error);
             } else {
-                this.failTurn(child, `Claude Code に送れませんでした: ${error.message}`, 'write-failed');
+                this.failTurn(child, t('chat.claudeStreamJson.ui.failedSendClaudeCodeError', { error: error.message }), 'write-failed');
             }
         });
         child.on('error', error => {
-            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: `Claude Code を起動できませんでした: ${error.message}` });
-            this.failTurn(child, `Claude Code を起動できませんでした: ${error.message}`);
+            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: t('chat.claudeStreamJson.ui.failedStartClaudeCodeError', { error: error.message }) });
+            this.failTurn(child, t('chat.claudeStreamJson.ui.failedStartClaudeCodeError', { error: error.message }));
             if (this.child === child) {
                 this.child = undefined;
             }
@@ -452,7 +454,7 @@ class ClaudeSession implements ChatAdapterSession {
                 && !/not logged in|authentication_failed/i.test(this.stderr)) {
                 const missing = /no (?:conversation|rollout|thread|session) found/i.test(this.stderr);
                 this.initialError = { type: 'error', kind: 'other',
-                    message: missing ? 'No conversation found' : `Claude Code が終了しました (${code})`,
+                    message: missing ? 'No conversation found' : t('chat.claudeStreamJson.ui.claudeCodeHasEndedCodeText', { code: String(code) }),
                     resumeFailure: missing ? 'missing' : 'startup' };
                 this.publish(this.initialError);
             }
@@ -461,7 +463,7 @@ class ClaudeSession implements ChatAdapterSession {
                 const error = Object.assign(new Error(`process exited (${code})`), { code: 'EPIPE' });
                 this.pending.onWriteError(error);
             } else {
-                this.failTurn(child, `Claude Code が終了しました (${code})`);
+                this.failTurn(child, t('chat.claudeStreamJson.ui.claudeCodeHasEndedCodeText', { code: String(code) }));
             }
             if (this.child === child) {
                 this.child = undefined;
@@ -481,7 +483,7 @@ class ClaudeSession implements ChatAdapterSession {
             child = this.launch();
         }
         if (!child.stdin.writable || child.stdin.destroyed || child.stdin.writableEnded) {
-            throw new Error('Claude Code の入力を開けませんでした');
+            throw new Error(t('chat.claudeStreamJson.ui.couldNotOpenInputClaudeCodeError'));
         }
         return child;
     }
@@ -504,7 +506,7 @@ class ClaudeSession implements ChatAdapterSession {
         await new Promise<void>((resolve, reject) => {
             const attempt = (target: ChildProcessWithoutNullStreams, retries: number): void => {
                 const timeout = setTimeout(() => {
-                    this.failTurn(target, 'Claude Code の応答がありません', 'timeout');
+                    this.failTurn(target, t('chat.claudeStreamJson.ui.claudeCodeDidNotRespondMessage'), 'timeout');
                 }, 300000);
                 timeout.unref();
                 const onWriteError = (error: Error & { code?: string }): void => {
@@ -522,13 +524,13 @@ class ClaudeSession implements ChatAdapterSession {
                         try {
                             attempt(this.launch(), 1);
                         } catch (launchError) {
-                            this.publish({ type: 'error', kind: 'crashed', message: 'Claude Code を再起動できませんでした' });
+                            this.publish({ type: 'error', kind: 'crashed', message: t('chat.claudeStreamJson.ui.failedRestartClaudeCodeError') });
                             this.publish({ type: 'turn.end', ok: false, reason: 'write-failed' });
                             reject(launchError);
                         }
                         return;
                     }
-                    this.failTurn(target, `Claude Code に送れませんでした: ${error.message}`, 'write-failed');
+                    this.failTurn(target, t('chat.claudeStreamJson.ui.failedSendClaudeCodeError', { error: error.message }), 'write-failed');
                 };
                 this.pending = {
                     child: target,
@@ -556,7 +558,7 @@ class ClaudeSession implements ChatAdapterSession {
 
     send(text: string, attachments: ChatAttachment[]): Promise<void> {
         if (this.permissionRequest) {
-            return this.answerPermission(text.trim() === '許可');
+            return this.answerPermission(matchesLocalizedValue(text.trim(), 'chat.claudeStreamJson.ui.allowLabel'));
         }
         const next = this.sendTail.then(() => this.sendOne(text, attachments));
         this.sendTail = next.catch(() => undefined);

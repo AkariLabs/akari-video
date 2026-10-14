@@ -4,6 +4,13 @@
   "title": "MusMus 戦闘準備中（BGM）",
   "description": "炎が一面にあるような熱い戦闘準備 BGM 1 点。（収録数: 1点）",
   "when_to_use": "対決前の煽り・熱量の高い準備シーン",
+  "i18n": {
+    "en": {
+      "title": "MusMus Battle Preparation (BGM)",
+      "description": "One heated battle-preparation track that evokes flames filling the frame. Includes 1 item.",
+      "when_to_use": "For tension before a confrontation and high-energy preparation scenes."
+    }
+  },
   "tags": [
     "bgm",
     "intense",

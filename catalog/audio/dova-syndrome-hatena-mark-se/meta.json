@@ -4,6 +4,13 @@
   "title": "DOVA-SYNDROME はてなマーク効果音",
   "description": "フレクサトーン音を加工した「ぽよ〜ん」とした質問符（？）ポップアップ効果音。キャラクターが困惑・疑問を示す場面向け。（収録数: 1点）",
   "when_to_use": "キャラクターの頭上に「？」が浮かぶ疑問・困惑の一瞬を表現したいとき",
+  "i18n": {
+    "en": {
+      "title": "DOVA-SYNDROME Question Mark SFX",
+      "description": "A springy question-mark popup effect made from a processed flexatone sound, for characters showing puzzlement or uncertainty. Includes 1 item.",
+      "when_to_use": "For the instant a question mark appears over a character's head to express doubt or confusion."
+    }
+  },
   "tags": [
     "sfx",
     "reaction",

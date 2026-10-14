@@ -4,6 +4,13 @@
   "title": "魔王魂 物音15",
   "description": "魔王魂（Maoudamashii）が配布する物音系効果音「物音15」。2010年6月1日公開、制作: 森田交一。（収録数: 1点）",
   "when_to_use": "日常の物音・小道具の操作音として汎用的に使いたいとき",
+  "i18n": {
+    "en": {
+      "title": "Maoudamashii Object Sound 15",
+      "description": "The everyday-object sound effect Object Sound 15, distributed by Maoudamashii. Released June 1, 2010; created by Koichi Morita. Includes 1 item.",
+      "when_to_use": "For general everyday object noises and sounds of handling props."
+    }
+  },
   "tags": [
     "sfx",
     "object-sound",

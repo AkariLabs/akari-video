@@ -57,7 +57,7 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
         },
         [AKARI_PREVIEW_SCRUB_AUDIO]: {
             type: 'boolean', default: false,
-            description: 'シークしたとき（つまみ・タイムラインのドラッグ・コマ送り）に、その位置の音を短く鳴らす。通常の再生の音は変わらない'
+            description: t('surfaces.akariPreferences.ui.playShortSampleAudioNewPositionWhenScrubbingMessage')
         },
         [AKARI_TIMELINE_VISUAL_THUMBNAILS]: {
             type: 'boolean', default: false,

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from './chat-agent';
 import type { ChatEvent } from './chat-events';
 
@@ -24,7 +25,7 @@ export function modelLabel(models: ChatCapabilities['models'], chosen?: string, 
         )?.replace(/^./, first => first.toUpperCase());
     };
     const fallback = (id?: string): string | undefined => id?.split(/[/:]/).filter(Boolean).pop();
-    return label(chosen) || label(actual) || fallback(chosen) || fallback(actual) || '既定';
+    return label(chosen) || label(actual) || fallback(chosen) || fallback(actual) || t('chat.chatUiLogic.ui.defaultLabel');
 }
 
 export function resumeFailure(error: Extract<ChatEvent, { type: 'error' }>, beforeReady: boolean, firstTurn: boolean): boolean {
@@ -43,11 +44,11 @@ export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' 
 } {
     const unsupported = agentId === 'gemini' && /no longer supported|Antigravity/i.test(error.message);
     return {
-        ...(error.kind === 'auth' ? { heading: `${agentName} にログインが必要です` } : {}),
+        ...(error.kind === 'auth' ? { heading: t('chat.chatUiLogic.ui.loginRequiredPartnerNameLabel', { partnerName: agentName }) } : {}),
         reason: resumeFailed ? resumeFailureKind(error) === 'missing'
-            ? 'この会話は開けません。相手側に会話が残っていません。'
-            : `${agentName} を起動できませんでした。もう一度開いてください。` : unsupported
-            ? 'Gemini CLI は個人向けの Google ログインでは使えなくなりました（Antigravity へ移行）。'
+            ? t('chat.chatUiLogic.ui.conversationUnavailableError')
+            : t('chat.chatUiLogic.ui.partnerLaunchFailedError', { partnerName: agentName }) : unsupported
+            ? t('chat.chatUiLogic.ui.geminiCliNoLongerAvailablePersonalGoogleLoginMessage')
             : error.message,
         nextStep: resumeFailed || initial || error.kind === 'auth' || error.kind === 'not-installed'
     };
@@ -88,7 +89,7 @@ export function permissionOption(mode: ChatPermission, preference: PartnerPermis
     const supported = agent?.permissionModes || ['automatic'];
     return supported.includes(mode) ? { permission: mode, available: true }
         : { permission: mode, available: false,
-            reason: agent?.permissionReasons?.[mode] || 'この相手では選べません' };
+            reason: agent?.permissionReasons?.[mode] || t('chat.chatUiLogic.ui.partnerDoesNotOfferOptionMessage') };
 }
 
 export function availableChatPermission(mode: ChatPermission, preference: PartnerPermission, agent?: ChatAgentInfo): ChatAdapterPermission {
@@ -97,8 +98,8 @@ export function availableChatPermission(mode: ChatPermission, preference: Partne
 }
 
 export function connectorPrefill(name: string, example?: string): string {
-    const text = example?.trim() || '素材を作って';
-    return text.startsWith(name) ? text : `${name} で${text}`;
+    const text = example?.trim() || t('chat.chatUiLogic.ui.createAssetLabel');
+    return text.startsWith(name) ? text : t('chat.chatUiLogic.ui.partnerDetailText', { name: name, text: text });
 }
 
 export function runningTools(events: readonly ChatEvent[]): Extract<ChatEvent, { type: 'tool' }>[] {

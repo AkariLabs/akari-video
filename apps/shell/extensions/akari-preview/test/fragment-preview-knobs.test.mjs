@@ -1,6 +1,6 @@
 import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
 const restorePreviewTestI18n = installPreviewTestI18n();
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, localizedKnobGroup, localizedKnobLabel } from '@akari-video/i18n';
 import { after } from 'node:test';
 setLanguage('ja');
 after(() => setLanguage(undefined));
@@ -36,4 +36,37 @@ test('fragment preview exposes meta knobs and escapes their labels in the webvie
     assert.match(html, /stage\.style\.setProperty\(knob\.cssVar,input\.value\+suffix\)/u);
     assert.match(html, /\\u003c\/script>/u);
     assert.doesNotMatch(html, /const knobs=\[\{[^\n]*<\/script>/u);
+});
+
+
+test('fragment preview knob labels follow the UI language', () => {
+    const begin = source.indexOf('export function localizeFragmentPreviewKnobs(');
+    const end = source.indexOf('@injectable()', begin);
+    assert.ok(begin >= 0 && end > begin);
+    const code = ts.transpileModule(`${source.slice(begin, end).replace('export function', 'function')}\nthis.localizeFragmentPreviewKnobs = localizeFragmentPreviewKnobs;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    }).outputText;
+    const localize = vm.runInContext(`${code}\nlocalizeFragmentPreviewKnobs`, vm.createContext({ localizedKnobLabel }));
+    const knobs = [{ cssVar: '--tone', type: 'color', label: '色調', default: '#fff' },
+        { cssVar: '--speed', type: 'slider', label: '速さ', default: 1 }];
+    const meta = { i18n: { en: { knobs: { '--tone': 'Tone', '--speed': 'Speed' } } } };
+    assert.deepEqual(Array.from(localize(meta, knobs, 'en'), knob => knob.label), ['Tone', 'Speed']);
+    assert.deepEqual(Array.from(localize(meta, knobs, 'ja'), knob => knob.label), ['色調', '速さ']);
+});
+
+test('fragment preview group headings use translations and keep the source group id', () => {
+    const begin = source.indexOf('export function localizeFragmentPreviewKnobs(');
+    const end = source.indexOf('@injectable()', begin);
+    const code = ts.transpileModule(`${source.slice(begin, end).replace('export function', 'function')}\nthis.localizeFragmentPreviewKnobs = localizeFragmentPreviewKnobs;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    }).outputText;
+    const localize = vm.runInContext(`${code}\nlocalizeFragmentPreviewKnobs`, vm.createContext({ localizedKnobLabel, localizedKnobGroup }));
+    const meta = { i18n: { en: { groups: { style: 'Style' } } } };
+    const [english] = localize(meta, [{ cssVar: '--color', type: 'color', group: 'style', label: '色', default: '#fff' }], 'en');
+    const [japanese] = localize(meta, [{ cssVar: '--color', type: 'color', group: 'style', label: '色', default: '#fff' }], 'ja');
+    assert.equal(english.group, 'style');
+    assert.equal(english.groupLabel, 'Style');
+    assert.equal(japanese.groupLabel, 'スタイル');
+    assert.match(source, /heading\.textContent=knob\.groupLabel\|\|knob\.group/u);
+    assert.match(source, /#knob-fields h4\{grid-column:1\/-1;/u);
 });

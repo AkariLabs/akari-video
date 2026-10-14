@@ -1,9 +1,10 @@
+import { t } from '@akari-video/i18n';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ConnectService, ConnectorRow } from '../common/connect-protocol';
 
-export const CONNECT_OPEN: Command = { id: 'akari.connect.open', label: 'つなぐ' };
+export const CONNECT_OPEN: Command = { id: 'akari.connect.open', label: t('connect.connectContribution.ui.connectLabel') };
 
 @injectable()
 export class ConnectContribution implements CommandContribution, FrontendApplicationContribution {
@@ -22,7 +23,7 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
         const createStack = (): HTMLElement => {
             const stack = document.createElement('span');
             stack.className = 'akari-connect-stack';
-            stack.setAttribute('aria-label', `使える: ${items.map(item => item.name).join('、')}`);
+            stack.setAttribute('aria-label', t('connect.connectContribution.ui.availableNamesLabel', { names: items.map(item => item.name).join('、') }));
             for (const item of items.slice(0, 5)) {
                 const icon = document.createElement('span');
                 icon.className = 'akari-connect-stack-icon';
@@ -77,7 +78,7 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
             try {
                 const snapshot = await this.service.list();
                 if (current !== requestId) return;
-                items = snapshot.rows.filter(row => row.status === '使える' && row.enabled)
+                items = snapshot.rows.filter(row => row.status === 'ready' && row.enabled)
                     .map(row => ({ id: row.id, icon: row.icon, name: row.name, logo: row.logo,
                         background: row.background, color: row.color, initials: row.initials }));
                 scheduleMount();

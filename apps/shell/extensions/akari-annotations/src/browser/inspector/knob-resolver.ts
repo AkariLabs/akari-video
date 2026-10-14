@@ -1,10 +1,11 @@
-import { t } from '@akari-video/i18n';
+import { t, getLanguage, translatedKnobLabel, localizedKnobGroup } from '@akari-video/i18n';
 export type InspectorKnobType = 'text' | 'color' | 'slider' | 'dropdown' | 'checkbox' | 'media';
 
 export interface InspectorKnob {
     name: string;
     type: InspectorKnobType;
     group: string;
+    groupLabel?: string;
     label?: string;
     min?: number;
     max?: number;
@@ -25,7 +26,7 @@ export function isFontFamilyKnob(knob: InspectorKnob): boolean {
         || (knob.type === 'text' && knob.group === 'typography' && /font/iu.test(knob.name));
 }
 
-export function parseInspectorKnobs(value: unknown): InspectorKnob[] {
+export function parseInspectorKnobs(value: unknown, language = getLanguage()): InspectorKnob[] {
     if (!value || typeof value !== 'object' || !Array.isArray((value as { knobs?: unknown }).knobs)) return [];
     return (value as { knobs: unknown[] }).knobs.flatMap(raw => {
         if (!raw || typeof raw !== 'object') return [];
@@ -34,11 +35,16 @@ export function parseInspectorKnobs(value: unknown): InspectorKnob[] {
             : typeof knob.param === 'string' ? knob.param : undefined;
         const types = new Set<InspectorKnobType>(['text', 'color', 'slider', 'dropdown', 'checkbox', 'media']);
         if (!name || typeof knob.type !== 'string' || !types.has(knob.type as InspectorKnobType)) return [];
+        const translated = translatedKnobLabel(value as { i18n?: Record<string, { knobs?: Record<string, string> }> },
+            { name }, language);
+        const label = translated ?? (typeof knob.label === 'string' ? knob.label : undefined);
+        const group = typeof knob.group === 'string' && knob.group.trim() ? knob.group : t('inspector.knobResolver.label.controls');
         return [{
             name,
             type: knob.type as InspectorKnobType,
-            group: typeof knob.group === 'string' && knob.group.trim() ? knob.group : t('inspector.knobResolver.label.controls'),
-            ...(typeof knob.label === 'string' ? { label: knob.label } : {}),
+            group,
+            groupLabel: localizedKnobGroup(value as { i18n?: Record<string, { groups?: Record<string, string> }> }, group, language),
+            ...(label !== undefined ? { label } : {}),
             ...(typeof knob.min === 'number' ? { min: knob.min } : {}),
             ...(typeof knob.max === 'number' ? { max: knob.max } : {}),
             ...(typeof knob.unit === 'string' ? { unit: knob.unit } : {}),

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Command, CommandContribution, CommandRegistry, MessageService, PreferenceService } from '@theia/core/lib/common';
@@ -10,9 +11,9 @@ import { CHAT_ENABLED_PREFERENCE, chatCommandAllowed, chatEnabled, shouldCloseRe
 import { AkariChatService } from '../common/chat-protocol';
 
 export const ChatCommands = {
-    OPEN: { id: 'akari.chat.open', label: 'AKARI を開く' } as Command,
-    PREFILL: { id: 'akari.chat.prefill', label: 'AKARI に入力' } as Command,
-    ATTACH: { id: 'akari.chat.attach', label: 'AKARI に添付' } as Command
+    OPEN: { id: 'akari.chat.open', label: t('chat.akariChatContribution.ui.openAkariAction') } as Command,
+    PREFILL: { id: 'akari.chat.prefill', label: t('chat.akariChatContribution.ui.enterAkariLabel') } as Command,
+    ATTACH: { id: 'akari.chat.attach', label: t('chat.akariChatContribution.ui.attachedAkariLabel') } as Command
 };
 
 @injectable()
@@ -39,7 +40,7 @@ export class AkariChatContribution implements CommandContribution, FrontendAppli
 
     private queueVisibility(): Promise<void> {
         this.visibilityTail = this.visibilityTail.then(() => this.syncVisibility()).catch(error => {
-            console.warn('[akari-chat] 表示の切り替えに失敗しました', error);
+            console.warn(t('chat.akariChatContribution.ui.failedSwitchDisplayError'), error);
         });
         return this.visibilityTail;
     }
@@ -52,7 +53,7 @@ export class AkariChatContribution implements CommandContribution, FrontendAppli
         } else {
             const widget = await this.widgets.getWidget<AkariChatWidget>(AkariChatWidget.ID);
             widget?.dispose();
-            if (widget) await this.chat.closeAll().catch(error => console.warn('[akari-chat] 会話を閉じられませんでした', error));
+            if (widget) await this.chat.closeAll().catch(error => console.warn(t('chat.akariChatContribution.ui.couldNotCloseConversationError'), error));
         }
     }
 
@@ -74,7 +75,7 @@ export class AkariChatContribution implements CommandContribution, FrontendAppli
 
     private allowed(): boolean {
         if (chatCommandAllowed(this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))) return true;
-        void this.messages.info('AKARI チャット（お試し）は設定 › パートナーで有効にしてください');
+        void this.messages.info(t('chat.akariChatContribution.ui.akariChatTrialMustEnabledSettingsPartnerMessage'));
         return false;
     }
 

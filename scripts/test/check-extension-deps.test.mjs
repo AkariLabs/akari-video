@@ -17,8 +17,8 @@ const checker = path.join(repoRoot, 'scripts/ci/check-extension-deps.mjs');
 const shellPackage = path.join(repoRoot, 'apps/shell/package.json');
 const expectedOrder = [
   'akari-theme', 'akari-preview', 'akari-annotations', 'akari-project',
-  'akari-shell-strip', 'akari-partner', 'akari-surfaces', 'akari-world-view', 'akari-tabs',
-  'akari-transcript', 'akari-companion', 'akari-vibe-dock'
+  'akari-shell-strip', 'akari-partner', 'akari-surfaces', 'akari-connect', 'akari-world-view', 'akari-tabs',
+  'akari-transcript', 'akari-companion', 'akari-vibe-dock', 'akari-chat'
 ];
 const edges = [{ from: 'akari-transcript', to: 'akari-theme' }];
 const run = (args = [], cwd = repoRoot) => spawnSync(process.execPath, [checker, ...args], { cwd, encoding: 'utf8' });
@@ -83,7 +83,7 @@ test('dependencies に file: 宣言が必要で、欠落と非 file: を検出�
   }
 });
 
-test('実物の build:ext から 12 拡張を依存順に取り出す', () => {
+test('実物の build:ext から 14 拡張を依存順に取り出す', () => {
   const shell = JSON.parse(readFileSync(shellPackage, 'utf8'));
   assert.deepEqual(parseBuildExtOrder(shell.scripts['build:ext']), expectedOrder);
 });
@@ -100,7 +100,7 @@ test('実物のリポを検査すると exit 0、要約は 1 行', () => {
   const result = run();
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
-  assert.match(result.stdout, /^\[extension-deps\] OK: 12 extensions, \d+ files, \d+ imports\n$/);
+  assert.match(result.stdout, /^\[extension-deps\] OK: 14 extensions, \d+ files, \d+ imports\n$/);
 });
 
 test('theme を末尾に戻すと exit 1、shell-package の差し替えでも既定 extensions-dir は不変', t => {

@@ -1,3 +1,4 @@
+import { localizedAssetText } from '@akari-video/i18n';
 import { t } from '../common/project-text';
 import { childProcessEnv } from '@akari-video/i18n';
 import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
@@ -505,10 +506,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     // preferenceRoot は参照先の指定だけに使い、通信の意図は第 2 引数だけで決める。
     // 呼び出し側が省略した場合は起動時の取得と同じ automatic に倒す。
     // resolver/CLI 自体の既定 intent は user のまま維持する。
-    async getAssetCatalogView(preferenceRoot: string | undefined, intent: 'automatic' | 'user' = 'automatic'): Promise<AssetCatalogView> {
+    async getAssetCatalogView(preferenceRoot: string | undefined, intent: 'automatic' | 'user' = 'automatic', language: 'ja' | 'en' = 'ja'): Promise<AssetCatalogView> {
         const [resolverResult, local, libraryPacks] = await Promise.all([
-            this.loadResolverCatalogItems(intent),
-            this.loadLocalCatalogViewItems(preferenceRoot),
+            this.loadResolverCatalogItems(intent, language),
+            this.loadLocalCatalogViewItems(preferenceRoot, language),
             this.loadLibraryPacks()
         ]);
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
@@ -519,10 +520,12 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         if (fontItems.length) {
             try {
                 if (intent === 'user') clearSystemFontCache();
-                const result = await this.getCatalogFontAvailability(preferenceRoot, fontItems);
+                const result = await this.getCatalogFontAvailability(preferenceRoot, fontItems.map(item => ({ id: item.id, title: item.baseTitle ?? item.title,
+                    ...(item.origin === 'local' && (item.baseAliases ?? item.aliases)
+                        ? { aliases: item.baseAliases ?? item.aliases } : {}) })));
                 for (const item of fontItems) item.fontAvailability = result.statuses[item.id];
             } catch {
-                for (const item of fontItems) item.fontAvailability = { status: 'failed', family: item.title };
+                for (const item of fontItems) item.fontAvailability = { status: 'failed', family: item.baseTitle ?? item.title };
             }
         }
         const items = await Promise.all(merged.map(async item => {
@@ -704,11 +707,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
     }
 
-    async getPresetShowcase(): Promise<PresetShowcase> {
+    async getPresetShowcase(language: 'ja' | 'en' = 'ja'): Promise<PresetShowcase> {
         const [lut, textanim, textstyle] = await Promise.all([
-            this.loadPresetShowcaseIndex('lut'),
-            this.loadPresetShowcaseIndex('textanim'),
-            this.loadPresetShowcaseIndex('textstyle')
+            this.loadPresetShowcaseIndex('lut', language),
+            this.loadPresetShowcaseIndex('textanim', language),
+            this.loadPresetShowcaseIndex('textstyle', language)
         ]);
         const library = loadTextstyleCatalogSync({ env: process.env }).library;
         return { lut, textanim, textstyle: appendLibraryTextstyleShowcaseItems(textstyle, library,
@@ -720,16 +723,16 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return loadTextstyleCatalogSync({ env: process.env }).library;
     }
 
-    async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>> {
+    async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }>> {
         const lutCandidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), 'luts', this.resourcesPath());
         for (const lutIndex of lutCandidates) {
             const file = resolve(lutIndex, '../../transitions/index.jsonl');
             try {
                 const raw = await fs.readFile(file, 'utf8');
-                const urls: Record<string, { preview: string; strip: string }> = {};
+                const urls: Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }> = {};
                 for (const line of raw.split(/\r?\n/)) {
                     if (!line.trim()) continue;
-                    const item = JSON.parse(line) as { id?: string; preview?: string; preview_strip?: string };
+                    const item = JSON.parse(line) as { id?: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>>; preview?: string; preview_strip?: string };
                     const id = item.id;
                     const expected = id && shelfPreviewPath('transition', id);
                     const strip = id && shelfPreviewPath('transition', id, true);
@@ -737,7 +740,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                         && item.preview_strip === `${id}/preview-strip.webp`) {
                         const root = resolve(dirname(file), '../..');
                         urls[id] = { preview: pathToFileURL(join(root, expected)).toString(),
-                            strip: pathToFileURL(join(root, strip)).toString() };
+                            strip: pathToFileURL(join(root, strip)).toString(),
+                            name: item.name, category: item.category, i18n: item.i18n };
                     }
                 }
                 return urls;
@@ -841,13 +845,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         await fs.rmdir(dirname(file));
     }
 
-    protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind): Promise<PresetShowcase[PresetShowcaseKind]> {
+    protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind, language: 'ja' | 'en' = 'ja'): Promise<PresetShowcase[PresetShowcaseKind]> {
         const directory = kind === 'lut' ? 'luts' : kind;
         const candidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), directory, this.resourcesPath());
         for (const candidate of candidates) {
             try {
                 const raw = await fs.readFile(candidate, 'utf8');
-                return parsePresetShowcaseJsonl(raw, kind).map(item => {
+                return parsePresetShowcaseJsonl(raw, kind, language).map(item => {
                     const relative = kind === 'lut' ? shelfPreviewPath('lut', item.id) : undefined;
                     return relative ? { ...item, previewUrl: pathToFileURL(join(resolve(dirname(candidate), '../..'), relative)).toString() } : item;
                 });
@@ -865,7 +869,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * （catalog-reader.ts の寛容リーダー流儀 — 詳細な欠落件数はこの 1 ビューでは追わない）。
      * installed 判定・分類バッジ導出・パック台帳の読み込みもここで行う（task.md §1）。
      */
-    protected async loadLocalCatalogViewItems(preferenceRoot: string | undefined): Promise<{ items: AssetCatalogViewItem[]; packs: CatalogPack[] }> {
+    protected async loadLocalCatalogViewItems(preferenceRoot: string | undefined, language: 'ja' | 'en' = 'ja'): Promise<{ items: AssetCatalogViewItem[]; packs: CatalogPack[] }> {
         const rootUriString = await this.resolveCatalogRoot(preferenceRoot);
         if (!rootUriString) {
             return { items: [], packs: [] };
@@ -906,16 +910,18 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     key: `${parsed.category}/${parsed.id}`,
                     id: parsed.id,
                     category: parsed.category,
-                    title: parsed.title,
-                    aliases: parsed.aliases,
-                    description: parsed.description,
+                    title: localizedAssetText(parsed, 'title', language) ?? parsed.id,
+                    aliases: localizedAssetText(parsed, 'aliases', language),
+                    description: localizedAssetText(parsed, 'description', language),
+                    ...(parsed.i18n ? { baseTitle: parsed.title, baseAliases: parsed.aliases,
+                        baseDescription: parsed.description, baseWhenToUse: parsed.when_to_use, i18n: parsed.i18n } : {}),
                     tags: parsed.tags ?? [],
                     licenseSpdx: parsed.license?.spdx,
                     ...(parsed.license?.scope ? { licenseScope: parsed.license.scope } : {}),
                     ...(typeof parsed.license?.attribution_required === 'boolean'
                         ? { licenseAttributionRequired: parsed.license.attribution_required } : {}),
                     ...(parsed.author ? { author: parsed.author } : {}),
-                    whenToUse: parsed.when_to_use,
+                    whenToUse: localizedAssetText(parsed, 'when_to_use', language),
                     sourceUrl: parsed.source?.url,
                     previewUrl: fontRowUrl ?? localPreviewUrl ?? parsed.source?.preview_url,
                     installed,
@@ -1054,7 +1060,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * いずれも fail-soft（ローカル catalog/ の表示は継続）だが、原因（error）は
      * 開発者向け折りたたみでの手がかりに残す。
      */
-    protected async loadResolverCatalogItems(intent: 'automatic' | 'user' = 'automatic'): Promise<{
+    protected async loadResolverCatalogItems(intent: 'automatic' | 'user' = 'automatic', language: 'ja' | 'en' = 'ja'): Promise<{
         items: AssetCatalogViewItem[];
         status: 'ok' | 'failed';
         entitlementsStatus: AssetEntitlementsStatus;
@@ -1098,7 +1104,7 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
         }
         const items = parsed.items.map(item => {
             const { previewUrl, mediaUrl, thumbUrl, previewStripUrl } = resolveResolverCatalogUrls(item, parsed.base);
-            return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl, thumbUrl, previewStripUrl);
+            return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl, thumbUrl, previewStripUrl, language);
         });
         const entitlementsStatus = parsed.entitlementsStatus;
         const validEntitlementsStatuses: AssetEntitlementsStatus[] = ['ok', 'no_credentials', 'unauthorized', 'error'];

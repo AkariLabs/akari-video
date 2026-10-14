@@ -603,7 +603,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ?? (await this.workspaceService.roots).find(root => identityUri.toString()
                     .startsWith(root.resource.toString().replace(/\/$/, '') + '/'))?.resource;
         if (!projectRoot) {
-            this.messages.warn('プロジェクトを開いてください');
+            this.messages.warn(renderT('preview.openHandler.ui.openProjectFirstMessage'));
             return;
         }
         const key = projectRoot.toString();
@@ -625,7 +625,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             let attachments: ChatAttachment[] = current;
             if (message.type === 'akari-preview-chat-review-add') {
                 const mark = message.review as ChatReviewMark;
-                const candidate: ChatAttachment = { kind: 'review', label: `${mark.sourceLabel} ${mark.time.toFixed(1)}秒`, review: mark };
+                const candidate: ChatAttachment = { kind: 'review', label: renderT('preview.openHandler.ui.reviewTimeLabel', { sourceLabel: mark.sourceLabel, time: mark.time.toFixed(1) }), review: mark };
                 if (parseReviewPending(serializeReviewPending([candidate])).length !== 1) return;
                 attachments = [...current, candidate];
             } else if (message.type === 'akari-preview-chat-review-remove') {
@@ -666,13 +666,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const sameProject = editRoot?.toString() === projectRoot.toString()
                     || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
                 if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments,
-                    partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : 'クリップボード') });
+                    partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : renderT('preview.openHandler.ui.clipboardLabel')) });
             }
         });
         this.reviewChatWrites.set(key, next);
         try { await next; } catch (error) {
-            console.warn('[akari-preview] レビュー添付を保存できませんでした', error);
-            this.messages.error('レビュー添付を保存できませんでした');
+            console.warn(renderT('preview.openHandler.ui.reviewSaveLogError'), error);
+            this.messages.error(renderT('preview.openHandler.ui.reviewSaveFailedError'));
         } finally {
             if (this.reviewChatWrites.get(key) === next) this.reviewChatWrites.delete(key);
         }
@@ -766,7 +766,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             void currentReviewPartner(this.commandRegistry).then(partner => {
                 for (const viewer of new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values()])) {
                     if (!viewer.isDisposed) viewer.sendMessage({ type: 'akari-preview-chat-review-state',
-                        partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : 'クリップボード') });
+                        partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : renderT('preview.openHandler.ui.clipboardLabel')) });
                 }
             });
         };
@@ -3673,7 +3673,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                 } catch (error) {
-                    console.warn('[akari-preview] edit.json を読み取れませんでした', error);
+                    console.warn(renderT('preview.openHandler.ui.editReadLogError'), error);
                     this.queueRefresh(widget, identityUri, kind, undefined, false);
                 } finally {
                     watchedEditRunning = false;
@@ -7598,13 +7598,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.captionTextSessions.delete(key);
                     const candidate = updateCaptionTextSource(source, request.captionId, request.patch.text);
                     const lintResult = await this.previewService.lintEditCandidate({ editUri: captionsUri.toString(), candidateText: candidate });
-                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? renderT('preview.openHandler.ui.lintRejectedMessage'));
                     if (candidate !== source) {
                         this.markRecentWrite(captionsUri);
                         await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidate));
                     }
                     this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
-                    if (before !== candidate) this.notifyCaptionWrite(widget, captionsUri, before, candidate, '字幕のテキストを変更');
+                    if (before !== candidate) this.notifyCaptionWrite(widget, captionsUri, before, candidate, renderT('preview.openHandler.ui.captionTextChangedLabel'));
                 }
                 respond(true);
             } catch (error) { respond(false, error instanceof Error ? error.message : String(error)); }
@@ -8141,7 +8141,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     : videoUri.path.toString().includes('/exports/')
                         ? 'exports/' + videoUri.path.toString().split('/exports/').pop()
                         : videoUri.path.base,
-            reviewSourceLabel: kind === 'output' ? '編集中のプレビュー' : videoUri.path.base,
+            reviewSourceLabel: kind === 'output' ? renderT('preview.openHandler.ui.editingPreviewLabel') : videoUri.path.base,
             summary: model.summary,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -8398,6 +8398,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             'preview.previewWindow.punctuation.openParen',
             'preview.previewWindow.punctuation.rangeSeparator',
             'preview.previewWindow.transport.fullscreenLabel',
+            'preview.chatReviewAttachments.ui.captionLabel',
+            'preview.chatReviewAttachments.ui.videoSourcePathLabel',
+            'preview.chatReviewAttachments.ui.imageLabel',
+            'preview.chatReviewAttachments.ui.videoLabel',
         ];
         const previewText = scriptDictionary({
             play: t('preview.previewWindow.transport.playAction'),

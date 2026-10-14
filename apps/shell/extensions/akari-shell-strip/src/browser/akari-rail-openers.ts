@@ -54,7 +54,7 @@ export class AkariRailLibraryOpener extends AkariRailOpener {
 @injectable()
 export class AkariRailConnectOpener extends AkariRailOpener {
     static readonly ID = RAIL_CONNECT_OPENER_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailConnectOpener.ID, 'つなぐ', '道具とサービスをつなぐ', 'codicon-plug'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailConnectOpener.ID, t('shell.akariRailOpeners.ui.connectLabel'), t('shell.akariRailOpeners.ui.connectToolsServicesAction'), 'codicon-plug'); }
 }
 @injectable()
 export class AkariRailExportOpener extends AkariRailOpener {

@@ -47,7 +47,7 @@ export function partnerPanelWidth(windowWidth: number, currentWidth: number | un
  * `PartnerChannel#send`）を再利用することで満たす。
  */
 export const AkariPartnerCommands = {
-    LOGIN_CLAUDE: { id: 'akari.partner.loginClaude', label: 'Claude Code でログイン' } as Command,
+    LOGIN_CLAUDE: { id: 'akari.partner.loginClaude', label: t('partner.akariPartnerCommandContribution.ui.loginClaudeCodeLabel') } as Command,
     OPEN: {
         id: 'akari.partner.open',
         label: t('partner.navigation.commands.openPartnerAction')

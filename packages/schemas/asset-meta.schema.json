@@ -70,6 +70,22 @@
       "minLength": 1,
       "pattern": "\\S"
     },
+    "i18n": {
+      "description": "任意の翻訳重ね書き。言語キーは主言語とし ja は置かず、基底の欄は上書きしない。表示は ja なら基底、それ以外は UI 言語 → en → 基底の順に欄ごとに解決し、題名の欠損時だけ id に落とす。",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z]{2,3}$", "not": { "const": "ja" } },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+          "description": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "when_to_use": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "knobs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+          "groups": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1, "pattern": "\\S" } }
+        }
+      }
+    },
     "tags": {
       "type": "array",
       "uniqueItems": true,

@@ -104,4 +104,55 @@ function formatCurrency(amountUsd, { yenRate = 150, yenAmount, yenOnly = false, 
 }
 function compareText(a, b, options) { return String(a).localeCompare(String(b), intlLocale(), options); }
 
-module.exports = { t, getLanguage, setLanguage, setChildProcessLanguage, childProcessEnv, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };
+function isRecord(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function usableText(value) { return typeof value === 'string' && /\S/u.test(value) ? value : undefined; }
+function usableAliases(value) {
+  if (!Array.isArray(value)) return undefined;
+  const aliases = value.filter(alias => usableText(alias) !== undefined);
+  return aliases.length ? aliases : undefined;
+}
+function translation(record, language) {
+  const entries = isRecord(record?.i18n) ? record.i18n : undefined;
+  return isRecord(entries?.[language]) ? entries[language] : undefined;
+}
+function localizedValue(record, field, language) {
+  const usable = field === 'aliases' ? usableAliases : usableText;
+  return (language === 'ja' ? undefined : usable(translation(record, language)?.[field]))
+    ?? (language === 'ja' ? undefined : usable(translation(record, 'en')?.[field]))
+    ?? usable(record?.[field])
+    ?? (field === 'title' || field === 'name' ? usableText(record?.id) : undefined);
+}
+function localizedAssetText(meta, field, language) {
+  return localizedValue(meta, field, language);
+}
+function localizedPresetText(row, field, language) {
+  return localizedValue(row, field, language);
+}
+function localizedKnobGroup(meta, group, language) {
+  const base = usableText(group);
+  if (!base) return group;
+  if (language === 'ja') {
+    const key = `inspector.knobGroup.${base}.label`;
+    return Object.hasOwn(ja, key) ? t(key, {}, 'ja') : base;
+  }
+  const translated = lang => {
+    const groups = translation(meta, lang)?.groups;
+    return isRecord(groups) ? usableText(groups[base]) : undefined;
+  };
+  return translated(language) ?? translated('en') ?? base;
+}
+function translatedKnobLabel(meta, knob, language) {
+  if (language === 'ja') return undefined;
+  const key = usableText(knob?.cssVar) ?? usableText(knob?.param) ?? usableText(knob?.name);
+  const translated = lang => {
+    const knobs = translation(meta, lang)?.knobs;
+    return isRecord(knobs) ? usableText(knobs[key]) : undefined;
+  };
+  return translated(language) ?? translated('en');
+}
+function localizedKnobLabel(meta, knob, language) {
+  const key = usableText(knob?.cssVar) ?? usableText(knob?.param) ?? usableText(knob?.name);
+  return translatedKnobLabel(meta, knob, language) ?? usableText(knob?.label) ?? key;
+}
+
+module.exports = { localizedAssetText, localizedPresetText, localizedKnobGroup, localizedKnobLabel, translatedKnobLabel, t, getLanguage, setLanguage, setChildProcessLanguage, childProcessEnv, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };

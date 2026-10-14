@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { PartnerCatalogEntry } from './partner-catalog';
 
 export interface PartnerReviewTarget {
@@ -14,7 +15,7 @@ export function partnerReviewTarget(widget: {
     if (widget.id === 'akari-chat-widget') return { kind: 'chat', name: 'AKARI' };
     if (widget.kind === 'akari-partner') {
         const entry = catalog.find(candidate => candidate.form === 'cli' && candidate.agent === widget.agent);
-        return { kind: 'terminal', name: entry?.name.replace(/ CLI$/, '') ?? widget.caption?.replace(/（.*$/, '') ?? 'パートナー' };
+        return { kind: 'terminal', name: entry?.name.replace(/ CLI$/, '') ?? widget.caption?.replace(/（.*$/, '') ?? t('partner.partnerReviewTarget.ui.partnerLabel') };
     }
     if (widget.id === 'akari-partner-web') return { kind: 'web', name: widget.caption || 'DeepSeek' };
     const entry = catalog.find(candidate => candidate.form === 'extension' &&

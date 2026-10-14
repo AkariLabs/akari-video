@@ -64,7 +64,7 @@ export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid
             {item.previewUrl
                 ? <img src={item.previewUrl} alt={t('project.library.visualShelf.previewTitleAction', { title: item.title })} draggable={false}
                     style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
-                : <span data-akari-font-fallback style={{ fontFamily: item.title.replace(/（.*$/, ''), fontSize: '0.72em', textAlign: 'center', padding: '4px', color: 'var(--akari-muted)' }}>
+                : <span data-akari-font-fallback style={{ fontFamily: (item.baseTitle ?? item.title).replace(/（.*$/, ''), fontSize: '0.72em', textAlign: 'center', padding: '4px', color: 'var(--akari-muted)' }}>
                     あア亜 ABC 123
                 </span>}
             <small data-akari-font-status style={{ position: 'absolute', bottom: 2, right: 3,

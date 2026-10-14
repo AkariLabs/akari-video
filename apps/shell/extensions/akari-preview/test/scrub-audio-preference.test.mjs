@@ -1,3 +1,4 @@
+import { setLanguage, t } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -23,7 +24,13 @@ test('スクラブ音設定のスキーマは設定側だけが所有し、既�
     assert.doesNotMatch(frontend, /'akari\.preview\.scrubAudio': \{/);
     assert.match(sections, /export const AKARI_PREVIEW_SCRUB_AUDIO = 'akari\.preview\.scrubAudio';/);
     assert.match(sections, /quality: \[[^\]]*AKARI_PREVIEW_SCRUB_AUDIO\]/);
-    assert.match(dialog, /groupCard\('プレビュー', this\.preferenceSwitch\(AKARI_PREVIEW_SCRUB_AUDIO, 'シークしたときに音を鳴らす', false,/);
+    assert.match(dialog, /groupCard\(t\('surfaces\.akariSettingsDialog\.ui\.previewLabel'\), this\.preferenceSwitch\(AKARI_PREVIEW_SCRUB_AUDIO, t\('surfaces\.akariSettingsDialog\.ui\.playAudioWhileScrubbingLabel'\), false,/);
+    try {
+        setLanguage('ja');
+        assert.equal(t('surfaces.akariSettingsDialog.ui.playAudioWhileScrubbingLabel'), 'シークしたときに音を鳴らす');
+        setLanguage('en');
+        assert.equal(t('surfaces.akariSettingsDialog.ui.playAudioWhileScrubbingLabel'), 'Play audio while scrubbing');
+    } finally { setLanguage(undefined); }
 });
 
 test('host と webview は設定が明示的に true のときだけスクラブ音を有効にする', () => {

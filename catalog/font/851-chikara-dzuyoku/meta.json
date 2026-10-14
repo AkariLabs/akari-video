@@ -5,6 +5,13 @@
   "aliases": ["851チカラヅヨク","851 Chikara Dzuyoku","851チカラヅヨク-かなA","851チカラヅヨク-かなB","851CHIKARA-DZUYOKU-KANA-A","851CHIKARA-DZUYOKU-KANA-B"],
   "description": "太マジックで書き殴ったような手書きフォント（配布元: 8:51:22 pm）。商用利用可・許可不要で、改変と再配布も可能。クレジット表記は不要。そのままのフォントファイルを単品で販売することはできない。",
   "when_to_use": "強いツッコミ・怒り・勢い系の手書きテロップに（バラエティの定番トーン）",
+  "i18n": {
+    "en": {
+      "title": "851 Chikara Dzuyoku",
+      "description": "A handwritten font resembling bold marker scrawls (distributed by 8:51:22 pm). Commercial use is allowed without permission, and modification and redistribution are permitted. No credit is required. The font files may not be sold on their own as-is.",
+      "when_to_use": "For forceful retorts, anger, and energetic handwritten captions in a classic variety-show style."
+    }
+  },
   "tags": [
     "font",
     "japanese",

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
@@ -38,7 +39,7 @@ export async function attachReviewToPartner(root: URI, attachments: readonly Cha
     const destination = reviewAttachDestination(target?.kind, chatEnabled);
     if (destination === 'chat') {
         if (!commands.getCommand('akari.chat.attach')) {
-            messages.info('AKARI チャットを開いてください');
+            messages.info(t('preview.previewChatReviewHost.ui.openAkariChatAction'));
             return false;
         }
         await commands.executeCommand('akari.chat.attach', reviewAttachArgument(attachments));
@@ -52,6 +53,6 @@ export async function attachReviewToPartner(root: URI, attachments: readonly Cha
         } catch { /* Clipboard fallback below. */ }
     }
     await clipboard.writeText(text);
-    messages.info(target && target.kind !== 'chat' ? `${target.name} の入力欄に貼り付けてください` : 'レビューをクリップボードにコピーしました');
+    messages.info(target && target.kind !== 'chat' ? t('preview.previewChatReviewHost.ui.pasteIntoInputFieldTargetAction', { target: target.name }) : t('preview.previewChatReviewHost.ui.reviewCopiedClipboardLabel'));
     return true;
 }

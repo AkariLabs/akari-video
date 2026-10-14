@@ -4,6 +4,13 @@
   "title": "効果音ラボ 演出・アニメ効果音パック",
   "description": "シーン切り替え・強調カット（シャキーン/スライド/パッ）・コミカルなツッコミ/間抜けリアクション・キラキラ演出のアクセントなど、映像の演出・アニメ調カットに使うSE 17点セット。（収録数: 17点）【2026-08-23】SFX 見直しで「ドーン」（重い衝撃演出・旧 sfx-impact-echo 後継）を追加。",
   "when_to_use": "シーン切り替え・強調カットの入り・コミカルなツッコミ/リアクション・キラキラ演出のアクセントを入れたいとき",
+  "i18n": {
+    "en": {
+      "title": "Sound Effect Lab Anime and Direction SFX Pack",
+      "description": "A 17-item set of scene transitions, emphasized cuts (sharp swoosh, slide, pop), comic retorts or foolish reactions, and sparkling accents for anime-style video direction. Includes 17 items. On 2026-08-23, the SFX review added a heavy boom as the successor to the former sfx-impact-echo.",
+      "when_to_use": "For scene transitions, emphasized cut entrances, comic reactions, and sparkling accents."
+    }
+  },
   "tags": [
     "sfx",
     "anime",

@@ -62,6 +62,30 @@ test("library meta with title-normalized matched_by passes", () => {
   assert.equal(executed.stderr.trim(), "");
 });
 
+test("top-level aliases accept unique nonempty strings only", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "akari-aliases-validation-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = join(root, "overlay", "lower-third-clean");
+  cpSync(join(fixtureRoot, "valid-library", "overlay", "lower-third-clean"), dir, { recursive: true });
+  const metaPath = join(dir, "meta.json");
+  const original = JSON.parse(readFileSync(metaPath, "utf8"));
+  const check = (aliases) => {
+    writeFileSync(metaPath, JSON.stringify({ ...original, aliases }));
+    return spawnSync(process.execPath, [cliPath, dir], { encoding: "utf8" });
+  };
+
+  assert.equal(check(["Clean Lower Third", "Lower Third"]).status, 0);
+  for (const [aliases, message] of [
+    ["Clean Lower Third", /aliases は配列/],
+    [[""], /aliases\[0\] は空でない文字列/],
+    [["same", "same"], /aliases に重複/],
+  ]) {
+    const result = check(aliases);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, message);
+  }
+});
+
 test("catalog meta with title-normalized matched_by passes", () => {
   const executed = spawnSync(process.execPath, [cliPath, join(repoRoot, "catalog", "audio", "whoosh-transition")], { encoding: "utf8" });
   assert.equal(executed.status, 0, executed.stderr);

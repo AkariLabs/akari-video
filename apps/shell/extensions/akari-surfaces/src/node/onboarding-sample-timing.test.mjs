@@ -10,6 +10,7 @@ import { splitOnboardingTokens } from '../../lib/onboarding/model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sample = join(here, '../../../../resources/onboarding-sample/talkinghead-desk-ja-01');
+const guide = JSON.parse(await readFile(join(sample, 'guide.json'), 'utf8'));
 const timingFile = join(here, '../../evidence/onboarding-demo-production/analysis/word-timing.json');
 const LEGACY_DIGEST = 'b384cae62959224be1c65d036da836ce53023169f0aa778afc1dffd307696c69';
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -40,7 +41,7 @@ test('同梱の書き起こしは声で合わせ直した語の時刻（word-tim
 test('字幕の区切りは 22 行のまま、時刻だけが声に合う（captions_after_realign と一致）', async () => {
     const transcript = await readJson(join(sample, 'transcript.json'));
     const timing = await readJson(timingFile);
-    const captions = splitOnboardingTokens(transcript.tokens.items);
+    const captions = splitOnboardingTokens(transcript.tokens.items, guide.subtitles);
     assert.equal(captions.length, 22);
     assert.deepEqual(captions.map((caption, index) => ({
         id: `c-${String(index + 1).padStart(4, '0')}`, start: caption.start, end: caption.end, text: caption.text

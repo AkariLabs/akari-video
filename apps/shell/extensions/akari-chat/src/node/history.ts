@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { dirname, join } from 'path';
@@ -9,7 +10,7 @@ export interface ChatHistory {
 }
 
 export function titleFromText(text: string): string {
-    return [...text.trim().replace(/\s+/g, ' ')].slice(0, 40).join('') || '新しいチャット';
+    return [...text.trim().replace(/\s+/g, ' ')].slice(0, 40).join('') || t('chat.history.ui.newChatLabel');
 }
 
 export function addHistory(history: ChatHistory, entry: ChatHistoryEntry): ChatHistory {
@@ -34,7 +35,7 @@ export function updateHistory(
 
 export function renameHistory(history: ChatHistory, id: string, title: string): ChatHistory {
     const normalized = [...title.trim().replace(/\s+/g, ' ')].slice(0, 80).join('');
-    if (!normalized) throw new Error('名前を入力してください');
+    if (!normalized) throw new Error(t('chat.history.ui.enterNameLabel'));
     return updateHistory(history, id, { title: normalized });
 }
 
@@ -51,7 +52,7 @@ export async function readHistory(cwd: string): Promise<ChatHistory> {
     try {
         const value = JSON.parse(await fs.readFile(target, 'utf8')) as ChatHistory;
         if (value?.version === 1 && Array.isArray(value.sessions)) return value;
-        throw new SyntaxError('履歴の形式が正しくありません');
+        throw new SyntaxError(t('chat.history.ui.historyMalformedLabel'));
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { version: 1, sessions: [] };
         throw error;

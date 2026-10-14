@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type ChatAttachment =
     | { kind: 'file'; path: string; label: string }
     | { kind: 'review'; label: string; review: ChatReviewMark };
@@ -53,7 +54,7 @@ export function reviewCaptionLabelsAt(lines: readonly ReviewCaptionLine[], hit: 
         if (!overlaps) continue;
         const value = line.text.replace(/\s+/gu, ' ').trim().slice(0, 80);
         if (!value) continue;
-        const label = `テロップ「${value}」`;
+        const label = t('preview.chatReviewAttachments.ui.captionLabel', { caption: value });
         if (!labels.includes(label)) labels.push(label);
     }
     return labels;
@@ -82,14 +83,14 @@ export function reviewElementsAt(edit: any, time: number, point: { x: number; y:
     for (const caption of captions) {
         if (active(caption) && (caption.box || caption.rect || caption.bounds) && hits(caption)) {
             const value = caption.text ?? caption.plainText ?? caption.label;
-            if (typeof value === 'string' && value.trim()) add(`テロップ「${value.trim()}」`);
+            if (typeof value === 'string' && value.trim()) add(t('preview.chatReviewAttachments.ui.captionLabel', { caption: value.trim() }));
         }
     }
     for (const cut of Array.isArray(edit?.cuts) ? edit.cuts : []) {
-        if (active(cut) && hits(cut)) add(`映像 ${String(cut.sourcePath ?? cut.src ?? cut.id ?? '').trim()}`);
+        if (active(cut) && hits(cut)) add(t('preview.chatReviewAttachments.ui.videoSourcePathLabel', { sourcePath: String(cut.sourcePath ?? cut.src ?? cut.id ?? '').trim() }));
     }
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
-        if (active(layer) && hits(layer)) add(`${layer.isImage ? '画像' : '映像'} ${String(layer.sourcePath ?? layer.src ?? layer.id ?? '').trim()}`);
+        if (active(layer) && hits(layer)) add(`${layer.isImage ? t('preview.chatReviewAttachments.ui.imageLabel') : t('preview.chatReviewAttachments.ui.videoLabel')} ${String(layer.sourcePath ?? layer.src ?? layer.id ?? '').trim()}`);
     }
     if (edit?.version === 2 && Array.isArray(edit?.tracks)) {
         const fps = Number(edit.output?.fps) || 30;
@@ -99,7 +100,7 @@ export function reviewElementsAt(edit: any, time: number, point: { x: number; y:
                 if (item?.source?.kind !== 'media' || !hits(item)) continue;
                 if (time < Number(item.at) / fps || time >= (Number(item.at) + Number(item.duration)) / fps) continue;
                 const path = String(sources.get(item.source.src) ?? item.source.src ?? item.id);
-                add(`${/\.(png|jpe?g|webp|gif)$/i.test(path) ? '画像' : '映像'} ${path}`);
+                add(`${/\.(png|jpe?g|webp|gif)$/i.test(path) ? t('preview.chatReviewAttachments.ui.imageLabel') : t('preview.chatReviewAttachments.ui.videoLabel')} ${path}`);
             }
         }
     }

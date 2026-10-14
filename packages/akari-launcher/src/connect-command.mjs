@@ -1,3 +1,4 @@
+import { cliText as t } from './i18n.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,8 +9,13 @@ import { fileURLToPath } from 'node:url';
 
 const catalog = JSON.parse(fs.readFileSync(fileURLToPath(new URL('./connect/connectors.json', import.meta.url)), 'utf8'));
 
-const generation = catalog.filter(row => row.group === '素材を作る').map(row => row.id);
-const usage = '使い方: akari connect list [--json] | akari connect exec <id> -- <command…>';
+const generation = catalog.filter(row => row.group === 'generate').map(row => row.id);
+const usage = () => t('cli.connectCommand.ui.usageText');
+const groupLabel = group => t(group === 'tools' ? 'cli.connectCommand.group.toolsLabel' : 'cli.connectCommand.group.generateLabel');
+const statusLabel = status => t({
+  ready: 'cli.connectCommand.ui.availableLabel', planned: 'cli.connectCommand.ui.comingSoonLabel',
+  'needs-key': 'cli.connectCommand.ui.keyRequiredLabel', 'needs-blender': 'cli.connectCommand.ui.requiresBlenderLabel'
+}[status]);
 
 export function connectPaths(env = process.env, home = os.homedir()) {
   return {
@@ -28,7 +34,7 @@ function readSettings(file) {
     };
   } catch (error) {
     if (error.code === 'ENOENT') return { enabled: {}, generationOrder: [], fallbackOnFailure: false };
-    throw new Error('つなぐ設定を読めません。');
+    throw new Error(t('cli.connectCommand.ui.couldNotReadConnectionSettingsError'));
   }
 }
 function readCredentialFile(file) {
@@ -41,7 +47,7 @@ function readCredentialFile(file) {
     content = fs.readFileSync(file, 'utf8');
   } catch (error) {
     if (error.code === 'ENOENT') return values;
-    throw new Error('資格情報ファイルを読めません。');
+    throw new Error(t('cli.connectCommand.ui.couldNotReadCredentialsFileError'));
   }
   for (const raw of content.split(/\r?\n/)) {
     const line = raw.trim();
@@ -91,13 +97,13 @@ export function listConnectors({ env = process.env, home = os.homedir(), platfor
     const detected = entry.kind === 'blender-recipe' ? detectApp('blender', scanRoots, platform) || (!roots && detectBlenderCommand(env, platform)) : false;
     const credential = entry.env ? credentials.get(entry.env) : undefined;
     const hasKey = !!credential;
-    const status = entry.kind === 'built-in' ? '使える' : entry.kind === 'planned' ? '準備中' :
-      entry.kind === 'key' ? hasKey ? '使える' : '鍵が必要' :
-      entry.kind === 'blender-recipe' ? detected ? '使える' : 'Blender が必要' : '準備中';
+    const status = entry.kind === 'built-in' ? 'ready' : entry.kind === 'planned' ? 'planned' :
+      entry.kind === 'key' ? hasKey ? 'ready' : 'needs-key' :
+      entry.kind === 'blender-recipe' ? detected ? 'ready' : 'needs-blender' : 'planned';
     return { id: entry.id, group: entry.group, name: entry.name, status, enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
       detected, credential: entry.env ? hasKey : null, credentialSource: credential?.source ?? null };
   });
-  rows.sort((a, b) => a.group === '素材を作る' && b.group === '素材を作る' ? order.indexOf(a.id) - order.indexOf(b.id) : 0);
+  rows.sort((a, b) => a.group === 'generate' && b.group === 'generate' ? order.indexOf(a.id) - order.indexOf(b.id) : 0);
   return { rows, generationOrder: order, fallbackOnFailure: settings.fallbackOnFailure };
 }
 
@@ -149,23 +155,25 @@ export async function runConnectCommand(args, options = {}) {
   const home = options.home || os.homedir();
   if (args[0] === 'list' && (args.length === 1 || args.length === 2 && args[1] === '--json')) {
     const data = listConnectors({ env, home, roots: options.roots, platform: options.platform });
-    if (args[1] === '--json') log(JSON.stringify(data));
+    if (args[1] === '--json') log(JSON.stringify({ ...data, rows: data.rows.map(row => ({
+      ...row, group: groupLabel(row.group), status: statusLabel(row.status)
+    })) }));
     else {
       let group = '';
       for (const row of data.rows) {
-        if (row.group !== group) { group = row.group; log(group); }
-        log(`  ${row.name}: ${row.status}${row.enabled ? '' : '（使わない）'}`);
+        if (row.group !== group) { group = row.group; log(groupLabel(group)); }
+        log(`  ${row.name}: ${statusLabel(row.status)}${row.enabled ? '' : t('cli.connectCommand.ui.disabledLabel')}`);
       }
     }
     return { exitCode: 0 };
   }
   if (args[0] === 'exec' && args.length >= 4 && args[2] === '--') {
     const entry = catalog.find(row => row.id === args[1]);
-    if (!entry?.env) { error('鍵で実行できない接続です。'); return { exitCode: 2 }; }
+    if (!entry?.env) { error(t('cli.connectCommand.ui.connectionCannotRunAPIKeyError')); return { exitCode: 2 }; }
     const settings = readSettings(connectPaths(env, home).settings);
-    if (settings.enabled[entry.id] === false) { error('この接続は「使う」がオフです。'); return { exitCode: 2 }; }
+    if (settings.enabled[entry.id] === false) { error(t('cli.connectCommand.ui.connectionDisabledMessage')); return { exitCode: 2 }; }
     const credential = credentialValues(connectPaths(env, home), env).get(entry.env);
-    if (!credential) { error('鍵が設定されていません。'); return { exitCode: 2 }; }
+    if (!credential) { error(t('cli.connectCommand.ui.noKeyHasBeenSetMessage')); return { exitCode: 2 }; }
     const secret = credential.value;
     const childEnv = { ...env };
     for (const connector of catalog) if (connector.env) delete childEnv[connector.env];
@@ -179,7 +187,7 @@ export async function runConnectCommand(args, options = {}) {
         shell: false, env: childEnv, stdio: ['inherit', 'pipe', 'pipe']
       });
     } catch {
-      error('子プロセスを起動できませんでした。');
+      error(t('cli.connectCommand.ui.couldNotStartChildProcessError'));
       return { exitCode: 1 };
     }
     let launchFailed = false;
@@ -195,9 +203,9 @@ export async function runConnectCommand(args, options = {}) {
       forwardStream(child.stdout, secret, stdoutWrite),
       forwardStream(child.stderr, secret, stderrWrite)
     ]);
-    if (launchFailed) error('子プロセスを起動できませんでした。');
+    if (launchFailed) error(t('cli.connectCommand.ui.couldNotStartChildProcessError'));
     return { exitCode };
   }
-  error(usage);
+  error(usage());
   return { exitCode: 2 };
 }

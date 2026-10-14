@@ -333,9 +333,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.sectionContents.className = 'akari-set-contents';
         this.contentsDetails.className = 'akari-set-contents-details';
         this.contentsDetails.open = true;
-        const contentsTitle = element('summary', 'このページの項目');
+        const contentsTitle = element('summary', t('surfaces.akariSettingsDialog.ui.itemsPageLabel'));
         this.contentsList.className = 'akari-set-contents-list';
-        this.contentsList.setAttribute('aria-label', 'このページの項目');
+        this.contentsList.setAttribute('aria-label', t('surfaces.akariSettingsDialog.ui.itemsPageLabel'));
         this.contentsDetails.append(contentsTitle, this.contentsList);
         this.sectionContents.append(this.contentsDetails);
         for (const section of SETTINGS_SECTIONS) {
@@ -356,12 +356,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const defaults = element('div');
         defaults.setAttribute('data-akari-generation-defaults', 'true');
         const diagnostics = element('details');
-        const diagnosticsTitle = element('summary', '接続診断・残高とその他のサービス');
+        const diagnosticsTitle = element('summary', t('surfaces.akariSettingsDialog.ui.connectionDiagnosticsBalancesOtherServicesText'));
         diagnostics.append(diagnosticsTitle, this.providerList, this.imageAiRow);
         this.connections.append(defaults, diagnostics);
         if (connectBody) { this.toDispose.push(mountSettingsSectionBody(this.connections, connectBody)); }
         void this.renderGenerationDefaults(defaults);
-        this.providerList.append(settingsNote('その他のサービスを読み込んでいます…'));
+        this.providerList.append(settingsNote(t('surfaces.akariSettingsDialog.ui.loadingMoreServicesStatus')));
         this.renderStore();
         this.contentNode.append(nav, this.sectionContents, this.body);
         this.body.addEventListener('scroll', () => this.scheduleActiveSection(), { passive: true });
@@ -661,8 +661,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                             options: [{ value: 'tag', label: t('surfaces.settings.trackRippleTag.option') }, { value: 'switches', label: t('surfaces.settings.sectionSwitch.label') }],
                             value: this.preferences.get(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY) === 'switches' ? 'switches' : 'tag',
                             onChange: value => this.savePreference(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, value) }))),
-                groupCard('プレビュー', this.preferenceSwitch(AKARI_PREVIEW_SCRUB_AUDIO, 'シークしたときに音を鳴らす', false,
-                    'つまみやタイムラインをドラッグしたとき・コマ送りしたときに、その位置の音を短く鳴らします。通常の再生の音は変わりません')));
+                groupCard(t('surfaces.akariSettingsDialog.ui.previewLabel'), this.preferenceSwitch(AKARI_PREVIEW_SCRUB_AUDIO, t('surfaces.akariSettingsDialog.ui.playAudioWhileScrubbingLabel'), false,
+                    t('surfaces.akariSettingsDialog.ui.playShortSampleAudioNewPositionWhenDraggingMessage'))));
         } else if (id === 'notifications') {
             section.append(groupCard(undefined, this.preferenceSwitch(AKARI_AGENT_TURN_END_NOTIFICATION, t('surfaces.settings.sectionAiCompletionNotification.label'), true,
                 t('surfaces.settings.sectionReceiveNotificationProcessingSuchClaudeCodeCompleted.label'))));
@@ -846,8 +846,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }, { small: true }))),
         groupCard(t('surfaces.settings.partnerBehavior.label'), this.preferenceSwitch(AKARI_PARTNER_REOPEN, t('surfaces.settings.partnerOnceStartedOpenPreviousPartner.label'), true,
             t('surfaces.settings.partnerOpeningProjectOpenPreviousPartnerProjectsWhose.label')),
-        this.preferenceSwitch(AKARI_CHAT_EXPERIMENTAL_ENABLED, 'AKARI チャット（お試し）を表示する', false,
-            '開発中の機能です。動作が不安定なことがあります'),
+        this.preferenceSwitch(AKARI_CHAT_EXPERIMENTAL_ENABLED, t('surfaces.akariSettingsDialog.ui.showAkariChatPreviewLabel'), false,
+            t('surfaces.akariSettingsDialog.ui.featureStillDevelopmentMayUnstableMessage')),
         settingRow(t('surfaces.settings.partnerPrivileges.label'), t('surfaces.settings.partnerToolsHaveAutomaticModeCopilotAntigravityCommand.description'),
             dropdown({ label: t('surfaces.settings.partnerPrivileges.label'), options: [
                 { value: 'auto', label: t('surfaces.settings.partnerAutomaticRecommended.label') },
@@ -1804,8 +1804,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             : t('surfaces.settings.imageAiFalSettingKey.label'));
         status.setAttribute('data-akari-image-ai-status', state.configured ? 'configured' : 'unconfigured');
         const result = settingsNote(''); result.setAttribute('role', 'status');
-        const check = action('接続を確かめる', () => {
-            check.disabled = true; result.textContent = '接続を確かめています…';
+        const check = action(t('surfaces.akariSettingsDialog.ui.testConnectionLabel'), () => {
+            check.disabled = true; result.textContent = t('surfaces.akariSettingsDialog.ui.checkingConnectionStatus');
             void this.service.checkImageAiConnection().then(doctor => { result.textContent = doctor.detail; })
                 .catch(() => { result.textContent = t('surfaces.settings.imageAiConnectionCheckFailed.error'); })
                 .finally(() => { check.disabled = false; });
@@ -2110,7 +2110,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const managedInConnect = ['fal', 'elevenlabs', 'runway', 'higgsfield', 'fish-audio'].includes(row.id);
         if (managedInConnect) {
             paintStatus();
-            controls.append(settingsNote('鍵は上のサービスカードで管理します。'));
+            controls.append(settingsNote(t('surfaces.akariSettingsDialog.ui.manageKeysServiceCardsAboveMessage')));
         } else renderControls();
         card.append(logo, main, actions);
         if (row.id === 'fal' && !managedInConnect) {
@@ -2483,7 +2483,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
             [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
             [AKARI_CHAT_EXPERIMENTAL_ENABLED]: { type: 'boolean', default: false,
-                description: '開発中の機能です。動作が不安定なことがあります' },
+                description: t('surfaces.akariSettingsDialog.ui.featureStillDevelopmentMayUnstableMessage') },
             [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto', scope: PreferenceScope.User },
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },

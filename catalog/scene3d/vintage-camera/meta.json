@@ -4,6 +4,16 @@
   "title": "ヴィンテージカメラ 3D モデル",
   "description": "革ストラップと使用感のある装飾を持つ、クラシックなレンジファインダーカメラの高精細 3D モデル（27K トライアングル）。レトロ演出・製品紹介の画角作りに使える",
   "when_to_use": "レトロ・アナログ演出のプロダクト紹介、写真/映像機材を扱う動画のヒーローショット、静物風のオープニングカットなど、実写では用意しにくい精巧な小物モデルが要るシーン",
+  "i18n": {
+    "en": {
+      "title": "Vintage Camera 3D Model",
+      "description": "A high-detail 3D model of a classic rangefinder camera with a leather strap and worn details (27K triangles). Useful for framing retro scenes and product introductions.",
+      "when_to_use": "For retro or analog product introductions, hero shots in videos about photography or video equipment, and still-life-style openings needing a detailed prop difficult to source in live action.",
+      "knobs": {
+        "--rotate-y": "Horizontal rotation"
+      }
+    }
+  },
   "tags": ["product-demo", "vintage", "camera", "hero-shot", "prop", "16:9", "9:16", "1:1"],
   "knobs": [
     { "cssVar": "--rotate-y", "type": "slider", "min": -45, "max": 45, "unit": "deg", "group": "pose", "label": "水平回転" }

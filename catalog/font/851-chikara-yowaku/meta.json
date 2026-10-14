@@ -5,6 +5,13 @@
   "aliases": ["851チカラヨワク","851 Chikara Yowaku","851CHIKARA-YOWAKU"],
   "description": "線がヨレた弱々しい手書きフォント（配布元: 8:51:22 pm）。チカラヅヨクの対になる脱力トーン。商用利用可・許可不要で、改変と再配布も可能。クレジット表記は不要。そのままのフォントファイルを単品で販売することはできない。",
   "when_to_use": "ボソッと入れる弱気ツッコミ・自虐・脱力系テロップに",
+  "i18n": {
+    "en": {
+      "title": "851 Chikara Yowaku",
+      "description": "A feeble-looking handwritten font with wavering strokes (distributed by 8:51:22 pm). Its limp tone pairs with Chikara Dzuyoku. Commercial use is allowed without permission, and modification and redistribution are permitted. No credit is required. The font files may not be sold on their own as-is.",
+      "when_to_use": "For muttered, timid retorts, self-deprecating remarks, and listless captions."
+    }
+  },
   "tags": [
     "font",
     "japanese",

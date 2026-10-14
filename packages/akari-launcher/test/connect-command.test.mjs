@@ -16,7 +16,7 @@ const extensionLib = path.resolve(here, '../../../apps/shell/extensions/akari-co
 test('CLI catalog mirrors only the two supported groups', () => {
   const rows = JSON.parse(fs.readFileSync(mirror, 'utf8'));
   assert.deepEqual(rows, JSON.parse(fs.readFileSync(canonical, 'utf8')));
-  assert.deepEqual([...new Set(rows.map(row => row.group))], ['AKARI の道具', '素材を作る']);
+  assert.deepEqual([...new Set(rows.map(row => row.group))], ['tools', 'generate']);
   assert.deepEqual(rows.map(row => row.id), ['akari-video', '3d-recipes', 'fal', 'fish-audio', 'google-ai', 'elevenlabs', 'groq']);
 });
 
@@ -40,7 +40,7 @@ test('CLI sees a Blender command for 3D recipes', () => {
     fs.mkdirSync(bin);
     fs.writeFileSync(path.join(bin, 'blender'), '', { mode: 0o755 });
     const row = listConnectors({ env: { AKARI_HOME: path.join(root, '.akari'), PATH: bin }, home: root, platform: 'darwin' }).rows.find(item => item.id === '3d-recipes');
-    assert.equal(row.status, '使える');
+    assert.equal(row.status, 'ready');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -180,4 +180,25 @@ test('top-level run dispatches connect before project startup', async () => {
     assert.equal(JSON.parse(lines.join('')).rows[0].id, 'akari-video');
     assert.equal(fs.existsSync(env.AKARI_HOME), false);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Japanese CLI list keeps its exact displayed lines after group and status IDs change', async () => {
+  const previous = process.env.AKARI_LANG;
+  process.env.AKARI_LANG = 'ja';
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-connect-copy-'));
+  try {
+    const lines = [];
+    await runConnectCommand(['list'], { home: root, env: { AKARI_HOME: path.join(root, '.akari') }, roots: [],
+      platform: 'darwin', log: line => lines.push(line) });
+    assert.equal(`${lines.join('\n')}\n`, 'AKARI の道具\n  AKARI Video: 使える\n  3D レシピ: Blender が必要\n素材を作る\n  fal: 鍵が必要\n  Fish Audio: 鍵が必要\n  Google AI: 鍵が必要\n  ElevenLabs: 鍵が必要\n  Groq: 鍵が必要\n');
+    const jsonLines = [];
+    await runConnectCommand(['list', '--json'], { home: root, env: { AKARI_HOME: path.join(root, '.akari') }, roots: [],
+      platform: 'darwin', log: line => jsonLines.push(line) });
+    const rows = JSON.parse(jsonLines.join('')).rows;
+    assert.deepEqual([...new Set(rows.map(row => row.group))], ['AKARI の道具', '素材を作る']);
+    assert.deepEqual(rows.map(row => row.status), ['使える', 'Blender が必要', '鍵が必要', '鍵が必要', '鍵が必要', '鍵が必要', '鍵が必要']);
+  } finally {
+    if (previous === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previous;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

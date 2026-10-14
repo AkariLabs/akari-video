@@ -2,6 +2,8 @@ import { t } from '../common/project-text';
 import { catalogItemCategoryChipKey, CatalogSearchable, filterCatalogItems } from './catalog-reader';
 import { filterPresetShowcaseItems, PresetShowcase } from './preset-showcase';
 import { searchShapeShelf, ShapeShelfPreset } from './shape-shelf';
+import { shapeShelfName } from './shape-shelf';
+import { localizedPresetText } from '@akari-video/i18n';
 
 export type LibraryCategoryStatus = 'live' | 'soon';
 
@@ -187,6 +189,16 @@ export interface LibraryTransitionSearchItem {
     readonly id: string;
     readonly labelJa: string;
     readonly category: string;
+    readonly name?: string;
+    readonly i18n?: Record<string, Record<string, string>>;
+}
+
+export function transitionDisplayName(item: LibraryTransitionSearchItem, language: string): string {
+    return localizedPresetText({ id: item.id, name: item.name ?? item.labelJa, i18n: item.i18n }, 'name', language) ?? item.labelJa ?? item.id;
+}
+
+export function transitionDisplayCategory(item: LibraryTransitionSearchItem, language: string): string {
+    return localizedPresetText({ id: item.id, category: item.category, i18n: item.i18n }, 'category', language) ?? item.category;
 }
 
 export interface LibrarySearchHit {
@@ -215,7 +227,7 @@ const CATALOG_CATEGORY_TO_LIBRARY: Readonly<Record<string, LibraryCategoryKey>> 
 };
 
 /** ホーム検索用。カタログ・プリセット・トランジション・図形を同じ小文字包含で横断する。 */
-export function searchLibraryHome(query: string, sources: LibrarySearchSources): LibrarySearchHit[] {
+export function searchLibraryHome(query: string, sources: LibrarySearchSources, language = 'ja'): LibrarySearchHit[] {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) {
         return [];
@@ -233,9 +245,9 @@ export function searchLibraryHome(query: string, sources: LibrarySearchSources):
             kind: 'preset' as const
         })));
     const transitionHits = sources.transitions
-        .filter(item => [item.labelJa, item.id, item.category].join(' ').toLowerCase().includes(normalizedQuery))
-        .map(item => ({ categoryKey: 'transition' as const, label: item.labelJa, kind: 'transition' as const }));
+        .filter(item => [item.labelJa, item.id, item.category, ...Object.values(item.i18n ?? {}).flatMap(value => [value.name, value.category])].join(' ').toLowerCase().includes(normalizedQuery))
+        .map(item => ({ categoryKey: 'transition' as const, label: transitionDisplayName(item, language), kind: 'transition' as const }));
     const shapeHits = searchShapeShelf(sources.shapes ?? [], normalizedQuery)
-        .map(item => ({ categoryKey: 'shapes' as const, label: item.name, kind: 'shape' as const }));
+        .map(item => ({ categoryKey: 'shapes' as const, label: shapeShelfName(item, language), kind: 'shape' as const }));
     return [...catalogHits, ...presetHits, ...transitionHits, ...shapeHits];
 }

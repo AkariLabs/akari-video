@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encodeIndexedWebp } from './webp-lossless.mjs';
@@ -38,9 +38,15 @@ export function bakePreviews() {
     writeFileSync(join(directory, 'preview-strip.webp'), encodeIndexedWebp(strip.width, strip.height, strip.palette, strip.indices));
     transitionArt.push({ id: entry.id, art });
   }
-  writeFileSync(join(transitionRoot, 'index.jsonl'), transitions.map(entry => JSON.stringify({
+  const transitionIndex = join(transitionRoot, 'index.jsonl');
+  const translations = existsSync(transitionIndex)
+    ? new Map(readFileSync(transitionIndex, 'utf8').trim().split('\n')
+      .map(line => JSON.parse(line)).map(entry => [entry.id, entry.i18n]))
+    : new Map();
+  writeFileSync(transitionIndex, transitions.map(entry => JSON.stringify({
     id: entry.id, name: entry.name, category: entry.category,
     preview: `${entry.id}/preview.webp`, preview_strip: `${entry.id}/preview-strip.webp`,
+    ...(translations.get(entry.id) ? { i18n: translations.get(entry.id) } : {}),
   })).join('\n') + '\n');
   const evidence = join(root, 'evidence/v1-preset-previews');
   mkdirSync(evidence, { recursive: true });

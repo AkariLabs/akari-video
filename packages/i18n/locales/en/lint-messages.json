@@ -155,5 +155,6 @@
   "lint-messages.audio.bgm.example_one": " (for example, an overlap of {frames} frame = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
   "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
   "lint-messages.cuts.transition.freeze": "The first {seconds} s of the later clip is filled with a held frame.",
-  "lint-messages.cuts.transition.freezeCheck": "Part of this transition is filled with a held frame."
+  "lint-messages.cuts.transition.freezeCheck": "Part of this transition is filled with a held frame.",
+  "lint-messages.captions.ui.captionMostlyCutOffMessage": "Caption {id} is barely visible because a video cut leaves less than half of it on screen."
 }

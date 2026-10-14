@@ -1,4 +1,5 @@
 /** Display aliases mirrored from the caption font panel catalog; card IDs and titles come from the library catalog. */
+import { getLanguage } from '@akari-video/i18n';
 const DISPLAY_NAMES: Readonly<Record<string, string>> = {
     'biz-udgothic': 'BIZ UDゴシック',
     'dela-gothic-one': 'Dela Gothic One あ字',
@@ -11,9 +12,12 @@ const DISPLAY_NAMES: Readonly<Record<string, string>> = {
     'zen-maru-gothic': 'Zen丸ゴシック'
 };
 
-export function libraryFontLabel(id: string, title: string): { display: string; english?: string } {
+export function libraryFontLabel(id: string, title: string, baseTitle?: string, language = getLanguage()): { display: string; english?: string } {
+    if (language !== 'ja') return { display: title };
+    const familyTitle = baseTitle ?? title;
+    if (baseTitle !== undefined && title !== baseTitle) return { display: title, english: title };
     const display = DISPLAY_NAMES[id] ?? title;
-    const family = title.replace(/（.*$/, '').trim();
+    const family = familyTitle.replace(/（.*$/, '').trim();
     return {
         display,
         english: display !== title ? title : /[A-Za-z]/u.test(family) && family !== display ? family : undefined

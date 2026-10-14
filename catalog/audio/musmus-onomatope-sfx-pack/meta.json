@@ -2,8 +2,15 @@
   "id": "musmus-onomatope-sfx-pack",
   "category": "audio",
   "title": "MusMus オノマトペ電子音パック",
-  "description": "ポップ/クリック系の短い電子オノマトペ音（ピッ・ポッ・プッ・ピロリン・チャイム等）とイエスノー判定音・チョキッ（はさみ）・機械的な操作音・注意喚起音を集めた16点セット。（収録数: 16点） 【audio-standard】部分参加 4/10 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
+  "description": "ポップ/クリック系の短い電子オノマトペ音（ピッ・ポッ・プッ・ピロリン・チャイム等）とイエスノー判定音・チョキッ（はさみ）・機械的な操作音・注意喚起音を集めた16点セット。（収録数: 16点） 【audio-standard】部分参加 4/10 音（対象はローカル index.jsonl の standard フラグ）",
   "when_to_use": "軽いUI操作音・判定音（Yes/No）・機械的な操作/切替の演出・チャイムでの通知を入れたいとき",
+  "i18n": {
+    "en": {
+      "title": "MusMus Electronic Onomatopoeia SFX Pack",
+      "description": "A 16-item set of short pop and click electronic sounds (beeps, pops, trills, chimes, etc.), yes/no judgment tones, a scissor snip, mechanical operation sounds, and alert cues. Includes 16 items. Under audio-standard, 4 of 10 sounds participate; the local index.jsonl standard flag identifies them.",
+      "when_to_use": "For light UI operation sounds, yes/no judgments, mechanical operations or switching, and chime notifications."
+    }
+  },
   "tags": [
     "sfx",
     "ui",

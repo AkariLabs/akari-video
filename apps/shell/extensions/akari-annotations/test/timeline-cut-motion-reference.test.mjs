@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
@@ -19,7 +20,7 @@ const code = ts.transpileModule(`class Timeline { ${members} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 const dependencies = { cutMotionReferencePaths, hydrateCutMotionReferences, restoreUncutMotionReferences,
     serializeMotion, pinAutomaticBgmDuration, prepareV2KeyframeDistribution, stringifyEditV2,
-    runTimelineCutKernel, BinaryBuffer };
+    runTimelineCutKernel, BinaryBuffer, t };
 const Timeline = new Function(...Object.keys(dependencies), `${code}\nreturn Timeline;`)(...Object.values(dependencies));
 const times = [0, 398, 400, 401, 402, 403, 441, 450, 936];
 const points = times.map((t, index) => ({ t, transform: { scale: index === 0 || index === 8 ? 1 : 1.1 } }));

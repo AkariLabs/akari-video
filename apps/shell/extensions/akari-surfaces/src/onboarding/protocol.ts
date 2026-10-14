@@ -1,4 +1,5 @@
 import { OnboardingState, TranscriptSegment } from './model';
+import { OnboardingGuide } from './guide';
 
 export const AKARI_ONBOARDING_SERVICE_PATH = '/services/akari-surfaces-onboarding-v1';
 export const AkariOnboardingService = Symbol('AkariOnboardingService');
@@ -6,6 +7,8 @@ export const AkariOnboardingService = Symbol('AkariOnboardingService');
 export interface SampleInformation {
     sourcePath: string;
     segments: TranscriptSegment[];
+    sampleId?: string;
+    guide?: OnboardingGuide;
 }
 
 export interface AkariOnboardingService {
@@ -15,7 +18,7 @@ export interface AkariOnboardingService {
     claimGuideAnnouncement(context: { hasOpenProject: boolean; hasProjectHistory: boolean }): Promise<boolean>;
     markSeen(): Promise<void>;
     returnToHome(): Promise<void>;
-    prepare(): Promise<{ projectUri: string; sample: SampleInformation }>;
+    prepare(language?: string): Promise<{ projectUri: string; sample: SampleInformation }>;
     importSample(projectUri: string, sourcePath: string): Promise<string>;
     resetTourExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[]): Promise<void>;
     writeExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[], count: number, title: boolean): Promise<void>;

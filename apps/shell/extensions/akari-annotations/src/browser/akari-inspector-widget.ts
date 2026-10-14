@@ -5235,7 +5235,7 @@ export class AkariInspectorWidget extends BaseWidget {
             row.appendChild(action);
             if (fieldName === 'caption-font-family') {
                 const family = String(field.getValue(snapshot) ?? '').replace(/^["']|["']$/g, '').trim();
-                const normalized = (name: string): string => name.normalize('NFKC').replace(/[\s\u3000._-]+/gu, '').toLocaleLowerCase();
+                const normalized = (name: string): string => name.normalize('NFKC').replace(/[\s._-]+/gu, '').toLocaleLowerCase();
                 const available = (window as Window & { akariFontAvailability?: Record<string,
                     { status: string; family: string }> }).akariFontAvailability ?? {};
                 const installed = [...this.captionPanelFontFaces.values(),
@@ -5511,7 +5511,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             .then(result => {
                                 if (!result.ok) {
                                     this.render();
-                                    this.showFieldNotice(result.message ?? '太さを書き込めませんでした。');
+                                    this.showFieldNotice(result.message ?? t('annotations.inspectorWidget.ui.couldNotWriteWeightError'));
                                 }
                             }, error => this.showFieldNotice(String(error)));
                     } else {
@@ -5743,7 +5743,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const textarea = input as HTMLTextAreaElement;
             const session = new LiveCaptionEdit(editValue, async value => {
                 const result = await write(snapshot, value, 'draft');
-                if (!result.ok) throw new Error(result.message ?? '字幕を保存できませんでした。');
+                if (!result.ok) throw new Error(result.message ?? t('annotations.inspectorWidget.ui.couldNotSaveCaptionError'));
             });
             let closing = false;
             this.captionTextInput = textarea;
@@ -5755,7 +5755,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     if (cancel || !textarea.value.trim()) {
                         await session.cancel();
                         await write(snapshot, editValue, 'cancel');
-                        if (!cancel) this.showFieldNotice('字幕のテキストは空にできません。');
+                        if (!cancel) this.showFieldNotice(t('annotations.inspectorWidget.ui.captionTextRequiredError'));
                     } else {
                         await session.finish(textarea.value);
                         await write(snapshot, textarea.value !== editValue ? textarea.value : editValue,

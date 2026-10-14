@@ -376,7 +376,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",
-            message: `字幕 ${caption.id ?? `captions[${index}]`} は映像のカットでほとんど見えません（半分未満しか残っていません）`,
+            message: lintText('lint-messages.captions.ui.captionMostlyCutOffMessage', { id: caption.id ?? `captions[${index}]` }),
             path: itemPath,
             range: { start: caption.start, end: caption.end },
           });

@@ -4,6 +4,13 @@
   "title": "コーポレート・アップビート BGM",
   "description": "ミニマルなビート主体の明るいコーポレート BGM。テック企業のプロモーションや製品デモに合う清潔感のあるトラック。尺 2分05秒",
   "when_to_use": "SaaS/アプリ紹介、製品デモ、会社紹介動画のオープニング〜本編 BGM として",
+  "i18n": {
+    "en": {
+      "title": "Upbeat Corporate BGM",
+      "description": "Bright corporate background music built around a minimal beat. A clean track suited to tech-company promotions and product demos. Duration: 2 minutes 05 seconds.",
+      "when_to_use": "For opening and main-section music in SaaS or app introductions, product demos, and company-profile videos."
+    }
+  },
   "tags": ["bgm", "corporate", "upbeat", "tech", "background-music"],
   "knobs": [],
   "ai_usage": "書き出し尺に合わせたトリミング・フェードイン/アウト・ループでの尺調整は自由に行ってよい。ナレーションやセリフが乗る区間は自動でダッキング（音量を下げる）してよい。曲の構成やテンポそのものを崩す大幅なピッチ/速度変更は避ける",

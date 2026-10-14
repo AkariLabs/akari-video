@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { createRoot, Root } from '@theia/core/shared/react-dom/client';
 import { Disposable } from '@theia/core/lib/common';
@@ -8,7 +9,19 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { ConnectService, ConnectSnapshot, ConnectorRow } from '../common/connect-protocol';
 import './connect-style';
 
-const groups = ['AKARI の道具', '素材を作る'];
+const groups = ['tools', 'generate'];
+const filterLabel = (value: string): string => ({
+    'all': t('connect.connectSettingsSection.ui.allLabel'),
+    'ready': t('connect.connectSettingsSection.ui.availableLabel'),
+    'tools': t('connect.connectSettingsSection.ui.akariToolsLabel'),
+    'generate': t('connect.connectSettingsSection.ui.createAssetsLabel')
+}[value] ?? value);
+const statusLabel = (value: string): string => ({
+    'ready': t('connect.connectProtocol.ui.availableLabel'),
+    'needs-key': t('connect.connectProtocol.ui.keyRequiredLabel'),
+    'planned': t('connect.connectProtocol.ui.comingSoonLabel'),
+    'needs-blender': t('connect.connectProtocol.ui.requiresBlenderLabel')
+}[value] ?? value);
 const connectorIcon = (row: ConnectorRow): React.ReactElement =>
     <span className="akari-connect-icon" style={{ background: row.background, color: row.color }}>
         {row.logo ? <img src={row.logo} alt="" /> : row.initials || row.icon}
@@ -25,7 +38,7 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
     @inject(WindowService) protected readonly windows!: WindowService;
     protected snapshot?: ConnectSnapshot;
     protected selectedId = '';
-    protected filter = 'すべて';
+    protected filter = 'all';
     protected search = '';
     protected pendingKey = '';
 
@@ -65,7 +78,7 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
     }
     async reload(): Promise<void> {
         try { this.snapshot = await this.service.list(); this.paint(); document.dispatchEvent(new Event('akari-connect-change')); }
-        catch { void this.messages.error('接続状態を読めませんでした。'); }
+        catch { void this.messages.error(t('connect.connectSettingsSection.ui.couldNotReadConnectionStatus')); }
     }
     select(id?: string): void { if (this.selectedId !== (id ?? '')) this.pendingKey = ''; this.selectedId = id ?? ''; this.paint(); void this.reload(); }
     protected selected(): ConnectorRow | undefined { return this.snapshot?.rows.find(row => row.id === this.selectedId); }
@@ -74,11 +87,11 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
             await this.service.setCredential(row.id, this.pendingKey);
             this.pendingKey = '';
             await this.reload();
-        } catch { void this.messages.error('鍵を保存できませんでした。入力と保存先を確認してください。'); }
+        } catch { void this.messages.error(t('connect.connectSettingsSection.ui.failedSaveKeyCheckInputSaveLocationError')); }
     }
     protected async removeKey(row: ConnectorRow): Promise<void> {
         try { await this.service.deleteCredential(row.id); await this.reload(); }
-        catch { void this.messages.error('鍵を削除できませんでした。'); }
+        catch { void this.messages.error(t('connect.connectSettingsSection.ui.keyCouldNotDeletedError')); }
     }
     protected async toggle(row: ConnectorRow): Promise<void> {
         await this.service.setEnabled(row.id, !row.enabled);
@@ -96,7 +109,7 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
     protected async tryInChat(row: ConnectorRow): Promise<void> {
         if (!row.try) return;
         if (!this.commands.getCommand('akari.chat.prefill')) {
-            void this.messages.info('AKARI チャットを開けません。');
+            void this.messages.info(t('connect.connectSettingsSection.ui.couldNotOpenAkariChatError'));
             return;
         }
         await this.commands.executeCommand('akari.chat.prefill', { text: row.try });
@@ -104,38 +117,38 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
     protected renderContent(): React.ReactElement {
         const snapshot = this.snapshot;
         const rows = snapshot?.rows ?? [];
-        const available = rows.filter(row => row.status === '使える' && row.enabled).length;
+        const available = rows.filter(row => row.status === 'ready' && row.enabled).length;
         const selected = this.selected();
         const visible = (row: ConnectorRow): boolean =>
-            (this.filter === 'すべて' || this.filter === row.group || this.filter === '使える' && row.status === '使える' && row.enabled) &&
+            (this.filter === 'all' || this.filter === row.group || this.filter === 'ready' && row.status === 'ready' && row.enabled) &&
             `${row.name} ${row.description}`.toLocaleLowerCase().includes(this.search.toLocaleLowerCase());
         return <div className="akari-connect-view">
             <main className="akari-connect-main">
-                <header><p>AKARI で使える道具と素材のサービスを表示します。鍵を追加すると使えるようになります。</p>
-                    <input aria-label="探す" placeholder="探す" value={this.search} onChange={event => { this.search = event.currentTarget.value; this.paint(); }} /></header>
-                <nav className="akari-connect-filters">{['すべて', '使える', ...groups].map(filter =>
+                <header><p>{t('connect.connectSettingsSection.ui.connectServicesDescription')}</p>
+                    <input aria-label={t('connect.connectSettingsSection.ui.searchLabel')} placeholder={t('connect.connectSettingsSection.ui.searchLabel')} value={this.search} onChange={event => { this.search = event.currentTarget.value; this.paint(); }} /></header>
+                <nav className="akari-connect-filters">{['all', 'ready', ...groups].map(filter =>
                     <button key={filter} data-connect-filter={filter} className={this.filter === filter ? 'active' : ''} onClick={() => { this.filter = filter; this.paint(); }}>
-                        {filter}{filter === '使える' && <b>{available}</b>}
+                        {filterLabel(filter)}{filter === 'ready' && <b>{available}</b>}
                     </button>)}</nav>
                 <div className="akari-connect-list">{groups.map(group => {
                     const matches = rows.filter(row => row.group === group && visible(row));
-                    return matches.length > 0 && <section key={group}><h3>{group}</h3><div className="akari-connect-rows">
+                    return matches.length > 0 && <section key={group}><h3>{filterLabel(group)}</h3><div className="akari-connect-rows">
                         {matches.map(row => <button key={row.id} data-connect-id={row.id} className={`akari-connect-card ${this.selectedId === row.id ? 'selected' : ''}`}
-                            onClick={() => this.select(row.id)}>{connectorIcon(row)}<span className="akari-connect-row-copy"><strong>{row.name}</strong><span>{row.description}</span></span><small data-status={row.status}>{row.status}</small></button>)}
+                            onClick={() => this.select(row.id)}>{connectorIcon(row)}<span className="akari-connect-row-copy"><strong>{row.name}</strong><span>{row.description}</span></span><small data-status={row.status}>{statusLabel(row.status)}</small></button>)}
                     </div></section>;
-                })}{rows.length > 0 && !rows.some(visible) && <p>該当する道具やサービスはありません。</p>}</div>
+                })}{rows.length > 0 && !rows.some(visible) && <p>{t('connect.connectSettingsSection.ui.thereNoCorrespondingToolsServicesMessage')}</p>}</div>
             </main>
-            {selected && <aside className="akari-connect-detail" data-connect-detail={selected.id}><div className="akari-connect-detail-title">{connectorIcon(selected)}<div><h2>{selected.name}</h2><small data-status={selected.status}>{selected.status}</small></div><button onClick={() => this.select()} aria-label="閉じる">×</button></div>
-                <p>{selected.description}</p><div className="akari-connect-setting"><span>使い方</span><strong>{selected.kind === 'key' ? 'API の鍵を追加します。' : selected.kind === 'blender-recipe' ? 'Blender を使って 3D 素材を作ります。' : selected.kind === 'planned' ? '準備中です。' : 'AKARI に含まれています。'}</strong></div>
-                {selected.maskedTail && <div className="akari-connect-setting"><span>登録済みの鍵</span><strong data-connect-masked-tail={selected.id}>••••{selected.maskedTail}</strong>
-                    {selected.credentialSource === 'credentials.env' && <button onClick={() => void this.removeKey(selected)}>鍵を削除</button>}</div>}
-                {selected.kind === 'key' && <div className="akari-connect-key"><input type="password" data-connect-key-input={selected.id} aria-label="API の鍵" placeholder="API の鍵" value={this.pendingKey} onChange={event => { this.pendingKey = event.currentTarget.value; this.paint(); }} /><button data-connect-key-save={selected.id} disabled={!this.pendingKey} onClick={() => void this.saveKey(selected)}>鍵を追加</button><small>鍵はこのパソコンの資格情報ファイルに保存します。チャットには貼らないでください。</small></div>}
-                {selected.setupUrl && <button onClick={() => this.windows.openNewWindow(selected.setupUrl!, { external: true })}>手順を見る ↗</button>}
-                {selected.group === '素材を作る' && <div className="akari-connect-order"><span>使う順番</span><button onClick={() => void this.move(selected, -1)}>上へ</button><button onClick={() => void this.move(selected, 1)}>下へ</button></div>}
-                {selected.group === '素材を作る' && <label className="akari-connect-toggle">使う <input type="checkbox" checked={selected.enabled} onChange={() => void this.toggle(selected)} /></label>}
-                {selected.try && <button className="akari-connect-try" data-connect-try={selected.id} onClick={() => void this.tryInChat(selected)}>チャットで試す「{selected.try}」 →</button>}
+            {selected && <aside className="akari-connect-detail" data-connect-detail={selected.id}><div className="akari-connect-detail-title">{connectorIcon(selected)}<div><h2>{selected.name}</h2><small data-status={selected.status}>{statusLabel(selected.status)}</small></div><button onClick={() => this.select()} aria-label={t('connect.connectSettingsSection.ui.closeLabel')}>×</button></div>
+                <p>{selected.description}</p><div className="akari-connect-setting"><span>{t('connect.connectSettingsSection.ui.howWorksLabel')}</span><strong>{selected.kind === 'key' ? t('connect.connectSettingsSection.ui.addAPIKeyAction') : selected.kind === 'blender-recipe' ? t('connect.connectSettingsSection.ui.createThreeDAssetsBlenderMessage') : selected.kind === 'planned' ? t('connect.connectSettingsSection.ui.comingSoonMessage') : t('connect.connectSettingsSection.ui.includedAkariMessage')}</strong></div>
+                {selected.maskedTail && <div className="akari-connect-setting"><span>{t('connect.connectSettingsSection.ui.savedKeyLabel')}</span><strong data-connect-masked-tail={selected.id}>••••{selected.maskedTail}</strong>
+                    {selected.credentialSource === 'credentials.env' && <button onClick={() => void this.removeKey(selected)}>{t('connect.connectSettingsSection.ui.deleteKeyAction')}</button>}</div>}
+                {selected.kind === 'key' && <div className="akari-connect-key"><input type="password" data-connect-key-input={selected.id} aria-label={t('connect.connectSettingsSection.ui.apiKeyLabel')} placeholder={t('connect.connectSettingsSection.ui.apiKeyLabel')} value={this.pendingKey} onChange={event => { this.pendingKey = event.currentTarget.value; this.paint(); }} /><button data-connect-key-save={selected.id} disabled={!this.pendingKey} onClick={() => void this.saveKey(selected)}>{t('connect.connectSettingsSection.ui.addKeyAction')}</button><small>{t('connect.connectSettingsSection.ui.credentialStorageNotice')}</small></div>}
+                {selected.setupUrl && <button onClick={() => this.windows.openNewWindow(selected.setupUrl!, { external: true })}>{t('connect.connectSettingsSection.ui.seeInstructionsLabel')}</button>}
+                {selected.group === 'generate' && <div className="akari-connect-order"><span>{t('connect.connectSettingsSection.ui.priorityOrderLabel')}</span><button onClick={() => void this.move(selected, -1)}>{t('connect.connectSettingsSection.ui.moveUpAction')}</button><button onClick={() => void this.move(selected, 1)}>{t('connect.connectSettingsSection.ui.moveDownAction')}</button></div>}
+                {selected.group === 'generate' && <label className="akari-connect-toggle">{t('connect.connectSettingsSection.ui.useLabel')}<input type="checkbox" checked={selected.enabled} onChange={() => void this.toggle(selected)} /></label>}
+                {selected.try && <button className="akari-connect-try" data-connect-try={selected.id} onClick={() => void this.tryInChat(selected)}>{t('connect.connectSettingsSection.ui.tryInChatAction', { prompt: selected.tryLabel ?? selected.try })}</button>}
             </aside>}
-            <footer>失敗したら次へ自動で切り替える <input type="checkbox" checked={snapshot?.fallbackOnFailure ?? false} onChange={async event => { await this.service.setFallbackOnFailure(event.currentTarget.checked); await this.reload(); }} /></footer>
+            <footer>{t('connect.connectSettingsSection.ui.automaticallyTryNextServiceIfOneFailsMessage')}<input type="checkbox" checked={snapshot?.fallbackOnFailure ?? false} onChange={async event => { await this.service.setFallbackOnFailure(event.currentTarget.checked); await this.reload(); }} /></footer>
         </div>;
     }
 }

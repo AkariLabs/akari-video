@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type ChatAttachment =
     | { kind: 'file'; path: string; label: string }
     | { kind: 'review'; label: string; review: ChatReviewMark };
@@ -21,11 +22,11 @@ export function reviewTimeSpan(mark: ChatReviewMark): string {
 
 export function describeAttachments(attachments: readonly ChatAttachment[]): string {
     return attachments.map(item => {
-        if (item.kind === 'file') return `[ファイル] ${item.label}: ${item.path}`;
+        if (item.kind === 'file') return t('chat.chatAttachments.ui.labelPathLabel', { label: item.label, path: item.path });
         const mark = item.review;
         const span = reviewTimeSpan(mark);
-        const tool = { pen: 'ペン', pin: 'ピン', range: '範囲' }[mark.tool];
-        const context = mark.elements?.length ? `（${mark.elements.join('、')}付近）` : '';
-        return `[レビュー] ${mark.sourceLabel} ${span} ${tool}${context}: ${mark.text} [${mark.source}]`;
+        const tool = { pen: t('chat.chatAttachments.ui.penLabel'), pin: t('chat.chatAttachments.ui.pinLabel'), range: t('chat.chatAttachments.ui.rangeLabel') }[mark.tool];
+        const context = mark.elements?.length ? t('chat.chatAttachments.ui.nearElementsLabel', { elements: mark.elements.join('、') }) : '';
+        return t('chat.chatAttachments.ui.reviewAttachmentText', { sourceLabel: mark.sourceLabel, timeSpan: span, tool: tool, context: context, text: mark.text, source: mark.source });
     }).join('\n');
 }

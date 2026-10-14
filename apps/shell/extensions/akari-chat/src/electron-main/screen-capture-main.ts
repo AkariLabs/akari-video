@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { BrowserWindow, desktopCapturer, ipcMain, screen, systemPreferences } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
@@ -9,7 +10,7 @@ export class ChatScreenCaptureMain implements ElectronMainApplicationContributio
         ipcMain.handle(CHAT_SCREEN_SOURCE, async (event): Promise<ChatScreenSourceResult> => {
             const access = process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted';
             if (access === 'denied' || access === 'restricted') {
-                return { error: '画面収録の許可が必要です。システム設定 › プライバシーとセキュリティ › 画面収録で AKARI を許可してください。' };
+                return { error: t('chat.screenCaptureMain.ui.permissionScreenRecordingRequiredSystemSettingsPrivacySecurityMessage') };
             }
             try {
                 const sources = await desktopCapturer.getSources({ types: ['screen'] });
@@ -17,14 +18,14 @@ export class ChatScreenCaptureMain implements ElectronMainApplicationContributio
                 const displayId = win ? String(screen.getDisplayMatching(win.getBounds()).id) : undefined;
                 const selected = sources.find(source => source.display_id === displayId) ?? sources[0];
                 const warning = access === 'not-determined'
-                    ? '画面収録の許可を確認します。求められたら承認してください。表示されない場合はシステム設定 › プライバシーとセキュリティ › 画面収録で AKARI を許可してください。'
+                    ? t('chat.screenCaptureMain.ui.confirmScreenRecordingPermissionApproveWhenAskedIfMessage')
                     : undefined;
                 return selected ? { id: selected.id, ...(warning ? { warning } : {}) }
-                    : { error: '録画できる画面が見つかりません' };
+                    : { error: t('chat.screenCaptureMain.ui.noScreensFoundRecordText') };
             } catch {
                 return { error: access === 'not-determined'
-                    ? '画面収録の許可が必要です。システム設定 › プライバシーとセキュリティ › 画面収録で AKARI を許可してください。'
-                    : '画面を選べませんでした' };
+                    ? t('chat.screenCaptureMain.ui.permissionScreenRecordingRequiredSystemSettingsPrivacySecurityMessage')
+                    : t('chat.screenCaptureMain.ui.couldNotSelectScreenError') };
             }
         });
     }

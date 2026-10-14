@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface ScreenRecordingFormat { recorderMime: string; blobMime: string; extension: 'mp4' | 'webm' }
 
 export function screenRecordingFormat(supports: (mime: string) => boolean): ScreenRecordingFormat {
@@ -5,5 +6,5 @@ export function screenRecordingFormat(supports: (mime: string) => boolean): Scre
         if (supports(recorderMime)) return { recorderMime, blobMime: 'video/mp4', extension: 'mp4' };
     }
     if (supports('video/webm')) return { recorderMime: 'video/webm', blobMime: 'video/webm', extension: 'webm' };
-    throw new Error('この環境では画面の録画形式を使えません');
+    throw new Error(t('chat.screenRecording.ui.screenRecordingFormatCannotUsedEnvironmentError'));
 }

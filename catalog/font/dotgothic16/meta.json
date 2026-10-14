@@ -5,6 +5,16 @@
   "aliases": ["DotGothic16","DotGothic16-Regular"],
   "description": "16px ビットマップ由来のドット絵ゴシック。レトロゲーム・8bit・デジタル演出の定番。 実体（Regular のみ（書体自体が単ウェイト））は本リポの assets/font/dotgothic16/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "レトロゲーム風・8bit 演出・デジタル/グリッチ系テロップ",
+  "i18n": {
+    "en": {
+      "title": "DotGothic16",
+      "description": "A pixel-art sans serif derived from 16px bitmap lettering, a staple of retro games, 8-bit, and digital effects. The Regular file, the font's only weight, is bundled in assets/font/dotgothic16/ (added 2026-08-03). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For retro-game, 8-bit, digital, and glitch-style captions.",
+      "aliases": [
+        "DotGothic16-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

@@ -1,4 +1,5 @@
 import { t } from '../common/project-text';
+import { getLanguage } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { TEXTSTYLE_SHOWCASE_COMMAND_ID } from 'akari-preview/lib/common/textstyle-sample';
 import URI from '@theia/core/lib/common/uri';
@@ -134,7 +135,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
 
     protected registerTextstyleShowcaseCommand(commands: CommandRegistry): void {
         commands.registerCommand({ id: TEXTSTYLE_SHOWCASE_COMMAND_ID }, {
-            execute: async () => (await this.projectService.getPresetShowcase()).textstyle
+            execute: async () => (await this.projectService.getPresetShowcase(getLanguage())).textstyle
         });
     }
 

@@ -45,7 +45,7 @@ export function isDaihonCompositionStart(key: string, keyCode: number): boolean 
 
 export function wordSelectionHeading(text: string, maxLength = 7): string {
     const characters = captionGraphemes(text.trim());
-    return `単語「${characters.slice(0, maxLength).join('')}${characters.length > maxLength ? '…' : ''}」を選択中`;
+    return t('transcript.daihonDock.ui.selectingWordWordCountLabel', { word: characters.slice(0, maxLength).join(''), count: characters.length > maxLength ? '…' : '' });
 }
 
 export function selectedDaihonEdit(text: string, words: readonly { text: string }[] | null,
