@@ -12,6 +12,7 @@ import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { AkariDaihonCutDialog } from './akari-daihon-cut-dialog';
+import { isMissingDaihonFile, retryDaihonRead } from './daihon-read-retry';
 import { collectDaihonCutCandidates, handEditedLines, type DaihonCutCandidate, type DaihonCutSource } from '../../common/daihon-cut-candidates';
 import { cutCandidateContext } from '../../common/daihon-cut-context';
 import { isCaptionVideo, selectCaptionSources, type CaptionSource } from '../../common/caption-source-eligibility';
@@ -29,6 +30,7 @@ import {
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { cutMotionReferencePaths } from '@akari-video/edit-store';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
@@ -50,7 +52,6 @@ import {
     TEXTSTYLE_CATALOG,
     projectFileContentHash,
     captionEmphasisOverlapsRange,
-    captionGraphemes,
     type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
@@ -59,18 +60,25 @@ import { deriveDaihonCutSpans, restoreImpact, sameCutSpanIdentity, type DaihonCu
 import { AkariAnnotationsService, type CaptionCommandResult, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { captionCommandHistory } from 'akari-annotations/lib/browser/caption-command-history';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
+import { daihonCaptionEditKey } from '../../common/daihon-caption-edit-key';
+import { DaihonCaptionEditSession, seedDaihonCaptionEdit } from '../../common/daihon-caption-edit-session';
+import { DaihonCaptionEditQueue, DaihonCaptionInput, DaihonReloadQueue, decideDaihonCaptionEdit,
+    shouldReloadDaihonChanges } from '../../common/daihon-caption-edit-queue';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { selectionScrollTop } from './selection-reveal';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
 import { shouldUseKaraokeWords } from '../../common/karaoke-words';
-import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
+import { changedWordPresetRowIds, planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
+import { certainFragmentOverflow, DaihonFragmentCache, type DaihonFragmentResult } from '../../common/daihon-fragment-cache';
 import {
     buildDaihonRows,
     type DaihonCaptionLike,
     type DaihonRow
 } from '../../common/daihon-row-model';
 import { outputToSource, resolveCurrent, sourceToOutput, sourceToOutputForSource, type DaihonHighlight } from '../../common/daihon-time-map';
+import { groupSourceRows, normalizeSourceGroupState, shouldAutoExpandPlayback,
+    sourceGroupStorageKey, type SourceGroup } from '../../common/daihon-source-groups';
 import {
     applyDragRange,
     applySelectionClick,
@@ -128,7 +136,8 @@ import {
     type DaihonSilenceSpan
 } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
-import { clampDockHeight, dockActions, dockLookState, dockTabs, lookPatch, readDockHeight, rowDockTitle,
+import { clampDockHeight, dockActions, dockLookState, dockTabs, isDaihonCompositionStart,
+    isPrintableDaihonKey, lookPatch, readDockHeight, rowDockTitle, selectedDaihonEdit, wordSelectionHeading,
     shouldCloseDockOnEscape, shouldRefreshLookDock, type DockKind, type DockLookState, type DockTab, type LookField } from '../../common/daihon-dock';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
@@ -162,7 +171,7 @@ import { activeDaihonFragment } from '../../common/daihon-fragment-highlight';
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
 } from './daihon-speaker-chips';
-import { groupTokensIntoWords, type DaihonWordUnit } from '../../common/daihon-word-units';
+import { groupTokensIntoWords, selectableCaptionWords, type DaihonWordUnit } from '../../common/daihon-word-units';
 import {
     DAIHON_GEAR_ANIM_PRESETS,
     gearSpeechTrimSeconds,
@@ -174,6 +183,7 @@ import {
 } from '../../common/daihon-gear';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
+const DAIHON_UNSAVED_NOTICE = t('transcript.akariDaihonWidget.ui.couldNotSaveCaptionTextStillHereNextSaveError');
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
 const DAIHON_WORD_SELECTION_CHANGED_EVENT = 'akari.daihon.wordSelectionChanged';
 const TIMELINE_SELECT_CAPTIONS_COMMAND_ID = 'akari.timeline.selectCaptions';
@@ -212,6 +222,9 @@ interface EditingState {
     original: string;
     cancelled: boolean;
     committing: boolean;
+    session?: DaihonCaptionInput;
+    before?: Promise<string>;
+    lifecycle?: DaihonCaptionEditSession;
 }
 
 interface RowDragState {
@@ -278,6 +291,14 @@ const STYLE = `
 .akari-daihon-head .akari-daihon-captions { flex:1 1 auto; min-height:0 !important; padding:5px 4px !important; font-size:12px; }
 .akari-daihon-head .akari-daihon-cuts { flex:1 1 auto; }
 .akari-daihon-source { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:29px; padding:4px 9px; box-sizing:border-box; border-bottom:1px solid var(--akari-line-inner); color:var(--akari-muted); font-size:10px; }
+.akari-daihon-source-main { display:flex; align-items:center; gap:6px; width:100%; min-width:0; white-space:nowrap; }
+.akari-daihon-source-chips { display:flex; flex-wrap:wrap; gap:6px; width:100%; }
+.akari-daihon-source-chips[hidden] { display:none; }
+.akari-daihon-source-toggle,.akari-daihon-source-all { border:0; background:transparent; color:var(--akari-muted); font:inherit; cursor:pointer; padding:2px 3px; white-space:nowrap; }
+.akari-daihon-source-toggle:hover,.akari-daihon-source-all:hover { color:var(--akari-ink); }
+.akari-daihon-source-toggle { display:inline-flex; align-items:center; gap:4px; }
+.akari-daihon-source-arrow,.akari-daihon-source-toggle-arrow { display:inline-flex; align-items:center; justify-content:center; flex:none; width:14px; font-size:15px; line-height:1; color:var(--akari-muted); }
+.akari-daihon-source-lines { margin-left:4px; }
 .akari-daihon-source-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:var(--akari-ink, var(--theia-foreground)); }
 .akari-daihon-source-chip { display:inline-flex; align-items:center; gap:5px; max-width:100%; border:1px solid var(--akari-line); border-radius:999px; padding:2px 7px; background:transparent; color:var(--akari-ink, var(--theia-foreground)); font:inherit; cursor:pointer; }
 .akari-daihon-source-chip[aria-pressed="false"] { opacity:.35; }
@@ -319,6 +340,12 @@ const STYLE = `
 .akari-daihon-row.speaker-hidden { display:none; }
 .akari-daihon-row.source-hidden { display:none; }
 .akari-daihon-gapzone.source-hidden { display:none; }
+.akari-daihon-row.source-collapsed,.akari-daihon-gapzone.source-collapsed,.akari-daihon-gapdraft.source-collapsed { display:none; }
+.akari-daihon-source-heading { display:flex; align-items:center; gap:6px; width:100%; min-width:0; border:0; border-bottom:1px solid var(--akari-line); background:transparent; color:var(--akari-ink); font:inherit; font-size:11px; text-align:left; padding:5px 8px; cursor:pointer; }
+.akari-daihon-source-heading:hover { background:var(--akari-card); }
+.akari-daihon-source-heading-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-daihon-source-heading-meta { color:var(--akari-muted); white-space:nowrap; }
+.akari-daihon-source-heading.filter-hidden { display:none; }
 .akari-daihon-row.iscut { opacity:.5; cursor:pointer; }
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
 .akari-daihon-word.iscut, .akari-daihon-gapchip.iscut { color:var(--akari-bad, var(--theia-errorForeground)) !important; text-decoration:line-through !important; text-decoration-color:var(--akari-bad, var(--theia-errorForeground)); text-decoration-thickness:2px; cursor:pointer; }
@@ -328,6 +355,8 @@ const STYLE = `
 .akari-daihon-toast.error { border-color:var(--theia-errorForeground); }
 .akari-daihon-toast button { margin-left:8px; border:0; background:none; color:var(--theia-akariTheme-accentLight); cursor:pointer; }
 .akari-daihon-row.saving { opacity:.65; pointer-events:none; }
+.akari-daihon-row.unsaved { outline:1px solid var(--theia-errorForeground); }
+.akari-daihon-row.unsaved .akari-daihon-row-text::after { content:'__AKARI_UNSAVED__'; color:var(--theia-errorForeground); font-size:10px; }
 .akari-daihon-row-head { display:flex; align-items:center; gap:6px; margin:0; min-height:15px; }
 .akari-daihon-duplicate { border:1px dashed rgba(240,180,90,.45); border-radius:4px; padding:0 5px; background:transparent; color:color-mix(in srgb, #f0b45a 40%, var(--akari-ink, var(--theia-foreground))); font-size:9px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-row.duplicate-flash { background:color-mix(in srgb, #f0b45a 22%, transparent); }
@@ -537,7 +566,7 @@ const STYLE = `
 .akari-daihon-placed-actions button:disabled { opacity:.4; cursor:default; }
 .akari-daihon-placed-help { margin-top:6px; color:var(--akari-muted); font-size:10px; }
 @media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } .akari-daihon-dock { transition:none; } }
-`;
+`.replace('__AKARI_UNSAVED__', t('transcript.akariDaihonWidget.ui.unsavedLabel'));
 
 function installStyle(): void {
     if (document.getElementById(STYLE_ID)) return;
@@ -569,9 +598,11 @@ export class AkariDaihonWidget extends BaseWidget {
     protected lastCaptionRunNotice: string | undefined;
 
     protected async setCaptionFieldsWithNotice(
-        request: Parameters<AkariAnnotationsService['setCaptionFields']>[0]
+        request: Parameters<AkariAnnotationsService['setCaptionFields']>[0],
+        shouldNotify: () => boolean = () => true
     ): Promise<Awaited<ReturnType<AkariAnnotationsService['setCaptionFields']>>> {
         const result = await this.annotationsService.setCaptionFields(request);
+        if (!shouldNotify()) return result;
         const next = nextCaptionNotices(this.lastCaptionRunNotice, result?.notices ?? []);
         for (const notice of next.show) void this.messages.info(notice, { timeout: 4000 });
         this.lastCaptionRunNotice = next.last;
@@ -636,6 +667,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected captionRecordings = new Map<string, CaptionRecording[]>();
     protected readonly captionOverflowUnitsById = new Map<string, number>();
     protected wordPresetByRowId = new Map<string, (string | { color?: string; background?: string } | undefined)[]>();
+    protected renderedWordPresetByRowId = new Map<string, (string | { color?: string; background?: string } | undefined)[]>();
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
     protected wordUnit: 'word' | 'token' = 'word';
     protected showBreaks = true;
@@ -656,9 +688,25 @@ export class AkariDaihonWidget extends BaseWidget {
     protected sourceColors = new Map<string, string>();
     protected activeSourceIds: string[] = [];
     protected hiddenSourceIds: string[] = [];
+    protected sourceGroups: SourceGroup[] = [];
+    protected openSourceGroupIds = new Set<string>();
+    protected savedOpenSourceGroupIds = new Set<string>();
+    protected sourceChipsExpanded = false;
+    protected sourceGroupProjectKey: string | undefined;
+    protected playbackRowInitialized = false;
+    protected playbackRowId: string | null = null;
+    protected playbackWasPlaying = false;
+    protected playbackPendingInitialRowId: string | null = null;
     protected duplicateRowIds = new Map<string, string>();
     protected readonly captionAudioCache = new Map<string, boolean | undefined>();
     protected silencesBySourceId = new Map<string, DaihonSilenceSpan[]>();
+    protected automaticFragmentCache = new DaihonFragmentCache();
+    protected pendingAutomaticFragments = new Map<string, { key: string; timer: ReturnType<typeof setTimeout> }>();
+    protected materialSourcesKey = '';
+    protected sidecarRevision = 0;
+    protected loadedSidecarRevision = -1;
+    protected lastAppliedCaptionSource: string | undefined;
+    protected pendingCaptionSource: string | undefined;
     protected rootUri: URI | undefined;
     protected editUri: URI | undefined;
     protected captionsUri: URI | undefined;
@@ -670,6 +718,19 @@ export class AkariDaihonWidget extends BaseWidget {
     protected selectionRevealInterrupted = false;
     protected selectionRevealTargetId: string | undefined;
     protected editing: EditingState | undefined;
+    protected readonly captionEditQueue = new DaihonCaptionEditQueue(15000, id => {
+        if (this.editing?.id === id) return;
+        const row = this.rows.find(candidate => candidate.id === id);
+        if (row && this.elements.has(id)) {
+            const override = this.captionEditQueue.get(id);
+            if (override) row.text = override.text;
+            this.replaceRenderedRow(row);
+        }
+    }, event => this.updateUnsavedNotice(event), error => {
+        console.warn(t('transcript.akariDaihonWidget.ui.couldNotSaveCaptionError'), error);
+    });
+    protected readonly reloadQueue = new DaihonReloadQueue<boolean>(() => this.reload(),
+        () => !this.editing && !this.captionEditQueue.hasPendingVisibleWrite());
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
     protected rowDrag: RowDragState | undefined;
@@ -685,6 +746,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected speakerColors = new Map<string, string>();
     protected configured = false;
     protected reloadTail = Promise.resolve();
+    protected missingCaptionsUri: string | undefined;
+    protected daihonReadError: HTMLDivElement | undefined;
     protected rowGaps: DaihonRowGap[] = [];
     protected cutSpans: DaihonCutSpan[] = [];
     protected cutEditSource = '';
@@ -789,6 +852,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.addEventListener('mousedown', event => this.handleRowButtonMouseDown(event), { capture: true });
         this.rowsNode.addEventListener('pointerdown', event => this.handleWordPointerDown(event), { capture: true });
         this.rowsNode.addEventListener('pointermove', event => this.handleWordPointerMove(event));
+        const selectedTyping = (event: KeyboardEvent): void => this.handleSelectedTyping(event);
+        window.addEventListener('keydown', selectedTyping, true);
+        this.toDispose.push({ dispose: () => window.removeEventListener('keydown', selectedTyping, true) });
         // The annotations keybinding contribution mirrors this event name without a package dependency.
         const rowShortcut = (event: Event): void => {
             if (!this.rowsNode.contains(document.activeElement)) return;
@@ -839,6 +905,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.node.addEventListener('click', event => {
             const target = event.target as Element;
             if (target === this.rowsNode || target === this.node) this.closeDock();
+            if (target.closest('button') && (this.actionBar.contains(target) || this.placedEditor.contains(target))) {
+                queueMicrotask(() => { if (!this.editing) this.focusRows(); });
+            }
         });
         const dockEscape = (event: KeyboardEvent): void => this.handleDockEscape(event);
         document.addEventListener('keydown', dockEscape);
@@ -1066,6 +1135,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const validWordRange = !!row && isValidDaihonWordRange(row.words?.length ?? 0, target.wordRange);
         if (row) {
+            this.revealSourceGroupForRow(row.id);
             // A resolved row takes priority over filters left by earlier interactions.
             if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
             this.qcFilter = false;
@@ -1136,12 +1206,16 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     showError(error: unknown): void {
-        this.notifyError(t('transcript.daihon.editor.couldNotReadScriptWithDetailError', { value1: this.errorMessage(error) }));
+        this.showDaihonReadError(t('transcript.akariDaihonWidget.ui.couldNotReadScriptError'), error);
     }
 
     async configure(): Promise<void> {
         if (this.configured) return;
         this.configured = true;
+        this.toDispose.push({ dispose: () => {
+            for (const pending of this.pendingAutomaticFragments.values()) clearTimeout(pending.timer);
+            this.pendingAutomaticFragments.clear();
+        } });
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
         this.showCutMarks = this.preferences.get(DAIHON_SHOW_CUT_MARKS_PREFERENCE, true);
@@ -1161,7 +1235,6 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.rootUri = root;
         await this.locateProject(root);
-        await this.reload();
         this.toDispose.push(onActiveTimelineEditUriChange(() => {
             const editUri = this.editUri?.normalizePath().toString();
             if (editUri) window.dispatchEvent(new CustomEvent(DAIHON_WORD_SELECTION_CHANGED_EVENT,
@@ -1170,17 +1243,27 @@ export class AkariDaihonWidget extends BaseWidget {
             this.queueReload();
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            const paths = event.changes.map(change => change.resource.toString());
+            if (!shouldReloadDaihonChanges(paths, this.captionsUri?.toString() ?? '', !!this.editing)) return;
+            const meaningful = event.changes.filter(change => shouldReloadDaihonChanges(
+                [change.resource.toString()], this.captionsUri?.toString() ?? '', false));
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
-            const relevant = (this.editUri && event.contains(this.editUri))
-                || (this.captionsUri && event.contains(this.captionsUri))
-                || (dictionaryUri && event.contains(dictionaryUri))
-                || event.changes.some(change => change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
-            if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
+            const sidecarChanged = meaningful.some(change => /[\\/]\.akari[\\/]sidecars[\\/]/u.test(change.resource.path.toString())
+                || change.resource.path.base === 'cuts.json');
+            if (sidecarChanged) this.sidecarRevision++;
+            const captionChanged = meaningful.some(change => change.resource.toString() === this.captionsUri?.toString());
+            const relevant = meaningful.some(change => change.resource.toString() === this.editUri?.toString()
+                || change.resource.toString() === dictionaryUri?.toString()
+                || sidecarChanged && this.rootUri?.isEqualOrParent(change.resource));
+            if (sidecarChanged) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
             }
             // The guide creates edit.json after this widget has already configured itself.
             // Discover the new project on that first file event as well as later edits.
-            if (relevant || (!this.editUri && event.changes.some(change =>
+            if (captionChanged && !relevant) {
+                this.reloadTail = this.queueCaptionReloadIfChanged();
+            }
+            if (relevant || (!this.editUri && meaningful.some(change =>
                 isTimelineEditFileName(change.resource.path.base) && this.rootUri?.isEqualOrParent(change.resource)))) this.queueReload();
         }));
         try {
@@ -1188,6 +1271,9 @@ export class AkariDaihonWidget extends BaseWidget {
         } catch (error) {
             console.warn('[akari-daihon] file watching is unavailable', error);
         }
+        const initial = this.reload();
+        this.reloadTail = initial.catch(() => undefined);
+        await initial;
     }
 
     protected override onAfterAttach(message: Message): void {
@@ -1202,9 +1288,48 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected queueReload(): void {
-        this.reloadTail = this.reloadTail.then(() => this.reload()).catch(error => {
-            this.notifyError(t('transcript.daihon.editor.couldNotUpdateScriptWithDetailError', { value1: this.errorMessage(error) }));
+        void this.requestReload();
+    }
+
+    protected async queueCaptionReloadIfChanged(): Promise<void> {
+        if (!this.captionsUri) return;
+        try {
+            const source = await this.readText(this.captionsUri);
+            if (source === this.lastAppliedCaptionSource || source === this.pendingCaptionSource) return;
+            this.pendingCaptionSource = source;
+            try {
+                await this.requestReload();
+            } finally {
+                if (this.pendingCaptionSource === source) this.pendingCaptionSource = undefined;
+            }
+        } catch {
+            await this.requestReload();
+        }
+    }
+
+    protected requestReload(): Promise<boolean> {
+        const result = this.reloadQueue.request().then(success => success, error => {
+            this.showDaihonReadError(t('transcript.akariDaihonWidget.ui.couldNotUpdateScriptError'), error);
+            return false;
         });
+        this.reloadTail = result.then(() => undefined);
+        return result;
+    }
+
+    protected showDaihonReadError(message: string, error: unknown): void {
+        console.warn(t('transcript.akariDaihonWidget.ui.scriptReadLogError'), error);
+        this.pendingUndoAt = 0;
+        this.clearDaihonReadError();
+        this.daihonReadError = this.showToast(t('transcript.akariDaihonWidget.ui.messageCheckFileContentsMessage', { message: message }), true);
+    }
+
+    protected clearDaihonReadError(): void {
+        const toast = this.daihonReadError;
+        this.daihonReadError = undefined;
+        if (!toast) return;
+        const stack = toast.parentElement;
+        toast.remove();
+        if (stack && stack.childElementCount === 0) stack.remove();
     }
 
     protected async locateProject(root: URI): Promise<void> {
@@ -1314,13 +1439,27 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected async reload(): Promise<void> {
-        if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
+    protected async reload(): Promise<boolean> {
+        if (this.wordDrag) { this.reloadPendingAfterDrag = true; return false; }
         if (this.rootUri) await this.locateProject(this.rootUri);
+        this.restoreSourceGroupState();
+        this.playbackRowInitialized = false;
+        this.playbackPendingInitialRowId = null;
         this.closeCutRangeEditor();
         this.cutCandidates = [];
         this.updateCutsButton();
-        const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
+        let editSource = '';
+        let editReadError: unknown;
+        if (this.editUri) {
+            try {
+                editSource = await retryDaihonRead(async () => {
+                    const source = await this.readText(this.editUri!);
+                    JSON.parse(source);
+                    return source;
+                }, ms => this.waitForDaihonReadRetry(ms));
+            } catch (error) { editReadError = error; }
+        }
+        const editForSources = editSource ? JSON.parse(editSource) : {};
         this.syncedSourceIds = new Set((Array.isArray(editForSources.sync_groups) ? editForSources.sync_groups : [])
             .flatMap((group: { members?: Array<{ source?: string }> }) =>
                 Array.isArray(group.members) ? group.members.map(member => member.source).filter((id): id is string => typeof id === 'string') : []));
@@ -1341,27 +1480,58 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.sourceColors = sourceBadgeColors(this.editSources);
-        this.silencesBySourceId = new Map();
-        const silenceLoad = this.loadSilences();
-        await this.refreshCaptionsButton(this.editSources).catch(error => {
+        const sourcesKey = JSON.stringify([this.editUri?.toString(),
+            this.editSources.map(source => [source.id, source.path])]);
+        const materialsChanged = sourcesKey !== this.materialSourcesKey
+            || this.loadedSidecarRevision !== this.sidecarRevision;
+        if (materialsChanged) {
+            this.materialSourcesKey = sourcesKey;
+            this.loadedSidecarRevision = this.sidecarRevision;
+        }
+        const silenceLoad = materialsChanged ? this.loadSilences() : Promise.resolve();
+        if (materialsChanged) await this.refreshCaptionsButton(this.editSources).catch(error => {
             this.captionsButton.disabled = true;
             this.notifyError(this.errorMessage(error));
         });
         if (!this.editUri || !this.captionsUri) {
+            this.missingCaptionsUri = undefined;
             this.captionRecordings = new Map();
             this.segments = [];
             this.renderRows([]);
             this.showEmpty();
-            return;
+            this.clearDaihonReadError();
+            return true;
         }
         try {
-            const [editSource, captionsSource, dictionarySource] = await Promise.all([
-                this.readText(this.editUri), this.readText(this.captionsUri),
+            if (editReadError) throw editReadError;
+            const [captionsRead, dictionarySource] = await Promise.all([
+                retryDaihonRead(async () => {
+                    const source = await this.readText(this.captionsUri!);
+                    return { source, parsed: parseCaptions(source), root: JSON.parse(source) as unknown };
+                }, ms => this.waitForDaihonReadRetry(ms), error => {
+                    const missing = isMissingDaihonFile(error);
+                    if (!missing) this.missingCaptionsUri = undefined;
+                    return !missing || this.missingCaptionsUri !== this.captionsUri?.toString();
+                }).catch(error => {
+                    if (isMissingDaihonFile(error)) return undefined;
+                    throw error;
+                }),
                 this.readText(this.editUri.parent.resolve('.akari/dictionary.json')).catch(() => '')
             ]);
+            if (!captionsRead) {
+                this.missingCaptionsUri = this.captionsUri.toString();
+                this.captionRecordings = new Map();
+                this.segments = [];
+                this.renderRows([]);
+                this.showEmpty(t('transcript.akariDaihonWidget.ui.noCaptionsYetCreateOneSeeHereMessage'));
+                this.clearDaihonReadError();
+                return true;
+            }
+            this.missingCaptionsUri = undefined;
+            const { source: captionsSource, parsed, root: captionsRoot } = captionsRead;
+            this.lastAppliedCaptionSource = captionsSource;
             this.speakerDictionary = parseSpeakerDictionary(dictionarySource);
-            const parsed = parseCaptions(captionsSource);
-            this.captionsRoot = JSON.parse(captionsSource) as unknown;
+            this.captionsRoot = captionsRoot;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
             const shape = readCaptionShape(this.captionsRoot);
             this.displayKnobs = { ...this.displayKnobs, maxLineUnits: shape.chars, lines: shape.lines };
@@ -1381,12 +1551,17 @@ export class AkariDaihonWidget extends BaseWidget {
             this.attachments = attachmentRanges(edit as Parameters<typeof attachmentRanges>[0], next,
                 this.sourceCaptions.filter(caption => caption.timeDomain === 'output').length);
             this.handEditedCaptionIds.clear();
-            this.cutSources = [];
-            for (const source of this.editSources) {
-                const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
-                    .catch(error => { this.notifyError(t('transcript.daihon.editor.couldNotReadCutCandidateMarksWithDetailError', { value1: this.errorMessage(error) })); return undefined; });
-                this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
-                for (const line of handEditedLines(artifacts?.cuts ?? null)) {
+            if (materialsChanged) {
+                this.cutSources = [];
+                for (const source of this.editSources) {
+                    const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
+                        .catch(error => { this.notifyError(t('transcript.akariDaihonWidget.ui.couldNotReadCutCandidateMarksError', { error: this.errorMessage(error) })); return undefined; });
+                    this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
+                }
+            }
+            for (const source of this.cutSources) {
+                const cuts = source.cuts;
+                for (const line of handEditedLines(cuts)) {
                     const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
                 }
             }
@@ -1412,10 +1587,21 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
+            this.clearDaihonReadError();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
+            return true;
         } catch (error) {
             this.captionRecordings = new Map();
-            this.notifyError(t('transcript.daihon.editor.couldNotReadScriptWithDetailError', { value1: this.errorMessage(error) }));
+            const missing = isMissingDaihonFile(error);
+            this.missingCaptionsUri = undefined;
+            if (missing) {
+                this.renderRows([]);
+                this.showEmpty();
+                this.clearDaihonReadError();
+            } else {
+                this.showDaihonReadError(t('transcript.akariDaihonWidget.ui.couldNotReadScriptError'), error);
+            }
+            return missing;
         }
     }
 
@@ -1458,9 +1644,10 @@ export class AkariDaihonWidget extends BaseWidget {
         } else {
             displayFragments = this.automaticDisplayFragments(caption.id, caption.text, policy);
         }
+        const selectable = selectableCaptionWords(caption.text, caption.start, caption.end, caption.words);
         const units = this.wordUnit === 'word'
-            ? groupTokensIntoWords(caption.text, caption.words)
-            : caption.words?.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index })) ?? [];
+            ? groupTokensIntoWords(caption.text, selectable)
+            : selectable.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }));
         if (units.length) this.wordUnitsByRowId.set(caption.id, units);
         return {
             id: caption.id,
@@ -1472,7 +1659,7 @@ export class AkariDaihonWidget extends BaseWidget {
             ...(caption.src ? { src: caption.src } : {}),
             style: caption.style ?? null,
             edited: caption.edited,
-            ...(caption.words ? { words: units.map(({ text, start, end }) => ({ text, start, end })) } : {}),
+            ...(units.length ? { words: units.map(({ text, start, end }) => ({ text, start, end })) } : {}),
             ...(displayFragments ? { displayFragments } : {}),
             ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
             ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {}),
@@ -1489,15 +1676,64 @@ export class AkariDaihonWidget extends BaseWidget {
             const effective = policy.wrap === 'fold'
                 ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
                 : policy;
-            const result = splitCaptionFragments(text, effective);
+            const cache = this.automaticFragmentCache ??= new DaihonFragmentCache();
+            const key = cache.key(text, effective);
+            const units = measureCaptionUnits(text);
+            const split = (): DaihonFragmentResult => {
+                if (certainFragmentOverflow(units, effective.max_line_units)) return { overflow: true };
+                const result = splitCaptionFragments(text, effective);
+                return { fragments: result.fragments.length > 1 ? result.fragments : undefined,
+                    overflow: !!result.overflow };
+            };
+            let result = cache.get(key);
+            if (!result && units >= 48 && this.isAttached
+                && !certainFragmentOverflow(units, effective.max_line_units)) {
+                this.scheduleAutomaticFragments(captionId, key, split);
+                return undefined;
+            }
+            result ??= cache.compute(key, split);
             if (result.overflow) {
                 this.captionOverflowUnitsById.set(captionId, policy.max_line_units);
                 return undefined;
             }
-            return result.fragments.length > 1 ? result.fragments : undefined;
+            return result.fragments;
         } catch {
             return undefined;
         }
+    }
+
+    protected scheduleAutomaticFragments(captionId: string, key: string, split: () => DaihonFragmentResult): void {
+        const pending = this.pendingAutomaticFragments ??= new Map();
+        const previous = pending.get(captionId);
+        if (previous?.key === key) return;
+        if (previous) clearTimeout(previous.timer);
+        const editKey = this.editUri?.toString();
+        const timer = setTimeout(() => {
+            if (pending.get(captionId)?.key !== key || this.isDisposed) return;
+            pending.delete(captionId);
+            try {
+                this.automaticFragmentCache.compute(key, split);
+                if (this.editUri?.toString() !== editKey) return;
+                const caption = this.sourceCaptions.find(item => item.id === captionId);
+                if (!caption || this.captionExtraById.get(captionId)?.hasDisplayFragments) return;
+                const policy = daihonDisplayPolicyForWrite(this.captionsRoot, this.displayKnobs);
+                const effective = policy.wrap === 'fold'
+                    ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
+                    : policy;
+                if (this.automaticFragmentCache.key(caption.text, effective) !== key) return;
+                const [row] = buildDaihonRows([
+                    this.toDaihonCaption(caption, this.captionExtraById.get(captionId), policy)
+                ], this.segments, this.editFps);
+                const index = this.rows.findIndex(item => item.id === captionId);
+                if (row && index >= 0 && this.editing?.id !== captionId && this.elements.has(captionId)) {
+                    this.rows[index] = row;
+                    this.replaceRenderedRow(row);
+                }
+            } catch (error) {
+                console.warn(t('transcript.akariDaihonWidget.ui.couldNotUpdateAutomaticDisplayBreaksError'), error);
+            }
+        }, 700);
+        pending.set(captionId, { key, timer });
     }
 
     protected captionExtras(source: string): Map<string, CaptionExtras> {
@@ -1572,7 +1808,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const runs = runsByRow.get(caption.id) ?? [];
             const display = caption.displayText ?? caption.text;
             const legacyEligible = caption.timeDomain !== 'output'
-                && caption.words.map(word => word.text).join('') === display;
+                && caption.words.map(word => word.text).join('') === caption.text;
             let relevant = candidates;
             if (caption.src) {
                 let matched = emphasisBySource.get(caption.src);
@@ -1733,17 +1969,133 @@ export class AkariDaihonWidget extends BaseWidget {
         this.updateSourceBand();
     }
 
+    protected restoreSourceGroupState(): void {
+        const key = this.editUri ? sourceGroupStorageKey(this.editUri.normalizePath().toString()) : undefined;
+        if (key === this.sourceGroupProjectKey) return;
+        this.sourceGroupProjectKey = key;
+        let saved: unknown;
+        try { saved = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null; } catch { saved = null; }
+        const state = normalizeSourceGroupState(saved);
+        this.openSourceGroupIds = new Set(state.openSourceIds);
+        this.savedOpenSourceGroupIds = new Set(state.openSourceIds);
+        this.sourceChipsExpanded = state.chipsExpanded;
+        this.playbackRowInitialized = false;
+        this.playbackRowId = null;
+        this.playbackWasPlaying = false;
+        this.playbackPendingInitialRowId = null;
+    }
+
+    protected saveSourceGroupState(): void {
+        if (!this.sourceGroupProjectKey) return;
+        try {
+            localStorage.setItem(this.sourceGroupProjectKey, JSON.stringify({
+                openSourceIds: [...this.savedOpenSourceGroupIds], chipsExpanded: this.sourceChipsExpanded
+            }));
+        } catch { /* storage can be disabled */ }
+    }
+
+    protected setSourceGroupOpen(key: string, open: boolean, save = false): void {
+        if (open) this.openSourceGroupIds.add(key);
+        else this.openSourceGroupIds.delete(key);
+        if (!open && save && this.selectionRevealTargetId
+            && this.sourceGroups.some(group => group.key === key && group.rowIds.includes(this.selectionRevealTargetId!))) {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+            this.selectionRevealFrame = 0;
+            this.selectionRevealInterrupted = true;
+        }
+        if (!open && save && this.playbackPendingInitialRowId
+            && this.sourceGroups.some(group => group.key === key && group.rowIds.includes(this.playbackPendingInitialRowId!))) {
+            this.playbackPendingInitialRowId = null;
+        }
+        if (save) {
+            if (open) this.savedOpenSourceGroupIds.add(key);
+            else this.savedOpenSourceGroupIds.delete(key);
+        }
+        this.applySourceGroupVisibility();
+        if (save) this.saveSourceGroupState();
+    }
+
+    protected revealSourceGroupForRow(rowId: string | null | undefined): boolean {
+        if (!rowId) return false;
+        const group = this.sourceGroups?.find(candidate => candidate.rowIds.includes(rowId));
+        if (group && !this.openSourceGroupIds.has(group.key)) {
+            this.setSourceGroupOpen(group.key, true);
+            return true;
+        }
+        return false;
+    }
+
+    protected applySourceGroupVisibility(): void {
+        const keyByRow = new Map(this.sourceGroups.flatMap(group => group.rowIds.map(id => [id, group.key] as const)));
+        for (const group of this.sourceGroups) {
+            const open = this.openSourceGroupIds.has(group.key);
+            const heading = this.rowsNode.querySelector<HTMLButtonElement>(`.akari-daihon-source-heading[data-first-row-id="${CSS.escape(group.firstRowId)}"]`);
+            if (heading) {
+                heading.setAttribute('aria-expanded', String(open));
+                const arrow = heading.querySelector('.akari-daihon-source-arrow');
+                if (arrow) arrow.textContent = open ? '▾' : '▸';
+            }
+            for (const id of group.rowIds) this.elements.get(id)?.root.classList.toggle('source-collapsed', !open);
+        }
+        this.rowsNode.querySelectorAll<HTMLElement>('.akari-daihon-gapzone,.akari-daihon-gapdraft').forEach(zone => {
+            const previousKey = keyByRow.get(zone.dataset.prevRowId ?? '');
+            const nextKey = keyByRow.get(zone.dataset.nextRowId ?? '');
+            zone.classList.toggle('source-collapsed', !previousKey || !nextKey
+                || !this.openSourceGroupIds.has(previousKey) || !this.openSourceGroupIds.has(nextKey));
+        });
+    }
+
+    protected renderSourceGroups(): void {
+        this.rowsNode.querySelectorAll('.akari-daihon-source-heading').forEach(node => node.remove());
+        this.sourceGroups = groupSourceRows(this.rows.map(row => ({
+            id: row.id, sourceId: this.displaySourceIdForRow(row), start: row.start, end: row.end
+        })));
+        for (const group of this.sourceGroups) {
+            const heading = document.createElement('button');
+            heading.type = 'button';
+            heading.className = 'akari-daihon-source-heading';
+            heading.dataset.firstRowId = group.firstRowId;
+            const source = this.editSources.find(candidate => candidate.id === group.sourceId);
+            heading.title = source?.path ?? group.sourceId ?? t('transcript.akariDaihonWidget.ui.noSourceSelectedLabel');
+            const arrow = document.createElement('span'); arrow.className = 'akari-daihon-source-arrow';
+            const dot = document.createElement('span'); dot.className = 'akari-daihon-source-dot';
+            dot.style.setProperty('--daihon-source-color', group.sourceId ? this.sourceColors.get(group.sourceId) ?? 'var(--akari-muted)' : 'var(--akari-muted)');
+            const name = document.createElement('span'); name.className = 'akari-daihon-source-heading-name';
+            name.textContent = source ? sourceBadgeName(source) : group.sourceId ?? t('transcript.akariDaihonWidget.ui.noSourceSelectedLabel');
+            const meta = document.createElement('span'); meta.className = 'akari-daihon-source-heading-meta';
+            const seconds = Math.max(0, Math.round(group.duration));
+            meta.textContent = t('transcript.akariDaihonWidget.ui.sourceRowsLabel', { minutes: Math.floor(seconds / 60), seconds: String(seconds % 60).padStart(2, '0'), rowCount: group.rowIds.length, n: group.rowIds.length });
+            heading.append(arrow, dot, name, meta);
+            heading.addEventListener('click', () => this.setSourceGroupOpen(group.key, !this.openSourceGroupIds.has(group.key), true));
+            this.elements.get(group.firstRowId)?.root.before(heading);
+        }
+        this.applySourceGroupVisibility();
+    }
+
     protected updateSourceBand(): void {
         if (!this.sourceBand) return;
         this.sourceBand.replaceChildren();
         const sources = this.editSources;
         const rowIds = this.rowSourceIdsForDisplay();
         const visibleIds = visibleSourceIds(rowIds, this.hiddenSourceIds);
+        const main = document.createElement('div'); main.className = 'akari-daihon-source-main';
+        const toggle = document.createElement('button'); toggle.type = 'button';
+        toggle.className = 'akari-daihon-source-toggle';
+        const toggleArrow = document.createElement('span'); toggleArrow.className = 'akari-daihon-source-toggle-arrow';
+        toggleArrow.textContent = this.sourceChipsExpanded ? '▾' : '▸';
+        toggle.append(toggleArrow, document.createTextNode(t('transcript.akariDaihonWidget.ui.sourceCountLabel', { count: sources.length })));
+        toggle.setAttribute('aria-expanded', String(this.sourceChipsExpanded));
+        toggle.addEventListener('click', () => {
+            this.sourceChipsExpanded = !this.sourceChipsExpanded;
+            this.saveSourceGroupState();
+            this.updateSourceBand();
+        });
+        main.appendChild(toggle);
+        const chips = document.createElement('div'); chips.className = 'akari-daihon-source-chips';
+        chips.hidden = !this.sourceChipsExpanded;
         if (!sources.length) {
-            const name = document.createElement('span');
-            name.className = 'akari-daihon-source-name';
-            name.textContent = t('transcript.daihon.editor.noAssetsText');
-            this.sourceBand.appendChild(name);
+            const name = document.createElement('span'); name.className = 'akari-daihon-source-name';
+            name.textContent = t('transcript.akariDaihonWidget.ui.noSourceLabel'); chips.appendChild(name);
         }
         for (const source of sources) {
             const hasRows = rowIds.includes(source.id);
@@ -1781,12 +2133,31 @@ export class AkariDaihonWidget extends BaseWidget {
                 void this.preferences.set(DAIHON_HIDDEN_SOURCES_PREFERENCE, this.hiddenSourceIds, PreferenceScope.Workspace)
                     .catch(error => this.notifyError(this.errorMessage(error)));
             });
-            this.sourceBand.appendChild(chip);
+            chips.appendChild(chip);
         }
         const lines = document.createElement('span');
         lines.className = 'akari-daihon-source-lines';
         lines.textContent = t('transcript.daihon.editor.linesWithCountText', { value1: this.rows.length, n: this.rows.length });
         const grow = document.createElement('span'); grow.className = 'grow';
+        const allOpen = document.createElement('button'); allOpen.type = 'button';
+        allOpen.className = 'akari-daihon-source-all'; allOpen.textContent = t('transcript.akariDaihonWidget.ui.openAllAction');
+        allOpen.addEventListener('click', () => {
+            for (const group of this.sourceGroups) {
+                this.openSourceGroupIds.add(group.key);
+                this.savedOpenSourceGroupIds.add(group.key);
+            }
+            this.applySourceGroupVisibility(); this.saveSourceGroupState();
+        });
+        const allClose = document.createElement('button'); allClose.type = 'button';
+        allClose.className = 'akari-daihon-source-all'; allClose.textContent = t('transcript.akariDaihonWidget.ui.closeAllAction');
+        allClose.addEventListener('click', () => {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+            this.selectionRevealFrame = 0;
+            this.selectionRevealInterrupted = true;
+            this.playbackPendingInitialRowId = null;
+            this.openSourceGroupIds.clear(); this.savedOpenSourceGroupIds.clear();
+            this.applySourceGroupVisibility(); this.saveSourceGroupState();
+        });
         const label = document.createElement('label');
         const check = document.createElement('input'); check.type = 'checkbox'; check.checked = this.showCutMarks;
         check.addEventListener('change', () => {
@@ -1795,8 +2166,9 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.preferences.set(DAIHON_SHOW_CUT_MARKS_PREFERENCE, this.showCutMarks, PreferenceScope.User)
                 .catch(error => this.notifyError(this.errorMessage(error)));
         });
-        label.append(check, document.createTextNode(t('transcript.daihon.editor.cutCandidateMarksText')));
-        this.sourceBand.append(lines, grow, label);
+        label.append(check, document.createTextNode(t('transcript.akariDaihonWidget.ui.cutCandidateMarksLabel')));
+        main.append(lines, grow, allOpen, allClose, label);
+        this.sourceBand.append(main, chips);
         this.applyQcFilter();
     }
 
@@ -1846,15 +2218,15 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
-            const heading = summary.text.trim();
-            const headingChars = captionGraphemes(heading);
-            title.textContent = `「${headingChars.length > 6 ? `${headingChars.slice(0, 5).join('')}…` : heading}」`;
+            title.textContent = wordSelectionHeading(summary.text, bar.clientWidth > 480 ? 7 : 4);
             title.title = summary.text; bar.append(title);
             add(t('transcript.daihon.editor.editLabel'), () => {
                 const row = this.rows.find(item => item.id === this.wordRanges[0]?.row);
                 if (row) this.startEdit(row);
             });
-            add(t('transcript.daihon.editor.selectedWordsOnlyAction'), () => this.openRowDock('emphasis'));
+            const wordLook = add(t('transcript.daihon.editor.selectedWordsOnlyShortAction'), () => this.openRowDock('emphasis'));
+            wordLook.title = t('transcript.daihon.editor.selectedWordsOnlyAction');
+            wordLook.setAttribute('aria-label', wordLook.title);
             const wordCut = add(t('transcript.daihon.editor.cutCutVideoLabel'), () => this.openCutRangeEditorForSelection());
             const wordCutRow = this.rows.find(item => item.id === this.wordRanges[0]?.row);
             const wordCutReason = wordCutRow && this.audioOnlyCutReason(wordCutRow);
@@ -1991,7 +2363,12 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected renderRows(next: DaihonRow[], refreshCutMarks = false, changedWordMarks = new Set<string>()): void {
+        next = next.map(row => {
+            const override = this.captionEditQueue?.reconcile(row.id, row.text);
+            return override ? { ...row, text: override.text, words: null } : row;
+        });
         this.closeCutRangeEditor();
+        this.rowsNode.querySelectorAll('.akari-daihon-source-heading').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
         const previousActiveSourceIds = this.activeSourceIds;
@@ -2006,10 +2383,11 @@ export class AkariDaihonWidget extends BaseWidget {
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
+        const changedPresets = new Set(changedWordPresetRowIds(this.renderedWordPresetByRowId, this.wordPresetByRowId));
         const sourceSetChanged = previousActiveSourceIds.join('\0') !== this.activeSourceIds.join('\0');
         const previousRows = new Map(this.rows.map(row => [row.id, row]));
         for (const row of next) {
-            if ((changedWordMarks.has(row.id) || sourceSetChanged || previousRows.get(row.id)?.src !== row.src
+            if ((changedWordMarks.has(row.id) || sourceSetChanged || changedPresets.has(row.id) || previousRows.get(row.id)?.src !== row.src
                 || previousDuplicates.get(row.id) !== this.duplicateRowIds.get(row.id))
                 && !plan.create.some(candidate => candidate.id === row.id)
                 && !plan.update.some(candidate => candidate.id === row.id)) plan.update.push(row);
@@ -2046,6 +2424,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             this.elements.set(row.id, elements);
         }
+        this.renderedWordPresetByRowId = new Map([...this.wordPresetByRowId].map(([id, presets]) => [id, [...presets]]));
         let anchor: ChildNode | null = null;
         for (let index = plan.order.length - 1; index >= 0; index--) {
             const node = this.elements.get(plan.order[index])?.root;
@@ -2060,6 +2439,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         if (next.length > 0) this.rowsNode.querySelector('.akari-daihon-empty')?.remove();
         this.rows = next;
+        this.renderSourceGroups();
         this.updateSourceBand();
         for (const row of next) {
             const chip = this.elements.get(row.id)?.root.querySelector<HTMLButtonElement>('.akari-daihon-speaker');
@@ -2587,8 +2967,11 @@ export class AkariDaihonWidget extends BaseWidget {
         const placed = kind === 'placed' ? this.placedRanges().find(item => item.captionId === ids[0]) : undefined;
         const row = this.rows.find(item => item.id === ids[0]);
         this.dockTitle.textContent = kind === 'placed' ? `T ${placed?.text ?? ''}`
-            : rowDockTitle(ids.length, row?.text ?? '');
+            : this.wordRanges?.length ? t('transcript.akariDaihonWidget.ui.selectingWordText', { text: wordRangeSummary(this.selectionRows(), this.wordRanges).text.slice(0, 16) })
+                : t('transcript.akariDaihonWidget.ui.rowText', { text: rowDockTitle(ids.length, row?.text ?? '') });
         this.dockSelectionHint.hidden = kind !== 'row';
+        this.dockSelectionHint.textContent = this.wordRanges?.length ? t('transcript.akariDaihonWidget.ui.selectingWordsShiftRangeAddText')
+            : t('transcript.akariDaihonWidget.ui.selectingRowsShiftRangeAddText');
         this.dockTabsNode.replaceChildren();
         const labels: Record<DockTab, string> = { text: t('transcript.daihon.editor.textLabel'), template: t('transcript.daihon.editor.templateLabel'), look: t('transcript.daihon.editor.appearanceLabel'),
             anim: t('transcript.daihon.editor.animationLabel'), emphasis: t('transcript.daihon.editor.selectedWordsOnlyLabel'), time: t('transcript.daihon.editor.timeLabel') };
@@ -2596,7 +2979,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const button = document.createElement('button'); button.type = 'button';
             button.dataset.dockTab = tab; button.textContent = labels[tab];
             button.classList.toggle('active', this.dockTab === tab);
-            button.addEventListener('click', () => { this.dockTab = tab; this.renderDock(); });
+            button.addEventListener('click', () => { this.dockTab = tab; this.renderDock(); this.focusRows(); });
             this.dockTabsNode.appendChild(button);
         }
         this.dockBody.replaceChildren();
@@ -2827,8 +3210,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                 captionId: row.id, start, end, edited: true
             }).then(() => undefined));
-            await this.reload();
-        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
+            await this.queueCaptionReloadIfChanged();
+        } catch (error) { await this.requestReload(); this.notifyError(this.errorMessage(error)); }
     }
 
     protected openPlacedMenu(captionId: string): void {
@@ -3130,6 +3513,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected createRow(row: DaihonRow): RowElements {
         const root = document.createElement('div');
         root.className = 'akari-daihon-row';
+        root.classList.toggle('unsaved', !!this.captionEditQueue?.get(row.id)?.unsaved);
         root.dataset.captionId = row.id;
         if (row.id === 'c-0001') root.setAttribute('data-akari-onboarding-target', 'daihon-first-row');
         if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
@@ -3228,6 +3612,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
                 const target = this.elements.get(duplicateId)?.root;
                 if (!target) return;
+                this.revealSourceGroupForRow(duplicateId);
                 target.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 target.classList.add('duplicate-flash');
                 window.setTimeout(() => target.classList.remove('duplicate-flash'), 1200);
@@ -3514,6 +3899,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openGapDraft(zone: HTMLElement, previous: DaihonRow, following: DaihonRow): void {
         const draft = document.createElement('div');
         draft.className = 'akari-daihon-gapdraft';
+        draft.dataset.prevRowId = previous.id;
+        draft.dataset.nextRowId = following.id;
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = t('transcript.daihon.editor.captionInsertPlaceholder');
@@ -4009,11 +4396,11 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
                 removedFrames = result.removedFrames;
                 cutWarnings = result.warnings ?? [];
+                if (removedFrames > 0) this.refreshCutTimeline();
                 cutBefore = result.beforeSource;
             }, true);
             if (removedFrames === 0) { this.notifyError(cutWarnings[0] ?? t('transcript.daihon.editor.noCuttableRangeFoundError')); return; }
             await this.reload();
-            this.refreshCutTimeline();
             const only = entries[0];
             const rowText = this.rows.find(row => row.id === only?.rowId)?.text.trim();
             const rowCharacters = Array.from(rowText ?? '');
@@ -4030,7 +4417,9 @@ export class AkariDaihonWidget extends BaseWidget {
             if (outcome?.partial)
                 this.notify(t('transcript.daihon.editor.onlyPortionsVideoCutNotice'));
         } catch (error) {
-            this.notifyError(this.errorMessage(error));
+            const message = this.errorMessage(error);
+            this.notifyError(/^(TypeError|ReferenceError|Error):/u.test(message)
+                ? t('transcript.akariDaihonWidget.ui.couldNotCutRangeCheckEditDataError') : message);
         }
     }
 
@@ -4092,6 +4481,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     range: span.restoreRange!, label: t('transcript.daihon.editor.restoreCutLabel')
                 });
                 if (!result.restored) throw new Error(result.reason);
+                this.refreshCutTimeline();
             }, true);
             this.closePop();
             await this.reload();
@@ -4171,6 +4561,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected openCutRangeEditor(row: DaihonRow, target: CutRangeEditorTarget, existing?: CutRangeEdit): void {
         if (this.audioOnlyCutReason(row)) return;
+        this.revealSourceGroupForRow(row.id);
         const rowElement = this.elements.get(row.id)?.root;
         if (!rowElement || !this.editUri) return;
         this.closeCutRangeEditor();
@@ -4250,8 +4641,10 @@ export class AkariDaihonWidget extends BaseWidget {
         const close = this.cutRangeButton('✕', () => this.closeCutRangeEditor());
         foot.append(intact, tightened, apply, close);
         root.append(heading, wave, ticks, foot);
+        this.closeDock();
         rowElement.after(root);
         this.cutRangeEditor = { root, window: viewWindow, playhead };
+        requestAnimationFrame(() => { if (root.isConnected) root.scrollIntoView({ block: 'center', behavior: 'auto' }); });
 
         let peaks: number[] | undefined;
         let waveformStatus: 'loading' | 'ready' | 'unavailable' = 'loading';
@@ -4521,8 +4914,8 @@ export class AkariDaihonWidget extends BaseWidget {
             this.showCutToast(t('transcript.daihon.editor.cutRangeAdjustedMessage'), () => void this.historyService.undo());
             this.closeCutRangeEditor();
         } catch (error) {
-            await this.reload();
             this.refreshCutTimeline();
+            await this.reload();
             this.closeCutRangeEditor();
             this.notifyError(this.errorMessage(error));
         }
@@ -4558,9 +4951,13 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
                 removedFrames = result.removedFrames;
                 warnings = result.warnings ?? [];
+                if (removedFrames > 0) this.refreshCutTimeline?.();
             }, true);
             const changed = before !== await this.readText(this.editUri);
-            if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
+            if (changed) {
+                if (removedFrames === 0) this.refreshCutTimeline?.();
+                await this.reload();
+            }
             const seconds = removedFrames / this.editFps;
             const outcome = assessCutOutcome(before, normalizeCutRanges(entries.map(entry => entry.range)));
             const refused = outcome?.refused ?? 0;
@@ -5079,6 +5476,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected handleWordPointerDown(event: PointerEvent): void {
         const hit = this.wordHit(event);
         if (event.button !== 0 || event.detail >= 2 || !hit) return;
+        event.preventDefault();
         event.stopPropagation();
         const add = event.metaKey || event.ctrlKey;
         if (event.shiftKey) this.wordRanges = extendWordRange(this.wordRanges, hit, this.rowOrder());
@@ -5087,7 +5485,9 @@ export class AkariDaihonWidget extends BaseWidget {
         } else if (add) this.wordRanges = addWordRange(this.wordRanges, { row: hit.row, a: hit.index, b: hit.index }, this.rowOrder());
         else this.wordRanges = [{ row: hit.row, a: hit.index, b: hit.index }];
         this.wordDrag = { row: hit.row, a: hit.index, b: hit.index, moved: false, add: add || event.shiftKey };
+        this.setSelection({ selected: [hit.row], anchorId: hit.row });
         this.renderWordSelection();
+        this.focusRows();
     }
 
     protected handleWordPointerMove(event: PointerEvent): void {
@@ -5108,6 +5508,37 @@ export class AkariDaihonWidget extends BaseWidget {
             this.elements.get(range.row)?.words[index]?.classList.add('wordsel');
         }
         this.renderActionBar();
+        if (this.dockKind === 'row' && this.dockTab === 'emphasis') this.renderDock();
+    }
+
+    protected focusRows(): void {
+        if (this.selection?.selected.length || this.wordRanges?.length) this.rowsNode?.focus?.({ preventScroll: true });
+    }
+
+    protected handleSelectedTyping(event: KeyboardEvent): void {
+        const compositionStart = isDaihonCompositionStart(event.key, event.keyCode);
+        if ((!compositionStart && !isPrintableDaihonKey(event.key, event.isComposing,
+            event.altKey, event.ctrlKey, event.metaKey))
+            || this.editing || (!this.wordRanges.length && !this.selection.selected.length)) return;
+        const target = event.target;
+        if (!(target instanceof Element) || !this.node.contains(target)
+            || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .akari-daihon-source-heading, .akari-daihon-source-toggle, .akari-daihon-source-all')) return;
+        const range = this.wordRanges[0];
+        const row = this.rows.find(item => item.id === (range?.row ?? this.selection.selected[0]));
+        if (!row) return;
+        if (!compositionStart) event.preventDefault();
+        event.stopPropagation();
+        this.startEdit(row);
+        const input = this.editing?.input;
+        if (!input) return;
+        const edit = selectedDaihonEdit(row.text, row.words,
+            this.wordRanges.length === 1 ? range : undefined,
+            compositionStart ? undefined : event.key);
+        input.value = edit.value;
+        input.setSelectionRange(edit.start, edit.end);
+        if (this.editing?.input === input && this.editing.lifecycle?.isEditing) {
+            seedDaihonCaptionEdit(this.editing.session!, edit.value, compositionStart);
+        }
         this.emitWordSelection();
     }
 
@@ -5173,6 +5604,7 @@ export class AkariDaihonWidget extends BaseWidget {
         recordOnFailure = false): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         const [editBefore, captionsBefore] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
+        const motionBefore = refreshTimeline ? await this.readCutMotionSnapshots(editBefore) : new Map<string, string>();
         let failed = false;
         let failure: unknown;
         try { await operation(); } catch (error) {
@@ -5182,17 +5614,36 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const [editAfter, captionsAfter] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
         if (editBefore !== editAfter || captionsBefore !== captionsAfter) {
-            const write = async (editSource: string, captionsSource: string): Promise<void> => {
+            const motionAfter = refreshTimeline ? await this.readCutMotionSnapshots(editAfter) : new Map<string, string>();
+            const write = async (editSource: string, captionsSource: string,
+                motion: ReadonlyMap<string, string>): Promise<void> => {
+                for (const [path, source] of motion) {
+                    const uri = this.editUri!.parent.resolve(path);
+                    await this.fileService.createFolder(uri.parent);
+                    await this.fileService.writeFile(uri, BinaryBuffer.fromString(source));
+                }
                 await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
-                await this.reload();
                 if (refreshTimeline) this.refreshCutTimeline();
+                await this.reload();
             };
             const history = daihonHistoryService();
-            history?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+            history?.push({ label, undo: () => write(editBefore, captionsBefore, motionBefore),
+                redo: () => write(editAfter, captionsAfter, motionAfter) });
             if (history) this.pendingUndoAt = Date.now();
         }
         if (failed) throw failure;
+    }
+
+    protected async readCutMotionSnapshots(editSource: string): Promise<Map<string, string>> {
+        const snapshots = new Map<string, string>();
+        if (!this.editUri) return snapshots;
+        const edit = JSON.parse(editSource) as { tracks?: unknown };
+        await Promise.all(cutMotionReferencePaths(edit).map(async path => {
+            try { snapshots.set(path, await this.readText(this.editUri!.parent.resolve(path))); }
+            catch { /* A missing bag is rejected if a cut tries to use it. */ }
+        }));
+        return snapshots;
     }
 
     protected async runCaptionCommand(label: string, command: (context: {
@@ -5206,12 +5657,12 @@ export class AkariDaihonWidget extends BaseWidget {
         const result = await command({ captions, edit, request: { ...destination,
             expectedHashes: { captions: projectFileContentHash(captions), edit: projectFileContentHash(edit) } } });
         if (!result) return undefined;
-        await settleCaptionCommand(result, { reload: () => this.reload(), notify: message => this.notifyError(message),
+        await settleCaptionCommand(result, { reload: async () => { await this.reload(); }, notify: message => this.notifyError(message),
             conflictNotice: t('transcript.daihon.editor.reloadAfterConflictNotice'), record: saved => {
                 const history = daihonHistoryService();
                 history?.push(captionCommandHistory({ ...saved,
                     roles: { captions: this.captionsUri.path.base, edit: this.editUri.path.base } }, label, destination,
-                request => this.annotationsService.writeEditSnapshot(request), () => this.reload()));
+                request => this.annotationsService.writeEditSnapshot(request), async () => { await this.reload(); }));
                 if (history) this.pendingUndoAt = Date.now();
             } });
         return result;
@@ -5283,6 +5734,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const byId = new Map(rows.flatMap(value => value && typeof value === 'object'
             && typeof (value as { id?: unknown }).id === 'string'
             ? [[(value as { id: string }).id, value as { id: string; text: string; display_text?: string;
+                start: number; end: number;
                 words?: Array<{ text: string; start: number; end: number }> }] as const] : []));
         const previousById = new Map(this.sourceCaptions.map(caption => [caption.id, caption]));
         const targets: Array<{ caption_id: string; range: { from: number; to: number } }> = [];
@@ -5295,12 +5747,15 @@ export class AkariDaihonWidget extends BaseWidget {
             const previous = previousById.get(selection.row);
             if (!caption || !previous || previous.text !== caption.text || previous.displayText !== caption.display_text)
                 return { reason: reasons.words };
-            const units = this.wordUnit === 'word' ? groupTokensIntoWords(caption.text, caption.words)
-                : caption.words?.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index })) ?? [];
+            // Match the units shown by toDaihonCaption, including rows without stored words.
+            const selectable = selectableCaptionWords(caption.text, caption.start, caption.end, caption.words);
+            const units = this.wordUnit === 'token'
+                ? selectable.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }))
+                : groupTokensIntoWords(caption.text, selectable);
             const oldUnits = this.wordUnitsByRowId?.get(selection.row);
             if (oldUnits && oldUnits.slice(selection.a, selection.b + 1).map(unit => unit.text).join('')
                 !== units.slice(selection.a, selection.b + 1).map(unit => unit.text).join('')) return { reason: reasons.words };
-            const mapped = wordSelectionToCaptionRange(caption, units, selection, reasons);
+            const mapped = wordSelectionToCaptionRange({ ...caption, words: selectable }, units, selection, reasons);
             if ('reason' in mapped) return mapped;
             targets.push({ caption_id: selection.row, range: mapped.range });
             labels.push(mapped.text);
@@ -5686,6 +6141,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
+        this.revealSourceGroupForRow(next.anchorId ?? next.selected[0]);
         if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
         this.selectionRevealFrame = 0;
         this.selectionRevealInterrupted = false;
@@ -5743,6 +6199,14 @@ export class AkariDaihonWidget extends BaseWidget {
             zone.classList.toggle('source-hidden', sourceVisibleByRowId.get(zone.dataset.prevRowId ?? '') === false
                 || sourceVisibleByRowId.get(zone.dataset.nextRowId ?? '') === false);
         });
+        for (const group of this.sourceGroups) {
+            const heading = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-source-heading[data-first-row-id="${CSS.escape(group.firstRowId)}"]`);
+            heading?.classList.toggle('filter-hidden', !group.rowIds.some(id => {
+                const root = this.elements.get(id)?.root;
+                return root && !root.classList.contains('qc-hidden')
+                    && !root.classList.contains('speaker-hidden') && !root.classList.contains('source-hidden');
+            }));
+        }
         const filtered = this.qcFilter || this.speakerFilter !== null || visibleSources.length < activeSources.length;
         this.sourceBand.title = this.speakerFilter !== null
             ? t('transcript.daihon.editor.speakerLinesWithValuesLabel', { value1: speakerLabel(this.speakerFilter, this.speakerDictionary), value2: visible, n: visible })
@@ -5839,13 +6303,22 @@ export class AkariDaihonWidget extends BaseWidget {
         const started = performance.now();
         this.lastOutputT = detail.time!;
         const next = resolveCurrent(this.rows, detail.time!);
+        const openedGroup = shouldAutoExpandPlayback(this.playbackRowId, next.rowId, this.playbackWasPlaying,
+            detail.playing, this.playbackRowInitialized, this.playbackPendingInitialRowId)
+            && this.revealSourceGroupForRow(next.rowId);
+        this.playbackPendingInitialRowId = !this.playbackRowInitialized && detail.playing ? next.rowId : null;
+        this.playbackRowId = next.rowId;
+        this.playbackWasPlaying = detail.playing;
+        this.playbackRowInitialized = true;
         const plan = planHighlight(this.current, next);
         this.applyHighlight(plan.rowIds, next, detail.time!);
         this.current = next;
         const current = next.rowId ? this.elements.get(next.rowId)?.root : undefined;
         if (current && !current.classList.contains('qc-hidden')) {
+            const openedVisibleGroup = openedGroup && !current.classList.contains('speaker-hidden')
+                && !current.classList.contains('source-hidden');
             const visible = this.isRowVisible(current);
-            if (shouldAutoScroll({
+            if (openedVisibleGroup || shouldAutoScroll({
                 playing: detail.playing,
                 currentRowVisible: visible,
                 userScrolledRecentlyMs: this.lastUserScrollAt === 0 ? Number.POSITIVE_INFINITY : Date.now() - this.lastUserScrollAt
@@ -5853,7 +6326,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.selectionRevealInterrupted = true;
                 this.autoScrolling = true;
                 current.scrollIntoView({ block: 'nearest' });
-                requestAnimationFrame(() => { this.autoScrolling = false; });
+                if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { this.autoScrolling = false; });
+                else this.autoScrolling = false;
             }
         }
         const elapsed = performance.now() - started;
@@ -5950,6 +6424,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected startEdit(row: DaihonRow): void {
         if (this.editing || !this.captionsUri || !this.rootUri) return;
+        this.revealSourceGroupForRow(row.id);
         const elements = this.elements.get(row.id);
         const text = elements?.root.querySelector('.akari-daihon-row-text');
         if (!elements || !text) return;
@@ -5960,16 +6435,39 @@ export class AkariDaihonWidget extends BaseWidget {
         input.setAttribute('aria-label', t('transcript.daihon.editor.captionTextWithValueAriaLabel', { value1: row.id }));
         editor.appendChild(input);
         text.replaceWith(editor);
-        const state: EditingState = { id: row.id, input, original: row.text, cancelled: false, committing: false };
+        const captionsFile = this.captionsUri;
+        const captionsUri = this.captionsUri.toString();
+        const projectRootUri = this.rootUri.toString();
+        const before = this.captionEditQueue.readUntimed(() => this.readText(captionsFile));
+        void before.catch(error => console.warn(t('transcript.akariDaihonWidget.ui.couldNotReadCaptionsError'), error));
+        const session = new DaihonCaptionInput(row.text, value => {
+            void this.captionEditQueue.write(row.id, value, async () => {
+                await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
+                    captionId: row.id, text: value, draft: true });
+            }).catch(() => undefined);
+        });
+        const state: EditingState = { id: row.id, input, original: row.text, cancelled: false, committing: false,
+            session, before, lifecycle: new DaihonCaptionEditSession() };
         this.editing = state;
+        input.addEventListener('compositionstart', () => { if (state.lifecycle!.isEditing) session.compositionStart(); });
+        input.addEventListener('compositionend', () => { if (state.lifecycle!.isEditing) session.compositionEnd(input.value); });
+        input.addEventListener('input', event => {
+            if (state.lifecycle!.isEditing) session.input(input.value, (event as InputEvent).isComposing);
+        });
         input.addEventListener('keydown', event => {
-            if (event.key === 'Enter') {
+            if (!state.lifecycle!.isEditing) return;
+            const action = daihonCaptionEditKey(event.key, event.isComposing, event.keyCode);
+            if (action === 'commit') {
                 event.preventDefault();
+                event.stopPropagation();
                 input.blur();
-            } else if (event.key === 'Escape') {
+                void this.finishEdit(state);
+            } else if (action === 'cancel') {
                 event.preventDefault();
+                event.stopPropagation();
                 state.cancelled = true;
                 input.blur();
+                void this.finishEdit(state);
             }
         });
         input.addEventListener('blur', () => void this.finishEdit(state));
@@ -5977,44 +6475,89 @@ export class AkariDaihonWidget extends BaseWidget {
         input.select();
     }
 
-    protected async finishEdit(state: EditingState): Promise<void> {
-        if (state.committing || this.editing !== state) return;
-        state.committing = true;
+    protected restoreRowsFocusAfterEdit(): void {
+        queueMicrotask(() => {
+            if (document.activeElement === document.body) this.focusRows();
+        });
+    }
+
+    protected finishEdit(state: EditingState): void {
+        if (this.editing !== state || !state.lifecycle?.beginClose()) return;
         const row = this.rows.find(candidate => candidate.id === state.id);
-        if (!row) {
-            this.editing = undefined;
-            return;
-        }
         const value = state.input.value;
-        if (state.cancelled || value === state.original) {
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
+        state.session?.close();
+        this.editing = undefined;
+        state.lifecycle.finish();
+        if (!row || !this.captionsUri || !this.rootUri || !this.editUri) {
+            this.restoreRowsFocusAfterEdit();
             return;
         }
-        if (!value.trim()) {
-            this.notifyError(t('transcript.daihon.editor.captionTextCannotEmptyError'));
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
-            return;
-        }
-        const elements = this.elements.get(row.id);
-        elements?.root.classList.add('saving');
-        elements?.root.setAttribute('aria-busy', 'true');
-        state.input.disabled = true;
-        try {
-            await this.setCaptionFieldsWithNotice({
-                captionsUri: this.captionsUri!.toString(),
-                projectRootUri: this.rootUri!.toString(),
-                captionId: row.id,
-                text: value
+        const captionsFile = this.captionsUri;
+        const captionsUri = this.captionsUri.toString();
+        const projectRootUri = this.rootUri.toString();
+        const editUri = this.editUri.toString();
+        const decision = decideDaihonCaptionEdit(state.original, value, state.cancelled);
+        row.text = decision.text;
+        this.replaceRenderedRow(row);
+        this.restoreRowsFocusAfterEdit();
+        if (decision.emptyRejected) this.notifyError(t('transcript.akariDaihonWidget.ui.captionTextCannotEmptyError'));
+        const restore = async (source: string): Promise<void> => {
+            await this.captionEditQueue.read(async () => {
+                await this.annotationsService.writeEditSnapshot({ editUri, projectRootUri,
+                    captionsUri, captionsSource: source });
             });
-            this.editing = undefined;
-            await this.reload();
-            this.notify(t('transcript.daihon.editor.captionUpdatedNotice'));
-        } catch (error) {
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
-            this.notifyError(this.errorMessage(error));
+            await this.requestReload();
+        };
+        if (decision.committed) {
+            const saving = this.captionEditQueue.write(row.id, value, async attempt => {
+                if (attempt.abandoned) return;
+                await this.setCaptionFieldsWithNotice({ captionsUri, projectRootUri, captionId: row.id, text: value },
+                    () => !attempt.abandoned);
+            }, true, async () => {
+                try {
+                    const before = await state.before!.catch(() => undefined);
+                    if (before === undefined) return;
+                    const after = await this.readText(captionsFile);
+                    if (before !== after) this.historyService.push({ label: t('transcript.akariDaihonWidget.ui.changeCaptionText'),
+                        undo: () => restore(before), redo: () => restore(after) });
+                } catch (error) {
+                    console.warn(t('transcript.akariDaihonWidget.ui.couldNotRecordEditHistoryAfterSavingError'), error);
+                }
+            });
+            const revision = this.captionEditQueue.revisionFor(row.id);
+            void saving.then(() => this.notify(t('transcript.akariDaihonWidget.ui.captionUpdatedMessage')))
+                .catch(() => undefined);
+            void saving.then(async () => {
+                if (await this.requestReload() && this.captionEditQueue.clearSavedOverride(row.id, revision)) {
+                    this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments, this.editFps));
+                }
+            }, () => { this.reloadQueue.resume(); });
+        } else {
+            let restoreSource: string | undefined;
+            let needsDraftRestore = false;
+            const saving = this.captionEditQueue.write(row.id, state.original, async attempt => {
+                if (attempt.abandoned) return;
+                if (restoreSource !== undefined) {
+                    await this.annotationsService.writeEditSnapshot({ editUri, projectRootUri,
+                        captionsUri, captionsSource: restoreSource });
+                } else if (needsDraftRestore) {
+                    await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
+                        captionId: row.id, text: state.original, draft: true });
+                }
+            }, true, undefined, async () => {
+                restoreSource = undefined;
+                needsDraftRestore = false;
+                const before = await state.before!.catch(() => undefined);
+                if (before === undefined) needsDraftRestore = true;
+                else if (await this.readText(captionsFile) !== before) restoreSource = before;
+            });
+            const revision = this.captionEditQueue.revisionFor(row.id);
+            void saving.catch(() => undefined);
+            void saving.then(async () => {
+                if (await this.requestReload() && this.captionEditQueue.clearSavedOverride(row.id, revision)) {
+                    this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments, this.editFps));
+                }
+            }, () => { this.reloadQueue.resume(); });
         }
     }
 
@@ -6026,11 +6569,12 @@ export class AkariDaihonWidget extends BaseWidget {
         this.renderPlacedText();
     }
 
-    protected showEmpty(): void {
+    protected showEmpty(message = t('transcript.akariDaihonWidget.ui.openProjectEditJsonSeeItsCaptionsHereMessage')): void {
         this.closePop();
         this.placedSelection = undefined;
         this.placedEditor.hidden = true;
         this.rows = [];
+        this.sourceGroups = [];
         this.activeSourceIds = [];
         this.duplicateRowIds.clear();
         this.updateSourceBand();
@@ -6048,12 +6592,24 @@ export class AkariDaihonWidget extends BaseWidget {
         this.elements.clear();
         const empty = document.createElement('div');
         empty.className = 'akari-daihon-empty';
-        empty.textContent = t('transcript.daihon.editor.openProjectEditJsonSeeCaptionsHereText');
+        empty.textContent = message;
         this.rowsNode.appendChild(empty);
     }
 
     protected notifyError(message: string): void {
         this.notify(message, true);
+    }
+
+    protected updateUnsavedNotice(event: 'show' | 'clear'): void {
+        if (event === 'show') {
+            this.showToast(DAIHON_UNSAVED_NOTICE, true);
+            return;
+        }
+        const stack = this.node.querySelector<HTMLDivElement>('.akari-daihon-toast-stack');
+        const toast = Array.from(stack?.querySelectorAll<HTMLDivElement>('.akari-daihon-toast.error') ?? [])
+            .find(candidate => candidate.dataset.message === DAIHON_UNSAVED_NOTICE);
+        toast?.remove();
+        if (stack && stack.childElementCount === 0) stack.remove();
     }
 
     protected notify(message: string, error = false): void {
@@ -6092,6 +6648,10 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async readText(uri: URI): Promise<string> {
         return (await this.fileService.readFile(uri)).value.toString();
+    }
+
+    protected waitForDaihonReadRetry(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     protected errorMessage(error: unknown): string {

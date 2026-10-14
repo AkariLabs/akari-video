@@ -7,12 +7,24 @@ import test from 'node:test';
 import {
   applyCaptionStylePresets, registerLibraryTextstylePresets,
   registeredLibraryTextstylePresets, resolveTextstyleCatalog, TEXTSTYLE_CATALOG,
-  updateCaptionStylePresetInSource,
+  updateCaptionStylePresetInSource, scaledCaptionLook,
+  updateCaptionTextStyleInSource,
 } from '../lib/index.js';
 import { loadTextstyleCatalogSync, readLibraryTextstylePresets, resolveTextstyleLibraryRoots } from '../lib/textstyle-library-node.js';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 const fixtureRoot = fileURLToPath(new URL('./fixtures/library-textstyle/', import.meta.url));
+
+test('size edits resolve a registered library look without an explicit catalog', () => {
+  try {
+    registerLibraryTextstylePresets([{ id: 'library-size', name: 'Size', category: 'test', origin: 'library',
+      style: { size_px: 80, stroke: { color: '#123456', width_px: 8 } } }]);
+    const source = JSON.stringify({ captions: [{ id: 'c1', text: 'A', start: 0, end: 1,
+      style_preset: 'library-size', text_style: { size_px: 80 } }] });
+    const changed = JSON.parse(updateCaptionTextStyleInSource(source, 'c1', { sizePx: 40 }));
+    assert.deepEqual(changed.captions[0].text_style.stroke, { color: '#123456', width_px: 4 });
+  } finally { registerLibraryTextstylePresets([]); }
+});
 
 test('built-in ids win and the browser registration is the default library', () => {
   const presets = [
@@ -71,13 +83,15 @@ test('reader skips invalid entries and the first root wins', () => {
 
 test('applying a library preset removes caption overrides that shadow its style', () => {
   const source = JSON.stringify({ captions: [{ id: 'c1', start: 0, end: 1, text: 'Gold',
-    text_style: { size_px: 40, color: '#ffffff', strokes: [{ color: '#000000', width_px: 1 }] } }] });
+    text_style: { size_px: 40, reference_height_px: 720, color: '#ffffff',
+      strokes: [{ color: '#000000', width_px: 1 }] } }] });
   const catalog = loadTextstyleCatalogSync({ roots: [fixtureRoot] }).catalog;
   const updated = updateCaptionStylePresetInSource(source, ['c1'], 'library-gold-sample', { catalog });
   assert.equal(updated.changed, 1);
   const caption = JSON.parse(updated.source).captions[0];
   assert.equal(caption.style_preset, 'library-gold-sample');
-  assert.deepEqual(caption.text_style, { color: '#ffffff' });
+  assert.deepEqual(caption.text_style, { size_px: 40, reference_height_px: 720, color: '#ffffff',
+    strokes: scaledCaptionLook(catalog['library-gold-sample'].style, 40).strokes });
 });
 
 test('library root mirror follows creator-root for env, home and location migration', () => {

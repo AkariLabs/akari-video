@@ -1,4 +1,5 @@
 import { type CaptionRun } from './caption-runs';
+import { type CaptionEmphasisMatchWord } from './caption-emphasis-match';
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -8,6 +9,10 @@ import { type CaptionRun } from './caption-runs';
 export declare const CAPTION_DISPLAY_SCHEMA: "caption-layout/v1";
 export declare const CAPTION_DISPLAY_MODE: "single_line_sequential";
 export declare const CAPTION_DISPLAY_ALGORITHM: "a4-ja-two-fragment-v1";
+export declare function captionDefaultSizePx(output?: {
+    width?: number;
+    height?: number;
+}): number;
 export declare const CAPTION_RICH_LAYER_CSS = ".akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*=\"color:\"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*=\"-webkit-text-stroke:\"][style*=\"px\"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*=\"-webkit-text-stroke:\"][style*=\"px\"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}";
 type RichRect = {
     left: number;
@@ -69,6 +74,10 @@ export interface CaptionDisplayCue {
     style?: 'karaoke';
     karaoke_offset?: number;
     word_styles?: CaptionDisplayWordStyle[];
+    untimed_emphasis_words?: Array<CaptionEmphasisMatchWord & {
+        style_preset?: string;
+        inherit_caption_size?: boolean;
+    }>;
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
 }
@@ -269,7 +278,10 @@ export declare function resolveCaptionStyleForOutput(style: UnknownRecord, outpu
 export declare function resolveCaptionWordStyleVars(style: UnknownRecord, output: {
     width: number;
     height: number;
-} | undefined): Record<string, string>;
+} | undefined, inheritCaptionSize?: boolean): Record<string, string>;
+export declare const CAPTION_INHERITED_EMPHASIS_VARS: {
+    [k: string]: Record<string, string>;
+};
 export declare function captionTextShadowValue(shadow: unknown, glow: unknown, scale?: number): string | null;
 export declare function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null;
 export declare function colorWithOpacity(color: string, explicitOpacity?: number): string;

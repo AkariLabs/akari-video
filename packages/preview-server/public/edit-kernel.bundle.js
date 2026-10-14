@@ -2443,6 +2443,54 @@ function captionVerticalHeightVars(style, output) {
     ...finitePositive(style.wrap_width_pct) ? { "--caption-vertical-wrap-height": height } : {}
   };
 }
+function resolveCaptionWordStyleVars(style, output, inheritCaptionSize = false) {
+  const vars = {};
+  const scale = resolveCaptionReferenceScale(style, output);
+  if (typeof style.color === "string") vars["--caption-tok-color"] = style.color;
+  if (isRecord2(style.fill)) {
+    const rich = resolveCaptionRichFillVars(style.fill, scale);
+    for (const [name, value] of Object.entries(rich)) vars[name.replace("--caption-rich-", "--caption-tok-rich-")] = value;
+  }
+  if (finitePositive(style.size_px)) vars["--caption-tok-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
+  if (typeof style.font_family === "string" && style.font_family.length > 0) {
+    vars["--caption-tok-font-family"] = cssCaptionFontFamily(style.font_family);
+  }
+  if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
+    vars["--caption-tok-font-weight"] = String(style.weight);
+  } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3) {
+    vars["--caption-tok-font-weight"] = String(style.font_weight);
+  }
+  if (style.italic === true) vars["--caption-tok-font-style"] = "italic";
+  if (style.underline === true) vars["--caption-tok-text-decoration"] = "underline";
+  if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em)) {
+    vars["--caption-tok-letter-spacing"] = `${formatCssNumber(style.letter_spacing_em)}em`;
+  }
+  if (finitePositive(style.line_height)) vars["--caption-tok-line-height"] = formatCssNumber(style.line_height);
+  if (typeof style.text_transform === "string") {
+    const transform = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
+    if (transform) vars["--caption-tok-text-transform"] = transform;
+  }
+  if (isRecord2(style.stroke) && !Array.isArray(style.strokes)) {
+    const color2 = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
+    const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
+    vars["--caption-tok-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color2}`;
+    vars["--caption-tok-paint-order"] = "stroke fill";
+  }
+  const decorPart = captionTextShadowValue(style.shadow, style.glow, scale);
+  if (decorPart) vars["--caption-tok-text-shadow"] = decorPart;
+  else if (isRecord2(style.stroke)) vars["--caption-tok-text-shadow"] = "none";
+  if (inheritCaptionSize && finitePositive(style.size_px)) {
+    const base = style.size_px * scale;
+    delete vars["--caption-tok-font-size"];
+    for (const [key, value] of Object.entries(vars)) {
+      vars[key] = value.replace(
+        /(-?(?:\d+\.)?\d+)px\b/gu,
+        (_match, number2) => `${formatCssNumber(Number(number2) / base)}em`
+      );
+    }
+  }
+  return vars;
+}
 var CAPTION_TEXT_TRANSFORM_MAP = {
   upper: "uppercase",
   uppercase: "uppercase",
@@ -2452,6 +2500,7 @@ var CAPTION_TEXT_TRANSFORM_MAP = {
   capitalize: "capitalize",
   none: "none"
 };
+var CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(TEXTSTYLE_CATALOG).map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, void 0, true)]));
 function captionTextShadowValue(shadow, glow, scale = 1) {
   const parts = [];
   if (isRecord2(shadow) && typeof shadow.color === "string") {

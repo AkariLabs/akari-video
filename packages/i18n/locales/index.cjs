@@ -5,9 +5,11 @@ module.exports = {
   ja: {
     ...require("./ja/annotations.json"),
     ...require("./ja/annotationscommon.json"),
+    ...require("./ja/chat.json"),
     ...require("./ja/cli.json"),
     ...require("./ja/common.json"),
     ...require("./ja/companion.json"),
+    ...require("./ja/connect.json"),
     ...require("./ja/decision-log.json"),
     ...require("./ja/inspector.json"),
     ...require("./ja/lint-messages.json"),
@@ -35,9 +37,11 @@ module.exports = {
   en: {
     ...require("./en/annotations.json"),
     ...require("./en/annotationscommon.json"),
+    ...require("./en/chat.json"),
     ...require("./en/cli.json"),
     ...require("./en/common.json"),
     ...require("./en/companion.json"),
+    ...require("./en/connect.json"),
     ...require("./en/decision-log.json"),
     ...require("./en/inspector.json"),
     ...require("./en/lint-messages.json"),

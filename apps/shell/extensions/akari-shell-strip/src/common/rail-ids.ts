@@ -14,6 +14,7 @@ export const RAIL_PROJECT_OPENER_ID = 'akari-project-opener';
 export const RAIL_LIBRARY_OPENER_ID = 'akari-library-opener';
 /** スキル — パートナーに頼める決まった仕事の一覧（左パネルの実タブ）。 */
 export const RAIL_SKILLS_WIDGET_ID = 'akari-skills-widget';
+export const RAIL_CONNECT_OPENER_ID = 'akari-connect-opener';
 /** 書き出し — 押すと書き出しの画面が直接開く（擬似タブ）。 */
 export const RAIL_EXPORT_OPENER_ID = 'akari-export-opener';
 /** チャンネル — 切り替え・チャンネルについて・プロジェクト一覧（左パネルの実タブ、akari-surfaces が実装）。 */

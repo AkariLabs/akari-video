@@ -94,7 +94,7 @@ test("referenced overlay HTML and its relative image resolve from the library", 
 });
 
 const require = createRequire(import.meta.url);
-const { TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
+const { TEXTSTYLE_CATALOG, resolveCaptionDisplay } = require("../../edit-store/lib/index.js");
 
 const edit = {
   version: 2,
@@ -159,11 +159,11 @@ test('caption sprite keeps the shared word preset DOM from render-cut', () => {
   const captions = {
     emphasis_words: [{
       id: 'e-0001', src: 'main', t_start: 0, t_end: 1,
-      word: 'AKARI', emotion: 'neutral', style_preset: 'neon',
+      word: 'AKARI', emotion: 'neutral', style_preset: 'neon', inherit_caption_size: true,
     }],
     captions: [{
       id: 'c-0001', src: 'main', start: 0, end: 1, text: 'AKARI', style: 'karaoke',
-      words: [{ start: 0, end: 1, text: 'AKARI' }],
+      text_style: { size_px: 56 }, words: [{ start: 0, end: 1, text: 'AKARI' }],
     }],
   };
   const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
@@ -172,6 +172,32 @@ test('caption sprite keeps the shared word preset DOM from render-cut', () => {
   assert.match(html, /akari-caption__tok--preset/u);
   assert.match(html, /--caption-tok-text-shadow:/u);
   assert.match(html, /text-shadow:var\(--caption-tok-text-shadow,inherit\)/u);
+  assert.equal(built.spriteManifest.captions[0].vars['--caption-font-size'], '56px');
+  assert.doesNotMatch(html, /--caption-tok-font-size:120px/u);
+  const legacy = buildGpuPage({ edit, captions: { ...captions,
+    emphasis_words: [{ ...captions.emphasis_words[0], inherit_caption_size: undefined }] },
+  projectRoot: process.cwd(), duration: 2 });
+  assert.match(legacy.spriteManifest.captions[0].html, /--caption-tok-font-size:120px/u);
+});
+
+test('display kernel and GPU export resolve opted-in word size from the same caption', () => {
+  const captions = {
+    display_policy: { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+      unit_metric: 'ascii-half-other-one-v1', max_line_units: 20,
+      minimum_fragment_duration_seconds: 0.1, locale: 'en' },
+    emphasis_words: [{ id: 'e-0001', src: 'main', t_start: 0, t_end: 1,
+      word: 'AKARI', style_preset: 'emphasis-red', inherit_caption_size: true }],
+    captions: [{ id: 'c-0001', src: 'main', start: 0, end: 1, text: 'AKARI',
+      speaker: null, sourceRef: null, edited: true, text_style: { size_px: 56 },
+      words: [{ start: 0, end: 1, text: 'AKARI' }] }],
+  };
+  const cue = resolveCaptionDisplay(captions, edit, { output: edit.output }).display_cues[0];
+  const sprite = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 })
+    .spriteManifest.captions[0];
+  assert.equal(cue.style_vars['--caption-font-size'], sprite.vars['--caption-font-size']);
+  assert.equal(sprite.emPx, 56);
+  assert.equal(cue.word_styles[0].style_vars['--caption-tok-font-size'], undefined);
+  assert.doesNotMatch(sprite.html, /--caption-tok-font-size:92px/u);
 });
 
 function zAxisEdit(order) {

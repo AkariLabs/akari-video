@@ -890,8 +890,15 @@ test("captions validate source-time visibility and edited metadata", async () =>
     const invalid = run(project);
     assert.equal(invalid.status, 1, invalid.stderr);
     const result = parseResult(invalid);
-    assert.ok(result.findings.some((finding) => finding.check === "captions.cut-visibility"));
+    assert.ok(result.findings.some((finding) => finding.check === "captions.cut-visibility"
+      && finding.message.includes("字幕 c-0001 は映像のカットでほとんど見えません")));
     assert.ok(result.findings.some((finding) => finding.check === "captions.edited"));
+    await writeFile(captionsPath, `${JSON.stringify([{
+      start: 11, end: 12, text: "字幕A", speaker: null, sourceRef: null, edited: "no"
+    }])}\n`, "utf8");
+    const withoutId = parseResult(run(project));
+    assert.ok(withoutId.findings.some((finding) => finding.check === "captions.cut-visibility"
+      && finding.message.includes("字幕 captions[0] は映像のカット")));
   });
 });
 

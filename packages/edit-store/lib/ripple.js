@@ -136,8 +136,12 @@ function sliceTimelineItem(item, start, end, fps, ids) {
         part.source.in = sourceIn + sourceSpan * offset / item.duration;
         part.source.out = sourceIn + sourceSpan * (offset + part.duration) / item.duration;
     }
-    if (item.keyframes)
+    if (item.keyframes) {
+        if (!Array.isArray(item.keyframes)) {
+            throw new Error('この区間のクリップは動きの記録の袋を読み込めないため、分割できません。');
+        }
         part.keyframes = keysInWindow(item.keyframes, offset, offset + part.duration);
+    }
     if ('items' in item && item.items && 'items' in part) {
         part.items = item.items.flatMap(child => {
             const childStart = Math.max(child.at, offset);

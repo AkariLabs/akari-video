@@ -155,5 +155,6 @@
   "lint-messages.audio.bgm.example_one": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）",
   "lint-messages.audio.bgm.example_other": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）",
   "lint-messages.cuts.transition.freeze": "後のクリップの頭 {seconds} 秒は、止め絵で埋めています。",
-  "lint-messages.cuts.transition.freezeCheck": "トランジションの一部を止め絵で埋めています。"
+  "lint-messages.cuts.transition.freezeCheck": "トランジションの一部を止め絵で埋めています。",
+  "lint-messages.captions.ui.captionMostlyCutOffMessage": "字幕 {id} は映像のカットでほとんど見えません（半分未満しか残っていません）"
 }

@@ -13,7 +13,7 @@ const { computeLeftPanelOrder } = require('../lib/browser/left-panel-order.js');
 const ids = require('../lib/common/rail-ids.js');
 const FIXED_ORDER = [
     ids.RAIL_EXPAND_ID, ids.RAIL_PROJECT_OPENER_ID, ids.RAIL_LIBRARY_OPENER_ID,
-    ids.RAIL_SKILLS_WIDGET_ID, ids.RAIL_EXPORT_OPENER_ID, 'explorer-view-container',
+    ids.RAIL_SKILLS_WIDGET_ID, ids.RAIL_CONNECT_OPENER_ID, ids.RAIL_EXPORT_OPENER_ID, 'explorer-view-container',
     'search-view-container', ids.RAIL_CHANNEL_WIDGET_ID, ids.RAIL_DEVELOPER_OPENER_ID,
     ids.RAIL_SETTINGS_OPENER_ID, ids.RAIL_ROLE_BUCKETS_WIDGET_ID
 ];

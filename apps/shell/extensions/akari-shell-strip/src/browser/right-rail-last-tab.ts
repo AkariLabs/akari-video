@@ -5,14 +5,15 @@ export function rightRailLogicalTab(widgetId: string): RightRailLastTab | undefi
     if (widgetId === 'akari-inspector-widget') return 'inspector';
     if (widgetId === 'akari-daihon-widget') return 'script';
     if (widgetId === 'akari-review-panel-widget') return 'annotations';
-    if (widgetId.startsWith('terminal-') || widgetId === 'akari-partner-web' ||
+    if (widgetId.startsWith('terminal-') || widgetId === 'akari-partner-web' || widgetId === 'akari-chat-widget' ||
         widgetId === 'akari-partner-onboarding') return 'chat';
     return undefined;
 }
 
 export function rightRailWidgetForTab(tab: RightRailLastTab, ids: readonly string[]): string | undefined {
     if (tab === 'chat') return ids.find(id => id.startsWith('terminal-')) ??
-        ids.find(id => id === 'akari-partner-web') ?? ids.find(id => id === 'akari-partner-onboarding');
+        ids.find(id => id === 'akari-partner-web') ?? ids.find(id => id === 'akari-partner-onboarding') ??
+        ids.find(id => id === 'akari-chat-widget');
     const wanted = tab === 'inspector' ? 'akari-inspector-widget' :
         tab === 'script' ? 'akari-daihon-widget' : 'akari-review-panel-widget';
     return ids.find(id => id === wanted);

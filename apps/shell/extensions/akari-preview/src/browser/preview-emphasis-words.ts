@@ -22,7 +22,7 @@ export function normalizePreviewEmphasisWords(
             && typeof candidate.t_start === 'number' && Number.isFinite(candidate.t_start) && candidate.t_start >= 0
             && typeof candidate.t_end === 'number' && Number.isFinite(candidate.t_end) && candidate.t_end > candidate.t_start
             && typeof candidate.word === 'string' && /\S/u.test(candidate.word)
-            && typeof candidate.emotion === 'string' && /\S/u.test(candidate.emotion)
+            && (candidate.emotion === undefined || typeof candidate.emotion === 'string' && /\S/u.test(candidate.emotion))
             && (candidate.src === undefined || (typeof candidate.src === 'string' && /\S/u.test(candidate.src)))
             && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string')
             && (candidate.style_preset === undefined || typeof candidate.style_preset === 'string');
@@ -41,11 +41,13 @@ export function normalizePreviewEmphasisWords(
             t_start: candidate.t_start as number,
             t_end: candidate.t_end as number,
             word: candidate.word as string,
-            emotion: candidate.emotion as string,
+            emotion: typeof candidate.emotion === 'string' ? candidate.emotion : 'emphasis',
             ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {}),
             ...(presetId !== undefined ? { style_preset: presetId } : {}),
+            ...(candidate.inherit_caption_size === true ? { inherit_caption_size: true } : {}),
             ...(preset?.resolved ? {
-                _presetStyleVars: resolveCaptionWordStyleVars(preset.record.text_style as Record<string, unknown>, output)
+                _presetStyleVars: resolveCaptionWordStyleVars(preset.record.text_style as Record<string, unknown>,
+                    output, candidate.inherit_caption_size === true)
             } : {})
         });
     }

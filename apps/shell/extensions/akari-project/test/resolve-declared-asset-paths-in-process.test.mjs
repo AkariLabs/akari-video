@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -69,7 +69,7 @@ test('参照台帳の素材を実 resolver で解決し、子プロセスを起�
     const [declared, relative] = f.assets[0];
     const result = await f.instance.resolveDeclaredAssetPaths(f.project,
         [declared, declared, 'assets/still/unlisted/missing.png', 'assets/still/sample/../../outside.png']);
-    assert.deepEqual([...result], [[declared, join(f.library, relative)]]);
+    assert.deepEqual([...result], [[declared, await realpath(join(f.library, relative))]]);
     assert.equal(f.scriptCalls, 0);
     assert.equal(f.instance.assetResolverImports.size, 1);
 });
@@ -78,8 +78,8 @@ test('複数件を同時に頼んでも in-process の Promise を共有する',
     const f = await fixture(t);
     const [first, second] = await Promise.all(f.assets.map(([declared]) =>
         f.instance.resolveDeclaredAssetPaths(f.project, [declared])));
-    assert.equal(first.get(f.assets[0][0]), join(f.library, f.assets[0][1]));
-    assert.equal(second.get(f.assets[1][0]), join(f.library, f.assets[1][1]));
+    assert.equal(first.get(f.assets[0][0]), await realpath(join(f.library, f.assets[0][1])));
+    assert.equal(second.get(f.assets[1][0]), await realpath(join(f.library, f.assets[1][1])));
     assert.equal(f.scriptCalls, 0);
     assert.equal(f.instance.assetResolverImports.size, 1);
 });

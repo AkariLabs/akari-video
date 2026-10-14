@@ -1,0 +1,80 @@
+[
+  {
+    "id": "akari-video",
+    "group": "tools",
+    "name": "AKARI Video",
+    "description": "動画を企画・編集する",
+    "icon": "A",
+    "kind": "built-in",
+    "try": "動画を作って"
+  },
+  {
+    "id": "3d-recipes",
+    "group": "tools",
+    "name": "3D レシピ",
+    "description": "Blender で 3D 素材を作る",
+    "icon": "3D",
+    "kind": "blender-recipe",
+    "try": "ロゴを 3D にして"
+  },
+  {
+    "id": "fal",
+    "group": "generate",
+    "name": "fal",
+    "description": "画像・映像・読み上げを作る",
+    "icon": "f",
+    "kind": "key",
+    "env": "FAL_KEY",
+    "setupUrl": "https://fal.ai/dashboard/keys",
+    "try": "商品を白背景で撮った写真を 4 枚",
+    "maker": "fal"
+  },
+  {
+    "id": "fish-audio",
+    "group": "generate",
+    "name": "Fish Audio",
+    "description": "原稿を読み上げる",
+    "icon": "F",
+    "kind": "key",
+    "env": "FISH_AUDIO_API_KEY",
+    "setupUrl": "https://fish.audio/app/api-keys/",
+    "try": "この原稿を読み上げて",
+    "maker": "fish"
+  },
+  {
+    "id": "google-ai",
+    "group": "generate",
+    "name": "Google AI",
+    "description": "原稿の読み上げ・声の写しを作る",
+    "icon": "G",
+    "kind": "key",
+    "env": "GEMINI_API_KEY",
+    "setupUrl": "https://aistudio.google.com/apikey",
+    "try": "この原稿を読み上げて",
+    "maker": "google"
+  },
+  {
+    "id": "elevenlabs",
+    "group": "generate",
+    "name": "ElevenLabs",
+    "description": "音声を文字起こしする",
+    "icon": "E",
+    "kind": "key",
+    "env": "ELEVENLABS_API_KEY",
+    "setupUrl": "https://elevenlabs.io/app/settings/api-keys",
+    "try": "この音声を文字起こしして",
+    "maker": "elevenlabs"
+  },
+  {
+    "id": "groq",
+    "group": "generate",
+    "name": "Groq",
+    "description": "音声を文字起こしする",
+    "icon": "G",
+    "kind": "key",
+    "env": "GROQ_API_KEY",
+    "setupUrl": "https://console.groq.com/keys",
+    "try": "この音声を文字起こしして",
+    "maker": "groq"
+  }
+]

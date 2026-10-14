@@ -50,16 +50,18 @@ const commitCount = async root => Number((await run('git', [
     'rev-list', '--count', 'HEAD'
 ], { cwd: root })).stdout.trim());
 
-test('1 RPC で N 行を書き換え、自前 git ルートで commit が 1 増える', async () => {
+test('1 RPC で N 行を書き換え、応答後の別キューで commit が 1 増える', async () => {
     const data = await fixture({ git: true });
     try {
         const beforeCommits = await commitCount(data.root);
         const beforeSource = await readFile(data.captionsPath, 'utf8');
-        const result = await new AkariAnnotationsServiceImpl().setCaptionStylePreset({
+        const service = new AkariAnnotationsServiceImpl();
+        const result = await service.setCaptionStylePreset({
             ...data.request, captionIds: ['c-1', 'c-3'], presetId: 'subtitle-news'
         });
         const rows = JSON.parse(await readFile(data.captionsPath, 'utf8'));
-        assert.deepEqual(result, { committed: true, changed: 2, beforeSource });
+        assert.deepEqual(result, { committed: false, changed: 2, beforeSource });
+        await service.flushEditCommit(data.root);
         assert.equal((await commitCount(data.root)) - beforeCommits, 1);
         assert.equal(rows[0].style_preset, 'subtitle-news');
         assert.equal(rows[1].style_preset, undefined);
@@ -76,6 +78,7 @@ test('同じ値の再適用は書き込みも commit も行わない', async () 
         await first.setCaptionStylePreset({
             ...data.request, captionIds: ['c-1', 'c-2'], presetId: 'subtitle-news'
         });
+        await first.flushEditCommit(data.root);
         const source = await readFile(data.captionsPath, 'utf8');
         const beforeCommits = await commitCount(data.root);
         const service = new TrackingService();

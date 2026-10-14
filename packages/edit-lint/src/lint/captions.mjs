@@ -362,7 +362,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (caption.time_domain !== "output") {
         const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
         const ratio = kept / (caption.end - caption.start);
-        if (kept <= EPSILON) {
+        if (kept <= EPSILON && isNonEmptyString(caption.id)) {
           // 話した区間ごとカットで消した字幕は出ないのが正しい結果。エラーにすると GUI で
           // カットするたびに誤報になるため記録だけ残す（オーナー裁定 2026-10-12）。
           addFinding(findings, {
@@ -376,7 +376,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",
-            message: "less than 50% of the caption remains after cuts",
+            message: lintText('lint-messages.captions.ui.captionMostlyCutOffMessage', { id: caption.id ?? `captions[${index}]` }),
             path: itemPath,
             range: { start: caption.start, end: caption.end },
           });

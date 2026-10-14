@@ -6,6 +6,10 @@ import { clearSelectedCaptionRanges } from '../common/caption-word-selection-sta
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
+import { previewChatReviewScript } from './preview-chat-review';
+import { attachReviewToPartner, currentReviewPartner } from './preview-chat-review-host';
+import { ChatAttachment, ChatReviewMark, parseReviewPending, serializeReviewPending,
+    REVIEW_PENDING_PATH, updateReviewPending } from '../common/chat-review-attachments';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
 import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
@@ -52,6 +56,7 @@ import {
     open
 } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
@@ -98,6 +103,7 @@ import {
 import {
     AssetStreamRequest,
     AkariPreviewService,
+    FragmentAssetPreviewResult,
     OverlayRuntimeAssetUrls,
     PreviewAudioSidecarRequest,
     ReadGenerationSidecarsResult,
@@ -122,6 +128,7 @@ import {
     persistCaptionGroupPosition,
     persistCaptionGroupZone,
     persistCaptionText,
+    updateCaptionTextSource,
     persistCaptionZone,
     updateCaptionToolStyleSource,
     updateCaptionCuePositionsSource,
@@ -448,6 +455,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected lastCaptionRunNotice: string | undefined;
     readonly id = 'akari-preview-open-handler';
     protected readonly onDidWriteCaptionEmitter = new Emitter<PreviewCaptionWrite>();
+    protected readonly captionTextSessions = new Map<string, string>();
     readonly onDidWriteCaption: TheiaEvent<PreviewCaptionWrite> = this.onDidWriteCaptionEmitter.event;
     // 「最近この URI へ書いた」台帳。URI 文字列キーと resourceSuffix キーの両方を入れる
     // （ワークスペース watcher は realpath 済みの URI で通知してくるため、シンボリックリンクを
@@ -476,6 +484,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
     protected readonly captionDisplayFallbackState: { lastCode?: string } = {};
     protected readonly lastLoadedCaptions = new Map<string, LoadedPreviewCaptions>();
+    protected readonly sharedAssetStreams = new Map<string, {
+        stream: Promise<VideoStreamReference>; uses: number;
+    }>();
+    protected readonly sharedAssetStreamKeys = new Map<string, string>();
+    protected readonly fragmentRewriteStreamKeys = new Map<string, string>();
+    protected fragmentRewriteCache = new Map<string, Promise<FragmentAssetPreviewResult>>();
+    protected assetResolutionCache = new Map<string, Promise<string | undefined>>();
+    protected lastEditOutputByUri = new Map<string, { width: number; height: number }>();
+    protected refreshTasks = new WeakMap<PreviewWidgetMarker, {
+        running: boolean; latest?: () => Promise<void>; drain?: () => void; predecessor?: Promise<void>;
+        pendingForce?: boolean;
+    }>();
     protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
@@ -567,10 +587,96 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(MessageService)
     protected readonly messages: MessageService;
 
+    @inject(ClipboardService)
+    protected readonly clipboard: ClipboardService;
+
     @inject(ApplicationServer)
     protected readonly applicationServer: ApplicationServer;
 
     protected currentAppVersionPromise?: Promise<string | undefined>;
+    protected readonly reviewChatWrites = new Map<string, Promise<void>>();
+
+    protected async handleChatReviewMessage(widget: PreviewWidgetMarker, identityUri: URI,
+        kind: 'raw' | 'output', message: any): Promise<void> {
+        const projectRoot = kind === 'output' ? identityUri.parent
+            : widget.akariPreviewRelatedEditUri?.parent
+                ?? (await this.workspaceService.roots).find(root => identityUri.toString()
+                    .startsWith(root.resource.toString().replace(/\/$/, '') + '/'))?.resource;
+        if (!projectRoot) {
+            this.messages.warn(renderT('preview.openHandler.ui.openProjectFirstMessage'));
+            return;
+        }
+        const key = projectRoot.toString();
+        const previous = this.reviewChatWrites.get(key) ?? Promise.resolve();
+        const next = previous.catch(() => undefined).then(async () => {
+            const pendingUri = projectRoot.resolve(REVIEW_PENDING_PATH);
+            const loaded = await this.fileService.exists(pendingUri)
+                ? parseReviewPending((await this.fileService.readFile(pendingUri)).value.toString()) : [];
+            let assignedIds = false;
+            const current = loaded.map(item => {
+                if (item.kind !== 'review' || item.review.id) return item;
+                assignedIds = true;
+                const identified = { ...item, review: { ...item.review, id: crypto.randomUUID() } };
+                if (new TextEncoder().encode(JSON.stringify(identified)).byteLength > 64 * 1024) {
+                    identified.review.thumbnail = undefined;
+                }
+                return identified;
+            });
+            let attachments: ChatAttachment[] = current;
+            if (message.type === 'akari-preview-chat-review-add') {
+                const mark = message.review as ChatReviewMark;
+                const candidate: ChatAttachment = { kind: 'review', label: renderT('preview.openHandler.ui.reviewTimeLabel', { sourceLabel: mark.sourceLabel, time: mark.time.toFixed(1) }), review: mark };
+                if (parseReviewPending(serializeReviewPending([candidate])).length !== 1) return;
+                attachments = [...current, candidate];
+            } else if (message.type === 'akari-preview-chat-review-remove') {
+                const index = typeof message.id === 'string'
+                    ? current.findIndex(item => item.kind === 'review' && item.review.id === message.id)
+                    : message.index;
+                if (!Number.isInteger(index) || index < 0 || index >= current.length) return;
+                attachments = current.filter((_, position) => position !== index);
+            } else if (message.type === 'akari-preview-chat-review-update') {
+                if (!Number.isInteger(message.index) || message.index < 0 || message.index >= current.length) return;
+                const target = current[message.index];
+                if (target.kind !== 'review') return;
+                const mark = message.review as ChatReviewMark;
+                if (typeof message.id === 'string' && target.review.id !== message.id) return;
+                if (mark?.id !== target.review.id) return;
+                const candidate: ChatAttachment = { ...target, review: mark };
+                if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) return;
+                const updated = updateReviewPending(current, message.index, mark);
+                if (updated === current) return;
+                attachments = updated;
+            } else if (message.type === 'akari-preview-chat-review-attach') {
+                if (!current.length) return;
+                if (!await attachReviewToPartner(projectRoot, current, await currentReviewPartner(this.commandRegistry),
+                    this.commandRegistry, this.fileService, this.clipboard, this.messages,
+                    this.preferences.get<boolean>('akari.chat.experimental.enabled', false))) return;
+                attachments = [];
+            }
+            if (attachments !== current || assignedIds) {
+                await this.fileService.createFolder(projectRoot.resolve('.akari/review'));
+                await this.fileService.writeFile(pendingUri, BinaryBuffer.fromString(serializeReviewPending(attachments)));
+            }
+            const viewers = new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values(), widget]);
+            const rootPrefix = projectRoot.toString().replace(/\/$/, '') + '/';
+            const partner = await currentReviewPartner(this.commandRegistry);
+            for (const viewer of viewers) {
+                if (viewer.isDisposed) continue;
+                const editRoot = viewer.akariPreviewEditUri?.parent ?? viewer.akariPreviewRelatedEditUri?.parent;
+                const sameProject = editRoot?.toString() === projectRoot.toString()
+                    || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
+                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments,
+                    partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : renderT('preview.openHandler.ui.clipboardLabel')) });
+            }
+        });
+        this.reviewChatWrites.set(key, next);
+        try { await next; } catch (error) {
+            console.warn(renderT('preview.openHandler.ui.reviewSaveLogError'), error);
+            this.messages.error(renderT('preview.openHandler.ui.reviewSaveFailedError'));
+        } finally {
+            if (this.reviewChatWrites.get(key) === next) this.reviewChatWrites.delete(key);
+        }
+    }
 
     @inject(OpenerService)
     protected readonly openerService: OpenerService;
@@ -656,6 +762,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     onStart(): void {
+        const refreshReviewPartner = (): void => {
+            void currentReviewPartner(this.commandRegistry).then(partner => {
+                for (const viewer of new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values()])) {
+                    if (!viewer.isDisposed) viewer.sendMessage({ type: 'akari-preview-chat-review-state',
+                        partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : renderT('preview.openHandler.ui.clipboardLabel')) });
+                }
+            });
+        };
+        this.lifecycleDisposables.push(this.shell.onDidChangeActiveWidget(refreshReviewPartner));
+        this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(refreshReviewPartner));
         this.lifecycleDisposables.push(this.workspaceService.onWorkspaceChanged(() =>
             this.clearDaihonWordSelections()));
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
@@ -843,9 +959,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerPulsePreviewItemCommand();
         this.registerShowPreviewZoneHintCommand();
         this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
+            if (event.preferenceName === 'akari.chat.experimental.enabled') refreshReviewPartner();
             if (event.preferenceName === 'akari.preview.scrubAudio') {
                 // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
-                const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true) !== false;
+                const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', false) === true;
                 for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
                     if (widget.isAttached) {
                         widget.sendMessage({ type: 'akari-preview-set-scrub-audio', enabled });
@@ -3224,6 +3341,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ]);
         disposables.push(widget.onMessage(message => {
             if (firstWinsMessages.get(message?.type)?.(message)) return;
+            if (typeof message?.type === 'string' && message.type.startsWith('akari-preview-chat-review-')) {
+                void this.handleChatReviewMessage(widget, identityUri, kind, message);
+            }
             const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
             if (trial && message?.type === 'akari-preview-swap-user-control') {
                 logSwapTrial(trial.identity, 'playback_cancel', { reason: 'user_control' }); trial.cancel();
@@ -3507,6 +3627,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, true);
             }
         }));
+        void this.handleChatReviewMessage(widget, identityUri, kind, { type: 'akari-preview-chat-review-load' });
         let placement: { key: string; at: number; until?: number; baseline: Promise<string>;
             refreshedContent?: string } | undefined;
         const onPlacement = (event: Event): void => {
@@ -3532,6 +3653,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
+        let watchedEditPending = false;
+        let watchedEditRunning = false;
+        let lastQueuedEditContent: string | undefined;
+        const queueWatchedEdit = (): void => {
+            watchedEditPending = true;
+            if (watchedEditRunning) return;
+            watchedEditRunning = true;
+            void (async () => {
+                try {
+                    while (watchedEditPending && !widget.isDisposed) {
+                        watchedEditPending = false;
+                        const uri = widget.akariPreviewEditUri;
+                        if (!uri) continue;
+                        const source = await this.readText(uri);
+                        if (source !== lastQueuedEditContent) {
+                            lastQueuedEditContent = source;
+                            this.queueRefresh(widget, identityUri, kind, undefined, false, source);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(renderT('preview.openHandler.ui.editReadLogError'), error);
+                    this.queueRefresh(widget, identityUri, kind, undefined, false);
+                } finally {
+                    watchedEditRunning = false;
+                    if (watchedEditPending && !widget.isDisposed) queueWatchedEdit();
+                }
+            })();
+        };
         // あとから届いた素材は、書き込みの間に通知が何度も来る。少し待ってから読み直し、
         // 読み直しの間に来た通知は次の 1 回にまとめる（再構築を積み上げない）。
         let watchedMediaSettle: number | undefined;
@@ -3574,10 +3723,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             let previewChanged = false;
             let nonModelResourceChanged = false;
             let watchedMediaChanged = false;
+            let watchedEditChanged = false;
             const editKey = widget.akariPreviewEditUri?.toString();
             const editSuffix = widget.akariPreviewEditUri
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
             for (const change of event.changes) {
+                if (change.resource.path?.toString().includes('/assets/')
+                    || change.resource.path?.toString().endsWith('/.akari/asset-references.json')) {
+                    this.assetResolutionCache?.clear();
+                    this.fragmentRewriteCache?.clear();
+                } else if (/\.html?$/iu.test(change.resource.path?.toString() ?? '')) {
+                    this.fragmentRewriteCache?.clear();
+                }
                 const key = change.resource.toString();
                 const referencesUri = widget.akariPreviewEditUri?.parent.resolve('.akari/asset-references.json');
                 if (referencesUri && key === referencesUri.toString()) {
@@ -3614,15 +3771,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // URI の先頭が videoUri/editUri 生成時と食い違う。basename + 直上ディレクトリ名の
                 // suffix 一致もフォールバックとして見る。
                 const suffix = this.resourceSuffix(change.resource);
-                const writtenAt = this.recentWriteAt(change.resource);
                 if (key === captionsKey || (captionsSuffix !== undefined && suffix === captionsSuffix)) {
-                    captionsChanged ||= Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
+                    captionsChanged = true;
+                    continue;
+                }
+                if (editKey && (key === editKey || suffix === editSuffix)) {
+                    watchedEditChanged = true;
                     continue;
                 }
                 // 配信できなかった素材（あとから届く生成画像など）と静止画の cut ソース。
                 // 追跡対象に無くても、届いた・書き換わった合図で読み直す。
                 const watchedMedia = previewWatchedMediaChange(widget, key, suffix);
                 if (watchedMedia || tracked.has(key) || trackedSuffixes.has(suffix)) {
+                    const writtenAt = this.recentWriteAt(change.resource);
                     const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                         akariPreviewJustAddedSuffixes?: Map<string, number> };
                     const added = recent.akariPreviewJustAddedUris?.get(key)
@@ -3650,6 +3811,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 previewChanged ||= !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
             }
+            if (watchedEditChanged && watchedMediaChanged) previewChanged = true;
+            else if (watchedEditChanged) queueWatchedEdit();
             if (captionsChanged) {
                 this.queueCaptionsUpdate(widget);
             }
@@ -3664,8 +3827,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
-        // watcher 経路は残したまま並走させ、こちらで処理した書き込みは recentWrites の窓で
-        // 後から来る watcher イベントを落とす（= 同じ 1 回の編集で差分メッセージは 1 通だけ）。
+        // watcher の再読込は内容差分で判定する。
         // 外部（CLI / 外部エディタ / AI パートナー）からの書き込みはこの通知が来ないので、
         // 従来どおり watcher 経路だけで更新される。
         const onEditStoreDidWrite = (event: Event): void => {
@@ -3691,7 +3853,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 || this.resourceSuffix(written) === this.resourceSuffix(captionsUri))) {
                 this.markRecentWrite(written);
                 this.markRecentWrite(captionsUri);
-                this.queueCaptionsUpdate(widget);
+                this.queueCaptionsUpdate(widget, detail.content);
                 return;
             }
             // 一致した URI にだけ印を付け、後続 watcher の重複通知を抑える。
@@ -3701,6 +3863,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.markRecentWrite(written);
             this.markRecentWrite(editUri);
+            lastQueuedEditContent = detail.content;
             this.queueRefresh(widget, identityUri, kind, undefined, false, detail.content);
         };
         disposables.push(listen(window, EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite));
@@ -4006,7 +4169,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             logSwapTrial(swapTrial.identity, 'refresh_queued');
         }
         const queuedWriteRevision = this.previewGestureGuards.get(widget)?.writeRevision;
-        const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
             // 順番待ち中に保存が完了した場合だけ古い通知本文を失効させる。
             if (this.previewGestureGuards.get(widget)?.writeRevision !== queuedWriteRevision) editSource = undefined;
@@ -4034,14 +4196,38 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 restore.playing
             );
         };
-        widget.akariPreviewRefresh = previous.then(
-            refresh,
-            refresh
-        ).catch(error => {
-            widget.akariPreviewQueuedEditSource = undefined;
-            console.error('[akari-preview] failed to refresh preview', error);
-            this.handleRefreshFailure(widget, error);
-        });
+        let state = (this.refreshTasks ??= new WeakMap()).get(widget);
+        if (!state) {
+            state = { running: false, predecessor: widget.akariPreviewRefresh };
+            this.refreshTasks.set(widget, state);
+        }
+        forceRebuild ||= state.pendingForce === true;
+        state.pendingForce = forceRebuild;
+        state.latest = refresh;
+        state.drain ??= () => {
+            if (state!.running) return;
+            state!.running = true;
+            widget.akariPreviewRefresh = (async () => {
+                await state!.predecessor?.catch(() => undefined);
+                state!.predecessor = undefined;
+                while (state!.latest) {
+                    const next = state!.latest;
+                    state!.latest = undefined;
+                    state!.pendingForce = false;
+                    try {
+                        await next();
+                    } catch (error) {
+                        widget.akariPreviewQueuedEditSource = undefined;
+                        console.error('[akari-preview] failed to refresh preview', error);
+                        this.handleRefreshFailure(widget, error);
+                    }
+                }
+            })().finally(() => {
+                state!.running = false;
+                if (state!.latest) state!.drain?.();
+            });
+        };
+        state.drain();
     }
 
     /**
@@ -4140,14 +4326,41 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         );
     }
 
-    protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
-        const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
-        widget.akariPreviewCaptionsUpdate = previous.then(async () => {
-            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+    protected queueCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): void {
+        const state = widget as PreviewWidgetMarker & {
+            akariPreviewCaptionUpdateRunning?: boolean; akariPreviewCaptionUpdatePending?: boolean;
+            akariPreviewCaptionPendingSource?: string;
+        };
+        state.akariPreviewCaptionUpdatePending = true;
+        state.akariPreviewCaptionPendingSource = sourceOverride;
+        if (state.akariPreviewCaptionUpdateRunning) return;
+        state.akariPreviewCaptionUpdateRunning = true;
+        widget.akariPreviewCaptionsUpdate = (async () => {
+            while (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
+                state.akariPreviewCaptionUpdatePending = false;
+                const source = state.akariPreviewCaptionPendingSource;
+                state.akariPreviewCaptionPendingSource = undefined;
+                await this.applyCaptionsUpdate(widget, source);
+            }
+        })().catch(error => console.error('[akari-preview] failed to update captions', error)).finally(() => {
+            state.akariPreviewCaptionUpdateRunning = false;
+            if (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
+                this.queueCaptionsUpdate(widget, state.akariPreviewCaptionPendingSource);
+            }
+        });
+    }
+
+    protected async applyCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): Promise<void> {
+            const state = widget as PreviewWidgetMarker & { akariPreviewLastCaptionContent?: string };
+            const source = sourceOverride ?? (widget.akariPreviewCaptionsUri
+                ? await this.readText(widget.akariPreviewCaptionsUri).catch(() => undefined) : undefined);
+            if (source !== undefined && source === state.akariPreviewLastCaptionContent) return;
+            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri, source);
             // 字幕 RPC が先着しても、同時に読込中の edit の宣言・cut 時計を使う。
             // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
             await widget.akariPreviewRefresh;
             if (widget.isDisposed) return;
+            state.akariPreviewLastCaptionContent = source;
             // 出力プレビューの identity は edit URI。raw は字幕レーンを持たない。
             // 先行 refresh の完了後に判定することで、連続した字幕通知でも
             // レーン追加の refresh は一度だけになり、以後は差分更新へ戻る。
@@ -4170,9 +4383,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 )
             );
             const nextCaptions = buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal);
-            if (widget.akariPreviewModelSnapshot) widget.akariPreviewModelSnapshot.captions = nextCaptions;
-            widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions });
-        }).catch(error => console.error('[akari-preview] failed to update captions', error));
+            const emphasisWords = loaded.emphasisWords === undefined ? [] : this.normalizeEmphasisWords(loaded.emphasisWords);
+            if (widget.akariPreviewModelSnapshot) {
+                widget.akariPreviewModelSnapshot.captions = nextCaptions;
+                widget.akariPreviewModelSnapshot.emphasisWords = emphasisWords;
+            }
+            widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords });
     }
 
     protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssetUrls): PreviewModelDiffInput {
@@ -4838,7 +5054,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             || frameEngineForceSoftwareOverride === 'true';
         const frameEngineRenderScaleMode = parseRenderScaleMode(frameEngineRenderScaleOverride
             ?? this.preferences.get<string>('akari.preview.renderScale', 'auto'));
-        const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true);
+        const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', false) === true;
         const exportLook = this.preferences.get<boolean>('akari.preview.exportLook', false) === true;
         // setHTML はページを作り直すので、ページ側の段（スクリプト読込以降）はやり直しになる。
         diagnostics?.restartPageStages();
@@ -5207,9 +5423,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 通知に全文が載っていても省けない（captions.json は別ファイルで通知に含まれない）。
         // edit.json 読み出しとは先に並走させる。正規化時には captions 段の導出へ必要なので
         // await する（途中書き込みで読めない間は直前の字幕を保持する）。
-        const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
-        const rawCaptionsPromise = captionsUri
-            ? this.readText(captionsUri).catch(() => '') : Promise.resolve('');
+        let capturedCaptionSource: string | undefined;
+        const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri, undefined,
+            source => { capturedCaptionSource = source; });
+        const rawCaptionsPromise = captionsPromise.then(() => capturedCaptionSource
+            ?? (captionsUri ? this.readText(captionsUri).catch(() => '') : ''));
         const assetStreams = new Map<string, { id: string; url: string }>();
         // 同じ資産へ同時に来た要求を 1 本の createAssetStream に合流させる（素材解決を並列化しても
         // ストリームが二重生成されない）。assetUris への登録は要求時に行う（task/2026-09-02-preview-perf）。
@@ -5252,6 +5470,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const rawEdit = (() => {
                 try { return JSON.parse(editText) as unknown; } catch { return undefined; }
             })();
+            const editOutput = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                ? (rawEdit as { output?: { width?: unknown; height?: unknown } }).output : undefined;
+            if (typeof editOutput?.width === 'number' && typeof editOutput.height === 'number') {
+                (this.lastEditOutputByUri ??= new Map()).set(editUri.toString(), {
+                    width: editOutput.width, height: editOutput.height
+                });
+            } else {
+                this.lastEditOutputByUri?.delete(editUri.toString());
+            }
             const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
                 ? (rawEdit as { version?: unknown }).version
                 : undefined;
@@ -5655,11 +5882,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             registerOverlayUri(fragmentUri);
                             overlayHtmlTasks.set(rawHtml, this.readText(fragmentUri).then(
                                 async text => {
-                                    const result = await this.previewService.rewriteFragmentAssets({
-                                        projectRootUri: editUri.parent.toString(), html: text,
-                                        htmlPath: rawHtml, overlayId: item.id,
-                                        workspaceRoots: await this.currentWorkspaceRoots()
-                                    });
+                                    const rewriteKey = JSON.stringify([editUri.parent.toString(), rawHtml, item.id, text]);
+                                    let pending = (this.fragmentRewriteCache ??= new Map()).get(rewriteKey);
+                                    if (!pending) {
+                                        pending = this.currentWorkspaceRoots().then(workspaceRoots =>
+                                            this.previewService.rewriteFragmentAssets({
+                                                projectRootUri: editUri.parent.toString(), html: text,
+                                                htmlPath: rawHtml, overlayId: item.id, workspaceRoots
+                                            }));
+                                        this.fragmentRewriteCache.set(rewriteKey, pending);
+                                        void pending.catch(() => {
+                                            if (this.fragmentRewriteCache.get(rewriteKey) === pending) {
+                                                this.fragmentRewriteCache.delete(rewriteKey);
+                                            }
+                                        });
+                                    }
+                                    const result = await pending;
+                                    for (const stream of result.streams) {
+                                        const sharedKey = `fragment:${stream.id}`;
+                                        let shared = this.sharedAssetStreams?.get(sharedKey);
+                                        if (!shared && this.sharedAssetStreams && this.sharedAssetStreamKeys) {
+                                            shared = { stream: Promise.resolve(stream), uses: 0 };
+                                            this.sharedAssetStreams.set(sharedKey, shared);
+                                            this.sharedAssetStreamKeys.set(stream.id, sharedKey);
+                                            this.fragmentRewriteStreamKeys?.set(stream.id, rewriteKey);
+                                        }
+                                        if (shared) shared.uses++;
+                                    }
                                     overlayHtml.set(rawHtml, result.html);
                                     for (const stream of result.streams) {
                                         assetStreams.set(`fragment:${rawHtml}:${stream.uri}`, stream);
@@ -6796,30 +7045,37 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected async loadPreviewCaptions(
         captionsUri: URI | undefined,
-        editUri?: URI
+        editUri?: URI,
+        sourceOverride?: string,
+        captureSource?: (source: string) => void
     ): Promise<LoadedPreviewCaptions> {
         if (!captionsUri) {
             return { captions: [] };
         }
         const key = captionsUri.toString();
         try {
-            let source = await this.readText(captionsUri);
+            let source = sourceOverride ?? await this.readText(captionsUri);
             if (!source.trim()) {
                 // A truncate-and-write can expose a zero-byte file briefly. Confirm that
                 // it stays empty before clearing captions; partial nonempty JSON stays cached.
                 await new Promise<void>(resolve => setTimeout(resolve, 150));
                 source = await this.readText(captionsUri);
                 if (!source.trim()) {
+                    captureSource?.(source);
                     const empty = { captions: [] };
                     this.lastLoadedCaptions.set(key, empty);
                     return empty;
                 }
             }
+            captureSource?.(source);
             let loaded: LoadedPreviewCaptions;
             if (editUri) {
                 const rawRoot = JSON.parse(source);
                 const rawRows = Array.isArray(rawRoot) ? rawRoot
                     : Array.isArray(rawRoot?.captions) ? rawRoot.captions : [];
+                const rawById = new Map<string, { start?: number; end?: number; src?: string }>(rawRows
+                    .filter((row: { id?: unknown } | null) => typeof row?.id === 'string')
+                    .map((row: { id: string; start?: number; end?: number; src?: string }) => [row.id, row]));
                 const timeDomains = new Map<string, 'source' | 'output'>(rawRows
                     .filter((row: { time_domain?: string } | null) => row?.time_domain === 'source' || row?.time_domain === 'output')
                     .map((row: { id: string; time_domain: 'source' | 'output' }) => [row.id, row.time_domain]));
@@ -6830,21 +7086,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         workspaceRoots: await this.currentWorkspaceRoots()
                     }),
                     resolved: resolved => ({
-                        captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
-                            ...caption,
-                            clockDomain: 'output' as const,
-                            timeDomain: timeDomains.get(caption.sourceCueId ?? caption.id ?? '')
-                        })),
+                        captions: parseResolvedPreviewCaptions(resolved).map(caption => {
+                            const sourceId = caption.sourceCueId ?? caption.id ?? '';
+                            const raw = rawById.get(sourceId);
+                            return {
+                                ...caption,
+                                ...(raw ? {
+                                    ...(typeof raw.start === 'number' ? { emphasisStart: raw.start } : {}),
+                                    ...(typeof raw.end === 'number' ? { emphasisEnd: raw.end } : {}),
+                                    ...(typeof raw.src === 'string' ? { src: raw.src } : {})
+                                } : {}),
+                                clockDomain: 'output' as const,
+                                timeDomain: timeDomains.get(sourceId)
+                            };
+                        }),
                         emphasisWords: resolved.emphasisWords
                     }),
-                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri),
+                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri, source),
                     warn: code => this.messages.warn(
                         t('preview.outputPreview.notification.captionDisplaySettingsCouldNotResolvedSoTheyError', { code })
                     ),
                     state: this.captionDisplayFallbackState
                 });
             } else {
-                loaded = await this.loadLegacyPreviewCaptions(captionsUri, editUri);
+                loaded = await this.loadLegacyPreviewCaptions(captionsUri, editUri, source);
             }
             this.lastLoadedCaptions.set(key, loaded);
             return loaded;
@@ -6858,16 +7123,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
-    protected async loadLegacyPreviewCaptions(captionsUri: URI, editUri?: URI): Promise<LoadedPreviewCaptions> {
-        const source = await this.readText(captionsUri);
-        let output: { width: number; height: number } | undefined;
-        if (editUri) {
+    protected async loadLegacyPreviewCaptions(captionsUri: URI, editUri?: URI, sourceOverride?: string): Promise<LoadedPreviewCaptions> {
+        const source = sourceOverride ?? await this.readText(captionsUri);
+        let output = editUri ? this.lastEditOutputByUri?.get(editUri.toString()) : undefined;
+        if (editUri && !output) {
             try {
                 const edit = JSON.parse(await this.readText(editUri)) as { output?: unknown };
                 if (edit.output && typeof edit.output === 'object'
                     && typeof (edit.output as { width?: unknown }).width === 'number'
                     && typeof (edit.output as { height?: unknown }).height === 'number') {
                     output = edit.output as { width: number; height: number };
+                    (this.lastEditOutputByUri ??= new Map()).set(editUri.toString(), output);
                 }
             } catch {
                 // Legacy caption loading remains fail-open when edit output is unavailable.
@@ -6902,6 +7168,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 : 'legacy';
             return {
                 ...caption,
+                ...(typeof raw?.start === 'number' ? { emphasisStart: raw.start } : {}),
+                ...(typeof raw?.end === 'number' ? { emphasisEnd: raw.end } : {}),
+                ...(typeof raw?.src === 'string' ? { src: raw.src } : {}),
                 clockDomain: declaredDomain,
                 ...(declaredDomain !== 'legacy' ? { timeDomain: declaredDomain } : {}),
                 ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
@@ -7302,6 +7571,43 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const captionsUri = widget.akariPreviewCaptionsUri;
         if (!captionsUri) {
             respond(false, t('preview.outputPreview.window.captionFileCaptionsJsonMissing'));
+            return;
+        }
+        if ('text' in request.patch && request.phase) {
+            const key = `${captionsUri.toString()}\0${request.captionId}`;
+            try {
+                const source = await this.readText(captionsUri);
+                if (request.phase === 'draft') {
+                    if (request.patch.text.trim()) {
+                        if (!this.captionTextSessions.has(key)) this.captionTextSessions.set(key, source);
+                        const candidate = updateCaptionTextSource(source, request.captionId, request.patch.text);
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidate));
+                        this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    }
+                } else if (request.phase === 'cancel') {
+                    const before = this.captionTextSessions.get(key);
+                    this.captionTextSessions.delete(key);
+                    if (before && before !== source) {
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(before));
+                        this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    }
+                } else {
+                    const before = this.captionTextSessions.get(key) ?? source;
+                    this.captionTextSessions.delete(key);
+                    const candidate = updateCaptionTextSource(source, request.captionId, request.patch.text);
+                    const lintResult = await this.previewService.lintEditCandidate({ editUri: captionsUri.toString(), candidateText: candidate });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? renderT('preview.openHandler.ui.lintRejectedMessage'));
+                    if (candidate !== source) {
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidate));
+                    }
+                    this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    if (before !== candidate) this.notifyCaptionWrite(widget, captionsUri, before, candidate, renderT('preview.openHandler.ui.captionTextChangedLabel'));
+                }
+                respond(true);
+            } catch (error) { respond(false, error instanceof Error ? error.message : String(error)); }
             return;
         }
         if ('duplicate' in request.patch) {
@@ -7798,7 +8104,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineReadyTimeoutMs?: number,
         initialPlaybackRate = 1,
         frameEngineRenderScaleMode: RenderScaleMode = 'auto',
-        scrubAudioEnabled = true,
+        scrubAudioEnabled = false,
         exportLook = false,
         // 診断用の頁文脈（不具合メモ 第11・12項）。Console に出る Webview ID を
         // ページ自身にも持たせ、診断カードとログの id を突き合わせられるようにする。
@@ -7829,6 +8135,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // raw = 素材単体プレビュー。出力キャンバス（summary.output）ではなく素材自身の
             // 実寸法をステージ寸法にする（hostAdapterScript の raw 同期を参照）。
             kind,
+            reviewSource: kind === 'output' ? 'edit.json'
+                : model.relatedEditUri && videoUri.path.toString().startsWith(model.relatedEditUri.parent.path.toString() + '/')
+                    ? videoUri.path.toString().slice(model.relatedEditUri.parent.path.toString().length + 1)
+                    : videoUri.path.toString().includes('/exports/')
+                        ? 'exports/' + videoUri.path.toString().split('/exports/').pop()
+                        : videoUri.path.base,
+            reviewSourceLabel: kind === 'output' ? renderT('preview.openHandler.ui.editingPreviewLabel') : videoUri.path.base,
             summary: model.summary,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -8085,6 +8398,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             'preview.previewWindow.punctuation.openParen',
             'preview.previewWindow.punctuation.rangeSeparator',
             'preview.previewWindow.transport.fullscreenLabel',
+            'preview.chatReviewAttachments.ui.captionLabel',
+            'preview.chatReviewAttachments.ui.videoSourcePathLabel',
+            'preview.chatReviewAttachments.ui.imageLabel',
+            'preview.chatReviewAttachments.ui.videoLabel',
         ];
         const previewText = scriptDictionary({
             play: t('preview.previewWindow.transport.playAction'),
@@ -8403,6 +8720,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 /* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
 #caption-plate { position:absolute; inset:0; pointer-events:none; }
+.akari-caption__run { -webkit-text-fill-color: currentColor; }
 .caption-row-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%) rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1)); transform-origin: center; padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
@@ -8494,6 +8812,65 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
+.review-toolbar { display:flex; align-items:center; justify-content:space-between; min-width:0; height:28px; padding:0 10px; color:var(--akari-transport-fg); }
+.review-toolbar [data-review-hint] { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--akari-time-fg); font-size:11px; }
+.review-toolbar [data-review-hint][hidden] { display:none; }
+.review-tools { display:flex; flex:none; align-items:center; gap:3px; margin-left:auto; }
+.review-tools .icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
+.review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"],
+.review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"]:is(:hover,:active) { color:#f97316; background:transparent; box-shadow:none; }
+.review-toolbar .review-tools button.icon-button[data-review-tool]:is(:hover,:active) { background:transparent; }
+.review-tools [data-review-attach-count] { display:inline-flex; align-items:center; justify-content:center; gap:2px; width:auto; min-width:28px; padding:0 3px; font-size:11px; font-variant-numeric:tabular-nums; }
+.review-tools [data-review-attach-count][hidden] { display:none; }
+.review-tools .review-divider { height:18px; width:1px; margin:0 3px; background:var(--akari-transport-fg); opacity:.35; }
+#review-chat-layer { position:absolute; inset:0; z-index:1800; pointer-events:none; }
+#review-chat-layer.is-active { pointer-events:auto; cursor:crosshair; }
+#review-chat-layer [data-review-ink], #review-chat-layer [data-review-marks] { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+#review-chat-layer [data-review-ink] polyline { fill:none; stroke:#fb923c; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.review-mark { position:absolute; display:grid; place-items:center; min-width:20px; min-height:20px; border-radius:50%; background:#f97316; color:#171717; font-size:11px; font-weight:700; transform:translate(-50%,-50%); }
+.review-mark.pen { box-sizing:border-box; transform:none; border:2px solid #fb923c; background:rgba(249,115,22,.12); color:#fff; pointer-events:none; }
+.review-mark.pen [data-review-badge] { position:absolute; left:0; top:0; display:grid; place-items:center; min-width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); background:#f97316; color:#171717; }
+#review-chat-layer [data-review-badge][data-review-active] { pointer-events:auto; cursor:pointer; }
+#review-chat-layer [data-review-badge]:not([data-review-active]) { pointer-events:none; }
+#review-dock { position:relative; z-index:1; width:100%; max-height:min(40vh,220px); overflow:auto; padding:5px 10px; border-top:1px solid var(--akari-control-active); background:var(--akari-transport-bg); color:var(--akari-transport-fg); font-size:12px; }
+#review-dock[hidden], #review-dock [hidden] { display:none; }
+#review-dock:has(> #review-chat-tray:not([hidden])) { display:flex; flex-direction:column; overflow:hidden; }
+#review-dock [data-review-note] { overflow-wrap:anywhere; }
+.review-note-line { display:flex; align-items:center; gap:6px; min-width:0; }
+.review-note-meta { display:flex; flex:none; align-items:center; gap:6px; white-space:nowrap; font-size:11px; }
+.review-note-meta [data-review-note-badge] { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-weight:700; }
+.review-note-meta [data-review-note-tool] { flex:none; display:inline-grid; place-items:center; width:18px; height:18px; }
+.review-note-meta [data-review-note-tool] svg { width:15px; height:15px; }
+.review-note-meta [data-review-note-time] { flex:none; font-variant-numeric:tabular-nums; }
+#review-dock [data-review-elements] { display:flex; gap:4px; max-height:24px; min-width:0; overflow-x:auto; overflow-y:hidden; white-space:nowrap; margin-top:2px; }
+#review-dock [data-review-element] { flex:none; padding:2px 5px; border-radius:4px; background:var(--akari-control-active); }
+#review-dock textarea { display:block; flex:1 1 auto; min-width:0; width:auto; height:36px; min-height:30px; max-height:50px; border:1px solid var(--akari-control-active); border-radius:5px; padding:5px 6px; background:var(--akari-transport-bg); color:var(--akari-transport-fg); resize:vertical; font:inherit; }
+.review-note-actions { display:flex; flex:none; align-items:center; gap:4px; margin:0; }
+.review-note-actions button, #review-chat-tray button { border:0; border-radius:5px; padding:4px 7px; color:var(--akari-transport-fg); background:var(--akari-control-active); cursor:pointer; font:inherit; font-size:11px; white-space:nowrap; }
+.review-note-actions button.icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
+.review-note-actions button.icon-button:hover { background:var(--akari-control-hover); }
+#review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
+#review-chat-tray { display:flex; flex-direction:column; min-height:0; overflow-wrap:anywhere; }
+#review-chat-tray [data-review-rows] { flex:0 1 auto; min-height:0; overflow-y:auto; }
+.review-tray-row { display:flex; align-items:center; gap:8px; min-height:42px; padding:3px 0; border-bottom:1px solid var(--akari-control-active); cursor:pointer; }
+.review-row-badge { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-size:11px; font-weight:700; }
+.review-tray-row img { flex:none; width:64px; height:36px; object-fit:cover; border-radius:3px; }
+.review-tray-row .review-row-text { flex:1; min-width:0; overflow-wrap:anywhere; }
+.review-empty-memo { color:var(--akari-time-fg); }
+.review-tray-row [data-review-remove] { flex:none; }
+.review-tray-actions { display:flex; flex:none; justify-content:flex-end; gap:7px; padding-top:5px; background:var(--akari-transport-bg); }
+#review-seek-marks { position:absolute; inset:0; pointer-events:none; }
+.transport-seek { position:relative; }
+.review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }
+#review-range-controls { display:flex; align-items:center; gap:3px; }
+#review-range-controls[hidden] { display:none; }
+#review-range-controls button { border:0; border-radius:4px; padding:2px 4px; background:var(--akari-control-active); color:var(--akari-transport-fg); cursor:pointer; font-size:11px; }
+.transport { container-type:inline-size; }
+@container (max-width:600px) {
+  .transport-controls { grid-template-columns:1fr auto; height:auto; min-height:34px; }
+  .transport-center { grid-column:2; }
+  .transport-right { grid-column:1 / -1; justify-self:end; }
+}
 /* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
 html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
 html.akari-gen-capturing #preview-stage > :not(#preview-layers):not(#frame-engine-preview),
@@ -8728,7 +9105,7 @@ ${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
 ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
-${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${webviewScriptText(previewBootstrapScript())}</script>
+${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${webviewScriptText(previewChatReviewScript())}</script><script>${webviewScriptText(previewBootstrapScript())}</script>
 ${materialIdentity ? `<script>${materialRangeWebviewScript('video', materialIdentity)}</script>` : ''}
 ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {
@@ -9009,10 +9386,19 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     protected async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {
-        return this.previewService.createAssetStream({
-            ...request,
-            workspaceRoots: await this.currentWorkspaceRoots()
-        });
+        const key = request.assetUri;
+        let entry = this.sharedAssetStreams.get(key);
+        if (!entry) {
+            const stream = this.currentWorkspaceRoots().then(workspaceRoots =>
+                this.previewService.createAssetStream({ ...request, workspaceRoots }));
+            entry = { stream, uses: 0 };
+            this.sharedAssetStreams.set(key, entry);
+            void stream.then(value => this.sharedAssetStreamKeys.set(value.id, key), () => {
+                if (this.sharedAssetStreams.get(key)?.stream === stream) this.sharedAssetStreams.delete(key);
+            });
+        }
+        entry.uses++;
+        return entry.stream;
     }
 
     protected async isInsideWorkspace(uri: URI): Promise<boolean> {
@@ -9046,6 +9432,18 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected async disposeAssetStreams(ids: string[]): Promise<void> {
         await Promise.all(ids.map(async id => {
+            const key = this.sharedAssetStreamKeys.get(id);
+            if (key) {
+                const entry = this.sharedAssetStreams.get(key);
+                if (entry && --entry.uses > 0) return;
+                this.sharedAssetStreams.delete(key);
+                this.sharedAssetStreamKeys.delete(id);
+                const rewriteKey = this.fragmentRewriteStreamKeys?.get(id);
+                if (rewriteKey) {
+                    this.fragmentRewriteStreamKeys.delete(id);
+                    this.fragmentRewriteCache.delete(rewriteKey);
+                }
+            }
             try {
                 await this.previewService.disposeAssetStream(id);
             } catch (error) {
@@ -9125,10 +9523,22 @@ body { display: grid; place-items: center; padding: 32px; }
             case 'relative':
             default: {
                 if (!pathValue.replace(/\\/g, '/').startsWith('assets/')) return editUri.parent.resolve(pathValue);
-                const resolved = await this.previewService.resolveProjectAssetUri({
-                    projectRootUri: editUri.parent.toString(), declaredPath: pathValue,
-                    workspaceRoots: await this.currentWorkspaceRoots()
-                });
+                const projectRootUri = editUri.parent.toString();
+                const key = JSON.stringify([projectRootUri, pathValue]);
+                let pending = (this.assetResolutionCache ??= new Map()).get(key);
+                if (!pending) {
+                    pending = this.currentWorkspaceRoots().then(workspaceRoots =>
+                        this.previewService.resolveProjectAssetUri({
+                            projectRootUri, declaredPath: pathValue, workspaceRoots
+                        })).then(value => value ?? undefined);
+                    this.assetResolutionCache.set(key, pending);
+                    void pending.then(value => {
+                        if (!value && this.assetResolutionCache.get(key) === pending) this.assetResolutionCache.delete(key);
+                    }, () => {
+                        if (this.assetResolutionCache.get(key) === pending) this.assetResolutionCache.delete(key);
+                    });
+                }
+                const resolved = await pending;
                 return resolved ? new URI(resolved) : editUri.parent.resolve(pathValue);
             }
         }

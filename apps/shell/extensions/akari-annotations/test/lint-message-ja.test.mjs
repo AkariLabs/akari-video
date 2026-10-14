@@ -38,6 +38,29 @@ test('captions.overlap は findings が無くても errors の check id から�
   assert.match(japaneseLintSummary([detail]), /字幕の表示時間が重なっています/);
 });
 
+test('cut-visibility は字幕 id を含む日本語詳細だけを表示する', () => {
+  const message = '字幕 c-0004 は映像のカットでほとんど見えません（半分未満しか残っていません）';
+  assert.match(LINT_CHECK_JA['captions.cut-visibility'], /映像のカット/u);
+  assert.equal(formatLintFailureForUi('保存後の検証で問題が見つかりました',
+    [`[captions.cut-visibility] ${message}`],
+    [{ severity: 'error', check: 'captions.cut-visibility', message }]),
+  `保存後の検証で問題が見つかりました: ${message}`);
+});
+
+test('複数 error でも先頭だけを表示し、日本語詳細なら check を重ねない', () => {
+  const first = { severity: 'error', check: 'captions.example', message: '字幕 c-0002: 表示時間を確認してください' };
+  const second = { severity: 'error', check: 'captions.cut-visibility',
+    message: '字幕 c-0004 は映像のカットでほとんど見えません' };
+  assert.equal(formatLintFailureForUi('保存後の検証で問題が見つかりました',
+    [`[${first.check}] ${first.message}`, `[${second.check}] ${second.message}`], [first, second]),
+  `保存後の検証で問題が見つかりました: ${first.message}`);
+  const english = '[future.unknown] first English error';
+  assert.equal(formatLintFailureForUi('保存後の検証で問題が見つかりました',
+    [english, `[${second.check}] ${second.message}`], [
+      { severity: 'error', check: 'future.unknown', message: 'first English error' }, second
+    ]), `保存後の検証で問題が見つかりました: ${english}`);
+});
+
 test('辞書に無い check は従来表示へ完全フォールバックする', () => {
   const detail = '[future.unknown] original english detail';
   assert.equal(japaneseLintSummary([detail]), undefined);

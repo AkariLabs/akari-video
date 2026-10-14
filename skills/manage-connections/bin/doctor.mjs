@@ -3,6 +3,7 @@
 // 接続レジストリを、無償・読み取り専用の確認だけで更新する。
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -93,7 +94,8 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   const secretValues = collectSecretValues(registry.providers, credentialState, process.env);
   const jsonOutput = `${JSON.stringify(registry, null, 2)}\n`;
   refuseSecretLeak(jsonOutput, secretValues);
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
+  const connectors = readConnectorSummary();
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors);
   refuseSecretLeak(htmlOutput, secretValues);
 
   fs.writeFileSync(connectionsPath, jsonOutput, "utf8");
@@ -103,6 +105,7 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   for (const result of results) {
     console.log(`${result.id}: ${result.doctor.status} — ${displayDetail(result.doctor.detail)}`);
   }
+  printConnectorSummary(connectors);
   console.log(t("cli.connections.general.reportPath", { path: reportPath }));
 }
 
@@ -153,7 +156,8 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
     writeRegistry(resolved.layers.workspace.path, workspaceRegistry, secretValues);
   }
 
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
+  const connectors = readConnectorSummary();
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors);
   refuseSecretLeak(htmlOutput, secretValues);
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
@@ -166,7 +170,39 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   for (const result of results) {
     console.log(`${result.id} [${result.layer}]: ${result.doctor.status} — ${displayDetail(result.doctor.detail)}`);
   }
+  printConnectorSummary(connectors);
   console.log(t("cli.connections.general.reportPath", { path: reportPath }));
+}
+
+const connectorIds = ["fal", "higgsfield", "runway", "elevenlabs", "fish-audio", "suno"];
+
+export function readConnectorSummary(env = process.env, home = os.homedir()) {
+  const file = path.join(env.AKARI_HOME || path.join(home, ".akari"), "connectors.json");
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return { exists: false, enabled: {}, generationOrder: connectorIds, fallbackOnFailure: false };
+  }
+  const enabled = Object.fromEntries(connectorIds.map(id => [id, data?.enabled?.[id] !== false]));
+  const requested = Array.isArray(data?.generationOrder)
+    ? data.generationOrder.filter(id => connectorIds.includes(id)) : [];
+  return { exists: true, enabled,
+    generationOrder: [...new Set(requested), ...connectorIds.filter(id => !requested.includes(id))],
+    fallbackOnFailure: data?.fallbackOnFailure === true };
+}
+
+function printConnectorSummary(summary) {
+  console.log(`${t("cli.connections.connectors.connectorsTitle")}:`);
+  if (!summary.exists) {
+    console.log(`  ${t("cli.connections.connectors.noSettingsMessage")}`);
+    return;
+  }
+  const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
+  console.log(`  ${t("cli.connections.connectors.enabledLabel")}: ${connectorIds.map(id => `${id}=${state(summary.enabled[id])}`).join(" / ")}`);
+  console.log(`  ${t("cli.connections.connectors.generationOrderLabel")}: ${summary.generationOrder.join(" → ")}`);
+  console.log(`  ${t("cli.connections.connectors.automaticFallbackLabel")}: ${state(summary.fallbackOnFailure)}`);
+  console.log(`  ${t("cli.connections.connectors.stateListLabel")}`);
 }
 
 function readRegistry(connectionsPath) {
@@ -466,7 +502,7 @@ function displayNote(provider, field, fallback) {
   return Array.isArray(value) ? arrayText(value) : value ?? fallback;
 }
 
-function renderReport(registry, results, credentialState, checkedAt, credentialsPath) {
+function renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors) {
   const resultById = new Map(results.map((item) => [item.id, item]));
   const cards = registry.providers.map((provider) => {
     const result = resultById.get(provider.id);
@@ -513,11 +549,16 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
     return `<li>${escapeHtml(provider.id)}: <code>${escapeHtml(extractEnvName(provider.env) ?? "KEY_NAME")}</code>${typeof notes.setup_url === "string" ? ` — <a href="${escapeHtml(notes.setup_url)}">${t("cli.connections.guide.source")}</a>` : ""}</li>`;
   }).join("")}</ul></section>`;
   const policy = registry.policy;
+  const state = value => t(`cli.connections.connectors.${value ? "on" : "off"}`);
+  const connectorsSection = connectors.exists
+    ? `<section class="policy"><h2>${t("cli.connections.connectors.connectorsTitle")}</h2><dl><dt>${t("cli.connections.connectors.enabledLabel")}</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${state(connectors.enabled[id])}`).join(" / "))}</dd><dt>${t("cli.connections.connectors.generationOrderLabel")}</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>${t("cli.connections.connectors.automaticFallbackLabel")}</dt><dd>${state(connectors.fallbackOnFailure)}</dd></dl><p>${t("cli.connections.connectors.stateListLabel")}</p></section>`
+    : `<section class="policy"><h2>${t("cli.connections.connectors.connectorsTitle")}</h2><p>${t("cli.connections.connectors.noSettingsMessage")}</p></section>`;
   return `<!doctype html>
 <html lang="${getLanguage()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${t("cli.connections.general.title")}</title><style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.card-head .layer-badge{background:#263b55}.layer-project .layer-badge{background:#4c356b}.layer-workspace .layer-badge{background:#27534c}.layer-default .layer-badge{background:#4e4930}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>
 <body><header><h1>${t("cli.connections.general.title")}</h1><p class="summary">${t("cli.connections.general.summary", { checkedAt: escapeHtml(checkedAt) })}</p></header>
 ${missingGuide}
+${connectorsSection}
 <section class="policy"><h2>${t("cli.connections.policy.title")}</h2><dl><dt>${t("cli.connections.policy.currency")}</dt><dd>${escapeHtml(policy.currency)}</dd><dt>${t("cli.connections.policy.monthly")}</dt><dd>${escapeHtml(money(policy.monthly_budget, policy.currency))}</dd><dt>${t("cli.connections.policy.threshold")}</dt><dd>${escapeHtml(money(policy.approval_threshold, policy.currency))}</dd><dt>${t("cli.connections.policy.spending")}</dt><dd>${t("cli.connections.policy.noData")}</dd></dl></section>
 <main class="grid">${cards}</main></body></html>\n`;
 }

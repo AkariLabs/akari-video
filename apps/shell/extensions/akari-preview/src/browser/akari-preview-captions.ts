@@ -45,8 +45,11 @@ export interface LegacyPreviewCaptionTextStyle {
 // 一意に特定する id が必要になったため追加（他フィールドは既存どおり最小限のまま）。
 export interface PreviewCaption {
     id?: string;
+    src?: string;
     start: number;
     end: number;
+    emphasisStart?: number;
+    emphasisEnd?: number;
     text: string;
     style?: 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
     words?: { start: number; end: number; text: string }[];

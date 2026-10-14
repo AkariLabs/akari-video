@@ -1,0 +1,12 @@
+{"method":"turn/started","params":{"threadId":"thread-fixed","turn":{"id":"turn-fixed","status":"inProgress"}}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"userMessage","id":"user-fixed"}}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"userMessage","id":"user-fixed"}}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"reasoning","id":"reason-fixed","summary":[]}}}
+{"method":"item/reasoning/summaryPartAdded","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"reason-fixed","summaryIndex":0}}
+{"method":"item/reasoning/summaryTextDelta","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"reason-fixed","summaryIndex":0,"delta":"高さを順に比較します"}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"reasoning","id":"reason-fixed","summary":["高さを順に比較します"]}}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"agentMessage","id":"message-fixed"}}}
+{"method":"item/agentMessage/delta","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"message-fixed","delta":"A"}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"agentMessage","id":"message-fixed","text":"A"}}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"thread-fixed","turnId":"turn-fixed","tokenUsage":{"last":{"totalTokens":15},"modelContextWindow":128000}}}
+{"method":"turn/completed","params":{"threadId":"thread-fixed","turn":{"id":"turn-fixed","status":"completed","error":null,"items":[]}}}

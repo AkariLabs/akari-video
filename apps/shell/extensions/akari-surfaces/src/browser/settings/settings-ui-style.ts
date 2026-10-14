@@ -21,7 +21,24 @@ export const AKARI_SETTINGS_UI_CSS = `
 ${S} .akari-set-icon { width: 16px; height: 16px; flex: 0 0 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; display: block; }
 ${S} .akari-set-icon-sm { width: 13px; height: 13px; flex-basis: 13px; }
 
+${S} .akari-set-layout { display: grid; grid-template-columns: minmax(185px, 245px) minmax(155px, 195px) minmax(0, 1fr); min-width: 0; }
 ${S} .akari-set-nav { flex: 0 0 270px; max-width: 42%; overflow-y: auto; box-sizing: border-box; padding: 10px; display: flex; flex-direction: column; gap: 1px; background: var(--akari-bg); border-right: 1px solid var(--akari-line-inner); }
+${S} .akari-set-layout .akari-set-nav { max-width: none; min-width: 0; }
+${S} .akari-set-contents { min-width: 0; overflow-y: auto; box-sizing: border-box; padding: 20px 10px; background: var(--akari-bg); border-right: 1px solid var(--akari-line-inner); }
+${S} .akari-set-contents-details > summary { display: none; }
+${S} .akari-set-contents-list { display: flex; flex-direction: column; gap: 2px; }
+${S} .akari-set-contents-list button { all: unset; box-sizing: border-box; cursor: pointer; border-radius: 7px; padding: 8px 10px; color: var(--akari-muted); font-size: 12px; line-height: 1.4; }
+${S} .akari-set-contents-list button:hover { background: var(--akari-card); color: var(--akari-ink); }
+${S} .akari-set-contents-list button[aria-current="page"] { background: var(--akari-elevated); color: var(--akari-ink); font-weight: 600; }
+${S} .akari-set-contents-list button:focus-visible { outline: 1px solid var(--akari-accent-light); }
+${S} .akari-set-scroll { min-width: 0; min-height: 0; overflow-y: auto; position: relative; background: var(--akari-bg); }
+${S} .akari-set-layout[data-contents-narrow] { grid-template-columns: minmax(170px, 220px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+${S} .akari-set-layout[data-contents-narrow] .akari-set-nav { grid-column: 1; grid-row: 1; }
+${S} .akari-set-layout[data-contents-narrow] .akari-set-contents { grid-column: 1; grid-row: 2; max-height: 45vh; border-top: 1px solid var(--akari-line-inner); padding: 8px; }
+${S} .akari-set-layout[data-contents-narrow] .akari-set-contents-details > summary { display: block; cursor: pointer; color: var(--akari-muted); font-size: 12px; padding: 7px 8px; }
+${S} .akari-set-layout[data-contents-narrow] .akari-set-scroll { grid-column: 2; grid-row: 1 / 3; }
+${S} [data-akari-settings-section="connections"] details { margin-top: 20px; border-top: 1px solid var(--akari-line-inner); padding-top: 12px; }
+${S} [data-akari-settings-section="connections"] details > summary { cursor: pointer; color: var(--akari-muted); font-size: 12px; }
 ${S} .akari-set-nav-title { font-weight: 600; font-size: 14px; padding: 4px 10px 12px; margin: 0; color: var(--akari-ink); }
 ${S} .akari-set-nav-group { font-size: 11px; color: var(--akari-faint); padding: 10px 10px 3px; margin: 0; font-weight: 400; }
 ${S} .akari-set-nav-group[hidden] { display: none; }
@@ -36,7 +53,9 @@ ${S} button.akari-set-nav-item[aria-current="true"] { background: var(--akari-el
 ${S} button.akari-set-nav-item[aria-current="true"] .akari-set-icon { color: var(--akari-accent); }
 ${S} button.akari-set-nav-item:focus-visible { outline: 1px solid var(--akari-accent-light); outline-offset: -1px; }
 
-${S} .akari-set-page { flex: 1; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 24px 28px 32px; color: var(--akari-ink); }
+${S} .akari-set-page { box-sizing: border-box; padding: 24px 28px 32px; color: var(--akari-ink); }
+${S} .akari-set-page[data-settings-last] { min-height: 100%; }
+${S} .akari-set-page:not([hidden]):not([data-settings-first]) { border-top: 1px solid var(--akari-line-inner); }
 ${S} .akari-set-page:not([data-akari-settings-section="ai-models"]) { width: 100%; max-width: 770px; margin-inline: auto; }
 ${S} .akari-set-page h2 { font-size: 17px; margin: 0 0 4px; color: var(--akari-ink); }
 ${S} .akari-set-lead { color: var(--akari-muted); margin: 0 0 20px; font-size: 13px; line-height: 1.55; }

@@ -236,9 +236,8 @@ test('shell 暫定 fetch gate を撤去し正本 controller の観測値を使�
 });
 
 test('設定・初期状態・原本 URL は host から webview まで伝播する', () => {
-    assert.match(frontendSource,
-        /'akari\.preview\.scrubAudio': \{\s*type: 'boolean',\s*default: true,/);
-    assert.match(handlerSource, /preferences\.get<boolean>\('akari\.preview\.scrubAudio', true\)/);
+    assert.doesNotMatch(frontendSource, /'akari\.preview\.scrubAudio': \{/);
+    assert.match(handlerSource, /preferences\.get<boolean>\('akari\.preview\.scrubAudio', false\) === true/);
     assert.match(handlerSource, /scrubAudioEnabled,\s*previewAudioWorkletUrl:/);
     assert.match(handlerSource, /onPreferenceChanged\(event => \{[\s\S]*?'akari\.preview\.scrubAudio'/);
     assert.doesNotMatch(handlerSource,

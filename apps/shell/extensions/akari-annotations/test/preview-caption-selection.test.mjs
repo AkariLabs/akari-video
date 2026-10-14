@@ -19,5 +19,5 @@ test('preview caption ID selection reaches the caption inspector snapshot', () =
     assert.match(widget, /sourceStart: caption\.start, sourceEnd: caption\.end/);
     assert.match(widget, /effectiveTextStyle/);
     const preview = readHandlerSource();
-    assert.match(preview, /if \(captionId === selectedCaptionId\) \{\s*updateCaptionSelectBox\(\);\s*if \(report\) window\.akari\.reportCaptionSelection\(selectedCaptionId\)/);
+    assert.match(preview, /if \(captionId === selectedCaptionId\) \{\s*(?:if \(typeof watchSelectedCaptionInk === 'function'\) watchSelectedCaptionInk\(\);\s*)?updateCaptionSelectBox\(\);\s*if \(report\) window\.akari\.reportCaptionSelection\(selectedCaptionId\)/);
 });

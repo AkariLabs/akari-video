@@ -1,7 +1,7 @@
 import { t } from '@akari-video/i18n';
 import { buildExportEncoderChoices, ExportEncoder, ExportPlatform } from 'akari-shell-strip/lib/common/export-encoder-choices';
 
-// ナビの順（2026-09-22 設定ダイアログ刷新）。Akari アカウントを先頭に置き、テーマは開発者モードから外観へ移した。
+// 節の定義。左のナビは SETTINGS_PILLARS の六つにまとめる。
 // icon は browser/settings/settings-icons.ts の線画 SVG の名前（絵文字・記号文字は使わない）。
 export const SETTINGS_SECTIONS = [
     { id: 'account', label: t('surfaces.settings.akariAccount.label'), group: 'main', icon: 'user' },
@@ -27,6 +27,39 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 
 export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
+
+export const SETTINGS_PILLARS = [
+    { id: 'general', label: t('surfaces.settingsSections.ui.generalLabel'), icon: 'user', sections: ['account', 'start', 'developer', 'help', 'about'] },
+    { id: 'partner', label: t('surfaces.settingsSections.ui.partnerLabel'), icon: 'bot', sections: ['partner'] },
+    { id: 'connect', label: t('surfaces.settingsSections.ui.connectLabel'), icon: 'key', sections: ['connections', 'ai-models', 'narration', 'transcribe', 'listening', 'export'] },
+    { id: 'workflow', label: t('surfaces.settingsSections.ui.workflowLimitsLabel'), icon: 'gauge', sections: ['quality', 'notifications', 'tools', 'statistics'] },
+    { id: 'display', label: t('surfaces.settingsSections.ui.displayLabel'), icon: 'contrast', sections: ['appearance', 'shortcuts'] },
+    { id: 'data', label: t('surfaces.settingsSections.ui.dataLocationsLabel'), icon: 'disk', sections: ['storage', 'privacy'] }
+] as const;
+export type SettingsPillarId = typeof SETTINGS_PILLARS[number]['id'];
+export function settingsPillarForSection(section: SettingsSectionId): SettingsPillarId {
+    return SETTINGS_PILLARS.find(pillar => (pillar.sections as readonly string[]).includes(section))?.id ?? 'general';
+}
+export function defaultSectionForPillar(pillar: SettingsPillarId): SettingsSectionId {
+    return SETTINGS_PILLARS.find(item => item.id === pillar)!.sections[0] as SettingsSectionId;
+}
+
+export function sectionsForPillar(pillar: SettingsPillarId, vibePreviewEnabled: boolean): SettingsSectionId[] {
+    return SETTINGS_PILLARS.find(item => item.id === pillar)!.sections
+        .filter(id => vibePreviewEnabled || id !== 'listening') as SettingsSectionId[];
+}
+
+/** 見出しの上端から、ページ上端に最も近い節を選ぶ。末尾では最後の節を選ぶ。 */
+export function activeSettingsSection(ids: readonly SettingsSectionId[], headingTops: readonly number[], atBottom: boolean): SettingsSectionId | undefined {
+    if (!ids.length) return undefined;
+    if (atBottom) return ids[ids.length - 1];
+    let active = 0;
+    for (let index = 0; index < ids.length; index++) {
+        if (headingTops[index] <= 48) active = index;
+        else break;
+    }
+    return ids[active];
+}
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
     account: t('surfaces.settings.manageAkariAccountConnectionReceiptPurchasedAssets.message'),
@@ -71,6 +104,7 @@ export function isSettingsSectionVisible(id: SettingsSectionId, selected: Settin
 
 // スキーマは browser/akari-preferences.ts が所有。純関数側は文字列ミラー。
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+export const AKARI_PREVIEW_SCRUB_AUDIO = 'akari.preview.scrubAudio';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
@@ -112,6 +146,7 @@ export const STATUS_BAR_KEYS = {
     intervalSec: 'akari.statusBar.intervalSec', accountBalance: 'akari.statusBar.accountBalance'
 } as const;
 export const AKARI_PARTNER_REOPEN = 'akari.partner.reopenLast';
+export const AKARI_CHAT_EXPERIMENTAL_ENABLED = 'akari.chat.experimental.enabled';
 export const AKARI_PARTNER_PERMISSION_MODE = 'akari.partner.permissionMode';
 
 export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[]> = {
@@ -123,11 +158,11 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     appearance: [WORKBENCH_COLOR_THEME, AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, ...Object.values(STATUS_BAR_KEYS)],
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
     'ai-models': [],
-    partner: [AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE],
+    partner: [AKARI_PARTNER_REOPEN, AKARI_CHAT_EXPERIMENTAL_ENABLED, AKARI_PARTNER_PERMISSION_MODE],
     transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     listening: ['akari.listening.engine', 'akari.vibe.mode'],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
-    quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY],
+    quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, AKARI_PREVIEW_SCRUB_AUDIO],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
     shortcuts: [],
@@ -153,7 +188,8 @@ export function sectionForPreferenceKey(key: string): SettingsSectionId | undefi
 export function resolveSettingsSectionId(argument: unknown): SettingsSectionId | undefined {
     const record = typeof argument === 'object' && argument !== null ? argument as { section?: unknown; preference?: unknown } : undefined;
     const id = record && 'section' in record ? record.section : argument;
-    const section = SETTINGS_SECTIONS.find(item => item.id === id)?.id;
+    const section = SETTINGS_SECTIONS.find(item => item.id === id)?.id ??
+        SETTINGS_PILLARS.find(item => item.id === id)?.sections[0] as SettingsSectionId | undefined;
     if (section === 'developer' && typeof record?.preference === 'string') {
         return sectionForPreferenceKey(record.preference) ?? section;
     }

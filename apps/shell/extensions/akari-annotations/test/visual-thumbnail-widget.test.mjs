@@ -10,11 +10,13 @@ import { visualThumbnailRetryPlan } from '../lib/common/visual-thumbnail-retry.j
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName } from '../lib/common/visual-thumbnail-disk-cache.js';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
 import { visualThumbnailKey, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
+import { visualThumbnailReuseKey } from '../lib/browser/visual-thumbnail-reuse-key.js';
 import { visualHoverMode } from '../lib/common/visual-hover-mode.js';
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../lib/common/hover-popup-geometry.js';
 
 import { createCaptionHoverPreview } from '../lib/common/caption-hover-preview.js';
 import { mergeCaptionTextStyles } from '../lib/common/caption-store.js';
+import { shouldInvalidateVisualForPath } from '../lib/common/caption-track-layout.js';
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;
@@ -43,13 +45,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async predicate => { const end = Date.now() + 4000; while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); } };
 function fixture(t, prepare, options = {}) {
   const captures = [], frames = [];
-  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot',
+  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualThumbnailReuseKey',
     'visualThumbnailRetryPlan', 'isVisualThumbnailDiskEntry', 'pruneThumbnailIndex', 'visualThumbnailCacheFileName', 'BinaryBuffer',
     'visualHoverMode', 'hoverPopupGeometry', 'createCaptionHoverPreview', 'HOVER_POPUP_DELAY_MS', 'mergeCaptionTextStyles',
     `const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails'; ${code};return Widget;`)(
     { requestAnimationFrame: callback => frames.push(callback),
       electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } }, ...options.window },
     options.document ?? { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot,
+    visualThumbnailReuseKey,
     visualThumbnailRetryPlan, isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName, BinaryBuffer,
     visualHoverMode, hoverPopupGeometry, createCaptionHoverPreview, HOVER_POPUP_DELAY_MS, mergeCaptionTextStyles);
   const w = new Widget();
@@ -57,7 +60,9 @@ function fixture(t, prepare, options = {}) {
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
   Object.assign(w, { location: { editUri: root }, currentWorkspaceRoots: async () => [`file:///${root.value}`],
     visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
-    failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
+    failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), visualReuseKeys: new WeakMap(),
+    visualReuseGeometry: new WeakMap(),
+    visibleDuration: () => 10, isDisposed: false, stripScroll: new Element(),
     editDocument: { version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [{ id: 'v', lane: 'visual', items: [
       { id: 'parent', at: 0, duration: 120, opacity: 1, source: { kind: 'group' }, items: [
         { id: 'title', at: 0, duration: 120, source: { kind: 'html', path: 'title.html', params: { text: 'A' } } },
@@ -113,6 +118,20 @@ test('unrelated sibling changes reuse pixels but parent transform changes genera
   f.render(); await wait(200); assert.equal(f.captures.length, 1);
   f.w.editDocument.tracks[0].items[0].transform = { x: 80 };
   f.render(); await until(() => f.captures.length === 2);
+});
+
+test('入力が同じ完成済みサムネイルは再要求せず、依存版が変われば再要求する', async t => {
+  const f = fixture(t);
+  f.render();
+  await until(() => f.element.dataset.akariVisualThumbnail === 'ready');
+  let requests = 0;
+  const request = f.w.visualThumbnails.request.bind(f.w.visualThumbnails);
+  f.w.visualThumbnails.request = (...args) => { requests++; return request(...args); };
+  f.render();
+  assert.equal(requests, 0);
+  f.w.visualDependencyRevisions.set('title', 1);
+  f.render();
+  assert.equal(requests, 1);
 });
 
 test('partially visible long clips repeat cached pixels through pan, while short clips retain contain', async t => {
@@ -331,13 +350,14 @@ test('the real file watcher invalidates motion/edit.json and motion/credit.json 
   };
   visit(klass); assert.ok(watcher);
   const js = ts.transpileModule(`function install(){return ${watcher.getText(source)};}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const install = new Function(`${js};return install;`)();
+  const install = new Function('SAVED_BY_PATH', 'shouldInvalidateVisualForPath', `${js};return install;`)(
+    '.akari/saved-by.json', shouldInvalidateVisualForPath);
   const U = URI.default ?? URI;
   const uri = path => new U(`file:///project/${path}`);
   let renders = 0, editReloads = 0;
   const w = { location: { root: new U('file:///project'), editUri: uri('edit.json'), reviewUri: uri('review.json'), captionsUri: uri('captions.json') },
     visualInputEpoch: 0, visualDependencies: new Map([['child', [uri('motion/edit.json'), uri('motion/credit.json')]], ['other', [uri('other.html')]]]),
-    htmlPartsCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Map(), renderStrip: () => renders++,
+    htmlPartsCache: new Map(), motionReferenceCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Map(), renderStrip: () => renders++, scheduleStripRender: () => renders++,
     reloadEdit: async () => editReloads++, reloadReview: async () => {}, reloadCaptions: async () => {}, isRecentWrite: () => false };
   const change = path => install.call(w)({ changes: [{ resource: uri(path) }], contains: target => target?.toString() === uri(path).toString() });
   change('motion/edit.json'); change('motion/credit.json');

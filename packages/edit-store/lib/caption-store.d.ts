@@ -305,9 +305,15 @@ export declare function applyWordBookToCaptionsInSourceWithNotices(source: strin
     source: string;
     notices: string[];
 };
-export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch, catalog?: TextstyleCatalog): string;
+export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch, options?: {
+    catalog?: TextstyleCatalog;
+} | TextstyleCatalog): string;
 export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null, options?: {
     catalog?: TextstyleCatalog;
+    output?: {
+        width: number;
+        height: number;
+    };
 }): {
     source: string;
     changed: number;

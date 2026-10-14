@@ -292,5 +292,9 @@
   "partner.web.externalNavigation.declineExternalOpenAction": "Don't open",
   "partner.web.externalNavigation.leaveDeepseekHarnessText": "Leave DeepSeek Harness",
   "partner.web.externalNavigation.openBrowserAction": "Open in default browser",
-  "partner.web.externalNavigation.openBrowserConfirmMessage": "Open {value1} in your default browser?"
+  "partner.web.externalNavigation.openBrowserConfirmMessage": "Open {value1} in your default browser?",
+  "partner.akariPartnerCommandContribution.ui.loginClaudeCodeLabel": "Login with Claude Code",
+  "partner.akariPartnerWidget.ui.trialLabel": "Trial",
+  "partner.akariPartnerWidget.ui.canDiscussVideoCreationViaChatMessage": "You can discuss video creation via chat.",
+  "partner.partnerReviewTarget.ui.partnerLabel": "Partner"
 }

@@ -65,11 +65,6 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                     default: true,
                     description: t('preview.previewSettings.description.useFrameEngineProductPreviewFalseUsesLegacyDescription')
                 },
-                'akari.preview.scrubAudio': {
-                    type: 'boolean',
-                    default: true,
-                    description: t('preview.previewSettings.description.scrubAudioDescription')
-                },
                 'akari.preview.exportLook': {
                     type: 'boolean',
                     default: false,

@@ -1,5 +1,11 @@
 export const CAPTION_FRAGMENT_BREAKS_STORAGE_KEY = 'akari.captions.fragmentBreaks.visible';
 
+export function shouldInvalidateVisualForPath(path: string, editPath?: string, captionsPath?: string): boolean {
+    if (path === editPath || path === captionsPath) return false;
+    if (/\/(?:\.akari|\.git|exports)\//u.test(path) || /\.[^/]+\.tmp$/u.test(path)) return false;
+    return /\.(html?|css|js|mjs|json|png|jpe?g|webp|svg|gif|glb|gltf|bin|hdr|exr|ttf|otf|woff2?)$/iu.test(path);
+}
+
 export function readCaptionFragmentBreaksVisible(storage?: Pick<Storage, 'getItem'>): boolean {
     if (!storage) return true;
     try {
@@ -21,15 +27,26 @@ export function writeCaptionFragmentBreaksVisible(
     }
 }
 
-export async function renderAroundCaptionDisplayReload(
-    resolveDisplay: () => Promise<void>,
-    render: () => void,
-    isCurrent: () => boolean
+export async function renderAfterCaptionStateChange(
+    scheduleRender: () => void,
+    resolveDisplay?: () => Promise<boolean>,
+    isCurrent: () => boolean = () => true
 ): Promise<void> {
-    const pending = resolveDisplay();
-    if (isCurrent()) render();
-    await pending;
-    if (isCurrent()) render();
+    scheduleRender();
+    if (!resolveDisplay) return;
+    const changed = await resolveDisplay();
+    if (changed && isCurrent()) scheduleRender();
+}
+
+export function sameCaptionDisplayCueGroups<T>(
+    left: ReadonlyMap<string, readonly T[]>, right: ReadonlyMap<string, readonly T[]>
+): boolean {
+    if (left.size !== right.size) return false;
+    for (const [key, cues] of left) {
+        const next = right.get(key);
+        if (!next || JSON.stringify(cues) !== JSON.stringify(next)) return false;
+    }
+    return true;
 }
 
 export interface CaptionDisplayCueLike {

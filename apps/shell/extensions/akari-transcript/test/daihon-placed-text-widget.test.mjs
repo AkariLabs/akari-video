@@ -141,6 +141,7 @@ function widget(overrides = {}) {
     rows: buildDaihonRows([...spoken, ...placed], null), sourceCaptions: structuredClone([...spoken, ...placed]),
     captionsUri: uri('captions.json'), rootUri: uri(''), editUri: uri('edit.json'),
     silencesBySourceId: new Map(), segments: [], editSources: [],
+    sourceGroups: [], openSourceGroupIds: new Set(), savedOpenSourceGroupIds: new Set(),
     notify() {}, renderPlacedText() {}, renderPlacedEditor() {},
     async reload() {}, ...overrides
   });
@@ -192,6 +193,121 @@ test('台本の選んだ一語は look だけを一回の applyCaptionStyle に�
   assert.deepEqual(calls[0].input.targets, [{ caption_id: caption.id, range: { from: 6, to: 8 } }]);
   assert.deepEqual(Object.keys(calls[0].input.parts), ['look']);
   assert.deepEqual(calls[0].input.source, { kind: 'builtin', id: 'news-yellow-label' });
+});
+
+test('words の無い行で本文から選んだ語を run の書き込み要求に変える', async () => {
+  const caption = { id: 'c-0004', text: '動画編集を学ぶ', start: 2, end: 4 };
+  const selectable = require('../lib/common/daihon-word-units.js').selectableCaptionWords(
+    caption.text, caption.start, caption.end, undefined);
+  const units = require('../lib/common/daihon-word-units.js').groupTokensIntoWords(caption.text, selectable);
+  assert.equal(units[1].text, '編集');
+  const calls = [];
+  const instance = widget({ sourceCaptions: [caption], wordUnit: 'word',
+    wordUnitsByRowId: new Map([[caption.id, units]]),
+    wordRanges: [{ row: caption.id, a: 1, b: 1 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify({ captions: [caption] }), request: { expectedHashes: {} } });
+    }, annotationsService: { async applyCaptionStyle(request) {
+      calls.push(request);
+      return { ok: true, written: ['captions.json'], changed: ['captions[0].runs'], notices: [] };
+    } } });
+  await instance.applyWordPreset('neon');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].input.targets,
+    [{ caption_id: caption.id, range: { from: 2, to: 4 } }]);
+  assert.deepEqual(calls[0].input.source, { kind: 'builtin', id: 'neon' });
+  const { planCaptionStyleEdit, TEXTSTYLE_CATALOG } = require('@akari-video/edit-store');
+  const saved = planCaptionStyleEdit({ captions: { captions: [caption] },
+    targets: calls[0].input.targets, parts: { look: TEXTSTYLE_CATALOG.neon.style },
+    source: calls[0].input.source }).next.captions;
+  const marks = instance.resolveWordPresets(saved, [{ ...caption,
+    words: units.map(({ text, start, end }) => ({ text, start, end })) }]);
+  assert.equal(marks.get(caption.id)[1].color, '#aefcff');
+
+  const clears = [];
+  instance.runCaptionCommand = async (_label, operation) => operation({
+    captions: JSON.stringify(saved), request: { expectedHashes: {} }
+  });
+  instance.annotationsService.clearCaptionStyle = async request => {
+    clears.push(request);
+    return { ok: true, written: ['captions.json'], changed: ['captions[0].runs'], notices: [] };
+  };
+  await instance.clearWordPreset();
+  assert.deepEqual(clears[0].input,
+    { targets: [{ caption_id: caption.id, range: { from: 2, to: 4 } }], mode: 'range' });
+});
+
+test('words の無い行で強調カードを押すと run の書き込み要求まで届く', async () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  try {
+    const caption = { id: 'c-0004', text: '動画編集を学ぶ', start: 2, end: 4 };
+    const selectable = require('../lib/common/daihon-word-units.js').selectableCaptionWords(
+      caption.text, caption.start, caption.end, undefined);
+    const units = require('../lib/common/daihon-word-units.js').groupTokensIntoWords(caption.text, selectable);
+    const body = fakeNode();
+    let written;
+    const requestReady = new Promise(resolve => { written = resolve; });
+    const instance = widget({ rows: [{ ...caption, words: selectable }], sourceCaptions: [caption],
+      wordUnit: 'word', wordUnitsByRowId: new Map([[caption.id, units]]),
+      wordRanges: [{ row: caption.id, a: 1, b: 1 }], dockBody: body,
+      sourceIdForRow: () => 'camera-a',
+      async runCaptionCommand(_label, operation) {
+        return operation({ captions: JSON.stringify({ captions: [caption] }), request: { expectedHashes: {} } });
+      }, annotationsService: { async applyCaptionStyle(request) {
+        written(request);
+        return { ok: true, written: ['captions.json'], changed: ['captions[0].runs'], notices: [] };
+      } } });
+    instance.renderDockEmphasis();
+    const card = body.children[1].children.find(child => child.dataset.emphasisPreset === 'neon');
+    assert.equal(card.disabled, false);
+    card.listeners.click();
+    const request = await requestReady;
+    assert.deepEqual(request.input.targets,
+      [{ caption_id: caption.id, range: { from: 2, to: 4 } }]);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('words の無い行から作った語でも映像ごとカットの範囲を開く', () => {
+  const text = '動画編集を学ぶ';
+  const selectable = require('../lib/common/daihon-word-units.js').selectableCaptionWords(text, 2, 4, undefined);
+  const calls = [];
+  const instance = widget({ rows: [{ id: 'c-0004', text, timeDomain: 'source',
+    words: selectable }], wordRanges: [{ row: 'c-0004', a: 1, b: 1 }],
+    sourceIdForRow: () => 'camera-a', audioOnlyCutReason: () => undefined,
+    closePop() {}, openCutRangeEditor(row, range) { calls.push({ row, range }); } });
+  instance.openCutRangeEditorForSelection();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].range.kind, 'word');
+  assert.equal(calls[0].range.label, '編集');
+  assert.deepEqual([calls[0].range.from, calls[0].range.to],
+    [selectable[1].start, selectable[1].end]);
+});
+
+test('words の無い行でも旧い強調を選んだ語から解除できる', async () => {
+  const caption = { id: 'c-0004', src: 'camera-a', text: '動画編集を学ぶ', start: 2, end: 4 };
+  const selectable = require('../lib/common/daihon-word-units.js').selectableCaptionWords(
+    caption.text, caption.start, caption.end, undefined);
+  const units = require('../lib/common/daihon-word-units.js').groupTokensIntoWords(caption.text, selectable);
+  const root = { captions: [caption], emphasis_words: [{ id: 'e-0001', src: caption.src,
+    t_start: selectable[1].start, t_end: selectable[1].end, word: '編集',
+    emotion: 'neutral', style_preset: 'neon', inherit_caption_size: true }] };
+  const calls = [];
+  const instance = widget({ sourceCaptions: [caption], wordUnit: 'word',
+    wordUnitsByRowId: new Map([[caption.id, units]]),
+    wordRanges: [{ row: caption.id, a: 1, b: 1 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify(root), request: { expectedHashes: {} } });
+    }, annotationsService: { async clearCaptionStyle(request) {
+      calls.push(request);
+      return { ok: true, written: ['captions.json'], changed: ['emphasis_words'], notices: [] };
+    } } });
+  await instance.clearWordPreset();
+  assert.deepEqual(calls[0].input.targets,
+    [{ caption_id: caption.id, range: { from: 2, to: 4 } }]);
+  const cleared = planCaptionStyleClear({ captions: root,
+    targets: calls[0].input.targets, mode: 'range' }).next.captions;
+  assert.equal(cleared.emphasis_words?.length ?? 0, 0);
 });
 
 test('選択後に語の区切りが変わった行は新しい hash だけで別の語へ当てない', async () => {
@@ -1137,11 +1253,11 @@ test('行の選択は操作バーを出し、見た目を押した後のドッ�
     instance.openRowDock('template');
     assert.equal(editor.children[0], actionBar);
     assert.equal(editor.children[1], grip);
-    assert.equal(title.textContent, '発話1');
+    assert.equal(title.textContent, '行: 発話1');
     assert.equal(hint.hidden, false);
     instance.dockTab = 'time';
     instance.setSelection({ selected: ['r1', 'r2', 'r3'], anchorId: 'r1' }, false);
-    assert.equal(title.textContent, '3 行を選択中');
+    assert.equal(title.textContent, '行: 3 行を選択中');
     assert.equal(instance.dockTab, 'time');
     assert.equal(actionBar.children[0].textContent, '3 行を選択中');
     instance.dismissDock();
@@ -1177,7 +1293,9 @@ test('語と候補を選ぶと下部バーの操作が切り替わる', () => {
   try {
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent),
-      ['「語」', '✎ 直す', '✦ 選んだ文字だけ', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
+      ['単語「語」を選択中', '✎ 直す', '✦ 強調', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
+    assert.equal(actionBar.children[2].title, '✦ 選んだ文字だけ');
+    assert.equal(actionBar.children[2].attributes['aria-label'], '✦ 選んだ文字だけ');
     instance.candidateBar = { title: 'フィラー「えー」', actions: [{ label: '字幕からだけ消す（音声はそのまま）', run() {} }] };
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent), ['フィラー「えー」', '字幕からだけ消す（音声はそのまま）', '✕']);
@@ -1193,7 +1311,7 @@ test('語の題は頭と末尾の空白を除いて六字で省略し全文を�
     selectionRows: () => [{ id: 'r1', words: [{ text: ' strong match ', start: 0, end: 1 }] }] });
   try {
     instance.renderActionBar();
-    assert.equal(actionBar.children[0].textContent, '「stron…」');
+    assert.equal(actionBar.children[0].textContent, '単語「stro…」を選択中');
     assert.equal(actionBar.children[0].title, ' strong match ');
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
@@ -1208,8 +1326,11 @@ test('語の題は絵文字を書記素で数えて省略する', () => {
     selectionRows: () => [{ id: 'r1', words: [{ text: heading, start: 0, end: 1 }] }] });
   try {
     instance.renderActionBar();
-    assert.equal(actionBar.children[0].textContent, `「${'👩‍🚀'.repeat(5)}…」`);
+    assert.equal(actionBar.children[0].textContent, `単語「${'👩‍🚀'.repeat(4)}…」を選択中`);
     assert.equal(actionBar.children[0].title, heading);
+    actionBar.clientWidth = 600;
+    instance.renderActionBar();
+    assert.equal(actionBar.children[0].textContent, `単語「${heading}」を選択中`);
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 
@@ -1245,7 +1366,7 @@ test('候補バーの ▶ 聞くは残し、書き込む操作の後だけ消す
 });
 
 test('reload は候補が残ればバーを保ち、候補が消えればバーを閉じる', async () => {
-  const editUri = { toString: () => 'file:///project/edit.json',
+  const editUri = { toString: () => 'file:///project/edit.json', normalizePath() { return this; },
     parent: { toString: () => 'file:///project', resolve: name => ({ toString: () => `file:///project/${name}` }) } };
   const edit = JSON.stringify({ version: 1, sources: [{ id: 'main', path: 'main.mp4' }] });
   let caption = { id: 'r1', src: 'main', start: 0, end: 2, text: 'えー',
@@ -1298,6 +1419,156 @@ test('QC の絞り込み件数を素材帯に表示する', () => {
   instance.qcFilter = false;
   instance.applyQcFilter();
   assert.equal(lines.textContent, '8 行');
+});
+
+test('素材の見出し・一括操作・選択と再生の自動開閉・保存復元を台本に反映する', () => {
+  const oldDocument = globalThis.document, oldCss = globalThis.CSS;
+  const oldStorage = globalThis.localStorage, oldWindow = globalThis.window;
+  const values = new Map();
+  const makeNode = (tag = 'div') => {
+    const node = { tag, className: '', dataset: {}, children: [], attributes: {}, hidden: false,
+      style: { setProperty() {} }, listeners: {},
+      classList: {
+        contains(name) { return node.className.split(/\s+/u).includes(name); },
+        toggle(name, on) { const names = new Set(node.className.split(/\s+/u).filter(Boolean));
+          if (on) names.add(name); else names.delete(name); node.className = [...names].join(' '); },
+        add(name) { this.toggle(name, true); }, remove(name) { this.toggle(name, false); }
+      },
+      append(...children) { for (const child of children) { child.remove?.(); child.parent = this; this.children.push(child); } },
+      appendChild(child) { this.append(child); },
+      replaceChildren(...children) { for (const child of this.children) child.parent = undefined;
+        this.children = []; this.append(...children); },
+      before(other) { const siblings = this.parent.children; other.remove?.(); other.parent = this.parent;
+        siblings.splice(siblings.indexOf(this), 0, other); },
+      remove() { if (!this.parent) return; const siblings = this.parent.children;
+        siblings.splice(siblings.indexOf(this), 1); this.parent = undefined; },
+      setAttribute(name, value) { this.attributes[name] = value; },
+      getAttribute(name) { return this.attributes[name]; },
+      addEventListener(name, listener) { this.listeners[name] = listener; },
+      querySelectorAll(selector) { return descendants(this).slice(1).filter(child => selector.split(',').some(part => {
+        const className = part.trim().match(/^\.([\w-]+)/u)?.[1];
+        const firstId = part.match(/data-first-row-id="([^"]+)"/u)?.[1];
+        return className && child.classList.contains(className) && (!firstId || child.dataset.firstRowId === firstId);
+      })); },
+      querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+    };
+    return node;
+  };
+  globalThis.document = { createElement: makeNode, createTextNode: value => Object.assign(makeNode('text'), { textContent: value }) };
+  globalThis.CSS = { escape: value => value };
+  globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  globalThis.window = { dispatchEvent() {} };
+  const rows = buildDaihonRows([
+    { id: 'a', src: 'video', start: 0, end: 2, text: 'a', style: null },
+    { id: 'b', src: 'video', start: 3, end: 5, text: 'b', style: null },
+    { id: 'c', src: 'audio', start: 6, end: 8, text: 'c', style: null }
+  ], null);
+  const create = () => {
+    const rowsNode = makeNode(), sourceBand = makeNode(), qcButton = makeNode('button');
+    const elements = new Map(rows.map(row => [row.id, { root: makeNode() }]));
+    const scrolls = [];
+    let instance;
+    for (const [id, entry] of elements) entry.root.scrollIntoView = options =>
+      scrolls.push({ id, options, guarded: instance.autoScrolling });
+    const firstGap = makeNode(); firstGap.className = 'akari-daihon-gapzone';
+    firstGap.dataset.prevRowId = 'a'; firstGap.dataset.nextRowId = 'b';
+    const boundary = makeNode(); boundary.className = 'akari-daihon-gapzone';
+    boundary.dataset.prevRowId = 'b'; boundary.dataset.nextRowId = 'c';
+    const boundaryDraft = makeNode(); boundaryDraft.className = 'akari-daihon-gapdraft';
+    boundaryDraft.dataset.prevRowId = 'b'; boundaryDraft.dataset.nextRowId = 'c';
+    rowsNode.append(elements.get('a').root, firstGap, elements.get('b').root, boundary, boundaryDraft, elements.get('c').root);
+    instance = widget({ rows, rowsNode, sourceBand, qcButton, elements,
+      editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit.json' },
+      sourceCaptions: [], editSources: [{ id: 'video', path: 'clips/main.mp4' }, { id: 'audio', path: 'mic.m4a' }],
+      sourceColors: new Map([['video', 'var(--akari-accent)'], ['audio', 'var(--akari-muted)']]),
+      activeSourceIds: ['video', 'audio'], hiddenSourceIds: [], syncedVideoNames: new Map(),
+      captionOverflowUnitsById: new Map(), speakerFilter: null, qcFilter: false, showCutMarks: true,
+      selection: { selected: [], anchorId: null }, selectionRevealFrame: 0,
+      current: { rowId: null, wordIndex: null },
+      renderActionBar() {}, scheduleSelectionReveal() {}, applyHighlight() {}, isRowVisible: () => true });
+    instance.restoreSourceGroupState();
+    instance.renderSourceGroups();
+    instance.updateSourceBand();
+    return { instance, elements, rowsNode, sourceBand, firstGap, boundary, boundaryDraft, scrolls };
+  };
+  try {
+    const { instance, elements, rowsNode, sourceBand, firstGap, boundary, boundaryDraft } = create();
+    const headings = rowsNode.querySelectorAll('.akari-daihon-source-heading');
+    assert.equal(headings.length, 2);
+    assert.equal(headings[0].getAttribute('aria-expanded'), 'false');
+    assert.equal(headings[0].title, 'clips/main.mp4');
+    assert.match(headings[0].children.at(-1).textContent, /0:05 · 2 行/u);
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), true);
+    assert.equal(firstGap.classList.contains('source-collapsed'), true);
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-chips').hidden, true);
+    instance.hiddenSourceIds = ['audio']; instance.applyQcFilter();
+    assert.equal(headings[1].classList.contains('filter-hidden'), true);
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-lines').textContent, '2 / 3 行');
+    instance.hiddenSourceIds = []; instance.applyQcFilter();
+
+    headings[0].listeners.click();
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), false);
+    assert.equal(firstGap.classList.contains('source-collapsed'), false);
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), true);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, ['source:video']);
+    sourceBand.querySelectorAll('.akari-daihon-source-all').find(button => button.textContent === 'すべて閉じる').listeners.click();
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), true);
+    sourceBand.querySelectorAll('.akari-daihon-source-all').find(button => button.textContent === 'すべて開く').listeners.click();
+    assert.equal(elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.equal(boundary.classList.contains('source-collapsed'), false);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), false);
+    headings[0].listeners.click();
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), true);
+    headings[0].listeners.click();
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds.sort(), ['source:audio', 'source:video']);
+
+    sourceBand.querySelector('.akari-daihon-source-toggle').listeners.click();
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-chips').hidden, false);
+    const restored = create();
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.equal(restored.sourceBand.querySelector('.akari-daihon-source-chips').hidden, false);
+    restored.sourceBand.querySelectorAll('.akari-daihon-source-all')
+      .find(button => button.textContent === 'すべて閉じる').listeners.click();
+    restored.instance.setSelection({ selected: ['c'], anchorId: 'c' }, false);
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, []);
+    restored.rowsNode.querySelectorAll('.akari-daihon-source-heading')[1].listeners.click();
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: true });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    restored.rowsNode.querySelectorAll('.akari-daihon-source-heading')[1].listeners.click();
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: true });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(restored.elements.get('a').root.classList.contains('source-collapsed'), false);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, []);
+    const playingAtStart = create();
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), true);
+    const pausedSeek = create();
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls, []);
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls, [{ id: 'c', options: { block: 'nearest' }, guarded: true }]);
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: false });
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls.map(entry => entry.id), ['c', 'a']);
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), false);
+    playingAtStart.rowsNode.querySelectorAll('.akari-daihon-source-heading')[0].listeners.click();
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), true);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldCss === undefined) delete globalThis.CSS; else globalThis.CSS = oldCss;
+    if (oldStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = oldStorage;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+  }
 });
 
 test('表示のカラオケ切替を保存すると同じ word_style をウィジェットが読む', async () => {

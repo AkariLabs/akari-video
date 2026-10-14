@@ -9,6 +9,7 @@ import * as captionStyleEffects from '../lib/browser/inspector/caption-style-eff
 import * as myStyleLook from '../lib/browser/my-style-look.js';
 import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
+import { captionPaintOnlyChange } from '../lib/common/caption-paint-only-change.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { captionCommandHistory } from '../lib/browser/caption-command-history.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
@@ -28,8 +29,9 @@ const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
 const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'caption_command_history_1',
-  'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', ...storeAliases, `return (async function () {
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
+  'caption_command_history_1', 'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', 'caption_paint_only_change_1',
+  ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -84,7 +86,9 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
     annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); },
       writeEditSnapshot: async entry => { writes.push(entry); } },
     pushHistory: entry => { history.push(entry); },
-    reloadCaptions: async () => {}, reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
+    reloadCaptions: async () => {}, reloadCaptionStyles: async () => {},
+    reloadCaptionsIfChanged: async () => {},
+    reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
@@ -94,7 +98,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
         calls.push(...styles.map(entry => ({ captionId: entry.id, textStyle: entry.style })));
         return commitCaptionStyleBatch(styles, input, read, write);
       }
-    }, ...storeAliases.map(() => editStore)); }
+    }, { captionPaintOnlyChange }, ...storeAliases.map(() => editStore)); }
   catch (error) { result = { ok: false, message: error.message }; }
   assert.equal(result.ok, expectOk, result.message);
   assert.equal(history.length, expectOk ? 1 : 0);
@@ -261,11 +265,27 @@ test('既定 layout の複数選択はスタイルの基準高さを運ばずに
   captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
     text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
-  const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
+  const result = await invoke('caption-style-my-style', {
+    parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
     captions, targets, source, source, true);
   assert.equal(result.writes.length, 1);
   assert.ok(JSON.parse(result.writes[0].captionsSource).captions.every(row =>
     row.text_style.color === '#f00' && !('reference_height_px' in row.text_style)));
+});
+
+test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {
+  const captions = [caption('one'), caption('two')];
+  const source = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
+    reference_width_px: 1920, reference_height_px: 1080, left_px: 261, width_px: 1120,
+    bottom_px: 29, text_align: 'center', max_lines: 1 } },
+  captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
+    text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-my-style', { keepSize: false,
+    parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
+    captions, targets, source, source, false);
+  assert.match(result.result.message, /layout.*基準高さ/);
+  assert.equal(result.writes.length, 0);
 });
 
 test('プリセット付き字幕の太さは合成後も選択値になり、undo は cue 側指定だけ戻す', async () => {

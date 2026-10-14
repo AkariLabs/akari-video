@@ -14,6 +14,8 @@ export * from './caption-window';
 export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
+export * from './caption-look-scale';
+export * from './caption-emphasis-match';
 export * from './caption-runs';
 export * from './caption-look-v1';
 export * from './caption-look-reader';
@@ -49,6 +51,7 @@ export * from './item-anchor';
 export * from './shape-markup';
 export * from './shape-preset';
 export * from './cut-ranges';
+export * from './cut-keyframe-references';
 export * from './ripple';
 export * from './adjust-css-approx';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps

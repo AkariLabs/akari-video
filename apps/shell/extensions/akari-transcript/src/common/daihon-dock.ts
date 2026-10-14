@@ -1,4 +1,5 @@
 import { t } from '../browser/transcript-text';
+import { captionGraphemes } from '@akari-video/edit-store';
 export type DockKind = 'row' | 'placed';
 export type DockTab = 'text' | 'template' | 'look' | 'anim' | 'emphasis' | 'time';
 export type DockAction = 'cut' | 'split' | 'merge-selected' | 'merge-next' | 'speech-tight' | 'insert-below' | 'delete' | 'all' | 'duplicate';
@@ -32,6 +33,32 @@ export function readDockHeight(saved: string | null, panelHeight: number, rowsHe
 
 export function shouldCloseDockOnEscape(key: string, open: boolean, focusInPanel: boolean, focusOnBody: boolean): boolean {
     return key === 'Escape' && open && (focusInPanel || focusOnBody);
+}
+
+export function isPrintableDaihonKey(key: string, composing: boolean, alt: boolean, ctrl: boolean, meta: boolean): boolean {
+    return !composing && !alt && !ctrl && !meta && key.length === 1;
+}
+
+export function isDaihonCompositionStart(key: string, keyCode: number): boolean {
+    return key === 'Process' || keyCode === 229;
+}
+
+export function wordSelectionHeading(text: string, maxLength = 7): string {
+    const characters = captionGraphemes(text.trim());
+    return t('transcript.daihonDock.ui.selectingWordWordCountLabel', { word: characters.slice(0, maxLength).join(''), count: characters.length > maxLength ? '…' : '' });
+}
+
+export function selectedDaihonEdit(text: string, words: readonly { text: string }[] | null,
+    range: { a: number; b: number } | undefined, typed?: string): { value: string; start: number; end: number } {
+    if (!range || !words || words.map(word => word.text).join('') !== text) {
+        const value = typed === undefined ? text : text + typed;
+        return { value, start: value.length, end: value.length };
+    }
+    const start = words.slice(0, range.a).map(word => word.text).join('').length;
+    const end = start + words.slice(range.a, range.b + 1).map(word => word.text).join('').length;
+    if (typed === undefined) return { value: text, start, end };
+    const value = text.slice(0, start) + typed + text.slice(end);
+    return { value, start: start + typed.length, end: start + typed.length };
 }
 
 export function lookPatch(field: LookField, value: string | number, presetStyle?: unknown, defaultStyle?: unknown): Record<string, unknown> {

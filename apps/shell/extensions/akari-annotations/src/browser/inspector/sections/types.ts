@@ -69,7 +69,7 @@ export interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     };
     reset?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
-    write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
+    write?: (snapshot: TSnapshot, nextValue: string, phase?: 'draft' | 'commit' | 'cancel') => Promise<InspectorWriteResult>;
     /**
      * scrub-number ドラッグ中に書き込みなしでプレビューへ即時反映する対象フィールド。
      * cuts/layers の transform/opacity/crop に設定する。

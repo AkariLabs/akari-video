@@ -37,6 +37,8 @@ __exportStar(require("./caption-window"), exports);
 __exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
+__exportStar(require("./caption-look-scale"), exports);
+__exportStar(require("./caption-emphasis-match"), exports);
 __exportStar(require("./caption-runs"), exports);
 __exportStar(require("./caption-look-v1"), exports);
 __exportStar(require("./caption-look-reader"), exports);
@@ -72,6 +74,7 @@ __exportStar(require("./item-anchor"), exports);
 __exportStar(require("./shape-markup"), exports);
 __exportStar(require("./shape-preset"), exports);
 __exportStar(require("./cut-ranges"), exports);
+__exportStar(require("./cut-keyframe-references"), exports);
 __exportStar(require("./ripple"), exports);
 __exportStar(require("./adjust-css-approx"), exports);
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps

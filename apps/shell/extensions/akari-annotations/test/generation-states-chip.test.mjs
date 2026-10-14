@@ -110,6 +110,16 @@ class DummyElement {
 
 globalThis.document = { createElement: () => new DummyElement() };
 const applyGenerationChip = widgetMethod('applyGenerationChip', { describeGenerationChip, generationChipLabel });
+
+test('生成情報のない既存クリップは二回目のチップ更新を省く', () => {
+  const element = new DummyElement();
+  applyGenerationChip.call({}, element, undefined);
+  let removes = 0;
+  const remove = element.classList.remove;
+  element.classList.remove = (...values) => { removes++; remove(...values); };
+  applyGenerationChip.call({}, element, undefined);
+  assert.equal(removes, 0);
+});
 const generationForPath = widgetMethod('generationForPath', {
   resolveGenerationState, selectGenerationSidecarForSource
 });
@@ -342,7 +352,7 @@ test('compare の backend RPC が待機中でも FileService の完了数を即�
       return { value: { toString: () => JSON.stringify(files.get(path)) } };
     } },
     annotationsService: { readGenerationSidecars: () => new Promise(() => {}) },
-    renderStrip: () => { renders++; } };
+    renderStrip: () => { renders++; }, scheduleStripRender: () => { renders++; } };
   await Promise.race([reloadGenerationSidecars.call(context), sleep(100).then(() => { throw new Error('RPC で停止した'); })]);
   assert.equal(renders, 1);
   assert.equal(context.generationSidecars.get('assets/stills/start.png').meta.job.completed, 0);

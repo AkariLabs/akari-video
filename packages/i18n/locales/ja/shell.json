@@ -558,5 +558,7 @@
   "shell.statusBar.resources.unavailableStatus": "取得できません",
   "shell.terminal.menu.newTerminalLabel": "新しいターミナル",
   "shell.worldMap.marker.worldMapJsonKindMustFlatSpatialMessage": "world-map.json の kind は flat または spatial である必要があります。",
-  "shell.worldMap.marker.worldMapJsonSchemaversionMust3Message": "world-map.json の schemaVersion は 3 である必要があります。"
+  "shell.worldMap.marker.worldMapJsonSchemaversionMust3Message": "world-map.json の schemaVersion は 3 である必要があります。",
+  "shell.akariRailOpeners.ui.connectLabel": "つなぐ",
+  "shell.akariRailOpeners.ui.connectToolsServicesAction": "道具とサービスをつなぐ"
 }

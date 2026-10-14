@@ -39,3 +39,15 @@ test('webview DOM marks only run graphemes and preserves plain captions', () => 
   plain.tick(1);
   assert.doesNotMatch(plain.plate.innerHTML, /akari-caption__run/);
 });
+
+test('台本から当てた run はプレビューで字幕の 56px を継ぐ', () => {
+  const cue = { id: 'c-0004', start: 0, end: 2, text: '動画編集を学ぶ',
+    textStyleVars: { '--caption-font-size': '56px' },
+    runs: [{ id: 'r-0001', from: 2, to: 4,
+      look: { color: '#aefcff', shadow: { color: '#00e5ff', blur_px: 11.2 } } }] };
+  const view = harness({ cues: [cue] });
+  view.tick(1);
+  assert.match(view.plate.innerHTML, /font-size:var\(--caption-font-size,38px\)/u);
+  assert.match(view.plate.innerHTML, /akari-caption__run/u);
+  assert.doesNotMatch(view.plate.innerHTML, /(?:font-size|--caption-tok-font-size):120px/u);
+});

@@ -5,6 +5,8 @@ import vm from 'node:vm';
 import { evaluateHostTemplate } from './helpers/host-template.mjs';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
 import { createCaptionStylePreviewController } from '../lib/common/caption-style-preview.js';
+import { captionEmphasisMatches } from '../lib/common/preview-emphasis-seat.js';
+import { prioritizeCaptionStyleMarkup } from '../lib/common/caption-style-composition.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 const require = createRequire(import.meta.url);
@@ -181,6 +183,8 @@ export function harness({ text = source, cues = [], engine = true, available = t
             ? this.children.find(child => child.className === 'akari-caption-handle-box') ?? null : null; } };
         const selectedCaption = () => captions.find(cue => (cue.sourceCueId || cue.id) === selectedCaptionId);`, context);
     vm.runInContext(`const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});`, context);
+    vm.runInContext(`const captionEmphasisMatchesFn = (${captionEmphasisMatches.toString()});
+        const prioritizeCaptionStyleMarkupFn = (${prioritizeCaptionStyleMarkup.toString()});`, context);
     vm.runInContext(section(text, 'const escapeCaptionHtml =', 'const renderTransitionPlate ='), context);
     vm.runInContext('const renderTransitionPlate = () => {};', context);
     vm.runInContext(section(text, 'let requestedOverlayId;', 'const onMainVideoLoadedMetadata ='), context);

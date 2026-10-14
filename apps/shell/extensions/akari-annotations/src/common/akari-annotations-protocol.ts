@@ -746,6 +746,7 @@ export interface SetCaptionFieldsRequest {
     captionsUri: string;
     projectRootUri: string;
     captionId: string;
+    draft?: boolean;
     text?: string;
     speaker?: string | null;
     unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
@@ -803,31 +804,6 @@ export interface SetCaptionDisplayPolicyRequest {
 export interface SetCaptionDisplayPolicyResult extends WriteBackResult {
     changed: number;
     beforeSource: string;
-}
-
-export interface EmphasisWord {
-    /** Omit to reuse an equal span or allocate the lowest unused e-NNNN id. */
-    id?: string;
-    src?: string | null;
-    t_start: number;
-    t_end: number;
-    word: string;
-    emotion: string;
-    style_preset?: string;
-    style_hint?: string;
-}
-
-export interface SetEmphasisWordsRequest {
-    captionsUri: string;
-    projectRootUri: string;
-    upserts: EmphasisWord[];
-    removeIds: string[];
-}
-
-export interface SetEmphasisWordsResult extends WriteBackResult {
-    changed: number;
-    beforeSource: string;
-    ids: string[];
 }
 
 /**
@@ -912,6 +888,8 @@ export interface DeferredLintNotification {
     pass: boolean;
     errors: string[];
     writtenFiles?: string[];
+    existingFindingKeys?: string[];
+    findingKeys?: string[];
     findings: Array<{
         severity?: string;
         message?: string;
@@ -1070,7 +1048,6 @@ export interface AkariAnnotationsService {
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
     setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
-    setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
     applyCaptionStyle(request: ApplyCaptionStyleRequest): Promise<CaptionCommandResult>;
     clearCaptionStyle(request: ClearCaptionStyleRequest): Promise<CaptionCommandResult>;

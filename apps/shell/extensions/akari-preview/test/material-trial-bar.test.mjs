@@ -33,7 +33,7 @@ test('trial banner lives only above output, routes three actions and disappears 
  await handler.showMaterialTrial({ editUri: 'raw' }); assert.equal(raw.node.children.length, 0);
  await handler.showMaterialTrial({ editUri: 'edit', originalTitle: 'A', title: 'B' });
  const bar = output.node.children[0];
- const overlayCss = readFileSync(new URL('../../../node_modules/@theia/core/src/browser/style/index.css', import.meta.url), 'utf8');
+ const overlayCss = readFileSync(new URL('../../../../../node_modules/@theia/core/src/browser/style/index.css', import.meta.url), 'utf8');
  const overlayZ = Number(overlayCss.match(/\.theia-transparent-overlay\s*\{[^}]*z-index:\s*(\d+)/)[1]);
  assert.ok(Number(bar.style.cssText.match(/z-index:(\d+)/)[1]) > overlayZ, 'real mouse release stays above the Theia overlay');
  assert.equal(bar.children[0].textContent, 'お試し中: A → B');

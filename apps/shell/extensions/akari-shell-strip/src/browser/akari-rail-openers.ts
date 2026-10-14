@@ -5,7 +5,7 @@ import { CommandService } from '@theia/core/lib/common';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
     RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID,
-    RAIL_EXPORT_OPENER_ID, RAIL_DEVELOPER_OPENER_ID
+    RAIL_CONNECT_OPENER_ID, RAIL_EXPORT_OPENER_ID, RAIL_DEVELOPER_OPENER_ID
 } from '../common/rail-ids';
 import { railOpenerCommand } from '../common/rail-model';
 import { railDisabledIds } from '../common/rail-model';
@@ -52,6 +52,11 @@ export class AkariRailLibraryOpener extends AkariRailOpener {
     @postConstruct() protected init(): void { this.configure(AkariRailLibraryOpener.ID, t('shell.leftRail.library.libraryLabel'), t('shell.leftRail.library.assetsBgmFontsCaptionStylesTemplatesText'), 'codicon-library'); }
 }
 @injectable()
+export class AkariRailConnectOpener extends AkariRailOpener {
+    static readonly ID = RAIL_CONNECT_OPENER_ID;
+    @postConstruct() protected init(): void { this.configure(AkariRailConnectOpener.ID, t('shell.akariRailOpeners.ui.connectLabel'), t('shell.akariRailOpeners.ui.connectToolsServicesAction'), 'codicon-plug'); }
+}
+@injectable()
 export class AkariRailExportOpener extends AkariRailOpener {
     static readonly ID = RAIL_EXPORT_OPENER_ID;
     @postConstruct() protected init(): void { this.configure(AkariRailExportOpener.ID, t('shell.leftRail.export.exportAction'), t('shell.leftRail.export.exportVideoFileOpensExportScreenMessage'), 'codicon-desktop-download'); }
@@ -69,7 +74,7 @@ export class AkariRailOpenersContribution implements FrontendApplicationContribu
     async onStart(app: FrontendApplication): Promise<void> {
         for (const [id, rank] of [
             [RAIL_EXPAND_ID, 10], [RAIL_PROJECT_OPENER_ID, 20], [RAIL_LIBRARY_OPENER_ID, 30],
-            [RAIL_EXPORT_OPENER_ID, 60], [RAIL_DEVELOPER_OPENER_ID, 390]
+            [RAIL_CONNECT_OPENER_ID, 45], [RAIL_EXPORT_OPENER_ID, 60], [RAIL_DEVELOPER_OPENER_ID, 390]
         ] as const) {
             const widget = await this.widgetManager.getOrCreateWidget(id);
             if (!widget.isAttached) await app.shell.addWidget(widget, { area: 'left', rank });

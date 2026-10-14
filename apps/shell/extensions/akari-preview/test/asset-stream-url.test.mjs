@@ -66,6 +66,16 @@ for (const [extension, mimeType] of formats) {
     });
 }
 
+test('同じパスへ上書きした素材は既存 stream URL でも新しい内容を返す', async t => {
+    const { stream, assetUri } = await fixture(t, '.png');
+    assert.deepEqual(Buffer.from(await (await fetch(stream.url)).arrayBuffer()), bytes);
+    const updated = Buffer.from('updated image bytes');
+    await writeFile(new URL(assetUri), updated);
+    const response = await fetch(stream.url);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), updated);
+});
+
 test('uppercase .MP4 produces a lowercase .mp4 URL that serves the asset', async t => {
     const { stream } = await fixture(t, '.MP4');
     assert.equal(new URL(stream.url).pathname, `/asset/${stream.id}.mp4`);

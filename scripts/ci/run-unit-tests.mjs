@@ -255,6 +255,8 @@ export const LANES = {
       { id: 'apps/shell/test', cwd: 'apps/shell', files: ['test/*.test.mjs'] },
       ext('akari-annotations'),
       ext('akari-companion'),
+      ext('akari-chat'),
+      ext('akari-connect'),
       ext('akari-partner'),
       ext('akari-project'),
       ext('akari-shell-strip'),

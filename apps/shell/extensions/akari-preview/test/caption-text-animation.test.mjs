@@ -244,15 +244,12 @@ test('preview のリッチ字幕は runs → 文字 span → リッチ層の順�
     assert.deepEqual([...order].sort((a, b) => a - b), order);
 });
 
-test('動きの無い字幕の HTML/CSS は変更前の 4 経路とバイト一致する', () => {
+test('runs を持たない静的字幕の HTML/CSS は変更前の 3 経路とバイト一致する', () => {
     const cases = [
         [cue({ id: 'p', start: 0, end: 2 }), '1fde8dcfb30e440c5161c379f55130b3647e0e575cbaa16a79feed45eab2f8f4'],
         [cue({ id: 's', start: 0, end: 2, style: 'karaoke',
             words: [{ text: '字幕', start: 0, end: 1 }] }), '5847129ed049d14c06ce610fad73f5060a882c89619f4c967c7021d58f9fc6b4'],
-        [cue({ id: 'r', start: 0, end: 2, resolvedTimeline: true }), '0cb8dbca289f4d77ad405d54341100c55112196d69629ebea12e4e7c8b2d576f'],
-        [cue({ id: 'x', start: 0, end: 2, runs: [
-            { from: 0, to: 1, role: 'emphasis', style: { color: '#f00' } }
-        ] }), '8d3a5f9b00b64e43758ccd4bf487e6d41be25aec628df1b64c6d10127b77121a']
+        [cue({ id: 'r', start: 0, end: 2, resolvedTimeline: true }), '0cb8dbca289f4d77ad405d54341100c55112196d69629ebea12e4e7c8b2d576f']
     ];
     for (const [caption, expectedHash] of cases) {
         const app = harness({ cues: [caption] });

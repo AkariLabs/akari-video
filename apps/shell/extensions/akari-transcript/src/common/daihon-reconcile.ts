@@ -18,6 +18,17 @@ export interface DaihonHighlightPlan {
     words: DaihonHighlightWordChange[];
 }
 
+export function changedWordPresetRowIds(
+    previous: ReadonlyMap<string, readonly (string | { color?: string; background?: string } | undefined)[]>,
+    next: ReadonlyMap<string, readonly (string | { color?: string; background?: string } | undefined)[]>
+): string[] {
+    return [...new Set([...previous.keys(), ...next.keys()])].filter(id => {
+        const before = previous.get(id) ?? [];
+        const after = next.get(id) ?? [];
+        return before.length !== after.length || before.some((preset, index) => JSON.stringify(preset) !== JSON.stringify(after[index]));
+    });
+}
+
 function equalWords(left: DaihonRow['words'], right: DaihonRow['words']): boolean {
     if (left === right) return true;
     if (!left || !right || left.length !== right.length) return false;

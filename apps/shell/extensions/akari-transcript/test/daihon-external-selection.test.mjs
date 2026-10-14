@@ -222,7 +222,8 @@ function selectionHarness() {
     dockKind: undefined, altAll: false,
     placedEditor: { classList: { contains: () => true }, offsetHeight: 50 },
     rowsRegion: { getBoundingClientRect: () => ({ bottom: 200 }) },
-    renderDock() { dockContent.push(this.selection.selected.join(',')); }, renderActionBar() {}, closeDock() {}
+    renderDock() { dockContent.push(this.selection.selected.join(',')); }, renderActionBar() {}, closeDock() {},
+    revealSourceGroupForRow() {}
   });
   const flush = () => { while (frames.size) {
     const batch = [...frames.values()]; frames.clear(); for (const callback of batch) callback();

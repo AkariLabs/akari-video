@@ -41,12 +41,13 @@ function fixture(options = {}) {
   const locationListeners = [];
   const light = [];
   const docs = [];
+  const reads = [];
   let now = 0;
   let widgets = [{ id: 'timeline' }];
   const timers = [];
   const files = {
     exists: async uri => content.has(uri.toString()),
-    readFile: async uri => ({ value: { buffer: content.get(uri.toString()) } }),
+    readFile: async uri => { reads.push(uri.toString()); return { value: { buffer: content.get(uri.toString()) } }; },
     onDidFilesChange: listener => {
       fileListeners.push(listener);
       return { dispose() {} };
@@ -76,7 +77,7 @@ function fixture(options = {}) {
     digest: async bytes => createHash('sha256').update(bytes).digest('hex')
   });
   return {
-    collector, events, content, fileListeners, light, docs, timers,
+    collector, events, content, fileListeners, light, docs, timers, reads,
     setNow(value) { now = value; },
     setWidgets(value) { widgets = value; },
     setProject(value) {
@@ -125,6 +126,24 @@ test('選択・再生位置・パネルを light 状態へ反映する', async (
   ]);
   assert.deepEqual(state.playhead, { seconds: 2.5, playing: true });
   assert.deepEqual(state.panels, ['timeline', 'preview']);
+  f.collector.stop();
+});
+
+test('無関係な変更は読み込まず、連続した edit 通知は一回の読みと差分通知になる', async () => {
+  const f = fixture();
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  const initialReads = f.reads.length;
+  f.fileListeners[0]({ contains: () => false });
+  await new Promise(resolve => setTimeout(resolve, 120));
+  assert.equal(f.reads.length, initialReads);
+  f.content.set(f.editUri.toString(), encoder.encode('{"next":true}'));
+  const change = { contains: uri => uri.toString() === f.editUri.toString() };
+  f.fileListeners[0](change);
+  f.fileListeners[0](change);
+  await waitFor(() => f.docs.length === 2);
+  assert.equal(f.reads.filter(uri => uri === f.editUri.toString()).length, 2);
+  assert.equal(f.reads.filter(uri => uri === f.captionsUri.toString()).length, 1);
   f.collector.stop();
 });
 

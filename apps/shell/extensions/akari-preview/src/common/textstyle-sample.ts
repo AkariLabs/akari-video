@@ -1,9 +1,9 @@
-import { CAPTION_RICH_LAYER_CSS, resolveCaptionRichStrokes,
+import { captionDefaultSizePx, CAPTION_RICH_LAYER_CSS, resolveCaptionRichStrokes,
     resolveCaptionStyleForOutput } from '@akari-video/edit-store/lib/caption-display';
 import { RESOLVED_SINGLE_LINE_CAPTION_CSS } from './caption-visual-contract';
 
 export const TEXTSTYLE_SHOWCASE_COMMAND_ID = 'akari.library.listTextstyleShowcase';
-export const CAPTION_DEFAULT_SIZE_PX = 38;
+export const CAPTION_DEFAULT_SIZE_PX = captionDefaultSizePx();
 
 export interface LibraryTextStyleSample {
     vars: Record<string, string>;

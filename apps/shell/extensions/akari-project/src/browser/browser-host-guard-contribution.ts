@@ -8,7 +8,7 @@ export const BROWSER_HOST_GUARD_QUERY_EVENT = 'akari.browser.hostGuardQuery';
 @injectable()
 export class BrowserHostGuardContribution implements FrontendApplicationContribution {
     private observer?: MutationObserver;
-    private frame?: number;
+    private timer?: ReturnType<typeof setTimeout>;
     private hidden = false;
     private readonly answerQuery = (): void => {
         if (this.hidden) window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_EVENT, { detail: { hide: true } }));
@@ -16,7 +16,18 @@ export class BrowserHostGuardContribution implements FrontendApplicationContribu
 
     onStart(): void {
         if (this.observer) return;
-        this.observer = new MutationObserver(() => this.schedule());
+        this.observer = new MutationObserver(records => {
+            const selector = HOST_OVERLAY_SELECTORS.join(',');
+            const relevant = records.some(record => {
+                if (record.type === 'attributes') {
+                    const target = record.target;
+                    return target instanceof Element && (target.matches(selector) || !!target.querySelector(selector));
+                }
+                return [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(node =>
+                    node instanceof Element && (node.matches(selector) || !!node.querySelector(selector)));
+            });
+            if (relevant) this.schedule();
+        });
         this.observer.observe(document.body, { childList: true, subtree: true, attributes: true,
             attributeFilter: ['class', 'style'] });
         window.addEventListener(BROWSER_HOST_GUARD_QUERY_EVENT, this.answerQuery);
@@ -26,13 +37,13 @@ export class BrowserHostGuardContribution implements FrontendApplicationContribu
     onStop(): void {
         this.observer?.disconnect(); this.observer = undefined;
         window.removeEventListener(BROWSER_HOST_GUARD_QUERY_EVENT, this.answerQuery);
-        if (this.frame !== undefined) cancelAnimationFrame(this.frame);
-        this.frame = undefined;
+        if (this.timer !== undefined) clearTimeout(this.timer);
+        this.timer = undefined;
     }
 
     private schedule(): void {
-        if (this.frame !== undefined) return;
-        this.frame = requestAnimationFrame(() => { this.frame = undefined; this.check(); });
+        if (this.timer !== undefined) return;
+        this.timer = setTimeout(() => { this.timer = undefined; this.check(); }, 100);
     }
 
     private check(): void {
