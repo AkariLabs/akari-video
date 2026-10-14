@@ -116,7 +116,10 @@ function validateMeta(value) {
   }
 
   validateStringArray(value.tags, "tags");
-  if (hasOwn(value, "aliases")) validateStringArray(value.aliases, "aliases");
+  if (hasOwn(value, "aliases") && (!Array.isArray(value.aliases)
+      || value.aliases.some(alias => typeof alias !== "string" || !alias.trim()))) {
+    fail("aliases は空でない文字列の配列である必要があります");
+  }
   if (!legacyOflFont || hasOwn(value, "requires")) validateStringArray(value.requires, "requires");
   if (!legacyOflFont || hasOwn(value, "knobs")) validateKnobs(value.knobs);
   if (!legacyOflFont || hasOwn(value, "provenance")) validateProvenance(value.provenance);

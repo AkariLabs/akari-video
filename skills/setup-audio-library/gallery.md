@@ -10,7 +10,7 @@ Same pattern as decision-cards / intake-form: `127.0.0.1` only, zero external np
 ## 1. Start
 
 ```sh
-node packages/audio-library-setup/bin/gallery-helper.mjs
+akari assets audio gallery
 ```
 
 Prints `HELPER: http://localhost:<port>/` to stdout on launch. Present it unchanged and ask the user to open it in a browser.

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { filterListItems } from '../src/list-filter.mjs';
+import { externalReferences, mergeBundledReferences } from '../src/bundled-catalog.mjs';
 
 const rows = [
   { category: 'overlay', id: 'blue-card', title: 'Blue Card', tags: ['sticker', 'blue'], sourceKind: 'lab' },
@@ -38,12 +39,17 @@ test('list human output keeps badge and origin columns and adds tier before titl
   const printed = [];
   const source = cliSource.slice(cliSource.indexOf('function flagValue('), cliSource.indexOf('// Validate the entire command'))
     + cliSource.slice(cliSource.indexOf('const STATE_BADGE'), cliSource.indexOf('async function cmdAdd('));
-  const cmdList = new Function('filterListItems', 'composeState', 'console', `${source}\nreturn cmdList;`)(
+  const cmdList = new Function('filterListItems', 'composeState', 'resolveBundledCatalog', 'readBundledCatalog',
+    'externalReferences', 'mergeBundledReferences', 'console', `${source}\nreturn cmdList;`)(
     filterListItems,
     async () => ({ libraryRoots: { write: 'library' }, warnings: [], items: [
       { category: 'overlay', id: 'free-card', title: 'Free Card', sourceKind: 'lab', tier: 'free', state: 'available' },
       { category: 'overlay', id: 'pro-card', title: 'Pro Card', sourceKind: 'lab', tier: 'pro', state: 'locked' },
     ] }),
+    () => ({ root: null, origin: null, candidates: [] }),
+    () => ({ entries: [], warnings: [] }),
+    externalReferences,
+    mergeBundledReferences,
     { log: line => printed.push(line), error: line => printed.push(line) });
   await cmdList([], {});
   assert.deepEqual(printed, [

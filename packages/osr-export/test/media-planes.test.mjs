@@ -68,14 +68,14 @@ test("one band retains the original canvas and overlay sheet structure, includin
   const normal = page(input, [overlay("top", 2)]).html;
   const digest = value => createHash("sha256")
     .update(value.replace(/,"messages":\{"longGop":"(?:\\.|[^"\\])*"\}/u, "")).digest("hex");
-  assert.equal(digest(normal), "03faaac54a97e3984c61823c84990728b5d55d95fe18da9d07a4ea503c227fff");
+  assert.equal(digest(normal), "6c44255753cfaa33aec2e58014b3a07b867926c6395ff9f77c734c4ed0fd77eb");
   assert.equal(tags(normal).length, 2);
   assert.match(normal, /<canvas id="akari-engine"/u);
   assert.match(normal, /<iframe id="akari-overlays" src="\/overlay-sheet.html"/u);
   assert.doesNotMatch(normal, /akari-media-plane|__akariPartitionMediaPlanes/u);
 
   const blended = page(input, [overlay("top", 2, "multiply")]).html;
-  assert.equal(digest(blended), "e4902e358fe67a98c03004ffda7d6a7c114ebf615f13c4f43ee3de0ed868b626");
+  assert.equal(digest(blended), "411c5ede83e754d39f16c1e5c256be2f99f5df5f3c1d15158ca7251434b019a6");
   assert.equal(tags(blended).length, 3);
   assert.match(blended, /id="akari-overlays"[^>]*display:none/u);
   assert.match(blended, /mix-blend-mode:multiply/u);

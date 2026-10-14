@@ -148,10 +148,7 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
       });
       assert.equal(renderOverlays.length, 1, `${id}: render must produce exactly one overlay`);
       const [renderOverlay] = renderOverlays;
-      if (Object.hasOwn(renderOverlay.vars, '--caption-rounded-stroke')) {
-        assert.match(renderOverlay.html, /-webkit-text-stroke:0 transparent;text-shadow:var\(--caption-rounded-stroke\);/u,
-          `${id}: rounded stroke CSS must accompany its variable`);
-      }
+      assert.equal(renderOverlay.vars['--caption-rounded-stroke'], undefined);
       const renderPlaced = await measure(page, renderOverlay.html, renderOverlay.vars);
       const shellMetrics = await measure(page, legacyFragment(presetFile.sample_text, shellCss), shellCaption.textStyleVars);
       const web = await measure(page, legacyFragment(presetFile.sample_text, appCss), webVars);
@@ -185,17 +182,9 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
         assert.ok(Math.abs(metrics.plateBottomGap - OUTPUT.height * 0.07) <= 1,
           `${id}: ${surface} plate bottom anchor`);
       }
-      // The four-direction shadow check predates fe25551e0's 32-direction rounded stroke.
-      // For rounded strokes, compare against render's placed-text path instead.
-      if (Object.hasOwn(policyOverlay.vars, '--caption-rounded-stroke')) {
-        assert.ok(Object.hasOwn(renderOverlay.vars, '--caption-rounded-stroke'),
-          `${id}: rounded stroke must also exist on render's placed-text path`);
-        assert.equal(policyMetrics.textShadow, renderPlaced.textShadow,
-          `${id}: rounded stroke must match render's placed-text path`);
-      } else {
-        assert.doesNotMatch(policyMetrics.textShadow, /-\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px.*\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px/u,
-          `${id}: four-direction outline shadow must not return`);
-      }
+      assert.equal(policyOverlay.vars['--caption-rounded-stroke'], undefined);
+      assert.equal(policyOverlay.vars['--caption-stroke'], renderOverlay.vars['--caption-stroke'],
+        `${id}: placed text keeps the declared stroke`);
     }
     t.diagnostic('presets=12 surfaces=4 assertions=48 computed-style cells');
   } finally {

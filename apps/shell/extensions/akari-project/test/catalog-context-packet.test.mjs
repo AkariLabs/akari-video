@@ -14,7 +14,7 @@ const FULL_ITEM = {
     title: 'ヴィンテージカメラ 3D モデル',
     when_to_use: 'レトロ・アナログ演出のプロダクト紹介、写真/映像機材を扱う動画のヒーローショット',
     license: { spdx: 'CC0-1.0' },
-    source: { url: 'https://polyhaven.com/a/Camera_01', preview_url: 'https://cdn.polyhaven.com/x.png' }
+    source: { url: 'https://polyhaven.com/a/Camera_01', preview_url: 'https://cdn.polyhaven.com/x.png', acquisition: 'direct' }
 };
 
 const MINIMAL_ITEM = { id: 'noto-sans-jp', category: 'font', title: 'Noto Sans JP' };
@@ -23,7 +23,7 @@ test('composeCatalogImportPrompt: 固定パケットに id/category/title/source
     const packet = composeCatalogImportPrompt(FULL_ITEM);
     assert.equal(
         packet,
-        '【カタログ素材】vintage-camera（category 3d・title ヴィンテージカメラ 3D モデル・source: https://polyhaven.com/a/Camera_01・license: CC0-1.0）について: この素材をカタログの参照情報から取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）'
+        '【カタログ素材】3d/vintage-camera（title ヴィンテージカメラ 3D モデル・source: https://polyhaven.com/a/Camera_01・acquisition: direct・license: CC0-1.0）について: この素材をカタログの参照情報から取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）。取得先・取得方法・ライセンスの全文は akari assets show 3d/vintage-camera で読める'
     );
 });
 
@@ -31,18 +31,33 @@ test('composeCatalogImportPrompt: source.url/license.spdx が無い項目は要�
     const packet = composeCatalogImportPrompt(MINIMAL_ITEM);
     assert.equal(
         packet,
-        '【カタログ素材】noto-sans-jp（category font・title Noto Sans JP）について: この素材をカタログの参照情報から取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）'
+        '【カタログ素材】font/noto-sans-jp（title Noto Sans JP）について: この素材をカタログの参照情報から取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）。取得先・取得方法・ライセンスの全文は akari assets show font/noto-sans-jp で読める'
     );
     assert.equal(packet.includes('source:'), false);
     assert.equal(packet.includes('license:'), false);
+    assert.equal(packet.includes('acquisition:'), false);
+});
+
+test('composeCatalogImportPrompt folds metadata whitespace to one line', () => {
+    const packet = composeCatalogImportPrompt({ ...MINIMAL_ITEM, title: 'Noto\nSans JP' });
+    assert.equal(packet.includes('\n'), false);
+    assert.match(packet, /font\/noto-sans-jp/);
+    assert.match(packet, /akari assets show font\/noto-sans-jp/);
 });
 
 test('composeCatalogAskAgentPrompt: 同要素 + when_to_use 先頭1文 + ユーザー入力文', () => {
     const packet = composeCatalogAskAgentPrompt(FULL_ITEM, 'この素材で何をしますか');
     assert.equal(
         packet,
-        '【カタログ素材】vintage-camera（category 3d・title ヴィンテージカメラ 3D モデル・source: https://polyhaven.com/a/Camera_01・license: CC0-1.0・用途: レトロ・アナログ演出のプロダクト紹介、写真/映像機材を扱う動画のヒーローショット）について: この素材で何をしますか'
+        '【カタログ素材】3d/vintage-camera（title ヴィンテージカメラ 3D モデル・source: https://polyhaven.com/a/Camera_01・acquisition: direct・license: CC0-1.0・用途: レトロ・アナログ演出のプロダクト紹介、写真/映像機材を扱う動画のヒーローショット）について: この素材で何をしますか'
     );
+});
+
+test('composeCatalogAskAgentPrompt folds metadata whitespace to one line', () => {
+    const packet = composeCatalogAskAgentPrompt({ ...MINIMAL_ITEM, title: 'Noto\nSans JP' }, 'この素材を\n使いたい');
+    assert.equal(packet.includes('\n'), false);
+    assert.match(packet, /font\/noto-sans-jp/);
+    assert.match(packet, /Noto Sans JP/);
 });
 
 test('composeCatalogAskAgentPrompt: when_to_use が句点区切りの複文でも先頭の1文だけを使う', () => {
@@ -55,14 +70,14 @@ test('composeCatalogAskAgentPrompt: when_to_use が句点区切りの複文で�
     const packet = composeCatalogAskAgentPrompt(item, '検討したい');
     assert.equal(
         packet,
-        '【カタログ素材】noto-sans-jp（category font・title Noto Sans JP・用途: 特定の作風を狙わず、まず崩れなく読める日本語テロップ・字幕・UI テキストが欲しいシーン。）について: 検討したい'
+        '【カタログ素材】font/noto-sans-jp（title Noto Sans JP・用途: 特定の作風を狙わず、まず崩れなく読める日本語テロップ・字幕・UI テキストが欲しいシーン。）について: 検討したい'
     );
     assert.equal(packet.includes('企業紹介'), false, '句点以降（2文目）は含まれてはいけない');
 });
 
 test('composeCatalogAskAgentPrompt: when_to_use が無い項目でも用途要素なしで組み立つ', () => {
     const packet = composeCatalogAskAgentPrompt(MINIMAL_ITEM, '色を変えたい');
-    assert.equal(packet, '【カタログ素材】noto-sans-jp（category font・title Noto Sans JP）について: 色を変えたい');
+    assert.equal(packet, '【カタログ素材】font/noto-sans-jp（title Noto Sans JP）について: 色を変えたい');
     assert.equal(packet.includes('用途:'), false);
 });
 
@@ -75,7 +90,7 @@ test('composeCatalogPackImportPrompt: パック名 + 対象件数 + 品目一覧
     ]);
     assert.equal(
         packet,
-        '【カタログ素材パック】テロップ向け必須フォント 25 選 — 対象 2 件: 851-chikara-dzuyoku（font・851チカラヅヨク）、zero-gothic（font・ゼロゴシック）について: このパックの未取得の無料素材をまとめて取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）'
+        '【カタログ素材パック】テロップ向け必須フォント 25 選 — 対象 2 件: font/851-chikara-dzuyoku（851チカラヅヨク）、font/zero-gothic（ゼロゴシック）について: このパックの未取得の無料素材をまとめて取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）。各項目の取得先・取得方法・ライセンスは akari assets show <category/id> で読める'
     );
 });
 

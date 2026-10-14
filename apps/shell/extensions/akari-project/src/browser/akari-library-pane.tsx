@@ -220,7 +220,7 @@ export class AkariLibraryPane {
     /**
      * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
      * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
-     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
+     * では取得方法も参照情報として渡す。
      */
     public toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
         return {
@@ -231,7 +231,8 @@ export class AkariLibraryPane {
             tags: item.tags,
             when_to_use: item.whenToUse,
             license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
+            source: (item.sourceUrl || item.previewUrl || item.sourceAcquisition)
+                ? { url: item.sourceUrl, preview_url: item.previewUrl, acquisition: item.sourceAcquisition } : undefined
         };
     }
 

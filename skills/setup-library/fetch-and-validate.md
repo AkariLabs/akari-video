@@ -59,11 +59,11 @@ do not create a mock differing from the actual asset as its preview.
 
 ### Writing meta.json
 
-Start from catalog `meta.json` and change:
+Start from the `meta` returned by `akari assets show <category/id> --json` and change:
 
 1. **Remove (delete) the `remote` key.** Assets with complete files do not carry catalog-only flags; other assets already in `assets/` also lack `remote`.
 2. **Record catalog origin and acquisition source in `provenance.origin` (required).** Example:
-   `"catalog/<category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
+   `"同梱カタログの参照 <category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
    (Existing Japanese example: catalog origin / source / acquisition / license / acquisition date.)
    Do not fill unknown values. The acquisition date is the execution date.
 3. You may retain the external `source` block (a `source` object is schema-valid without `remote`). Keep it if retaining machine-readable acquisition records; update `source.url` to the actual acquired file/page URL. Remove it if unnecessary. Only 1 and 2 are mandatory.
@@ -87,15 +87,14 @@ If `source.attribution_required` or `license.attribution_required` is true, do b
 ## 4. Validate
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs "assets/<category>/<id>"
+akari assets validate "<配置したフォルダ>"
 ```
 
 If validation fails, fix `meta.json`, the minimum 3-file set, category match, relative references, and INDEX;
-rerun until successful. If `packages/schemas/bin/validate-asset.mjs` or `packages/schemas/asset-meta.schema.json`
-is absent, do not treat it as success; include the following unchanged in the result report.
+rerun until successful. If the validator is unavailable, do not treat it as success; include the following unchanged in the result report.
 
 ```text
-後で実行: node packages/schemas/bin/validate-asset.mjs（validator / schema 作成後）
+後で実行: akari assets validate "<配置したフォルダ>"（検証器が利用可能になった後）
 ```
 
 ## 5. Update assets/<category>/INDEX.md

@@ -714,7 +714,6 @@
   // SVG foreignObject does not run the phase script in a caption fragment. Resolve
   // the same line coordinates in the measured DOM before serializing the texture.
   function captionRichPhaseHtml(value, config, html, extraCss) {
-    if (!value.richTextStyle) return html;
     const root = captionRoot(value, config, html, extraCss);
     try {
       const caption = root.querySelector('.akari-caption--rich');
@@ -758,6 +757,7 @@
           }
         }
       }
+      window.__akariCaptionOutlineRuntime.bake(root);
       root.querySelector('style')?.remove();
       root.querySelectorAll('script[data-akari-rich-phase]').forEach(script => script.remove());
       return root.innerHTML;

@@ -70,6 +70,21 @@ test("catalog meta with title-normalized matched_by passes", () => {
   assert.equal(executed.stderr.trim(), "");
 });
 
+test("aliases accepts nonempty strings and rejects other values", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "akari-aliases-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = join(root, "overlay", "lower-third-clean");
+  cpSync(join(fixtureRoot, "valid-library", "overlay", "lower-third-clean"), dir, { recursive: true });
+  const metaPath = join(dir, "meta.json");
+  const original = JSON.parse(readFileSync(metaPath, "utf8"));
+  for (const [aliases, expected] of [[[], 0], [["別名", "alias"], 0], ["alias", 1], [["valid", ""], 1], [[42], 1]]) {
+    writeFileSync(metaPath, JSON.stringify({ ...original, aliases }));
+    const result = spawnSync(process.execPath, [cliPath, dir], { encoding: "utf8" });
+    assert.equal(result.status, expected, result.stderr);
+    if (expected) assert.match(result.stderr, /aliases は空でない文字列の配列/);
+  }
+});
+
 test("source union accepts external and akari-r2, rejects mixed and absent discriminators", (t) => {
   const root = mkdtempSync(join(tmpdir(), "akari-source-union-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
