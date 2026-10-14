@@ -21808,9 +21808,9 @@ var require_lib = __commonJS({
   }
 });
 
-// ../../../3d-place/node_modules/@webav/mp4box.js/dist/mp4box.all.js
+// ../../node_modules/@webav/mp4box.js/dist/mp4box.all.js
 var require_mp4box_all = __commonJS({
-  "../../../3d-place/node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
+  "../../node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
     var Log = /* @__PURE__ */ function() {
       var start = /* @__PURE__ */ new Date();
       var LOG_LEVEL_ERROR = 4;
@@ -33266,7 +33266,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
 // ../frame-engine/vendor/av-cliper/av-cliper.js
 var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
-// ../../../3d-place/node_modules/@webav/internal-utils/dist/internal-utils.js
+// ../../node_modules/@webav/internal-utils/dist/internal-utils.js
 var import_mp4box = __toESM(require_mp4box_all(), 1);
 var L = () => {
   let e, t = 16.6;
@@ -33373,7 +33373,7 @@ A.set(S.error, 3);
   }
 })();
 
-// ../../../3d-place/node_modules/wave-resampler/lib/interpolator.js
+// ../../node_modules/wave-resampler/lib/interpolator.js
 var Interpolator = class {
   /**
    * @param {number} scaleFrom the length of the original array.
@@ -33485,7 +33485,7 @@ function sinc_(x3) {
   return Math.sin(Math.PI * x3) / (Math.PI * x3);
 }
 
-// ../../../3d-place/node_modules/wave-resampler/lib/fir-lpf.js
+// ../../node_modules/wave-resampler/lib/fir-lpf.js
 var FIRLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -33545,7 +33545,7 @@ var FIRLPF = class {
   }
 };
 
-// ../../../3d-place/node_modules/wave-resampler/lib/butterworth-lpf.js
+// ../../node_modules/wave-resampler/lib/butterworth-lpf.js
 var ButterworthLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -33626,7 +33626,7 @@ var ButterworthLPF = class {
   }
 };
 
-// ../../../3d-place/node_modules/wave-resampler/index.js
+// ../../node_modules/wave-resampler/index.js
 var DEFAULT_LPF_USE = {
   "point": false,
   "linear": false,
@@ -33716,7 +33716,7 @@ function downsample_(samples, newSamples, interpolator, filter) {
   resample_(samples, newSamples, interpolator);
 }
 
-// ../../../3d-place/node_modules/opfs-tools/dist/opfs-tools.js
+// ../../node_modules/opfs-tools/dist/opfs-tools.js
 var z2 = (r) => {
   throw TypeError(r);
 };
