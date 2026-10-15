@@ -20,6 +20,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 |---|---|---|
 | [akari](../skills/akari/SKILL.md) | Entry point to create, open, or resume a project | akari CLI (init/new/status) |
 | [create-project](../skills/create-project/SKILL.md) | Headless project creation (template copy, creation report) | git (initialized only when safe) |
+| [record-playbook](../skills/record-playbook/SKILL.md) | Record a finished project's steps, settings, role placeholders, parts, and required tools for reuse | Bundled deterministic helper and playbook validator |
 | [setup-library](../skills/setup-library/SKILL.md) | First-run setup: tool checks → starter-pack proposal → fetch, place, verify | ffmpeg / whisper-cli |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | Semi-automated BGM / SFX intake (candidate list → manual-download matching → listen and keep/drop) | Free audio sources (humans download) |
 | [declare-audio](../skills/declare-audio/SKILL.md) | Declaring "where the chorus, hits, and beats are" on your own audio, by ear (a browser timeline UI → `declarations.json`). The BGM auto-suggester reads these declarations and cues the chorus | Browser (a human decides the declarations) |

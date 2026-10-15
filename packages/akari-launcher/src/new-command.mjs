@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { cliText } from './i18n.mjs';
+import { findExecutable } from './path-lookup.mjs';
 
 const usage = (lang) => cliText('cli.new.help.usage', {}, lang);
 const languageTagPattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
@@ -11,6 +13,7 @@ const languageTagPattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 function parseArguments(args) {
     let target;
     let template;
+    let from;
     let lang;
 
     for (let index = 0; index < args.length; index += 1) {
@@ -21,6 +24,13 @@ function parseArguments(args) {
                 throw new Error(`${usage()}\n${cliText('cli.new.error.templateMissing', {})}`);
             }
             template = value;
+            index += 1;
+        } else if (argument === '--from') {
+            const value = args[index + 1];
+            if (!value || value.startsWith('--')) {
+                throw new Error(`${usage()}\n${cliText('cli.new.error.fromMissing', {})}`);
+            }
+            from = value;
             index += 1;
         } else if (argument === '--lang') {
             const value = args[index + 1];
@@ -41,7 +51,7 @@ function parseArguments(args) {
     if (target === undefined) {
         throw new Error(usage());
     }
-    return { target, template, lang };
+    return { target, template, from, lang };
 }
 
 async function directoryHasFile(directory, relativeFile) {
@@ -53,6 +63,28 @@ async function directoryHasFile(directory, relativeFile) {
     }
 }
 
+async function resolvePlaybookDir(from, { cwd, targetDir, assets, env = process.env }) {
+    const explicit = path.resolve(cwd, from);
+    if (await directoryHasFile(explicit, 'playbook.json')) return explicit;
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(from)) return null;
+    if (assets.creatorRootModulePath) {
+        const { resolveCreatorRoot } = await import(pathToFileURL(assets.creatorRootModulePath).href);
+        const root = await resolveCreatorRoot({ cwd, env });
+        if (root?.error) throw root.error;
+        const relative = root && path.relative(root.rootDir, targetDir);
+        const segments = relative?.split(path.sep) ?? [];
+        const fromTarget = segments[0] === 'channels' ? segments[1] : null;
+        const channel = fromTarget && root?.manifest?.channels?.includes(fromTarget)
+            ? fromTarget : root?.manifest?.channels?.[0];
+        if (root && channel) {
+            const candidate = path.join(root.rootDir, 'channels', channel, 'playbooks', from);
+            if (await directoryHasFile(candidate, 'playbook.json')) return candidate;
+        }
+    }
+    const local = path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'playbooks', from);
+    return await directoryHasFile(local, 'playbook.json') ? local : null;
+}
+
 export async function runNewCommand(args, options = {}) {
     const text = (key, params) => cliText(key, params);
     const log = options.log ?? ((line) => console.log(line));
@@ -62,6 +94,7 @@ export async function runNewCommand(args, options = {}) {
 
     if (args.includes('--help') || args.includes('-h')) {
         log(usage());
+        log(text('cli.new.help.fromUsage'));
         return { exitCode: 0 };
     }
 
@@ -73,9 +106,18 @@ export async function runNewCommand(args, options = {}) {
         return { exitCode: 1 };
     }
 
-    const { target, template, lang } = parsed;
+    const { target, template, from, lang } = parsed;
     const targetDir = path.resolve(cwd, target);
     const templateDir = template ? path.resolve(cwd, template) : assets.templateDir;
+    let playbookDir;
+    if (from) {
+        try { playbookDir = await resolvePlaybookDir(from, { cwd, targetDir, assets, env: options.env }); }
+        catch (error) { logError(error.message); return { exitCode: 1 }; }
+        if (!playbookDir) {
+            logError(text('cli.new.error.fromNotFound', { from }));
+            return { exitCode: 1 };
+        }
+    }
 
     if (!templateDir) {
         logError(text('cli.new.error.templateUnavailable'));
@@ -107,9 +149,21 @@ export async function runNewCommand(args, options = {}) {
 
     try {
         const createProject = options.createProject ?? await defaultCreateProject(assets.scaffoldModulePath);
-        const result = await createProject(targetDir, templateDir, hasSkills
+        const scaffoldOptions = hasSkills
             ? { skillsSourceDir, schemasSourceDir: hasSchemas ? schemasSourceDir : undefined }
-            : {});
+            : {};
+        let applied;
+        if (playbookDir) {
+            const scaffold = options.scaffold ?? await import(pathToFileURL(assets.scaffoldModulePath).href);
+            const env = options.env ?? process.env;
+            scaffoldOptions.beforeCommit = async (destination) => {
+                applied = await scaffold.applyPlaybook({ projectDir: destination, playbookDir,
+                    hasTool: (name) => Boolean(findExecutable(name, env.PATH ?? process.env.PATH ?? '', process.platform,
+                        env.PATHEXT ?? process.env.PATHEXT)) });
+                return applied;
+            };
+        }
+        const result = await createProject(targetDir, templateDir, scaffoldOptions);
         if (lang) {
             const intakePath = path.join(targetDir, '.akari', 'intake.json');
             const intake = JSON.parse(await fs.readFile(intakePath, 'utf8'));
@@ -123,7 +177,12 @@ export async function runNewCommand(args, options = {}) {
         log(text('cli.new.result.skills', { status: hasSkills ? text('cli.new.label.included', { path: skillsSourceDir }) : text('cli.new.label.skipped') }));
         log(`git: ${result.git.action}`);
         log(text('cli.new.result.report', { path: result.reportPath }));
-        return { exitCode: 0, result };
+        if (applied) {
+            log(text('cli.new.result.fromApplied', { path: applied.playbookJsonPath }));
+            log(text('cli.new.result.sheet', { path: applied.sheetPath }));
+            for (const tool of applied.missingTools) log(text('cli.new.warning.toolMissing', { tool }));
+        }
+        return { exitCode: 0, result, applied };
     } catch (error) {
         logError(error instanceof Error ? error.message : String(error));
         return { exitCode: 1 };
