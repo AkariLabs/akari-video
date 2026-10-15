@@ -21,7 +21,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 27
+スキル数: 28
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
