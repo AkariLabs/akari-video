@@ -44,7 +44,7 @@ export class ReviewAnnotationFailureGate {
 }
 
 export function reviewAnnotationRequest(projectRootUri: string, mark: ChatReviewMark): {
-    projectRootUri: string; src?: string; sourceT: number; sourceRange?: [number, number];
+    projectRootUri: string; src?: string; sourceT: number; sourceRange?: [number, number]; point?: [number, number];
     strokes?: { tool: 'pen'; space: 'content-rect'; frame: { sourceT: number; cutIndex: number | null }; points: [number, number][] }[];
     text: string;
 } {
@@ -54,6 +54,8 @@ export function reviewAnnotationRequest(projectRootUri: string, mark: ChatReview
         ...(mark.src ? { src: mark.src } : {}),
         sourceT,
         ...(mark.tool === 'range' && mark.sourceRange ? { sourceRange: mark.sourceRange } : {}),
+        ...(mark.tool === 'pin' && mark.shape && Number.isFinite(mark.shape.x) && Number.isFinite(mark.shape.y)
+            ? { point: [Math.max(0, Math.min(1, mark.shape.x)), Math.max(0, Math.min(1, mark.shape.y))] as [number, number] } : {}),
         ...(mark.tool === 'pen' && mark.points?.length ? { strokes: [{ tool: 'pen', space: 'content-rect',
             frame: { sourceT, cutIndex: mark.cutIndex ?? null }, points: mark.points }] } : {}),
         text: mark.text

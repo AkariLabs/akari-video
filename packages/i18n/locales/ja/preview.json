@@ -712,6 +712,7 @@
   "preview.openHandler.ui.clipboardLabel": "クリップボード",
   "preview.openHandler.ui.reviewSaveFailedError": "レビュー添付を保存できませんでした",
   "preview.openHandler.ui.annotationCreateFailedMessage": "印を注釈として保存できませんでした。印は置き場に残しています。",
+  "preview.openHandler.ui.annotationDeleteFailedMessage": "注釈を削除できませんでした。印は置き場に残しています。",
   "preview.openHandler.ui.lintRejectedMessage": "edit-lint が変更を拒否しました",
   "preview.openHandler.ui.captionTextChangedLabel": "字幕のテキストを変更",
   "preview.openHandler.ui.editingPreviewLabel": "編集中のプレビュー",

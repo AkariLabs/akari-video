@@ -599,6 +599,7 @@ export function previewChatReviewScript(): string {
             if (Array.isArray(event.data.attachments)) {
                 const received = event.data.attachments;
                 const present = new Set(received.filter(item => item.kind === 'review').map(item => item.review.id));
+                if (event.data.failedRemovalId) pendingRemoves.delete(event.data.failedRemovalId);
                 for (const id of pendingAdds.keys()) if (present.has(id)) pendingAdds.delete(id);
                 for (const id of pendingRemoves) if (!present.has(id)) pendingRemoves.delete(id);
                 marks = received.filter(item => item.kind !== 'review' || !pendingRemoves.has(item.review.id));

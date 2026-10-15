@@ -712,6 +712,7 @@
   "preview.openHandler.ui.clipboardLabel": "Clipboard",
   "preview.openHandler.ui.reviewSaveFailedError": "Could not save the review attachment.",
   "preview.openHandler.ui.annotationCreateFailedMessage": "Could not save this mark as an annotation. It remains in the tray.",
+  "preview.openHandler.ui.annotationDeleteFailedMessage": "Could not delete this annotation. The mark remains in the tray.",
   "preview.openHandler.ui.lintRejectedMessage": "edit-lint rejected the change.",
   "preview.openHandler.ui.captionTextChangedLabel": "Change caption text",
   "preview.openHandler.ui.editingPreviewLabel": "Editing preview",

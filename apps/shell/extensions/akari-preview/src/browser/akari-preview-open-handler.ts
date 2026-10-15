@@ -629,6 +629,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return identified;
             });
             let attachments: ChatAttachment[] = current;
+            let failedRemovalId: string | undefined;
             const createAnnotation = async (mark: ChatReviewMark, notify = true, retry = false): Promise<ChatReviewMark> => {
                 if (mark.annotationId || (mark.tool !== 'pen' && !mark.text.trim())) return mark;
                 const failureKey = `${key}\0${mark.id ?? ''}`;
@@ -658,8 +659,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     : message.index;
                 if (!Number.isInteger(index) || index < 0 || index >= current.length) return;
                 const removed = current[index];
-                if (removed.kind === 'review') this.reviewAnnotationFailures.clear(`${key}\0${removed.review.id ?? ''}`);
-                attachments = current.filter((_, position) => position !== index);
+                if (removed.kind === 'review' && removed.review.annotationId) {
+                    try {
+                        await this.commandRegistry.executeCommand('akari.annotations.deleteFromPreview',
+                            { projectRootUri: workspaceRootUri, id: removed.review.annotationId });
+                    } catch {
+                        failedRemovalId = removed.review.id;
+                        this.messages.warn(renderT('preview.openHandler.ui.annotationDeleteFailedMessage'));
+                    }
+                }
+                if (!failedRemovalId && removed.kind === 'review') this.reviewAnnotationFailures.clear(`${key}\0${removed.review.id ?? ''}`);
+                if (!failedRemovalId) attachments = current.filter((_, position) => position !== index);
             } else if (message.type === 'akari-preview-chat-review-update') {
                 if (!Number.isInteger(message.index) || message.index < 0 || message.index >= current.length) return;
                 const target = current[message.index];
@@ -702,7 +712,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const editRoot = viewer.akariPreviewEditUri?.parent ?? viewer.akariPreviewRelatedEditUri?.parent;
                 const sameProject = editRoot?.toString() === projectRoot.toString()
                     || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
-                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments,
+                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments, failedRemovalId,
                     partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : renderT('preview.openHandler.ui.clipboardLabel')) });
             }
         });

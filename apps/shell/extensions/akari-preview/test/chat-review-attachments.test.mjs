@@ -34,13 +34,25 @@ test('annotation request keeps source frames, ranges and content-rect strokes wi
   });
   assert.deepEqual(reviewAnnotationRequest('file:///project', { ...base, tool: 'pin',
     shape: { x: .5, y: .4 }, text: 'Fix this' }), {
-    projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25, text: 'Fix this'
+    projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25, point: [.5, .4], text: 'Fix this'
   });
   assert.deepEqual(reviewAnnotationRequest('file:///project', { ...base, tool: 'range',
     sourceRange: [3.25, 4.5], text: 'Shorten' }), {
     projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25,
     sourceRange: [3.25, 4.5], text: 'Shorten'
   });
+});
+
+test('only finite pin shapes produce clamped annotation points', () => {
+  const base = { source: 'edit.json', sourceLabel: 'edit', time: 1, text: 'Fix this' };
+  const request = mark => reviewAnnotationRequest('file:///project', { ...base, ...mark });
+  assert.deepEqual(request({ tool: 'pin', shape: { x: -2, y: 3 } }).point, [0, 1]);
+  for (const shape of [undefined, { x: NaN, y: .5 }, { x: .5, y: Infinity }]) {
+    assert.equal(Object.hasOwn(request({ tool: 'pin', shape }), 'point'), false);
+  }
+  for (const tool of ['pen', 'range']) {
+    assert.equal(Object.hasOwn(request({ tool, shape: { x: .2, y: .8 } }), 'point'), false);
+  }
 });
 
 test('one failed mark update notifies once, while handoff retries and can notify again', () => {
