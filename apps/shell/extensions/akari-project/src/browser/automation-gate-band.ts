@@ -37,8 +37,9 @@ export class AutomationGateBand implements FrontendApplicationContribution {
     private widget?: Widget;
     private shell?: ApplicationShell;
     private resizeObserver?: ResizeObserver;
-    private timer?: ReturnType<typeof setInterval>;
+    private watchGeneration = 0;
     private refreshing = false;
+    private refreshQueued = false;
     private resolving = false;
 
     async onDidInitializeLayout(app: FrontendApplication): Promise<void> {
@@ -59,9 +60,31 @@ export class AutomationGateBand implements FrontendApplicationContribution {
         await app.shell.addWidget(widget, { area: 'top' });
         this.resizeObserver = new ResizeObserver(() => this.syncHeight());
         this.resizeObserver.observe(widget.node);
-        this.workspace.onWorkspaceChanged(() => void this.refresh());
-        this.timer = setInterval(() => void this.refresh(), 1200);
-        void this.refresh();
+        this.workspace.onWorkspaceChanged(() => void this.watchGates());
+        void this.watchGates();
+    }
+
+    private async watchGates(): Promise<void> {
+        const generation = ++this.watchGeneration;
+        const root = (await this.workspace.roots)[0]?.resource.toString();
+        await this.refresh();
+        if (!root || generation !== this.watchGeneration) return;
+        let revision = 0;
+        const service = this.service as AkariProjectService & {
+            waitForGateChange(projectUri: string, afterRevision: number): Promise<{ revision: number; watching: boolean }>;
+        };
+        while (generation === this.watchGeneration) {
+            try {
+                const result = await service.waitForGateChange(root, revision);
+                if (generation !== this.watchGeneration) return;
+                if (result.revision !== revision || !result.watching) await this.refresh();
+                revision = result.revision;
+            } catch (error) {
+                console.warn('[akari-project] gate watcher unavailable; retrying:', error);
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                if (generation === this.watchGeneration) await this.refresh();
+            }
+        }
     }
 
     private syncHeight(): void {
@@ -77,7 +100,8 @@ export class AutomationGateBand implements FrontendApplicationContribution {
     }
 
     private async refresh(): Promise<void> {
-        if (this.refreshing || this.resolving) return;
+        if (this.resolving) return;
+        if (this.refreshing) { this.refreshQueued = true; return; }
         this.refreshing = true;
         try {
             const root = (await this.workspace.roots)[0]?.resource.toString();
@@ -86,7 +110,13 @@ export class AutomationGateBand implements FrontendApplicationContribution {
             this.index = Math.min(this.index, Math.max(this.gates.length - 1, 0));
             this.render();
         } catch (error) { console.warn('[akari-project] gate refresh failed:', error); }
-        finally { this.refreshing = false; }
+        finally {
+            this.refreshing = false;
+            if (this.refreshQueued) {
+                this.refreshQueued = false;
+                void this.refresh();
+            }
+        }
     }
 
     private async resolve(decision: 'approved' | 'declined'): Promise<void> {

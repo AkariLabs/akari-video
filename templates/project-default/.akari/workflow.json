@@ -39,6 +39,7 @@
     "directory": ".akari/events",
     "gateTypes": [
       "plan-confirmed",
+      "agent-action",
       "report-generated",
       "report-approved",
       "edit-completed",

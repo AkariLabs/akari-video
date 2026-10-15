@@ -11,6 +11,7 @@ import {
 import { describeVersionStatus } from "./messages.mjs";
 import { readCacheSync, readOwnVersion, resolveCachePath, resolveInstalledVersionInfo } from "./update-check.mjs";
 import { resolveRuntimePaths } from "./runtime-diagnostics.mjs";
+import { cliText } from "./i18n.mjs";
 
 export async function runStatusCommand(argv, options = {}) {
   const log = options.log ?? ((line) => process.stdout.write(line));
@@ -48,9 +49,17 @@ export async function runStatusCommand(argv, options = {}) {
 
 export function formatStatusOutput(status) {
   const summary = formatStatusSummary(status);
-  if (status.state_health !== "inconclusive" || status.problems.length === 0) return summary;
+  const activity = [];
+  if (status.automation?.action_count) activity.push(cliText("cli.status.automation.actions", {
+    count: status.automation.action_count, summary: status.automation.latest_action,
+  }));
+  if (status.automation?.pending_gate_count) activity.push(cliText("cli.status.automation.pending", {
+    count: status.automation.pending_gate_count,
+  }));
+  const output = [summary, ...activity].join("\n");
+  if (status.state_health !== "inconclusive" || status.problems.length === 0) return output;
   const problems = status.problems.map((problem) => `  - ${problem}`).join("\n");
-  return `${summary}\nCould not determine:\n${problems}\nNext: run \`akari status --json\` for the full machine-readable report, or resolve the items above and re-run \`akari status\`.`;
+  return `${output}\nCould not determine:\n${problems}\nNext: run \`akari status --json\` for the full machine-readable report, or resolve the items above and re-run \`akari status\`.`;
 }
 
 export function parseStatusArguments(argv, cwd = process.cwd()) {

@@ -331,6 +331,9 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
+    protected readonly gateRevisions = new Map<string, number>();
+    protected readonly gateWaiters = new Map<string, Set<() => void>>();
+    protected readonly nativeEventWatchers = new Set<string>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
     protected readonly libraryThumbnailInFlight = new Map<string, Promise<string | undefined>>();
     protected readonly catalogFontDownloads = new Map<string, Promise<void>>();
@@ -1417,11 +1420,12 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         await this.migrateHistoryPolicy(root);
         const eventsDirectory = join(root, '.akari', 'events');
         try {
-            const watcher = watch(eventsDirectory, (_event, fileName) => {
+            const watcher = this.watchEventsDirectory(eventsDirectory, (_event, fileName) => {
                 if (fileName?.toString().endsWith('.json')) {
                     this.queueEvent(root, join(eventsDirectory, fileName.toString()));
                 }
             });
+            this.nativeEventWatchers.add(root);
             watcher.on('error', error => {
                 console.warn('[akari-project] native event watcher unavailable; using polling:', error.message);
                 watcher.close();
@@ -1439,6 +1443,34 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         }
     }
 
+    protected watchEventsDirectory(directory: string, listener: Parameters<typeof watch>[1]): ReturnType<typeof watch> {
+        return watch(directory, listener);
+    }
+
+    /** Long wait over the existing project watcher. The browser only polls every 10s if it fails. */
+    async waitForGateChange(projectUri: string, afterRevision: number): Promise<{ revision: number; watching: boolean }> {
+        await this.watchProject(projectUri);
+        const root = this.fsPath(projectUri);
+        const state = () => ({ revision: this.gateRevisions.get(root) ?? 0, watching: this.nativeEventWatchers.has(root) });
+        if (state().revision !== afterRevision) return state();
+        return new Promise(resolvePromise => {
+            const waiters = this.gateWaiters.get(root) ?? new Set<() => void>();
+            this.gateWaiters.set(root, waiters);
+            const timeout = setTimeout(done, state().watching ? 30000 : 10000);
+            function done(): void {
+                clearTimeout(timeout);
+                waiters.delete(done);
+                resolvePromise(state());
+            }
+            waiters.add(done);
+        });
+    }
+
+    protected signalGateChange(root: string, changed = true): void {
+        if (changed) this.gateRevisions.set(root, (this.gateRevisions.get(root) ?? 0) + 1);
+        for (const wake of this.gateWaiters.get(root) ?? []) wake();
+    }
+
     protected queueEvent(root: string, eventPath: string): void {
         if (this.processedEvents.has(eventPath)) {
             return;
@@ -1454,6 +1486,8 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
     }
 
     protected installPollingWatcher(root: string, eventsDirectory: string): void {
+        this.nativeEventWatchers.delete(root);
+        this.signalGateChange(root, false);
         const current = this.watchers.get(root);
         current?.close();
         const timer = setInterval(() => {
@@ -1464,7 +1498,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
                     }
                 }
             }, error => console.error('[akari-project] event polling failed:', error));
-        }, 500);
+        }, 10000);
         this.watchers.set(root, { close: () => clearInterval(timer) });
     }
 
@@ -2668,6 +2702,7 @@ process.stdout.write(JSON.stringify(found));
         if (!event || typeof event !== 'object' || Array.isArray(event)) return;
         this.processedEvents.add(eventPath);
         const action = readAutomationEvent(event);
+        if (action?.type === 'gate-requested' || action?.type === 'gate-resolved') this.signalGateChange(root);
         const message = action?.type === 'agent-action' ? action.summary : event.type && GATE_MESSAGES[event.type];
         if (!message || (await this.gitEligibility(root)) !== 'own-root') {
             return;
@@ -2734,6 +2769,7 @@ process.stdout.write(JSON.stringify(found));
             try {
                 await fs.writeFile(temporary, `${JSON.stringify(event)}\n`, 'utf8');
                 await fs.link(temporary, destination); // Readers see a complete JSON file or no file.
+                this.signalGateChange(root);
             } finally {
                 await fs.rm(temporary, { force: true });
             }

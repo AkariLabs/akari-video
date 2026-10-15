@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { formatStatusOutput } from "../src/status-command.mjs";
 import { resolveProjectStatus, serializeStatus } from "../src/status-core/status.mjs";
+import { setLanguage } from "../../i18n/index.mjs";
 
 async function withProject(callback) {
   const root = await mkdtemp(join(tmpdir(), "akari-status-core-"));
@@ -71,6 +72,35 @@ async function addEdit(root, sources) {
     })) }],
   });
 }
+
+test("automation events appear in status with action count, latest summary, and unresolved gate count", async () => {
+  await withProject(async (root) => {
+    await scaffold(root);
+    const directory = join(root, ".akari", "events");
+    const put = (id, type, time, fields) => writeJson(join(directory, `${time}-${id}.json`), {
+      version: 1, id, type, occurredAt: `2026-10-16T00:00:0${time}Z`, ...fields,
+    });
+    await put("a1", "agent-action", 1, { actor: "partner", summary: "Cut silence", files: ["edit.json"] });
+    await put("g1", "gate-requested", 2, { gate: "paid", requestId: "r1", summary: "Generate" });
+    await put("g2", "gate-requested", 3, { gate: "publish", requestId: "r2", summary: "Publish" });
+    await put("a2", "agent-action", 4, { actor: "external", summary: "Add captions", files: ["captions.json"] });
+    await put("bad-gate", "gate-requested", 4, { gate: "future-gate", requestId: "bad", summary: "Unknown" });
+    let status = resolveProjectStatus(root);
+    assert.deepEqual(status.automation, { action_count: 2, latest_action: "Add captions", pending_gate_count: 2 });
+    assert.match(formatStatusOutput(status), /やったこと 2 件（最新: Add captions）/u);
+    assert.match(formatStatusOutput(status), /確認待ち 2 件/u);
+    setLanguage("en");
+    try {
+      assert.match(formatStatusOutput(status), /Actions: 2 \(latest: Add captions\)/u);
+      assert.match(formatStatusOutput(status), /Awaiting confirmation: 2/u);
+    } finally { setLanguage(undefined); }
+    assert.deepEqual(JSON.parse(serializeStatus(status)).automation, status.automation);
+    await put("r1", "gate-resolved", 5, { requestId: "r1", decision: "declined", by: "human" });
+    status = resolveProjectStatus(root);
+    assert.equal(status.automation.pending_gate_count, 1);
+    assert.match(formatStatusOutput(status), /確認待ち 1 件/u);
+  });
+});
 
 test("resolveProjectStatus: project.display_name resolves title ?? folder name (task 2026-08-09-project-display-title)", async () => {
   await withProject(async (root) => {

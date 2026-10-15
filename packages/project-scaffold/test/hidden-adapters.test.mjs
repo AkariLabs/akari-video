@@ -13,4 +13,7 @@ test('scaffold の fallback workflow は全スキルリンク置き場を隠す'
     for (const adapter of ['.agents', '.codex', '.cursor', '.opencode', '.devin']) {
         assert.ok(workflow.tree.hidden.includes(adapter), adapter);
     }
+    assert.ok(workflow.events.gateTypes.includes('agent-action'));
+    assert.ok(!workflow.events.gateTypes.includes('gate-requested'));
+    assert.ok(!workflow.events.gateTypes.includes('gate-resolved'));
 });

@@ -8,6 +8,8 @@
   "cli.help.commands.doctor": "  doctor [--json]        必須部品の実在と解決元を診断する",
   "cli.help.commands.update": "  update [--force]       更新を確認する（--force で install.sh 経路の本体を入れ直す）",
   "cli.help.commands.status": "  status                 接続状態を確認する",
+  "cli.status.automation.actions": "やったこと {count} 件（最新: {summary}）",
+  "cli.status.automation.pending": "確認待ち {count} 件",
   "cli.help.commands.migrate": "  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換",
   "cli.help.commands.migrateLook": "  captions migrate-look <project> [--dry-run] [--json]  字幕の見た目を固定",
   "cli.help.commands.generate": "  generate               台本のビートから静止画クリップを生成",

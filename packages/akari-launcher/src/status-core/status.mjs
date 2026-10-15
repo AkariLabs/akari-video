@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { readProjectEvents, resolveActiveAcceptance } from "./events.mjs";
+import { readProjectEvents, resolveActiveAcceptance, resolveAutomationSummary } from "./events.mjs";
 import { resolveProjectDisplayName } from "./display-name.mjs";
 import { inspectFullIntegrity } from "./integrity.mjs";
 import { validateAndCountReview } from "./review.mjs";
@@ -76,6 +76,7 @@ export function resolveProjectStatus(input = process.cwd(), { mode = "fast" } = 
   });
   problems.push(...eventProblems);
   const acceptanceState = resolveActiveAcceptance(events);
+  const automation = resolveAutomationSummary(events);
   problems.push(...acceptanceState.problems);
 
   const materials = scaffolded
@@ -120,6 +121,7 @@ export function resolveProjectStatus(input = process.cwd(), { mode = "fast" } = 
     waiting_on: routing.waiting_on,
     next_skill: routing.next_skill,
     review: reviewCounts,
+    ...(automation.action_count || automation.pending_gate_count ? { automation } : {}),
     release: { state: releaseState, accepted: false },
     problems: [...new Set(problems)].sort((a, b) => a.localeCompare(b, "en")),
     warnings: [...new Set(warnings)].sort((a, b) => a.localeCompare(b, "en")),
