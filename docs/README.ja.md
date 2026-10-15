@@ -76,6 +76,7 @@
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | 生成 v0（仮枠クリップ・9 入力スロット・サイドカー meta・能力カタログ・状態・動画予定・差し替え・費用承認・コマ保存） |
 | [contract-2026-10-15-playbook-v0.md](./contract-2026-10-15-playbook-v0.md) | 作り方 v0（完成プロジェクトからの記録と、新規プロジェクトへの適用） |
+| [contract-2026-10-15-project-manifest-v0.md](./contract-2026-10-15-project-manifest-v0.md) | プロジェクトの依存グラフ v0 — `<project>/.akari/manifest.json`（nodes = 関わるもの・edges = 誰が誰を使うか）。シーンを持つプロジェクトは `scenes/<scene>/` に 1 段だけ入れ子（シーンのフォルダを作業フォルダとして開く）。実体も編集の中身も持たず、相関図・構成の木・確認シート・検査の正本になる。`akari project sync / check / scene add`。参照台帳・利用台帳は変えない |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | ワールドマップ v0（スキーマ・カメラ関数・描画 3 層・CLI akari world・俯瞰 HTML・制作フロー） |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | 作品の言語の保存先・解決順・正規化・言語パックの代用規則 |
 
