@@ -25,6 +25,15 @@ export async function validatePlaybook(playbook, { markdown, skillsDir = path.re
   for (const [index, item] of (Array.isArray(playbook?.placeholders) ? playbook.placeholders : []).entries()) {
     if (['own', 'site'].includes(item?.sample?.source)) errors.push(`placeholders[${index}].sample に own / site は使えません`);
   }
+  const placeholderIds = new Set((Array.isArray(playbook?.placeholders) ? playbook.placeholders : []).map(item => item?.id));
+  const beatIds = new Set();
+  for (const [index, beat] of (Array.isArray(playbook?.beats) ? playbook.beats : []).entries()) {
+    if (beatIds.has(beat?.id)) errors.push(`beats[${index}].id は重複できません`);
+    beatIds.add(beat?.id);
+    if (beat?.placeholder && !placeholderIds.has(beat.placeholder)) {
+      warnings.push(`beats[${index}].placeholder が見つかりません: ${beat.placeholder}`);
+    }
+  }
   for (const [index, item] of (Array.isArray(playbook?.parts) ? playbook.parts : []).entries()) {
     if (['own', 'site'].includes(item?.source)) errors.push(`parts[${index}] に own / site は使えません`);
   }
@@ -37,6 +46,7 @@ export async function validatePlaybook(playbook, { markdown, skillsDir = path.re
   if (markdown !== undefined) {
     const found = [...markdown.matchAll(/^## (.+?)\s*$/gmu)].map(match => match[1].trim());
     for (const heading of headings) if (!found.includes(heading)) errors.push(`playbook.md に見出しがありません: ${heading}`);
+    if (playbook?.beats && !found.includes('内訳')) errors.push('playbook.md に見出しがありません: 内訳');
   }
   return { ok: errors.length === 0, errors, warnings };
 }

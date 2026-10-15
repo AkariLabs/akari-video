@@ -58,6 +58,18 @@
         "sample": { "$ref": "#/$defs/sample" }
       }
     } },
+    "beats": { "type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "at", "duration", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "at": { "type": "number", "minimum": 0 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "title": { "$ref": "#/$defs/text" },
+        "note": { "$ref": "#/$defs/text" },
+        "placeholder": { "$ref": "#/$defs/id" }
+      }
+    } },
     "parts": { "type": "array", "items": {
       "type": "object", "additionalProperties": false,
       "required": ["kind", "id", "source", "license"],

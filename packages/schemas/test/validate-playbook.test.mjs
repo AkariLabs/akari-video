@@ -43,3 +43,18 @@ test('parent traversal in preview fails', async () => {
   value.preview = { frames: ['../outside.png'] };
   assert.equal((await validatePlaybook(value, { markdown })).ok, false);
 });
+test('beats accept seconds and warn about an unknown placeholder', async () => {
+  const value = structuredClone(sample);
+  value.beats = [{ id: 'hook', at: 0, duration: 3, title: 'つかみ', placeholder: 'missing' }];
+  const result = await validatePlaybook(value, { markdown: `${markdown}\n## 内訳\n` });
+  assert.equal(result.ok, true, result.errors.join('; '));
+  assert.match(result.warnings.join(' '), /missing/);
+});
+test('beats reject negative starts and nonpositive durations', async () => {
+  const value = structuredClone(sample);
+  value.beats = [{ id: 'hook', at: -1, duration: 0, title: 'つかみ' }];
+  const result = await validatePlaybook(value, { markdown: `${markdown}\n## 内訳\n` });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(' '), /beats\/0\/at/);
+  assert.match(result.errors.join(' '), /beats\/0\/duration/);
+});

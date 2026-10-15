@@ -558,6 +558,7 @@ function renderPlaybookSheetHtml(playbook, missingTools) {
     const list = (items) => items.length ? `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>なし</p>';
     const steps = playbook.steps.map((step, index) => `${index + 1}. ${step.title}${step.checkpoint ? ' ☑ ここで確認' : ''}`);
     const placeholders = (playbook.placeholders ?? []).map(item => `${item.role} / ${item.kind} / 見本 ${item.sample ? `あり (${item.sample.category}/${item.sample.id})` : 'なし'}`);
+    const beats = (playbook.beats ?? []).map(beat => `${beat.at}–${beat.at + beat.duration} 秒 / ${beat.title}${beat.note ? ` / ${beat.note}` : ''}`);
     const parts = (playbook.parts ?? []).map(item => `${item.kind}: ${item.id} / ${item.source} / ${item.license} / Pro ${item.tier === 'pro' ? '要' : item.tier === 'free' ? '不要' : '不明'}`);
     const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}`);
     const provenance = playbook.provenance;
@@ -581,6 +582,7 @@ ${REPORT_STYLE}
       ${row('流れ（確認点つき）', list(steps))}
       ${row('設定値の数と主な値', `<p>${settings.length} 件</p>${list(settings)}`)}
       ${row('仮枠（役割・種類・見本の有無）', list(placeholders))}
+      ${playbook.beats?.length ? row('内訳', list(beats)) : ''}
       ${row('使った部品（入手先・ライセンス・Pro 要否）', list(parts))}
       ${row('要る道具（持っていないものを明記）', list((playbook.requires?.tools ?? []).map(tool => `${tool}: ${missingTools.includes(tool) ? '無い' : 'あり'}`)))}
       ${row('ライセンス', escapeHtml(playbook.license))}
@@ -711,25 +713,39 @@ function applySettings(edit, settings) {
     }
 }
 
-function addPlaceholders(edit, placeholders) {
+function addPlaceholders(edit, placeholders, beats) {
     const fps = edit.output.fps;
+    const hasBeats = Array.isArray(beats) && beats.length > 0;
     const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
     const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'visual', items: [] };
     let at = 0;
-    for (const placeholder of placeholders) {
-        if (placeholder.kind === 'audio') continue;
-        const duration = Math.max(1, Math.round((placeholder.durationHintSec ?? 5) * fps));
-        // Empty planned canvas items are valid edit-v2 nodes without a media path. A
-        // sample is a catalog reference, never an asset copied into the project.
-        track.items.push({
-            id: `playbook-${placeholder.id}`, at, duration,
-            name: placeholder.sample
-                ? `${placeholder.role} (${placeholder.sample.category}/${placeholder.sample.id})`
-                : placeholder.role,
-            source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: placeholder.role,
-                background: { type: 'none' } } }, items: []
-        });
-        at += duration;
+    if (hasBeats) {
+        for (const beat of [...beats].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+            const start = Math.round(beat.at * fps);
+            const duration = Math.max(1, Math.round(beat.duration * fps));
+            track.items.push({
+                id: `playbook-${beat.id}`, at: start, duration, name: beat.title,
+                source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: beat.note || beat.title,
+                    background: { type: 'none' } } }, items: []
+            });
+            at = Math.max(at, start + duration);
+        }
+    } else {
+        for (const placeholder of placeholders) {
+            if (placeholder.kind === 'audio') continue;
+            const duration = Math.max(1, Math.round((placeholder.durationHintSec ?? 5) * fps));
+            // Empty planned canvas items are valid edit-v2 nodes without a media path. A
+            // sample is a catalog reference, never an asset copied into the project.
+            track.items.push({
+                id: `playbook-${placeholder.id}`, at, duration,
+                name: placeholder.sample
+                    ? `${placeholder.role} (${placeholder.sample.category}/${placeholder.sample.id})`
+                    : placeholder.role,
+                source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: placeholder.role,
+                    background: { type: 'none' } } }, items: []
+            });
+            at += duration;
+        }
     }
     if (track.items.length) edit.tracks.push(track);
     for (const placeholder of placeholders) {
@@ -745,7 +761,23 @@ function addPlaceholders(edit, placeholders) {
         });
     }
     if (audioTrack.items.length) edit.tracks.push(audioTrack);
-    return placeholders.length;
+    return hasBeats ? beats.length + placeholders.filter(item => item.kind === 'audio').length : placeholders.length;
+}
+
+function mergePlaybookScript(existing, beats) {
+    const lines = (Array.isArray(existing?.lines) ? existing.lines : []).filter(line => line?.author !== 'playbook');
+    const ids = new Set(lines.map(line => line.id));
+    for (const beat of beats) {
+        const base = `p-${beat.id}`;
+        let id = base;
+        for (let suffix = 2; ids.has(id); suffix++) id = `${base}-${suffix}`;
+        ids.add(id);
+        lines.push({ id, kind: 'plan', at: beat.at, duration: beat.duration,
+            text: beat.note ? `${beat.title}: ${beat.note}` : beat.title,
+            ...(beat.placeholder ? { placeholder: beat.placeholder } : {}), beat: beat.id, author: 'playbook' });
+    }
+    lines.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return { ...(existing ?? {}), version: 0, kind: 'akari-script', lines };
 }
 
 /** Apply a validated playbook to an already scaffolded project. */
@@ -759,8 +791,17 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     ]);
     const required = ['version', 'kind', 'id', 'name', 'playbookVersion', 'depth', 'category', 'steps', 'settings', 'license', 'provenance'];
     const headings = ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', '使った部品', '要る道具', 'ライセンス', '出どころ'];
+    const beats = playbook.beats;
+    const invalidBeats = beats !== undefined && (!Array.isArray(beats) || new Set(beats.map(beat => beat?.id)).size !== beats.length
+        || beats.some(beat => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(beat?.id ?? '')
+            || !Number.isFinite(beat.at) || beat.at < 0 || !Number.isFinite(beat.duration) || beat.duration <= 0
+            || typeof beat.title !== 'string' || !beat.title.trim()
+            || (beat.note !== undefined && (typeof beat.note !== 'string' || !beat.note.trim()))
+            || (beat.placeholder !== undefined && typeof beat.placeholder !== 'string')
+            || (beat.note ? `${beat.title}: ${beat.note}` : beat.title).length > 500));
     if (required.some(key => playbook[key] === undefined) || playbook.version !== 0 || playbook.kind !== 'akari-playbook'
         || !Array.isArray(playbook.steps) || !playbook.provenance
+        || invalidBeats
         || (playbook.placeholders ?? []).some(item => ['own', 'site'].includes(item.sample?.source))
         || (playbook.parts ?? []).some(item => ['own', 'site'].includes(item.source))
         || headings.some(heading => !new RegExp(`^## ${heading}$`, 'm').test(markdown))) {
@@ -779,7 +820,14 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     }
     playbook.provenance.appliedFrom = { path: source, playbookVersion: playbook.playbookVersion, appliedAt: now.toISOString() };
     applySettings(edit, playbook.settings);
-    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? []);
+    const activeBeats = playbook.beats?.length ? playbook.beats : undefined;
+    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats);
+    const scriptPath = path.join(planning, 'script.json');
+    const existingScript = activeBeats ? await fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    }) : null;
+    const script = activeBeats ? mergePlaybookScript(existingScript, activeBeats) : null;
     const missingTools = [];
     for (const tool of playbook.requires?.tools ?? []) if (!await hasTool(tool)) missingTools.push(tool);
     await fs.mkdir(planning, { recursive: true });
@@ -787,6 +835,7 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     await fs.writeFile(playbookMdPath, markdown, { flag: 'wx' });
     await writeJsonAtomic(playbookJsonPath, playbook);
     await writeJsonAtomic(editPath, edit);
+    if (script) await writeJsonAtomic(scriptPath, script);
     await fs.writeFile(sheetPath, renderReportHtml(null, { playbook, missingTools }), { flag: 'wx' });
     return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools };
 }
