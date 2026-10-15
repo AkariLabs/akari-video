@@ -12,6 +12,8 @@
   "cli.help.commands.migrateLook": "  captions migrate-look <project> [--dry-run] [--json]  字幕の見た目を固定",
   "cli.help.commands.generate": "  generate               台本のビートから静止画クリップを生成",
   "cli.help.commands.storyboard": "  storyboard             タイムラインから印刷用の絵コンテを作成",
+  "cli.help.commands.project": "  project sync|check|scene add  プロジェクトの目録を同期・検査し、シーンを追加",
+  "cli.help.commands.playbook": "  playbook list|apply     作り方を一覧・適用",
   "cli.help.commands.clean": "  akari clean [dir]      使い捨ての中間ファイルを一覧・削除（既定は一覧のみ）",
   "cli.help.developer.heading": "開発者向け:",
   "cli.help.developer.opencode": "  --opencode              Claude Code の代わりに opencode を起動する",

@@ -12,6 +12,8 @@
   "cli.help.commands.migrateLook": "  captions migrate-look <project> [--dry-run] [--json]  Lock existing subtitle appearance",
   "cli.help.commands.generate": "  generate                 Generate still-image clips from script beats",
   "cli.help.commands.storyboard": "  storyboard               Create a printable storyboard from the timeline",
+  "cli.help.commands.project": "  project sync|check|scene add  Sync or check the project manifest, or add a scene",
+  "cli.help.commands.playbook": "  playbook list|apply      List or apply playbooks",
   "cli.help.commands.clean": "  akari clean [dir]        List or remove temporary files (lists by default)",
   "cli.help.developer.heading": "For developers:",
   "cli.help.developer.opencode": "  --opencode               Launch opencode instead of Claude Code",

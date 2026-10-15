@@ -12,17 +12,23 @@ const slug = value => idPattern.test(value) ? value : 'project';
 const text = (key, params) => cliText(`cli.project.${key}`, params);
 const missing = error => error?.code === 'ENOENT';
 
-async function resolveAssetNode(root, node, env) {
+async function resolveAssetNode(root, node, env, localWhere) {
   const suffix = node.id.startsWith('asset:') ? node.id.slice(6) : '';
   const [category, id, ...extra] = suffix.split('/');
   if (!category || !id || extra.length || [category, id].some(part => part === '.' || part === '..' || part.includes('\\'))) return null;
-  const local = await resolveWhere(root, `assets/${category}/${id}`);
-  if (local.exists) return local.path;
+  const where = localWhere ?? `assets/${category}/${id}`;
+  const local = await resolveWhere(root, where);
+  if (local.exists) return { path: local.path, source: 'own', where };
   const { resolveAssetLibraryRoots } = await import('../../creator-root/src/index.mjs');
   for (const library of resolveAssetLibraryRoots(env).read) {
     if (!await isDirectory(library)) continue;
     const found = await resolveWhere(library, `${category}/${id}`);
-    if (found.exists) return found.path;
+    if (found.exists) {
+      const relative = path.relative(await fs.realpath(library), found.path);
+      const meta = await isDirectory(found.path) ? await readLedger(path.join(found.path, 'meta.json')) : {};
+      const inStore = relative === 'store' || relative.startsWith(`store${path.sep}`);
+      return { path: found.path, source: inStore || meta?.sourceKind === 'lab' ? 'lab' : 'builtin' };
+    }
   }
   return null;
 }
@@ -95,18 +101,20 @@ async function channelPeoplePath(root) {
   return null;
 }
 
-async function gatherLedgers(root, sceneId, generated, edges, parentId) {
+async function gatherLedgers(root, sceneId, generated, edges, parentId, env) {
   const folder = sceneId ? path.join(root, 'scenes', sceneId) : root;
   const references = await readLedger(path.join(folder, '.akari', 'asset-references.json'));
   for (const reference of entries(Array.isArray(references) ? references : references?.references)) {
     if (typeof reference?.category !== 'string' || typeof reference?.id !== 'string') continue;
     const id = `asset:${reference.category}/${reference.id}`;
     const relative = `${sceneId ? `scenes/${sceneId}/` : ''}assets/${reference.category}/${reference.id}`;
-    const local = await resolveWhere(root, relative);
-    const localRevision = local.exists ? await assetRevision(local.path) : null;
+    const resolved = await resolveAssetNode(root, { id }, env, relative);
+    const localRevision = resolved?.where ? await assetRevision(resolved.path) : null;
     const rev = localRevision ?? (Number.isInteger(reference.revision) ? reference.revision : 0);
-    generated.set(id, { id, kind: 'asset', rev: Math.max(rev, generated.get(id)?.rev ?? 0),
-      ...(reference.sourceKind ? { source: reference.sourceKind } : {}), ...(local.exists ? { where: relative } : {}),
+    const prior = generated.get(id);
+    const source = prior?.source === 'own' && !resolved?.where ? 'own' : resolved?.source ?? reference.sourceKind ?? prior?.source;
+    generated.set(id, { id, kind: 'asset', rev: Math.max(rev, prior?.rev ?? 0),
+      ...(source ? { source } : {}), ...(resolved?.where ? { where: relative } : prior?.where ? { where: prior.where } : {}),
       category: reference.category, by: 'sync' });
     edges.push({ from: parentId, uses: id, by: 'sync' });
   }
@@ -140,7 +148,7 @@ async function gatherDocuments(root, generated, edges, parentId) {
   await walk(planning);
 }
 
-export async function syncProject(root) {
+export async function syncProject(root, { env = process.env } = {}) {
   const previous = await readManifest(root);
   const old = new Map(previous.nodes.map(node => [node.id, node]));
   const generated = new Map();
@@ -157,9 +165,9 @@ export async function syncProject(root) {
     const edited = await isFile(editPath) ? (await fs.stat(editPath)).mtime.toISOString() : undefined;
     generated.set(sceneId, { id: sceneId, kind: 'scene', rev: 0, where: `scenes/${id}`, ...(edited ? { edited } : {}), by: 'sync' });
     edges.push({ from: projectId, uses: sceneId, by: 'sync' });
-    await gatherLedgers(root, id, generated, edges, sceneId);
+    await gatherLedgers(root, id, generated, edges, sceneId, env);
   }
-  await gatherLedgers(root, null, generated, edges, projectId);
+  await gatherLedgers(root, null, generated, edges, projectId, env);
   const peopleFile = await isFile(path.join(root, 'people.json')) ? path.join(root, 'people.json') : await channelPeoplePath(root);
   if (peopleFile) {
     const people = await readJson(peopleFile, {});
@@ -181,7 +189,10 @@ export async function syncProject(root) {
       node.rev = prior.rev + (node.mtime !== prior.mtime ? 1 : 0);
     } else if (node.kind === 'asset' || node.kind === 'style') node.rev = Math.max(node.rev, prior.rev);
     else node.rev = prior.rev;
-    generated.set(id, { ...prior, ...node });
+    if (node.kind === 'asset') {
+      const { source: _source, where: _where, ...rest } = prior;
+      generated.set(id, { ...rest, ...node });
+    } else generated.set(id, { ...prior, ...node });
   }
   for (const node of previous.nodes) {
     if (node.by === 'sync') continue;
@@ -245,7 +256,7 @@ export async function checkProject(root, { env = process.env } = {}) {
           const unacquired = node.source === 'lab';
           add(unacquired ? 'UNACQUIRED' : 'MISSING_WHERE', unacquired ? 'warning' : 'error',
             text(unacquired ? 'finding.unacquired' : 'finding.missingWhere', { id: node.id }), { node: node.id });
-        } else if (await assetRevisionIsNewer(target, node)) add('STALE', 'info', text('finding.stale', { id: node.id }), { node: node.id });
+        } else if (await assetRevisionIsNewer(target.path, node)) add('STALE', 'info', text('finding.stale', { id: node.id }), { node: node.id });
       } catch { add('INVALID_WHERE', 'error', text('finding.invalidWhere', { id: node.id }), { node: node.id }); }
       continue;
     }
@@ -336,7 +347,7 @@ export async function runProjectCommand(args, options = {}) {
       throw new Error(text('error.project', { path: root }));
     }
     if (parsed.action === 'sync') {
-      const result = await syncProject(root);
+      const result = await syncProject(root, { env: options.env ?? process.env });
       log(parsed.json ? JSON.stringify(result) : text('result.sync', { counts: Object.entries(result.counts).map(([kind, count]) => `${kind}:${count}`).join(' '), edges: result.edges }));
       return { exitCode: 0, result };
     }
