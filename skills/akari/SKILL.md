@@ -7,6 +7,8 @@ description: Create, open, or resume AKARI Video projects. Use when asked to mak
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
+For project editing, read [edit-plan autonomy and gates](../edit-plan/autonomy.md) before proceeding.
+
 The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
 Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.

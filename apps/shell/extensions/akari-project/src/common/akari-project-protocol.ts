@@ -7,6 +7,7 @@ import type { ShapeShelfPreset } from './shape-shelf';
 export type { MyStyle } from './my-style';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
 import type { LibraryTextstylePreset } from '@akari-video/edit-store';
+import type { GateRequestedEvent } from './automation-events';
 
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
 export const AkariProjectService = Symbol('AkariProjectService');
@@ -37,6 +38,16 @@ export interface DiffPreparationResult {
     capable: boolean;
     pairs: DiffResourcePair[];
 }
+
+export interface ActionHistoryEntry {
+    sha: string;
+    occurredAt: string;
+    actor: 'human' | 'partner' | 'external' | 'unattended';
+    summary: string;
+    fileCount: number;
+}
+
+export interface ActionHistoryResult { capable: boolean; entries: ActionHistoryEntry[] }
 
 export type ProjectGitEligibility = 'own-root' | 'inside-parent-repository' | 'none';
 
@@ -385,6 +396,11 @@ export interface AkariProjectService {
     finishVoiceRecording(request: { recordingId: string; discard?: boolean }): Promise<VoiceRecordingFinishResult | undefined>;
     runEditLint(projectUri: string): Promise<EditLintOutcome>;
     prepareDiffs(projectUri: string): Promise<DiffPreparationResult>;
+    pendingGates(projectUri: string): Promise<GateRequestedEvent[]>;
+    resolveGate(projectUri: string, requestId: string, decision: 'approved' | 'declined'): Promise<void>;
+    actionHistory(projectUri: string): Promise<ActionHistoryResult>;
+    prepareHistoryDiffs(projectUri: string, sha: string): Promise<DiffPreparationResult>;
+    restoreBeforeAction(projectUri: string, sha: string): Promise<void>;
     isAkariProject(projectUri: string): Promise<boolean>;
     convertToProject(projectUri: string): Promise<void>;
     getGitEligibility(projectUri: string): Promise<ProjectGitEligibility>;

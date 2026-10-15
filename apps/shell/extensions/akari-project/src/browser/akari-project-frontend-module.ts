@@ -29,6 +29,8 @@ import { ShapeShelfService } from './shape-shelf-service';
 import { LintResultsDialog } from './lint-results-dialog';
 import { HandoffProvider } from './handoff-provider';
 import { ScratchCommands } from './scratch-commands';
+import { ActionHistoryWidget } from './action-history-widget';
+import { AutomationGateBand } from './automation-gate-band';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -71,6 +73,13 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(CommandContribution).toService(AkariProjectContribution);
     bind(MenuContribution).toService(AkariProjectContribution);
     bind(FrontendApplicationContribution).toService(AkariProjectContribution);
+    bind(ActionHistoryWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: ActionHistoryWidget.ID,
+        createWidget: () => ctx.container.get(ActionHistoryWidget)
+    })).inSingletonScope();
+    bind(AutomationGateBand).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AutomationGateBand);
 
     // F12（task 2026-08-05-welcome-screen）: コマンドパレット「カタログを開く」。
     // developer mode で消える「＋ カタログから素材をさがす」入口の逃げ道。

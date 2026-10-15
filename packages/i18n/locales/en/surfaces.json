@@ -2342,5 +2342,6 @@
   "surfaces.home.playbookNoPreview.message": "No preview yet",
   "surfaces.home.playbookPreviewPause.button": "Pause preview",
   "surfaces.home.playbookPreviewResume.button": "Resume preview",
-  "surfaces.home.playbookPreviewFrame.button": "Show preview frame {frame}"
+  "surfaces.home.playbookPreviewFrame.button": "Show preview frame {frame}",
+  "surfaces.home.projectHomeActionHistory.button": "Activity"
 }

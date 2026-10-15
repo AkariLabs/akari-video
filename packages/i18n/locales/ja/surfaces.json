@@ -2342,5 +2342,6 @@
   "surfaces.home.playbookNoPreview.message": "見本はまだありません",
   "surfaces.home.playbookPreviewPause.button": "見本の再生を止める",
   "surfaces.home.playbookPreviewResume.button": "見本の再生を再開する",
-  "surfaces.home.playbookPreviewFrame.button": "見本のコマ {frame} を見る"
+  "surfaces.home.playbookPreviewFrame.button": "見本のコマ {frame} を見る",
+  "surfaces.home.projectHomeActionHistory.button": "やったこと"
 }

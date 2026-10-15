@@ -2584,6 +2584,7 @@ export class AkariHomeWidget extends ReactWidget {
                         <span>{t('surfaces.home.projectAssets.label', { count: presence.assetFiles, n: presence.assetFiles })}</span>
                         <span>{t('surfaces.home.projectLastUpdated.label', { date: current?.updatedAt ? formatDate(new Date(current.updatedAt)) : t('surfaces.home.projectHomeUnknown.label') })}</span></p>
                     {this.historyOpen && <div className='akari-os-popover akari-os-history'><h4>{t('surfaces.home.projectHistory.heading', { name })}</h4>
+                        <button type='button' data-akari-action-history-open='true' onClick={() => void this.runAvailableCommand('akari.project.actionHistory')}>{t('surfaces.home.projectHomeActionHistory.button')}</button>
                         <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? formatDate(new Date(entry.time)) : t('surfaces.home.projectHomeNoDateTime.label')}</time><span>{entry.label}</span></li>)}</ul>
                         {!this.historyEntries.length && <p>{t('surfaces.home.projectHomeNoHistoryYet.message')}</p>}
                         {this.latestReport && <button type='button' data-akari-project-report='true' onClick={() => void open(this.openers, this.latestReport!)}>{t('surfaces.home.projectHomeViewAnalysisReport.button')}</button>}</div>}
