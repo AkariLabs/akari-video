@@ -40,7 +40,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 26 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 27 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 
@@ -79,6 +79,7 @@ All contracts follow the
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | Generation v0: placeholder clips, nine normalized input slots, sidecar metadata, model capabilities, state, planned videos, replacement, cost approval, and frame capture (Japanese) |
+| [contract-2026-10-15-playbook-v0.md](./contract-2026-10-15-playbook-v0.md) | Playbook v0: recording a finished project's workflow and applying it to a new project (Japanese) |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | Content language storage, resolution order, normalization, and language-pack fallback |
 
