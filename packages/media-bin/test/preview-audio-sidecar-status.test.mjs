@@ -50,6 +50,21 @@ test('状態照会は missing / legacy / ready を JSON だけで判定し、既
   assert.equal(previewAudioSidecarStatus({ ...f.options, speed: 0 }).state, 'invalid');
 });
 
+test('完成 metadata と sidecar がそろえば要求中の Map より ready を優先する', async t => {
+  const f = fixture(t);
+  const completed = new Promise(resolve => {
+    const unsubscribe = subscribePreviewAudioSidecarEvents(event => {
+      if (event.key === f.key) { unsubscribe(); resolve(event); }
+    });
+    t.after(unsubscribe);
+  });
+  assert.equal(requestPreviewAudioSidecar(f.options).state, 'queued');
+  fs.writeFileSync(f.file('.flac'), Buffer.alloc(64));
+  f.json('.json', f.metadata);
+  assert.equal(previewAudioSidecarStatus(f.options).state, 'ready');
+  assert.equal((await completed).state, 'ready');
+});
+
 test('no-audio は永続、failed は期限内のみ有効、素材変更は別キー', t => {
   const f = fixture(t);
   f.json('.failed.json', { key: f.key, reason: 'busy', createdAt: Date.now(), retryAfterMs: 60000 });
