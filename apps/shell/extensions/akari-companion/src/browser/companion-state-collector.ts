@@ -100,6 +100,8 @@ export class CompanionStateCollector {
     protected lightSending = false;
     protected lastLightSentAt = Number.NEGATIVE_INFINITY;
     protected watcher: DisposableLike | undefined;
+    protected docsTimer: unknown;
+    protected docsChanged = new Set<'edit' | 'captions'>();
     protected readonly disposables: DisposableLike[] = [];
 
     constructor(protected readonly deps: CompanionStateCollectorDeps) { }
@@ -112,8 +114,16 @@ export class CompanionStateCollector {
         this.disposables.push(this.deps.onLocationChanged(() => this.checkLocation()));
         this.disposables.push(this.deps.files.onDidFilesChange(event => {
             const location = this.deps.currentLocation();
-            if (location && ((location.editUri && event.contains(location.editUri)) || event.contains(location.captionsUri))) {
-                void this.refreshDocuments();
+            if (!location) return;
+            if (location.editUri && event.contains(location.editUri)) this.docsChanged.add('edit');
+            if (event.contains(location.captionsUri)) this.docsChanged.add('captions');
+            if (this.docsChanged.size && this.docsTimer === undefined) {
+                this.docsTimer = setTimeout(() => {
+                    this.docsTimer = undefined;
+                    const changed = new Set(this.docsChanged);
+                    this.docsChanged.clear();
+                    void this.refreshDocuments(changed);
+                }, 100);
             }
         }));
         this.checkLocation();
@@ -128,6 +138,10 @@ export class CompanionStateCollector {
         for (const disposable of this.disposables.splice(0)) disposable.dispose();
         this.watcher?.dispose();
         this.watcher = undefined;
+        if (this.docsTimer !== undefined) {
+            clearTimeout(this.docsTimer as ReturnType<typeof setTimeout>);
+            this.docsTimer = undefined;
+        }
         if (this.lightTimer !== undefined) {
             if (this.deps.clearTimeout) this.deps.clearTimeout(this.lightTimer);
             else clearTimeout(this.lightTimer as ReturnType<typeof setTimeout>);
@@ -161,7 +175,7 @@ export class CompanionStateCollector {
         await this.refreshDocuments();
     }
 
-    async refreshDocuments(): Promise<void> {
+    async refreshDocuments(changed?: ReadonlySet<'edit' | 'captions'>): Promise<void> {
         const location = this.deps.currentLocation();
         const projectSessionId = this.deps.currentProjectSessionId();
         if (!location || !projectSessionId) {
@@ -171,11 +185,14 @@ export class CompanionStateCollector {
         }
         const expectedLocationKey = this.locationKey;
         const revision = ++this.refreshRevision;
+        const previous = this.docs?.projectSessionId === projectSessionId ? this.docs : undefined;
         const [editBytes, captionsBytes] = await Promise.all([
-            this.readBytes(location.editUri), this.readBytes(location.captionsUri)
+            !previous || !changed || changed.has('edit') ? this.readBytes(location.editUri) : undefined,
+            !previous || !changed || changed.has('captions') ? this.readBytes(location.captionsUri) : undefined
         ]);
         const [editSha256, captionsSha256] = await Promise.all([
-            this.digest(editBytes), this.digest(captionsBytes)
+            editBytes ? this.digest(editBytes) : previous?.edit.sha256,
+            captionsBytes ? this.digest(captionsBytes) : previous?.captions.sha256
         ]);
         if (revision !== this.refreshRevision || expectedLocationKey !== this.locationKey
             || projectSessionId !== this.deps.currentProjectSessionId()) return;
@@ -183,8 +200,8 @@ export class CompanionStateCollector {
             && this.docs.edit.sha256 === editSha256 && this.docs.captions.sha256 === captionsSha256) return;
         const state: CompanionStateDocs = {
             type: 'docs', seq: ++this.seq, projectSessionId,
-            edit: this.documentState(editBytes, editSha256),
-            captions: this.documentState(captionsBytes, captionsSha256)
+            edit: editBytes ? this.documentState(editBytes, editSha256!) : previous!.edit,
+            captions: captionsBytes ? this.documentState(captionsBytes, captionsSha256!) : previous!.captions
         };
         const docsLocation = this.docsLocation(projectSessionId);
         if (docsLocation) state.location = docsLocation;
@@ -207,6 +224,9 @@ export class CompanionStateCollector {
             : `${projectSessionId}${projectLocationKey}`;
         if (key === this.locationKey) return;
         this.locationKey = key;
+        if (this.docsTimer !== undefined) clearTimeout(this.docsTimer as ReturnType<typeof setTimeout>);
+        this.docsTimer = undefined;
+        this.docsChanged.clear();
         this.watcher?.dispose();
         this.watcher = location
             ? this.deps.files.watch(location.root, { recursive: true, excludes: [] }) : undefined;

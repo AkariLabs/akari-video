@@ -14,7 +14,7 @@ import { installLeftRailStyle } from './left-rail-style';
 import { railDisabledIds, railOpenerCommand, railSelection } from '../common/rail-model';
 import {
     AKARI_CATALOG_TAB_BODY_ATTRIBUTE, EXPORT_ONBOARDING_TARGET,
-    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID, RAIL_SKILLS_WIDGET_ID,
+    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID, RAIL_SKILLS_WIDGET_ID, RAIL_CONNECT_OPENER_ID,
     RAIL_EXPORT_OPENER_ID, RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID,
     RAIL_SETTINGS_OPENER_ID, RAIL_ROLE_BUCKETS_WIDGET_ID
 } from '../common/rail-ids';
@@ -86,6 +86,7 @@ const ALLOWLIST: CurationEntry[] = [
     { id: RAIL_PROJECT_OPENER_ID, label: null },
     { id: RAIL_LIBRARY_OPENER_ID, label: null },
     { id: RAIL_SKILLS_WIDGET_ID, label: null },
+    { id: RAIL_CONNECT_OPENER_ID, label: null },
     { id: RAIL_EXPORT_OPENER_ID, label: null },
     { id: EXPLORER_VIEW_CONTAINER_ID, label: null },
     { id: 'search-view-container', label: null },
@@ -98,7 +99,7 @@ const ALLOWLIST: CurationEntry[] = [
 /** 保存レイアウトの順序や後からの追加にかかわらず、ALLOWLIST の順に揃える。 */
 const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
     RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID,
-    RAIL_SKILLS_WIDGET_ID, RAIL_EXPORT_OPENER_ID,
+    RAIL_SKILLS_WIDGET_ID, RAIL_CONNECT_OPENER_ID, RAIL_EXPORT_OPENER_ID,
     EXPLORER_VIEW_CONTAINER_ID,
     'search-view-container',
     RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID, RAIL_SETTINGS_OPENER_ID,
@@ -449,22 +450,32 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             const present = new Set(Array.from(tabBar.titles, title => title.owner.id));
             const lowerStart = [RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID, RAIL_SETTINGS_OPENER_ID]
                 .find(id => present.has(id) && !this.isHidden(id));
+            const setAttribute = (element: HTMLElement, name: string, value: string | undefined): void => {
+                if (value === undefined) {
+                    if (element.hasAttribute(name)) element.removeAttribute(name);
+                } else if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+            };
+            const setClass = (element: HTMLElement, name: string, on: boolean): void => {
+                if (element.classList.contains(name) !== on) element.classList.toggle(name, on);
+            };
             Array.from(tabBar.contentNode.children).forEach((element, index) => {
                 if (!(element instanceof HTMLElement)) return;
                 const title = tabBar.titles[index];
                 const id = title?.owner.id;
                 if (!id) return;
-                element.setAttribute('data-akari-rail-id', id);
-                element.classList.toggle('akari-rail-disabled', disabled.has(id));
-                element.classList.toggle('akari-rail-selected', selected === id);
-                element.classList.toggle('akari-rail-separator', id === RAIL_EXPORT_OPENER_ID || id === lowerStart);
-                element.classList.toggle('akari-rail-lower-start', id === lowerStart);
-                element.toggleAttribute('data-akari-rail-hidden', id === RAIL_ROLE_BUCKETS_WIDGET_ID);
-                if (id === RAIL_EXPORT_OPENER_ID) element.setAttribute('data-akari-onboarding-target', EXPORT_ONBOARDING_TARGET);
-                else element.removeAttribute('data-akari-onboarding-target');
-                element.title = disabled.has(id)
-                    ? (id === RAIL_EXPORT_OPENER_ID ? t('shell.leftRail.disabled.availableStartEditingStatus') : t('shell.leftRail.disabled.openProjectUseAction'))
+                setAttribute(element, 'data-akari-rail-id', id);
+                setClass(element, 'akari-rail-disabled', disabled.has(id));
+                setClass(element, 'akari-rail-selected', selected === id);
+                setClass(element, 'akari-rail-separator', id === RAIL_EXPORT_OPENER_ID || id === lowerStart);
+                setClass(element, 'akari-rail-lower-start', id === lowerStart);
+                setAttribute(element, 'data-akari-rail-hidden', id === RAIL_ROLE_BUCKETS_WIDGET_ID ? '' : undefined);
+                setAttribute(element, 'data-akari-onboarding-target', id === RAIL_EXPORT_OPENER_ID
+                    ? EXPORT_ONBOARDING_TARGET : undefined);
+                const titleText = disabled.has(id)
+                    ? (id === RAIL_EXPORT_OPENER_ID ? t('shell.leftRail.disabled.availableStartEditingStatus')
+                        : t('shell.leftRail.disabled.openProjectUseAction'))
                     : title.caption || title.label;
+                if (element.title !== titleText) element.title = titleText;
             });
         } finally {
             this.leftRailObserver?.takeRecords();

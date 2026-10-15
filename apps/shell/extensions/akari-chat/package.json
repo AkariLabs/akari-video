@@ -1,0 +1,8 @@
+{
+  "name": "akari-chat", "version": "0.0.1", "private": true,
+  "main": "lib/browser/akari-chat-frontend-module.js",
+  "theiaExtensions": [{"frontend": "lib/browser/akari-chat-frontend-module"}, {"backend": "lib/node/akari-chat-backend-module"}, {"electronMain": "lib/electron-main/electron-main-module", "preload": "lib/electron-browser/preload"}],
+  "scripts": {"build": "tsc -b", "clean": "rimraf lib", "test": "tsc -b && node --test test/*.test.mjs"},
+  "dependencies": {"@akari-video/i18n": "file:../../../../packages/i18n", "@akari-video/i18n": "file:../../../../packages/i18n", "@theia/core": "1.73.1", "@theia/workspace": "1.73.1", "@theia/filesystem": "1.73.1", "akari-project": "file:../akari-project", "akari-connect": "file:../akari-connect", "akari-vibe-dock": "file:../akari-vibe-dock"},
+  "devDependencies": {"typescript": "^5.4.0", "rimraf": "^5.0.0"}
+}

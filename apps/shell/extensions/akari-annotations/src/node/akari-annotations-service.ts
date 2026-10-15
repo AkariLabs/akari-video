@@ -4,14 +4,17 @@ import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded, writeProjectFilesTransactional, captureProjectLintBaseline,
     scheduleProjectLint, writeSavedByStamp, recoverInterruptedProjectWriteDetailed, assertNoCamelCaseTransitionOut,
-    ConflictError } from '@akari-video/edit-store/lib/write-gate';
+    ConflictError, type EditLintGateResult } from '@akari-video/edit-store/lib/write-gate';
 import { applyCaptionStyle as applyCaptionStyleWrite, clearCaptionStyle as clearCaptionStyleWrite,
     reapplyCaptionStyle as reapplyCaptionStyleWrite, setCaptionSize as setCaptionSizeWrite,
     applyCaptionLookMigration, type CaptionWriteOptions } from '@akari-video/edit-store/lib/caption-style-write';
 import { CaptionsInvalidError } from '@akari-video/edit-store/lib/caption-look-shape';
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
-import { bindingShaFor, validateCaptionDisplayPolicy, nextEmphasisWordId, type GenerationMetaV1 } from '@akari-video/edit-store';
+import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
+import { cutMotionReferencePaths, hydrateCutMotionReferences, restoreUncutMotionReferences } from '@akari-video/edit-store';
+import { serializeMotion } from '@akari-video/edit-store/lib/canonical';
+import { prepareV2KeyframeDistribution, type EditV2Document } from '../common/edit-v2-mutations';
 import {
     applyCutRanges as applyCutRangesToSource,
     restoreCutRange as restoreCutRangeInSource,
@@ -20,7 +23,8 @@ import {
 } from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
 import { toAnchorCaptions, withoutItemAnchors, removeStyleAttachedItems } from '@akari-video/edit-store/lib/item-anchor';
-import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
+import { list as listHistory, renameWithRetry, restore as restoreHistory,
+    snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash, randomUUID } from 'crypto';
@@ -35,6 +39,8 @@ import { frameSizeFromPng, frameSizeFromResolution } from '../browser/inspector/
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
 import { timelineCaptionsPath, timelineEditPath, timelineEditPathForCaptions } from './timeline-target';
+import { CaptionWriteQueue, captionTemporaryPath } from './caption-write-queue';
+import { DeferredLintBaseline } from './deferred-lint-baseline';
 /** Optional JSON-RPC field; the shared protocol file belongs to the timeline-open lane. */
 type TimelineRequest<T> = T & { editUri?: string };
 import { GenerationCandidates, readCandidateMeta, readPreferredModelIds } from './generation-candidates';
@@ -130,8 +136,6 @@ import {
     SetCaptionDisplayPolicyResult,
     SetCaptionStylePresetRequest,
     SetCaptionStylePresetResult,
-    SetEmphasisWordsRequest,
-    SetEmphasisWordsResult,
     SetCaptionTimingRequest,
     SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
@@ -189,6 +193,7 @@ import {
     updateCaptionStylePresetInSource,
     updateCaptionTextStyleInSource
 } from '../common/caption-store';
+import { preserveRunsOutsideTextReplacement } from '../common/caption-text-run-rebase';
 import {
     deleteLayerByIdInSource,
     deleteSfxInSource,
@@ -289,6 +294,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     private clipSilenceFfmpegPromise?: Promise<string | undefined>;
     private clipSilenceFfmpegMissingUntil = 0;
     private clipSilenceResults?: Map<string, Promise<GetClipSilencesResult>>;
+    private readonly captionWrites = new CaptionWriteQueue();
+    private readonly deferredLintBaseline = new DeferredLintBaseline();
 
     private shellWriterVersion(): Promise<string | undefined> {
         return this.writerVersionPromise ??= this.applicationServer
@@ -2252,78 +2259,97 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const result = updateCaptionFieldsInSourceWithReport(source, request.captionId, {
-            text: request.text,
-            speaker: request.speaker,
-            unrecognized: request.unrecognized,
-            style: request.style,
-            displayTiming: request.displayTiming
-        });
-        await this.writeProjectFileGuarded(captionsPath, result.source);
-        const root = JSON.parse(source) as Array<{ id: string; text: string; display_text?: string }>
-            | { captions?: Array<{ id: string; text: string; display_text?: string }> };
-        const caption = (Array.isArray(root) ? root : root.captions)?.find(item => item.id === request.captionId);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
-            notices: captionEditNotices(result, caption?.display_text ?? caption?.text ?? '') };
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const result = updateCaptionFieldsInSourceWithReport(source, request.captionId, {
+                text: request.text,
+                speaker: request.speaker,
+                unrecognized: request.unrecognized,
+                style: request.style,
+                displayTiming: request.displayTiming
+            });
+            const runs = request.text === undefined
+                ? { source: result.source, removedRuns: result.removedRuns }
+                : preserveRunsOutsideTextReplacement(source, result.source, request.captionId);
+            if (request.draft) {
+                this.client?.onWillWrite(URI.fromFilePath(captionsPath).toString());
+                await this.writeCaptionAtomic(captionsPath, runs.source);
+                this.notifyDidWrite(captionsPath, runs.source);
+            } else {
+                await this.writeProjectFileGuarded(captionsPath, runs.source);
+            }
+            const root = JSON.parse(source) as Array<{ id: string; text: string; display_text?: string }>
+                | { captions?: Array<{ id: string; text: string; display_text?: string }> };
+            const caption = (Array.isArray(root) ? root : root.captions)?.find(item => item.id === request.captionId);
+            return { committed: request.draft ? false : await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
+                notices: captionEditNotices({ ...result, removedRuns: runs.removedRuns },
+                    caption?.display_text ?? caption?.text ?? '') };
+        }, request.draft ? request.captionId : undefined);
     }
 
     async setCaptionRun(request: SetCaptionRunRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionRunsInSource(source, request.captionId, request.edit);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の文字範囲を変更') };
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = updateCaptionRunsInSource(source, request.captionId, request.edit);
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の文字範囲を変更') };
+        });
     }
 
     async setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = request.textStyle?.sizePx === undefined || request.textStyle.sizePx === null
-            ? updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {})
-            : updateCaptionTextStyleInSource(source, request.captionId, request.textStyle,
-                loadTextstyleCatalogSync({ env: process.env }).catalog);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
+        });
     }
 
     async setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId,
-            { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog });
-        if (updated.changed === 0) {
-            return { committed: false, changed: 0, beforeSource };
-        }
-        await this.writeProjectFileGuarded(captionsPath, updated.source);
-        const projectRoot = this.fsPath(request.projectRootUri);
-        const committed = this.commitWrite(projectRoot, '字幕テンプレを適用')
-            || await this.commitIfOwnRoot(projectRoot, '字幕テンプレを適用', [captionsPath]);
-        return { committed, changed: updated.changed, beforeSource };
+        return this.captionWrites.run(captionsPath, async () => {
+            const beforeSource = await fs.readFile(captionsPath, 'utf8');
+            const editPath = timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
+            const edit = await fs.readFile(editPath, 'utf8')
+                .then(source => JSON.parse(source) as { output?: { width: number; height: number } })
+                .catch(() => ({} as { output?: { width: number; height: number } }));
+            const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId,
+                { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog, output: edit.output });
+            if (updated.changed === 0) {
+                return { committed: false, changed: 0, beforeSource };
+            }
+            await this.writeProjectFileGuarded(captionsPath, updated.source);
+            const projectRoot = this.fsPath(request.projectRootUri);
+            this.queueEditCommit(projectRoot, '字幕テンプレを適用', [captionsPath]);
+            return { committed: false, changed: updated.changed, beforeSource };
+        });
     }
 
     async setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const existingRoot = JSON.parse(beforeSource) as unknown;
-        const existingPolicy = existingRoot && !Array.isArray(existingRoot) && typeof existingRoot === 'object'
-            ? (existingRoot as { display_policy?: { word_style?: unknown } }).display_policy : undefined;
-        const inheritedWordStyle = existingPolicy?.word_style;
-        const policy = validateCaptionDisplayPolicy(request.displayPolicy?.word_style === undefined
-            && (inheritedWordStyle === 'none' || inheritedWordStyle === 'karaoke')
-            ? { ...request.displayPolicy, word_style: inheritedWordStyle }
-            : request.displayPolicy);
-        const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
-        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        const projectRoot = this.fsPath(request.projectRootUri);
-        const committed = this.commitWrite(projectRoot, '字幕の表示設定を変更')
-            || await this.commitIfOwnRoot(projectRoot, '字幕の表示設定を変更', [captionsPath]);
-        return { committed, changed: 1, beforeSource };
+        return this.captionWrites.run(captionsPath, async () => {
+            const beforeSource = await fs.readFile(captionsPath, 'utf8');
+            const existingRoot = JSON.parse(beforeSource) as unknown;
+            const existingPolicy = existingRoot && !Array.isArray(existingRoot) && typeof existingRoot === 'object'
+                ? (existingRoot as { display_policy?: { word_style?: unknown } }).display_policy : undefined;
+            const inheritedWordStyle = existingPolicy?.word_style;
+            const policy = validateCaptionDisplayPolicy(request.displayPolicy?.word_style === undefined
+                && (inheritedWordStyle === 'none' || inheritedWordStyle === 'karaoke')
+                ? { ...request.displayPolicy, word_style: inheritedWordStyle }
+                : request.displayPolicy);
+            const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
+            if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            const projectRoot = this.fsPath(request.projectRootUri);
+            this.queueEditCommit(projectRoot, '字幕の表示設定を変更', [captionsPath]);
+            return { committed: false, changed: 1, beforeSource };
+        });
     }
 
     private replaceCaptionDisplayPolicy(source: string, policy: ReturnType<typeof validateCaptionDisplayPolicy>): string {
@@ -2366,99 +2392,6 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         throw new Error(t('annotationscommon.akariAnnotationsService.error.displayPolicyObjectNotClosed'));
     }
 
-    async setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult> {
-        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
-        const captionsPath = this.fsPath(request.captionsUri);
-        const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const parsed = JSON.parse(beforeSource) as unknown;
-        const existing = !Array.isArray(parsed) && parsed && typeof parsed === 'object'
-            && Array.isArray((parsed as { emphasis_words?: unknown[] }).emphasis_words)
-            ? (parsed as { emphasis_words: Array<Record<string, unknown>> }).emphasis_words : [];
-        const remove = new Set(request.removeIds);
-        const records = existing.filter(record => typeof record.id !== 'string' || !remove.has(record.id));
-        const ids: string[] = [];
-        const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
-            (left.src === undefined || left.src === right.src)
-            && typeof left.t_start === 'number' && typeof left.t_end === 'number'
-            && Math.abs(left.t_start - right.t_start) <= 1e-6 && Math.abs(left.t_end - right.t_end) <= 1e-6
-            && left.word === right.word;
-        for (const upsert of request.upserts) {
-            const matched = existing.find(record => sameSpan(record, upsert));
-            let id = upsert.id ?? (typeof matched?.id === 'string' ? matched.id : undefined);
-            if (!id) {
-                const root = Array.isArray(parsed) ? { captions: parsed } : parsed as Record<string, unknown>;
-                id = nextEmphasisWordId({ ...root, emphasis_words: [...existing, ...ids.map(value => ({ id: value }))] } as Parameters<typeof nextEmphasisWordId>[0]);
-            }
-            if (!id || !/^e-\d{4}$/u.test(id)) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotAssignEmphasisWordsId'));
-            ids.push(id);
-            const previous = records.findIndex(record => record.id === id || sameSpan(record, upsert));
-            const unknown = previous >= 0 ? records[previous] : matched ?? {};
-            const next: Record<string, unknown> = { ...unknown, id };
-            if (upsert.src === undefined || upsert.src === null) delete next.src; else next.src = upsert.src;
-            Object.assign(next, { t_start: upsert.t_start, t_end: upsert.t_end, word: upsert.word, emotion: upsert.emotion });
-            if (upsert.style_preset === undefined) delete next.style_preset; else next.style_preset = upsert.style_preset;
-            if (upsert.style_hint === undefined) delete next.style_hint; else next.style_hint = upsert.style_hint;
-            if (previous >= 0) records[previous] = next; else records.push(next);
-        }
-        records.sort((left, right) => Number(left.t_start) - Number(right.t_start));
-        const ordered = records.map(record => {
-            const value: Record<string, unknown> = { id: record.id };
-            if (record.src !== undefined && record.src !== null) value.src = record.src;
-            for (const key of ['t_start', 't_end', 'word', 'emotion', 'style_preset', 'style_hint']) {
-                if (record[key] !== undefined) value[key] = record[key];
-            }
-            for (const [key, entry] of Object.entries(record)) if (!(key in value) && key !== 'src') value[key] = entry;
-            return value;
-        });
-        const updated = this.replaceEmphasisWords(beforeSource, ordered);
-        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource, ids };
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        const root = this.fsPath(request.projectRootUri);
-        const committed = this.commitWrite(root, '語の強調を変更')
-            || await this.commitIfOwnRoot(root, '語の強調を変更', [captionsPath]);
-        return { committed, changed: request.upserts.length + existing.filter(record => remove.has(String(record.id))).length,
-            beforeSource, ids };
-    }
-
-    private replaceEmphasisWords(source: string, records: Array<Record<string, unknown>>): string {
-        const first = source.search(/\S/u);
-        const arrayText = `[${records.length ? `\n${records.map(record => `    ${JSON.stringify(record)}`).join(',\n')}\n  ` : ''}]`;
-        if (first >= 0 && source[first] === '[') {
-            if (!records.length) return source;
-            const end = source.lastIndexOf(']');
-            return `{\n  "emphasis_words": ${arrayText},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
-        }
-        const key = /(^[ \t]*)"emphasis_words"\s*:\s*\[/mu.exec(source);
-        if (key) {
-            const open = key.index + key[0].lastIndexOf('[');
-            const close = this.matchingJsonBracket(source, open);
-            if (records.length) return source.slice(0, open) + arrayText + source.slice(close + 1);
-            const lineStart = key.index;
-            let end = close + 1;
-            while (end < source.length && /[ \t]/u.test(source[end])) end++;
-            if (source[end] === ',') end++;
-            if (source[end] === '\r') end++;
-            if (source[end] === '\n') end++;
-            return source.slice(0, lineStart) + source.slice(end);
-        }
-        if (!records.length) return source;
-        const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
-        if (!captions) throw new Error(t('annotationscommon.akariAnnotationsService.error.captionsKeyNotFound'));
-        return source.slice(0, captions.index) + `${captions[1]}"emphasis_words": ${arrayText},\n` + source.slice(captions.index);
-    }
-
-    private matchingJsonBracket(source: string, open: number): number {
-        let depth = 0; let inString = false; let escaped = false;
-        for (let index = open; index < source.length; index++) {
-            const char = source[index];
-            if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
-            if (char === '"') inString = true;
-            else if (char === '[') depth++;
-            else if (char === ']' && --depth === 0) return index;
-        }
-        throw new Error(t('annotationscommon.akariAnnotationsService.error.emphasisWordsArrayNotClosed'));
-    }
-
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
@@ -2494,44 +2427,38 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+            return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+        });
     }
 
     async setCaptionTiming(request: SetCaptionTimingRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = setCaptionTimingLine(
-            source,
-            request.captionId,
-            request.start,
-            request.end,
-            request.timeDomain,
-            request.edited
-        );
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = setCaptionTimingLine(
+                source,
+                request.captionId,
+                request.start,
+                request.end,
+                request.timeDomain,
+                request.edited
+            );
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+            return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+        });
     }
-
-    private readonly captionInsertTails = new Map<string, Promise<WriteBackResult>>();
 
     async insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
-        const key = this.fsPath(request.captionsUri);
-        const previous = this.captionInsertTails.get(key);
-        const operation = (previous ?? Promise.resolve()).catch(() => undefined)
-            .then(() => this.insertCaptionSerialized(request));
-        this.captionInsertTails.set(key, operation);
-        try {
-            return await operation;
-        } finally {
-            if (this.captionInsertTails.get(key) === operation) this.captionInsertTails.delete(key);
-        }
+        const captionsPath = this.fsPath(request.captionsUri);
+        return this.captionWrites.run(captionsPath, () => this.insertCaptionSerialized(request));
     }
 
     private async insertCaptionSerialized(request: InsertCaptionRequest): Promise<WriteBackResult> {
@@ -2553,58 +2480,62 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = removeCaptionLine(source, request.captionId);
-        const editPath = timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
-        let editSource: string | undefined;
-        try {
-            const current = await fs.readFile(editPath, 'utf8');
-            if (detectEditVersion(current) === 2) {
-                const parsed = JSON.parse(current);
-                const next = removeStyleAttachedItems(parsed, request.captionId);
-                const refreshed = refreshItemAnchors(next as EditableEditV2, toAnchorCaptions(JSON.parse(updated)));
-                for (const warning of refreshed.warnings) {
-                    console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
+        return this.captionWrites.run(captionsPath, async () => {
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = removeCaptionLine(source, request.captionId);
+            const editPath = timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
+            let editSource: string | undefined;
+            try {
+                const current = await fs.readFile(editPath, 'utf8');
+                if (detectEditVersion(current) === 2) {
+                    const parsed = JSON.parse(current);
+                    const next = removeStyleAttachedItems(parsed, request.captionId);
+                    const refreshed = refreshItemAnchors(next as EditableEditV2, toAnchorCaptions(JSON.parse(updated)));
+                    for (const warning of refreshed.warnings) {
+                        console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
+                    }
+                    if (next !== parsed || refreshed.changes.length) editSource = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
                 }
-                if (next !== parsed || refreshed.changes.length) editSource = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                    console.warn('[akari-annotations] 字幕削除後のアンカー更新をスキップしました。', error);
+                }
             }
-        } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-                console.warn('[akari-annotations] 字幕削除後のアンカー更新をスキップしました。', error);
-            }
-        }
-        await this.writeEditSnapshot({ editUri: URI.fromFilePath(editPath).toString(),
-            projectRootUri: request.projectRootUri, captionsUri: request.captionsUri,
-            captionsSource: updated, ...(editSource ? { editSource } : {}) });
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
+            await this.writeEditSnapshotUnlocked({ editUri: URI.fromFilePath(editPath).toString(),
+                projectRootUri: request.projectRootUri, captionsUri: request.captionsUri,
+                captionsSource: updated, ...(editSource ? { editSource } : {}) });
+            return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
+        });
     }
 
     async splitCaption(request: SplitCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const projectRoot = this.fsPath(request.projectRootUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = splitCaptionLine(source, request.captionId, request.wordIndex, request.newCaptionId);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        const label = '字幕を分割';
-        const committed = await this.commitWrite(projectRoot, label)
-            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
-        return { committed };
+        return this.captionWrites.run(captionsPath, async () => {
+            const projectRoot = this.fsPath(request.projectRootUri);
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = splitCaptionLine(source, request.captionId, request.wordIndex, request.newCaptionId);
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+            const label = '字幕を分割';
+            this.queueEditCommit(projectRoot, label, [captionsPath]);
+            return { committed: false };
+        });
     }
 
     async mergeCaptions(request: MergeCaptionsRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const projectRoot = this.fsPath(request.projectRootUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = mergeCaptionLines(source, request.captionIds);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        const label = '字幕を結合';
-        const committed = await this.commitWrite(projectRoot, label)
-            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
-        return { committed };
+        return this.captionWrites.run(captionsPath, async () => {
+            const projectRoot = this.fsPath(request.projectRootUri);
+            const source = await fs.readFile(captionsPath, 'utf8');
+            const updated = mergeCaptionLines(source, request.captionIds);
+            await this.writeProjectFileGuarded(captionsPath, updated);
+            await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+            const label = '字幕を結合';
+            this.queueEditCommit(projectRoot, label, [captionsPath]);
+            return { committed: false };
+        });
     }
 
     async moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult> {
@@ -2657,7 +2588,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const beforeSource = await fs.readFile(editPath, 'utf8');
+        if (request.ranges.length === 0) return { committed: false, removedFrames: 0, beforeSource, warnings: [] };
         let cutInput = beforeSource;
+        const motionBags = new Map<string, unknown>();
         const anchors = new Map<string, unknown>();
         if (detectEditVersion(beforeSource) === 2) {
             const edit = JSON.parse(beforeSource) as { tracks?: Array<{ items?: unknown[] }> };
@@ -2678,6 +2611,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const anchorFree = withoutItemAnchors(edit);
                 cutInput = `${JSON.stringify(anchorFree, null, 2)}\n`;
             }
+            const cutDocument = JSON.parse(cutInput) as EditV2Document;
+            const motionPaths = cutMotionReferencePaths(cutDocument);
+            await Promise.all(motionPaths.map(async path => {
+                try {
+                    motionBags.set(path, JSON.parse(await fs.readFile(join(dirname(editPath), path), 'utf8')));
+                } catch {
+                    // A sliced item with an unreadable bag is rejected before any write.
+                }
+            }));
+            if (motionPaths.length) cutInput = `${JSON.stringify(hydrateCutMotionReferences(cutDocument, motionBags), null, 2)}\n`;
         }
         // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
         const applied = applyCutRangesToSource(cutInput, request.ranges as unknown as CutRange[], {});
@@ -2713,13 +2656,71 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 if (code !== 'ENOENT') console.warn('[akari-annotations] captions.json のアンカー更新をスキップしました。', error);
             }
         }
+        let motionWrites: Array<{ path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }> = [];
+        if (detectEditVersion(updated) === 2) {
+            const restored = restoreUncutMotionReferences(JSON.parse(beforeSource) as EditV2Document,
+                JSON.parse(updated) as EditV2Document, motionBags);
+            const distribution = prepareV2KeyframeDistribution(restored);
+            updated = `${JSON.stringify(distribution.document, null, 2)}\n`;
+            motionWrites = distribution.writes;
+        }
+        if (JSON.stringify(JSON.parse(updated)) === JSON.stringify(JSON.parse(beforeSource))) {
+            return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+        }
         for (const warning of applied.warnings) console.warn(`[akari-annotations] ${warning}`);
-        await this.writeProjectFileGuarded(editPath, updated);
+        if (motionWrites.length) {
+            await this.writeCutWithMotion(editPath, updated, motionWrites);
+        } else await this.writeProjectFileGuarded(editPath, updated);
         const projectRoot = this.fsPath(request.projectRootUri);
-        const committedByStandardPath = await this.commitWrite(projectRoot, request.label);
-        const committed = committedByStandardPath
-            || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
-        return { committed, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+        this.queueEditCommit(projectRoot, request.label, [editPath]);
+        return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+    }
+
+    private async writeCutWithMotion(editPath: string, editSource: string,
+        writes: readonly { path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }[]): Promise<void> {
+        const projectDir = dirname(editPath);
+        const originals = new Map<string, string | undefined>();
+        const candidates: Record<string, string> = {};
+        for (const write of writes) {
+            if (!(write.path in candidates)) {
+                let previous: string | undefined;
+                try { previous = await fs.readFile(join(projectDir, write.path), 'utf8'); }
+                catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+                }
+                originals.set(write.path, previous);
+                let bag: { version: number; group: string; items: Record<string, unknown> };
+                try {
+                    bag = previous ? JSON.parse(previous) as typeof bag
+                        : { version: 0, group: write.group, items: {} };
+                } catch {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                if (!bag || typeof bag !== 'object' || bag.version !== 0 || bag.group !== write.group
+                    || !bag.items || typeof bag.items !== 'object' || Array.isArray(bag.items)) {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                candidates[write.path] = serializeMotion(bag);
+            }
+            const bag = JSON.parse(candidates[write.path]) as { version: 0; group: string; items: Record<string, unknown> };
+            bag.items[write.itemId] = structuredClone(write.points);
+            candidates[write.path] = serializeMotion(bag);
+        }
+        candidates[basename(editPath)] = editSource;
+        for (const name of Object.keys(candidates)) this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+        try {
+            await this.writeSnapshotCandidates(projectDir, candidates, {
+                appVersion: await this.shellWriterVersion(),
+                onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
+                onLintResult: result => this.notifyDeferredLint(projectDir, result)
+            });
+        } catch (error) {
+            for (const [path, original] of originals) {
+                if (original === undefined) await fs.rm(join(projectDir, path), { force: true });
+                else await writeAtomic(join(projectDir, path), original);
+            }
+            throw error;
+        }
     }
 
     async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {
@@ -2741,7 +2742,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         await this.writeProjectFileGuarded(editPath, updated);
         const root = this.fsPath(request.projectRootUri);
-        await this.commitWrite(root, request.label) || await this.commitIfOwnRoot(root, request.label, [editPath]);
+        this.queueEditCommit(root, request.label, [editPath]);
         return { restored: true };
     }
 
@@ -2942,6 +2943,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
+        if (typeof request.captionsSource !== 'string') return this.writeEditSnapshotUnlocked(request);
+        const captionsPath = this.fsPath(request.captionsUri ?? URI.fromFilePath(
+            timelineCaptionsPath(this.fsPath(request.editUri))).toString());
+        return this.captionWrites.run(captionsPath, () => this.writeEditSnapshotUnlocked(request));
+    }
+
+    private async writeEditSnapshotUnlocked(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         if (typeof request.editSource !== 'string' && typeof request.captionsSource !== 'string') {
             throw new Error(t('annotationscommon.akariAnnotationsService.error.thereNothingWriteBack'));
@@ -3013,23 +3021,52 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }> {
         if (!request?.projectRootUri || !request.id) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyHistoryEntryRestore'));
         const projectDir = this.fsPath(request.projectRootUri);
-        return restoreHistory(projectDir, request.id, {
+        return this.captionWrites.run(join(projectDir, 'captions.json'), () => restoreHistory(projectDir, request.id, {
             write: async candidates => {
                 for (const name of Object.keys(candidates)) {
                     this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
                 }
-                await writeProjectFilesGuarded(projectDir, candidates, {
+                await this.writeSnapshotCandidates(projectDir, candidates, {
                     appVersion: await this.shellWriterVersion(),
                     onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
-                    onLintResult: result => this.client?.onLintResult({
-                        projectRootUri: request.projectRootUri,
-                        pass: result.pass,
-                        errors: result.errors,
-                        writtenFiles: Object.keys(candidates),
-                        findings: result.findings
-                    })
+                    onLintResult: result => this.notifyDeferredLint(projectDir, result)
                 });
             }
+        }));
+    }
+
+    private async writeSnapshotCandidates(projectDir: string, candidates: Record<string, string>,
+        options: Parameters<typeof writeProjectFilesGuarded>[2]): Promise<void> {
+        await this.deferredLintBaseline.begin(projectDir, Object.keys(candidates));
+        const other = { ...candidates };
+        const captions = Object.entries(candidates).filter(([name]) => this.isCaptionsFileName(name));
+        for (const [name] of captions) delete other[name];
+        if (Object.keys(other).length) await writeProjectFilesGuarded(projectDir, other, options);
+        for (const [name, content] of captions) {
+            const filePath = join(projectDir, name);
+            await this.writeCaptionAtomic(filePath, content);
+            options?.onDidWrite?.(filePath, content);
+            scheduleProjectLint(projectDir, options);
+        }
+    }
+
+    private isCaptionsFileName(name: string): boolean {
+        return /^captions(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)?\.json$/u.test(name);
+    }
+
+    private async notifyDeferredLint(projectDir: string, result: EditLintGateResult): Promise<void> {
+        const writtenFiles = this.deferredLintBaseline.writtenFiles(projectDir);
+        let blame: Awaited<ReturnType<DeferredLintBaseline['finish']>>;
+        try {
+            blame = await this.deferredLintBaseline.finish(projectDir, result);
+        } catch (error) {
+            console.warn('[akari-annotations] 保存後の指摘比較に失敗しました。', error);
+            blame = { writtenFiles };
+        }
+        if (!blame) return;
+        this.client?.onLintResult({
+            projectRootUri: URI.fromFilePath(projectDir).toString(), pass: result.pass,
+            errors: result.errors, findings: result.findings, ...blame
         });
     }
 
@@ -3050,17 +3087,21 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
      */
     protected async writeProjectFileGuarded(filePath: string, content: string): Promise<void> {
         const projectDir = dirname(filePath);
+        await this.deferredLintBaseline.begin(projectDir, [basename(filePath)]);
         this.client?.onWillWrite(URI.fromFilePath(filePath).toString());
+        if (this.isCaptionsFileName(basename(filePath))) {
+            await this.writeCaptionAtomic(filePath, content);
+            this.notifyDidWrite(filePath, content);
+            scheduleProjectLint(projectDir, {
+                appVersion: await this.shellWriterVersion(),
+                onLintResult: result => this.notifyDeferredLint(projectDir, result)
+            });
+            return;
+        }
         await writeProjectFilesGuarded(projectDir, { [basename(filePath)]: content }, {
             appVersion: await this.shellWriterVersion(),
             onDidWrite: (written, text) => this.notifyDidWrite(written, text),
-            onLintResult: result => this.client?.onLintResult({
-                projectRootUri: URI.fromFilePath(projectDir).toString(),
-                pass: result.pass,
-                errors: result.errors,
-                writtenFiles: [basename(filePath)],
-                findings: result.findings
-            })
+            onLintResult: result => this.notifyDeferredLint(projectDir, result)
         });
     }
 
@@ -3103,11 +3144,73 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     /**
      * 編集 RPC は保存の臨界経路で commit しないため常に false を返す。
-     * この所有範囲で残す節目 commit は createAnnotation の承認ゲート記録と saveCanvas の記録。
+     * 字幕・edit の Git 記録は別キューで行い、応答時点の committed は false とする。
+     * createAnnotation の承認ゲート記録と saveCanvas の記録は同期経路を維持する。
      * 書き出し経路の commit は本タスクのファイル境界外にあり、本タスクでは未実装。
      */
     protected commitWrite(_root: string, _message: string): boolean {
         return false;
+    }
+
+    private readonly pendingEditCommits = new Map<string, {
+        paths: Set<string>; message: string; timer?: ReturnType<typeof setTimeout>; running: boolean;
+        runningTask?: Promise<boolean>;
+    }>();
+    private stopping = false;
+
+    async onStop(): Promise<void> {
+        this.stopping = true;
+        for (const pending of this.pendingEditCommits.values()) {
+            if (pending.timer) clearTimeout(pending.timer);
+            pending.timer = undefined;
+        }
+        for (const [root, pending] of this.pendingEditCommits) {
+            while (pending.runningTask || pending.paths.size > 0) {
+                if (pending.runningTask) await pending.runningTask.catch(() => false);
+                else await this.flushEditCommit(root);
+            }
+        }
+    }
+
+    protected queueEditCommit(root: string, message: string, paths: string[]): void {
+        let pending = this.pendingEditCommits.get(root);
+        if (!pending) {
+            pending = { paths: new Set(), message, running: false };
+            this.pendingEditCommits.set(root, pending);
+        }
+        paths.forEach(path => pending!.paths.add(path));
+        pending.message = message;
+        if (pending.timer) clearTimeout(pending.timer);
+        if (this.stopping) void this.flushEditCommit(root);
+        else pending.timer = setTimeout(() => void this.flushEditCommit(root), 500);
+    }
+
+    private async flushEditCommit(root: string): Promise<void> {
+        const pending = this.pendingEditCommits.get(root);
+        if (!pending || pending.running) return;
+        pending.timer = undefined;
+        if (pending.paths.size === 0) return;
+        const paths = [...pending.paths];
+        const message = pending.message;
+        pending.paths.clear();
+        pending.running = true;
+        try {
+            pending.runningTask = this.commitIfOwnRoot(root, message, paths);
+            await pending.runningTask;
+        } catch (error) {
+            console.warn('[akari-annotations] 編集の Git 記録に失敗しました。', error);
+        } finally {
+            pending.running = false;
+            pending.runningTask = undefined;
+            if (pending.paths.size > 0) {
+                if (!this.stopping) {
+                    if (pending.timer) clearTimeout(pending.timer);
+                    pending.timer = setTimeout(() => void this.flushEditCommit(root), 500);
+                }
+            } else {
+                this.pendingEditCommits.delete(root);
+            }
+        }
     }
 
     protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<string> {
@@ -3251,6 +3354,23 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     /** lint 対象外ファイル（review.json / canvas / events）用。edit.json / captions.json は writeProjectFileGuarded を使うこと。 */
     protected async writeAtomic(destination: string, content: string): Promise<void> {
         await writeAtomic(destination, content);
+    }
+
+    private async writeCaptionAtomic(destination: string, content: string): Promise<void> {
+        const hasAkari = await fs.stat(join(dirname(destination), '.akari'))
+            .then(stat => stat.isDirectory()).catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+                throw error;
+            });
+        const temporary = captionTemporaryPath(destination, hasAkari);
+        await fs.mkdir(dirname(temporary), { recursive: true });
+        try {
+            await fs.writeFile(temporary, content, 'utf8');
+            await renameWithRetry(temporary, destination);
+        } catch (error) {
+            await fs.rm(temporary, { force: true }).catch(() => undefined);
+            throw error;
+        }
     }
 
     async listAdjustLuts({ projectRootUri }: ListAdjustLutsRequest): Promise<ListAdjustLutsResult> {

@@ -44,6 +44,10 @@ These rules always override detailed procedures.
 Doctor writes back connections.json's `doctor` block and generates a read-only `connections-report.html` in the project root.
 Display credentials only as present (masked) or absent; never show HTTP response bodies or key values.
 
+Application-wide tool and service settings live in `~/.akari/connectors.json` (override the location with `AKARI_HOME`).
+Doctor displays the enabled state, generation order, and automatic fallback settings without credential values.
+Check each connection with `akari connect list --json`; follow [connect](../connect/SKILL.md) for usage.
+
 ## Default models (defaults.generate)
 
 - Optional `.akari/connections.json` fields `defaults.generate.still` / `defaults.generate.video` specify default generation model IDs.

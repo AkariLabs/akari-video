@@ -19,6 +19,7 @@ const INSP = 'akari-inspector-widget';
 const METER = 'akari-audio-meter-widget';
 const PARTNER = 'akari-partner-onboarding';
 const PARTNER_WEB = 'akari-partner-web';
+const CHAT = 'akari-chat-widget';
 const CLAUDE = 'terminal-0';
 const RAIL = [CLAUDE, PARTNER, DAIHON, CUTS, NOTE, INSP, METER];
 
@@ -30,9 +31,28 @@ test('default: one pane, default groups, no displaced panels', () => {
     assert.equal(S.rightRailGroupOf(state, CLAUDE), 'agent');
     assert.equal(S.rightRailGroupOf(state, PARTNER), 'agent');
     assert.equal(S.rightRailGroupOf(state, PARTNER_WEB), 'agent');
+    assert.equal(S.rightRailGroupOf(state, CHAT), 'agent');
     for (const id of [DAIHON, CUTS, NOTE, INSP, METER]) {
         assert.equal(S.rightRailGroupOf(state, id), 'lower', id);
     }
+});
+
+test('AKARI stays with partner tabs above the line after save and restore', () => {
+    const ids = [PARTNER, DAIHON, CLAUDE, CHAT, NOTE];
+    const state = fresh();
+    const expected = [CLAUDE, CHAT, PARTNER, DAIHON, NOTE];
+    assert.deepEqual(S.rightRailOrder(state, ids), expected);
+
+    S.setRightRailGroup(state, CHAT, 'agent');
+    assert.deepEqual(state.groups, {}, 'default membership is not saved');
+    S.setRightRailGroup(state, CHAT, 'lower');
+    assert.deepEqual(state.groups, { [CHAT]: 'lower' });
+    S.setRightRailGroup(state, CHAT, 'agent');
+    assert.deepEqual(state.groups, {}, 'returning to the default removes the difference');
+
+    const restored = S.readRightRailState(JSON.parse(JSON.stringify(S.saveRightRailState(state))));
+    assert.equal(S.rightRailGroupOf(restored, CHAT), 'agent');
+    assert.deepEqual(S.rightRailOrder(restored, ids), expected);
 });
 
 test('partner webview keeps its saved order and explicit lower membership across restart', () => {

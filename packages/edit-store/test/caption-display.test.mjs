@@ -268,6 +268,28 @@ test('空白を含む語と空白を省いた語のどちらも強調 cue を正
   }
 });
 
+test('新しい強調だけ字幕の大きさを継承し、既存の強調は従来のプリセットサイズを保つ', () => {
+  const source = {
+    display_policy: englishPolicy(40),
+    captions: [caption('c-0001', 0, 2, 'Hello world', {
+      text_style: { size_px: 56 },
+      words: [{ text: 'Hello', start: 0, end: 1 }, { text: ' world', start: 1, end: 2 }],
+    })],
+    emphasis_words: [{ id: 'e-0001', t_start: 1, t_end: 2,
+      word: 'world', style_preset: 'emphasis-red', inherit_caption_size: true }],
+  };
+  const before = JSON.stringify(source);
+  const edit = { cuts: [{ in: 0, out: 2 }], output: { width: 1920, height: 1080 } };
+  const marked = resolveCaptionDisplay(source, edit, { output: edit.output }).display_cues[0];
+  assert.equal(marked.style_vars['--caption-font-size'], '56px');
+  assert.equal(marked.word_styles[0].style_vars['--caption-tok-font-size'], undefined);
+  assert.ok(marked.word_styles[0].style_vars['--caption-tok-color']);
+  assert.equal(JSON.stringify(source), before);
+  delete source.emphasis_words[0].inherit_caption_size;
+  const legacy = resolveCaptionDisplay(source, edit, { output: edit.output }).display_cues[0];
+  assert.equal(legacy.word_styles[0].style_vars['--caption-tok-font-size'], '92px');
+});
+
 test('旧データの長さ 0 の語を文字として救済し、強調は時刻付き語にだけ付ける', () => {
   const root = {
     display_policy: { ...policy, max_line_units: 20 },
@@ -616,14 +638,15 @@ test('joinCaptionLines preserves source slices and foldCaptionLines is greedy an
   assert.equal(joinCaptionLines(['日本', '語字幕'], 'ja-JP'), '日本語字幕');
   assert.equal(joinCaptionLines(['alpha ', 'beta'], 'en'), 'alpha beta');
   assert.deepEqual(foldCaptionLines('alpha beta', 3, 2, 'en'), ['alpha ', 'beta']);
-  assert.deepEqual(foldCaptionLines('abcdefghi', 1, 2, 'en'), ['abcdefghi']);
+  assert.deepEqual(foldCaptionLines('abcdefghi', 1, 2, 'en'), ['ab', 'cdefghi']);
+  assert.deepEqual(foldCaptionLines('abcdefghi', 4, 2, 'en'), ['abcdefghi']);
 });
 
 test('foldCaptionLines falls back to greedy code points when Intl.Segmenter is unavailable', () => {
   const descriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
   try {
     Object.defineProperty(Intl, 'Segmenter', { ...descriptor, value: undefined });
-    assert.deepEqual(foldCaptionLines('abcdef', 1.5, 2, 'en'), ['abcdef']);
+    assert.deepEqual(foldCaptionLines('abcdef', 1.5, 2, 'en'), ['abc', 'def']);
   } finally {
     Object.defineProperty(Intl, 'Segmenter', descriptor);
   }
@@ -673,6 +696,66 @@ test('automatic splitting extends to three and six fragments at word boundaries'
   assert.deepEqual(splitCaptionFragments('aa bb cc', englishPolicy(1.5)).fragments, ['aa ', 'bb ', 'cc']);
   assert.deepEqual(splitCaptionFragments('aa bb cc dd ee ff', englishPolicy(1.5)).fragments,
     ['aa ', 'bb ', 'cc ', 'dd ', 'ee ', 'ff']);
+});
+
+test('長い字幕の分割は元の深さ優先探索と一致する', () => {
+  const reference = (text, options) => {
+    if (measureCaptionUnits(text) <= options.max_line_units) return [text];
+    const segments = [...new Intl.Segmenter(options.locale, { granularity: 'word' }).segment(text)];
+    const boundaries = segments.map(part => part.index).filter(index => index > 0 && index < text.length);
+    const ends = [...boundaries, text.length];
+    const protectedTerms = options.break_hints?.protected_terms ?? [];
+    const blocked = end => end !== text.length && (captionBreakBoundaryBlocked(text, end,
+      segments.map(part => ({ start: part.index, end: part.index + part.segment.length,
+        wordLike: part.isWordLike === true }))) || protectedTerms.some(term => {
+      let at = text.indexOf(term);
+      while (at !== -1) {
+        if (at < end && end < at + term.length) return true;
+        at = text.indexOf(term, at + 1);
+      }
+      return false;
+    }));
+    const visit = (start, remaining) => {
+      if (start === text.length) return [];
+      if (remaining === 0) return undefined;
+      const candidates = ends.filter(end => end > start
+        && measureCaptionUnits(text.slice(start, end)) <= options.max_line_units && !blocked(end)).reverse();
+      for (const end of candidates) {
+        const rest = visit(end, remaining - 1);
+        if (rest) return [text.slice(start, end), ...rest];
+      }
+      return undefined;
+    };
+    for (let count = 3; count <= 6; count++) {
+      const result = visit(0, count);
+      if (result && result.length <= count) return result;
+    }
+    return [text];
+  };
+  let seed = 20261013;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  const words = ['今日は', '撮影', 'を', '進めます', '東京', 'YouTube', '動画', 'alpha', ' beta', '。'];
+  for (let index = 0; index < 240; index++) {
+    const text = Array.from({ length: 7 + Math.floor(random() * 6) }, () => words[Math.floor(random() * words.length)]).join('');
+    const options = { ...policy, locale: index % 2 ? 'ja' : 'en', max_line_units: 6 + index % 9,
+      ...(index % 3 === 0 ? { break_hints: { protected_terms: ['YouTube', '東京'] } } : {}) };
+    const result = splitCaptionFragments(text, options);
+    const expected = reference(text, options);
+    if (measureCaptionUnits(text) > options.max_line_units * 2) {
+      assert.deepEqual(result.fragments, expected);
+      assert.equal(result.overflow?.code, expected.length === 1 ? 'NO_WORD_BOUNDARY_SPLIT' : undefined);
+    }
+    assert.equal(result.fragments.join(''), text);
+  }
+});
+
+test('長い日本語字幕の探索が短時間で終わる', () => {
+  const text = '今日は撮影を進めます。新しい映像を選び、字幕を丁寧に確認します。'.repeat(3);
+  const options = { ...policy, max_line_units: 18 };
+  splitCaptionFragments(text, options);
+  const start = performance.now();
+  splitCaptionFragments(text, options);
+  assert.ok(performance.now() - start < 250);
 });
 
 test('English automatic fragments keep function words with the next phrase', () => {

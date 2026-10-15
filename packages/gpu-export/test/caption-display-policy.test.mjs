@@ -48,6 +48,23 @@ const buildArgs = captions => ({
 const gpuPage = captions => buildGpuPage({ ...buildArgs(captions), slotParamsRuntime: "", itemKeyframesRuntime: "" });
 const captionLines = html => (String(html).match(/<p class="akari-caption__line">/gu) ?? []).length;
 
+test('untimed emphasis is baked into GPU and OSR captions with the shared match rule', () => {
+  const cue = { id: 'c-untimed', src: 'main', start: 0, end: 3, text: '同じ 同じ' };
+  for (const marked of [false, true]) {
+    const captions = { display_policy: displayPolicy, captions: [cue],
+      emphasis_words: [{ id: 'e-0001', src: 'main', t_start: 1, t_end: 2,
+        word: '同じ', emotion: 'emphasis', style_preset: 'emphasis-red',
+        ...(marked ? { inherit_caption_size: true } : {}) }] };
+    const gpu = gpuPage(captions);
+    const osr = buildOsrPage(buildArgs(captions));
+    for (const html of [gpu.spriteManifest.captions[0].html, osr.overlaySheetHtml]) {
+      assert.equal((html.match(/data-emphasis-id="e-0001"/gu) ?? []).length, 2);
+      assert.match(html, /color:#ff1744/u);
+      assert.equal(html.includes('font-size:92px'), !marked);
+    }
+  }
+});
+
 test('preview, render, GPU, and OSR agree on removed and restored filler text in both policies', () => {
   const cue = { id: 'filler', src: 'main', start: 0, end: 2, time_domain: 'source',
     text: 'えー、本題', words: [{ text: 'えー、', start: 0, end: 0.5 },

@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "1.4.0",
+  "version": "1.5.0-beta.1",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -21,10 +21,12 @@
     "@theia/keymaps": "1.73.1",
     "@theia/userstorage": "1.73.1",
     "akari-shell-strip": "file:./extensions/akari-shell-strip",
+    "akari-connect": "file:./extensions/akari-connect",
     "akari-world-view": "file:./extensions/akari-world-view",
     "akari-surfaces": "file:./extensions/akari-surfaces",
     "akari-project": "file:./extensions/akari-project",
     "akari-partner": "file:./extensions/akari-partner",
+    "akari-chat": "file:./extensions/akari-chat",
     "akari-tabs": "file:./extensions/akari-tabs",
     "akari-preview": "file:./extensions/akari-preview",
     "akari-transcript": "file:./extensions/akari-transcript",
@@ -90,7 +92,7 @@
   "scripts": {
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-partner extensions/akari-surfaces extensions/akari-world-view extensions/akari-tabs extensions/akari-transcript extensions/akari-companion extensions/akari-vibe-dock",
+    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-partner extensions/akari-surfaces extensions/akari-connect extensions/akari-world-view extensions/akari-tabs extensions/akari-transcript extensions/akari-companion extensions/akari-vibe-dock extensions/akari-chat",
     "build": "npm run build:ext && node -e \"const{spawnSync}=require('child_process');if(spawnSync('swiftc',['--version']).status===0){const r=spawnSync(process.execPath,['resources/scripts/build-photo-mask-helper.mjs'],{stdio:'inherit'});if(r.status!==0)console.warn('背景を消す補助を作れませんでした。開発ビルドを続けます。')}\" && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",

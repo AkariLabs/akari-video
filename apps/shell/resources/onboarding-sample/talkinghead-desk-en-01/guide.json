@@ -1,0 +1,624 @@
+{
+  "language": "en",
+  "duration_seconds": 35.2,
+  "duration_frames": 1056,
+  "asset_name": "Example.mp4",
+  "project_title": "My first video",
+  "title_caption": "Video editing, just by talking to AI",
+  "tracks": {
+    "video": "Main",
+    "captions_and_title": "Captions and title",
+    "captions": "Captions",
+    "demo-phone-screen": "Phone screen",
+    "demo-flash": "Flash",
+    "demo-stage": "Right-side stage",
+    "demo-accents": "Tags",
+    "onboarding-bgm": "Music",
+    "demo-sfx": "Sound effects"
+  },
+  "demo_plan": {
+    "stages": [
+      {
+        "stage": 1,
+        "key": "title",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-title",
+              "name": "Title",
+              "at": 6,
+              "duration": 177,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-title/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-title-whoosh",
+              "at": 0,
+              "duration": 29,
+              "role": "sfx",
+              "gain_db": -10,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-whoosh-air-soft",
+                "in": 0,
+                "out": 0.95
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-name-pop",
+              "at": 144,
+              "duration": 15,
+              "role": "sfx",
+              "gain_db": -6,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-pop-ding",
+                "in": 0,
+                "out": 0.5
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 2,
+        "key": "telops",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-chat",
+              "name": "Talking with AI",
+              "at": 192,
+              "duration": 90,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-chat/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-done",
+              "name": "Editing done",
+              "at": 290,
+              "duration": 124,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-done/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-chat-pop-1",
+              "at": 192,
+              "duration": 5,
+              "role": "sfx",
+              "gain_db": -4,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-pop-bubble-big",
+                "in": 0,
+                "out": 0.15
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-chat-pop-2",
+              "at": 216,
+              "duration": 5,
+              "role": "sfx",
+              "gain_db": -4,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-pop-bubble-big",
+                "in": 0,
+                "out": 0.15
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-done-tone",
+              "at": 379,
+              "duration": 17,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-correct-tone",
+                "in": 0,
+                "out": 0.55
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 3,
+        "key": "effects",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-effects",
+              "name": "Sound effects and effects",
+              "at": 474,
+              "duration": 132,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-effects/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-flash",
+            "item": {
+              "id": "demo-flash",
+              "name": "Flash",
+              "at": 539,
+              "duration": 12,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-flash/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-kouka-pop",
+              "at": 474,
+              "duration": 5,
+              "role": "sfx",
+              "gain_db": -4,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-pop-cork",
+                "in": 0,
+                "out": 0.15
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-pa-whoosh",
+              "at": 530,
+              "duration": 23,
+              "role": "sfx",
+              "gain_db": -4,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-whoosh-punchy",
+                "in": 0,
+                "out": 0.75
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-hora-sparkle",
+              "at": 569,
+              "duration": 44,
+              "role": "sfx",
+              "gain_db": 2,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-shimmer-sparkle",
+                "in": 0,
+                "out": 1.45
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 4,
+        "key": "diagram",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-diagram",
+              "name": "Diagram",
+              "at": 637,
+              "duration": 119,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-diagram/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-diagram-pon",
+              "at": 637,
+              "duration": 9,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-diagram-pon",
+                "in": 0,
+                "out": 0.3
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-diagram-stack",
+              "at": 646,
+              "duration": 5,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-diagram-stack",
+                "in": 0,
+                "out": 0.147
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-diagram-playhead",
+              "at": 668,
+              "duration": 7,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-diagram-playhead",
+                "in": 0,
+                "out": 0.216
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-diagram-count",
+              "at": 682,
+              "duration": 18,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-diagram-count",
+                "in": 0,
+                "out": 0.567
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 5,
+        "key": "phone",
+        "items": [
+          {
+            "track": "demo-phone-screen",
+            "item": {
+              "id": "demo-phone-screen",
+              "name": "Phone screen",
+              "at": 775,
+              "duration": 134,
+              "crop": {
+                "x": 0.208,
+                "y": 0,
+                "w": 0.2645,
+                "h": 1
+              },
+              "transform": {
+                "x": 372,
+                "y": -24,
+                "scale": 0.6607
+              },
+              "source": {
+                "kind": "media",
+                "src": "sample",
+                "in": 25.8333,
+                "out": 30.3,
+                "mute": true
+              },
+              "captions": "off"
+            }
+          },
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-phone",
+              "name": "Phone mockup",
+              "at": 763,
+              "duration": 155,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-phone/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-phone-swoosh",
+              "at": 759,
+              "duration": 16,
+              "role": "sfx",
+              "gain_db": -5,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-swoosh-up",
+                "in": 0,
+                "out": 0.533
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-phone-tap",
+              "at": 775,
+              "duration": 5,
+              "role": "sfx",
+              "gain_db": -6,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-click-mouse-single",
+                "in": 0,
+                "out": 0.15
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 6,
+        "key": "bgm",
+        "items": [
+          {
+            "track": "onboarding-bgm",
+            "item": {
+              "id": "onboarding-bgm",
+              "at": 0,
+              "duration": 1056,
+              "role": "bgm",
+              "gain_db": -14,
+              "fade_in": 0.6,
+              "fade_out": 1.2,
+              "keyframes": [
+                {
+                  "t": 0,
+                  "gain_db": 0
+                },
+                {
+                  "t": 807,
+                  "gain_db": 0
+                },
+                {
+                  "t": 816,
+                  "gain_db": 8,
+                  "easing": "out-cubic"
+                },
+                {
+                  "t": 846,
+                  "gain_db": 8
+                },
+                {
+                  "t": 870,
+                  "gain_db": 0,
+                  "easing": "in-out-cubic"
+                },
+                {
+                  "t": 998,
+                  "gain_db": 0
+                },
+                {
+                  "t": 1008,
+                  "gain_db": 10,
+                  "easing": "out-cubic"
+                }
+              ],
+              "source": {
+                "kind": "media",
+                "src": "onboarding-bgm",
+                "in": 0,
+                "out": 35.2
+              }
+            }
+          },
+          {
+            "track": "demo-accents",
+            "item": {
+              "id": "demo-bgm-chip",
+              "name": "Music tag",
+              "at": 811,
+              "duration": 107,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-bgm/fragment.html"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 7,
+        "key": "karaoke",
+        "items": []
+      },
+      {
+        "stage": 8,
+        "key": "credit",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-credit",
+              "name": "Credits",
+              "at": 996,
+              "duration": 60,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-credit/fragment.html"
+              }
+            }
+          },
+          {
+            "track": "demo-sfx",
+            "item": {
+              "id": "demo-sfx-punchline-ding",
+              "at": 997,
+              "duration": 42,
+              "role": "sfx",
+              "gain_db": -2,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-ding-single",
+                "in": 0,
+                "out": 1.4
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "punch_in_keyframes": [
+      {
+        "t": 539,
+        "transform": {
+          "x": 0,
+          "scale": 1
+        }
+      },
+      {
+        "t": 541,
+        "transform": {
+          "x": 0,
+          "scale": 1.1
+        },
+        "easing": "out-expo"
+      },
+      {
+        "t": 542,
+        "transform": {
+          "x": 4,
+          "scale": 1.1
+        }
+      },
+      {
+        "t": 543,
+        "transform": {
+          "x": -4,
+          "scale": 1.1
+        }
+      },
+      {
+        "t": 544,
+        "transform": {
+          "x": 0,
+          "scale": 1.1
+        }
+      },
+      {
+        "t": 582,
+        "transform": {
+          "x": 0,
+          "scale": 1.1
+        }
+      },
+      {
+        "t": 591,
+        "transform": {
+          "x": 0,
+          "scale": 1
+        },
+        "easing": "in-out-cubic"
+      }
+    ]
+  },
+  "seek_seconds": [
+    5.4,
+    12.75,
+    18.55,
+    23.1,
+    26.7,
+    27.7,
+    29.2,
+    34.5
+  ],
+  "emphasis": [
+    {
+      "text": "Akari Video"
+    },
+    {
+      "text": "talk with the AI"
+    },
+    {
+      "text": "sound effects"
+    },
+    {
+      "text": "effects…"
+    },
+    {
+      "text": "pop!",
+      "scale": 1.15
+    },
+    {
+      "text": "diagrams"
+    },
+    {
+      "text": "phone"
+    },
+    {
+      "text": "mockups"
+    },
+    {
+      "text": "background music"
+    }
+  ],
+  "karaoke": {
+    "pair": "background music, and even karaoke-style captions.",
+    "head": "background music,",
+    "text": "and even karaoke-style captions.",
+    "separator": ","
+  },
+  "log_words": {
+    "opening_title": "Akari Video",
+    "first_quote": "talk with the AI",
+    "second_quote": "the editing is basically done",
+    "effect": "pop",
+    "diagram": "diagrams like this",
+    "music": "background music",
+    "karaoke": "karaoke-style captions",
+    "credit": "Edited by AI"
+  },
+  "finder": {
+    "length": "00:35",
+    "size": "1280×720"
+  },
+  "asset_facts_duration_seconds": 35.2,
+  "subtitles": {
+    "language": "en",
+    "max_characters": 32
+  }
+}

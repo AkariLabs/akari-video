@@ -1,0 +1,39 @@
+{"type":"system","subtype":"init","session_id":"session-fixed","model":"claude-haiku-5-5","slash_commands":["compact","clear"],"skills":["edit-lint"],"permissionMode":"bypassPermissions"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"message-fixed-4"}}}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}
+{"type":"assistant","message":{"id":"message-fixed-4","role":"assistant","content":[{"type":"thinking","thinking":""}]}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"| 項目 | 値 |\n| --- | --- |\n| 結果 | OK |"}}}
+{"type":"assistant","message":{"id":"message-fixed-4","role":"assistant","content":[{"type":"text","text":"| 項目 | 値 |\n| --- | --- |\n| 結果 | OK |"}]}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1}}
+{"type":"stream_event","event":{"type":"message_delta"}}
+{"type":"stream_event","event":{"type":"message_stop"}}
+{"type":"result","subtype":"success","is_error":false,"usage":{"input_tokens":2,"cache_read_input_tokens":13087,"cache_creation_input_tokens":17380,"output_tokens":82,"iterations":[{"input_tokens":2,"cache_read_input_tokens":13087,"cache_creation_input_tokens":17380,"output_tokens":82}]},"modelUsage":{"claude-haiku-5-5":{"contextWindow":1000000}}}
+{"type":"system","subtype":"init","session_id":"session-fixed","model":"claude-haiku-5-5","slash_commands":["compact","clear"],"skills":["edit-lint"],"permissionMode":"bypassPermissions"}
+{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"manual","pre_tokens":30553,"post_tokens":3128,"cumulative_dropped_tokens":27425,"duration_ms":4991}}
+{"type":"user","message":{"role":"user","content":"[要約内容は伏せ字]"}}
+{"type":"user","message":{"role":"user","content":"[要約内容は伏せ字]"}}
+{"type":"result","subtype":"success","is_error":false,"usage":{"input_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"output_tokens":0,"iterations":[]},"modelUsage":{"claude-haiku-5-5":{"contextWindow":1000000}}}
+{"type":"system","subtype":"init","session_id":"session-fixed","model":"claude-haiku-5-5","slash_commands":["compact","clear"],"skills":["edit-lint"],"permissionMode":"bypassPermissions"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"message-fixed-5"}}}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}
+{"type":"assistant","message":{"id":"message-fixed-5","role":"assistant","content":[{"type":"thinking","thinking":""}]}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"| 項目 | 値 |\n| --- | --- |\n| 結果 | OK |"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" "}}}
+{"type":"assistant","message":{"id":"message-fixed-5","role":"assistant","content":[{"type":"text","text":"| 項目 | 値 |\n| --- | --- |\n| 結果 | OK |"}]}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1}}
+{"type":"stream_event","event":{"type":"message_delta"}}
+{"type":"stream_event","event":{"type":"message_stop"}}
+{"type":"result","subtype":"success","is_error":false,"usage":{"input_tokens":2,"cache_read_input_tokens":13087,"cache_creation_input_tokens":9305,"output_tokens":177,"iterations":[{"input_tokens":2,"cache_read_input_tokens":13087,"cache_creation_input_tokens":9305,"output_tokens":177}]},"modelUsage":{"claude-haiku-5-5":{"contextWindow":1000000}}}

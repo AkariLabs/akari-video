@@ -20,7 +20,7 @@ import { nls } from '@theia/core/lib/common/nls';
 import { t, normalizeLanguage, formatDate } from '@akari-video/i18n';
 import { StopReason } from '@theia/core/lib/common/frontend-application-state';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
+import { CommandContribution, CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { findSettingsSectionBody, mountSettingsSectionBody } from '../common/settings-section-body';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { KeymapsService } from '@theia/keymaps/lib/browser/keymaps-service';
@@ -53,17 +53,17 @@ import {
     AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_VIBE_PREVIEW_ENABLED, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
-    AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY,
+    AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, AKARI_PREVIEW_SCRUB_AUDIO,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
-    SETTINGS_SECTIONS, visibleSettingsSections, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
+    SETTINGS_SECTIONS, SETTINGS_PILLARS, settingsPillarForSection, SettingsPillarId, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
-    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
+    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, sectionsForPillar, activeSettingsSection,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
     normalizeExportEncoder, normalizeExportCodec, normalizeExportFps, isValidIrodoriUrl
 } from '../common/settings-sections';
-import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
+import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_CHAT_EXPERIMENTAL_ENABLED, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { normalizePartnerPermissionMode } from 'akari-partner/lib/common/partner-permissions';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
@@ -136,6 +136,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         catch { return false; }
     }
     protected readonly body = element('main');
+    protected readonly sectionContents = element('aside');
+    protected readonly contentsDetails = element('details');
+    protected readonly contentsList = element('nav');
     protected readonly transcribe = element('section');
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
@@ -146,6 +149,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     /** Akari アカウント節の中身（アカウント帯 + AKARI Store のグループ）。renderStore が描き直す。 */
     protected readonly storeRow = element('div');
     protected readonly sections = new Map<SettingsSectionId, HTMLElement>();
+    protected activePillar = 'general';
+    protected pendingSection?: SettingsSectionId;
+    protected pendingScrollSmooth = false;
+    protected pendingConnector?: string;
+    protected scrollObserver?: IntersectionObserver;
+    protected contentsResizeObserver?: ResizeObserver;
+    protected connectorObserver?: MutationObserver;
+    protected scrollLock?: { section: SettingsSectionId; until: number };
+    protected scrollFrame = 0;
     protected aiModelsView?: AiModelsView;
     protected shortcutsView?: ShortcutsSettingsView;
     protected readonly storeController: StoreConnectionFlowController;
@@ -264,6 +276,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
     }
 
+    selectConnector(id?: string): void {
+        findSettingsSectionBody('connections')?.select?.(id);
+        this.pendingConnector = id;
+        this.showSection('connections');
+        if (id) this.watchConnectorDetail(id);
+    }
     get value(): void { return undefined; }
     focusSearch(): void { this.searchInput.focus(); }
     refreshPrivacy(): void { if (!this.isDisposed) { this.renderSection('privacy'); } }
@@ -271,6 +289,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     override close(): void {
         this.stopAboutUpdaterEvents();
+        this.scrollObserver?.disconnect();
+        this.contentsResizeObserver?.disconnect();
+        this.connectorObserver?.disconnect();
+        cancelAnimationFrame(this.scrollFrame);
         for (const input of Array.from(this.node.querySelectorAll<HTMLInputElement>('input[type=password]'))) { input.value = ''; }
         super.close();
     }
@@ -285,7 +307,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 borderRadius: '12px', overflow: 'hidden', border: AKARI_BORDER.edge, background: AKARI_SURFACE.raised
             });
         }
-        Object.assign(this.contentNode.style, { display: 'flex', flexDirection: 'row', padding: '0', flex: '1', minHeight: '0', maxHeight: 'none', overflow: 'hidden' });
+        this.contentNode.classList.add('akari-set-layout');
+        Object.assign(this.contentNode.style, { display: 'grid', padding: '0', flex: '1', minHeight: '0', maxHeight: 'none', overflow: 'hidden' });
         this.controlPanel.style.display = 'none';
         const nav = element('nav');
         nav.className = 'akari-set-nav';
@@ -299,21 +322,22 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const keyHint = element('kbd', OS.type() === OS.Type.OSX ? '⌘F' : 'Ctrl+F');
         search.append(settingsIcon('search', 'sm'), this.searchInput, keyHint);
         nav.append(search);
-        let previousGroup: string = 'main';
-        for (const section of visibleSettingsSections(this.vibePreviewEnabled())) {
-            if (section.group !== previousGroup) {
-                const group = element('h3', section.group === 'data' ? t('surfaces.settings.domDataPrivacy.label') : section.group === 'support' ? t('surfaces.settings.domSupport.label') : t('surfaces.settings.domDeveloper.label'));
-                group.className = 'akari-set-nav-group';
-                group.setAttribute('data-settings-nav-group', section.group);
-                nav.append(group);
-            }
-            previousGroup = section.group;
-            nav.append(this.navigation(section.label, section.id, section.icon, 'badge' in section ? section.badge : undefined));
+        for (const pillar of SETTINGS_PILLARS) {
+            nav.append(this.navigation(pillar.label, pillar.sections[0] as SettingsSectionId, pillar.icon));
+            nav.lastElementChild?.setAttribute('data-settings-nav', pillar.id);
         }
-        Object.assign(this.body.style, { display: 'flex', flexDirection: 'column', flex: '1', minWidth: '0', minHeight: '0', position: 'relative' });
+        this.body.className = 'akari-set-scroll';
         this.notice.setAttribute('role', 'alert');
         this.notice.className = 'akari-set-notice';
         this.body.append(this.notice);
+        this.sectionContents.className = 'akari-set-contents';
+        this.contentsDetails.className = 'akari-set-contents-details';
+        this.contentsDetails.open = true;
+        const contentsTitle = element('summary', t('surfaces.akariSettingsDialog.ui.itemsPageLabel'));
+        this.contentsList.className = 'akari-set-contents-list';
+        this.contentsList.setAttribute('aria-label', t('surfaces.akariSettingsDialog.ui.itemsPageLabel'));
+        this.contentsDetails.append(contentsTitle, this.contentsList);
+        this.sectionContents.append(this.contentsDetails);
         for (const section of SETTINGS_SECTIONS) {
             const node = section.id === 'transcribe' ? this.transcribe
                 : section.id === 'connections' ? this.connections : element('section');
@@ -322,64 +346,173 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             node.setAttribute('data-akari-settings-section', section.id);
             node.hidden = true;
             node.setAttribute('aria-labelledby', `${node.id}-heading`);
-            Object.assign(node.style, { flex: '1', minHeight: '0', overflowY: 'auto' });
             this.sections.set(section.id, node);
             this.body.append(node);
         }
+        this.body.append(...SETTINGS_PILLARS.flatMap(pillar => pillar.sections).map(id => this.sections.get(id)!));
         this.storeRow.setAttribute('data-akari-store-settings', 'true');
-        // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
-        const storeMoved = settingsNote(t('surfaces.settings.domAddNarrationApiKeysAkariVideoLab.description'));
-        storeMoved.append(' ', inlineLink(t('surfaces.settings.domOpenAkariAccount.label'), () => this.showSection('account')));
-        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.subscriptionList,
-            element('h3', t('surfaces.settings.domApiKey.label')), this.providerList, this.imageAiRow, this.storage);
-        this.providerList.append(settingsNote(t('surfaces.settings.domLoadingConnections.label')));
+        const connectBody = findSettingsSectionBody('connections');
+        this.connections.append(...this.sectionHeading('connections'));
+        const defaults = element('div');
+        defaults.setAttribute('data-akari-generation-defaults', 'true');
+        const diagnostics = element('details');
+        const diagnosticsTitle = element('summary', t('surfaces.akariSettingsDialog.ui.connectionDiagnosticsBalancesOtherServicesText'));
+        diagnostics.append(diagnosticsTitle, this.providerList, this.imageAiRow);
+        this.connections.append(defaults, diagnostics);
+        if (connectBody) { this.toDispose.push(mountSettingsSectionBody(this.connections, connectBody)); }
+        void this.renderGenerationDefaults(defaults);
+        this.providerList.append(settingsNote(t('surfaces.akariSettingsDialog.ui.loadingMoreServicesStatus')));
         this.renderStore();
-        this.contentNode.append(nav, this.body);
+        this.contentNode.append(nav, this.sectionContents, this.body);
+        this.body.addEventListener('scroll', () => this.scheduleActiveSection(), { passive: true });
+        this.toDispose.push(Disposable.create(() => {
+            this.scrollObserver?.disconnect();
+            this.contentsResizeObserver?.disconnect();
+            this.connectorObserver?.disconnect();
+            cancelAnimationFrame(this.scrollFrame);
+        }));
         this.addEventListener(this.node, 'keydown', event => {
             if (event.metaKey && event.key.toLowerCase() === 'f') { event.preventDefault(); this.searchInput.focus(); }
         });
     }
 
     showSection(section: SettingsSectionId): void {
-        if (section === 'listening' && !this.vibePreviewEnabled()) section = SETTINGS_SECTIONS[0].id;
-        if (section !== 'about') { this.stopAboutUpdaterEvents(); }
-        const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
+        if (section === 'listening' && !this.vibePreviewEnabled()) section = 'connections';
+        const pillar = settingsPillarForSection(section);
+        const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${pillar}"]`);
+        const detailIds = sectionsForPillar(pillar, this.vibePreviewEnabled());
+        const pillarChanged = pillar !== this.activePillar;
+        this.activePillar = pillar;
+        if (pillar !== 'general') this.stopAboutUpdaterEvents();
+        this.contentsList.replaceChildren(...detailIds.map(id => {
+            const item = SETTINGS_SECTIONS.find(sectionItem => sectionItem.id === id)!;
+            const button = element('button', item.label);
+            button.type = 'button';
+            button.setAttribute('data-settings-contents', item.id);
+            if (item.id === section) button.setAttribute('aria-current', 'page');
+            button.addEventListener('click', () => { this.pendingScrollSmooth = true; this.showSection(item.id); });
+            return button;
+        }));
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {
-            node.hidden = !isSettingsSectionVisible(id, section);
-            if (!node.hidden) { node.scrollTop = 0; }
+            node.hidden = !detailIds.includes(id);
+            node.toggleAttribute('data-settings-first', id === detailIds[0]);
+            node.toggleAttribute('data-settings-last', id === detailIds[detailIds.length - 1]);
         }
+        if (pillarChanged) { this.body.scrollTo({ top: 0, behavior: 'instant' }); this.pendingScrollSmooth = false; }
+        this.observeSections();
         try { localStorage.setItem(SETTINGS_LAST_SECTION_KEY, section); } catch { /* 保存不可でもページは切り替える。 */ }
         // 選択中は面の色（一段明るい面 + 太字 + アイコンだけアクセント色）で示す。縦バーは使わない（CSS 側）。
         for (const item of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]'))) {
-            if (item.getAttribute('data-settings-nav') === section) { item.setAttribute('aria-current', 'true'); }
+            if (item.getAttribute('data-settings-nav') === pillar) { item.setAttribute('aria-current', 'true'); }
             else { item.removeAttribute('aria-current'); }
         }
         this.highlightSearch(section);
-        if (section === 'about' && this.sections.get('about')?.childElementCount) { this.renderSection('about'); }
-        if (section === 'narration') { void this.refreshNarrationState(); }
+        if (pillar === 'general' && pillarChanged && this.sections.get('about')?.childElementCount) { this.renderSection('about'); }
+        if (pillar === 'connect' && (pillarChanged || !this.narrationState && !this.narrationLoading)) { void this.refreshNarrationState(); }
+        this.pendingSection = section;
+        this.scrollToPendingSection();
+    }
+
+    protected scrollToPendingSection(): void {
+        if (!this.body.isConnected || !this.pendingSection) return;
+        const section = this.pendingSection;
+        this.pendingSection = undefined;
+        const smooth = this.pendingScrollSmooth;
+        this.pendingScrollSmooth = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (!this.body.isConnected || this.sections.get(section)?.hidden) return;
+            const heading = document.getElementById(`${settingsSectionElementId(section)}-heading`);
+            if (!heading) return;
+            if (section === 'connections' && this.pendingConnector) {
+                this.watchConnectorDetail(this.pendingConnector);
+                return;
+            }
+            const offset = heading.getBoundingClientRect().top - this.body.getBoundingClientRect().top;
+            const target = Math.max(0, this.body.scrollTop + offset - 24);
+            this.scrollLock = smooth ? { section, until: Date.now() + 1500 } : undefined;
+            this.setActiveSection(section);
+            this.body.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'instant' });
+            window.setTimeout(() => { if (!this.isDisposed) this.scheduleActiveSection(); }, 1550);
+        }));
+    }
+
+    protected watchConnectorDetail(id: string): void {
+        this.connectorObserver?.disconnect();
+        const reveal = (): boolean => {
+            const detail = Array.from(this.connections.querySelectorAll<HTMLElement>('[data-connect-detail]'))
+                .find(node => node.dataset.connectDetail === id);
+            if (!detail || !this.body.isConnected) return false;
+            this.connectorObserver?.disconnect();
+            this.pendingConnector = undefined;
+            requestAnimationFrame(() => {
+                const offset = detail.getBoundingClientRect().top - this.body.getBoundingClientRect().top;
+                this.body.scrollTo({ top: this.body.scrollTop + offset - 24, behavior: 'instant' });
+            });
+            return true;
+        };
+        if (reveal()) return;
+        this.connectorObserver = new MutationObserver(() => reveal());
+        this.connectorObserver.observe(this.connections, { childList: true, subtree: true });
+    }
+
+    protected observeSections(): void {
+        this.scrollObserver?.disconnect();
+        if (!this.body.isConnected || typeof IntersectionObserver === 'undefined') return;
+        this.scrollObserver = new IntersectionObserver(() => this.scheduleActiveSection(), { root: this.body, threshold: [0, .5, 1] });
+        for (const id of sectionsForPillar(this.activePillar as SettingsPillarId, this.vibePreviewEnabled())) {
+            this.scrollObserver.observe(this.sections.get(id)!);
+        }
+        this.scheduleActiveSection();
+    }
+
+    protected scheduleActiveSection(): void {
+        cancelAnimationFrame(this.scrollFrame);
+        this.scrollFrame = requestAnimationFrame(() => {
+            const ids = sectionsForPillar(this.activePillar as SettingsPillarId, this.vibePreviewEnabled());
+            if (this.scrollLock && Date.now() < this.scrollLock.until) {
+                const heading = document.getElementById(`${settingsSectionElementId(this.scrollLock.section)}-heading`);
+                if (heading && Math.abs(heading.getBoundingClientRect().top - this.body.getBoundingClientRect().top - 24) > 4) return;
+            }
+            this.scrollLock = undefined;
+            const top = this.body.getBoundingClientRect().top;
+            const headingTops = ids.map(id => this.sections.get(id)!.getBoundingClientRect().top - top);
+            const atBottom = this.body.scrollTop + this.body.clientHeight >= this.body.scrollHeight - 3;
+            const active = activeSettingsSection(ids, headingTops, atBottom);
+            if (active) this.setActiveSection(active);
+        });
+    }
+
+    protected setActiveSection(section: SettingsSectionId): void {
+        for (const button of Array.from(this.contentsList.querySelectorAll<HTMLElement>('[data-settings-contents]'))) {
+            if (button.dataset.settingsContents === section) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+        }
     }
 
     protected filterSections(): void {
         const query = this.searchInput.value;
         let first: SettingsSectionId | undefined;
-        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) {
-            const node = this.sections.get(item.id)!;
-            const rows = Array.from(node.querySelectorAll<HTMLElement>(
+        let firstHit: SettingsSectionId | undefined;
+        for (const pillar of SETTINGS_PILLARS) {
+            const pages = SETTINGS_SECTIONS.filter(item => sectionsForPillar(pillar.id, this.vibePreviewEnabled()).includes(item.id));
+            const rows = pages.flatMap(item => Array.from(this.sections.get(item.id)!.querySelectorAll<HTMLElement>(
                 '.akari-set-row-label,.akari-set-row-desc,.akari-set-group-title,.akari-set-partner-name,.akari-set-partner-sub,.akari-set-storage-header,.akari-set-permission-row'
-            )).map(row => row.textContent ?? '');
-            const match = matchesSettingsSearch(query, item.label, SETTINGS_SECTION_DESCRIPTIONS[item.id], rows);
-            const nav = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`);
-            if (nav) { nav.hidden = !match; }
-            if (match && !first) { first = item.id; }
+            )).map(row => row.textContent ?? ''));
+            const match = matchesSettingsSearch(query, pillar.label, pages.map(item => SETTINGS_SECTION_DESCRIPTIONS[item.id]).join(' '), rows);
+            const nav = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${pillar.id}"]`);
+            if (nav) nav.hidden = !match;
+            if (match && !first) first = pages[0].id;
+            if (match && !firstHit && query.trim()) {
+                firstHit = pages.find(item => matchesSettingsSearch(query, item.label, SETTINGS_SECTION_DESCRIPTIONS[item.id],
+                    Array.from(this.sections.get(item.id)!.querySelectorAll<HTMLElement>('.akari-set-row-label,.akari-set-row-desc,.akari-set-group-title'))
+                        .map(row => row.textContent ?? '')))?.id;
+            }
         }
         const visible = Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]')).find(item => item.getAttribute('aria-current') === 'true' && !item.hidden);
-        if (!visible && first) { this.showSection(first); }
-        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) { this.highlightSearch(item.id); }
-        for (const group of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav-group]'))) {
-            const name = group.getAttribute('data-settings-nav-group');
-            group.hidden = !visibleSettingsSections(this.vibePreviewEnabled()).some(item => item.group === name && !this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`)?.hidden);
-        }
+        if (query.trim() && firstHit) this.showSection(firstHit);
+        else if (!visible && first) this.showSection(first);
+        for (const item of SETTINGS_SECTIONS) this.highlightSearch(item.id);
     }
 
     protected highlightSearch(id: SettingsSectionId): void {
@@ -393,6 +526,19 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
+        this.observeSections();
+        this.scrollToPendingSection();
+        if (typeof ResizeObserver !== 'undefined') {
+            let narrow: boolean | undefined;
+            this.contentsResizeObserver = new ResizeObserver(() => {
+                const next = this.contentNode.clientWidth < 850;
+                if (next === narrow) return;
+                narrow = next;
+                this.contentNode.toggleAttribute('data-contents-narrow', next);
+                this.contentsDetails.open = !next;
+            });
+            this.contentsResizeObserver.observe(this.contentNode);
+        }
         // attach ごとの状態と、detach 時に解除されるリスナでドラッグ終端の誤閉鎖を防ぐ。
         let armed = false;
         this.addEventListener(this.node, 'mousedown', event => {
@@ -514,7 +660,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         segmentedControl({ label: t('surfaces.settings.trackRippleDisplay.label'),
                             options: [{ value: 'tag', label: t('surfaces.settings.trackRippleTag.option') }, { value: 'switches', label: t('surfaces.settings.sectionSwitch.label') }],
                             value: this.preferences.get(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY) === 'switches' ? 'switches' : 'tag',
-                            onChange: value => this.savePreference(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, value) }))));
+                            onChange: value => this.savePreference(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, value) }))),
+                groupCard(t('surfaces.akariSettingsDialog.ui.previewLabel'), this.preferenceSwitch(AKARI_PREVIEW_SCRUB_AUDIO, t('surfaces.akariSettingsDialog.ui.playAudioWhileScrubbingLabel'), false,
+                    t('surfaces.akariSettingsDialog.ui.playShortSampleAudioNewPositionWhenDraggingMessage'))));
         } else if (id === 'notifications') {
             section.append(groupCard(undefined, this.preferenceSwitch(AKARI_AGENT_TURN_END_NOTIFICATION, t('surfaces.settings.sectionAiCompletionNotification.label'), true,
                 t('surfaces.settings.sectionReceiveNotificationProcessingSuchClaudeCodeCompleted.label'))));
@@ -698,6 +846,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }, { small: true }))),
         groupCard(t('surfaces.settings.partnerBehavior.label'), this.preferenceSwitch(AKARI_PARTNER_REOPEN, t('surfaces.settings.partnerOnceStartedOpenPreviousPartner.label'), true,
             t('surfaces.settings.partnerOpeningProjectOpenPreviousPartnerProjectsWhose.label')),
+        this.preferenceSwitch(AKARI_CHAT_EXPERIMENTAL_ENABLED, t('surfaces.akariSettingsDialog.ui.showAkariChatPreviewLabel'), false,
+            t('surfaces.akariSettingsDialog.ui.featureStillDevelopmentMayUnstableMessage')),
         settingRow(t('surfaces.settings.partnerPrivileges.label'), t('surfaces.settings.partnerToolsHaveAutomaticModeCopilotAntigravityCommand.description'),
             dropdown({ label: t('surfaces.settings.partnerPrivileges.label'), options: [
                 { value: 'auto', label: t('surfaces.settings.partnerAutomaticRecommended.label') },
@@ -1653,24 +1803,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             ? t('surfaces.settings.imageAiFalKeyRegistered.message', { keySuffix: state.maskedTail ? t('surfaces.settings.imageAiEnding.label', { maskedTail: state.maskedTail }) : '' })
             : t('surfaces.settings.imageAiFalSettingKey.label'));
         status.setAttribute('data-akari-image-ai-status', state.configured ? 'configured' : 'unconfigured');
-        const input = element('input'); input.type = 'password'; input.autocomplete = 'off';
-        input.placeholder = t('surfaces.settings.imageAiKeyFal.placeholder'); input.setAttribute('aria-label', t('surfaces.settings.imageAiImageKey.label'));
         const result = settingsNote(''); result.setAttribute('role', 'status');
-        const save = action(t('surfaces.settings.imageAiSave.button'), () => {
-            if (!input.value.trim()) { result.textContent = t('surfaces.settings.imageAiEnterKey.label'); return; }
-            save.disabled = true;
-            void this.service.setImageAiKey(input.value).then(() => this.renderImageAi()).catch(() => {
-                result.textContent = t('surfaces.settings.imageAiFailedSaveKey.label'); save.disabled = false;
-            });
-        }, { small: true });
-        const check = action(t('surfaces.settings.imageAiCheckConnection.button'), () => {
-            check.disabled = true; result.textContent = t('surfaces.settings.imageAiCheckingConnection.label');
+        const check = action(t('surfaces.akariSettingsDialog.ui.testConnectionLabel'), () => {
+            check.disabled = true; result.textContent = t('surfaces.akariSettingsDialog.ui.checkingConnectionStatus');
             void this.service.checkImageAiConnection().then(doctor => { result.textContent = doctor.detail; })
                 .catch(() => { result.textContent = t('surfaces.settings.imageAiConnectionCheckFailed.error'); })
                 .finally(() => { check.disabled = false; });
         }, { small: true });
         const card = element('div');
-        card.append(status, settingRow(t('surfaces.settings.imageAiKeys.label'), t('surfaces.settings.imageAiSaveKeyComputer.message'), input, save));
+        card.append(status);
         if (state.narrationKeyAvailable) {
             const reuse = action(state.useNarrationKey ? t('surfaces.settings.imageAiSharedKeyInUse.status') : t('surfaces.settings.imageAiUseSharedKey.option'), () => {
                 reuse.disabled = true;
@@ -1966,9 +2107,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 controls.append(input, save);
             }
         };
-        renderControls();
+        const managedInConnect = ['fal', 'elevenlabs', 'runway', 'higgsfield', 'fish-audio'].includes(row.id);
+        if (managedInConnect) {
+            paintStatus();
+            controls.append(settingsNote(t('surfaces.akariSettingsDialog.ui.manageKeysServiceCardsAboveMessage')));
+        } else renderControls();
         card.append(logo, main, actions);
-        if (row.id === 'fal') {
+        if (row.id === 'fal' && !managedInConnect) {
             const defaults = element('div');
             defaults.className = 'akari-set-defaults';
             defaults.setAttribute('data-akari-generation-defaults', 'true');
@@ -2269,6 +2414,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(AkariSettingsMaintenanceService) protected readonly maintenance!: AkariSettingsMaintenanceService;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
+    protected requestedConnectorId: string | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
@@ -2336,6 +2482,8 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             [STATUS_BAR_KEYS.intervalSec]: { type: 'number', enum: [1, 3, 10], default: 3 },
             [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
             [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
+            [AKARI_CHAT_EXPERIMENTAL_ENABLED]: { type: 'boolean', default: false,
+                description: t('surfaces.akariSettingsDialog.ui.featureStillDevelopmentMayUnstableMessage') },
             [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto', scope: PreferenceScope.User },
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },
@@ -2396,9 +2544,14 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         commands.registerCommand({ id: 'akari.settings.open', label: t('surfaces.settings.registerCommandsAkariVideoSettings.label') }, {
             execute: (arg?: unknown) => {
                 const section = resolveSettingsSectionId(arg);
+                const connectorId = typeof arg === 'object' && arg !== null && (('connectorId' in arg && typeof arg.connectorId === 'string') ||
+                        ('provider' in arg && typeof arg.provider === 'string'))
+                    ? ('connectorId' in arg ? arg.connectorId : arg.provider) as string : undefined;
                 if (section) {
                     this.requestedSection = section;
-                    this.dialog?.showSection(section);
+                    this.requestedConnectorId = connectorId;
+                    if (section === 'connections') this.dialog?.selectConnector(connectorId);
+                    else this.dialog?.showSection(section);
                 }
                 if (!this.opened) {
                     this.opened = this.openSettings().finally(() => { this.opened = undefined; });
@@ -2414,11 +2567,13 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
         const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.childLanguage, this.requestedSection);
         dialog.setImageRoutesService(this.imageRoutes);
+        if (this.requestedSection === 'connections') dialog.selectConnector(this.requestedConnectorId);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {
             this.dialog = undefined;
             this.requestedSection = undefined;
+            this.requestedConnectorId = undefined;
             dialog.dispose();
         }
     }
@@ -2480,7 +2635,7 @@ function themePreview(theme: string): HTMLElement {
     preview.append(el('i'), el('i', 'm'), el('i'));
     return preview;
 }
-/** 状態のピルは「接続済み / 未接続」の 2 値（キーが通らないと分かったときだけ「繋がらない」）。確認の詳細は下の 1 行に出す。 */
+/** 状態のピルは柱で使う三つの状態へ揃え、診断の詳細は下の行へ置く。 */
 function doctorPill(row: ConnectionRow): [string, 'ok' | 'neutral' | 'warn'] {
     if (!row.configured || row.doctor.status === 'unconfigured') { return [t('surfaces.settings.doctorDisconnected.status'), 'neutral']; }
     if (row.doctor.status === 'unauthorized') { return [t('surfaces.settings.doctorUnreachable.status'), 'warn']; }

@@ -381,6 +381,7 @@ export interface EditSummaryEmphasisWord {
     emotion: string;
     style_hint?: string;
     style_preset?: string;
+    inherit_caption_size?: boolean;
     _presetStyleVars?: Record<string, string>;
 }
 
@@ -629,6 +630,7 @@ export interface CaptionWriteRequest {
     type: 'akari-preview-caption-write';
     requestId: string;
     captionId: string;
+    phase?: 'draft' | 'commit' | 'cancel';
     patch: { zone: CaptionZoneValue }
         | { text: string }
         | { duplicate: CaptionCuePosition }

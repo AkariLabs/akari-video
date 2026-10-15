@@ -13,8 +13,15 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
+import { insertReviewText, partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { CHAT_ENABLED_PREFERENCE, visibleReviewKind } from './partner-chat-visibility';
+
 import { resolvePromptRoute } from '../common/prompt-route';
 import { activePartnerTerminals, stopPartnerTerminals } from './partner-terminal-shutdown';
+
+type ReviewWidget = { id: string; isAttached: boolean; isDisposed: boolean;
+    kind?: string; title: { caption: string }; options?: { attributes?: Record<string, string | null> } };
 
 export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
     return currentWidth === undefined || currentWidth > windowWidth * 0.4
@@ -40,6 +47,7 @@ export function partnerPanelWidth(windowWidth: number, currentWidth: number | un
  * `PartnerChannel#send`）を再利用することで満たす。
  */
 export const AkariPartnerCommands = {
+    LOGIN_CLAUDE: { id: 'akari.partner.loginClaude', label: t('partner.akariPartnerCommandContribution.ui.loginClaudeCodeLabel') } as Command,
     OPEN: {
         id: 'akari.partner.open',
         label: t('partner.navigation.commands.openPartnerAction')
@@ -63,6 +71,8 @@ export const AkariPartnerCommands = {
     } as Command,
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
+    CURRENT: { id: 'akari.partner.current' } as Command,
+    INSERT_TEXT: { id: 'akari.partner.insertText' } as Command,
     STOP_FOR_GUIDE: { id: 'akari.partner.stopForGuide' } as Command,
     HAS_LIVE_FOR_GUIDE: { id: 'akari.partner.hasLiveForGuide' } as Command,
     TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: t('partner.navigation.commands.typeInPartnerInputAction') } as Command
@@ -91,9 +101,38 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     @inject(PartnerActivityService)
     protected readonly activity!: PartnerActivityService;
 
+    @inject(PreferenceService)
+    protected readonly preferences!: PreferenceService;
+
     protected liveTerminal() {
         return this.terminals.all.find(terminal => terminal.kind === PartnerTerminal.KIND &&
             !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0);
+    }
+
+    protected lastReviewWidgetId?: string;
+
+    protected currentReviewWidget(): ReviewWidget | undefined {
+        const current = this.shell.rightPanelHandler.tabBar.currentTitle?.owner;
+        if (current && !current.isDisposed && current.isAttached) {
+            const widget = current as ReviewWidget;
+            const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
+            const target = partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+            if (target && visibleReviewKind(target.kind, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))) {
+                this.lastReviewWidgetId = widget.id;
+                return widget;
+            }
+        }
+        return this.shell.widgets.find(widget => widget.id === this.lastReviewWidgetId && widget.isAttached && !widget.isDisposed
+            && (widget.id !== 'akari-chat-widget' || this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))) as ReviewWidget | undefined
+            ?? this.liveTerminal() as ReviewWidget | undefined;
+    }
+
+    protected reviewTarget(): PartnerReviewTarget | undefined {
+        const widget = this.currentReviewWidget();
+        if (!widget) return undefined;
+        const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
+        const target = partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+        return target && visibleReviewKind(target.kind, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false)) ? target : undefined;
     }
 
     protected extensionTarget(webRunning: boolean) {
@@ -107,6 +146,32 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     }
 
     registerCommands(registry: CommandRegistry): void {
+        this.shell.onDidChangeActiveWidget(() => { this.currentReviewWidget(); });
+        this.shell.onDidChangeCurrentWidget(() => { this.currentReviewWidget(); });
+        registry.registerCommand(AkariPartnerCommands.CURRENT, { execute: () => this.reviewTarget() });
+        registry.registerCommand(AkariPartnerCommands.INSERT_TEXT, {
+            execute: async (request: { text?: unknown }): Promise<boolean> => {
+                if (typeof request?.text !== 'string' || this.reviewTarget()?.kind !== 'terminal') return false;
+                const widget = this.currentReviewWidget();
+                const terminal = this.terminals.all.find(candidate => candidate.id === widget?.id &&
+                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed && !candidate.exitStatus && candidate.terminalId >= 0);
+                if (!terminal) return false;
+                try {
+                    await this.shell.activateWidget(terminal.id);
+                    insertReviewText(terminal, request.text);
+                    return true;
+                } catch { return false; }
+            }
+        });
+        registry.registerCommand(AkariPartnerCommands.LOGIN_CLAUDE, { execute: async () => {
+            const entry = PARTNER_CATALOG.find(candidate => candidate.agent === 'claude' && candidate.form === 'cli');
+            if (!entry) return;
+            const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+            if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 100 });
+            await this.shell.activateWidget(widget.id);
+            await widget.begin(entry);
+        } });
+
         window.addEventListener('akari.onboarding.revealPartner', () => {
             void registry.executeCommand(AkariPartnerCommands.OPEN.id).catch(error =>
                 console.warn('[akari-onboarding] partner could not be revealed:', error));

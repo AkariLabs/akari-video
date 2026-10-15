@@ -35,6 +35,7 @@ import { completeTimelineRange, setTimelineRangeEdge, timelineRangeFromClip, tim
     type TimelineRangeState } from '../common/timeline-range';
 import { timelineDeletePlan } from '../common/timeline-delete-plan';
 import { runTimelineCutKernel } from '../common/timeline-cut-kernel';
+import { cutMotionReferencePaths, hydrateCutMotionReferences, restoreUncutMotionReferences } from '@akari-video/edit-store';
 import { renderTimelineRangeOverlay } from './timeline/timeline-range-overlay';
 import { calculateFrameDraw, frameDrawDestination, isPlayheadLineGrab, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
@@ -108,6 +109,7 @@ import { clampStillCutLength, planStillCutTrim } from '../common/still-cut-lengt
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName,
     VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
+import { visualThumbnailReuseKey } from './visual-thumbnail-reuse-key';
 import { clipFaceWidthPx, htmlClipFace, shapeClipFace, shapeClipLabel } from '../common/timeline-clip-face';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
@@ -241,6 +243,7 @@ import {
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
 import { captionMotionOriginalAnimation } from './inspector/caption-motion-cards';
 import { commitCaptionStyleBatch } from './inspector/caption-style-batch';
+import { captionPaintOnlyChange } from '../common/caption-paint-only-change';
 import { withCaptionSelectionDomain, type CaptionMotionDelta } from './inspector/caption-multi-targets';
 import { withCaptionPreviewFailure } from './inspector/caption-preview-write';
 import { effectiveMyStyleMotion, myStyleSaveParts, myStyleApplyNotice, placedMyStyleTextStyle, placedMyStyleMotion,
@@ -336,11 +339,15 @@ import {
     CaptionDisplayCueLike,
     loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
-    renderAroundCaptionDisplayReload,
     remapCaptionSelection,
+    renderAfterCaptionStateChange,
+    sameCaptionDisplayCueGroups,
+    shouldInvalidateVisualForPath,
     shouldReloadCaptions,
     writeCaptionFragmentBreaksVisible
 } from '../common/caption-track-layout';
+import { CoalescedContentReload } from '../common/coalesced-content-reload';
+import { CoalescedCaptionWrites } from '../common/coalesced-caption-writes';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -1005,8 +1012,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected lastCaptionRunNotice: string | undefined;
-    protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
-        withCaptionPreviewFailure(request, this.handleInspectorWrite(request));
+    protected readonly captionStyleWrites = new CoalescedCaptionWrites<InspectorWriteRequest, InspectorWriteResult>(request =>
+        withCaptionPreviewFailure(request, this.handleInspectorWrite(request)));
+    protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> => {
+        if (request.kind.startsWith('caption-style-') && 'id' in request) {
+            const targets = 'targets' in request && Array.isArray(request.targets)
+                ? request.targets.map(target => target.id).join(',') : request.id;
+            return this.captionStyleWrites.enqueue(`${this.location?.captionsUri.toString() ?? ''}:${targets}:${request.kind}`, request);
+        }
+        return withCaptionPreviewFailure(request, this.handleInspectorWrite(request));
+    };
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
         this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
             target: request.target,
@@ -1112,8 +1127,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected gapBand?: HTMLDivElement;
     protected gapCommitting = false;
 
-    protected readonly visualThumbnails = new VisualThumbnailCache(() => this.renderStrip());
+    protected readonly visualThumbnails = new VisualThumbnailCache(() => this.scheduleStripRender());
     protected readonly visualKeys = new WeakMap<HTMLElement, string>();
+    protected readonly visualReuseKeys = new WeakMap<HTMLElement, string>();
+    protected readonly visualReuseGeometry = new WeakMap<HTMLElement, string>();
+    protected visualThumbnailGeometry = new WeakMap<HTMLElement, string>();
     protected visualHover: HTMLDivElement | undefined;
     protected readonly shapeFaceCache = new Map<string, { raw: unknown; presetName?: string; key: string;
         label: string; svg: string; revision: number; frameHeight?: number; faceWidth?: number }>();
@@ -1320,9 +1338,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected timelineEmpty = false;
     protected createEditPromise?: Promise<void>;
     protected refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>;
-    /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
-    protected readonly recentWrites = new Map<string, number>();
+    protected lastAppliedEditSource: string | undefined;
+    protected forceWatchedEditReload = false;
+    protected readonly watchedEditReload = new CoalescedContentReload(async () => {
+        const uri = this.location?.editUri;
+        if (!uri || this.isDisposed) return;
+        const force = this.forceWatchedEditReload;
+        this.forceWatchedEditReload = false;
+        try {
+            const source = (await this.fileService.readFile(uri)).value.toString();
+            if (force || source !== this.lastAppliedEditSource) await this.reloadEdit(source);
+        } catch {
+            await this.reloadEdit();
+        }
+    });
+    protected readonly watchedCaptionsReload = new CoalescedContentReload(async () => {
+        if (!this.isDisposed) await this.reloadCaptionsIfChanged();
+    });
     protected captions: CaptionRecord[] = [];
+    protected readonly captionTextSessions = new Map<string, { before: string }>();
     protected captionDisplayLocale = 'ja';
     protected hasCaptionDisplayPolicy = false;
     protected lastAppliedCaptionsSource: string | undefined;
@@ -1348,6 +1382,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         meta: GenerationSidecarMeta; binding: GenerationBindingView | null
     }>();
     protected generationSidecarReload = 0;
+    protected loadedGenerationPathsKey: string | undefined;
+    protected savedByStampText: string | undefined;
+    protected savedByStampLoaded = false;
+    protected savedByRoot: string | undefined;
+    protected readonly motionReferenceCache = new Map<string, { items?: Record<string, unknown> }>();
     /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
     protected defaultSource: ResolvedEditSource | undefined;
     protected overlays: EditOverlay[] = [];
@@ -3725,6 +3764,44 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'caption-speaker': {
                     const captionsUri = location.captionsUri.toString();
                     const projectRootUri = location.root.toString();
+                    if (request.kind === 'caption-text' && request.phase) {
+                        const read = async (): Promise<string> => (await this.fileService.readFile(location.captionsUri)).value.toString();
+                        const key = `${captionsUri}\0${request.id}`;
+                        if (request.phase === 'draft') {
+                            if (!request.value.trim()) return { ok: true };
+                            if (!this.captionTextSessions.has(key)) this.captionTextSessions.set(key, { before: await read() });
+                            const reloadGeneration = this.captionReloadGeneration;
+                            await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
+                                captionId: request.id, text: request.value, draft: true });
+                            if (reloadGeneration === this.captionReloadGeneration) {
+                                await this.reloadCaptionsFromSource(undefined, true);
+                            }
+                            return { ok: true };
+                        }
+                        const session = this.captionTextSessions.get(key);
+                        this.captionTextSessions.delete(key);
+                        if (request.phase === 'cancel' && !session) return { ok: true };
+                        if (session) {
+                            const restore = async (captionsSource: string): Promise<void> => {
+                                await this.annotationsService.writeEditSnapshot({ editUri: location.editUri.toString(),
+                                    projectRootUri, captionsUri, captionsSource });
+                                await this.reloadCaptions();
+                            };
+                            if (request.phase === 'cancel') {
+                                await restore(session.before);
+                                return { ok: true };
+                            }
+                            await this.annotationsService.setCaptionFields({
+                                captionsUri, projectRootUri, captionId: request.id, text: request.value });
+                            const after = await read();
+                            if (after !== session.before) this.pushHistory({ label: t('annotations.annotationsWidget.ui.captionTextChangedLabel'),
+                                undo: () => restore(session.before), redo: () => restore(after) });
+                            await this.reloadCaptions();
+                            this.hideNotice();
+                            this.footer.textContent = t('annotations.annotationsWidget.ui.captionUpdatedMessage');
+                            return { ok: true };
+                        }
+                    }
                     const caption = this.captions.find(candidate => candidate.id === request.id);
                     if (!caption) {
                         throw new Error(t('annotations.timeline.text.subtitleNotFound', { id: request.id }));
@@ -3800,7 +3877,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const before = (await this.fileService.readFile(captionsUri)).value.toString();
                     const after = replaceMyStylePartsInSource(before, ids,
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
-                        { keepSize: true,
+                        { keepSize: request.value.keepSize !== false,
                             catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
                             motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined,
                             source: request.value.style_source as { kind: 'builtin' | 'library' | 'my'; id: string;
@@ -3986,29 +4063,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const applyStyles = async (
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>,
                         source?: string
-                    ): Promise<void> => {
-                        if (!location.editUri) throw new Error(t('annotations.timeline.text.editJsonIsMissing'));
+                    ): Promise<string> => {
+                        if (!location.editUri) throw new Error(t('annotations.annotationsWidget.ui.missingEditJsonError'));
+                        let afterSource = source;
                         await commitCaptionStyleBatch(styles, source,
-                            async () => (await this.fileService.readFile(location.captionsUri)).value.toString(),
-                            captionsSource => this.annotationsService.writeEditSnapshot({
-                                editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
-                            }));
+                            async () => {
+                                const content = (await this.fileService.readFile(location.captionsUri)).value.toString();
+                                afterSource ??= content;
+                                return content;
+                            },
+                            async captionsSource => {
+                                afterSource = captionsSource;
+                                await this.annotationsService.writeEditSnapshot({
+                                    editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
+                                });
+                            });
+                        return afterSource ?? '';
                     };
-                    await applyStyles(nextStyles, captionsSource);
+                    const appliedSource = await applyStyles(nextStyles, captionsSource);
                     const feedback = request.kind === 'caption-style-font-family'
                         ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
                         label: feedback?.history ?? t('annotations.timeline.text.changeSubtitleStyle'),
                         undo: async () => {
-                            await applyStyles(originalStyles);
-                            await this.reloadCaptions();
+                            await this.reloadCaptionsIfChanged(await applyStyles(originalStyles));
                         },
                         redo: async () => {
-                            await applyStyles(nextStyles);
-                            await this.reloadCaptions();
+                            await this.reloadCaptionsIfChanged(await applyStyles(nextStyles));
                         }
                     });
-                    await this.reloadCaptions();
+                    await this.reloadCaptionsIfChanged(appliedSource);
                     this.hideNotice();
                     this.footer.textContent = feedback?.footer ?? t('annotations.timeline.text.updatedSubtitleStyle');
                     return { ok: true };
@@ -6608,9 +6692,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) return;
         let outcome: RippleResult | undefined;
         try {
-            await this.commitEditMutation(label, doc => {
-                outcome = operation(doc as unknown as EditV2);
-                if (!outcome.changed) throw new Error(outcome.reason ?? t('annotations.timeline.text.couldNotBeChanged'));
+            await this.commitEditMutation(label, async doc => {
+                outcome = await this.applyHydratedCutKernel(doc, operation);
+                if (!outcome.changed) throw new Error(outcome.reason ?? t('annotations.annotationsWidget.ui.couldNotChangeError'));
                 return outcome.edit as unknown as EditV2Document;
             });
             if (!outcome) return;
@@ -6618,8 +6702,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
             after?.(outcome);
             this.revealOutputPreview();
         } catch (error) {
-            this.showNotice(t('annotations.timeline.text.unableToExecute', { action: label, reason: this.errorMessage(error) }));
+            const message = this.errorMessage(error);
+            this.showNotice(t('annotations.annotationsWidget.ui.couldNotRunError', { label, message: /^(TypeError|ReferenceError|Error):/u.test(message)
+                ? t('annotations.annotationsWidget.ui.couldNotChangeRangeError') : message }));
         }
+    }
+
+    protected async applyHydratedCutKernel(document: EditV2Document,
+        operation: (doc: EditV2) => RippleResult): Promise<RippleResult> {
+        const bags = new Map<string, unknown>();
+        const editUri = this.location?.editUri;
+        if (editUri) await Promise.all(cutMotionReferencePaths(document).map(async path => {
+            try {
+                const source = (await this.fileService.readFile(editUri.parent.resolve(path))).value.toString();
+                bags.set(path, JSON.parse(source));
+            } catch {
+                // A sliced item with an unreadable bag is rejected by the pure kernel.
+            }
+        }));
+        const hydrated = hydrateCutMotionReferences(document, bags) as unknown as EditV2;
+        const result = operation(hydrated);
+        return { ...result, edit: restoreUncutMotionReferences(document as unknown as EditV2, result.edit, bags) };
     }
 
     protected async performSplitAtPlayhead(): Promise<void> {
@@ -7097,7 +7200,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const known = Number.isFinite(knownSourceWidth) && (knownSourceWidth ?? 0) > 0 ? knownSourceWidth : undefined;
-        const probeStartedAt = Date.now();
         // 呼び出し側が知らないときは、まずレンダラで読む（ヘッダだけで済むので数十 ms）。
         // バックエンドの probe は実測 15 秒かかったうえ undefined を返しており、
         // その失敗が scale=1（原寸）での配置に化けて画面からはみ出していた。
@@ -8656,9 +8758,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) return;
         try {
             const selectedId = this.selection?.kind === "cut" ? this.cutItemId(this.selection.index) : undefined;
-            await this.commitEditMutation(t('annotations.timeline.text.spaceFillingBetweenClips'), doc => runTimelineCutKernel(doc as unknown as EditV2,
-                { kind: 'compact', ...(selectedId ? { fromItemId: selectedId } : {}),
-                    lockedTrackIds: this.timelineLockedTrackIds() }).edit as unknown as EditV2Document);
+            await this.commitEditMutation(t('annotations.annotationsWidget.ui.closeGapAction'), async doc => (await this.applyHydratedCutKernel(doc,
+                hydrated => runTimelineCutKernel(hydrated,
+                    { kind: 'compact', ...(selectedId ? { fromItemId: selectedId } : {}),
+                        lockedTrackIds: this.timelineLockedTrackIds() }))).edit as unknown as EditV2Document);
             this.hideNotice();
             this.footer.textContent = t('annotations.timeline.text.filledTheSpacesBetweenClips');
         } catch (error) {
@@ -8823,11 +8926,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const refreshOnboardingTimeline = (): void => { void this.reloadEdit().then(() => this.reloadCaptions()); };
         window.addEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline) });
-        const refreshDaihonCut = (): void => { void this.reloadEdit(); };
+        const refreshDaihonCut = (): void => this.watchedEditReload.request();
         window.addEventListener('akari.daihon.refreshTimeline', refreshDaihonCut);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.refreshTimeline', refreshDaihonCut) });
+        this.toDispose.push(this.watchedEditReload);
+        this.toDispose.push(this.watchedCaptionsReload);
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
-            this.recentWrites.set(uri, Date.now());
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {
                 this.pendingLintNewerVersion = this.newerVersionAtLoad;
                 const project = this.location.root.toString();
@@ -8860,7 +8964,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     notification.pass,
                     notification.errors,
                     notification.findings,
-                    notification.writtenFiles
+                    notification.writtenFiles,
+                    notification.existingFindingKeys,
+                    notification.findingKeys
                 );
             }
         }));
@@ -8884,7 +8990,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.updateTimelineTabCaption();
             }
             if (event.contains(this.location.root.resolve('.akari/asset-references.json'))) {
-                void this.reloadEdit();
+                this.referenceMediaLedgerRevision++;
+                this.forceWatchedEditReload = true;
+                this.watchedEditReload.request();
             }
             let visualChanged = false;
             for (const [id, dependencies] of this.visualDependencies) {
@@ -8893,9 +9001,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 visualChanged = true;
             }
             for (const change of event.changes) this.htmlPartsCache.delete(change.resource.toString());
+            let motionChanged = false;
+            for (const change of event.changes) {
+                motionChanged = this.motionReferenceCache.delete(change.resource.toString()) || motionChanged;
+                if (change.resource.toString() === this.location.root.resolve(SAVED_BY_PATH).toString()) {
+                    this.savedByStampLoaded = false;
+                }
+            }
+            if (motionChanged) {
+                this.forceWatchedEditReload = true;
+                this.watchedEditReload.request();
+            }
             if (event.changes.some(change => this.location!.root.isEqualOrParent(change.resource)
-                && /\.(html?|css|js|mjs|json|png|jpe?g|webp|svg|gif|glb|gltf|bin|hdr|exr|ttf|otf|woff2?)$/i.test(change.resource.path.toString())
-                && !/\/(?:\.akari|\.git|exports)\//.test(change.resource.path.toString()))) {
+                && shouldInvalidateVisualForPath(change.resource.path.toString(),
+                    this.location!.editUri?.path.toString(), this.location!.captionsUri.path.toString()))) {
                 // Also reject in-flight work whose dependencies have not been returned yet.
                 this.visualInputEpoch++;
                 visualChanged = true;
@@ -8907,19 +9026,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
                 this.visualThumbnailRetryTimer = undefined;
             }
-            if (visualChanged) this.renderStrip();
+            if (visualChanged) this.scheduleStripRender();
             if (event.contains(this.location.reviewUri)) {
                 void this.reloadReview();
             }
-            if (this.location.editUri && event.contains(this.location.editUri)
-                && !this.isRecentWrite(this.location.editUri)) {
-                void this.reloadEdit();
+            if (this.location.editUri && event.contains(this.location.editUri)) this.watchedEditReload.request();
+            if (event.contains(this.location.captionsUri)) {
+                this.watchedCaptionsReload.request();
             }
-            if (event.contains(this.location.captionsUri)) void this.reloadCaptionsIfChanged();
             if (event.contains(this.location.root.resolve('planning/world-map.json'))) {
                 void this.reloadWorldMap().then(() => this.renderStrip());
             }
             if (event.changes.some(change => change.resource.path.toString().endsWith('.meta.json'))) {
+                this.loadedGenerationPathsKey = undefined;
                 void this.reloadGenerationSidecars();
             }
             if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
@@ -8933,21 +9052,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected isRecentWrite(uri: URI): boolean {
-        const key = uri.toString();
-        const writtenAt = this.recentWrites.get(key) ?? 0;
-        if (Date.now() - writtenAt <= 1000) {
-            return true;
-        }
-        this.recentWrites.delete(key);
-        return false;
-    }
-
     protected showDeferredLintResult(
         pass: boolean,
         errors: readonly string[],
         findings: readonly UiLintFinding[] = [],
-        writtenFiles?: readonly string[]
+        writtenFiles?: readonly string[],
+        existingFindingKeys: readonly string[] = [],
+        findingKeys: readonly string[] = []
     ): void {
         const lintSavedVersion = !pass ? this.pendingLintNewerVersion : undefined;
         this.pendingLintNewerVersion = undefined;
@@ -8965,7 +9076,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
-        const scope = writtenFiles === undefined ? undefined : splitLintBlame(findings, writtenFiles);
+        const scope = writtenFiles === undefined ? undefined
+            : splitLintBlame(findings, writtenFiles, existingFindingKeys, findingKeys);
         const ownErrors = scope?.own.filter(finding => finding.severity === 'error') ?? [];
         const foreignErrors = scope?.foreign.filter(finding => finding.severity === 'error') ?? [];
         if (ownErrors.length === 0 && foreignErrors.length > 0) {
@@ -9237,12 +9349,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         stampText?: string; currentVersion?: string;
     }> {
         const root = this.location?.root;
+        if (root?.toString() !== this.savedByRoot) {
+            this.savedByRoot = root?.toString();
+            this.savedByStampLoaded = false;
+            this.savedByStampText = undefined;
+        }
         const [stampText, currentVersion] = await Promise.all([
-            root ? this.fileService.readFile(root.resolve(SAVED_BY_PATH))
-                .then(file => file.value.toString()).catch(() => undefined) : Promise.resolve(undefined),
+            root && !this.savedByStampLoaded ? this.fileService.readFile(root.resolve(SAVED_BY_PATH))
+                .then(file => file.value.toString()).catch(() => undefined) : Promise.resolve(this.savedByStampText),
             this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
                 .then(info => info?.version).catch(() => undefined)
         ]);
+        this.savedByStampText = stampText;
+        this.savedByStampLoaded = true;
         return { stampText, currentVersion };
     }
 
@@ -9251,13 +9370,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const generation = ++this.editReloadGeneration;
         this.timelineEmpty = !!this.location && !this.location.editUri;
         if (this.location?.editUri) {
-            let versionContext: Awaited<ReturnType<AkariAnnotationsWidget['loadSavedByContext']>> | undefined;
-            if (this.applicationServer && typeof this.loadSavedByContext === 'function') {
-                versionContext = await this.loadSavedByContext();
-                this.newerVersionAtLoad = newerSavedByVersion(versionContext.stampText, versionContext.currentVersion);
-            }
+            const versionPromise = this.applicationServer && typeof this.loadSavedByContext === 'function'
+                ? this.loadSavedByContext() : Promise.resolve(undefined);
             try {
-                const diskSource = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();
+                const [diskSource, versionContext] = await Promise.all([
+                    sourceOverride ?? this.fileService.readFile(this.location.editUri).then(file => file.value.toString()),
+                    versionPromise
+                ]);
+                if (versionContext) this.newerVersionAtLoad = newerSavedByVersion(
+                    versionContext.stampText, versionContext.currentVersion);
                 const source = await this.resolveLegacyEditForOpen(diskSource);
                 if (!source) {
                     throw new ReportedEditLoadFailure(t('annotations.timeline.text.iCanTOpenTheOldEditJson'));
@@ -9327,6 +9448,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.timelineTreeTracks = internal.tracks;
                 this.timelineTreePartsByHtml = partsByHtml;
                 this.editDocument = document;
+                this.lastAppliedEditSource = diskSource;
                 this.itemLocations = indexEditV2Items(document);
                 const layerCauses = new Map((document.version === 2
                     ? findCrossTrackLayerEvacuations(document) : [])
@@ -9386,6 +9508,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showWarnings(view.warnings);
                 }
             } catch (error) {
+                const versionContext = await versionPromise;
                 const failure = classifyEditLoadFailure(error, versionContext);
                 if (failure.kind === 'invalid') {
                     this.showNotice(failure.notice, failure.updateAvailable === true);
@@ -9407,9 +9530,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.loadTrackHeights();
         await this.reloadGenerationSidecars(false);
         if (generation !== this.editReloadGeneration) return;
-        await renderAroundCaptionDisplayReload(
+        await renderAfterCaptionStateChange(
+            () => this.scheduleStripRender(),
             () => this.reloadResolvedCaptionDisplay(),
-            () => this.renderStrip(),
             () => generation === this.editReloadGeneration
         );
     }
@@ -9842,6 +9965,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const editUri = this.location?.editUri?.toString();
             if (!editUri || !window.electronAkariPreview?.captureVisualThumbnail) return;
             if (!this.initializeVisualThumbnailDisk()) { element.dataset.akariVisualThumbnail = 'pending'; return; }
+            const reuseKey = `${editUri}:${visualThumbnailReuseKey(this.editDocument, id, input,
+                element.style.width, element.style.height, this.visibleDuration(),
+                this.visualDependencyRevisions.get(id) ?? 0,
+                this.visualDependencies.has(id) ? 0 : this.visualInputEpoch)}`;
+            if (element.dataset.akariVisualThumbnail === 'ready'
+                && this.visualReuseKeys.get(element) === reuseKey
+                && element.querySelector(':scope > .akari-visual-thumbnail-image')) {
+                const picture = element.querySelector<HTMLImageElement>(':scope > .akari-visual-thumbnail-image')!;
+                const rect = element.getBoundingClientRect();
+                const geometry = `${rect.width}:${rect.height}`;
+                if (this.visualReuseGeometry.get(element) !== geometry) {
+                    this.visualReuseGeometry.set(element, geometry);
+                    const output = this.editDocument?.output as { width?: number; height?: number } | undefined;
+                    const aspect = output?.width && output?.height ? output.width / output.height : 16 / 9;
+                    const visibility = rect.width > rect.height * aspect ? 'hidden' : 'visible';
+                    if (picture.style.visibility !== visibility) picture.style.visibility = visibility;
+                }
+                if (element.title !== label) element.title = label;
+                (element as HTMLDivElement & { akariVisualHoverInput?: unknown }).akariVisualHoverInput = input;
+                return;
+            }
+            this.visualReuseKeys.set(element, reuseKey);
             const root = this.location?.root;
             const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);
             const sourceKey = visualThumbnailKey(editUri, id, [input, editSnapshot, 0]);
@@ -9853,12 +9998,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
             const epoch = this.visualInputEpoch;
             const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
+            const rect = element.getBoundingClientRect();
+            const viewport = this.stripScroll.getBoundingClientRect();
+            const geometry = JSON.stringify([rect.left, rect.right, rect.top, rect.bottom, rect.width, rect.height,
+                viewport.left, viewport.right, viewport.top, viewport.bottom, viewport.width, viewport.height]);
+            const geometryCache = this.visualThumbnailGeometry ??= new WeakMap();
+            if (this.visualKeys.get(element) === key && element.dataset.akariVisualThumbnail === 'ready'
+                && geometryCache.get(element) === geometry
+                && element.querySelector(':scope > .akari-visual-thumbnail-image')) {
+                element.title = label;
+                return;
+            }
+            geometryCache.set(element, geometry);
             const valid = (): boolean => !this.isDisposed && this.location?.editUri?.toString() === editUri
                 && this.visualInputEpoch === epoch && (this.visualDependencyRevisions.get(id) ?? 0) === dependencyRevision
                 && visualThumbnailSnapshot(this.editDocument, id) === editSnapshot;
             this.visualKeys.set(element, key);
-            const rect = element.getBoundingClientRect();
-            const viewport = this.stripScroll.getBoundingClientRect();
             const visible = (): boolean => {
                 if (!element.isConnected || this.visualKeys.get(element) !== key) return false;
                 const bounds = element.getBoundingClientRect();
@@ -10207,11 +10362,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected referenceMediaUris: Record<string, string> = {};
     protected referenceMediaRoot = '';
     protected referenceMediaGeneration = 0;
+    protected referenceMediaLedgerRevision = 0;
+    protected referenceMediaResolvedRevision = -1;
+    protected referenceMediaPathsKey = '';
+    protected referenceMediaPathSet = new Set<string>();
+    protected referenceMediaPending?: { key: string; task: Promise<void> };
 
     protected async refreshReferenceMediaUris(source?: string, paths: string[] = []): Promise<void> {
         const root = (this.location?.editUri?.parent ?? this.location?.root)?.toString();
         if (!root) return;
-        const generation = ++this.referenceMediaGeneration;
         const declaredPaths = new Set(paths);
         const visit = (value: unknown): void => {
             if (typeof value === 'string' && value.replace(/\\/g, '/').startsWith('assets/')) declaredPaths.add(value);
@@ -10219,10 +10378,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else if (value && typeof value === 'object') Object.values(value).forEach(visit);
         };
         visit(source ? JSON.parse(source) : this.editDocument);
-        const uris = await this.annotationsService.projectReferenceMediaUris({ projectRootUri: root, declaredPaths: [...declaredPaths] });
-        if (generation !== this.referenceMediaGeneration || (this.location?.editUri?.parent ?? this.location?.root)?.toString() !== root) return;
-        this.referenceMediaRoot = root;
-        this.referenceMediaUris = uris;
+        const ordered = [...declaredPaths].sort();
+        const revision = this.referenceMediaLedgerRevision;
+        const key = JSON.stringify([root, revision, ordered]);
+        if (this.referenceMediaPending?.key === key) return this.referenceMediaPending.task;
+        if (key === this.referenceMediaPathsKey) return;
+        const canReuse = this.referenceMediaRoot === root && this.referenceMediaResolvedRevision === revision;
+        const required = canReuse ? ordered.filter(path => !this.referenceMediaPathSet.has(path)) : ordered;
+        const generation = ++this.referenceMediaGeneration;
+        const retained = canReuse ? Object.fromEntries(Object.entries(this.referenceMediaUris)
+            .filter(([path]) => declaredPaths.has(path))) : {};
+        if (required.length === 0) {
+            this.referenceMediaRoot = root;
+            this.referenceMediaUris = retained;
+            this.referenceMediaResolvedRevision = revision;
+            this.referenceMediaPathsKey = key;
+            this.referenceMediaPathSet = new Set(ordered);
+            return;
+        }
+        const task = this.annotationsService.projectReferenceMediaUris({ projectRootUri: root,
+            declaredPaths: required }).then(uris => {
+            if (generation !== this.referenceMediaGeneration
+                || (this.location?.editUri?.parent ?? this.location?.root)?.toString() !== root) return;
+            this.referenceMediaRoot = root;
+            this.referenceMediaUris = { ...retained, ...uris };
+            this.referenceMediaResolvedRevision = revision;
+            this.referenceMediaPathsKey = key;
+            this.referenceMediaPathSet = new Set(ordered);
+        }).finally(() => {
+            if (this.referenceMediaPending?.key === key) this.referenceMediaPending = undefined;
+        });
+        this.referenceMediaPending = { key, task };
+        await task;
     }
 
     protected resolveEditMediaUri(path: string, editUri: URI): URI {
@@ -10267,6 +10454,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.editSources.flatMap(source => typeof source.path === 'string' ? [source.path] : []),
             ...directMediaPaths
         ])];
+        const pathsKey = JSON.stringify([location.root.toString(), sourcePaths.slice().sort()]);
+        if (!render && pathsKey === this.loadedGenerationPathsKey) return;
         // compare の長い RPC が backend を占めていても、FileService から枠 meta を先に読む。
         const direct = await Promise.all(sourcePaths.filter(path => /^assets\/(?!.*\.\.)/u.test(path)).map(async sourcePath => {
             try {
@@ -10284,7 +10473,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     meta: entry.meta, binding: this.generationSidecars.get(entry.sourcePath)?.binding ?? null
                 });
             }
-            if (render) this.renderStrip();
+            if (render) this.scheduleStripRender();
         }
         const readBackend = async (): Promise<void> => {
             try {
@@ -10300,11 +10489,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         && currentCompleted > readCompleted ? current.meta : entry.meta;
                     return [entry.sourcePath, { meta, binding: entry.binding ?? current?.binding ?? null }] as const;
                 }));
+                this.loadedGenerationPathsKey = pathsKey;
             } catch {
                 if (generation !== this.generationSidecarReload) return;
                 if (!fast) this.generationSidecars.clear();
             }
-            if (render || fast) this.renderStrip();
+            if (render) this.scheduleStripRender();
         };
         if (fast) { void readBackend(); return; }
         await readBackend();
@@ -10473,6 +10663,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
         } | undefined, clipWidth?: number
     ): void {
+        if (!generation && element.dataset.akariGenerationState === 'none'
+            && !element.dataset.akariGenerationElapsedTimer && !element.dataset.akariGenerationTitle
+            && !element.className.includes('akari-generation-')
+            && !element.querySelector('[data-akari-generation-badge]')
+            && !element.querySelector('[data-akari-generation-progress]')) return;
         const previousTimer = Number(element.dataset.akariGenerationElapsedTimer);
         if (previousTimer && typeof window !== 'undefined') window.clearInterval(previousTimer);
         delete element.dataset.akariGenerationElapsedTimer;
@@ -10905,7 +11100,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         if (shouldReloadCaptions(this.lastAppliedCaptionsSource, nextSource)) {
-            await this.reloadCaptionsFromSource(nextSource);
+            await this.reloadCaptionsFromSource(nextSource,
+                captionPaintOnlyChange(this.lastAppliedCaptionsSource, nextSource));
         }
     }
 
@@ -10914,7 +11110,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.reloadCaptionsFromSource();
     }
 
-    protected async reloadCaptionsFromSource(source?: string): Promise<void> {
+    /** Style edits retain the cue layout and only need the current caption and inspector state. */
+    protected async reloadCaptionStyles(): Promise<void> {
+        await this.reloadCaptionsFromSource(undefined, true);
+    }
+
+    protected async reloadCaptionsFromSource(source?: string, styleOnly = false): Promise<void> {
         const generation = ++this.captionReloadGeneration;
         if (this.location) {
             try {
@@ -10958,9 +11159,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.captionReloadGeneration) return;
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
-        await renderAroundCaptionDisplayReload(
-            () => this.reloadResolvedCaptionDisplay(),
-            () => this.renderStrip(),
+        await renderAfterCaptionStateChange(
+            () => this.scheduleStripRender(),
+            styleOnly ? undefined : () => this.reloadResolvedCaptionDisplay(),
             () => generation === this.captionReloadGeneration
         );
     }
@@ -10973,13 +11174,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async reloadResolvedCaptionDisplay(): Promise<void> {
+    protected async reloadResolvedCaptionDisplay(): Promise<boolean> {
         const generation = ++this.captionDisplayReloadGeneration;
         const location = this.location;
         if (!location?.editUri) {
+            const changed = this.captionDisplayCuesBySource.size > 0;
             this.captionDisplayCuesBySource.clear();
             this.captionDisplayFailureWarned = false;
-            return;
+            return changed;
         }
         let failed = false;
         const groups = await loadCaptionDisplayCueGroups(
@@ -10997,9 +11199,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         );
-        if (generation !== this.captionDisplayReloadGeneration) return;
+        if (generation !== this.captionDisplayReloadGeneration) return false;
+        const changed = !sameCaptionDisplayCueGroups(this.captionDisplayCuesBySource, groups);
         this.captionDisplayCuesBySource = groups;
         if (!failed) this.captionDisplayFailureWarned = false;
+        return changed;
     }
 
     protected remapCaptionSelections(previous: readonly CaptionRecord[], next: readonly CaptionRecord[]): void {
@@ -13835,10 +14039,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (reference && !Array.isArray(reference) && typeof reference.path === 'string'
                     && typeof item.id === 'string') {
                     try {
-                        const text = (await this.fileService.readFile(
-                            this.location!.editUri.parent.resolve(reference.path)
-                        )).value.toString();
-                        const motion = JSON.parse(text) as { items?: Record<string, unknown> };
+                        const uri = this.location!.editUri.parent.resolve(reference.path);
+                        const key = uri.toString();
+                        let motion = this.motionReferenceCache.get(key);
+                        if (!motion) {
+                            const text = (await this.fileService.readFile(uri)).value.toString();
+                            motion = JSON.parse(text) as { items?: Record<string, unknown> };
+                            this.motionReferenceCache.set(key, motion);
+                        }
                         const points = motion.items?.[item.id];
                         if (Array.isArray(points)) item.keyframes = points;
                     } catch {
@@ -15439,7 +15647,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** v2 全文を 1 回だけ parse/mutate/stringify し、undo/redo も全文で積む。 */
     protected commitEditMutation(
         label: string,
-        mutate: (doc: EditV2Document) => EditV2Document,
+        mutate: (doc: EditV2Document) => EditV2Document | Promise<EditV2Document>,
         options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
             captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
@@ -15454,7 +15662,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performEditMutation(
         label: string,
-        mutate: (doc: EditV2Document) => EditV2Document,
+        mutate: (doc: EditV2Document) => EditV2Document | Promise<EditV2Document>,
         options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
             captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
@@ -15477,8 +15685,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 throw new Error(t('annotations.timeline.text.thePhotoHasChangedPleaseIncreaseTheQuality'));
             }
         }
-        const distribution = options?.trial ? { document: mutate(raw), writes: [] }
-            : prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
+        const distribution = options?.trial ? { document: await mutate(raw), writes: [] }
+            : prepareV2KeyframeDistribution(await mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const resolved = options?.captions
             ? resolveItemAnchors(distribution.document as unknown as EditV2,
                 toAnchorCaptions(JSON.parse(options.captions.after))).edit as unknown as EditV2Document
@@ -15493,6 +15701,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             await this.writeEditSnapshotGuarded(after, options?.captions?.after);
         } catch (error) {
+            await this.writeMotionChanges(motionChanges, 'before');
             if (options?.optimistic) await this.reloadEdit();
             throw error;
         }

@@ -14,10 +14,13 @@ const railIds = require('../lib/common/rail-ids.js');
 test('論理 ID を 4 種に限定し、チャットは端末を先に選ぶ', () => {
     assert.equal(tabs.rightRailLogicalTab('akari-inspector-widget'), 'inspector');
     assert.equal(tabs.rightRailLogicalTab('terminal-3'), 'chat');
+    assert.equal(tabs.rightRailLogicalTab('akari-chat-widget'), 'chat');
     assert.equal(tabs.rightRailLogicalTab('akari-daihon-widget'), 'script');
     assert.equal(tabs.rightRailLogicalTab('akari-review-panel-widget'), 'annotations');
     assert.equal(tabs.rightRailLogicalTab('akari-audio-meter-widget'), undefined);
     assert.equal(tabs.rightRailWidgetForTab('chat', ['akari-partner-web', 'terminal-3']), 'terminal-3');
+    assert.equal(tabs.rightRailWidgetForTab('chat', ['akari-chat-widget']), 'akari-chat-widget');
+    assert.equal(tabs.rightRailWidgetForTab('chat', ['akari-chat-widget', 'akari-partner-onboarding']), 'akari-partner-onboarding');
     assert.equal(tabs.rightRailWidgetForTab('inspector', []), undefined);
 });
 

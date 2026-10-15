@@ -1158,5 +1158,19 @@
   "annotations.reviewPanelWidget.text.batchSubject_one": "注釈 {count} 件",
   "annotations.reviewPanelWidget.text.batchSubject_other": "注釈 {count} 件",
   "annotations.reviewModel.text.compiledWithCount_one": "コメント {count} 件になりました",
-  "annotations.reviewModel.text.compiledWithCount_other": "コメント {count} 件になりました"
+  "annotations.reviewModel.text.compiledWithCount_other": "コメント {count} 件になりました",
+  "annotations.coalescedContentReload.ui.couldNotRereadChangeNotificationError": "[akari-annotations] 変更通知を読み直せませんでした",
+  "annotations.deferredLintBaseline.ui.couldNotReadPreSaveComparisonFileError": "[akari-annotations] 保存前の指摘比較用ファイルを読めませんでした。",
+  "annotations.deferredLintBaseline.ui.preSaveValidationNotAvailableError": "保存前の検証を利用できません。",
+  "annotations.deferredLintBaseline.ui.couldNotCompareFindingsBeforeSavingError": "[akari-annotations] 保存前の指摘比較に失敗しました。",
+  "annotations.annotationsWidget.ui.captionTextChangedLabel": "字幕のテキストを変更",
+  "annotations.annotationsWidget.ui.captionUpdatedMessage": "字幕を更新しました。",
+  "annotations.annotationsWidget.ui.missingEditJsonError": "edit.json がありません。",
+  "annotations.annotationsWidget.ui.couldNotChangeError": "変更できませんでした。",
+  "annotations.annotationsWidget.ui.couldNotRunError": "{label}を実行できません: {message}",
+  "annotations.annotationsWidget.ui.couldNotChangeRangeError": "この区間を変更できませんでした。編集データを確認してください。",
+  "annotations.annotationsWidget.ui.closeGapAction": "クリップ間の空白詰め",
+  "annotations.inspectorWidget.ui.couldNotWriteWeightError": "太さを書き込めませんでした。",
+  "annotations.inspectorWidget.ui.couldNotSaveCaptionError": "字幕を保存できませんでした。",
+  "annotations.inspectorWidget.ui.captionTextRequiredError": "字幕のテキストは空にできません。"
 }

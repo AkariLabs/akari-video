@@ -9,6 +9,7 @@ import {
 } from '../common/context-bar-edit';
 import type { EditV2Document } from '../common/edit-v2-mutations';
 import { applyCaptionContextField, runCaptionStyleWrite } from '../common/caption-context-edit';
+import { captionPaintOnlyChange } from '../common/caption-paint-only-change';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
@@ -256,6 +257,7 @@ export class ContextBarController implements Disposable {
                         fileService: { readFile(uri: unknown): Promise<{ value: { toString(): string } }> };
                         annotationsService: { writeEditSnapshot(value: Record<string, unknown>): Promise<unknown> };
                         pushHistory(entry: { label: string; undo(): Promise<void>; redo(): Promise<void> }): void;
+                        reloadCaptionStyles(): Promise<void>;
                         reloadCaptions(): Promise<void>;
                     };
                     const location = access.location;
@@ -263,13 +265,22 @@ export class ContextBarController implements Disposable {
                     const captionsUri = location.captionsUri.toString();
                     const editUri = location.editUri.toString();
                     const projectRootUri = location.root.toString();
+                    let currentSource = '';
+                    let paintOnly = false;
                     return applyCaptionContextField(id, request.field, request.value,
                         this.deps.selectionModel.selectedCaptionIds, {
-                            readSource: async () => (await access.fileService.readFile(location.captionsUri)).value.toString(),
-                            writeSource: async captionsSource => { await access.annotationsService.writeEditSnapshot({
-                                editUri, projectRootUri, captionsUri, captionsSource }); },
+                            readSource: async () => {
+                                currentSource = (await access.fileService.readFile(location.captionsUri)).value.toString();
+                                return currentSource;
+                            },
+                            writeSource: async captionsSource => {
+                                paintOnly = captionPaintOnlyChange(currentSource, captionsSource);
+                                currentSource = captionsSource;
+                                await access.annotationsService.writeEditSnapshot({
+                                    editUri, projectRootUri, captionsUri, captionsSource });
+                            },
                             recordHistory: entry => access.pushHistory(entry),
-                            reload: () => access.reloadCaptions()
+                            reload: () => paintOnly ? access.reloadCaptionStyles() : access.reloadCaptions()
                         });
                 }
                 case 'captionPreset': {

@@ -1,0 +1,599 @@
+<div class="demo-diagram" lang="en">
+<style>
+/*
+  図解（demo-diagram）: "I can also show diagrams like this,"（英語版）
+  この動画そのものの中身（タイトル 7・効果音 15・音楽 1・字幕 20）を、編集タイムラインの形で見せる。
+  中身は guide.json の demo_plan と、字幕 20 行の実時刻をそのまま使う（build_en.py が生成。手で数値を足さない）。
+  edit.json では段 demo-stage、at 637 / duration 119（21.2333〜25.2 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（実時刻 = 21.2333 + ローカル秒。30 fps）。日本語版と同じ先行量で、語頭だけ英語に替えた:
+    カード       0 → 0.3    "show" の語頭 21.25（= 0.017）の 1 フレーム前（区間の頭）から、右から滑り込む
+    積み上げ     "diagrams" の語頭 21.55（= 0.317）の 2 フレーム前から、段ごと・左から順に部品が積み上がる
+    再生ヘッド   "like" の語頭 22.41（= 1.177）の 1 フレーム前から、0 秒の位置から走り、22.727 秒の位置に着く（0.35 秒）
+    "You are here"  着地の直前（22.69）にブロックが脈打ち、ヘッドの上に橙のラベルが付く
+    件数         "this" の終わり 22.75（= 1.517）の 1 フレーム前から、レーンの下に件数が並ぶ（50 ms ずらし）
+    余韻         ヘッドは実時間の速さで進み続け（22.9〜24.9 秒の無音の間）、24.5 秒にスマホのブロックと音楽の山が光る
+    抜け         24.9 → 25.15  右へ 40px 抜けて消える
+  書体: AKARI Demo Sans Diagram = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+  Name 'Source'）の wght 800 / 900 を、この断片で使う英数字だけに切り出した改変版（別名で埋め込み、
+  フォント内に著作権表示と許諾を保持）。
+  ツマミは日本語版と同じ（--diagram-left / -top / -width / -height、--diagram-axis-left / -axis-width
+  （既定 128px / 358px）、--diagram-lanes-top / -lane-h / -lane-gap、--diagram-*-size、--demo-*、--diagram-at-*、
+  --diagram-lead、--diagram-lead-card など）。
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020,U+0027,U+0030-0039,U+0043,U+004D,U+0053-0054,U+0057,U+0059,U+0061,U+0063-0066,U+0068-0069,U+006C,U+006E-0070,U+0072-0076;
+}
+@font-face {
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020,U+0027,U+0030-0039,U+0043,U+004D,U+0053-0054,U+0057,U+0059,U+0061,U+0063-0066,U+0068-0069,U+006C,U+006E-0070,U+0072-0076;
+}
+
+.demo-diagram,
+.demo-diagram *,
+.demo-diagram *::before,
+.demo-diagram *::after { box-sizing: border-box; }
+
+.demo-diagram {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--diagram-font, "AKARI Demo Sans Diagram", "Hiragino Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif);
+  font-weight: 800;
+  font-feature-settings: "kern" 1;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+.demo-diagram svg { display: block; overflow: visible; }
+.demo-diagram i { display: block; font-style: normal; }
+
+.demo-diagram__group,
+.demo-diagram__enter { position: absolute; inset: 0; }
+
+/* ── カード ─────────────────────────────── */
+.demo-diagram__card {
+  position: absolute;
+  left: var(--diagram-left, 724px);
+  top: var(--diagram-top, 112px);
+  width: var(--diagram-width, 516px);
+  height: var(--diagram-height, 340px);
+  border-radius: var(--diagram-radius, 22px);
+  background: var(--demo-card, rgba(255, 255, 255, .97));
+  border: 1px solid var(--demo-card-line, rgba(23, 19, 15, .07));
+  box-shadow: var(--demo-shadow, 0 18px 44px rgba(58, 38, 20, .22));
+}
+
+.demo-diagram__head {
+  position: absolute;
+  left: 23px;
+  right: 20px;
+  top: 15px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.demo-diagram__title {
+  font-size: var(--diagram-title-size, 24px);
+  font-weight: 900;
+  line-height: 36px;
+  letter-spacing: 0;
+}
+.demo-diagram__len {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px 0 10px;
+  border-radius: 14px;
+  background: var(--diagram-pill-bg, #F3EDE7);
+  color: var(--demo-ink-sub, #6B5E52);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.demo-diagram__len svg { width: 10px; height: 12px; }
+
+/* ── 段（字幕・テロップ・効果音・BGM）────────── */
+.demo-diagram__lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--diagram-lanes-top, 65px) + var(--lane) * (var(--diagram-lane-h, 46px) + var(--diagram-lane-gap, 12px)));
+  height: var(--diagram-lane-h, 46px);
+}
+.demo-diagram__label {
+  position: absolute;
+  left: 20px;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: var(--diagram-label-size, 14px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--demo-ink-sub, #6B5E52);
+}
+.demo-diagram__track {
+  position: absolute;
+  left: calc(var(--diagram-axis-left, 128px) - 6px);
+  width: calc(var(--diagram-axis-width, 358px) + 12px);
+  top: 0;
+  height: 100%;
+  border-radius: 12px;
+  background: var(--diagram-track, #F6F1EB);
+}
+.demo-diagram__grid {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  margin-left: -.5px;
+  background: rgba(23, 19, 15, .07);
+}
+.demo-diagram__axis {
+  position: absolute;
+  left: var(--diagram-axis-left, 128px);
+  width: var(--diagram-axis-width, 358px);
+  top: 0;
+  height: 100%;
+}
+
+/* 区間もの（字幕・テロップ）: 時刻から位置と幅を出す（1px ずつ内側へ詰めて隣と分ける）*/
+.demo-diagram__span {
+  position: absolute;
+  left: calc(var(--t0) / 35.2 * 100% + 1px);
+  width: calc((var(--t1) - var(--t0)) / 35.2 * 100% - 2px);
+  transform-origin: 0 50%;
+}
+.demo-diagram__cap {
+  top: 17px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--demo-accent-soft, #FDBA74);
+}
+.demo-diagram__cap--karaoke { background: var(--demo-accent, #F97316); }
+
+.demo-diagram__block { top: 9px; height: 28px; }
+.demo-diagram__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: var(--demo-accent, #F97316);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+/* 図解（いま再生している区間）だけ太い縁 */
+.demo-diagram__block--now .demo-diagram__fill {
+  border: 3px solid var(--demo-ink, #17130F);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 8px rgba(58, 38, 20, .22);
+}
+.demo-diagram__ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 9px;
+  border: 3px solid var(--demo-accent, #F97316);
+  opacity: 0;
+}
+/* 予告の光（最終状態も不可視の過渡）*/
+.demo-diagram__glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--demo-accent-soft, #FDBA74) 55%, transparent);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--demo-accent, #F97316) 45%, transparent);
+  opacity: 0;
+}
+
+/* 点もの（効果音）: 鳴った瞬間（音の頭）に直径 10 の点 */
+.demo-diagram__dot {
+  position: absolute;
+  left: calc(var(--t0) / 35.2 * 100% - 5px);
+  top: calc(18px + var(--dy, 0px));
+  width: 10px;
+  height: 10px;
+}
+.demo-diagram__dot-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--diagram-sfx, var(--demo-ink, #17130F));
+  box-shadow: 0 0 0 2px var(--diagram-track, #F6F1EB);
+}
+
+/* BGM: 実際の音量の包絡（フェードイン・「BGM も」の山・締めの持ち上げ・フェードアウト）*/
+.demo-diagram__bgm {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+}
+.demo-diagram__bgm svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.demo-diagram__wave {
+  fill: none;
+  stroke: var(--demo-accent-soft, #FDBA74);
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+}
+/*「BGM も」で持ち上げた山（gain keyframes が 0 dB から上がって戻るまで）だけ橙 */
+.demo-diagram__hump {
+  stroke: var(--demo-accent, #F97316);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.demo-diagram__bgm-glow {
+  position: absolute;
+  left: calc(27.95 / 35.2 * 100% - 34px);
+  top: -4px;
+  width: 68px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--demo-accent, #F97316) 42%, transparent), transparent);
+  opacity: 0;
+}
+
+/* ── 再生ヘッド ─────────────────────────────── */
+/* 外側（__clock）は区間全体を実時刻どおりに等速で進む。内側（__scrub）が 0 秒の位置から実時刻へ走る。
+   どちらも時間軸と同じ幅の入れ物なので、translateX の % がそのまま「動画の長さに対する割合」になる */
+.demo-diagram__clock,
+.demo-diagram__scrub {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+.demo-diagram__head-wrap {
+  position: absolute;
+  left: var(--diagram-axis-left, 128px);
+  width: var(--diagram-axis-width, 358px);
+  top: 0;
+  height: 100%;
+}
+.demo-diagram__clock { left: 0; transform: translateX(71.4489%); }
+.demo-diagram__line {
+  position: absolute;
+  left: -1px;
+  top: calc(var(--diagram-lanes-top, 65px) - 7px);
+  width: 2px;
+  height: calc(4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 12px);
+  border-radius: 1px;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .75);
+}
+.demo-diagram__knob {
+  position: absolute;
+  left: -7px;
+  top: calc(var(--diagram-lanes-top, 65px) - 14px);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 2.5px #FFFFFF, 0 2px 6px rgba(58, 38, 20, .3);
+}
+/* 「You are here」: ヘッドの上に付く橙のピル（位置合わせの入れ物と、ポップする中身を分ける）*/
+.demo-diagram__here {
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 0;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+}
+.demo-diagram__here-pop {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 14px;
+  background: var(--demo-accent, #F97316);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 5px 12px color-mix(in srgb, var(--demo-accent, #F97316) 32%, transparent);
+  transform-origin: 50% 120%;
+}
+.demo-diagram__here-pop::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: var(--demo-accent, #F97316);
+  transform: rotate(45deg);
+}
+
+/* ── 件数 ─────────────────────────────── */
+.demo-diagram__counts {
+  position: absolute;
+  left: 23px;
+  right: 23px;
+  top: calc(var(--diagram-lanes-top, 65px) + 4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 11px);
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.demo-diagram__count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.demo-diagram__count-label {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--demo-ink-sub, #6B5E52);
+}
+.demo-diagram__count-num {
+  display: block;
+  font-size: var(--diagram-count-size, 20px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--demo-accent, #F97316);
+  transform-origin: 30% 80%;
+}
+.demo-diagram__count-sep {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(23, 19, 15, .18);
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────── */
+[data-akari-active] .demo-diagram__group {
+  animation: demo-diagram-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--diagram-at-out, 3.6667s) forwards;
+}
+[data-akari-active] .demo-diagram__enter {
+  animation: demo-diagram-fade-in .12s var(--ease-linear, linear) calc(var(--diagram-at-card, 0.0167s) - var(--diagram-lead-card, 0.0167s)) both;
+}
+[data-akari-active] .demo-diagram__card {
+  animation: demo-diagram-card-in .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-card, 0.0167s) - var(--diagram-lead-card, 0.0167s)) both;
+}
+[data-akari-active] .demo-diagram__label {
+  animation: demo-diagram-rise .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-card, 0.0167s) - var(--diagram-lead-card, 0.0167s) + .06s + var(--lane) * 35ms);
+}
+/* 積み上げ: 段ごとに 25 ms、段の中は左端からの位置に比例して掃く */
+[data-akari-active] .demo-diagram__span {
+  animation: demo-diagram-grow .18s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, 0.3167s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 35.2 * var(--diagram-build-sweep, .29s));
+}
+[data-akari-active] .demo-diagram__dot {
+  animation: demo-diagram-pop-in .18s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-build, 0.3167s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 35.2 * var(--diagram-build-sweep, .29s));
+}
+[data-akari-active] .demo-diagram__bgm {
+  animation: demo-diagram-grow .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, 0.3167s) - var(--diagram-build-lead, .067s) + 3 * var(--diagram-build-lane, 25ms));
+}
+/* 再生ヘッド: 外側は区間の頭から終わりまで実時刻どおり（等速）、内側が 0 秒の位置から走る */
+[data-akari-active] .demo-diagram__clock {
+  animation: demo-diagram-clock 3.9167s var(--ease-linear, linear) 0s both;
+}
+[data-akari-active] .demo-diagram__scrub {
+  animation:
+    demo-diagram-scrub .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-play, 1.1767s) - var(--diagram-lead, .033s)) both,
+    demo-diagram-fade-in .06s var(--ease-linear, linear) calc(var(--diagram-at-play, 1.1767s) - var(--diagram-lead, .033s)) both;
+}
+/* ヘッドが触れた瞬間に 1 回だけ跳ねる（--hit はヘッドが部品の位置を通る時刻。build_diagram.py が計算）*/
+[data-akari-active] .demo-diagram__block .demo-diagram__fill {
+  animation: demo-diagram-hit-block .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
+}
+[data-akari-active] .demo-diagram__dot-fill {
+  animation: demo-diagram-hit-dot .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
+}
+[data-akari-active] .demo-diagram__block--now .demo-diagram__fill {
+  animation: demo-diagram-beat .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-here, 1.4603s) none;
+}
+[data-akari-active] .demo-diagram__block--now .demo-diagram__ring {
+  animation: demo-diagram-ring .55s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--diagram-at-here, 1.4603s) forwards;
+}
+[data-akari-active] .demo-diagram__here-pop {
+  animation: demo-diagram-here .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--diagram-at-here, 1.4603s) both;
+}
+/* 件数 */
+[data-akari-active] .demo-diagram__count-label,
+[data-akari-active] .demo-diagram__count-sep {
+  animation: demo-diagram-fade-in .16s var(--ease-linear, linear) both;
+  animation-delay: calc(var(--diagram-at-count, 1.5167s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
+}
+[data-akari-active] .demo-diagram__count-num {
+  animation: demo-diagram-num .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-count, 1.5167s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
+}
+/* 予告（26.20）: スマホのブロックと BGM の山を軽く光らせる */
+[data-akari-active] .demo-diagram__block--next .demo-diagram__fill {
+  animation: demo-diagram-hit-block .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 3.2667s) none;
+}
+[data-akari-active] .demo-diagram__block--next .demo-diagram__glow,
+[data-akari-active] .demo-diagram__bgm-glow {
+  animation: demo-diagram-glow .6s var(--ease-linear, linear) var(--diagram-at-hint, 3.2667s) forwards;
+}
+[data-akari-active] .demo-diagram__hump {
+  animation: demo-diagram-hump .6s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 3.2667s) none;
+}
+
+@keyframes demo-diagram-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-diagram-card-in {
+  0%   { transform: translateX(28px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-diagram-rise {
+  0%   { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0);   opacity: 1; }
+}
+@keyframes demo-diagram-grow {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes demo-diagram-pop-in {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-clock {
+  0%   { transform: translateX(60.3220%); }
+  100% { transform: translateX(71.4489%); }
+}
+@keyframes demo-diagram-scrub {
+  0%   { transform: translateX(-63.5701%); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-diagram-hit-block {
+  0%   { transform: scaleY(1); }
+  35%  { transform: scaleY(1.32); }
+  100% { transform: scaleY(1); }
+}
+@keyframes demo-diagram-hit-dot {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.7); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-beat {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-ring {
+  0%   { transform: scale(1);   opacity: .9; }
+  100% { transform: scale(1.7, 1.9); opacity: 0; }
+}
+@keyframes demo-diagram-here {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+@keyframes demo-diagram-num {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+@keyframes demo-diagram-glow {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes demo-diagram-hump {
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(1.28); }
+  100% { transform: scaleY(1); }
+}
+@keyframes demo-diagram-exit {
+  0%   { transform: translateX(0);    opacity: 1; }
+  100% { transform: translateX(40px); opacity: 0; }
+}
+</style>
+<div class="demo-diagram__group">
+ <div class="demo-diagram__enter">
+  <div class="demo-diagram__card">
+   <div class="demo-diagram__head"><span class="demo-diagram__title">What's in this video</span><span class="demo-diagram__len"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 1.4v9.2c0 .7.8 1.1 1.4.7l6.4-4.6c.5-.4.5-1.1 0-1.5L3 .7c-.6-.4-1.4 0-1.4.7Z" fill="currentColor"/></svg>35 s</span></div>
+   <div class="demo-diagram__lane" style="--lane: 0">
+    <span class="demo-diagram__label">Captions</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 35.2 * 100%)"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 0.24; --t1: 0.82"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 2.22; --t1: 3.26"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 3.28; --t1: 4.38"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 4.46; --t1: 5.9"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 6.4; --t1: 6.78"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 7.22; --t1: 9.32"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 9.71; --t1: 10.61"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 10.85; --t1: 12.71"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 13.33; --t1: 13.75"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 14.27; --t1: 15.41"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 15.83; --t1: 16.47"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 16.71; --t1: 18.25"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 18.97; --t1: 19.87"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 20.61; --t1: 21.39"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 21.55; --t1: 22.81"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 25.23; --t1: 26.64"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 27.05; --t1: 27.9"></i>
+     <i class="demo-diagram__span demo-diagram__cap demo-diagram__cap--karaoke" style="--t0: 28.06; --t1: 30.12"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 30.76; --t1: 31.96"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 32; --t1: 33.02"></i>
+    </div>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 1">
+    <span class="demo-diagram__label">Titles</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 35.2 * 100%)"></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 0.2; --t1: 6.1; --hit: 1.167s" data-id="demo-title"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 6.4; --t1: 9.4; --hit: 1.224s" data-id="demo-chat"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 9.6667; --t1: 13.8; --hit: 1.239s" data-id="demo-done"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 15.8; --t1: 20.2; --hit: 1.275s" data-id="demo-effects"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block demo-diagram__block--now" style="--t0: 21.2333; --t1: 25.2" data-id="demo-diagram"><i class="demo-diagram__ring"></i><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block demo-diagram__block--next" style="--t0: 25.4333; --t1: 30.6" data-id="demo-phone"><i class="demo-diagram__glow"></i><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 33.2; --t1: 35.2" data-id="demo-credit"><i class="demo-diagram__fill"></i></i>
+    </div>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 2">
+    <span class="demo-diagram__label">Sound effects</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 35.2 * 100%)"></i>
+     <i class="demo-diagram__dot" style="--t0: 0.49; --dy: 0px; --hit: 1.172s" data-id="demo-sfx-title-whoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 4.815; --dy: 0px; --hit: 1.215s" data-id="demo-sfx-name-pop"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 6.42; --dy: -6px; --hit: 1.223s" data-id="demo-sfx-chat-pop-1"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 7.22; --dy: 6px; --hit: 1.227s" data-id="demo-sfx-chat-pop-2"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 12.6383; --dy: 0px; --hit: 1.253s" data-id="demo-sfx-done-tone"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 15.825; --dy: 0px; --hit: 1.274s" data-id="demo-sfx-kouka-pop"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 17.9967; --dy: -6px; --hit: 1.295s" data-id="demo-sfx-pa-whoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 18.9717; --dy: 6px; --hit: 1.308s" data-id="demo-sfx-hora-sparkle"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 21.2563; --dy: -6px; --hit: 1.353s" data-id="demo-sfx-diagram-pon"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 21.5403; --dy: 6px; --hit: 1.361s" data-id="demo-sfx-diagram-stack"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 22.4037; --dy: -6px; --hit: 1.399s" data-id="demo-sfx-diagram-playhead"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 22.7413; --dy: 6px" data-id="demo-sfx-diagram-count"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 25.66; --dy: -6px" data-id="demo-sfx-phone-swoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 25.8433; --dy: 6px" data-id="demo-sfx-phone-tap"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 33.2483; --dy: 0px" data-id="demo-sfx-punchline-ding"><i class="demo-diagram__dot-fill"></i></i>
+    </div>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 3">
+    <span class="demo-diagram__label">Music</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 35.2 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 35.2 * 100%)"></i>
+     <div class="demo-diagram__bgm"><i class="demo-diagram__bgm-glow"></i><svg viewBox="0 0 382 46" preserveAspectRatio="none" aria-hidden="true"><path class="demo-diagram__wave" d="M1.75 21.79V24.21 M5.26 19.63V26.37 M8.76 18.40V27.60 M12.27 18.75V27.25 M15.77 19.18V26.82 M19.28 20.14V25.86 M22.78 19.00V27.00 M26.28 18.60V27.40 M29.79 18.44V27.56 M33.29 18.04V27.96 M36.8 17.35V28.65 M40.3 17.26V28.74 M43.81 17.33V28.67 M47.31 18.73V27.27 M50.82 19.69V26.31 M54.32 19.23V26.77 M57.83 18.72V27.28 M61.33 17.14V28.86 M64.83 17.20V28.80 M68.34 17.14V28.86 M71.84 18.34V27.66 M75.35 18.30V27.70 M78.85 18.84V27.16 M82.36 19.52V26.48 M85.86 19.61V26.39 M89.37 19.73V26.27 M92.87 19.78V26.22 M96.38 21.45V24.55 M99.88 20.16V25.84 M103.39 20.22V25.78 M106.89 20.26V25.74 M110.39 20.35V25.65 M113.9 19.23V26.77 M117.4 19.13V26.87 M120.91 19.11V26.89 M124.41 17.42V28.58 M127.92 17.32V28.68 M131.42 17.20V28.80 M134.93 18.52V27.48 M138.43 18.72V27.28 M141.94 19.42V26.58 M145.44 19.10V26.90 M148.94 19.11V26.89 M152.45 19.03V26.97 M155.95 17.94V28.06 M159.46 17.24V28.76 M162.96 17.14V28.86 M166.47 17.26V28.74 M169.97 18.32V27.68 M173.48 19.02V26.98 M176.98 18.84V27.16 M180.49 18.58V27.42 M183.99 17.19V28.81 M187.5 17.30V28.70 M191.0 17.27V28.73 M194.5 18.54V27.46 M198.01 18.48V27.52 M201.51 19.01V26.99 M205.02 19.49V26.51 M208.52 19.43V26.57 M212.03 19.13V26.87 M215.53 19.16V26.84 M219.04 19.91V26.09 M222.54 19.79V26.21 M226.05 19.99V26.01 M229.55 20.10V25.90 M233.06 21.77V24.23 M236.56 19.33V26.67 M240.06 18.88V27.12 M243.57 18.54V27.46 M247.07 17.12V28.88 M250.58 17.06V28.94 M254.08 17.05V28.95 M257.59 18.41V27.59 M261.09 18.18V27.82 M264.6 18.29V27.71 M268.1 18.50V27.50 M271.61 19.41V26.59 M275.11 18.98V27.02 M278.61 18.14V27.86 M282.12 17.48V28.52 M285.62 16.93V29.07 M289.13 17.14V28.86 M317.17 17.90V28.10 M320.67 17.81V28.19 M324.17 18.14V27.86 M327.68 18.64V27.36 M331.18 20.15V25.85 M334.69 19.42V26.58 M338.19 19.48V26.52 M341.7 18.78V27.22 M345.2 17.32V28.68 M348.71 17.30V28.70 M352.21 17.29V28.71 M355.72 19.08V26.92 M359.22 18.80V27.20 M362.72 10.29V35.71 M366.23 8.21V37.79 M369.73 7.93V38.07 M373.24 11.37V34.63 M376.74 14.75V31.25 M380.25 18.61V27.39" vector-effect="non-scaling-stroke"/><path class="demo-diagram__wave demo-diagram__hump" d="M292.63 12.95V33.05 M296.14 10.46V35.53 M299.64 10.66V35.34 M303.15 11.30V34.70 M306.65 9.28V36.73 M310.16 12.50V33.49 M313.66 16.91V29.09" vector-effect="non-scaling-stroke"/></svg></div>
+    </div>
+   </div>
+   <div class="demo-diagram__head-wrap">
+    <div class="demo-diagram__clock"><div class="demo-diagram__scrub">
+     <i class="demo-diagram__line"></i>
+     <i class="demo-diagram__knob"></i>
+     <div class="demo-diagram__here"><span class="demo-diagram__here-pop">You are here</span></div>
+    </div></div>
+   </div>
+   <div class="demo-diagram__counts">
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 0">Titles</span><span class="demo-diagram__count-num" style="--k: 0">7</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 1"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 1">Sound effects</span><span class="demo-diagram__count-num" style="--k: 1">15</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 2"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 2">Music</span><span class="demo-diagram__count-num" style="--k: 2">1</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 3"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 3">Captions</span><span class="demo-diagram__count-num" style="--k: 3">20</span></span>
+   </div>
+  </div>
+ </div>
+</div>
+</div>

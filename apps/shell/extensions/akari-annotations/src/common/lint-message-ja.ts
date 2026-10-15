@@ -80,7 +80,7 @@ export function japaneseLintWarningSummary(findings: readonly UiLintFinding[] = 
 }
 
 /**
- * 辞書にある check は日本語要約 + 従来の英語詳細、未知 check は従来文言そのまま。
+ * 辞書にある check は日本語要約 + 詳細を使い、日本語の詳細が十分な場合は重複を省く。
  */
 export function formatLintFailureForUi(
     prefix: string,
@@ -88,8 +88,14 @@ export function formatLintFailureForUi(
     findings: readonly UiLintFinding[] = []
 ): string {
     const detail = errors[0] ?? 'edit-lint error';
-    const summary = lintSummary(errors, findings);
+    const message = detail.replace(/^\[[^\]]+\]\s*/u, '');
+    const firstFinding = findings.find(finding => finding.severity === 'error'
+        && `[${finding.check ?? 'edit-lint'}] ${finding.message ?? ''}` === detail);
+    const summary = lintSummary([detail], firstFinding ? [firstFinding] : []);
     const displayPrefix = prefix === t('lint.failure.prefix.validation', {}, 'ja')
         ? t('lint.failure.prefix.validation') : prefix;
+    if (/^\s*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(message)) {
+        return `${displayPrefix}: ${message}`;
+    }
     return summary ? `${displayPrefix}: ${summary}${t('lint.failure.detail.label')}${detail}` : `${displayPrefix}: ${detail}`;
 }

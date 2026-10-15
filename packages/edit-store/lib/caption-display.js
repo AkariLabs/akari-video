@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.CAPTION_INHERITED_EMPHASIS_VARS = exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.captionDefaultSizePx = captionDefaultSizePx;
 exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
 exports.measureCaptionUnits = measureCaptionUnits;
 exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
@@ -41,6 +42,7 @@ const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 const caption_runs_1 = require("./caption-runs");
 const caption_timeline_1 = require("./caption-timeline");
+const caption_emphasis_match_1 = require("./caption-emphasis-match");
 const CAPTION_LANGUAGE_DEFAULTS = require('../../content-language/src/caption-defaults.json');
 const captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split('-')[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
 /**
@@ -52,6 +54,10 @@ const captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split('-
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
 exports.CAPTION_DISPLAY_MODE = 'single_line_sequential';
 exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
+function captionDefaultSizePx(output) {
+    return output && finitePositive(output.width) && finitePositive(output.height) && output.height > output.width
+        ? Math.round(output.width * 0.06) : 38;
+}
 exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
 /** Place each token's image in the coordinate system of its complete line. */
 function alignCaptionRichFillPhase(root) {
@@ -401,6 +407,13 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
             const sourceCaption = captions[occurrence.caption_input_index];
+            const untimedEmphasis = !Array.isArray(sourceCaption.words) || sourceCaption.words.length === 0
+                ? (Array.isArray(captionsRoot.emphasis_words) ? captionsRoot.emphasis_words
+                    : Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : [])
+                    .filter((item) => isRecord(item) && typeof item.id === 'string' && typeof item.word === 'string'
+                    && typeof item.t_start === 'number' && typeof item.t_end === 'number')
+                    .filter(item => group.lines.some(line => (0, caption_emphasis_match_1.captionEmphasisMatches)(line, sourceCaption.start, sourceCaption.end, [item], sourceCaption.src).length > 0))
+                : [];
             const karaokeEligible = (sourceCaption.style ?? policy.word_style) === 'karaoke'
                 && karaokeEligibleByCaption.has(occurrence.caption_input_index);
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
@@ -448,6 +461,7 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
                 ...(display.words ? { words: display.words } : {}),
                 ...(display.wordStyles?.length ? { word_styles: display.wordStyles } : {}),
+                ...(untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {}),
                 ...(karaoke ? {
                     style: 'karaoke',
                     karaoke_offset: display.karaokeOffset
@@ -555,14 +569,15 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
     if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some(caption => caption?.style === 'karaoke'))
         return new Map();
     const presetCache = new Map();
-    const resolvePreset = (presetId) => {
-        if (presetCache.has(presetId))
-            return presetCache.get(presetId);
+    const resolvePreset = (presetId, inherit) => {
+        const key = `${presetId}:${inherit}`;
+        if (presetCache.has(key))
+            return presetCache.get(key);
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
         const vars = resolved.resolved && isRecord(resolved.record.text_style)
-            ? resolveCaptionWordStyleVars(resolved.record.text_style, output)
+            ? resolveCaptionWordStyleVars(resolved.record.text_style, output, inherit)
             : null;
-        presetCache.set(presetId, vars);
+        presetCache.set(key, vars);
         return vars;
     };
     const result = new Map();
@@ -641,7 +656,7 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
                 if (!sourceMatches
                     || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
                     continue;
-                const resolvedVars = resolvePreset(candidate.style_preset);
+                const resolvedVars = resolvePreset(candidate.style_preset, candidate.inherit_caption_size === true);
                 if (!resolvedVars)
                     continue;
                 emphasis = candidate;
@@ -1653,16 +1668,30 @@ function splitCaptionFragments(text, policy) {
 }
 function splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, maximumFragments) {
     const ends = [...boundaries, text.length];
+    const units = new Array(text.length + 1).fill(0);
+    for (let index = 0; index < text.length;) {
+        const character = String.fromCodePoint(text.codePointAt(index));
+        const next = index + character.length;
+        const value = /^[\x00-\x7F]$/u.test(character) ? 0.5 : 1;
+        for (let cursor = index + 1; cursor <= next; cursor++)
+            units[cursor] = units[index] + value;
+        index = next;
+    }
+    const allowed = new Set(ends.filter(end => end === text.length
+        || (!captionBreakBoundaryBlocked(text, end, wordSpans)
+            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? []))));
+    const memo = new Map();
     const visit = (start, remaining) => {
         if (start === text.length)
             return [];
         if (remaining === 0)
             return undefined;
+        const key = `${start}:${remaining}`;
+        if (memo.has(key))
+            return memo.get(key);
         const candidates = ends.filter(end => end > start
-            && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units
-            && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans))
-            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? []))
-            .sort((left, right) => {
+            && units[end] - units[start] <= policy.max_line_units
+            && allowed.has(end)).sort((left, right) => {
             if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
                 const penalty = (end) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu
                     .test(text.slice(start, end)) ? 1 : 0;
@@ -1673,9 +1702,13 @@ function splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, 
         });
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);
-            if (rest)
-                return [text.slice(start, end), ...rest];
+            if (rest) {
+                const result = [text.slice(start, end), ...rest];
+                memo.set(key, result);
+                return result;
+            }
         }
+        memo.set(key, undefined);
         return undefined;
     };
     for (let count = 3; count <= maximumFragments; count++) {
@@ -1696,7 +1729,7 @@ function foldCaptionLines(text, maxLineUnits, lines, locale = 'ja') {
         ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(segment => segment.segment)
         : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja
             ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
-    const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja
+    const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja || maxLineUnits < 2
         ? segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits))
         : segments;
     const result = [];
@@ -2447,7 +2480,7 @@ function resolveCaptionStyleForOutput(style, output) {
     }
     return { vars, ...(layout ? { layout } : {}) };
 }
-function resolveCaptionWordStyleVars(style, output) {
+function resolveCaptionWordStyleVars(style, output, inheritCaptionSize = false) {
     const vars = {};
     const scale = resolveCaptionReferenceScale(style, output);
     if (typeof style.color === 'string')
@@ -2493,6 +2526,13 @@ function resolveCaptionWordStyleVars(style, output) {
         vars['--caption-tok-text-shadow'] = decorPart;
     else if (isRecord(style.stroke))
         vars['--caption-tok-text-shadow'] = 'none';
+    if (inheritCaptionSize && finitePositive(style.size_px)) {
+        const base = style.size_px * scale;
+        delete vars['--caption-tok-font-size'];
+        for (const [key, value] of Object.entries(vars)) {
+            vars[key] = value.replace(/(-?(?:\d+\.)?\d+)px\b/gu, (_match, number) => `${formatCssNumber(Number(number) / base)}em`);
+        }
+    }
     return vars;
 }
 const CAPTION_TEXT_TRANSFORM_MAP = {
@@ -2504,6 +2544,8 @@ const CAPTION_TEXT_TRANSFORM_MAP = {
     capitalize: 'capitalize',
     none: 'none'
 };
+exports.CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(textstyle_catalog_1.TEXTSTYLE_CATALOG)
+    .map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, undefined, true)]));
 function captionTextShadowValue(shadow, glow, scale = 1) {
     const parts = [];
     if (isRecord(shadow) && typeof shadow.color === 'string') {

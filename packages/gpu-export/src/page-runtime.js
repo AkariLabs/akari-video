@@ -608,6 +608,17 @@
       .join(";");
   }
 
+  // Same declarations as varsCss, but for a CSSOM write (element.style.cssText). The XML entity
+  // escaping in varsCss is right only inside a serialized style="..." attribute; in cssText it turns
+  // `"AKARI Noto Sans"` into `&quot;AKARI Noto Sans&quot;`, an invalid font-family, so the measure
+  // root laid out with a fallback font while the raster used the real one (stroke/fill drift).
+  function varsCssText(vars) {
+    return Object.entries(vars || {})
+      .filter(([name]) => /^--[a-z0-9_-]+$/i.test(name))
+      .map(([name, value]) => `${name}:${String(value).replace(/[;{}]/g, "")}`)
+      .join(";");
+  }
+
   function dedupeFontSample(text) {
     const sample = [...new Set(Array.from(text || ""))].join("");
     return sample || "字幕";
@@ -707,7 +718,7 @@
     const root = document.createElement("div");
     root.className = CAPTION_MEASURE_ROOT_CLASS;
     root.style.cssText = `position:fixed;left:0;top:0;width:${config.width}px;height:${config.height}px;overflow:hidden;`
-      + `background:transparent;container-type:size;visibility:hidden;pointer-events:none;${varsCss(value.vars)}`;
+      + `background:transparent;container-type:size;visibility:hidden;pointer-events:none;${varsCssText(value.vars)}`;
     root.innerHTML = `<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${html}`;
     document.body.appendChild(root);
     return root;

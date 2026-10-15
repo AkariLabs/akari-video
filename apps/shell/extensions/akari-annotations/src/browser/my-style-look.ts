@@ -139,6 +139,8 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
         if (!lookPart && !motionPart) continue;
         const row = match.row;
         const before = record(row.text_style) ? row.text_style : {};
+        if (lookPart && !keepSize) assertMyStyleLayoutCompatible(
+            record(document) ? document.default_text_style : undefined, { ...before, ...look });
         const motion = motionPart && options.motionDelta
             ? applyCaptionMotionDelta(before.animation, options.motionDelta) : motionPart?.animation;
         const partsToApply = {

@@ -12,11 +12,28 @@ import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedSty
 import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
 import { CAPTION_ROW_LOOK_FIELDS as LOOK_FIELDS, TEXTSTYLE_CATALOG } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
-import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
+import { resolveCaptionReferenceScale, resolveCaptionLineStyleVars, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
 import { applyCaptionMotionDelta } from '../lib/browser/inspector/caption-multi-targets.js';
 
 setLanguage('ja');
 test.after(() => setLanguage(undefined));
+
+test('36 bundled styles keep the inspector look calculation at every target size', () => {
+  assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 36);
+  for (const preset of Object.values(TEXTSTYLE_CATALOG)) for (const size of [38, 56, 64, 96]) {
+    const ratio = size / preset.style.size_px;
+    const expected = { ...preset.style };
+    for (const [key, fields] of Object.entries({ stroke: ['width_px'], background: ['radius_px', 'padding_px'],
+      shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'] })) {
+      if (!preset.style[key]) continue;
+      expected[key] = { ...preset.style[key] };
+      for (const field of fields) if (typeof expected[key][field] === 'number') expected[key][field] *= ratio;
+    }
+    delete expected.size_px;
+    delete expected.reference_height_px;
+    assert.deepEqual(scaledLookForCaption(preset.style, size), expected, `${preset.id}: ${size}`);
+  }
+});
 
 test('大量の行へ当てる処理は対象数に対して線形に近い', () => {
   const measure = count => {
@@ -366,6 +383,10 @@ test('ライブラリ由来の旧プリセットサイズを合算カタログ�
   assert.equal(result.size_px, 72);
   assert.equal(result.reference_height_px, 1080);
   assert.equal(result.background.padding_px, 6);
+  for (const height of [720, 1080, 2160]) {
+    assert.equal(resolveCaptionLineStyleVars(result, { width: 1920, height })['--caption-font-size'],
+      `${72 * height / 1080}px`);
+  }
 });
 
 test('ツリー選択の仮表示も合算カタログから字幕の実効サイズを読む', () => {
@@ -387,6 +408,37 @@ test('pattern のタイル寸法を換算し、マイスタイルも既存字幕
   assert.equal(kept.strokes[0].offset_y, 1);
   const saved = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look)).captions[0].text_style;
   assert.deepEqual(saved, kept);
+});
+
+test('置換後の default layout と cue layout を事前に検出し、置いた文字も拒否する', () => {
+  const layout = { mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
+    left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1 };
+  const look = { color: '#f00', reference_height_px: 1920 };
+  const source = JSON.stringify({ default_text_style: { layout }, captions: [
+    { id: 'one', text_style: { color: '#fff' } }, { id: 'two', text_style: { color: '#fff' } }
+  ] });
+  assert.throws(() => replaceMyStyleLookInSource(source, ['one', 'two'], look,
+    { keepSize: false }), /layout.*基準高さ/);
+  assert.throws(() => placedMyStyleTextStyle({ position: { y: .5 } }, look,
+    { layout: { mode: 'reference-pixel' } }), /layout.*基準高さ/);
+});
+
+test('pattern のタイル寸法だけをサイズ比で変え、マイスタイルは保存値をそのまま当てる', () => {
+  const look = { size_px: 168, reference_height_px: 1920,
+    fill: { type: 'pattern', pattern: { id: 'dot', scale: 1.5, fg: '#fff', bg: '#000' } },
+    strokes: [{ color: '#000', width_px: 10, offset_y: 3 }] };
+  const source = JSON.stringify({ captions: [{ id: 'one', text_style: { size_px: 56 } }] });
+  const kept = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look,
+    { keepSize: true })).captions[0].text_style;
+  assert.equal(kept.fill.pattern.scale, 0.5);
+  assert.equal(kept.strokes[0].width_px, 10 * (56 / 168));
+  assert.equal(kept.strokes[0].offset_y, 1);
+  const saved = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look,
+    { keepSize: false })).captions[0].text_style;
+  assert.equal(saved.size_px, 168);
+  assert.equal(saved.reference_height_px, 1920);
+  assert.deepEqual(saved.fill, look.fill);
+  assert.deepEqual(saved.strokes, look.strokes);
 });
 
 test('利用台帳は既存の行を保持して追記する', () => {

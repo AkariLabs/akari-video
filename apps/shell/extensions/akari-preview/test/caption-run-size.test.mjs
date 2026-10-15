@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { captionEditorFitWidth, captionEditorLines, captionEditorWrapWidth,
     captionLineCountFromMetrics } from '../lib/common/caption-edit-geometry.js';
+import { LiveCaptionEdit } from '../lib/common/live-caption-edit.js';
 import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
@@ -84,6 +85,7 @@ test('editing restores one line after scaled or bold runs are inserted and leave
             }
         };
         const context = {
+            LiveCaptionEditFn: LiveCaptionEdit,
             captionRows: new Map([[caption.id, { plate }]]), activeCaptionEdit: null,
             isPlaying: false, selectCaption() {}, togglePlayback() {},
             captionEditorLinesFn: captionEditorLines, captionEditorWrapWidthFn: captionEditorWrapWidth,

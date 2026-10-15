@@ -204,6 +204,7 @@ test('字幕の各トグル・配置・サイズは押下ごとに書き込み 1
         openWindow: null, moreOpen: false, barSignature: '', captionPending: new Map(), captionOverflow: [],
         run: request => { calls.push(request); return Promise.resolve({ ok: true }); },
         render: () => undefined, writeCaptionValue: PreviewContextBar.prototype.writeCaptionValue,
+        host: { sendMessage: () => undefined },
         commands: { executeCommand: () => Promise.resolve() } };
     for (const key of ['captionBold', 'captionItalic', 'captionUnderline', 'captionStrike', 'captionCase',
         'captionAlign', 'captionBullet', 'captionVertical', 'captionSizeDec', 'captionSizeInc']) {
@@ -225,6 +226,7 @@ test('サイズ Enter→blur/change と間隔・透明度の数値確定は同�
     const view = { state: { kind: 'caption', selectedId: 'cue-1', item: { textStyle: style } },
         captionPending: new Map(), host: { sendMessage: () => undefined },
         run: request => { calls.push(request); return Promise.resolve({ ok: true }); },
+        render: () => undefined,
         writeCaptionValue: PreviewContextBar.prototype.writeCaptionValue };
     const size = { matches: selector => selector === '[data-akari-caption-size]', value: '72' };
     PreviewContextBar.prototype.onCaptionSizeChange.call(view, { target: size });

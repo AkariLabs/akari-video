@@ -1,0 +1,1 @@
+{"method":"turn/completed","params":{"threadId":"thread-fixed","turn":{"id":"turn-fixed","status":"failed","error":{"message":"Not logged in","codexErrorInfo":null,"additionalDetails":null},"items":[]}}}

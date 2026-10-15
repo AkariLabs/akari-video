@@ -18,6 +18,7 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   applyCaptionRunsToHtml,
+  captionEmphasisMatches,
   sliceCaptionRuns,
   captionWindowSeconds,
   dedupeCaptionOccurrences,
@@ -30,6 +31,7 @@ const {
   resolveCaptionStyleForOutput,
   resolveCaptionWordStyleVars,
   resolveCaptionRichStrokes,
+  captionDefaultSizePx,
   CAPTION_RICH_LAYER_CSS,
   alignCaptionRichFillPhase,
   resolveCaptionStylePreset,
@@ -81,8 +83,6 @@ const DEFAULT_MAX_CHARACTERS = captionLanguageDefaults('ja').landscapeCharacters
 // （オーナー裁定 2026-08-03: 縦は 5〜10 文字級のチャンクを大きく順送りで見せる）。
 const PORTRAIT_MAX_CHARACTERS = captionLanguageDefaults('ja').portraitCharacters;
 // 縦長の既定フォントサイズは出力幅比で決める（1080px 幅 → 65px）。
-const PORTRAIT_FONT_SIZE_RATIO = 0.06;
-const DEFAULT_FONT_SIZE_PX = 38;
 
 function captionPlateMarginVars(style, includeZone = false) {
   if (Number.isFinite(style?.position?.x)) return { '--caption-plate-margin': '0' };
@@ -237,9 +237,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const portrait = typeof output?.width === "number"
     && typeof output?.height === "number"
     && output.height > output.width;
-  const baseFontSize = portrait
-    ? Math.round(output.width * PORTRAIT_FONT_SIZE_RATIO)
-    : DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = captionDefaultSizePx(output);
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords, output);
   const sourceCount = options.sourceCount ?? 1;
   const overlays = [];
@@ -409,6 +407,9 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               captionAnimation,
               animator: caption.animator,
               words: allWords,
+              ...(!allWords.length ? { untimedEmphasisWords: emphasisWords.filter(item =>
+                captionEmphasisMatches(displayText, caption.start, caption.end, [item], caption.src).length) } : {}),
+              output,
             });
       if (runs?.length) {
         html = applyCaptionRunsToHtml(html, displayText, runs, false,
@@ -432,6 +433,34 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   return overlays;
 }
 
+function renderUntimedEmphasisLine(line, words, start = -Infinity, end = Infinity, src, output,
+  renderText = escapeHtml, wrapPlain = false) {
+  const matches = captionEmphasisMatches(line, start, end, words, src);
+  let cursor = 0;
+  let markup = '';
+  const plain = value => wrapPlain && value
+    ? `<span class="akari-caption__tok">${renderText(value)}</span>` : renderText(value);
+  for (const { from, to, emphasis } of matches) {
+    markup += plain(line.slice(cursor, from));
+    const preset = TEXTSTYLE_CATALOG[emphasis.style_preset]?.style;
+    const vars = emphasis._presetStyleVars ?? (preset
+      ? resolveCaptionWordStyleVars(preset, output, emphasis.inherit_caption_size === true) : {});
+    const color = vars['--caption-tok-color'] ?? '#f97316';
+    const mapping = {
+      '--caption-tok-font-size': 'font-size', '--caption-tok-font-family': 'font-family',
+      '--caption-tok-font-weight': 'font-weight', '--caption-tok-letter-spacing': 'letter-spacing',
+      '--caption-tok-webkit-text-stroke': '-webkit-text-stroke',
+      '--caption-tok-text-shadow': 'text-shadow', '--caption-tok-line-height': 'line-height',
+    };
+    const style = [`color:${color}`, `-webkit-text-fill-color:${color}`,
+      ...Object.entries(mapping).filter(([key]) => vars[key])
+        .map(([key, property]) => `${property}:${vars[key]}`)].join(';');
+    markup += `<span class="akari-caption__tok akari-caption__tok--emphasis" data-emphasis-id="${escapeHtml(emphasis.id)}" style="${escapeHtml(style)}">${renderText(line.slice(from, to))}</span>`;
+    cursor = to;
+  }
+  return markup + plain(line.slice(cursor));
+}
+
 /**
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
@@ -440,8 +469,7 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(decorateTypewriterHtml(applyResolvedCaptionAnimation(
-      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text,
-        cue.runs, false, cue.text_style?.fill !== undefined || cue.text_style?.strokes !== undefined),
+      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces, output), cue.text, cue.runs),
       cue.text_style?.animation, cue.end - cue.start
     ), cue.text_style?.animation, cue.end - cue.start), cue.text_style, output),
     start: cue.start,
@@ -482,7 +510,7 @@ function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = captionFontFaces()) {
+export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = captionFontFaces(), output) {
   const requested = new Set(captionFontFamilies(cue?.text_style?.font_family ?? cue?.style_vars?.['--caption-font-family']));
   const matchingFaces = requested.size ? fontFaces.filter(face => requested.has(face.family)) : [];
   const fontFaceCss = matchingFaces.length
@@ -496,7 +524,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
   const richTokens = cue?.text_style?.fill !== undefined || cue?.text_style?.strokes !== undefined;
-  const renderedText = hasWordStyles || karaoke
+  let renderedText = hasWordStyles || karaoke
     ? renderResolvedCaptionWords(cue.words, cue.word_styles ?? [], cue?.text_style?.vertical === true, cue)
     : richTokens && Array.isArray(cue?.words) && cue.words.length > 0
       ? renderResolvedCaptionWords(cue.words, [], cue?.text_style?.vertical === true)
@@ -507,6 +535,12 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
     : Array.isArray(lines) && lines.length >= 2 && cue?.text_style?.vertical !== true
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
+  if (cue?.untimed_emphasis_words?.length && !cue?.words?.some(word => !word.untimed)) {
+    renderedText = (Array.isArray(lines) && lines.length ? lines : [text])
+      .map(line => renderUntimedEmphasisLine(line, cue.untimed_emphasis_words,
+        -Infinity, Infinity, undefined, output, escapeHtml, richTokens))
+      .join('</p><p class="akari-caption__line">');
+  }
   const wordPresetCss = hasWordStyles || karaoke ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
   const karaokeCss = karaoke ? `
     @keyframes akari-caption-karaoke-lit { from { color:var(--caption-color,#fff); } to { color:var(--caption-highlight-color,#ffd94a); } }
@@ -879,7 +913,7 @@ export function renderCaptionFragment(text, options = {}) {
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
-  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = options.baseFontSize ?? captionDefaultSizePx();
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
@@ -928,7 +962,11 @@ export function renderCaptionFragment(text, options = {}) {
   const charText = captionCharRenderer(options.animator);
   const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText), options.locale);
   const markup = lines
-    .map((line) => `<p class="akari-caption__line">${charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
+    .map((line) => `<p class="akari-caption__line">${options.untimedEmphasisWords?.length
+      ? renderUntimedEmphasisLine(line, options.untimedEmphasisWords,
+        -Infinity, Infinity, undefined, options.output, charText ?? escapeHtml,
+        options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined)
+      : charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
       ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText ? charText(word) : escapeHtml(word)}</span>`).join("")
       : escapeHtml(line)}</p>`)
     .join("");
@@ -1054,7 +1092,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
-  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = options.baseFontSize ?? captionDefaultSizePx();
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
@@ -1804,9 +1842,10 @@ function normalizeEmphasisWords(value, output) {
     const preset = typeof item.style_preset === "string" && item.style_preset.length > 0
       ? resolveCaptionStylePreset({ style_preset: item.style_preset }, TEXTSTYLE_CATALOG)
       : null;
-    normalized.push(preset?.resolved
-      ? { ...item, _presetStyleVars: resolveCaptionWordStyleVars(preset.record.text_style, output) }
-      : item);
+    if (preset?.resolved) {
+      const vars = resolveCaptionWordStyleVars(preset.record.text_style, output, item.inherit_caption_size === true);
+      normalized.push({ ...item, _presetStyleVars: vars });
+    } else normalized.push(item);
   }
   return normalized;
 }

@@ -10,7 +10,7 @@ import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsContribution, AkariSettingsOpener } from './akari-settings-contribution';
-import { AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener,
+import { AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener, AkariRailConnectOpener,
     AkariRailExportOpener, AkariRailDeveloperOpener, AkariRailOpenersContribution } from './akari-rail-openers';
 import { AkariMenuFocusCommandContribution } from './akari-menu-command-contribution';
 import { AkariLegacyMenuCommands } from './akari-legacy-menu-commands';
@@ -89,7 +89,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariActivityBarCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariActivityBarCuration);
 
-    for (const opener of [AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener,
+    for (const opener of [AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener, AkariRailConnectOpener,
         AkariRailExportOpener, AkariRailDeveloperOpener]) {
         bind(opener).toSelf();
         bind(WidgetFactory).toDynamicValue(ctx => ({

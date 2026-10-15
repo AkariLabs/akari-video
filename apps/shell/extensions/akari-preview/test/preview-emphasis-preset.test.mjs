@@ -24,6 +24,18 @@ test('通常プレビューの正規化はプリセット ID と書き出しと�
     assert.ok(word._presetStyleVars['--caption-tok-text-shadow'].includes('rgba(0,229,255,'));
 });
 
+test('字幕の大きさを継ぐ強調は語の固定 px を運ばず効果を比で運ぶ', () => {
+    const [word] = normalizePreviewEmphasisWords([{
+        ...emphasis, emotion: undefined, inherit_caption_size: true
+    }], output);
+    const resolved = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
+    assert.equal(word.emotion, 'emphasis');
+    assert.equal(word.inherit_caption_size, true);
+    assert.equal(word._presetStyleVars['--caption-tok-font-size'], undefined);
+    assert.deepEqual(word._presetStyleVars,
+        resolveCaptionWordStyleVars(resolved.record.text_style, output, true));
+});
+
 test('通常プレビューは解決済みのネオンを語に当て、未知の ID は従来の強調へ戻す', () => {
     const cue = { id: 'c-0001', start: 0, end: 2, text: '最高', style: 'pop',
         words: [{ text: '最高', start: 0, end: 1 }] };

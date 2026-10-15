@@ -8,16 +8,33 @@ export interface LintBlameSplit {
     foreign: UiLintFinding[];
 }
 
+export function lintFindingKey(finding: UiLintFinding, captionsSource?: string): string {
+    const path = finding.path ?? '';
+    const match = /^captions(?:\.[a-z0-9-]+)?\.json#(?:\[(\d+)\]|(\d+))(?:\.|$)/u.exec(path);
+    if (match && captionsSource) {
+        try {
+            const parsed = JSON.parse(captionsSource);
+            const captions = Array.isArray(parsed) ? parsed : parsed.captions;
+            const id = captions?.[Number(match[1] ?? match[2])]?.id;
+            if (typeof id === 'string' && id) return `${finding.check ?? ''}\u0000caption:${id}`;
+        } catch { /* 壊れた字幕は path で照合する。 */ }
+    }
+    return `${finding.check ?? ''}\u0000${path}`;
+}
+
 export function splitLintBlame(
     findings: readonly UiLintFinding[],
-    writtenFiles: readonly string[]
+    writtenFiles: readonly string[],
+    existingKeys: readonly string[] = [],
+    currentKeys: readonly string[] = []
 ): LintBlameSplit {
     const writtenFileSet = new Set(writtenFiles);
+    const existing = new Set(existingKeys);
     const split: LintBlameSplit = { own: [], foreign: [] };
-    for (const finding of findings) {
+    for (const [index, finding] of findings.entries()) {
         const findingFile = finding.path?.split('#', 1)[0];
-        // 書いたファイル内でも、保存前から有った指摘（例: 既存字幕のカット切れ）は今回の編集のせいではない。
-        if (!finding.preexisting && (!findingFile || writtenFileSet.has(findingFile))) {
+        if (!finding.preexisting && (!findingFile || writtenFileSet.has(findingFile))
+            && !existing.has(currentKeys[index] ?? lintFindingKey(finding))) {
             split.own.push(finding);
         } else {
             split.foreign.push(finding);

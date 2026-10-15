@@ -29,6 +29,7 @@ import { runMediaCommand } from './media-command.mjs';
 import { runSpeakersCommand } from './speakers-command.mjs';
 import { runToolsCommand } from './tools-command.mjs';
 import { runWordBookCommand } from './word-book-command.mjs';
+import { runConnectCommand } from './connect-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 import { cliText } from './i18n.mjs';
 
@@ -41,6 +42,7 @@ export const runSubcommands = {
   speakers: runSpeakersCommand,
   tools: runToolsCommand,
   'word-book': runWordBookCommand,
+  connect: runConnectCommand,
 };
 
 /**

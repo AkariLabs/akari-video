@@ -8,9 +8,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { captionGraphemes, getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
+import { getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
   updateCaptionFieldsInSourceWithReport } from '@akari-video/edit-store';
 import { openWordContextMenu, wordContextMenuGroups } from '../lib/browser/daihon/daihon-word-context-menu.js';
+import { wordSelectionHeading } from '../lib/common/daihon-dock.js';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -96,6 +97,7 @@ test('同じエラーは 3 回でも 1 枚、異なるエラーも最大 3 枚',
 });
 
 test('隙間の案内は通常通知になり、4.5 秒で消える', () => {
+  assert.match(source, /zone\.addEventListener\('click',[\s\S]*?this\.notify\(t\('transcript\.daihon\.editor\.almostNoGapHereTrySplitNotice'\)\)/u);
   assert.match(source, /zone\.addEventListener\('click',[\s\S]*?this\.notify\(t\('transcript\.daihon\.editor\.almostNoGapHereTrySplitNotice'\)\)/u);
   assert.equal(globalThis.t('transcript.daihon.editor.almostNoGapHereTrySplitNotice'), 'ここには隙間がほぼ無い — 分割（⧉）でどうぞ');
   const previousDocument = globalThis.document;
@@ -347,6 +349,7 @@ test('外部 cutRange は声の素材の行で失敗を返し、エディタ直�
     elements: new Map([[row.id, { root: { scrollIntoView() {} } }]]),
     speakerFilter: null, qcFilter: false, wordRanges: [],
     applyQcFilter() {}, setSelection() {}, renderWordSelection() {}, openWordBar() {},
+    revealSourceGroupForRow() {},
     audioOnlyCutReason: () => reason, notify: message => notices.push(message),
     openCutRangeEditorForSelection: () => assert.fail('声の素材でエディタを開かない') });
   assert.equal(await widget.focusTarget({ captionId: row.id, wordRange: { from: 0, to: 0 }, open: 'cutRange' }), false);
@@ -426,8 +429,7 @@ test('Esc は登録順のまま置いた文字を優先し、通常のポップ�
 
 test('選択バーの実際の文言は 400px 幅で全状態 2 段以内に収まる', () => {
   const Harness = method('    protected renderActionBar(', '    protected updateToastPlacement(', {
-    captionGraphemes,
-    wordRangeSummary: () => ({ text: 'あいうえおかきくけこ' }),
+    wordRangeSummary: () => ({ text: 'あいうえおかきくけこ' }), wordSelectionHeading,
     canMergeRows: () => ({ ok: true }), clearSelection: () => ({ selected: [] })
   });
   const oldDocument = globalThis.document;
@@ -450,7 +452,7 @@ test('選択バーの実際の文言は 400px 幅で全状態 2 段以内に収�
       { name: '複数行', selected: ['a', 'b'], words: [], candidate: undefined,
         labels: ['2 行を選択中', '🔊 読み上げ', '🎙 アフレコ', '🎨 見た目', 'T 文字を置く', '✂ カット', '結合', '⋯', '✕'] },
       { name: '語の範囲', selected: ['a'], words: [{ row: 'a', a: 0, b: 0 }], candidate: undefined,
-        labels: ['「あいうえお…」', '✎ 直す', '✦ 選んだ文字だけ', '✂ 映像ごとカット',
+        labels: ['単語「あいうえ…」を選択中', '✎ 直す', '✦ 強調', '✂ 映像ごとカット',
           '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕'] },
       { name: '無音', selected: [], words: [],
         candidate: candidate('無音 1.00 秒', ['▶ 聞く', '✂ 範囲を決めてカット']),

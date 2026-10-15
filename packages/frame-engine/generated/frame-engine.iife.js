@@ -4566,6 +4566,35 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/caption-emphasis-match.js
+  var require_caption_emphasis_match = __commonJS({
+    "packages/edit-store/lib/caption-emphasis-match.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.captionEmphasisMatches = captionEmphasisMatches;
+      function captionEmphasisMatches(text, start, end, words, src) {
+        const matches = [];
+        for (const emphasis of words) {
+          if (emphasis.t_end <= start || emphasis.t_start >= end || src && emphasis.src && emphasis.src !== src)
+            continue;
+          let from = 0;
+          while ((from = text.indexOf(emphasis.word, from)) >= 0) {
+            matches.push({ from, to: from + emphasis.word.length, emphasis });
+            from += emphasis.word.length;
+          }
+        }
+        matches.sort((a, b) => a.from - b.from || b.to - a.to);
+        let occupied = 0;
+        return matches.filter((match) => {
+          if (match.from < occupied)
+            return false;
+          occupied = match.to;
+          return true;
+        });
+      }
+    }
+  });
+
   // packages/content-language/src/caption-defaults.json
   var require_caption_defaults = __commonJS({
     "packages/content-language/src/caption-defaults.json"(exports, module) {
@@ -4593,7 +4622,8 @@ ${indent}`);
     "packages/edit-store/lib/caption-display.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+      exports.CAPTION_INHERITED_EMPHASIS_VARS = exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+      exports.captionDefaultSizePx = captionDefaultSizePx;
       exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
       exports.measureCaptionUnits = measureCaptionUnits;
       exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
@@ -4634,11 +4664,15 @@ ${indent}`);
       var textstyle_catalog_1 = require_textstyle_catalog();
       var caption_runs_1 = require_caption_runs();
       var caption_timeline_1 = require_caption_timeline();
+      var caption_emphasis_match_1 = require_caption_emphasis_match();
       var CAPTION_LANGUAGE_DEFAULTS = require_caption_defaults();
       var captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split("-")[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
+      function captionDefaultSizePx(output) {
+        return output && finitePositive4(output.width) && finitePositive4(output.height) && output.height > output.width ? Math.round(output.width * 0.06) : 38;
+      }
       exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;-webkit-text-stroke:0 transparent;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
       function alignCaptionRichFillPhase(root) {
         const fillType = root.getAttribute("data-rich-fill-type");
@@ -5027,6 +5061,7 @@ ${indent}`);
               fail("INVALID_WORD_PROJECTION", `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
             const sourceCaption = captions[occurrence.caption_input_index];
+            const untimedEmphasis = !Array.isArray(sourceCaption.words) || sourceCaption.words.length === 0 ? (Array.isArray(captionsRoot.emphasis_words) ? captionsRoot.emphasis_words : Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : []).filter((item) => isRecord2(item) && typeof item.id === "string" && typeof item.word === "string" && typeof item.t_start === "number" && typeof item.t_end === "number").filter((item) => group.lines.some((line) => (0, caption_emphasis_match_1.captionEmphasisMatches)(line, sourceCaption.start, sourceCaption.end, [item], sourceCaption.src).length > 0)) : [];
             const karaokeEligible = (sourceCaption.style ?? policy.word_style) === "karaoke" && karaokeEligibleByCaption.has(occurrence.caption_input_index);
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
             const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some((word) => !word.untimed));
@@ -5066,6 +5101,7 @@ ${indent}`);
               ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
               ...display.words ? { words: display.words } : {},
               ...display.wordStyles?.length ? { word_styles: display.wordStyles } : {},
+              ...untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {},
               ...karaoke ? {
                 style: "karaoke",
                 karaoke_offset: display.karaokeOffset
@@ -5170,12 +5206,13 @@ ${indent}`);
         if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some((caption) => caption?.style === "karaoke"))
           return /* @__PURE__ */ new Map();
         const presetCache = /* @__PURE__ */ new Map();
-        const resolvePreset = (presetId) => {
-          if (presetCache.has(presetId))
-            return presetCache.get(presetId);
+        const resolvePreset = (presetId, inherit) => {
+          const key = `${presetId}:${inherit}`;
+          if (presetCache.has(key))
+            return presetCache.get(key);
           const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
-          const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionWordStyleVars(resolved.record.text_style, output) : null;
-          presetCache.set(presetId, vars);
+          const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionWordStyleVars(resolved.record.text_style, output, inherit) : null;
+          presetCache.set(key, vars);
           return vars;
         };
         const result = /* @__PURE__ */ new Map();
@@ -5244,7 +5281,7 @@ ${indent}`);
               const sourceMatches = !(strictText(candidate.src) && strictText(caption.src)) || candidate.src === caption.src;
               if (!sourceMatches || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
                 continue;
-              const resolvedVars = resolvePreset(candidate.style_preset);
+              const resolvedVars = resolvePreset(candidate.style_preset, candidate.inherit_caption_size === true);
               if (!resolvedVars)
                 continue;
               emphasis = candidate;
@@ -6184,12 +6221,26 @@ ${indent}`);
       }
       function splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, maximumFragments) {
         const ends = [...boundaries, text.length];
+        const units = new Array(text.length + 1).fill(0);
+        for (let index = 0; index < text.length; ) {
+          const character = String.fromCodePoint(text.codePointAt(index));
+          const next = index + character.length;
+          const value = /^[\x00-\x7F]$/u.test(character) ? 0.5 : 1;
+          for (let cursor = index + 1; cursor <= next; cursor++)
+            units[cursor] = units[index] + value;
+          index = next;
+        }
+        const allowed = new Set(ends.filter((end) => end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])));
+        const memo = /* @__PURE__ */ new Map();
         const visit = (start, remaining) => {
           if (start === text.length)
             return [];
           if (remaining === 0)
             return void 0;
-          const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).sort((left, right) => {
+          const key = `${start}:${remaining}`;
+          if (memo.has(key))
+            return memo.get(key);
+          const candidates = ends.filter((end) => end > start && units[end] - units[start] <= policy.max_line_units && allowed.has(end)).sort((left, right) => {
             if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
               const penalty = (end) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(text.slice(start, end)) ? 1 : 0;
               if (penalty(left) !== penalty(right))
@@ -6199,9 +6250,13 @@ ${indent}`);
           });
           for (const end of candidates) {
             const rest = visit(end, remaining - 1);
-            if (rest)
-              return [text.slice(start, end), ...rest];
+            if (rest) {
+              const result = [text.slice(start, end), ...rest];
+              memo.set(key, result);
+              return result;
+            }
           }
+          memo.set(key, void 0);
           return void 0;
         };
         for (let count = 3; count <= maximumFragments; count++) {
@@ -6219,7 +6274,7 @@ ${indent}`);
           return [text];
         const Segmenter = Intl.Segmenter;
         const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
-        const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits)) : segments;
+        const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja || maxLineUnits < 2 ? segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits)) : segments;
         const result = [];
         let current = "";
         for (let index = 0; index < tokens.length; index++) {
@@ -6879,7 +6934,7 @@ ${indent}`);
         }
         return { vars, ...layout ? { layout } : {} };
       }
-      function resolveCaptionWordStyleVars(style, output) {
+      function resolveCaptionWordStyleVars(style, output, inheritCaptionSize = false) {
         const vars = {};
         const scale = resolveCaptionReferenceScale(style, output);
         if (typeof style.color === "string")
@@ -6924,6 +6979,13 @@ ${indent}`);
           vars["--caption-tok-text-shadow"] = decorPart;
         else if (isRecord2(style.stroke))
           vars["--caption-tok-text-shadow"] = "none";
+        if (inheritCaptionSize && finitePositive4(style.size_px)) {
+          const base = style.size_px * scale;
+          delete vars["--caption-tok-font-size"];
+          for (const [key, value] of Object.entries(vars)) {
+            vars[key] = value.replace(/(-?(?:\d+\.)?\d+)px\b/gu, (_match, number2) => `${formatCssNumber(Number(number2) / base)}em`);
+          }
+        }
         return vars;
       }
       var CAPTION_TEXT_TRANSFORM_MAP = {
@@ -6935,6 +6997,7 @@ ${indent}`);
         capitalize: "capitalize",
         none: "none"
       };
+      exports.CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(textstyle_catalog_1.TEXTSTYLE_CATALOG).map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, void 0, true)]));
       function captionTextShadowValue(shadow, glow, scale = 1) {
         const parts = [];
         if (isRecord2(shadow) && typeof shadow.color === "string") {
@@ -7482,6 +7545,148 @@ ${indent}`);
           return entries.length;
         }
         return { sync, install, bake, affectsMutation };
+      }
+    }
+  });
+
+  // packages/edit-store/lib/caption-look-scale.js
+  var require_caption_look_scale = __commonJS({
+    "packages/edit-store/lib/caption-look-scale.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CAPTION_LOOK_RATIO_TOLERANCE = exports.CAPTION_LOOK_PX_FIELDS = void 0;
+      exports.scaledCaptionLookPart = scaledCaptionLookPart;
+      exports.captionLookHasPixels = captionLookHasPixels;
+      exports.captionLookPartRatio = captionLookPartRatio;
+      exports.fillMissingCaptionLookPixels = fillMissingCaptionLookPixels;
+      exports.scaledCaptionLook = scaledCaptionLook;
+      exports.captionPresetDerivedParts = captionPresetDerivedParts;
+      var PX_FIELDS = {
+        stroke: ["width_px"],
+        stroke_inner: ["width_px"],
+        extrude: ["depth_px"],
+        shadow: ["blur_px", "distance_px"],
+        glow: ["spread", "offset_x", "offset_y"],
+        background: ["radius_px", "padding_px", "offset_x", "offset_y"],
+        strokes: ["width_px", "offset_x", "offset_y"],
+        fill: ["pattern.scale"]
+      };
+      exports.CAPTION_LOOK_PX_FIELDS = PX_FIELDS;
+      exports.CAPTION_LOOK_RATIO_TOLERANCE = 1e-6;
+      function object(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+      function scalePart(value, fields, ratio) {
+        if (Array.isArray(value))
+          return value.map((item) => scalePart(item, fields, ratio));
+        if (!object(value))
+          return value;
+        const copy = structuredClone(value);
+        for (const field of fields) {
+          const path = field.split(".");
+          let target = copy;
+          for (const segment of path.slice(0, -1))
+            target = object(target?.[segment]) ? target[segment] : void 0;
+          const last = path.at(-1);
+          if (target && typeof target[last] === "number")
+            target[last] *= ratio;
+        }
+        return copy;
+      }
+      function scaledCaptionLookPart(key, value, ratio) {
+        return scalePart(value, PX_FIELDS[key] ?? [], ratio);
+      }
+      function captionLookHasPixels(key, value) {
+        const paths = PX_FIELDS[key] ?? [];
+        const visit = (part, prefix = "") => {
+          if (Array.isArray(part))
+            return part.some((item) => visit(item, prefix));
+          if (object(part))
+            return Object.entries(part).some(([field, entry]) => visit(entry, prefix ? `${prefix}.${field}` : field));
+          return typeof part === "number" && paths.includes(prefix);
+        };
+        return visit(value);
+      }
+      function captionLookPartRatio(key, preset, override, compareNonPx = true) {
+        const paths = PX_FIELDS[key];
+        return paths ? derivedRatio(preset, override, paths, compareNonPx) : void 0;
+      }
+      function fillMissingCaptionLookPixels(key, preset, override, ratio) {
+        if (key === "strokes" || key === "fill" || !object(preset) || !object(override))
+          return void 0;
+        const copy = structuredClone(override);
+        let added = false;
+        for (const field of PX_FIELDS[key] ?? []) {
+          const path = field.split(".");
+          let source = preset;
+          let target = copy;
+          for (const segment of path.slice(0, -1)) {
+            source = object(source?.[segment]) ? source[segment] : void 0;
+            target = object(target?.[segment]) ? target[segment] : void 0;
+          }
+          const last = path.at(-1);
+          if (source && target && typeof source[last] === "number" && !(last in target)) {
+            target[last] = source[last] * ratio;
+            added = true;
+          }
+        }
+        if (!added)
+          return void 0;
+        for (const [field, value] of Object.entries(preset)) {
+          if (!(field in copy))
+            copy[field] = structuredClone(value);
+        }
+        return copy;
+      }
+      function scaledCaptionLook(look, targetSize) {
+        const base = look.size_px;
+        const ratio = typeof base === "number" && Number.isFinite(base) && base > 0 ? targetSize / base : 1;
+        const scaled = { ...look };
+        for (const [key, fields] of Object.entries(PX_FIELDS)) {
+          if (key in look)
+            scaled[key] = scalePart(look[key], fields, ratio);
+        }
+        delete scaled.size_px;
+        delete scaled.reference_height_px;
+        return scaled;
+      }
+      function close(actual, expected) {
+        return Math.abs(actual - expected) <= exports.CAPTION_LOOK_RATIO_TOLERANCE * Math.abs(expected);
+      }
+      function derivedRatio(base, value, paths, compareNonPx = true) {
+        let ratio;
+        const visit = (source, copy, prefix = "") => {
+          if (Array.isArray(source) || Array.isArray(copy)) {
+            return Array.isArray(source) && Array.isArray(copy) && source.length === copy.length && source.every((item, index) => visit(item, copy[index], prefix));
+          }
+          if (object(source) || object(copy)) {
+            return object(source) && object(copy) && Object.keys(source).length === Object.keys(copy).length && Object.keys(source).every((key) => Object.prototype.hasOwnProperty.call(copy, key) && visit(source[key], copy[key], prefix ? `${prefix}.${key}` : key));
+          }
+          if (!paths.includes(prefix))
+            return !compareNonPx || Object.is(source, copy);
+          if (typeof source !== "number" || typeof copy !== "number" || !Number.isFinite(copy))
+            return false;
+          if (source === 0)
+            return copy === 0;
+          const candidate = copy / source;
+          if (!(candidate > 0))
+            return false;
+          if (ratio === void 0)
+            ratio = candidate;
+          return close(copy, source * ratio);
+        };
+        return visit(base, value) ? ratio ?? 1 : void 0;
+      }
+      function captionPresetDerivedParts(preset, override) {
+        const result = /* @__PURE__ */ new Map();
+        for (const [key, paths] of Object.entries(PX_FIELDS)) {
+          if (!(key in preset) || !(key in override))
+            continue;
+          const ratio = derivedRatio(preset[key], override[key], paths);
+          if (ratio !== void 0)
+            result.set(key, ratio);
+        }
+        return result;
       }
     }
   });
@@ -9627,8 +9832,8 @@ ${indent}`);
       var caption_style_preset_1 = require_caption_style_preset();
       var textstyle_catalog_merge_1 = require_textstyle_catalog_merge();
       var caption_display_1 = require_caption_display();
+      var caption_look_scale_1 = require_caption_look_scale();
       var caption_style_command_1 = require_caption_style_command();
-      var textstyle_catalog_1 = require_textstyle_catalog();
       exports.CAPTION_ZONES = [
         "top-left",
         "top",
@@ -9939,7 +10144,7 @@ ${indent}`);
         }
         return { source: output, notices };
       }
-      function updateCaptionTextStyleInSource(source, captionId, updates, catalog = textstyle_catalog_1.TEXTSTYLE_CATALOG) {
+      function updateCaptionTextStyleInSource(source, captionId, updates, options = {}) {
         if (!captionId) {
           throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -9947,7 +10152,14 @@ ${indent}`);
         const array = locateCaptionArray(source);
         const element = findCaptionElement(array.elements, captionId);
         let nextElement = element.text;
-        if (typeof updates.sizePx === "number") {
+        const suppliedCatalog = options.catalog;
+        const catalog = suppliedCatalog ?? (Object.keys(options).length ? options : (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
+        const originalRecord = JSON.parse(nextElement);
+        const rootRecord = JSON.parse(source);
+        const defaultLook = isRecord2(rootRecord) && isRecord2(rootRecord.default_text_style) ? rootRecord.default_text_style : {};
+        const cueLook = isRecord2(originalRecord.text_style) ? originalRecord.text_style : {};
+        const useSizePlan = typeof updates.sizePx === "number" && (Array.isArray(originalRecord.runs) && originalRecord.runs.length > 0 || !originalRecord.style_preset && !isRecord2(originalRecord.style_sources) && cueLook.fill === void 0 && cueLook.strokes === void 0 && (defaultLook.shadow !== void 0 || defaultLook.glow !== void 0 || cueLook.shadow !== void 0 || cueLook.glow !== void 0));
+        if (useSizePlan) {
           const planned = (0, caption_style_command_1.planCaptionSizeEdit)({
             captions: JSON.parse(source),
             targets: [{ caption_id: captionId }],
@@ -9961,7 +10173,30 @@ ${indent}`);
               nextElement = syncOptionalCaptionProperty(nextElement, key, row[key], captionId);
           }
           updates = { ...updates, sizePx: void 0 };
+        } else if (updates.sizePx !== void 0) {
+          const root = JSON.parse(source);
+          const defaultStyle = isRecord2(root) && isRecord2(root.default_text_style) ? root.default_text_style : {};
+          const preset2 = presetStyle(catalog, originalRecord.style_preset);
+          const fallbackSize = typeof preset2?.size_px === "number" && preset2.size_px > 0 ? preset2.size_px : defaultStyle.size_px;
+          const nextSize = updates.sizePx === null ? fallbackSize : updates.sizePx;
+          if (typeof nextSize === "number" && Number.isFinite(nextSize) && nextSize > 0) {
+            nextElement = rescaleCaptionPresetParts(nextElement, nextSize, source, catalog);
+            const oldSize = typeof cueLook.size_px === "number" && cueLook.size_px > 0 ? cueLook.size_px : typeof defaultStyle.size_px === "number" && defaultStyle.size_px > 0 ? defaultStyle.size_px : (0, caption_display_1.captionDefaultSizePx)();
+            if (updates.sizePx !== null && nextSize !== oldSize && !preset2 && (cueLook.strokes !== void 0 || cueLook.fill !== void 0)) {
+              const scaledStyle = { ...JSON.parse(nextElement).text_style };
+              for (const key of ["strokes", "fill"]) {
+                if (cueLook[key] === void 0)
+                  continue;
+                const scaled = (0, caption_look_scale_1.scaledCaptionLookPart)(key, cueLook[key], nextSize / oldSize);
+                scaledStyle[key] = JSON.parse(JSON.stringify(scaled, (_key, value) => typeof value === "number" ? Number(value.toFixed(6)) : value));
+              }
+              nextElement = syncOptionalCaptionProperty(nextElement, "text_style", scaledStyle, captionId);
+            }
+          }
         }
+        const record2 = JSON.parse(nextElement);
+        const preset = presetStyle(catalog, record2.style_preset);
+        const derivedParts = preset && isRecord2(record2.text_style) ? (0, caption_look_scale_1.captionPresetDerivedParts)(preset, record2.text_style) : /* @__PURE__ */ new Map();
         const existing = locateTopLevelProperty(nextElement, "text_style");
         if (!existing) {
           const created = textStylePatchToJson(updates);
@@ -9980,8 +10215,8 @@ ${indent}`);
           textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "letter_spacing_em", updates.letterSpacingEm, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-          textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-          textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+          textStyle = derivedParts.has("shadow") && updates.shadow ? updateNestedStyleObject(textStyle, "shadow", shadowPatchToJson(updates.shadow), `\u5B57\u5E55 ${captionId} \u306E text_style.shadow`) : updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+          textStyle = derivedParts.has("glow") && updates.glow ? updateNestedStyleObject(textStyle, "glow", glowPatchToJson(updates.glow), `\u5B57\u5E55 ${captionId} \u306E text_style.glow`) : updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           for (const [key, value] of [
             ["stroke_inner", updates.strokeInner],
             ["fill_gradient", updates.fillGradient],
@@ -9991,7 +10226,7 @@ ${indent}`);
               continue;
             const json = value === null ? null : richStyleToJson(key, value);
             const existingRich = locateTopLevelProperty(textStyle, key);
-            textStyle = json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
+            textStyle = json !== null && derivedParts.has(key) ? updateNestedStyleObject(textStyle, key, json, `\u5B57\u5E55 ${captionId} \u306E text_style.${key}`) : json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
               const object = locateTopLevelObjectProperty(textStyle, key, key);
               return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
             })() : appendJsonProperty(textStyle, key, json);
@@ -10031,6 +10266,85 @@ ${indent}`);
         }
         return updated;
       }
+      function presetStyle(catalog, id) {
+        if (typeof id !== "string")
+          return void 0;
+        const preset = catalog instanceof Map ? catalog.get(id) : catalog[id];
+        return preset?.style;
+      }
+      function sameRatio(left, right) {
+        return Math.abs(left - right) <= caption_look_scale_1.CAPTION_LOOK_RATIO_TOLERANCE * Math.abs(right);
+      }
+      function rewriteStyleParts(element, captionId, remove, add = {}, preserveOrder = false) {
+        const existing = locateTopLevelProperty(element, "text_style");
+        const style = existing ? JSON.parse(locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`).text) : {};
+        const removable = remove.filter((key) => Object.prototype.hasOwnProperty.call(style, key) && (!preserveOrder || !Object.prototype.hasOwnProperty.call(add, key)));
+        let next = removable.length ? pruneShadowedTextStyle(element, removable, captionId) : element;
+        if (!Object.keys(add).length)
+          return next;
+        if (!locateTopLevelProperty(next, "text_style"))
+          return appendJsonProperty(next, "text_style", add);
+        const located = locateTopLevelObjectProperty(next, "text_style", `\u5B57\u5E55 ${captionId}`);
+        let value = located.text;
+        for (const [key, part] of Object.entries(add)) {
+          const property = locateTopLevelProperty(value, key);
+          if (property && preserveOrder) {
+            const colon = property.text.indexOf(":");
+            const tail = property.text.slice(colon + 1);
+            const leading = /^\s*/u.exec(tail)?.[0] ?? "";
+            const trailing = /\s*$/u.exec(tail)?.[0] ?? "";
+            value = value.slice(0, property.start) + property.text.slice(0, colon + 1) + leading + JSON.stringify(part) + trailing + value.slice(property.end);
+            continue;
+          }
+          if (property) {
+            value = removeObjectProperty(value, key);
+          }
+          value = appendJsonProperty(value, key, part);
+        }
+        return next.slice(0, located.start) + value + next.slice(located.end);
+      }
+      function rescaleCaptionPresetParts(element, newSize, source, catalog) {
+        const record2 = JSON.parse(element);
+        const preset = presetStyle(catalog, record2.style_preset);
+        if (!preset)
+          return element;
+        const root = JSON.parse(source);
+        const defaultStyle = isRecord2(root.default_text_style) ? root.default_text_style : {};
+        const old = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record2, catalog).record.text_style);
+        const oldSize = old?.size_px;
+        if (typeof oldSize !== "number" || !(oldSize > 0))
+          return element;
+        if (newSize === oldSize)
+          return element;
+        const scale = newSize / oldSize;
+        const override = isRecord2(record2.text_style) ? record2.text_style : {};
+        const remove = [];
+        const add = {};
+        const expectedRatio = typeof preset.size_px === "number" && preset.size_px > 0 ? newSize / preset.size_px : void 0;
+        for (const key of Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS)) {
+          if (!(key in preset) || !(0, caption_look_scale_1.captionLookHasPixels)(key, preset[key]))
+            continue;
+          const current = override[key];
+          let next;
+          if (current === void 0)
+            next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, preset[key], scale);
+          else if ((0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current, false) !== void 0) {
+            next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, current, scale);
+            const oldDerived = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current);
+            if (oldDerived !== void 0 && expectedRatio !== void 0 && sameRatio(oldDerived * scale, expectedRatio)) {
+              next = (0, caption_look_scale_1.scaledCaptionLook)(preset, newSize)[key];
+            }
+          } else
+            next = (0, caption_look_scale_1.fillMissingCaptionLookPixels)(key, preset[key], current, scale);
+          if (next === void 0)
+            continue;
+          const derivedRatio = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], next);
+          remove.push(key);
+          if (derivedRatio === void 0 || !sameRatio(derivedRatio, 1))
+            add[key] = next;
+        }
+        return rewriteStyleParts(element, String(record2.id), remove, add, true);
+      }
       function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
         if (captionIds.length === 0) {
           throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
@@ -10038,7 +10352,13 @@ ${indent}`);
         if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
           throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
+        if (options.output && (!Number.isFinite(options.output.width) || options.output.width <= 0 || !Number.isFinite(options.output.height) || options.output.height <= 0)) {
+          throw new Error("\u51FA\u529B\u89E3\u50CF\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
         const ids = [...new Set(captionIds)];
+        const root = JSON.parse(source);
+        const defaultStyle = isRecord2(root) && isRecord2(root.default_text_style) ? root.default_text_style : {};
+        const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
         const array = locateCaptionArray(source);
         const elementsById = /* @__PURE__ */ new Map();
         for (const entry of captionElementEntries(array.elements)) {
@@ -10061,16 +10381,35 @@ ${indent}`);
         for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
           const record2 = JSON.parse(element.text);
           const hasPreset = Object.prototype.hasOwnProperty.call(record2, "style_preset");
+          const oldPreset = presetStyle(catalog, record2.style_preset);
+          const derived = oldPreset && isRecord2(record2.text_style) ? (0, caption_look_scale_1.captionPresetDerivedParts)(oldPreset, record2.text_style) : /* @__PURE__ */ new Map();
+          const oldStyle = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record2, catalog).record.text_style);
+          const oldSize = typeof oldStyle?.size_px === "number" && Number.isFinite(oldStyle.size_px) && oldStyle.size_px > 0 ? oldStyle.size_px : void 0;
+          const oldReference = oldStyle?.reference_height_px;
+          const displayedSize = options.output ? oldSize === void 0 ? (0, caption_display_1.captionDefaultSizePx)(options.output) : oldSize * (typeof oldReference === "number" ? options.output.height / oldReference : 1) : void 0;
           if (presetId === null) {
             if (!hasPreset)
               continue;
-            const nextElement2 = removeObjectProperty(element.text, "style_preset");
+            let nextElement2 = removeObjectProperty(element.text, "style_preset");
+            nextElement2 = rewriteStyleParts(nextElement2, captionId, [...derived.keys()]);
+            const size2 = oldSize ?? (displayedSize === void 0 ? void 0 : typeof oldReference === "number" ? displayedSize * oldReference / options.output.height : displayedSize);
+            nextElement2 = retainCaptionSize(nextElement2, captionId, size2, oldReference);
             output = replaceElement(output, array.openIndex + 1, element, nextElement2);
             changed++;
             continue;
           }
-          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
-          if (hasPreset && record2.style_preset === presetId && shadowed.length === 0)
+          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style, catalog);
+          const incoming = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, catalog).record.text_style;
+          const newReference = isRecord2(record2.text_style) && record2.text_style.reference_height_px !== void 0 ? record2.text_style.reference_height_px : isRecord2(incoming) && incoming.reference_height_px !== void 0 ? incoming.reference_height_px : defaultStyle.reference_height_px;
+          const targetReference = oldReference ?? newReference;
+          const size = displayedSize !== void 0 ? oldSize !== void 0 && (oldReference !== void 0 || targetReference === void 0) ? oldSize : typeof targetReference === "number" ? displayedSize * targetReference / options.output.height : displayedSize : oldSize;
+          const incomingStyle = isRecord2(incoming) ? incoming : {};
+          const proportional = size !== void 0 && typeof incomingStyle.size_px === "number" && incomingStyle.size_px > 0;
+          const look = proportional && size !== incomingStyle.size_px ? (0, caption_look_scale_1.scaledCaptionLook)(incomingStyle, size) : {};
+          const copies = Object.fromEntries(Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS).filter((key) => key in incomingStyle && key in look && (0, caption_look_scale_1.captionLookHasPixels)(key, incomingStyle[key])).map((key) => [key, look[key]]));
+          const expected = (0, caption_look_scale_1.captionPresetDerivedParts)(incomingStyle, isRecord2(record2.text_style) ? record2.text_style : {});
+          const copiesMatch = Object.keys(copies).every((key) => expected.has(key) && sameRatio(expected.get(key), size / incomingStyle.size_px));
+          if (hasPreset && record2.style_preset === presetId && shadowed.every((key) => key in copies) && copiesMatch && [...derived.keys()].every((key) => key in copies))
             continue;
           let nextElement;
           if (hasPreset) {
@@ -10085,11 +10424,32 @@ ${indent}`);
               nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
             }
           }
-          nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+          nextElement = rewriteStyleParts(nextElement, captionId, [.../* @__PURE__ */ new Set([...derived.keys(), ...shadowed])], copies);
+          nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
           output = replaceElement(output, array.openIndex + 1, element, nextElement);
           changed++;
         }
         return { source: output, changed };
+      }
+      function retainCaptionSize(element, captionId, size, reference) {
+        if (size === void 0 && reference === void 0)
+          return element;
+        if (!locateTopLevelProperty(element, "text_style")) {
+          return appendJsonProperty(element, "text_style", {
+            ...size !== void 0 ? { size_px: size } : {},
+            ...reference !== void 0 ? { reference_height_px: reference } : {}
+          });
+        }
+        const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+        const style = JSON.parse(located.text);
+        let textStyle = located.text;
+        if (size !== void 0) {
+          textStyle = style.size_px === void 0 ? appendJsonProperty(textStyle, "size_px", size) : style.size_px === size ? textStyle : replaceTopLevelPropertyValue(textStyle, "size_px", size, `\u5B57\u5E55 ${captionId}`);
+        }
+        if (reference !== void 0 && style.reference_height_px === void 0) {
+          textStyle = appendJsonProperty(textStyle, "reference_height_px", reference);
+        }
+        return element.slice(0, located.start) + textStyle + element.slice(located.end);
       }
       function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
         const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
@@ -10097,7 +10457,7 @@ ${indent}`);
           return [];
         }
         const style = textStyle;
-        return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+        return Object.keys(preset.style).filter((key) => key !== "size_px" && key !== "reference_height_px" && Object.prototype.hasOwnProperty.call(style, key));
       }
       function pruneShadowedTextStyle(element, keys, captionId) {
         if (keys.length === 0) {
@@ -17841,6 +18201,9 @@ ${indent}`);
         return { ...item, at: at2, duration, source: { ...item.source } };
       }
       function retimeItem(item, at2, duration, ratio) {
+        if (item.keyframes !== void 0 && !Array.isArray(item.keyframes)) {
+          throw new Error("\u3053\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u52D5\u304D\u306E\u8A18\u9332\u3092\u5225\u30D5\u30A1\u30A4\u30EB\u306B\u6301\u3063\u3066\u3044\u308B\u305F\u3081\u3001\u30D5\u30EC\u30FC\u30E0\u30EC\u30FC\u30C8\u3092\u5909\u66F4\u3067\u304D\u307E\u305B\u3093\u3002");
+        }
         return {
           ...item,
           at: at2,
@@ -20287,8 +20650,12 @@ ${indent}`);
           part.source.in = sourceIn + sourceSpan * offset / item.duration;
           part.source.out = sourceIn + sourceSpan * (offset + part.duration) / item.duration;
         }
-        if (item.keyframes)
+        if (item.keyframes) {
+          if (!Array.isArray(item.keyframes)) {
+            throw new Error("\u3053\u306E\u533A\u9593\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u52D5\u304D\u306E\u8A18\u9332\u306E\u888B\u3092\u8AAD\u307F\u8FBC\u3081\u306A\u3044\u305F\u3081\u3001\u5206\u5272\u3067\u304D\u307E\u305B\u3093\u3002");
+          }
           part.keyframes = keysInWindow(item.keyframes, offset, offset + part.duration);
+        }
         if ("items" in item && item.items && "items" in part) {
           part.items = item.items.flatMap((child) => {
             const childStart = Math.max(child.at, offset);
@@ -20624,6 +20991,8 @@ ${indent}`);
             try {
               result = group ? applySyncGroupCutEdit(current, range, group, opts, false) : applyV2Edit(current, [range], opts, [], void 0, false, false);
             } catch (error) {
+              if (error instanceof Error && error.message.includes("\u52D5\u304D\u306E\u8A18\u9332\u306E\u888B\u3092\u8AAD\u307F\u8FBC\u3081\u306A\u3044"))
+                throw error;
               if (!group)
                 throw error;
               warnings2.push(`\u540C\u671F\u3057\u305F\u7D20\u6750\u3092\u5207\u308C\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u914D\u7F6E\u3068\u30AB\u30C3\u30C8\u7BC4\u56F2\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
@@ -21378,7 +21747,7 @@ ${indent}`);
         return appearance(left) === appearance(right);
       }
       function hasTimedAppearance(item) {
-        return !!(item.keyframes?.length || item.animator?.length || item.motion || item.items?.length);
+        return !!(item.keyframes && (!Array.isArray(item.keyframes) || item.keyframes.length) || item.animator?.length || item.motion || item.items?.length);
       }
       function sameCutResult(left, right, sourceTolerance = SOURCE_TOLERANCE, frameTolerance = 0) {
         const comparable = (track) => track.items.map((item) => {
@@ -21422,7 +21791,7 @@ ${indent}`);
           const candidateTrack = restored.tracks[trackIndex];
           if (leftIndex < 0 || rightIndex < 0) {
             const solo = originalTrack.items[leftIndex < 0 ? rightIndex : leftIndex];
-            if (solo.keyframes?.length)
+            if (solo.keyframes && (!Array.isArray(solo.keyframes) || solo.keyframes.length))
               return RESTORE_APPEARANCE;
             if (solo.source.src !== originalLeft.source.src)
               return RESTORE_UNAVAILABLE;
@@ -21473,7 +21842,7 @@ ${indent}`);
             return RESTORE_UNAVAILABLE;
           const left = originalTrack.items[leftIndex];
           const right = originalTrack.items[rightIndex];
-          if (left.keyframes?.length || right.keyframes?.length)
+          if (left.keyframes && (!Array.isArray(left.keyframes) || left.keyframes.length) || right.keyframes && (!Array.isArray(right.keyframes) || right.keyframes.length))
             return RESTORE_APPEARANCE;
           const tolerance = audioFrameTolerance(left, right, originalLeft, originalRight);
           const audioAtGap = right.at - left.at - left.duration;
@@ -22196,6 +22565,96 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/cut-keyframe-references.js
+  var require_cut_keyframe_references = __commonJS({
+    "packages/edit-store/lib/cut-keyframe-references.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.cutMotionReferencePaths = cutMotionReferencePaths;
+      exports.hydrateCutMotionReferences = hydrateCutMotionReferences;
+      exports.restoreUncutMotionReferences = restoreUncutMotionReferences;
+      var MOTION_FILE_VERSION = 0;
+      function record2(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+      function reference(value) {
+        return record2(value) && typeof value.path === "string" && /^motion\/[^/\\]+\.json$/u.test(value.path) && Number.isInteger(value.count) && value.count >= 2;
+      }
+      function visit(edit, callback) {
+        const items = (value) => {
+          if (!Array.isArray(value))
+            return;
+          for (const item of value) {
+            if (!record2(item))
+              continue;
+            callback(item);
+            items(item.items);
+          }
+        };
+        if (Array.isArray(edit.tracks))
+          for (const track of edit.tracks) {
+            if (record2(track))
+              items(track.items);
+          }
+      }
+      function cutMotionReferencePaths(edit) {
+        const paths = /* @__PURE__ */ new Set();
+        visit(edit, (item) => {
+          if (reference(item.keyframes))
+            paths.add(item.keyframes.path);
+        });
+        return [...paths];
+      }
+      function pointsFor(item, bags) {
+        if (!reference(item.keyframes) || typeof item.id !== "string" || !Number.isInteger(item.duration))
+          return void 0;
+        const bag = bags.get(item.keyframes.path);
+        const group = item.keyframes.path.slice("motion/".length, -".json".length);
+        if (!record2(bag) || bag.version !== MOTION_FILE_VERSION || bag.group !== group || !record2(bag.items))
+          return void 0;
+        const points = bag.items[item.id];
+        if (!Array.isArray(points) || points.length !== item.keyframes.count)
+          return void 0;
+        let previous = -1;
+        for (const point of points) {
+          if (!record2(point) || !Number.isInteger(point.t) || point.t <= previous || point.t < 0 || point.t > item.duration)
+            return void 0;
+          previous = point.t;
+        }
+        return structuredClone(points);
+      }
+      function hydrateCutMotionReferences(edit, bags) {
+        const result = structuredClone(edit);
+        visit(result, (item) => {
+          const points = pointsFor(item, bags);
+          if (points)
+            item.keyframes = points;
+        });
+        return result;
+      }
+      function restoreUncutMotionReferences(before, after, bags) {
+        const originals = /* @__PURE__ */ new Map();
+        visit(before, (item) => {
+          if (typeof item.id === "string" && reference(item.keyframes))
+            originals.set(item.id, item);
+        });
+        const result = structuredClone(after);
+        visit(result, (item) => {
+          if (typeof item.id !== "string" || !Array.isArray(item.keyframes))
+            return;
+          const original = originals.get(item.id);
+          if (!original || item.duration !== original.duration || JSON.stringify(item.source) !== JSON.stringify(original.source))
+            return;
+          const points = pointsFor(original, bags);
+          if (points && JSON.stringify(item.keyframes) === JSON.stringify(points)) {
+            item.keyframes = structuredClone(original.keyframes);
+          }
+        });
+        return result;
+      }
+    }
+  });
+
   // packages/edit-store/lib/adjust-css-approx.js
   var require_adjust_css_approx = __commonJS({
     "packages/edit-store/lib/adjust-css-approx.js"(exports) {
@@ -22809,6 +23268,8 @@ ${indent}`);
       __exportStar(require_caption_clock(), exports);
       __exportStar(require_timeline_map(), exports);
       __exportStar(require_caption_display(), exports);
+      __exportStar(require_caption_look_scale(), exports);
+      __exportStar(require_caption_emphasis_match(), exports);
       __exportStar(require_caption_runs(), exports);
       __exportStar(require_caption_look_v1(), exports);
       __exportStar(require_caption_look_reader(), exports);
@@ -22843,6 +23304,7 @@ ${indent}`);
       __exportStar(require_shape_markup(), exports);
       __exportStar(require_shape_preset(), exports);
       __exportStar(require_cut_ranges(), exports);
+      __exportStar(require_cut_keyframe_references(), exports);
       __exportStar(require_ripple(), exports);
       __exportStar(require_adjust_css_approx(), exports);
       var legacy_parse_1 = require_legacy_parse();

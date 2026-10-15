@@ -6,6 +6,7 @@ export const SettingsSectionBodyContributionSymbol = Symbol('SettingsSectionBody
 export interface SettingsSectionBodyContribution {
     readonly sectionId: string;
     render(host: HTMLElement): Disposable;
+    select?(id?: string): void;
 }
 
 let provider: ContributionProvider<SettingsSectionBodyContribution> | undefined;

@@ -68,6 +68,7 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [manage-connections](../skills/manage-connections/SKILL.md) | 生成プロバイダ・SNS・memory 接続・API キー参照・モデル選択・コスト承認ポリシーの一元管理。**有償生成・外部公開の唯一の入口** | `.akari/connections.json` + 無償・読み取り専用の doctor |
+| [connect](../skills/connect/SKILL.md) | AKARI の道具と、素材生成・文字起こしで実際に使うサービスの状態を調べる | `akari connect list` / `akari connect exec` |
 | [verify](../skills/verify/SKILL.md) | タスク契約の検証はしご（L0 / L1 / L2）の実行手順 | 現行 Theia スタックのビルド・テスト |
 
 ## 3D は 2 経路

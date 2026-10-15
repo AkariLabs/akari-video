@@ -68,6 +68,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 | Skill | Owns | External tools / connections |
 |---|---|---|
 | [manage-connections](../skills/manage-connections/SKILL.md) | Single registry for generation providers, SNS, memory connections, API-key references, model selection, and cost-approval policy. **The only gateway to paid generation and external publishing** | `.akari/connections.json` + a free, read-only doctor |
+| [connect](../skills/connect/SKILL.md) | Check AKARI tools and the services AKARI currently uses for media creation and transcription | `akari connect list` / `akari connect exec` |
 | [verify](../skills/verify/SKILL.md) | The verification ladder (L0 / L1 / L2) required by task contracts | Build & tests of the current Theia stack |
 
 ## 3D comes in two paths

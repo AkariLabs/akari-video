@@ -1,4 +1,4 @@
-import { createEmptyEditV2 } from '@akari-video/edit-store';
+import { CAPTION_DISPLAY_ALGORITHM, CAPTION_DISPLAY_MODE, CAPTION_UNIT_METRIC, createEmptyEditV2 } from '@akari-video/edit-store';
 import { OnboardingGuide } from './guide';
 
 export const ONBOARDING_STEPS = [
@@ -169,22 +169,44 @@ export function splitOnboardingTokens(tokens: readonly TranscriptToken[],
     return result;
 }
 
+// Same shape as the Japanese splitter: punctuation closes a group, then each group is cut into lines of
+// even length (aim = three quarters of the limit) instead of filling the first line to the limit.
 function splitSpacedTokens(tokens: readonly TranscriptToken[], maxCharacters: number): TranscriptSegment[] {
     const result: TranscriptSegment[] = [];
     let group: TranscriptToken[] = [];
     const limit = Math.max(1, maxCharacters);
+    const aim = Math.max(1, Math.round(limit * .75));
+    const join = (parts: readonly TranscriptToken[]): string =>
+        parts.map(token => token.t).join(' ').replace(/\s+([.!?,])/gu, '$1');
     const flush = (): void => {
         if (!group.length) return;
-        result.push({ start: group[0].start, end: Math.max(group[0].start + .05, group[group.length - 1].end),
-            text: group.map(token => token.t).join(' ').replace(/\s+([.!?,])/gu, '$1') });
+        const best = Array.from({ length: group.length + 1 }, () => Number.POSITIVE_INFINITY);
+        const previous = Array.from({ length: group.length + 1 }, () => -1);
+        best[0] = 0;
+        for (let end = 1; end <= group.length; end++) {
+            for (let start = end - 1; start >= 0; start--) {
+                const length = join(group.slice(start, end)).length;
+                if (length > limit && start < end - 1) break;
+                const cost = best[start] + (length - aim) ** 2 + (length < 8 && group.length > 1 ? 45 : 0);
+                if (cost < best[end]) { best[end] = cost; previous[end] = start; }
+            }
+        }
+        const pieces: TranscriptToken[][] = [];
+        for (let end = group.length; end > 0;) {
+            const start = previous[end];
+            pieces.unshift(group.slice(start, end));
+            end = start;
+        }
+        for (const piece of pieces) result.push({ start: piece[0].start,
+            end: Math.max(piece[0].start + .05, piece[piece.length - 1].end), text: join(piece) });
         group = [];
     };
     for (const token of tokens) {
         if (!token.t || !Number.isFinite(token.start) || !Number.isFinite(token.end)) continue;
-        const next = [...group.map(part => part.t), token.t].join(' ').replace(/\s+([.!?,])/gu, '$1');
-        if (group.length && next.length > limit) flush();
         group.push(token);
-        if (/[.!?,]["'”’）)\]】」』]*$/u.test(token.t) && !/^(?:[A-Za-z]\.){2,}$/u.test(token.t)) flush();
+        // A comma closes the group only once it is long enough to stand alone (cf. 、 in Japanese).
+        if ((/[.!?]["'”’）)\]】」』]*$/u.test(token.t) && !/^(?:[A-Za-z]\.){2,}$/u.test(token.t))
+            || (/,["'”’）)\]】」』]*$/u.test(token.t) && join(group).length >= 6)) flush();
     }
     flush();
     return result;
@@ -226,5 +248,10 @@ export function createOnboardingCaptions(segments: readonly TranscriptSegment[],
             animation: { in: { id: 'soft-fade' } },
             background: { color: '#17130F', opacity: 0.87, padding_px: 20, radius_px: 7 } }
     });
-    return { captions };
+    if (guide.language === 'ja') return { captions };
+    // Without a display policy the renderer lays captions out as Japanese (20 units a line). Other languages get the
+    // same policy the captions CLI writes: the English default of 42 ASCII characters a line (21 units).
+    return { display_policy: { mode: CAPTION_DISPLAY_MODE, algorithm: CAPTION_DISPLAY_ALGORITHM,
+        unit_metric: CAPTION_UNIT_METRIC, max_line_units: 21, minimum_fragment_duration_seconds: 1,
+        locale: guide.language }, captions };
 }

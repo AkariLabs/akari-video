@@ -1,5 +1,6 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
+import { CAPTION_INHERITED_EMPHASIS_VARS, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { getLanguage, t as translate } from '@akari-video/i18n';
 import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
     type MaterialDragIdentity } from '../common/material-range-messages';
@@ -39,6 +40,10 @@ import {
     TRANSITION_VOCABULARY
 } from '@akari-video/edit-store';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
+import { formatPreviewError } from '../common/preview-error-format';
+import { captionEmphasisMatches } from '../common/preview-emphasis-seat';
+import { captionInkClientRect } from '../common/caption-ink-rect';
+import { prioritizeCaptionStyleMarkup } from '../common/caption-style-composition';
 import { captionWordSelectionBoxes } from '../common/caption-word-selection-geometry';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionInkClipRecipe, setCaptionInkClipVariables } from '../../../../../../packages/render-cut/src/caption-ink-clip.mjs';
@@ -60,6 +65,7 @@ import {
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { captionAxisPlacement, captionZonePlacement } from '../common/caption-position-preset';
 import { captionWrapFitPosition, captionWrapFitWidth } from '../common/caption-wrap-fit';
+import { LiveCaptionEdit } from '../common/live-caption-edit';
 import { clearCaptionSideActions } from '../common/caption-action-clearance';
 import {
     RESOLVED_CAPTION_STYLE_VARIABLE_NAMES,
@@ -138,8 +144,12 @@ export function previewBootstrapScript(): string {
                 return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
             };
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
+            const formatPreviewErrorFn = (${formatPreviewError.toString()});
             const canvasCaptionZPlanFn = (${canvasCaptionZPlan.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
+            const captionEmphasisMatchesFn = (${captionEmphasisMatches.toString()});
+            const captionInkClientRectFn = (${captionInkClientRect.toString()});
+            const prioritizeCaptionStyleMarkupFn = (${prioritizeCaptionStyleMarkup.toString()});
             const captionRunSelectionRangeFn = (${captionRunSelectionRange.toString()});
             const captionRunToolbarPlacementFn = (${captionRunToolbarPlacement.toString()});
             const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
@@ -341,7 +351,7 @@ export function previewBootstrapScript(): string {
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
             const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
-            const emphasisWords = Array.isArray(initial.emphasisWords) ? initial.emphasisWords : [];
+            let emphasisWords = Array.isArray(initial.emphasisWords) ? initial.emphasisWords : [];
             let hiddenTracks = new Set(Array.isArray(initial.hiddenTracks) ? initial.hiddenTracks : []);
             const initialHiddenTracksByScope = initial.hiddenTracksByScope || {};
             const initialMutedTracksByScope = initial.mutedTracksByScope || {};
@@ -625,7 +635,7 @@ export function previewBootstrapScript(): string {
                 if (captionGestureCount || !pendingCaptionUpdate) return;
                 const next = pendingCaptionUpdate;
                 pendingCaptionUpdate = null;
-                window.postMessage?.({ type: 'akari-preview-captions-update', captions: next }, '*');
+                window.postMessage?.(next, '*');
             };
             const captionPositionOverrides = new Map();
             const latestCaptionMove = new Map();
@@ -4716,8 +4726,14 @@ export function previewBootstrapScript(): string {
                 previewChrome.style.transform = 'scale(' + scaleX + ',' + scaleY + ')';
                 previewChrome.dataset.frameEngineActive = previewStage.dataset.frameEngineActive || '';
                 const viewport = previewPane.getBoundingClientRect();
+                const oldChromeGeometry = previousChromeGeometry;
                 previousChromeGeometry = refreshPreviewChromeOnGeometryChangeFn(
                     previousChromeGeometry, rect, viewport, chromeRefreshers);
+                if (previousChromeGeometry !== oldChromeGeometry) {
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        for (const refresh of Object.values(chromeRefreshers)) refresh();
+                    }));
+                }
                 const cropControls = previewChrome.querySelector('#photo-crop-controls');
                 if (cropControls) cropControls.style.maxWidth = Math.max(80, (viewport.width - 8) / scaleX) + 'px';
                 for (const selector of ['#layer-crop-toggle.is-target-active',
@@ -4894,6 +4910,7 @@ export function previewBootstrapScript(): string {
             const refreshActiveCaptionRuns = () => {
                 const edit = activeCaptionEdit;
                 if (!edit) return;
+                if (edit.session) return;
                 const caption = captions.find(item => (item.sourceCueId || item.id) === edit.captionId);
                 if (!caption) return;
                 const element = edit.element;
@@ -5013,16 +5030,21 @@ export function previewBootstrapScript(): string {
                     const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
                     const rects = elements
                         .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
+                        .concat(captionPlate.ownerDocument
+                            ? [...captionPlate.querySelectorAll('.akari-caption__tok--emphasis')] : [])
                         .filter(element => element.isConnected)
                         .map(element => element.getBoundingClientRect())
-                        .filter(rect => rect.width !== 0 || rect.height !== 0);
-                    if (!rects.length) return null;
-                    const clientRect = {
-                        left: Math.min(...rects.map(rect => rect.left)),
-                        right: Math.max(...rects.map(rect => rect.right)),
-                        top: Math.min(...rects.map(rect => rect.top)),
-                        bottom: Math.max(...rects.map(rect => rect.bottom))
-                    };
+                        .filter(rect => rect.width >= 1 && rect.height >= 1
+                            && [rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite));
+                    const clientRect = typeof captionInkClientRectFn === 'function'
+                        ? captionInkClientRectFn(rects)
+                        : rects.length ? {
+                            left: Math.min(...rects.map(rect => rect.left)),
+                            right: Math.max(...rects.map(rect => rect.right)),
+                            top: Math.min(...rects.map(rect => rect.top)),
+                            bottom: Math.max(...rects.map(rect => rect.bottom))
+                        } : null;
+                    if (!clientRect) return null;
                     const topLeft = captionOutputPoint(clientRect.left, clientRect.top);
                     const bottomRight = captionOutputPoint(clientRect.right, clientRect.bottom);
                     return {
@@ -5121,6 +5143,7 @@ export function previewBootstrapScript(): string {
             const captionEditorValueFn = (${captionEditorValue.toString()});
             const captionEditKeyActionFn = (${captionEditKeyAction.toString()});
             const captionEditingNavigationKeyFn = (${captionEditingNavigationKey.toString()});
+            const LiveCaptionEditFn = (${LiveCaptionEdit.toString()});
             const syncCaptionHandleBox = () => {
                 const box = captionSelectBox.querySelector('.akari-caption-handle-box');
                 if (!box) return;
@@ -5188,7 +5211,8 @@ export function previewBootstrapScript(): string {
                     updateCaptionSelectTools();
                     return;
                 }
-                if (!rect) {
+                if (!rect || ![rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
+                    || rect.right - rect.left < 1 || rect.bottom - rect.top < 1) {
                     captionSelectBox.classList.remove('is-active');
                     captionRowBox.classList.remove('is-active');
                     return;
@@ -5426,6 +5450,27 @@ export function previewBootstrapScript(): string {
                 const rect = captionVisualRect();
                 updateCaptionSelectBoxForRect(rect);
             };
+            let captionSelectionFrame = 0;
+            const scheduleCaptionSelectionGeometry = () => {
+                if (!selectedCaptionId || typeof window.requestAnimationFrame !== 'function') return;
+                if (captionSelectionFrame) window.cancelAnimationFrame(captionSelectionFrame);
+                captionSelectionFrame = window.requestAnimationFrame(() => {
+                    captionSelectionFrame = 0;
+                    updateCaptionSelectBox();
+                });
+            };
+            const captionInkObserver = typeof ResizeObserver === 'function'
+                ? new ResizeObserver(scheduleCaptionSelectionGeometry) : null;
+            const watchSelectedCaptionInk = () => {
+                captionInkObserver?.disconnect();
+                if (!captionInkObserver) { scheduleCaptionSelectionGeometry(); return; }
+                const plate = selectedCaptionPlate();
+                if (!selectedCaptionId || !plate?.isConnected) return;
+                for (const ink of plate.querySelectorAll('.akari-caption__line, .akari-caption__block')) {
+                    captionInkObserver?.observe(ink);
+                }
+                scheduleCaptionSelectionGeometry();
+            };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
                 if (report && typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
@@ -5436,11 +5481,13 @@ export function previewBootstrapScript(): string {
                 applyCaptionSelectionAttrs();
                 if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (captionId === selectedCaptionId) {
+                    if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
                     updateCaptionSelectBox();
                     if (report) window.akari.reportCaptionSelection(selectedCaptionId);
                     return;
                 }
                 selectedCaptionId = captionId;
+                if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
                 captionStylePreview.selectionChanged(selectedCaptionIds);
                 window.akari.syncRunSelection?.();
                 if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) {
@@ -5654,6 +5701,8 @@ export function previewBootstrapScript(): string {
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
                 activeCaptionEdit = null;
+                void edit.session.cancel().then(() => window.akari.engine.captionWrite(edit.captionId,
+                    { text: edit.originalText }, 'cancel')).catch(error => window.akari.showWriteError(error));
                 window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
@@ -5670,9 +5719,14 @@ export function previewBootstrapScript(): string {
                 // Restore styled lines/tokens immediately, including while the write is pending.
                 // Subsequent dragging must measure the rendered plate, not the temporary editor.
                 rerenderCaptionAfterEdit();
-                if (nextText === edit.originalText) return;
+                if (nextText === edit.originalText) {
+                    await edit.session.cancel();
+                    await window.akari.engine.captionWrite(edit.captionId, { text: edit.originalText }, 'cancel');
+                    return;
+                }
                 try {
-                    await window.akari.engine.captionWrite(edit.captionId, { text: nextText });
+                    await edit.session.finish(nextText);
+                    await window.akari.engine.captionWrite(edit.captionId, { text: nextText }, 'commit');
                     if (nextText.trim().length === 0) {
                         captions = captions.filter(caption => (caption.sourceCueId || caption.id) !== edit.captionId);
                         if (selectedCaptionId === edit.captionId) deselectCaption();
@@ -5711,7 +5765,9 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (activeCaptionEdit) {
-                    activeCaptionEdit.element.focus({ preventScroll: true });
+                    if (activeCaptionEdit.captionId === captionId) activeCaptionEdit.element.focus({ preventScroll: true });
+                    else void commitCaptionEdit().then(() => beginCaptionEdit(captions.find(item =>
+                        (item.sourceCueId || item.id) === captionId) || caption));
                     return;
                 }
                 if (isPlaying) togglePlayback();
@@ -5736,6 +5792,8 @@ export function previewBootstrapScript(): string {
                 activeCaptionEdit = {
                     captionId,
                     originalText: caption.text || '',
+                    session: new LiveCaptionEditFn(caption.text || '', value =>
+                        window.akari.engine.captionWrite(captionId, { text: value }, 'draft')),
                     element,
                     contentEditable: element.getAttribute('contenteditable'),
                     spellcheck: element.getAttribute('spellcheck'),
@@ -5802,6 +5860,18 @@ export function previewBootstrapScript(): string {
                     void commitCaptionEdit();
                 }
             }, true);
+            captionLayer.addEventListener('compositionstart', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.compositionStart();
+            });
+            captionLayer.addEventListener('compositionend', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.compositionEnd(
+                    captionEditorValueFn(activeCaptionEdit.element.innerText || '', activeCaptionEdit.element.lastChild?.nodeName === 'BR'));
+            });
+            captionLayer.addEventListener('input', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.input(
+                    captionEditorValueFn(activeCaptionEdit.element.innerText || '', activeCaptionEdit.element.lastChild?.nodeName === 'BR'),
+                    event.isComposing);
+            });
             captionLayer.addEventListener('input', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
                 syncRunShadowText(activeCaptionEdit.element);
@@ -6931,7 +7001,7 @@ export function previewBootstrapScript(): string {
                 window.akari.scrubAudio = scrubAudio;
                 return scrubAudio;
             };
-            let scrubAudioEnabled = initial.scrubAudioEnabled !== false;
+            let scrubAudioEnabled = initial.scrubAudioEnabled === true;
             const scrubSrcForSegment = segment => {
                 if (!segment || segment.kind !== 'src' || isStillSegment(segment)) return null;
                 const cutsTrackMuted = allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track);
@@ -7435,7 +7505,7 @@ export function previewBootstrapScript(): string {
             const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
             const findLastSpaceBoundary = (characters, maximum) => {
                 for (let index = maximum - 1; index > 0; index -= 1) {
-                    if (characters[index] === ' ' || characters[index] === '\u3000') return index + 1;
+                    if (characters[index] && /\\p{Zs}/u.test(characters[index])) return index + 1;
                 }
                 return null;
             };
@@ -7592,11 +7662,141 @@ export function previewBootstrapScript(): string {
                         + formatCaptionSeconds(duration) + 's">' + lineMarkup + '</div>';
                 }).join('');
             };
+            const emphasisPresets = ${JSON.stringify(TEXTSTYLE_CATALOG)};
+            const inheritedEmphasisVars = ${JSON.stringify(CAPTION_INHERITED_EMPHASIS_VARS)};
             const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
                 emphasis.t_end > word.start
                 && emphasis.t_start < word.end
-                && (word.text === emphasis.word || emphasis.word.includes(word.text))
+                && (word.text === emphasis.word || emphasis.word.includes(word.text)
+                    || word.text.includes(emphasis.word))
             );
+            const applyEmphasisPaint = (span, emphasis) => {
+                const preset = emphasisPresets[emphasis.style_preset]?.style;
+                const color = typeof preset?.color === 'string' ? preset.color : '#f97316';
+                span.style.setProperty('color', color, 'important');
+                span.style.setProperty('-webkit-text-fill-color', color, 'important');
+                if (typeof preset?.weight === 'number') {
+                    span.style.setProperty('font-weight', String(preset.weight), 'important');
+                }
+                if (emphasis.inherit_caption_size === true) span.style.removeProperty('font-size');
+                else if (typeof preset?.size_px === 'number') span.style.fontSize = preset.size_px + 'px';
+                if (typeof preset?.font_family === 'string') span.style.fontFamily = preset.font_family;
+                if (typeof preset?.letter_spacing_em === 'number') {
+                    span.style.letterSpacing = preset.letter_spacing_em + 'em';
+                }
+                if (preset?.stroke && typeof preset.stroke.width_px === 'number') {
+                    span.style.webkitTextStroke = preset.stroke.width_px + 'px '
+                        + (preset.stroke.color || '#000000');
+                }
+                if (preset?.shadow && typeof preset.shadow.blur_px === 'number') {
+                    span.style.textShadow = '0 0 ' + preset.shadow.blur_px + 'px '
+                        + (preset.shadow.color || color);
+                }
+                if (emphasis.inherit_caption_size === true && inheritedEmphasisVars[emphasis.style_preset]) {
+                    const vars = inheritedEmphasisVars[emphasis.style_preset];
+                    if (vars['--caption-tok-webkit-text-stroke']) {
+                        span.style.setProperty('-webkit-text-stroke', vars['--caption-tok-webkit-text-stroke'], 'important');
+                    }
+                    if (vars['--caption-tok-text-shadow']) {
+                        span.style.setProperty('text-shadow', vars['--caption-tok-text-shadow'], 'important');
+                    }
+                }
+            };
+            const clearKaraokePaintForEmphasis = line => {
+                for (const token of [...line.querySelectorAll('.akari-caption__tok--karaoke, .akari-caption__tok--karaoke-done, .akari-caption__tok--karaoke-smooth')]) {
+                    const markers = [...token.querySelectorAll('[data-emphasis-id]')];
+                    if (!markers.length) continue;
+                    if (markers.map(marker => marker.textContent || '').join('') === token.textContent) {
+                        token.classList.remove('akari-caption__tok--karaoke', 'akari-caption__tok--karaoke-done',
+                            'akari-caption__tok--karaoke-smooth');
+                        token.removeAttribute('data-karaoke-text');
+                        continue;
+                    }
+                    const children = [...token.childNodes];
+                    if (!children.some(child => child.nodeType === Node.ELEMENT_NODE
+                        && child.matches('[data-emphasis-id]'))) continue;
+                    const fragment = document.createDocumentFragment();
+                    const total = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(token.textContent || '')].length;
+                    const delay = parseFloat(token.style.getPropertyValue('--akari-tok-delay'));
+                    const duration = parseFloat(token.style.getPropertyValue('--akari-tok-dur'));
+                    let offset = 0;
+                    for (const child of children) {
+                        const value = child.textContent || '';
+                        const length = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].length;
+                        if (child.nodeType === Node.ELEMENT_NODE && child.matches('[data-emphasis-id]')) {
+                            child.classList.add('akari-caption__tok');
+                            fragment.appendChild(child);
+                        } else if (value) {
+                            const copy = token.cloneNode(false);
+                            copy.appendChild(child);
+                            if (copy.hasAttribute('data-karaoke-text')) copy.dataset.karaokeText = value;
+                            if (total > 0 && Number.isFinite(delay) && Number.isFinite(duration)) {
+                                copy.style.setProperty('--akari-tok-delay', formatCaptionSeconds(delay + duration * offset / total) + 's');
+                                copy.style.setProperty('--akari-tok-dur', formatCaptionSeconds(duration * length / total) + 's');
+                            }
+                            fragment.appendChild(copy);
+                        }
+                        offset += length;
+                    }
+                    token.replaceWith(fragment);
+                }
+            };
+            const decorateCaptionEmphasis = (host, caption) => {
+                if (!host.ownerDocument || !emphasisWords.length) return;
+                for (const line of host.querySelectorAll('.akari-caption__line')) {
+                    const existing = line.querySelectorAll('[data-emphasis-id]');
+                    if (existing.length) {
+                        for (const marker of existing) {
+                            const emphasis = emphasisWords.find(item => item.id === marker.dataset.emphasisId);
+                            if (!emphasis) continue;
+                            applyEmphasisPaint(marker, emphasis);
+                            for (const run of marker.querySelectorAll('.akari-caption__run')) {
+                                applyEmphasisPaint(run, emphasis);
+                            }
+                        }
+                        clearKaraokePaintForEmphasis(line);
+                        continue;
+                    }
+                    const matches = captionEmphasisMatchesFn(line.textContent || '',
+                        caption.emphasisStart ?? caption.start, caption.emphasisEnd ?? caption.end,
+                        emphasisWords, caption.src);
+                    if (!matches.length) continue;
+                    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+                    const nodes = [];
+                    while (walker.nextNode()) nodes.push(walker.currentNode);
+                    let offset = 0;
+                    for (const node of nodes) {
+                        const value = node.textContent || '';
+                        const end = offset + value.length;
+                        if (node.parentElement?.closest('[data-emphasis-preset]')) {
+                            offset = end;
+                            continue;
+                        }
+                        const intersecting = matches.filter(match => match.from < end && match.to > offset);
+                        if (intersecting.length) {
+                            const fragment = document.createDocumentFragment();
+                            let cursor = 0;
+                            for (const match of intersecting) {
+                                const from = Math.max(cursor, match.from - offset, 0);
+                                const to = Math.min(value.length, match.to - offset);
+                                if (to <= from) continue;
+                                if (from > cursor) fragment.append(document.createTextNode(value.slice(cursor, from)));
+                                const span = document.createElement('span');
+                                span.className = 'akari-caption__tok--emphasis';
+                                span.dataset.emphasisId = match.emphasis.id;
+                                span.textContent = value.slice(from, to);
+                                applyEmphasisPaint(span, match.emphasis);
+                                fragment.append(span);
+                                cursor = to;
+                            }
+                            if (cursor < value.length) fragment.append(document.createTextNode(value.slice(cursor)));
+                            node.replaceWith(fragment);
+                        }
+                        offset = end;
+                    }
+                    clearKaraokePaintForEmphasis(line);
+                }
+            };
             const presetCaptionTokenCss = '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}';
             const presetStyleAttribute = vars => escapeCaptionHtml(Object.entries(vars)
                 .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
@@ -7632,6 +7832,9 @@ export function previewBootstrapScript(): string {
                         + renderText(word.text) + '</span>';
                 }
                 const style = resolveEmphasisStyle(emphasis);
+                const preset = emphasisPresets[emphasis.style_preset]?.style || null;
+                const presetCss = preset ? (typeof preset.color === 'string' ? 'color:' + preset.color + ';' : '')
+                    + (typeof preset.weight === 'number' ? 'font-weight:' + preset.weight + ';' : '') : '';
                 const overlapStart = Math.max(word.start, emphasis.t_start);
                 const overlapEnd = Math.min(word.end, emphasis.t_end);
                 const delay = Math.max(0, overlapStart - rangeStart);
@@ -7649,17 +7852,17 @@ export function previewBootstrapScript(): string {
                         + formatCaptionSeconds(Math.max(0.01, characterDuration)) + 's">'
                         + renderText(character) + '</span>'
                     ).join('');
-                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '">'
+                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '" style="' + presetCss + '">'
                         + markup + '</span>';
                 }
                 if (style === 'size-pulse') {
                     return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
                         + '" style="--akari-emphasis-delay: ' + formatCaptionSeconds(delay)
-                        + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's">'
+                        + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's;' + presetCss + '">'
                         + renderText(word.text) + '</span>';
                 }
                 return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
-                    + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
+                    + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ');' + presetCss + '">'
                     + renderText(word.text) + '</span>';
             };
             const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0, ignoreEmphasis = false, measuredTimeline = false) => {
@@ -8291,18 +8494,30 @@ export function previewBootstrapScript(): string {
                                 Boolean(caption.textStyleVars?.['--plate-ext-bg']),
                                 caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined)
                             : captionHtml;
+                        const cueEmphasis = typeof captionEmphasisMatchesFn === 'function'
+                            && captionEmphasisMatchesFn(caption.text,
+                            caption.emphasisStart ?? caption.start, caption.emphasisEnd ?? caption.end,
+                            emphasisWords, caption.src).length > 0;
+                        if ((caption.runs?.length || cueEmphasis)
+                            && typeof prioritizeCaptionStyleMarkupFn === 'function') {
+                            captionHtml = prioritizeCaptionStyleMarkupFn(captionHtml, caption.textStyleVars);
+                        }
                         if (caption.textStyle?.animation?.in?.id === 'typewriter'
                             || caption.textStyle?.animation?.out?.id === 'typewriter') {
                             captionHtml = decorateCaptionTypewriterHtml(captionHtml,
                                 caption.textStyle.animation, caption.end - caption.start);
                         }
                         captionPlate.innerHTML = captionHtml;
+                        if (typeof decorateCaptionEmphasis === 'function') decorateCaptionEmphasis(captionPlate, caption);
                         applyRichCaptionLayers(captionPlate, caption);
                     } else {
                         captionPlate.innerHTML = '';
                     }
                     // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
                     applyCaptionRowSelectionAttrs(captionPlate, caption);
+                    if ((caption?.sourceCueId || caption?.id) === selectedCaptionId) {
+                        if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
+                    }
                     row.captionHitRegionPending = true;
                 }
                 let captionAnimations = [];
@@ -10175,6 +10390,7 @@ export function previewBootstrapScript(): string {
             };
             previewPane.addEventListener('pointerdown', event => {
                 if ((typeof motionDraw !== 'undefined' && motionDraw) || penModeActive || zoom <= 1.05 || event.button !== 0) return;
+                if (event.target.closest?.('#review-chat-layer')) return;
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
                 // ズーム中のパン開始判定は capture 段で previewPane 配下の pointerdown を扱う。
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
@@ -10237,6 +10453,7 @@ export function previewBootstrapScript(): string {
             window.addEventListener('pointerdown', event => {
                 if ((typeof motionDraw !== 'undefined' && motionDraw) || !isPlaying || event.button !== 0 || event.altKey || penModeActive || rectModeActive
                     || !(event.target instanceof Element)
+                    || event.target.closest('#review-chat-layer')
                     || event.target.closest('button, [role="button"], input, textarea, select, a[href], [contenteditable="true"]')) return;
                 const onSurface = previewStage.contains(event.target)
                     || isDirectManipulationTarget(event.target, event);
@@ -10831,7 +11048,7 @@ export function previewBootstrapScript(): string {
                 if (overlaysAppended) {
                     window.akari.interaction?.clearSelection?.();
                     void window.akari.runtime.mount(summary).catch(error =>
-                        console.warn('[akari-preview] incremental overlay mount failed', error));
+                        console.warn('[akari-preview] incremental overlay mount failed', formatPreviewErrorFn(error)));
                 } else if (rotationChanged) {
                     void window.akari.runtime.mount(summary).then(() => {
                         window.akari.interaction?.restoreRotation3dAfterModel?.();
@@ -11569,10 +11786,13 @@ export function previewBootstrapScript(): string {
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
                     if (captionGestureCount) {
-                        pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
+                        pendingCaptionUpdate = { type: 'akari-preview-captions-update',
+                            captions: Array.isArray(message.captions) ? message.captions : [],
+                            emphasisWords: message.emphasisWords };
                         return;
                     }
                     const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
+                    if (Array.isArray(message.emphasisWords)) emphasisWords = message.emphasisWords;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated(nextCaptions);
                     captions = protectCaptionUpdate(nextCaptions);
@@ -12440,7 +12660,7 @@ export function previewBootstrapScript(): string {
                     applyInitialPosition();
                     if (initialPositionApplied) tick(true);
                 }
-            }).catch(error => console.error('[akari-preview] overlay mount failed', error));
+            }).catch(error => console.error('[akari-preview] overlay mount failed', formatPreviewErrorFn(error)));
         })();`;
 }
 /** Embed self-contained range and placement functions in both material webviews. */

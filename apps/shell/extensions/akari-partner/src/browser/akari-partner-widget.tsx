@@ -8,7 +8,8 @@ import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { PartnerExtensionCliAligner } from './partner-extension-cli-aligner';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
+import { CommandRegistry, CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
+import { CHAT_ENABLED_PREFERENCE, shouldResumeChat, shouldShowChatCard, visibleLastPartner } from './partner-chat-visibility';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -148,6 +149,9 @@ export class AkariPartnerWidget extends ReactWidget {
     @inject(CommandService)
     protected readonly commandService!: CommandService;
 
+    @inject(CommandRegistry)
+    protected readonly commandRegistry!: CommandRegistry;
+
     @inject(FileService)
     protected readonly fileService!: FileService;
 
@@ -228,6 +232,7 @@ export class AkariPartnerWidget extends ReactWidget {
             if (change.preferenceName === DEVELOPER_MODE_PREFERENCE) {
                 this.refreshDeveloperMode();
             }
+            if (change.preferenceName === CHAT_ENABLED_PREFERENCE) this.update();
         });
         void this.preferences.ready.then(() => this.refreshDeveloperMode());
         this.toDispose.push(Disposable.create(() => {
@@ -915,6 +920,10 @@ export class AkariPartnerWidget extends ReactWidget {
         await this.preferences.ready;
         const roots = await this.workspaceService.roots;
         const projectLast = await this.storageService.getData<{ entryId: string | null }>(PARTNER_LAST_KEY);
+        if (shouldResumeChat(projectLast?.entryId, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false)) && this.preferences.get<boolean>(PARTNER_REOPEN_PREFERENCE, true) && roots.length > 0 && this.liveTerminals.size === 0) {
+            if (this.commandRegistry.getCommand('akari.chat.open')) await this.commandService.executeCommand('akari.chat.open', { resumeLast: true });
+            return;
+        }
         let markerAgent: PartnerAgentId | undefined;
         if (projectLast === undefined) {
             try {
@@ -933,7 +942,9 @@ export class AkariPartnerWidget extends ReactWidget {
             enabled: this.preferences.get<boolean>(PARTNER_REOPEN_PREFERENCE, true),
             hasWorkspace: roots.length > 0,
             alreadyRunning: this.liveTerminals.size > 0 || !!web?.isRunning(),
-            projectLast, markerAgent, catalog: PARTNER_CATALOG
+            projectLast: visibleLastPartner(projectLast?.entryId, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))
+                ? projectLast : undefined,
+            markerAgent, catalog: PARTNER_CATALOG
         });
         if (decision.action === 'skip') return;
         const entry = decision.entry;
@@ -1531,6 +1542,10 @@ export class AkariPartnerWidget extends ReactWidget {
                         </div>;
                     })}
                 </div>
+                {shouldShowChatCard(this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false)) && <button data-akari-chat-card style={{ width: '100%', textAlign: 'left', padding: '8px 10px', marginTop: 14, borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#bbb', cursor: 'pointer', fontSize: 12 }} onClick={() => { if (this.commandRegistry.getCommand('akari.chat.open')) void this.commandService.executeCommand('akari.chat.open'); }}>
+                    <strong>AKARI</strong> <small style={{ border: '1px solid #777', borderRadius: 4, padding: '1px 4px' }}>{t('partner.akariPartnerWidget.ui.trialLabel')}</small>
+                    <span style={{ display: 'block' }}>{t('partner.akariPartnerWidget.ui.canDiscussVideoCreationViaChatMessage')}</span>
+                </button>}
 
                 {this.installCancelledNotice && <p role='status'>{this.installCancelledNotice}</p>}
                 {selectedFlow?.state === 'idle' && selectedFlow.status &&

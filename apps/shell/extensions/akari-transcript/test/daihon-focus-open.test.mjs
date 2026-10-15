@@ -65,6 +65,7 @@ function fixture() {
     notifyError(message) { events.push(message); errors.push(message); },
     applyQcFilter() { root.hidden = this.qcFilter || (this.speakerFilter !== null && this.speakerFilter !== 'A'); },
     setSelection(next) { this.selection = next; events.push('selection'); },
+    revealSourceGroupForRow() { root.hidden = false; },
     renderWordSelection() { events.push('renderWordSelection'); },
     audioOnlyCutReason() { return undefined; },
     async configure() { events.push('configure'); this.configured = true; }
@@ -86,6 +87,18 @@ test('conflicting speaker does not filter a resolved row and the row remains vis
     assert.equal(root.pulsed, true);
     assert.deepEqual(widget.selection, { selected: ['a'], anchorId: 'a' });
   }
+});
+
+test('focusTarget は素材チップの非表示設定を書き換えず、まとまりだけ開く', async () => {
+  const { widget } = fixture();
+  let revealed;
+  widget.hiddenSourceIds = ['source-a'];
+  widget.displaySourceIdForRow = () => 'source-a';
+  widget.revealSourceGroupForRow = id => { revealed = id; };
+  widget.preferences = { set() { assert.fail('素材チップの設定を書き換えない'); } };
+  assert.equal(await widget.focusTarget({ captionId: 'a' }), true);
+  assert.equal(revealed, 'a');
+  assert.deepEqual(widget.hiddenSourceIds, ['source-a']);
 });
 
 test('speaker-only requests filter, while empty requests do nothing', async () => {

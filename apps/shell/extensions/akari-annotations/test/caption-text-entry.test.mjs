@@ -31,8 +31,11 @@ test('caption textarea keeps original newlines on blur and saves added newlines'
     assert.match(inspector, /field\.inputKind === 'caption-text'\) \{\s*const textarea = document\.createElement\('textarea'\)/);
     assert.match(inspector, /textarea\.rows = 2;\s*textarea\.value = editValue;/);
     assert.match(inspector, /textarea\.addEventListener\('input', fit\)/);
-    assert.match(inspector, /key === 'Enter' && \(navigator\.platform\.includes\('Mac'\) \? keyboard\.metaKey : keyboard\.ctrlKey\)/);
-    assert.match(inspector, /key === 'Escape'\) \{\s*event\.preventDefault\(\);\s*input\.value = editValue;\s*input\.blur\(\)/);
+    assert.match(inspector, /new LiveCaptionEdit\(editValue,/);
+    assert.match(inspector, /textarea\.addEventListener\('compositionend', \(\) => \{ if \(!closing\) session\.compositionEnd\(textarea\.value\); \}\)/);
+    assert.match(inspector, /textarea\.addEventListener\('blur', \(\) => \{ void close\(false\); \}\)/);
+    assert.match(inspector, /event\.key === 'Enter' && \(navigator\.platform\.includes\('Mac'\) \? event\.metaKey : event\.ctrlKey\)/);
+    assert.match(inspector, /event\.key === 'Escape'\)[\s\S]*?void close\(true\)/);
     const start = inspector.indexOf('const commitValue = async (nextValue: string');
     const end = inspector.indexOf("if (field.inputKind === 'slider-number')", start);
     assert.ok(start >= 0 && end > start);

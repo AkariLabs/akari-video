@@ -371,7 +371,10 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
                     .map(token => ({ text: token.t, start: token.start, end: token.end }));
                 if (!sourceWords.length) continue;
                 const aligned = rederiveCaptionWords({
-                    oldText: sourceWords.map(word => word.text).join(''), newText: caption.text,
+                    // Spaced languages join their words with a space, as the caption text does.
+                    oldText: guide.language === 'ja' ? sourceWords.map(word => word.text).join('')
+                        : sourceWords.map(word => word.text).join(' ').replace(/\s+([.!?,])/gu, '$1'),
+                    newText: caption.text,
                     words: sourceWords, start: caption.start, end: caption.end
                 });
                 const withoutSpaces = (text: string): string => text.replace(/\s/gu, '');

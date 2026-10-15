@@ -270,10 +270,10 @@ export function hostAdapterScript(): string {
                     pending.set(requestId, { kind: 'cut-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, cutId, patch });
                 }),
-                captionWrite: (captionId, patch) => new Promise((resolve, reject) => {
+                captionWrite: (captionId, patch, phase) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'caption-write', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch });
+                    vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch, phase });
                 }),
                 mixedMove: (writes, cuePositions) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -965,6 +965,7 @@ export function hostAdapterScript(): string {
             window.akari.reviewRectEnd = box => {
                 vscode.postMessage({ type: 'akari-preview-review-rect-end', box });
             };
+            window.akari.reviewChatPost = message => vscode.postMessage(message);
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
             window.akari.reportPreviewFrameCapture = message => vscode.postMessage(message);

@@ -69,6 +69,7 @@ function harness(neverClose = false) {
     editSources: [], segments: [],
     silenceMin: .45, silenceKeep: .15,
     readText: async uri => uri.toString() === 'edit' ? edit : 'captions-before',
+    readCutMotionSnapshots: async () => new Map(),
     preferences: { async set() {} }, updateCutsButton() {}, refreshRowGapChips() {},
     annotationsService: { async applyCutRanges(request) {
       writes++;

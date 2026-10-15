@@ -1,0 +1,107 @@
+<div class="demo-chat" lang="en">
+<style>
+/*
+  AI との対話（demo-chat）英語版: "With this, all you do is talk with the AI."
+  edit.json では段 demo-stage、at 192 / duration 90（6.400〜9.400 秒）。時刻はすべてクリップ先頭 0 の
+  ローカル秒（絶対秒 = ローカル + 6.4）。語頭は英語クリップの強制アライメント値
+  （With 6.40 / all 7.22 / talk 8.14）。日本語版と同じく、入りは 1 フレーム前（-0.033 秒）から始め、
+  語頭のフレームで見え始めるようにしてある。日本語版（ja-01）から文言・幅・時刻だけを差し替えた版。
+    カード       -0.033 → 0.267  右から滑り込む（translateX 30→0 は --ease-smooth 0.30 秒、opacity 0→1 は --ease-slowdown
+                                 0.25 秒。語頭のフレームで 4 割見えている）
+    あなた        0.000          「With」(6.40) の語頭。橙の吹き出し "Edit it to match what I say" がポップ
+                                 （scale .7→1、0.28 秒、--ease-overshoot-soft、右下起点）
+    AI 入力中     0.820          「all」(7.22) の語頭。アイコンと入力中の点 3 つの吹き出しがポップ（左下起点）。
+                                 点は 0.6 秒周期・0.12 秒ずらしで上下（2 周）
+    返事          1.740          「talk」(8.14) の語頭。点の吹き出しが 0.1 秒で消え、"Done!" が 0.2 秒で出る
+    チェック      1.770          橙の丸チェックが回りながらポップ（scale .4→1、--ease-overshoot-mid）、
+                                 0.05 秒後に橙の輪が 1 回広がって消える
+    抜け          2.700 → 2.950  右へ 30px 抜けて消える（--ease-accelerate、0.25 秒、forwards。区間の最後 3.000 の手前で消え切る。
+                                 返事は 1.74 から 2.70 まで約 0.96 秒見える）
+  base（アニメ無しの見た目）は最終の静止状態（返事まで出た対話）。入力中の点と輪だけは最終状態も不可視の
+  過渡なので base で隠す。
+
+  文字の大きさ: アプリのプレビュー枠は幅 640px 前後の縮小表示なので、1280 基準で文字はすべて 26px 以上
+  （吹き出し 28px、見出し 26px）。英語は日本語より幅が要るのでカードを 470 → 480px に広げ、左端を
+  740 → 730px にした（left 730 / top 130 / 480×248。右端 1210。抜けで右へ 30px ずれても 1240 に収まる）。
+  右の舞台（y<460 は x 720〜1240）に収まり、人物の届く範囲（y<470 で x<690）と字幕帯
+  （x 300〜980・y≥628）には入らない。ラテン文字用に palt と字間の指定は外した。
+
+  書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name 'Source'）の
+  wght 800 を、この断片で使う文字（半角英字・空白・"!" の 22 字）だけに切り出した改変版（別名で埋め込み、
+  フォント内に著作権表示と許諾を保持。日本語の字形は含まない）。
+  unicode-range をこの断片の文字に限ってあるので、同じ家族名の別断片（900 等）と同じ文書に並んでも混ざらない。
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --chat-left / --chat-top / --chat-width / --chat-height   カードの位置と大きさ（既定 730px / 130px / 480px / 248px）
+    --chat-radius                                            カードの角丸（既定 26px）
+    --chat-font-size / --chat-head-size                      吹き出しと見出しの文字サイズ（既定 28px / 26px）
+    --chat-font                                              書体（既定 AKARI Demo Sans → Helvetica Neue → Arial …）
+    --demo-ink / --demo-ink-sub                              墨（文字）・補助（見出し・点）
+    --demo-card / --demo-card-line / --demo-shadow           カードの地・縁・影
+    --demo-accent                                            橙（あなたの吹き出し・✦・チェック）
+    --chat-on-accent / --chat-ai-bubble / --chat-avatar      橙の上の文字・AI の吹き出しの地・アイコンの地
+    --chat-rule                                              見出しの区切り線
+    --chat-lead                                              入りの前倒し（既定 .033s = 1 フレーム）
+    --chat-at-you / --chat-at-ai / --chat-at-done / --chat-at-check / --chat-at-out
+                                                             各段の発火時刻（ローカル秒。既定 0s / .82s / 1.74s / 1.77s / 2.7s）
+*/
+@font-face{font-family:"AKARI Demo Sans";src:url(data:font/woff2;base64,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) format("woff2");font-weight:800;font-style:normal;font-display:block;unicode-range:U+0020,U+0021,U+0041,U+0044,U+0045,U+0049,U+0061,U+0063,U+0064,U+0065,U+0068,U+0069,U+006D,U+006E,U+006F,U+0070,U+0072,U+0073,U+0074,U+0077,U+0079}
+.demo-chat,.demo-chat *,.demo-chat *::before,.demo-chat *::after{box-sizing:border-box}
+.demo-chat{position:absolute;inset:0;font-family:var(--chat-font,"AKARI Demo Sans","Helvetica Neue",Arial,sans-serif);font-weight:800;color:var(--demo-ink,#17130F)}
+.demo-chat svg{display:block;flex:none}
+.demo-chat__stage{position:absolute;left:var(--chat-left,730px);top:var(--chat-top,130px);width:var(--chat-width,480px);height:var(--chat-height,248px)}
+.demo-chat__card{position:absolute;inset:0;display:flex;flex-direction:column;padding:18px 26px 22px;border-radius:var(--chat-radius,26px);background:var(--demo-card,rgba(255,255,255,.97));border:1px solid var(--demo-card-line,rgba(23,19,15,.07));box-shadow:var(--demo-shadow,0 18px 44px rgba(58,38,20,.22))}
+.demo-chat__head{display:flex;align-items:center;gap:11px;padding:0 2px 14px;border-bottom:1px solid var(--chat-rule,rgba(23,19,15,.09));font-size:var(--chat-head-size,26px);line-height:32px;letter-spacing:.01em;color:var(--demo-ink-sub,#6B5E52)}
+.demo-chat__head svg{width:25px;height:25px;color:var(--demo-accent,#F97316)}
+.demo-chat__log{display:flex;flex-direction:column;gap:16px;padding-top:18px}
+.demo-chat__you{display:flex;justify-content:flex-end}
+.demo-chat__bubble{margin:0;min-height:62px;display:flex;align-items:center;font-size:var(--chat-font-size,28px);line-height:36px;letter-spacing:0;white-space:nowrap}
+.demo-chat__bubble--you{max-width:428px;padding:13px 24px 13px 25px;border-radius:22px 22px 7px 22px;background:var(--demo-accent,#F97316);color:var(--chat-on-accent,#FFFFFF);box-shadow:0 9px 20px rgba(249,115,22,.26);transform-origin:100% 100%}
+.demo-chat__ai{display:flex;align-items:flex-end;gap:12px;transform-origin:0 100%}
+.demo-chat__avatar{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;background:var(--chat-avatar,#FFF3E8);color:var(--demo-accent,#F97316);box-shadow:inset 0 0 0 1px rgba(249,115,22,.18)}
+.demo-chat__avatar svg{width:23px;height:23px}
+.demo-chat__slot{display:grid;justify-items:start;align-items:end}
+.demo-chat__slot>*{grid-area:1/1}
+.demo-chat__bubble--ai{border-radius:22px 22px 22px 7px;background:var(--chat-ai-bubble,#F4EFE9);color:var(--demo-ink,#17130F)}
+.demo-chat__typing{opacity:0;transform-origin:0 100%}
+.demo-chat__typing .demo-chat__bubble{gap:9px;padding:0 25px}
+.demo-chat__dot{width:11px;height:11px;border-radius:50%;background:var(--demo-ink-sub,#6B5E52)}
+.demo-chat__reply{gap:12px;padding:13px 16px 13px 25px;transform-origin:0 100%}
+.demo-chat__check{position:relative;width:34px;height:34px;flex:none;color:var(--demo-accent,#F97316)}
+.demo-chat__check svg{width:34px;height:34px}
+.demo-chat__ring{position:absolute;inset:-7px;border-radius:50%;border:3px solid var(--demo-accent,#F97316);opacity:0}
+[data-akari-active] .demo-chat__stage{animation:demo-chat-out .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) forwards paused;animation-delay:var(--chat-at-out,2.7s)}
+[data-akari-active] .demo-chat__card{animation:demo-chat-card-in .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both paused,demo-chat-card-fade .25s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) both paused;animation-delay:calc(0s - var(--chat-lead,.033s)),calc(0s - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__bubble--you{animation:demo-chat-pop .28s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both paused;animation-delay:calc(var(--chat-at-you,0s) - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__ai{animation:demo-chat-pop .28s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both paused;animation-delay:calc(var(--chat-at-ai,.82s) - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__dot{animation:demo-chat-dot .6s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) 2 both paused;animation-delay:calc(var(--chat-at-ai,.82s) - var(--chat-lead,.033s) + var(--dot-i) * .12s)}
+[data-akari-active] .demo-chat__typing{animation:demo-chat-typing-out .1s var(--ease-linear, linear) both paused;animation-delay:calc(var(--chat-at-done,1.74s) - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__reply{animation:demo-chat-reply-in .2s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both paused;animation-delay:calc(var(--chat-at-done,1.74s) - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__check{animation:demo-chat-check-in .32s var(--ease-overshoot-mid, cubic-bezier(0.18, 3.16, 0.07, 0.83)) both paused;animation-delay:calc(var(--chat-at-check,1.77s) - var(--chat-lead,.033s))}
+[data-akari-active] .demo-chat__ring{animation:demo-chat-ring .45s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) forwards paused;animation-delay:calc(var(--chat-at-check,1.77s) + .05s)}
+@keyframes demo-chat-card-in{0%{transform:translateX(30px)}100%{transform:translateX(0)}}
+@keyframes demo-chat-card-fade{0%{opacity:0}100%{opacity:1}}
+@keyframes demo-chat-out{0%{transform:translateX(0);opacity:1}100%{transform:translateX(30px);opacity:0}}
+@keyframes demo-chat-pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes demo-chat-dot{0%{transform:translateY(0);opacity:.45}30%{transform:translateY(-6px);opacity:1}60%{transform:translateY(0);opacity:.45}100%{transform:translateY(0);opacity:.45}}
+@keyframes demo-chat-typing-out{0%{transform:scale(1);opacity:1}100%{transform:scale(.88);opacity:0}}
+@keyframes demo-chat-reply-in{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes demo-chat-check-in{0%{transform:scale(.4) rotate(-30deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes demo-chat-ring{0%{transform:scale(.85);opacity:.75}100%{transform:scale(1.7);opacity:0}}
+</style>
+<div class="demo-chat__stage">
+<section class="demo-chat__card">
+<header class="demo-chat__head"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.6c.9 5.9 4.5 9.5 10.4 10.4-5.9.9-9.5 4.5-10.4 10.4C11.1 16.5 7.5 12.9 1.6 12 7.5 11.1 11.1 7.5 12 1.6z"/></svg><span>AI partner</span></header>
+<div class="demo-chat__log">
+<div class="demo-chat__you"><p class="demo-chat__bubble demo-chat__bubble--you">Edit it to match what I say</p></div>
+<div class="demo-chat__ai">
+<span class="demo-chat__avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.6c.9 5.9 4.5 9.5 10.4 10.4-5.9.9-9.5 4.5-10.4 10.4C11.1 16.5 7.5 12.9 1.6 12 7.5 11.1 11.1 7.5 12 1.6z"/></svg></span>
+<div class="demo-chat__slot">
+<div class="demo-chat__typing"><div class="demo-chat__bubble demo-chat__bubble--ai"><i class="demo-chat__dot" style="--dot-i:0"></i><i class="demo-chat__dot" style="--dot-i:1"></i><i class="demo-chat__dot" style="--dot-i:2"></i></div></div>
+<p class="demo-chat__bubble demo-chat__bubble--ai demo-chat__reply"><span>Done!</span><span class="demo-chat__check"><i class="demo-chat__ring"></i><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="14" fill="currentColor"/><path d="M8.2 14.6l3.9 3.8 7.7-8.4" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>

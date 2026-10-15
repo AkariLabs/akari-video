@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"session-fixed","model":"claude-haiku-5-5","slash_commands":["compact","clear"],"skills":["edit-lint"],"permissionMode":"auto"}
+{"type":"assistant","error":"authentication_failed","message":{"id":"message-fixed-11","role":"assistant","content":[{"type":"text","text":"Not logged in · Please run /login"}]}}
+{"type":"result","subtype":"success","is_error":true,"usage":{"input_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"output_tokens":0,"iterations":[]},"modelUsage":{},"result":"Not logged in · Please run /login"}

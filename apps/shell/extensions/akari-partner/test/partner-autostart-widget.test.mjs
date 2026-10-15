@@ -9,6 +9,7 @@ import { rememberPartnerClose } from '../lib/common/partner-last-session.js';
 import { normalizePartnerPermissionMode } from '../lib/common/partner-permissions.js';
 
 const require = createRequire(import.meta.url);
+const chatVisibility = require('../lib/browser/partner-chat-visibility.js');
 const { t } = require('../lib/common/partner-text.js');
 before(() => setLanguage('ja'));
 after(() => setLanguage(undefined));
@@ -39,6 +40,7 @@ function deferred() {
 
 function autoStartMethod(catalog) {
     return method('autoStartLastPartner', {
+        ...chatVisibility,
         decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
         PARTNER_CATALOG: catalog, PartnerWebWidget: { ID: 'web' }
     });
@@ -212,9 +214,14 @@ test('auto-start backs off when another manually started entry is working', asyn
 test('auto-start waits for preferences before reading the switch', async () => {
     const ready = deferred();
     let reads = 0;
+    let reopenReads = 0;
     const widget = {
         autoStartAttempted: false,
-        preferences: { ready: ready.promise, get: () => { reads++; return false; } },
+        preferences: { ready: ready.promise, get: key => {
+            reads++;
+            if (key === 'akari.partner.reopenLast') reopenReads++;
+            return false;
+        } },
         workspaceService: { roots: [] },
         storageService: { getData: async () => undefined },
         readAppMarkerRaw: async () => undefined,
@@ -226,7 +233,8 @@ test('auto-start waits for preferences before reading the switch', async () => {
     assert.equal(reads, 0);
     ready.resolve();
     await auto;
-    assert.equal(reads, 1);
+    assert.equal(reads, 3, 'chat visibility is read twice and reopenLast once after ready');
+    assert.equal(reopenReads, 1);
 });
 
 test('restorePartnerTerminals resolves while autoStartLastPartner is still pending', async () => {
@@ -269,6 +277,7 @@ test('uninstalled automatic partner shows a quiet notice without opening a dialo
         beginCli: async () => { starts++; }
     };
     const run = method('autoStartLastPartner', {
+        ...chatVisibility,
         decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
         PARTNER_CATALOG: [entry], PartnerWebWidget: { ID: 'web' }
     });
@@ -282,7 +291,7 @@ test('uninstalled automatic partner shows a quiet notice without opening a dialo
 test('running web partner is restored by agent ID in either language', async () => {
     const entry = { id: 'deepseek/dsh-web', agent: 'deepseek', form: 'web', name: 'DeepSeek Harness' };
     const run = method('autoStartLastPartner', {
-        decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
+        ...chatVisibility, decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
         PARTNER_CATALOG: [entry], PartnerWebWidget: { ID: 'web' }
     });
     try {

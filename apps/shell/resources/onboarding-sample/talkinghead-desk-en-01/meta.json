@@ -1,0 +1,40 @@
+{
+  "id": "talkinghead-desk-en-01",
+  "category": "broll",
+  "title": "自宅デスクのトーキングヘッド（英語・35.2 秒）",
+  "description": "編集練習用のトーキングヘッド素材。自宅のデスクで英語を話す男性（日本語版 talkinghead-desk-ja-01 と同じ人物・同じ構図）。1280x720 / 30fps / 35.20 秒 / 音声つき。人物は画面左に固定され、右 45% が空いているのでテロップ・図解・モックアップを置ける。台本・書き起こしを同梱した練習パック",
+  "when_to_use": "英語の UI での動画編集の練習・チュートリアル・機能デモの被写体として。素材が手元に無くて編集を試せないときの出発点",
+  "i18n": {
+    "en": {
+      "title": "Home Desk Talking Head (English, 35.2 Seconds)",
+      "description": "A talking-head clip for editing practice: a man speaking English at his home desk (the same person and framing as the Japanese talkinghead-desk-ja-01). 1280x720 / 30fps / 35.20 seconds / with audio. He stays on the left, leaving the right 45% free for captions, diagrams, or mockups. The practice pack includes the script and transcript.",
+      "when_to_use": "As a subject for editing practice, tutorials, and feature demos in an English UI; a starting point when you have no footage on hand to try editing."
+    }
+  },
+  "tags": [
+    "16-9",
+    "ai-generated",
+    "broll",
+    "desk",
+    "english",
+    "practice",
+    "talking-head",
+    "vlog"
+  ],
+  "knobs": [],
+  "ai_usage": "編集練習用の素材（英語）。設計上の仕込みが 3 つある。(1) 余白: 人物は画面左に固定され右へ動かないため、x が 55%〜100% の領域が全編にわたって空いている。テロップ・図解・スマートフォンのモックアップの置き場に使える。(2) 無音の間: 0.883s から 1.094 秒（「Hi there!」直後・テンポとして残す想定）と 22.871s から 2.089 秒（意図的に死なせた間・詰める練習用）。同じ素材の中に「残す間」と「詰める間」が両方入っているので、無音カットの判断を練習できる。(3) 書き起こし: transcript.json に文単位とトークン単位（台本を声へ強制アラインメントした語の時刻・語頭 ±0.05 秒程度）の両方。字幕・カラオケ表示の練習に使える。登場人物・音声はいずれも AI 生成であり実在しない。お手本の効果音 14 本と BGM の出所・ライセンス・切り出した秒数は audio-sources.json に記録。",
+  "requires": [],
+  "provenance": {
+    "origin": "2026-10-14 に AKARI Labs が生成（日本語版 talkinghead-desk-ja-01 と同じ作り方）。(1) 静止画 = 日本語版と同じ参照画像（Codex CLI 内蔵 image_generation・3 案から b を採用）。(2) 音声 = fal 経由 Gemini 3.1 Flash TTS / voice=Charon / language_code=English (US) / 英語のスタイル指示つき。台本は日本語版の拍の順を保った英訳。2 テイクから 1 本を採用し、無音の間は句切れの最も小さい点に ffmpeg で 1.000 秒・2.000 秒を差し込み、末尾に 2 秒の余白を足して 35.2 秒にした。(3) 映像 = fal 経由 Kling AI Avatar v2 standard（音声駆動アバター・request_id 01a13a92-e5c8-7443-8ce5-faf462519821）。音声は入力の WAV を AAC 128 kbps で載せ直した（Kling の出力の音声とのずれ 0 ms を確認）。語の時刻は台本を声へ強制アラインメント（torchaudio MMS_FA）して求めた。演出 9 本（overlays/）は日本語版の断片を英語の文言と英語の語頭の時刻へ作り直し、書体は Noto Sans JP（SIL OFL 1.1）と Dela Gothic One（SIL OFL 1.1）から英語で使う字だけを切り出して別名で埋め込んだ（フォント内の著作権表示と許諾は保持）。スマホの枠は工房の phone-2d（CC0-1.0）が元。効果音 14 本は日本語版と同じ切り出し（MIT）。BGM は AKARI Sounds bgm-lofi-minimal-085（Midnight Notepad）の原曲 0.370〜35.570 秒（拍が「pop!」17.99 秒に乗る位置）を AAC 96 kbps に切り出した（このセットの切り出しは MIT）。",
+    "generator": "Kling AI Avatar v2 standard / Gemini 3.1 Flash TTS (Charon) / Codex image_generation"
+  },
+  "author": "AKARI Labs",
+  "license": {
+    "spdx": "MIT",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": 0,
+  "version": 1
+}

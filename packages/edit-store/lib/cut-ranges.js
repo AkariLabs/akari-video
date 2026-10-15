@@ -35,6 +35,8 @@ function applyCutRanges(source, ranges, opts = {}) {
                     : applyV2Edit(current, [range], opts, [], undefined, false, false);
             }
             catch (error) {
+                if (error instanceof Error && error.message.includes('動きの記録の袋を読み込めない'))
+                    throw error;
                 if (!group)
                     throw error;
                 warnings.push(`同期した素材を切れませんでした。配置とカット範囲を確認してください。`);
@@ -829,7 +831,8 @@ function sameAppearance(left, right) {
     return appearance(left) === appearance(right);
 }
 function hasTimedAppearance(item) {
-    return !!(item.keyframes?.length || item.animator?.length || item.motion
+    return !!(item.keyframes && (!Array.isArray(item.keyframes) || item.keyframes.length)
+        || item.animator?.length || item.motion
         || item.items?.length);
 }
 function sameCutResult(left, right, sourceTolerance = SOURCE_TOLERANCE, frameTolerance = 0) {
@@ -876,7 +879,7 @@ function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightI
         const candidateTrack = restored.tracks[trackIndex];
         if (leftIndex < 0 || rightIndex < 0) {
             const solo = originalTrack.items[leftIndex < 0 ? rightIndex : leftIndex];
-            if (solo.keyframes?.length)
+            if (solo.keyframes && (!Array.isArray(solo.keyframes) || solo.keyframes.length))
                 return RESTORE_APPEARANCE;
             if (solo.source.src !== originalLeft.source.src)
                 return RESTORE_UNAVAILABLE;
@@ -934,7 +937,8 @@ function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightI
             return RESTORE_UNAVAILABLE;
         const left = originalTrack.items[leftIndex];
         const right = originalTrack.items[rightIndex];
-        if (left.keyframes?.length || right.keyframes?.length)
+        if (left.keyframes && (!Array.isArray(left.keyframes) || left.keyframes.length)
+            || right.keyframes && (!Array.isArray(right.keyframes) || right.keyframes.length))
             return RESTORE_APPEARANCE;
         const tolerance = audioFrameTolerance(left, right, originalLeft, originalRight);
         const audioAtGap = right.at - left.at - left.duration;
