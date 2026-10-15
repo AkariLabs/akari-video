@@ -1,0 +1,1 @@
+{"version":0,"kind":"akari-project-manifest","nodes":[{"id":"project:p","kind":"project","rev":1},{"id":"world:w","kind":"world","rev":2}],"edges":[{"from":"project:p","uses":"world:w"},{"from":"world:w","uses":"project:p"}]}

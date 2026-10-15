@@ -763,5 +763,22 @@
   "cli.connectCommand.ui.noKeyHasBeenSetMessage": "鍵が設定されていません。",
   "cli.connectCommand.ui.couldNotStartChildProcessError": "子プロセスを起動できませんでした。",
   "cli.connectCommand.group.toolsLabel": "AKARI の道具",
-  "cli.connectCommand.group.generateLabel": "素材を作る"
+  "cli.connectCommand.group.generateLabel": "素材を作る",
+  "cli.project.command.help": "使い方: akari project sync [<project>] [--json] | check [<project>] [--json] | scene add <id> [--project <dir>]",
+  "cli.project.error.argument": "不正な引数: {argument}",
+  "cli.project.error.id": "シーン ID は英小文字・数字・ハイフンで指定してください",
+  "cli.project.error.project": "AKARI プロジェクトが見つかりません: {path}",
+  "cli.project.error.template": "プロジェクト雛形が見つかりません",
+  "cli.project.error.exists": "シーンは既に存在します",
+  "cli.project.result.sync": "manifest を同期しました: {counts} edge:{edges}",
+  "cli.project.result.absent": "manifest はまだありません（akari project sync で作れます）",
+  "cli.project.result.check": "manifest 検査: error:{error} warning:{warning} info:{info}",
+  "cli.project.result.scene": "シーンを追加しました: {id}",
+  "cli.project.finding.missingNode": "edge {from} → {uses} の node がありません",
+  "cli.project.finding.selfReference": "自己参照: {id}",
+  "cli.project.finding.cycle": "循環: {from} → {uses}",
+  "cli.project.finding.unacquired": "未取得: {id}",
+  "cli.project.finding.missingWhere": "実体がありません: {id}",
+  "cli.project.finding.stale": "参照先が新しい版です: {id}",
+  "cli.project.finding.invalidWhere": "プロジェクト外または不正な where: {id}"
 }
