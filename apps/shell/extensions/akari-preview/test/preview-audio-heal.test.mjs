@@ -98,7 +98,7 @@ test('(b) sidecar gate and persistent pending key request resync, with host rout
     assert.match(source('akari-preview-open-handler.ts'), /this\.handlePreviewAudioResync\(widget/u);
 });
 
-test('(c) resync queries queued summary even with a ready request, restores ready, and joins an in-flight run', async () => {
+const resyncHostClass = () => {
     const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
     const methods = ['previewAudioSidecarFields', 'handlePreviewAudioResync'].map(name => {
         const start = compiled.indexOf(`    ${name}(`);
@@ -106,7 +106,12 @@ test('(c) resync queries queued summary even with a ready request, restores read
         assert.ok(start >= 0 && end > start, name);
         return compiled.slice(start, end);
     }).join('\n');
-    const Host = vm.runInNewContext(`(class { ${methods} })`, { console, setTimeout, clearTimeout, Date, Promise, Set, Map });
+    return vm.runInNewContext(`(class { ${methods} })`,
+        { console, setTimeout, clearTimeout, Date, Promise, Set, Map });
+};
+
+test('(c) resync queries queued summary even with a ready request, restores ready, and joins an in-flight run', async () => {
+    const Host = resyncHostClass();
     const host = new Host();
     const calls = [];
     let resolveRequest;
@@ -139,6 +144,36 @@ test('(c) resync queries queued summary even with a ready request, restores read
         && message.audio.bgms[0].sidecarState === 'ready'));
     assert.equal(widget.akariPreviewAssetUrlByUri.get('preview-audio:bed:bed-key'), 'asset://bed');
     assert.equal(widget.akariPreviewAssetStreamIds[0], 'bed-stream');
+});
+
+test('(c2) a resync answer that returns after the model was replaced does not overwrite the newer state', async () => {
+    const Host = resyncHostClass();
+    const host = new Host();
+    let resolveRequest;
+    const disposed = [];
+    let restarted = 0;
+    host.currentWorkspaceRoots = async () => [];
+    host.disposeAssetStreams = async ids => { disposed.push(...ids); };
+    host.startPreviewAudioTracking = () => { restarted++; };
+    host.previewService = { requestPreviewAudioSidecar: () => new Promise(resolve => { resolveRequest = resolve; }) };
+    const messages = [];
+    const widget = { isDisposed: false, sendMessage: message => messages.push(message),
+        akariPreviewSummary: { audio: { bgms: [{ id: 'bed', sidecarState: 'queued' }] } },
+        akariPreviewAudioModel: { previewAudioPendingRequests: [
+            { kind: 'bgm', id: 'bed', state: 'queued', label: 'bed', request: { kind: 'bgm' } },
+        ] } };
+    const run = host.handlePreviewAudioResync(widget, ['bgm:bed']);
+    await new Promise(resolve => setImmediate(resolve));
+    // A trim edit swaps in a new model whose sidecar for the same clip is already ready under a new key.
+    widget.akariPreviewAudioModel = { previewAudioPendingRequests: [] };
+    widget.akariPreviewSummary = { audio: { bgms: [{ id: 'bed', sidecarState: 'ready', sidecarKey: 'new-key' }] } };
+    const sentBefore = messages.length;
+    resolveRequest({ state: 'ready', key: 'old-key', stream: { id: 'old-stream', url: 'asset://old' } });
+    await run;
+    assert.equal(widget.akariPreviewSummary.audio.bgms[0].sidecarKey, 'new-key');
+    assert.deepEqual(disposed, ['old-stream']);
+    assert.equal(messages.length, sentBefore);
+    assert.equal(restarted, 0);
 });
 
 test('(d) stale queued state reproduces a ready regression, and same-key reconciliation prevents it', () => {

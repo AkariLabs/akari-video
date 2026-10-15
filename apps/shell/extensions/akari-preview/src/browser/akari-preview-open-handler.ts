@@ -5309,7 +5309,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return;
                 }
                 const result = settled.value;
-                if (widget.isDisposed) {
+                // An edit while the request was in flight replaced the model; its answer is stale.
+                if (widget.isDisposed || widget.akariPreviewAudioModel !== model) {
                     if (result.stream) await this.disposeAssetStreams([result.stream.id]);
                     return;
                 }
@@ -5353,7 +5354,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         })).then(() => {
             const currentAudio = widget.akariPreviewSummary?.audio;
-            if (!widget.akariPreviewAudioPollGeneration && currentAudio && !widget.isDisposed) {
+            if (!widget.akariPreviewAudioPollGeneration && currentAudio && !widget.isDisposed
+                && widget.akariPreviewAudioModel === model) {
                 const pending = requests.some(item => {
                     const collection = item.kind === 'bgm' ? (currentAudio.bgms ?? (currentAudio.bgm ? [currentAudio.bgm] : []))
                         : currentAudio[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)] ?? [];
@@ -5427,20 +5429,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!current()) return;
             await Promise.all([...pending].map(async item => {
                 let result: PreviewAudioSidecarRequestResult;
+                let deadline: ReturnType<typeof setTimeout> | undefined;
                 try {
                     const request = (async () => {
                         item.request.workspaceRoots = await this.currentWorkspaceRoots();
                         widget.akariPreviewAudioLastQueryAt = new Date().toISOString();
                         return service.requestPreviewAudioSidecar(item.request);
                     })();
-                    let deadline: ReturnType<typeof setTimeout> | undefined;
                     const settled = await Promise.race([
                         request.then(value => ({ timedOut: false as const, value })),
                         new Promise<{ timedOut: true }>(resolve => {
                             deadline = setTimeout(() => resolve({ timedOut: true }), 15_000);
                         })
                     ]);
-                    clearTimeout(deadline);
                     if (settled.timedOut === true) {
                         void request.then(late => {
                             if (late.stream) void this.disposeAssetStreams([late.stream.id]);
@@ -5454,6 +5455,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     result = settled.value;
                 } catch (error) {
                     result = { state: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+                } finally {
+                    clearTimeout(deadline);
                 }
                 if (!current()) {
                     if (result.stream) await this.disposeAssetStreams([result.stream.id]);
