@@ -3,6 +3,7 @@ import { t } from '@akari-video/i18n';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
+import { scriptTimelineRow, type ScriptLines } from '../common/script-lines';
 import { TimelineShuttleController } from './timeline/timeline-shuttle-controller';
 import { TimelinePlayheadFollow } from './timeline/timeline-playhead-follow';
 import type { ShuttleRate } from '../common/timeline-shuttle';
@@ -1355,6 +1356,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly watchedCaptionsReload = new CoalescedContentReload(async () => {
         if (!this.isDisposed) await this.reloadCaptionsIfChanged();
     });
+    protected readonly watchedScriptReload = new CoalescedContentReload(async () => {
+        if (!this.isDisposed) await this.reloadScript();
+    });
+    protected scriptUri: URI | undefined;
+    protected scriptLines: ScriptLines | undefined;
+    protected scriptReloadGeneration = 0;
     protected captions: CaptionRecord[] = [];
     protected readonly captionTextSessions = new Map<string, { before: string }>();
     protected captionDisplayLocale = 'ja';
@@ -1625,6 +1632,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly pasteTargetTracks = new Set<string>();
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
     protected laneLayout: {
+        script: LaneBounds;
         world: LaneBounds;
         beats: LaneBounds;
         captions: LaneBounds;
@@ -1634,7 +1642,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audioTracks: TrackGroupLayout[];
         tracks: TrackGroupLayout[];
     } = {
-        world: { top: 0, height: 0 }, beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
+        script: { top: 0, height: 0 }, world: { top: 0, height: 0 }, beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
         cutTracks: [], layerTracks: [], audioTracks: [], tracks: []
     };
     protected readonly overlayRows = new Map<string, number>();
@@ -8823,12 +8831,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.location, editUri: uri,
             captionsUri: uri.parent.resolve('captions.json'), reviewUri: uri.parent.resolve('review.json')
         };
+        this.scriptUri = undefined;
+        this.scriptLines = undefined;
+        this.scriptReloadGeneration++;
         this.setTimelineRange({});
         this.autoRipple = await this.storage.getData<boolean>(`akari.timeline.autoRipple:${uri.toString()}`, false) === true;
         this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshReviewSessionRanges();
         await this.updateTimelineTabCaption();
         await this.reloadEdit();
+        await this.reloadScript();
     }
 
     protected async ensureTimelineEdit(materialUri?: URI): Promise<boolean> {
@@ -8876,6 +8888,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configured = true;
         this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
+        this.scriptUri = undefined;
+        this.scriptLines = undefined;
+        this.scriptReloadGeneration++;
         this.timelineIssueChip.setFindings([]);
         this.autoRipple = await this.storage.getData<boolean>(`akari.timeline.autoRipple:${location.editUri?.toString() ?? ''}`, false) === true;
         this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
@@ -8931,6 +8946,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.refreshTimeline', refreshDaihonCut) });
         this.toDispose.push(this.watchedEditReload);
         this.toDispose.push(this.watchedCaptionsReload);
+        this.toDispose.push(this.watchedScriptReload);
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {
                 this.pendingLintNewerVersion = this.newerVersionAtLoad;
@@ -9031,6 +9047,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.reloadReview();
             }
             if (this.location.editUri && event.contains(this.location.editUri)) this.watchedEditReload.request();
+            if (this.scriptUri && event.contains(this.scriptUri)) {
+                this.watchedScriptReload.request();
+            }
             if (event.contains(this.location.captionsUri)) {
                 this.watchedCaptionsReload.request();
             }
@@ -9126,7 +9145,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadAll(): Promise<void> {
-        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis(), this.reloadWorldMap()]);
+        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis(), this.reloadWorldMap(), this.reloadScript()]);
         // 並列 reload の別系統が notice を clear しても、初期表示では射影不能の案内を最後に確定する。
         this.notifyCaptionSourceMappingWarning(true);
     }
@@ -9139,6 +9158,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.location.root.resolve('planning/world-map.json')
             )).value.toString());
         } catch { /* Marker validity and its error text are owned by AkariScopeService. */ }
+    }
+
+    protected currentScriptUri(): URI | undefined {
+        const location = this.location;
+        if (!location) return undefined;
+        const editParent = location.editUri?.parent;
+        const relative = editParent && location.root.relative(editParent)?.toString();
+        const base = relative?.split('/')[0] === 'scenes' ? editParent : location.root;
+        return base.resolve('planning/script.json');
+    }
+
+    protected async reloadScript(): Promise<void> {
+        const uri = this.currentScriptUri();
+        const generation = ++this.scriptReloadGeneration;
+        if (uri?.toString() !== this.scriptUri?.toString()) this.scriptLines = undefined;
+        this.scriptUri = uri;
+        let source: string | undefined;
+        if (uri) {
+            try { source = (await this.fileService.readFile(uri)).value.toString(); } catch { /* absent or unreadable */ }
+        }
+        // A changed project while the read was pending must not paint the previous scene's script.
+        if (generation !== this.scriptReloadGeneration
+            || uri?.toString() !== this.currentScriptUri()?.toString()) return;
+        this.scriptLines = scriptTimelineRow(source);
+        this.renderStrip();
     }
 
     protected async reloadReview(): Promise<void> {
@@ -11581,6 +11625,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.renderFocusBreadcrumbs();
         let nextTop = topOffset + STRIP_TOP_MARGIN;
+        const script = { top: nextTop, height: this.scriptLines ? SUBROW_STRIDE : 0 };
+        if (script.height > 0) nextTop += script.height + LANE_GAP;
         const world = { top: nextTop, height: this.worldMapData ? SUBROW_STRIDE : 0 };
         if (world.height > 0) nextTop += world.height + LANE_GAP;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
@@ -11722,6 +11768,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             nextTop += height + LANE_GAP;
         }
         this.laneLayout = {
+            script,
             world,
             beats,
             captions,
@@ -12007,6 +12054,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.updateVerticalZoomBar?.();
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
+        this.renderScriptBand();
         if (this.worldMapData) {
             const signature = JSON.stringify([this.worldMapData, this.laneLayout.world, this.layoutViewStart, this.layoutViewDuration, stripLayoutWidthPx]);
             const { element } = this.keyedNode('strip', 'band:world', signature, () => createWorldBand({
@@ -14575,8 +14623,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected renderScriptBand(): void {
+        if (!this.scriptLines) return;
+        const { top, height } = this.laneLayout.script;
+        const { element: band } = this.keyedNode('strip', 'band:script', 'script',
+            () => this.laneBand('script', top, height));
+        band.className = 'akari-track-band akari-script-band';
+        band.style.top = `${top}px`;
+        band.style.height = `${height}px`;
+        const seek = (time: number): void => this.seekTimelineTransport(time);
+        for (const plan of this.scriptLines.plans) {
+            if (!this.isRangeMounted(plan.at, plan.at + (plan.duration ?? 0))) continue;
+            const { element, created } = this.keyedNode('strip', `script:plan:${plan.id}`,
+                JSON.stringify(plan), () => document.createElement('button'));
+            element.className = `akari-script-plan${plan.done ? ' is-done' : ''}`;
+            element.setAttribute('type', 'button');
+            element.title = plan.text;
+            element.textContent = plan.text;
+            element.dataset.akariScriptLineId = plan.id;
+            Object.assign(element.style, {
+                top: `${top + 3}px`, height: `${Math.max(16, height - 6)}px`,
+                left: `${this.layoutPercent(plan.at)}%`,
+                width: plan.duration ? `${Math.max(0.3, this.layoutPercent(plan.at + plan.duration) - this.layoutPercent(plan.at))}%` : '8px'
+            });
+            if (created) {
+                element.addEventListener('pointerdown', event => event.stopPropagation());
+                element.addEventListener('click', event => { event.stopPropagation(); seek(plan.at); });
+            }
+        }
+        for (const memo of this.scriptLines.memos) {
+            if (!this.isRangeMounted(memo.at, memo.at)) continue;
+            const { element, created } = this.keyedNode('strip', `script:memo:${memo.id}`,
+                JSON.stringify(memo), () => document.createElement('button'));
+            element.className = 'akari-script-memo';
+            element.setAttribute('type', 'button');
+            element.title = memo.text;
+            element.setAttribute('aria-label', memo.text);
+            element.dataset.akariScriptLineId = memo.id;
+            Object.assign(element.style, {
+                top: `${top + Math.max(0, (height - 12) / 2)}px`,
+                left: `calc(${this.layoutPercent(memo.at)}% - 6px)`
+            });
+            if (created) {
+                element.addEventListener('pointerdown', event => event.stopPropagation());
+                element.addEventListener('click', event => { event.stopPropagation(); seek(memo.at); });
+            }
+        }
+    }
+
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
         this.beginKeyedRender('header');
+        if (this.scriptLines) {
+            const { element: row } = this.keyedNode('header', 'header:script', 'script', () => {
+                const header = document.createElement('div');
+                header.className = 'akari-track-header-row akari-script-header';
+                header.textContent = t('annotations.timeline.text.script');
+                return header;
+            });
+            Object.assign(row.style, {
+                top: `${this.laneLayout.script.top}px`,
+                height: `${this.laneLayout.script.height}px`
+            });
+        }
         if (this.worldMapData) {
             this.keyedNode('header', 'header:world', 'world', () => {
                 const row = document.createElement('div');

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><title>台本段の描画証跡</title>
+<style>
+  body { margin: 0; padding: 42px; background: #191a20; color: #f6f4ff; font: 13px sans-serif; }
+  .akari-annotations-widget { --theia-foreground: #f6f4ff; --theia-editorWidget-background: #25262e;
+    --theia-focusBorder: #a893f2; --theia-widget-border: #4c4d55; }
+  .timeline { display: grid; grid-template-columns: 136px 1fr; width: 960px; border: 1px solid #4c4d55; }
+  .akari-track-header-row { position: relative; box-sizing: border-box; }
+  .akari-track-band { position: relative; box-sizing: border-box; }
+  
+    .akari-annotations-widget .akari-script-band {
+        background: color-mix(in srgb, var(--theia-editorWidget-background) 85%, var(--theia-focusBorder));
+    }
+    .akari-annotations-widget .akari-script-plan {
+        position: absolute;
+        min-width: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+        padding: 0 5px;
+        box-sizing: border-box;
+        border: 1px solid var(--theia-focusBorder);
+        border-radius: 3px;
+        color: var(--theia-foreground);
+        background: color-mix(in srgb, var(--theia-focusBorder) 40%, var(--theia-editorWidget-background));
+        cursor: pointer;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-script-plan.is-done {
+        opacity: .45;
+    }
+    .akari-annotations-widget .akari-script-memo {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        box-sizing: border-box;
+        border: 2px solid var(--theia-editorWidget-background);
+        border-radius: 50%;
+        background: var(--theia-focusBorder);
+        cursor: pointer;
+        z-index: 4;
+    }
+    .akari-annotations-widget .akari-script-header {
+        padding: 4px 8px;
+        background: color-mix(in srgb, var(--theia-editorWidget-background) 85%, var(--theia-focusBorder));
+        color: var(--theia-foreground);
+        cursor: default;
+    }
+    
+  .evidence-tooltip { margin: 16px 0 0 136px; padding: 6px 9px; width: fit-content;
+    border: 1px solid #4c4d55; border-radius: 4px; background: #25262e; }
+</style>
+<div class="akari-annotations-widget"><div class="timeline">
+  <div class="akari-track-header-row akari-script-header" style="height: 28px">台本</div>
+  <div class="akari-track-band akari-script-band" style="height: 28px"><button class="akari-script-plan"
+    style="top: 3px; left: 5%; width: 25%; height: 22px"
+    title="つかみ: 結論を先に言う">つかみ: 結論を先に言う</button>
+<button class="akari-script-plan is-done"
+    style="top: 3px; left: 40%; width: 25%; height: 22px"
+    title="本題: 3 つのポイント">本題: 3 つのポイント</button><button class="akari-script-memo"
+    style="top: 8px; left: calc(75% - 6px)"
+    title="ここで図解を差し込む" aria-label="ここで図解を差し込む"></button></div>
+</div><div class="evidence-tooltip" aria-label="memo title"></div></div>
+</html>
