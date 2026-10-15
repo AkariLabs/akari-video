@@ -16,7 +16,7 @@ Precedence is **one-line instruction > intake > akari.md > product default**.
 
 ## 2. Full auto (Japanese UI: `そのまま`)
 
-In `full-auto`, follow this order without asking for chat approval during the run. Apply the referenced output rules, not their approval procedures.
+In `full-auto`, follow this order without asking for chat approval during the run, except at the gates in §4. Apply the referenced output rules, not their approval procedures.
 
 1. Fix the request and `intake.tasks` as the list of things to include. **Do not add anything absent from the list.** Do not propose B-roll, BGM, effects, or thumbnail ideas.
 2. For analysis, the analyze-project report (`analysis-report.html`) **need not be read**. Read only the factual `analysis.json` (`transcript` / `events`). If absent, run the [analyze-footage](../analyze-footage/SKILL.md) defaults (L0 + L1).
@@ -37,13 +37,24 @@ In `full-auto`, follow this order without asking for chat approval during the ru
 6. **Do not export (do not call render-cut)**. Finally report the number N of included items (M proposed, with M record rows), lint result, and **"Preview the edit and remove anything you do not want. Use the header's Export button to export."** This report is the only chat output except §1's offer-once and §4 stop notices. The user-facing wording follows the user language pack (see SKILL.md).
 7. `akari decision-log settle` (called automatically by the render-cut CLI) appends **outcome rows at export time** for human deletions, revisions, and unchanged exports. Calling it from shell export is a separate task.
 
-## 4. Stop conditions (only three)
+## 4. Gates and stop conditions
 
-These apply to checkpoint and full-auto alike.
+These gates apply in all three autonomy modes. Work that stays inside the project and can be undone may proceed without waiting. After each such change, append one `agent-action` JSON file to `.akari/events/` (`version: 1`, unique `id`, `type`, ISO `occurredAt`, `actor: partner | external | unattended`, one-line `summary`, and `files` containing the changed project-relative paths). Use a unique `<ISO-time-digits>-<id>.json` filename and never edit an existing event. The app records this action as a git milestone.
 
-1. The human asks for confirmation (for example, `確認して`, "please check"). Stop at the specified point and return to normal chat confirmation.
-2. Paid generation or external transmission is required. Declare it under the Decision Communication Contract in [approvals-and-generation.md](approvals-and-generation.md) and wait for an answer.
-3. A lint FAIL cannot be fixed. Report remaining findings and why they cannot be fixed.
+Before crossing any gate below, append a `gate-requested` event with the same common fields plus `gate`, `requestId`, `summary`, and optional `detail` (such as cost estimate, recipient, or affected files). Wait for a `gate-resolved` event with that `requestId` and `decision: approved` before performing the gated action. On `declined`, do not perform it. Continue unrelated reversible work while waiting. **Never write `gate-resolved` yourself**; only a human action or its app/chat interface may do that.
+
+| Gate | Stop before |
+|---|---|
+| `publish` | Publishing or posting, including creating a shared link. |
+| `lab-submit` | Submitting to Lab or a store. |
+| `paid` | Paid generation or purchase; include an estimate in `detail`. This replaces the former paid-generation stop. |
+| `external-send` | Sending assets or documents to an external service; identify the recipient in `detail`. This replaces the former external-transmission stop. |
+| `delete-original` | Deleting or overwriting imported original assets. |
+| `license` | Proceeding despite uncertain provenance, commercial rights, or tool terms. |
+| `playbook-checkpoint` | A checkpoint declared by a playbook step. |
+| `human-asked` | A point where the human explicitly requested confirmation (the former human-confirmation stop). |
+
+Checkpoint and collaborative modes may ask for their ordinary confirmations outside these gates; full-auto does not. If an edit-lint FAIL cannot be fixed, report its remaining findings and reason. A lint failure is **not** a gate. Export itself is reversible unless it overwrites an original, so do not invent an export gate.
 
 ## 5. Prohibitions
 

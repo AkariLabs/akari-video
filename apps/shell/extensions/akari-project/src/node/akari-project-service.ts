@@ -22,6 +22,7 @@ import { constants, Dirent, existsSync, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
+import { randomUUID } from 'crypto';
 import {
     AkariProjectService,
     TranscribeArtifactRequest, TranscribeArtifacts, MaterialTranscriptEvent,
@@ -35,6 +36,7 @@ import {
     LibraryAssetPlacementSource,
     DiffPreparationResult,
     DiffResourcePair,
+    ActionHistoryResult,
     DroppedAsset,
     DroppedAssetImportResult,
     VoiceRecordingStartResult,
@@ -56,6 +58,7 @@ import {
     StoreDevicePollRequest,
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
+import { AgentActionEvent, readAutomationEvent, readAutomationEvents, unresolvedGates } from '../common/automation-events';
 import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
 import { MaterialMetaReader } from './material-meta';
@@ -407,7 +410,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         await this.ensureRuntimeDirectories(root);
         try {
             await this.runGit(root, ['init']);
-            await this.runGit(root, ['add', '-A', '--', '.']);
+            await this.stageProjectSnapshot(root);
             await this.commitIfChanged(root, t('project.workspace.service.createProjectAction'));
         } catch (error) {
             console.warn('[akari-project] initial git init failed:', error);
@@ -2649,33 +2652,179 @@ process.stdout.write(JSON.stringify(found));
         } catch {
             return;
         }
+        if (!event || typeof event !== 'object' || Array.isArray(event)) return;
         this.processedEvents.add(eventPath);
-        const message = event.type && GATE_MESSAGES[event.type];
+        const action = readAutomationEvent(event);
+        const message = action?.type === 'agent-action' ? action.summary : event.type && GATE_MESSAGES[event.type];
         if (!message || (await this.gitEligibility(root)) !== 'own-root') {
             return;
         }
         try {
-            await this.runGit(root, ['add', '-A', '--', '.']);
-            await this.commitIfChanged(root, message);
+            await this.stageProjectSnapshot(root);
+            await this.commitIfChanged(root, message, action?.type === 'agent-action' ? action : undefined);
         } catch (error) {
             console.error('[akari-project] automatic snapshot failed:', error);
         }
     }
 
-    protected async commitIfChanged(root: string, message: string): Promise<void> {
-        const { stdout } = await this.runGit(root, ['status', '--porcelain']);
-        if (!stdout.trim()) {
+    protected async commitIfChanged(root: string, message: string, action?: AgentActionEvent): Promise<void> {
+        const { stdout } = await this.runGit(root, ['diff', '--cached', '--name-only', '-z']);
+        if (!stdout) {
             return;
         }
         await this.runGit(root, [
             '-c', 'user.name=AKARI Video',
             '-c', 'user.email=local@akari.video',
-            'commit', '-m', message
+            'commit', '-m', message,
+            ...(action ? ['-m', `AKARI-Actor: ${action.actor}\nAKARI-Files: ${action.files.join(', ')}`] : [])
         ]);
+    }
+
+    protected async automationEvents(root: string): Promise<ReturnType<typeof readAutomationEvents>> {
+        const directory = join(root, '.akari', 'events');
+        const names = await fs.readdir(directory).catch(() => [] as string[]);
+        const contents = await Promise.all(names.filter(name => name.endsWith('.json')).map(name =>
+            fs.readFile(join(directory, name), 'utf8').catch(() => '')));
+        return readAutomationEvents(contents);
+    }
+
+    async pendingGates(projectUri: string): Promise<ReturnType<typeof unresolvedGates>> {
+        return unresolvedGates(await this.automationEvents(this.fsPath(projectUri)));
+    }
+
+    async resolveGate(projectUri: string, requestId: string, decision: 'approved' | 'declined'): Promise<void> {
+        const root = this.fsPath(projectUri);
+        const request = (await this.pendingGates(projectUri)).find(gate => gate.requestId === requestId);
+        if (!request) throw new Error(t('project.automation.gate.noLongerPendingError'));
+        const directory = join(root, '.akari', 'events');
+        const key = createHash('sha256').update(requestId).digest('hex').slice(0, 20);
+        const id = `res-${key}`;
+        const lockPath = join(directory, `.${id}.lock`);
+        let lock: Awaited<ReturnType<typeof fs.open>>;
+        try {
+            lock = await fs.open(lockPath, 'wx');
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+                throw new Error(t('project.automation.gate.noLongerPendingError'));
+            }
+            throw error;
+        }
+        try {
+            // A second caller may have passed the first check before this lock was acquired.
+            if (!(await this.pendingGates(projectUri)).some(gate => gate.requestId === requestId)) {
+                throw new Error(t('project.automation.gate.noLongerPendingError'));
+            }
+            const occurredAt = new Date().toISOString();
+            const destination = join(directory, `${occurredAt.replace(/\D/g, '')}-${id}.json`);
+            const temporary = join(directory, `.${randomUUID()}.tmp`);
+            const event = { version: 1, id, type: 'gate-resolved', occurredAt, requestId, decision, by: 'human' };
+            try {
+                await fs.writeFile(temporary, `${JSON.stringify(event)}\n`, 'utf8');
+                await fs.link(temporary, destination); // Readers see a complete JSON file or no file.
+            } finally {
+                await fs.rm(temporary, { force: true });
+            }
+        } finally {
+            await lock.close();
+            await fs.rm(lockPath, { force: true });
+        }
+    }
+
+    async actionHistory(projectUri: string): Promise<ActionHistoryResult> {
+        const root = this.fsPath(projectUri);
+        if ((await this.gitEligibility(root)) !== 'own-root') return { capable: false, entries: [] };
+        const shas = (await this.runGit(root, ['rev-list', 'HEAD']).catch(() => ({ stdout: '' })))
+            .stdout.trim().split('\n').filter(Boolean);
+        const entries: ActionHistoryResult['entries'] = [];
+        for (let index = 0; index < shas.length; index += 16) {
+            entries.push(...await Promise.all(shas.slice(index, index + 16).map(async sha => {
+                const { stdout } = await this.runGit(root, ['show', '-s', '--format=%cI%x1f%s%x1f%b', sha]);
+                const [occurredAt, summary, body] = stdout.trimEnd().split('\x1f');
+                const actor = /^AKARI-Actor: (partner|external|unattended)$/m.exec(body ?? '')?.[1] as
+                    'partner' | 'external' | 'unattended' | undefined;
+                const paths = await this.gitPaths(root, ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', '-z', sha]);
+                return { sha, occurredAt, actor: actor ?? 'human' as const, summary,
+                    fileCount: paths.filter(path => !path.startsWith('.akari/events/')).length };
+            })));
+        }
+        return { capable: true, entries };
+    }
+
+    protected async historyRef(root: string, sha: string): Promise<string> {
+        if (!/^[a-f0-9]{40,64}$/.test(sha)) throw new Error(t('project.automation.history.invalidReferenceError'));
+        await this.runGit(root, ['merge-base', '--is-ancestor', sha, 'HEAD']);
+        return await this.hasGitRef(root, `${sha}^`) ? `${sha}^` : EMPTY_TREE;
+    }
+
+    protected historyRestorablePath(path: string): boolean {
+        return !path.startsWith('assets/') && !path.startsWith('exports/')
+            && !path.startsWith('.akari/events/') && !this.isInternalOrBinaryPath(path);
+    }
+
+    async prepareHistoryDiffs(projectUri: string, sha: string): Promise<DiffPreparationResult> {
+        const root = this.fsPath(projectUri);
+        if ((await this.gitEligibility(root)) !== 'own-root') return { capable: false, pairs: [] };
+        const beforeRef = await this.historyRef(root, sha);
+        const paths = await this.gitPaths(root, ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', '-z', sha]);
+        const snapshotRoot = join(root, '.akari', 'diffs', `${Date.now()}-${randomUUID()}`);
+        const pairs: DiffResourcePair[] = [];
+        for (const path of paths.filter(candidate => this.historyRestorablePath(candidate))) {
+            const before = await this.gitShow(root, beforeRef, path);
+            const after = await this.gitShow(root, sha, path);
+            if ((before === undefined || after === undefined) || before.includes('\0') || after.includes('\0')) continue;
+            const left = join(snapshotRoot, 'before', path);
+            const right = join(snapshotRoot, 'after', path);
+            await fs.mkdir(dirname(left), { recursive: true });
+            await fs.mkdir(dirname(right), { recursive: true });
+            await fs.writeFile(left, before, 'utf8');
+            await fs.writeFile(right, after, 'utf8');
+            pairs.push({ leftUri: pathToFileURL(left).toString(), rightUri: pathToFileURL(right).toString(), label: path });
+        }
+        return { capable: true, pairs };
+    }
+
+    async restoreBeforeAction(projectUri: string, sha: string): Promise<void> {
+        const root = this.fsPath(projectUri);
+        if ((await this.gitEligibility(root)) !== 'own-root') throw new Error(t('project.automation.history.unavailableError'));
+        const beforeRef = await this.historyRef(root, sha);
+        const status = await this.runGit(root, ['status', '--porcelain', '-z']);
+        if (status.stdout.split('\0').some(entry => entry && !entry.slice(3).startsWith('.akari/events/'))) {
+            throw new Error(t('project.automation.history.saveChangesBeforeRestoreError'));
+        }
+        const paths = (await this.gitPaths(root, ['diff', '--name-only', '-z', 'HEAD', beforeRef, '--']))
+            .filter(path => this.historyRestorablePath(path));
+        for (const path of paths) {
+            if (await this.hasGitRef(root, `${beforeRef}:${path}`)) {
+                await this.runGit(root, ['restore', `--source=${beforeRef}`, '--staged', '--worktree', '--', path]);
+            } else {
+                await this.runGit(root, ['rm', '-f', '--', path]);
+            }
+        }
+        const { stdout } = await this.runGit(root, ['show', '-s', '--format=%cI', sha]);
+        const date = new Date(stdout.trim());
+        const twoDigits = (value: number): string => String(value).padStart(2, '0');
+        const time = `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())} `
+            + `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
+        await this.commitIfChanged(root, t('project.automation.history.restoredBeforeSummary', { time }));
     }
 
     protected async runGit(root: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
         return execFileAsync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+    }
+
+    /** Keep approval traffic out of milestones, including requests awaiting an answer. */
+    protected async stageProjectSnapshot(root: string): Promise<void> {
+        await this.runGit(root, ['add', '-A', '--', '.', ':(exclude).akari/events/*']);
+        const directory = join(root, '.akari', 'events');
+        const names = await fs.readdir(directory).catch(() => [] as string[]);
+        for (const name of names.filter(candidate => candidate.endsWith('.json'))) {
+            let type: string | undefined;
+            try { type = (JSON.parse(await fs.readFile(join(directory, name), 'utf8')) as AkariEvent).type; }
+            catch { continue; }
+            if (type !== 'gate-requested' && type !== 'gate-resolved') {
+                await this.runGit(root, ['add', '--', `.akari/events/${name}`]);
+            }
+        }
     }
 
     protected async gitPaths(root: string, args: string[]): Promise<string[]> {
@@ -2753,7 +2902,7 @@ process.stdout.write(JSON.stringify(found));
         try {
             await this.runGit(root, ['init']);
             await this.ensureHistoryIgnore(root);
-            await this.runGit(root, ['add', '-A', '--', '.']);
+            await this.stageProjectSnapshot(root);
             await this.commitIfChanged(root, t('project.workspace.service.startProjectAction'));
         } catch (error) {
             console.warn('[akari-project] deferred git init failed:', error);
