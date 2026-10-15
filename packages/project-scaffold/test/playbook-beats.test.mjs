@@ -83,3 +83,34 @@ test('an empty beats array keeps role placeholders without writing script.json o
     assert.doesNotMatch(await readFile(result.sheetPath, 'utf8'), /<dt>内訳<\/dt>/);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
+
+test('fractional-second beats do not overlap after rounding to frames', async () => {
+  const { mkdtemp, cp, readFile, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { createProject, applyPlaybook } = await import('../src/index.mjs');
+  const here = fileURLToPath(new URL('.', import.meta.url));
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-beats-round-'));
+  try {
+    const pb = join(scratch, 'pb');
+    await cp(join(here, 'fixtures', 'playbook-sample'), pb, { recursive: true });
+    const book = JSON.parse(await readFile(join(pb, 'playbook.json'), 'utf8'));
+    book.settings = { ...book.settings, fps: 24, targetDurationSec: 180 };
+    book.beats = [
+      { id: 'h', at: 0, duration: 3, title: 'h', placeholder: 'talking-head' },
+      { id: 'b1', at: 3, duration: 47.2, title: 'b1', placeholder: 'talking-head' },
+      { id: 'b2', at: 50.2, duration: 94.4, title: 'b2', placeholder: 'screen' },
+      { id: 'b3', at: 144.6, duration: 35.4, title: 'b3', placeholder: 'screen' }
+    ];
+    await writeFile(join(pb, 'playbook.json'), JSON.stringify(book, null, 2));
+    const projectDir = join(scratch, 'p');
+    await createProject(projectDir, join(here, '..', '..', '..', 'templates', 'project-default'));
+    await applyPlaybook({ projectDir, playbookDir: pb, hasTool: async () => true });
+    const edit = JSON.parse(await readFile(join(projectDir, 'edit.json'), 'utf8'));
+    const items = edit.tracks.find(track => track.id === 'playbook-placeholders').items;
+    assert.equal(items.length, 4);
+    for (let i = 1; i < items.length; i += 1) assert.ok(items[i].at >= items[i - 1].at + items[i - 1].duration, `overlap at ${i}`);
+    assert.equal(items.at(-1).at + items.at(-1).duration, 180 * 24);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});

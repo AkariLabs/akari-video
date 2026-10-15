@@ -721,8 +721,11 @@ function addPlaceholders(edit, placeholders, beats) {
     let at = 0;
     if (hasBeats) {
         for (const beat of [...beats].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-            const start = Math.round(beat.at * fps);
-            const duration = Math.max(1, Math.round(beat.duration * fps));
+            // 始まりと終わりをそれぞれコマに丸めて差を取る（別々に丸めると小数の秒で 1 コマ重なる）。
+            // 前の内訳と重なる書き方でも、同じ段で重ならないよう前の終わりから始める
+            const start = Math.max(at, Math.round(beat.at * fps));
+            const end = Math.round((beat.at + beat.duration) * fps);
+            const duration = Math.max(1, end - start);
             track.items.push({
                 id: `playbook-${beat.id}`, at: start, duration, name: beat.title,
                 source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: beat.note || beat.title,
