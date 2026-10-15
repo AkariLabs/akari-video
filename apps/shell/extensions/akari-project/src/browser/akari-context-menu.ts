@@ -21,6 +21,19 @@ export interface OpenAkariContextMenuOptions {
 }
 
 let activePopup: HTMLDivElement | undefined;
+let commonMaterialMenu = false;
+
+/** The material card calls its menu synchronously; scope the shared-card marker to that call. */
+export function withMaterialCardMenu(entry: { readonly commonSourceUri?: string }, open: () => void): void {
+    const previous = commonMaterialMenu;
+    commonMaterialMenu = !!entry.commonSourceUri;
+    try { open(); } finally { commonMaterialMenu = previous; }
+}
+
+/** Shared project files must not be renamed, deleted, or moved from inside a scene. */
+export function visibleMaterialMenuItems<T extends MaterialContextMenuItem>(items: readonly T[], isCommon: boolean): T[] {
+    return isCommon ? items.filter(item => !['rename', 'delete', 'move-to-assets'].includes(item.id)) : [...items];
+}
 
 export function closeAkariContextMenu(): void {
     activePopup?.remove();
@@ -29,6 +42,7 @@ export function closeAkariContextMenu(): void {
 
 export function openAkariContextMenu(options: OpenAkariContextMenuOptions): void {
     closeAkariContextMenu();
+    const items = visibleMaterialMenuItems(options.items, commonMaterialMenu);
     const popup = document.createElement('div');
     popup.setAttribute('data-akari-context-menu', 'true');
     Object.assign(popup.style, {
@@ -45,7 +59,7 @@ export function openAkariContextMenu(options: OpenAkariContextMenuOptions): void
         background: AKARI_SURFACE.raised,
         boxShadow: '0 3px 12px rgba(0,0,0,.35)'
     });
-    for (const item of options.items) {
+    for (const item of items) {
         if (item.separator && popup.childElementCount) {
             const line = document.createElement('div');
             line.setAttribute('role', 'separator');
