@@ -34,8 +34,8 @@ export const projectHomeCss = `
 .akari-os-other-heading button{margin-left:auto;border:0;background:none;color:var(--theia-textLink-foreground);cursor:pointer;flex:0 0 auto;white-space:nowrap}
 .akari-os-other-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
 .akari-os-other-grid>*{min-width:0}
-.akari-os-new-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;border:1px dashed var(--theia-widget-border, rgba(127,127,127,.4));border-radius:10px;background:transparent;color:var(--theia-foreground);cursor:pointer;font:inherit}
-.akari-os-new-card:hover:not(:disabled){border-color:var(--theia-focusBorder);color:var(--theia-focusBorder)}
+.akari-os-new-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;border:1px solid var(--akari-accent,var(--theia-button-background,#0f6e6a));border-radius:10px;background:var(--akari-accent,var(--theia-button-background,#0f6e6a));color:var(--theia-button-foreground,#fff);cursor:pointer;font:inherit;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,.16)}
+.akari-os-new-card:hover:not(:disabled){filter:brightness(1.12);box-shadow:0 10px 24px rgba(0,0,0,.24)}
 .akari-os-new-card:disabled{opacity:.6;cursor:default}
 .akari-os-new-card .codicon{font-size:20px}
 .akari-os-popover{position:absolute;right:0;top:32px;z-index:10;background:var(--theia-editorWidget-background);border:1px solid var(--theia-widget-border);border-radius:10px;box-shadow:0 15px 40px rgba(0,0,0,.3);padding:8px;min-width:245px;max-width:340px}

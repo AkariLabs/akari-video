@@ -229,8 +229,8 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
             assert.deepEqual(caption.runs.map(run => [run.from, run.to]), positions, `stage ${stage} ${caption.id}`);
             for (const run of caption.runs) {
                 assert.equal(run.role, 'emphasis');
-                assert.equal(run.style.color, '#FB923C');
-                assert.equal(run.style.font_weight, 900);
+                assert.equal(run.look.color, '#FB923C');
+                assert.equal(run.look.font_weight, 900);
             }
         }
         if (stage >= 7) {
@@ -243,7 +243,10 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
                 [31.55, 31.70], [31.76, 31.82], [31.88, 32.10], [32.10, 32.18], [32.18, 32.26],
                 [32.26, 32.33], [32.33, 32.53], [32.53, 32.54]
             ]);
-            assert.deepEqual(karaoke.text_style, { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 });
+            assert.deepEqual(karaoke.text_style, {
+                size_px: 62, weight: 700, color: '#ffffff', stroke: { color: '#000000', width_px: 4 },
+                karaoke: { fill: 'smooth', done_color: '#FB923C' }
+            });
         } else assert.equal(captionData.captions[19].style, undefined);
         for (const track of edit.tracks) for (const item of track.items) {
             const path = item.source.path;

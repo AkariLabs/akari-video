@@ -98,6 +98,7 @@ import {
     PreviewDiagnosticsLog,
     createDomPreviewDiagnosticsOverlay,
     isPreviewDiagnosticsReport,
+    listenForEarlyPreviewDiagnostics,
     shouldDeliverPreviewRendererGone
 } from './preview-diagnostics';
 import {
@@ -111,6 +112,7 @@ import {
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
 import { AudioClipFx, audioClipFxOf, hasAudioClipFx, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
+import { preserveReadyPreviewAudio } from '../common/preview-audio-heal';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from './fragment-source-write';
 import { serializeEdit } from '@akari-video/edit-store/lib/canonical';
@@ -808,6 +810,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push(listen(window, 'keyup', observe, true));
     }
 
+    protected visibleOutputPreviewForDiagnostics(): PreviewWidgetMarker | undefined {
+        const active = this.shell.activeWidget as PreviewWidgetMarker | undefined;
+        if (active?.isVisible && !active.isDisposed && [...this.openOutputPreviews.values()].includes(active)) return active;
+        return [...this.openOutputPreviews.values()].find(widget =>
+            widget.isVisible && !widget.isDisposed && !!widget.akariPreviewDiagnostics);
+    }
+
     onStart(): void {
         const refreshReviewPartner = (): void => {
             void currentReviewPartner(this.commandRegistry).then(partner => {
@@ -837,6 +846,40 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.lifecycleDisposables.push({ dispose: unsubscribeRendererGone });
         }
         this.installKeyEventDiagnostics(this.previewDiagnostics);
+        this.lifecycleDisposables.push(this.commandRegistry.registerCommand({
+            id: 'akari.preview.copyDiagnostics',
+            label: t('preview.diagnostics.audio.copyCommand')
+        }, {
+            isEnabled: () => !!this.visibleOutputPreviewForDiagnostics(),
+            execute: async () => {
+                const widget = this.visibleOutputPreviewForDiagnostics();
+                if (!widget?.akariPreviewDiagnostics) return;
+                const pageId = widget.akariPreviewPlaybackPageId;
+                if (pageId && !widget.isDisposed) {
+                    await new Promise<void>(resolve => {
+                        let done = false;
+                        const finish = (): void => { if (done) return; done = true; clearTimeout(timer); listener.dispose(); resolve(); };
+                        const listener = widget.onMessage(message => {
+                            if (message?.type === 'akari-preview-audio-diagnostics' && message.pageId === pageId) finish();
+                        });
+                        const timer = setTimeout(finish, 700);
+                        widget.sendMessage({ type: 'akari-preview-audio-diagnostics-request' });
+                    });
+                }
+                widget.akariPreviewDiagnostics.setAudioHost({
+                    pending: widget.akariPreviewAudioPendingRequests?.map(item => ({ key: item.kind + ':' + item.id, state: item.state })),
+                    lastQuery: widget.akariPreviewAudioLastQueryAt,
+                    lastUpdate: widget.akariPreviewAudioLastUpdateAt,
+                    lastResult: widget.akariPreviewAudioLastResult
+                });
+                widget.akariPreviewDiagnostics.copyReport();
+                void this.messages.info(t('preview.diagnostics.audio.copiedNotice'), { timeout: 3000 });
+            }
+        }));
+        this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
+            commandId: 'akari.preview.copyDiagnostics',
+            label: t('preview.diagnostics.audio.copyCommand')
+        }));
         this.lifecycleDisposables.push(this.commandRegistry.registerCommand(ANNOTATE_PREVIEW_AT_POINT_COMMAND, {
             execute: async () => {
                 const detail = this.lastClipAnnotationContext;
@@ -914,7 +957,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         editUri: viewId,
                         isActive: () => event.widget.isVisible && document.visibilityState !== 'hidden',
                         overlay: createDomPreviewDiagnosticsOverlay(event.widget.node, {
-                            onCopy: () => marker.akariPreviewDiagnostics?.copyReport(),
+                            onCopy: () => {
+                                marker.akariPreviewDiagnostics?.setAudioHost({
+                                    pending: marker.akariPreviewAudioPendingRequests?.map(item => ({ key: item.kind + ':' + item.id, state: item.state })),
+                                    lastQuery: marker.akariPreviewAudioLastQueryAt,
+                                    lastUpdate: marker.akariPreviewAudioLastUpdateAt,
+                                    lastResult: marker.akariPreviewAudioLastResult
+                                });
+                                marker.akariPreviewDiagnostics?.copyReport();
+                            },
                             onReopen: () => { void this.reopenStoppedPreview(marker); }
                         })
                     });
@@ -2958,13 +3009,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri: identityUri.toString(), workspaceRoots
             })).catch(() => undefined)
             : Promise.resolve(undefined);
-        await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
+        // 素材なしのページは setHTML の直後に ready を送る。通常の購読はこの後の
+        // サイドカー読込を待つので、初回ロード中だけ先に診断を受け取る。
+        const earlyDiagnostics = listenForEarlyPreviewDiagnostics(widget);
+        widget.disposed.connect(() => earlyDiagnostics.dispose());
+        try {
+            await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
+        } catch (error) {
+            earlyDiagnostics.dispose();
+            throw error;
+        }
 
         if (widget.isDisposed) {
+            earlyDiagnostics.dispose();
             return;
         }
 
         if (widget.akariPreviewConfigured) {
+            earlyDiagnostics.dispose();
             return;
         }
         widget.akariPreviewConfigured = true;
@@ -3674,6 +3736,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, true);
             }
         }));
+        disposables.push(widget.onMessage(message => {
+            if (message?.pageId !== widget.akariPreviewPlaybackPageId) return;
+            if (message.type === 'akari-preview-audio-diagnostics') {
+                widget.akariPreviewDiagnostics?.setAudioDiagnostics(message.record);
+            } else if (kind === 'output' && message.type === 'akari-preview-audio-resync') {
+                void this.handlePreviewAudioResync(widget, Array.isArray(message.keys) ? message.keys : []);
+            }
+        }));
+        earlyDiagnostics.dispose();
         void this.handleChatReviewMessage(widget, identityUri, kind, { type: 'akari-preview-chat-review-load' });
         let placement: { key: string; at: number; until?: number; baseline: Promise<string>;
             refreshedContent?: string } | undefined;
@@ -4687,12 +4758,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (updateAction === 'none') {
                 Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 if (frameEngineEnabled) {
-                    const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                    const summary = preserveReadyPreviewAudio(widget.akariPreviewSummary,
+                        this.summaryWithPreviousAssetUrls(widget, model));
                     widget.akariPreviewSummary = summary;
                     widget.akariPreviewModelSnapshot = nextSnapshot;
                     this.sendPendingLayerDimensions(widget, model, summary);
                     this.retainPreviewAudioStreams(widget, model, summary);
-                    widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+                    widget.akariPreviewAudioLastUpdateAt = new Date().toISOString();
+                    if (!widget.akariPreviewPlaybackPageId) {
+                        widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+                    } else {
+                        widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio,
+                            host: { pending: widget.akariPreviewAudioPendingRequests?.map(item => ({ key: item.kind + ':' + item.id, state: item.state })),
+                                lastQuery: widget.akariPreviewAudioLastQueryAt, lastUpdate: widget.akariPreviewAudioLastUpdateAt,
+                                lastResult: widget.akariPreviewAudioLastResult } });
+                    }
                 }
                 this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.sendMessage({
@@ -4707,7 +4787,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const previousSummary = widget.akariPreviewSummary;
                 Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 const previousLayerCount = widget.akariPreviewSummary?.layers.length ?? 0;
-                const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                const summary = preserveReadyPreviewAudio(widget.akariPreviewSummary,
+                    this.summaryWithPreviousAssetUrls(widget, model));
                 const previousAssetUrls = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
                 const acquiredAssets = [...(model.assetUrlByUri ?? new Map<string, string>())];
                 const streamIdsByUri = widget.akariPreviewAssetStreamIdByUri ?? new Map<string, string>();
@@ -5188,6 +5269,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
         if (result.state === 'ready' && result.stream) {
             return {
+                sidecarKey: result.key,
                 sidecarState: 'ready',
                 sidecar: {
                     path: result.stream.url,
@@ -5206,7 +5288,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             };
         }
-        if (result.state === 'queued' || result.state === 'generating') return { sidecarState: result.state };
+        if (result.state === 'queued' || result.state === 'generating') return {
+            sidecarKey: result.key, sidecarState: result.state
+        };
         if (result.state === 'no-audio') {
             console.warn(`[akari-preview] ${item.label}: no audio stream: ${result.reason ?? 'no-audio'}`);
             return { sidecarState: 'no-audio' };
@@ -5242,9 +5326,114 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewAudioPendingRequests = [];
     }
 
-    protected startPreviewAudioTracking(widget: PreviewWidgetMarker, model: PreviewModel, frameEngineEnabled: boolean): void {
+    protected handlePreviewAudioResync(widget: PreviewWidgetMarker, keys: readonly string[]): Promise<void> {
+        const audio = widget.akariPreviewSummary?.audio;
+        if (audio) {
+            widget.akariPreviewAudioLastUpdateAt = new Date().toISOString();
+            widget.sendMessage({ type: 'akari-preview-audio-update', audio,
+                host: { pending: widget.akariPreviewAudioPendingRequests?.map(item => ({ key: item.kind + ':' + item.id, state: item.state })),
+                    lastQuery: widget.akariPreviewAudioLastQueryAt, lastUpdate: widget.akariPreviewAudioLastUpdateAt,
+                    lastResult: widget.akariPreviewAudioLastResult } });
+        }
+        widget.akariPreviewAudioLastResyncAt = new Date().toISOString();
+        if (widget.akariPreviewAudioResyncPromise) return widget.akariPreviewAudioResyncPromise;
+        const model = widget.akariPreviewAudioModel;
+        if (!audio || !model || widget.isDisposed) return Promise.resolve();
+        const service = this.previewService as AkariPreviewService & PreviewAudioService;
+        const requests = model.previewAudioPendingRequests ?? [];
+        const candidates = requests.filter(item => {
+            const collection = item.kind === 'bgm' ? (audio.bgms ?? (audio.bgm ? [audio.bgm] : []))
+                : audio[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)] ?? [];
+            return collection.some(value => value.id === item.id
+                && (value.sidecarState === 'queued' || value.sidecarState === 'generating'));
+        });
+        const requested = new Set(keys.filter(key => typeof key === 'string' && key.length < 256));
+        const matching = candidates.filter(item => requested.has(item.kind + ':' + item.id) || requested.has(item.key ?? ''));
+        const targets = matching.length ? matching : candidates;
+        const work = Promise.all(targets.map(async item => {
+            let deadline: ReturnType<typeof setTimeout> | undefined;
+            const request = (async () => {
+                item.request.workspaceRoots = await this.currentWorkspaceRoots();
+                widget.akariPreviewAudioLastQueryAt = new Date().toISOString();
+                return service.requestPreviewAudioSidecar(item.request);
+            })();
+            try {
+                const settled = await Promise.race([
+                    request.then(value => ({ timedOut: false as const, value })),
+                    new Promise<{ timedOut: true }>(resolve => {
+                        deadline = setTimeout(() => resolve({ timedOut: true }), 15_000);
+                    })
+                ]);
+                if (settled.timedOut === true) {
+                    void request.then(late => { if (late.stream) void this.disposeAssetStreams([late.stream.id]); }, () => undefined);
+                    return;
+                }
+                const result = settled.value;
+                // An edit while the request was in flight replaced the model; its answer is stale.
+                if (widget.isDisposed || widget.akariPreviewAudioModel !== model) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                item.key = result.key ?? item.key;
+                item.state = result.state;
+                widget.akariPreviewAudioLastResult = { key: item.kind + ':' + item.id, state: result.state };
+                if (result.key) widget.akariPreviewAudioKeepKeys?.add(result.key);
+                if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes?.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') return;
+                const latest = widget.akariPreviewSummary?.audio;
+                const collection = item.kind === 'bgm' ? (latest?.bgms ?? (latest?.bgm ? [latest.bgm] : []))
+                    : latest?.[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)] ?? [];
+                const target = collection.find(value => value.id === item.id);
+                if (!target || !latest) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                if (target.sidecarState === 'ready' && target.sidecarKey === result.key) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                delete target.sidecarKey;
+                delete target.sidecar;
+                delete target.sidecarState;
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.state === 'ready' && result.stream) {
+                    (widget.akariPreviewAssetStreamIds ??= []).push(result.stream.id);
+                    const key = item.kind === 'speech' ? 'preview-audio:speech:' + item.id
+                        : 'preview-audio:' + item.label.replace(/ sidecar$/u, '');
+                    (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key + ':' + result.key, result.stream.url);
+                }
+                widget.akariPreviewAudioLastUpdateAt = new Date().toISOString();
+                widget.sendMessage({ type: 'akari-preview-audio-update', audio: latest,
+                    host: { pending: widget.akariPreviewAudioPendingRequests?.map(value => ({ key: value.kind + ':' + value.id, state: value.state })),
+                        lastQuery: widget.akariPreviewAudioLastQueryAt, lastUpdate: widget.akariPreviewAudioLastUpdateAt,
+                        lastResult: widget.akariPreviewAudioLastResult } });
+            } catch (error) {
+                console.warn('[akari-preview] preview audio resync failed', error);
+            } finally {
+                clearTimeout(deadline);
+            }
+        })).then(() => {
+            const currentAudio = widget.akariPreviewSummary?.audio;
+            if (!widget.akariPreviewAudioPollGeneration && currentAudio && !widget.isDisposed
+                && widget.akariPreviewAudioModel === model) {
+                const pending = requests.some(item => {
+                    const collection = item.kind === 'bgm' ? (currentAudio.bgms ?? (currentAudio.bgm ? [currentAudio.bgm] : []))
+                        : currentAudio[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)] ?? [];
+                    return collection.some(value => value.id === item.id
+                        && (value.sidecarState === 'queued' || value.sidecarState === 'generating'));
+                });
+                if (pending) this.startPreviewAudioTracking(widget, model, true);
+            }
+        }).finally(() => { widget.akariPreviewAudioResyncPromise = undefined; });
+        widget.akariPreviewAudioResyncPromise = work;
+        return work;
+    }
+
+    protected startPreviewAudioTracking(widget: PreviewWidgetMarker, model: PreviewModel,
+        frameEngineEnabled: boolean, resyncKeys?: ReadonlySet<string>): void {
         this.stopPreviewAudioPolling(widget);
         if (widget.isDisposed) return;
+        widget.akariPreviewAudioModel = model;
         widget.akariPreviewAudioKeepKeys = model.previewAudioKeepKeys ?? new Set();
         widget.akariPreviewAudioKeepProbes = model.previewAudioKeepProbes ?? new Set();
         widget.akariPreviewAudioProjectRootUri = model.editUri?.parent.toString();
@@ -5277,7 +5466,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 60 * 1000);
         }
         if (!frameEngineEnabled) return;
-        const requests = model.previewAudioPendingRequests ?? [];
+        const requests = (model.previewAudioPendingRequests ?? []).filter(item => {
+            const audio = widget.akariPreviewSummary?.audio;
+            const collection = item.kind === 'bgm' ? (audio?.bgms ?? (audio?.bgm ? [audio.bgm] : []))
+                : audio?.[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)] ?? [];
+            const summaryPending = collection.some(value => value.id === item.id
+                && (value.sidecarState === 'queued' || value.sidecarState === 'generating'));
+            return item.state === undefined || item.state === 'queued' || item.state === 'generating'
+                || summaryPending || !!resyncKeys?.has(item.kind + ':' + item.id);
+        });
         // loadPreviewModel は要求を first-use 昇順で積むので、この並べ替えは再確認。first-use を持たない
         // 合成の列（common/ の import を持たない vm ハーネスから呼ぶ既存テストの fixture 等）はそのままの順で回す。
         const pending = requests.length > 0 && requests.every((item): item is PreviewAudioPendingRequest & { at: number } => item.at !== undefined)
@@ -5287,15 +5484,39 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const generation = {};
         widget.akariPreviewAudioPollGeneration = generation;
         const current = (): boolean => !widget.isDisposed && widget.akariPreviewAudioPollGeneration === generation;
+        const warned = new Set<PreviewAudioPendingRequest>();
         const poll = async (): Promise<void> => {
             if (!current()) return;
             await Promise.all([...pending].map(async item => {
                 let result: PreviewAudioSidecarRequestResult;
+                let deadline: ReturnType<typeof setTimeout> | undefined;
                 try {
-                    item.request.workspaceRoots = await this.currentWorkspaceRoots();
-                    result = await service.requestPreviewAudioSidecar(item.request);
+                    const request = (async () => {
+                        item.request.workspaceRoots = await this.currentWorkspaceRoots();
+                        widget.akariPreviewAudioLastQueryAt = new Date().toISOString();
+                        return service.requestPreviewAudioSidecar(item.request);
+                    })();
+                    const settled = await Promise.race([
+                        request.then(value => ({ timedOut: false as const, value })),
+                        new Promise<{ timedOut: true }>(resolve => {
+                            deadline = setTimeout(() => resolve({ timedOut: true }), 15_000);
+                        })
+                    ]);
+                    if (settled.timedOut === true) {
+                        void request.then(late => {
+                            if (late.stream) void this.disposeAssetStreams([late.stream.id]);
+                        }, () => undefined);
+                        if (!warned.has(item)) {
+                            warned.add(item);
+                            console.warn(`[akari-preview] preview audio request timed out: ${item.label}`);
+                        }
+                        return;
+                    }
+                    result = settled.value;
                 } catch (error) {
                     result = { state: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+                } finally {
+                    clearTimeout(deadline);
                 }
                 if (!current()) {
                     if (result.stream) await this.disposeAssetStreams([result.stream.id]);
@@ -5304,6 +5525,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (result.key) widget.akariPreviewAudioKeepKeys!.add(result.key);
                 item.key = result.key ?? item.key;
                 item.state = result.state;
+                widget.akariPreviewAudioLastResult = { key: item.kind + ':' + item.id, state: result.state };
                 if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes!.add(result.probe.fingerprint);
                 if (result.state === 'queued' || result.state === 'generating') return;
                 pending.splice(pending.indexOf(item), 1);
@@ -5316,6 +5538,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (result.stream) await this.disposeAssetStreams([result.stream.id]);
                     return;
                 }
+                if (target.sidecarState === 'ready' && target.sidecarKey === result.key) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                delete target.sidecarKey;
                 delete target.sidecar;
                 delete target.sidecarState;
                 Object.assign(target, this.previewAudioSidecarFields(item, result));
@@ -5325,7 +5552,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         : 'preview-audio:' + item.label.replace(/ sidecar$/u, '');
                     (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key + ':' + result.key, result.stream.url);
                 }
-                widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+                widget.akariPreviewAudioLastUpdateAt = new Date().toISOString();
+                widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio,
+                    host: { pending: widget.akariPreviewAudioPendingRequests?.map(value => ({ key: value.kind + ':' + value.id, state: value.state })),
+                        lastQuery: widget.akariPreviewAudioLastQueryAt, lastUpdate: widget.akariPreviewAudioLastUpdateAt,
+                        lastResult: widget.akariPreviewAudioLastResult } });
             }));
             if (!current()) return;
             if (pending.length > 0) widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
@@ -8393,6 +8624,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             'preview.diagnostics.overlay.stagesCompleteStoppedPrefix',
             'preview.diagnostics.overlay.stageIncompleteStoppedPrefix',
             'preview.diagnostics.overlay.copyDiagnosticsAction',
+            'preview.diagnostics.audio.abnormal',
+            'preview.diagnostics.audio.events',
+            'preview.diagnostics.audio.heading',
+            'preview.diagnostics.audio.host',
+            'preview.diagnostics.audio.lastQuery',
+            'preview.diagnostics.audio.lastResult',
+            'preview.diagnostics.audio.lastUpdate',
+            'preview.diagnostics.audio.latest',
+            'preview.diagnostics.audio.pending',
             'preview.diagnostics.overlay.closeParen',
             'preview.diagnostics.overlay.computePressureGuardPrefix',
             'preview.elementEditor.validation.invalidDuplicatePositionError',

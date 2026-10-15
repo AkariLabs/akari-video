@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **27 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **28 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -20,6 +20,7 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 |---|---|---|
 | [akari](../skills/akari/SKILL.md) | プロジェクトを作る・開く・続きから再開する入口 | akari CLI（init/new/status） |
 | [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成（雛形コピー・作成レポート） | git（安全な場合のみ初期化） |
+| [record-playbook](../skills/record-playbook/SKILL.md) | 完成プロジェクトの工程・設定値・役割別仮枠・部品・要る道具を作り方として記録し、重要な場面のコマを添えて手元の棚へ写す | 同梱の決定論的補助と作り方検査器 |
 | [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証 | ffmpeg / whisper-cli |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の半自動入庫（候補リスト → 手動 DL 照合 → 試聴 keep/drop） | フリー音源配布元（ダウンロードは人間） |
 | [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |

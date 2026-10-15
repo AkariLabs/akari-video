@@ -11807,6 +11807,7 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-audio-update') {
+                    window.__akariPreviewDiag?.setAudioHost(message.host);
                     if (!initial.frameEngineEnabled) return;
                     summary.audio = message.audio;
                     window.akari.state.summary.audio = message.audio;
@@ -11816,6 +11817,10 @@ export function previewBootstrapScript(): string {
                     }
                     if (window.akari.frameEngineUpdateAudio) window.akari.frameEngineUpdateAudio(message);
                     else window.akari.frameEnginePendingAudio = { audio: message.audio };
+                    return;
+                }
+                if (message && message.type === 'akari-preview-audio-diagnostics-request') {
+                    window.__akariPreviewDiag?.postAudioRecord(initial.playbackPageId);
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {

@@ -65,6 +65,7 @@
   "project.editCheck.result.checkCountIssuesAction_other": "チェック: 指摘 {count} 件",
   "project.editCheck.result.checkingStatus": "確認中…",
   "project.editCheck.result.checkNoIssuesAction": "チェック: 問題なし",
+  "project.editCheck.result.checkNoIssuesWithInfoAction": "チェック: 問題なし（情報 {count}）",
   "project.editCheck.result.checkNotRunAction": "チェック: 未実行",
   "project.editCheck.result.editCheckLengthIssuesLabel_one": "【編集内容のチェック】{length} 件の指摘:\n{value2}",
   "project.editCheck.result.editCheckLengthIssuesLabel_other": "【編集内容のチェック】{length} 件の指摘:\n{value2}",

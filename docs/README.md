@@ -40,7 +40,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 27 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 28 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 
@@ -79,6 +79,7 @@ All contracts follow the
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | Generation v0: placeholder clips, nine normalized input slots, sidecar metadata, model capabilities, state, planned videos, replacement, cost approval, and frame capture (Japanese) |
+| [contract-2026-10-15-playbook-v0.md](./contract-2026-10-15-playbook-v0.md) | Playbook v0: recording a finished project's workflow and applying it to a new project (Japanese) |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | Content language storage, resolution order, normalization, and language-pack fallback |
 
@@ -100,6 +101,7 @@ All contracts follow the
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, picker batch-apply RPC, row badges, and the three free caption presets (Japanese) |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | My Styles v0: portable parts bundle, library storage, effective caption look capture, and value-copy application (Japanese) |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | Caption grapheme range styles, overlap precedence, rendering, and text edit rebasing (Japanese) |
+| [contract-2026-10-15-script-lines-v0.md](./contract-2026-10-15-script-lines-v0.md) | Script plan and memo lines, storage, and panel display (Japanese) |
 | [contract-2026-10-12-caption-look-v1.md](./contract-2026-10-12-caption-look-v1.md) | Caption look v1 data shape, size conversion, run identity, anchors, migration, and validation (Japanese) |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | Rich textstyle v1 vocabulary, layered strokes, gradient and pattern fills, rendering paths, and overlay boundary (Japanese) |
 | [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | Asset tier contract v1: free / pro tier field, price deprecation, compatibility rule, pro-vs-CC0 validation, and library-side locking (Japanese) |

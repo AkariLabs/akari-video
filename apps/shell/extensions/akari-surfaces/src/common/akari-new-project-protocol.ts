@@ -27,6 +27,33 @@
 export const AKARI_NEW_PROJECT_SERVICE_PATH = '/services/akari-surfaces-new-project';
 export const AkariNewProjectService = Symbol('AkariNewProjectService');
 
+export interface AkariPlaybook {
+    version: number;
+    kind: 'akari-playbook';
+    id: string;
+    name: string;
+    playbookVersion: number;
+    depth: number;
+    category: string;
+    steps: Array<{ id: string; title: string; what: string; skill?: string; checkpoint?: boolean }>;
+    settings: Record<string, unknown>;
+    placeholders?: Array<{ id: string; role: string; kind: string; sample?: { category: string; id: string; source?: string } }>;
+    parts?: Array<{ kind: string; id: string; source: string; license?: string; tier?: string }>;
+    requires?: { cli?: string; tools?: string[]; skills?: string[] };
+    license: string;
+    provenance: Record<string, unknown>;
+    preview?: { cover?: string; frames?: string[] };
+    example?: boolean;
+}
+
+export interface AkariPlaybookListEntry {
+    dir: string;
+    source: 'channel' | 'local' | 'lab';
+    coverUri?: string;
+    frameUris?: string[];
+    playbook: AkariPlaybook;
+}
+
 export interface AkariLibraryStatus {
     root: string;
     cloud: string | null;
@@ -102,6 +129,8 @@ export interface AkariNewProjectService {
      * フォルダーに既存ファイルがあると失敗する。
      */
     createProject(destinationUri: string): Promise<void>;
+    listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]>;
+    createProjectFromPlaybook(destinationUri: string, playbookDir: string): Promise<void>;
 
     /**
      * U5「チャンネルに入れる」（task 2026-08-03-home-v5-terms）。単体プロジェクト

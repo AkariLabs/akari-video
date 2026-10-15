@@ -21,7 +21,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 27
+スキル数: 28
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -45,6 +45,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 | `harvest-asset` | Use to turn costly, reusable project overlays, 3D, motion, captions, thumbnail layouts, audio, and B-roll into AKARI Video library assets. Assess admission, draft meta.json, create previews, update INDEX, and validate. | `skills/harvest-asset/SKILL.md` |
 | `manage-connections` | Centrally manage AKARI Video generation providers, social connections, API-key references, model selection, and cost-approval policies. Use for initial setup, connection checks, adding providers/models, and gates before paid generation or external publication. Works with `.akari/connections.json` and a free, read-only doctor. | `skills/manage-connections/SKILL.md` |
 | `overlay-authoring` | Author and review AKARI Video overlay HTML, captions, tables and charts, Three.js 3D, motion graphics, thumbnails, and text-behind-person effects. Routes the work to the relevant authoring leaf. | `skills/overlay-authoring/SKILL.md` |
+| `record-playbook` | Record a finished AKARI Video project's workflow as planning/playbook.md and planning/playbook.json, grouping media by role and leaving external media as empty placeholders. Use when asked to save a project's way of working as a reusable playbook. | `skills/record-playbook/SKILL.md` |
 | `render-cut` | Take an approved edit.json and an edit-lint PASS through final MP4 planning, explicit approval, local export, ffprobe verification, and visual keyframe inspection. Use when the edit is approved and the user requests a delivery video or final render. | `skills/render-cut/SKILL.md` |
 | `research-plan` | Run the headless video planning and research workflow from ideas through audience, competitor, and trend research to a proposal, structure, storyboard, and shot list. Use decision cards in an HTML report and decisions.json to obtain human choices for the topic and final structure. | `skills/research-plan/SKILL.md` |
 | `setup-audio-library` | Use to expand the BGM and sound-effects library. Default to bulk acquisition of first-party AKARI Sounds directly from GitHub Releases, providing all BGM and jingles. Supplement only missing families (applause, failure sounds, Japanese-style impacts) with a free-source candidate HTML list and drop-folder matching or assisted acquisition. Semi-automated setup ends with keep/drop decisions in the listening gallery. A sibling of setup-library / harvest-asset, separated because audio requires a different workflow. | `skills/setup-audio-library/SKILL.md` |

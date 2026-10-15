@@ -1026,6 +1026,7 @@
   "annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere": "このトランジションは次のクリップとの間にすき間があるため書き出されません。",
   "annotations.timeline.text.thumbnailsAndWaveformsAreNotDisplayedBecauseFfmpeg": "ffmpeg が見つからないため、サムネイルと波形は表示されません（他の操作は通常どおり使えます）",
   "annotations.timeline.text.timeline": "タイムライン",
+  "annotations.timeline.text.script": "台本",
   "annotations.timeline.text.timelineEmptyState": "タイムライン空状態",
   "annotations.timeline.text.trackDeleted": "トラックを削除しました。",
   "annotations.timeline.text.trackNameChanged": "トラック名を変更しました。",

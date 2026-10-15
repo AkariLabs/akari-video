@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -480,7 +481,19 @@ function renderList(items, emptyText) {
     return `<ul>${items.map(item => `<li><code>${escapeHtml(item)}</code></li>`).join('')}</ul>`;
 }
 
+const REPORT_STYLE = `  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
+    body { max-width: 960px; margin: 0 auto; padding: 2rem; }
+    h1, h2 { line-height: 1.25; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; }
+    dt { font-weight: 700; }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    code { overflow-wrap: anywhere; }
+    section { margin-block: 2rem; }
+  </style>`;
+
 export function renderReportHtml(report, options = {}) {
+    if (options.playbook) return renderPlaybookSheetHtml(options.playbook, options.missingTools ?? []);
     const lang = reportLanguage(options.lang ?? report.lang);
     const q = (key, params) => reportText('report-project', `report-project.${key}`, lang, params);
     const attr = (key) => lang === 'en' ? ` data-i18n="report-project.${key}"` : '';
@@ -500,16 +513,7 @@ export function renderReportHtml(report, options = {}) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title${attr('page.title.text')}>${q('page.title.text')}</title>
-  <style>
-    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
-    body { max-width: 960px; margin: 0 auto; padding: 2rem; }
-    h1, h2 { line-height: 1.25; }
-    dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; }
-    dt { font-weight: 700; }
-    dd { margin: 0; overflow-wrap: anywhere; }
-    code { overflow-wrap: anywhere; }
-    section { margin-block: 2rem; }
-  </style>
+${REPORT_STYLE}
 </head>
 <body>
   <main>
@@ -542,9 +546,50 @@ export function renderReportHtml(report, options = {}) {
         <dt${attr('git.eligibility.label')}>${q('git.eligibility.label')}</dt><dd>${escapeHtml(report.git.eligibility)}</dd>
         <dt${attr('git.reason.label')}>${q('git.reason.label')}</dt><dd>${escapeHtml(gitReason)}</dd>
       </dl>
-    </section>
+    </section>${report.missingTools?.length ? `\n    <section><h2>無い道具</h2>${renderList(report.missingTools, '')}</section>` : ''}
   </main>
 ${dictionary}</body>
+</html>
+`;
+}
+
+function renderPlaybookSheetHtml(playbook, missingTools) {
+    const row = (name, value) => `<dt>${escapeHtml(name)}</dt><dd>${value}</dd>`;
+    const list = (items) => items.length ? `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p>なし</p>';
+    const steps = playbook.steps.map((step, index) => `${index + 1}. ${step.title}${step.checkpoint ? ' ☑ ここで確認' : ''}`);
+    const placeholders = (playbook.placeholders ?? []).map(item => `${item.role} / ${item.kind} / 見本 ${item.sample ? `あり (${item.sample.category}/${item.sample.id})` : 'なし'}`);
+    const beats = (playbook.beats ?? []).map(beat => `${beat.at}–${beat.at + beat.duration} 秒 / ${beat.title}${beat.note ? ` / ${beat.note}` : ''}`);
+    const parts = (playbook.parts ?? []).map(item => `${item.kind}: ${item.id} / ${item.source} / ${item.license} / Pro ${item.tier === 'pro' ? '要' : item.tier === 'free' ? '不要' : '不明'}`);
+    const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}`);
+    const provenance = playbook.provenance;
+    const applied = provenance.appliedFrom;
+    const origin = `${provenance.fromProject} / ${provenance.recordedAt} / AKARI ${provenance.akariVersion}`
+        + (applied ? ` / 適用元 ${applied.path} (v${applied.playbookVersion}) / ${applied.appliedAt}` : '');
+    return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>作り方の確認シート</title>
+${REPORT_STYLE}
+</head>
+<body>
+  <main>
+    <h1>作り方の確認シート</h1>
+    <dl>
+      ${row('名前と目的', escapeHtml(`${playbook.name} / ${playbook.category}`))}
+      ${row('深さ', escapeHtml(playbook.depth))}
+      ${row('流れ（確認点つき）', list(steps))}
+      ${row('設定値の数と主な値', `<p>${settings.length} 件</p>${list(settings)}`)}
+      ${row('仮枠（役割・種類・見本の有無）', list(placeholders))}
+      ${playbook.beats?.length ? row('内訳', list(beats)) : ''}
+      ${row('使った部品（入手先・ライセンス・Pro 要否）', list(parts))}
+      ${row('要る道具（持っていないものを明記）', list((playbook.requires?.tools ?? []).map(tool => `${tool}: ${missingTools.includes(tool) ? '無い' : 'あり'}`)))}
+      ${row('ライセンス', escapeHtml(playbook.license))}
+      ${row('出どころ', escapeHtml(origin))}
+    </dl>
+  </main>
+</body>
 </html>
 `;
 }
@@ -562,6 +607,7 @@ export async function createProject(destinationDir, templateDir, options = {}) {
         await installSkillAdapters(destination, { env: options.env });
     }
     const skillsVersion = await readSkillsVersion(destination);
+    const beforeCommitResult = options.beforeCommit ? await options.beforeCommit(destination) : undefined;
     const boundary = await checkGitBoundary(destination);
 
     let action;
@@ -606,11 +652,193 @@ export async function createProject(destinationDir, templateDir, options = {}) {
             reasonCode,
             reasonParams
         },
-        reportPath
+        reportPath,
+        ...(options.beforeCommit ? { beforeCommit: beforeCommitResult,
+            missingTools: beforeCommitResult?.missingTools ?? [] } : {})
     };
 
     await fs.mkdir(path.dirname(reportPath), { recursive: true });
     await fs.writeFile(reportPath, renderReportHtml(report, { lang: options.lang }), 'utf8');
 
     return report;
+}
+
+
+async function writeJsonAtomic(file, value) {
+    const temporary = `${file}.${process.pid}.tmp`;
+    try {
+        await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
+        await fs.rename(temporary, file);
+    } finally {
+        await fs.rm(temporary, { force: true });
+    }
+}
+
+async function toolExists(name) {
+    if (!/^[a-zA-Z0-9._+-]+$/.test(name)) return false;
+    const directories = (process.env.PATH ?? '').split(path.delimiter);
+    const extensions = process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
+    for (const directory of directories) {
+        for (const extension of extensions) {
+            try {
+                const candidate = path.join(directory, `${name}${extension}`);
+                if ((await fs.stat(candidate)).isFile()) {
+                    await fs.access(candidate, process.platform === 'win32' ? fsConstants.F_OK : fsConstants.X_OK);
+                    return true;
+                }
+            } catch { /* try next path */ }
+        }
+    }
+    return false;
+}
+
+function applySettings(edit, settings) {
+    const aspect = settings.aspect;
+    if (typeof aspect === 'string' && /^\d+:\d+$/.test(aspect)) {
+        const [widthRatio, heightRatio] = aspect.split(':').map(Number);
+        if (widthRatio > 0 && heightRatio > 0) {
+            const longEdge = 1920;
+            edit.output.width = widthRatio >= heightRatio ? longEdge : Math.round(longEdge * widthRatio / heightRatio);
+            edit.output.height = heightRatio >= widthRatio ? longEdge : Math.round(longEdge * heightRatio / widthRatio);
+        }
+    }
+    if (Number.isInteger(settings.fps) && settings.fps > 0) edit.output.fps = settings.fps;
+    if (Number.isFinite(settings.targetDurationSec)) edit.output.target_duration_sec = settings.targetDurationSec;
+    if (settings.captions?.styleUid) edit.output.caption_style_uid = settings.captions.styleUid;
+    if (settings.captions?.position) edit.output.caption_position = settings.captions.position;
+    if (settings.transitions?.default) edit.output.default_transition = settings.transitions.default;
+    if (settings.audio?.roles) {
+        edit.audio ??= {};
+        edit.audio.role_gains_db = { ...settings.audio.roles };
+    }
+}
+
+function addPlaceholders(edit, placeholders, beats) {
+    const fps = edit.output.fps;
+    const hasBeats = Array.isArray(beats) && beats.length > 0;
+    const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
+    const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'visual', items: [] };
+    let at = 0;
+    if (hasBeats) {
+        for (const beat of [...beats].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+            // 始まりと終わりをそれぞれコマに丸めて差を取る（別々に丸めると小数の秒で 1 コマ重なる）。
+            // 前の内訳と重なる書き方でも、同じ段で重ならないよう前の終わりから始める
+            const start = Math.max(at, Math.round(beat.at * fps));
+            const end = Math.round((beat.at + beat.duration) * fps);
+            const duration = Math.max(1, end - start);
+            track.items.push({
+                id: `playbook-${beat.id}`, at: start, duration, name: beat.title,
+                source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: beat.note || beat.title,
+                    background: { type: 'none' } } }, items: []
+            });
+            at = Math.max(at, start + duration);
+        }
+    } else {
+        for (const placeholder of placeholders) {
+            if (placeholder.kind === 'audio') continue;
+            const duration = Math.max(1, Math.round((placeholder.durationHintSec ?? 5) * fps));
+            // Empty planned canvas items are valid edit-v2 nodes without a media path. A
+            // sample is a catalog reference, never an asset copied into the project.
+            track.items.push({
+                id: `playbook-${placeholder.id}`, at, duration,
+                name: placeholder.sample
+                    ? `${placeholder.role} (${placeholder.sample.category}/${placeholder.sample.id})`
+                    : placeholder.role,
+                source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: placeholder.role,
+                    background: { type: 'none' } } }, items: []
+            });
+            at += duration;
+        }
+    }
+    if (track.items.length) edit.tracks.push(track);
+    for (const placeholder of placeholders) {
+        if (placeholder.kind !== 'audio') continue;
+        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? edit.output.target_duration_sec ?? 5) * fps));
+        audioTrack.items.push({
+            id: `playbook-${placeholder.id}`, at: 0, duration,
+            name: placeholder.sample
+                ? `${placeholder.role} (${placeholder.sample.category}/${placeholder.sample.id})`
+                : placeholder.role,
+            source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: placeholder.role,
+                background: { type: 'none' } } }, items: []
+        });
+    }
+    if (audioTrack.items.length) edit.tracks.push(audioTrack);
+    return hasBeats ? beats.length + placeholders.filter(item => item.kind === 'audio').length : placeholders.length;
+}
+
+function mergePlaybookScript(existing, beats) {
+    const lines = (Array.isArray(existing?.lines) ? existing.lines : []).filter(line => line?.author !== 'playbook');
+    const ids = new Set(lines.map(line => line.id));
+    for (const beat of beats) {
+        const base = `p-${beat.id}`;
+        let id = base;
+        for (let suffix = 2; ids.has(id); suffix++) id = `${base}-${suffix}`;
+        ids.add(id);
+        lines.push({ id, kind: 'plan', at: beat.at, duration: beat.duration,
+            text: beat.note ? `${beat.title}: ${beat.note}` : beat.title,
+            ...(beat.placeholder ? { placeholder: beat.placeholder } : {}), beat: beat.id, author: 'playbook' });
+    }
+    lines.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return { ...(existing ?? {}), version: 0, kind: 'akari-script', lines };
+}
+
+/** Apply a validated playbook to an already scaffolded project. */
+export async function applyPlaybook({ projectDir, playbookDir, now = new Date(), hasTool = toolExists }) {
+    const source = path.resolve(playbookDir);
+    const destination = path.resolve(projectDir);
+    const sourceJsonPath = path.join(source, 'playbook.json');
+    const sourceMdPath = path.join(source, 'playbook.md');
+    const [playbook, markdown] = await Promise.all([
+        fs.readFile(sourceJsonPath, 'utf8').then(JSON.parse), fs.readFile(sourceMdPath, 'utf8')
+    ]);
+    const required = ['version', 'kind', 'id', 'name', 'playbookVersion', 'depth', 'category', 'steps', 'settings', 'license', 'provenance'];
+    const headings = ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', '使った部品', '要る道具', 'ライセンス', '出どころ'];
+    const beats = playbook.beats;
+    const invalidBeats = beats !== undefined && (!Array.isArray(beats) || new Set(beats.map(beat => beat?.id)).size !== beats.length
+        || beats.some(beat => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(beat?.id ?? '')
+            || !Number.isFinite(beat.at) || beat.at < 0 || !Number.isFinite(beat.duration) || beat.duration <= 0
+            || typeof beat.title !== 'string' || !beat.title.trim()
+            || (beat.note !== undefined && (typeof beat.note !== 'string' || !beat.note.trim()))
+            || (beat.placeholder !== undefined && typeof beat.placeholder !== 'string')
+            || (beat.note ? `${beat.title}: ${beat.note}` : beat.title).length > 500));
+    if (required.some(key => playbook[key] === undefined) || playbook.version !== 0 || playbook.kind !== 'akari-playbook'
+        || !Array.isArray(playbook.steps) || !playbook.provenance
+        || invalidBeats
+        || (playbook.placeholders ?? []).some(item => ['own', 'site'].includes(item.sample?.source))
+        || (playbook.parts ?? []).some(item => ['own', 'site'].includes(item.source))
+        || headings.some(heading => !new RegExp(`^## ${heading}$`, 'm').test(markdown))) {
+        throw new Error('作り方が不正です');
+    }
+    const planning = path.join(destination, 'planning');
+    const editPath = path.join(destination, 'edit.json');
+    const edit = JSON.parse(await fs.readFile(editPath, 'utf8'));
+    if (edit.version !== 2) throw new Error('作り方の適用には edit.json v2 が必要です');
+    const playbookJsonPath = path.join(planning, 'playbook.json');
+    const playbookMdPath = path.join(planning, 'playbook.md');
+    const sheetPath = path.join(destination, '.akari', 'reports', 'playbook-sheet.html');
+    for (const file of [playbookJsonPath, playbookMdPath, sheetPath]) {
+        try { await fs.access(file); throw new Error(`既存ファイルは上書きしません: ${file}`); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    playbook.provenance.appliedFrom = { path: source, playbookVersion: playbook.playbookVersion, appliedAt: now.toISOString() };
+    applySettings(edit, playbook.settings);
+    const activeBeats = playbook.beats?.length ? playbook.beats : undefined;
+    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats);
+    const scriptPath = path.join(planning, 'script.json');
+    const existingScript = activeBeats ? await fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    }) : null;
+    const script = activeBeats ? mergePlaybookScript(existingScript, activeBeats) : null;
+    const missingTools = [];
+    for (const tool of playbook.requires?.tools ?? []) if (!await hasTool(tool)) missingTools.push(tool);
+    await fs.mkdir(planning, { recursive: true });
+    await fs.mkdir(path.dirname(sheetPath), { recursive: true });
+    await fs.writeFile(playbookMdPath, markdown, { flag: 'wx' });
+    await writeJsonAtomic(playbookJsonPath, playbook);
+    await writeJsonAtomic(editPath, edit);
+    if (script) await writeJsonAtomic(scriptPath, script);
+    await fs.writeFile(sheetPath, renderReportHtml(null, { playbook, missingTools }), { flag: 'wx' });
+    return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools };
 }

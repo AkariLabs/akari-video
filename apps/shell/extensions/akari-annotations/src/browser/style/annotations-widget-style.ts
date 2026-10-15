@@ -243,6 +243,48 @@ export const ANNOTATIONS_WIDGET_CSS = `
         border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
         pointer-events: none;
     }
+    /* BEGIN script band CSS */
+    .akari-annotations-widget .akari-script-band {
+        background: color-mix(in srgb, var(--theia-editorWidget-background) 85%, var(--theia-focusBorder));
+    }
+    .akari-annotations-widget .akari-script-plan {
+        position: absolute;
+        min-width: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+        padding: 0 5px;
+        box-sizing: border-box;
+        border: 1px solid var(--theia-focusBorder);
+        border-radius: 3px;
+        color: var(--theia-foreground);
+        background: color-mix(in srgb, var(--theia-focusBorder) 40%, var(--theia-editorWidget-background));
+        cursor: pointer;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-script-plan.is-done {
+        opacity: .45;
+    }
+    .akari-annotations-widget .akari-script-memo {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        box-sizing: border-box;
+        border: 2px solid var(--theia-editorWidget-background);
+        border-radius: 50%;
+        background: var(--theia-focusBorder);
+        cursor: pointer;
+        z-index: 4;
+    }
+    .akari-annotations-widget .akari-script-header {
+        padding: 4px 8px;
+        background: color-mix(in srgb, var(--theia-editorWidget-background) 85%, var(--theia-focusBorder));
+        color: var(--theia-foreground);
+        cursor: default;
+    }
+    /* END script band CSS */
     .akari-annotations-widget .akari-beats-band-label {
         position: absolute;
         left: 3px;

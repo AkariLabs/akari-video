@@ -257,6 +257,42 @@ export function linkKitSkills(kitDir, manifest, home, options = {}) {
   return { linked, blockers, warnings };
 }
 
+export function linkKitPlaybooks(kitDir, manifest, home, options = {}) {
+  const linked = [];
+  const warnings = [];
+  for (const entry of manifest.playbooks ?? []) {
+    if (typeof entry?.dir !== 'string' || !/^playbooks\/[a-z0-9][a-z0-9-]*$/u.test(entry.dir)) {
+      throw new Error(cliText('cli.kits.error.pathOutside', { path: String(entry?.dir) }));
+    }
+    const id = path.posix.basename(entry.dir);
+    const source = safeKitPath(kitDir, entry.dir);
+    const realKit = realpathSync(kitDir);
+    const realSource = realpathSync(source);
+    if (!realSource.startsWith(`${realKit}${path.sep}`) || !statSync(realSource).isDirectory()) {
+      throw new Error(cliText('cli.kits.error.pathOutside', { path: entry.dir }));
+    }
+    const destination = path.join(home, 'playbooks', id);
+    try {
+      const stat = lstatSync(destination);
+      let owned = false;
+      if (stat.isSymbolicLink()) {
+        try { owned = realpathSync(destination) === realSource; } catch { /* Broken links are not owned. */ }
+      }
+      if (!owned) {
+        warnings.push(cliText('cli.kits.warning.directoryKept', { path: destination }));
+        continue;
+      }
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    const result = replaceSymlink(source, destination, options);
+    if (result.status === 'linked') linked.push(id);
+    else warnings.push(cliText(result.status === 'permission-denied'
+      ? 'cli.kits.warning.symlinkFailed' : 'cli.kits.warning.directoryKept', { path: destination }));
+  }
+  return { linked, warnings };
+}
+
 export function readKitsLedger(home) {
   const ledgerPath = path.join(home, 'kits', 'installed.json');
   if (!existsSync(ledgerPath)) return { schema: KITS_SCHEMA, kits: [] };
@@ -269,6 +305,12 @@ export function readKitsLedger(home) {
 
 export function writeKitsLedger(home, entry) {
   const ledger = readKitsLedger(home);
+  const previous = ledger.kits.find((kit) => kit.id === entry.id);
+  for (const id of previous?.playbooks ?? []) {
+    if (!(entry.playbooks ?? []).includes(id)) {
+      removeOwnedSymlink(path.join(home, 'playbooks', id), previous.kitDir);
+    }
+  }
   ledger.kits = [...ledger.kits.filter((kit) => kit.id !== entry.id), entry];
   const ledgerPath = path.join(home, 'kits', 'installed.json');
   mkdirSync(path.dirname(ledgerPath), { recursive: true });
@@ -283,6 +325,7 @@ export function removeKit(home, productId, env = process.env) {
   const entry = ledger.kits.find((kit) => kit.id === productId);
   if (!entry) return false;
   for (const name of entry.skills ?? []) removeOwnedSymlink(path.join(home, 'kits', 'plugin', 'skills', name), entry.kitDir);
+  for (const id of entry.playbooks ?? []) removeOwnedSymlink(path.join(home, 'playbooks', id), entry.kitDir);
   for (const asset of entry.assets ?? []) {
     for (const root of resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).read) removeOwnedSymlink(path.join(root, asset.category, asset.id), entry.kitDir);
   }
@@ -299,7 +342,14 @@ function removeOwnedSymlink(linkPath, kitDir) {
   try {
     if (!lstatSync(linkPath).isSymbolicLink()) return;
     const target = path.resolve(path.dirname(linkPath), readlinkSync(linkPath));
-    if (target === path.resolve(kitDir) || target.startsWith(`${path.resolve(kitDir)}${path.sep}`)) rmSync(linkPath);
+    const root = path.resolve(kitDir);
+    let owned = target === root || target.startsWith(`${root}${path.sep}`);
+    try {
+      const realTarget = realpathSync(linkPath);
+      const realRoot = realpathSync(kitDir);
+      owned ||= realTarget === realRoot || realTarget.startsWith(`${realRoot}${path.sep}`);
+    } catch { /* Lexical ownership still handles a removed kit directory. */ }
+    if (owned) rmSync(linkPath);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync,
@@ -32,6 +33,7 @@ import {
   enableHint,
   ensureKitsMarketplace,
   linkKitAssets,
+  linkKitPlaybooks,
   linkKitSkills,
   readKitManifest,
   readKitsLedger,
@@ -347,11 +349,75 @@ export async function runStoreCommand(args, options = {}) {
 
   if (sub === 'download') {
     const productId = args[1];
-    if (!productId || productId.startsWith('--')) {
+    if (!isSafePathSegment(productId) || productId.startsWith('--')) {
       log(cliText('cli.store.help.downloadUsage'));
       return { exitCode: 1 };
     }
     const creds = readCredentials(env);
+    const publicBase = (options.baseUrl ?? creds?.url ?? DEFAULT_STORE_BASE_URL).replace(/\/$/, '');
+    let freeProduct;
+    try {
+      const listing = await fetchImpl(`${publicBase}/products`);
+      if (listing.ok) {
+        const data = await readJsonResponse(listing);
+        freeProduct = data?.products?.find(item => item.id === productId && item.tier === 'free'
+          && Number.isInteger(item.current_version) && item.current_version >= 1);
+      }
+    } catch { /* Paid download remains available when the public catalog is offline. */ }
+    if (!freeProduct) {
+      // Lab の無料の作り方（playbook）は商品データベースに載らず、無料 R2 の公開カタログ（/assets/catalog.json）にだけ載る。
+      // その行の files[0].key を /assets/<key> から取り、sha256 を照合して保存する。
+      try {
+        const catalogResponse = await fetchImpl(new URL('/assets/catalog.json', publicBase).href);
+        if (catalogResponse.ok) {
+          const catalog = await readJsonResponse(catalogResponse);
+          const row = catalog?.items?.find(item => item?.id === productId && item?.category === 'playbook' && item?.tier === 'free'
+            && Number.isInteger(item?.version) && item.version >= 1 && typeof item?.files?.[0]?.key === 'string');
+          const key = row?.files?.[0]?.key;
+          if (row && /^[a-z0-9][a-z0-9/._-]*\.zip$/.test(key) && !key.includes('..')) {
+            const response = await fetchImpl(new URL(`/assets/${key}`, publicBase).href);
+            if (!response.ok) {
+              log(cliText('cli.store.download.httpFailed', { status: response.status }));
+              return { exitCode: 1 };
+            }
+            const bytes = Buffer.from(await response.arrayBuffer());
+            const expected = row.files[0].sha256;
+            if (typeof expected === 'string' && createHash('sha256').update(bytes).digest('hex') !== expected) {
+              log(cliText('cli.store.download.failed', { message: 'sha256 mismatch' }));
+              return { exitCode: 1 };
+            }
+            const destDir = parseFlag(args, '--dest') ?? process.cwd();
+            mkdirSync(destDir, { recursive: true });
+            const filePath = path.join(destDir, `${productId}-v${row.version}.zip`);
+            writeFileSync(filePath, bytes);
+            log(cliText('cli.store.download.saved', { path: filePath }));
+            return { exitCode: 0, filePath };
+          }
+        }
+      } catch { /* 公開カタログが取れなければ従来の経路へ */ }
+    }
+    if (freeProduct) {
+      const version = freeProduct.current_version;
+      const assetUrl = new URL(`/assets/products/${productId}/v${version}/${productId}-v${version}.zip`, publicBase);
+      try {
+        const response = await fetchImpl(assetUrl.href);
+        if (response.ok) {
+          const destDir = parseFlag(args, '--dest') ?? process.cwd();
+          mkdirSync(destDir, { recursive: true });
+          const filePath = path.join(destDir, `${productId}-v${version}.zip`);
+          writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
+          log(cliText('cli.store.download.saved', { path: filePath }));
+          return { exitCode: 0, filePath };
+        }
+        if (response.status !== 404 || !creds) {
+          log(cliText('cli.store.download.httpFailed', { status: response.status }));
+          return { exitCode: 1 };
+        }
+      } catch (error) {
+        log(cliText('cli.store.download.failed', { message: error instanceof Error ? error.message : String(error) }));
+        return { exitCode: 1 };
+      }
+    }
     if (!creds) {
       log(cliText('cli.store.status.disconnectedGuide'));
       return { exitCode: 1 };
@@ -410,8 +476,8 @@ export async function runStoreCommand(args, options = {}) {
       log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
     }
-    const hasFrom = args.includes('--from');
-    const fromZip = parseFlag(args, '--from');
+    const hasFrom = args.includes('--from') || args.includes('--from-file');
+    const fromZip = parseFlag(args, '--from-file') ?? parseFlag(args, '--from');
     if (hasFrom && !fromZip) {
       log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
@@ -562,6 +628,8 @@ export async function runStoreCommand(args, options = {}) {
           for (const blocker of skillLinks.blockers) log(cliText('cli.store.install.blocked', { blocker }));
           return { exitCode: 1 };
         }
+        const playbookLinks = linkKitPlaybooks(kitDir, manifest, home, { platform: options.platform });
+        for (const warning of playbookLinks.warnings) log(cliText('cli.store.install.warning', { warning }));
         registerKitAssets(home, manifest, kitDir, assetLinks.items, env);
         writeKitsLedger(home, {
           id: manifest.id,
@@ -569,6 +637,7 @@ export async function runStoreCommand(args, options = {}) {
           installedAt: new Date().toISOString(),
           kitDir,
           skills: skillLinks.linked,
+          playbooks: playbookLinks.linked,
           assets: assetLinks.linked
         });
         ensureKitsMarketplace(home);

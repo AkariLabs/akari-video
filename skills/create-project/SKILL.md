@@ -45,6 +45,10 @@ akari new <target-dir> [--template <path>]
 - `<target-dir>`: Destination directory, either new or an existing nonempty folder. Existing files are not overwritten.
 - `--template <path>`: Explicit template directory. Defaults to the repository checkout's `templates/project-default/`. There is no other resolution route.
 
+## Starting from a playbook
+
+Use `akari new <target-dir> --from <playbook-dir | id>` to create the same project container and then apply a recorded playbook. An ID resolves from the current channel's `playbooks/<id>/` before `~/.akari/playbooks/<id>/`. The command copies the playbook, adds empty role placeholders to edit.json, and prints the creation report and read-only review sheet paths. `--template` may be combined with `--from`; template resolution still has exactly the two choices above.
+
 ## When the user wants to start from a worked example
 
 Requests such as “Make a short explainer” or “Something like that vertical explainer video” ask to **start from a

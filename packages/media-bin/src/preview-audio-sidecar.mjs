@@ -822,7 +822,6 @@ export function previewAudioSidecarStatus(options) {
     if (resolved.probe) return { ...previewAudioSidecarStatus(resolved.options), probe: resolved.probe };
     const prepared = prepare(resolved.options, {}, false);
     const { key, outputPath, outputDirectory } = prepared;
-    if (requested.has(outputPath) || generating.has(outputPath)) return { state: 'generating', key };
     const metadata = readMetadata(prepared);
     if (metadata && fs.existsSync(outputPath)) {
       const { durationSec, sampleRate, channels, bytes, format, frames, bytesPerSample } = metadata;
@@ -830,6 +829,7 @@ export function previewAudioSidecarStatus(options) {
         sampleRate, channels, bytes, format,
         ...(format === 'pcm-s16le' ? { frames, bytesPerSample } : {}) };
     }
+    if (requested.has(outputPath) || generating.has(outputPath)) return { state: 'generating', key };
     const noAudio = readCacheJson(path.join(outputDirectory, `${key}.no-audio.json`));
     if (noAudio?.key === key) return { state: 'no-audio', key, reason: noAudio.reason };
     const failed = readCacheJson(path.join(outputDirectory, `${key}.failed.json`));

@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:playbook:v0",
+  "title": "AKARI Video playbook v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "kind", "id", "name", "playbookVersion", "depth", "category", "steps", "settings", "license", "provenance"],
+  "properties": {
+    "version": { "const": 0 },
+    "kind": { "const": "akari-playbook" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "$ref": "#/$defs/text" },
+    "playbookVersion": { "type": "integer", "minimum": 1 },
+    "depth": { "enum": [1, 2] },
+    "category": { "enum": ["film", "short-drama", "mv", "explainer", "product", "vlog", "cm", "education", "clip", "logo"] },
+    "preview": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "cover": { "type": "string" },
+        "frames": { "type": "array", "maxItems": 5, "items": { "type": "string" } }
+      }
+    },
+    "example": { "type": "boolean" },
+    "tags": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "form": { "$ref": "#/$defs/tags" }, "length": { "$ref": "#/$defs/tags" },
+        "technique": { "$ref": "#/$defs/tags" }, "tools": { "$ref": "#/$defs/tags" },
+        "style": { "$ref": "#/$defs/tags" }, "industry": { "$ref": "#/$defs/tags" },
+        "materials": { "$ref": "#/$defs/tags" }, "scale": { "$ref": "#/$defs/tags" }
+      }
+    },
+    "requires": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "cli": { "$ref": "#/$defs/text" },
+        "tools": { "$ref": "#/$defs/tags" },
+        "skills": { "$ref": "#/$defs/tags" }
+      }
+    },
+    "steps": { "type": "array", "minItems": 1, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "title", "what"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "title": { "$ref": "#/$defs/text" },
+        "what": { "$ref": "#/$defs/text" }, "skill": { "$ref": "#/$defs/id" },
+        "checkpoint": { "type": "boolean" }
+      }
+    } },
+    "settings": { "type": "object" },
+    "placeholders": { "type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "role", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "role": { "$ref": "#/$defs/text" },
+        "kind": { "enum": ["video", "image", "audio"] },
+        "durationHintSec": { "type": "number", "minimum": 0 },
+        "sample": { "$ref": "#/$defs/sample" }
+      }
+    } },
+    "beats": { "type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "at", "duration", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "at": { "type": "number", "minimum": 0 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "title": { "$ref": "#/$defs/text" },
+        "note": { "$ref": "#/$defs/text" },
+        "placeholder": { "$ref": "#/$defs/id" }
+      }
+    } },
+    "parts": { "type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id", "source", "license"],
+      "properties": {
+        "kind": { "enum": ["asset", "style", "kit"] },
+        "category": { "$ref": "#/$defs/id" }, "id": { "$ref": "#/$defs/id" },
+        "uid": { "$ref": "#/$defs/text" }, "revision": { "type": "integer", "minimum": 0 },
+        "source": { "enum": ["builtin", "lab", "own", "site", "ai"] },
+        "license": { "$ref": "#/$defs/text" }, "tier": { "enum": ["free", "pro"] }
+      }
+    } },
+    "license": { "$ref": "#/$defs/text" },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fromProject", "recordedAt", "akariVersion", "recordedBy"],
+      "properties": {
+        "fromProject": { "$ref": "#/$defs/text" },
+        "recordedAt": { "$ref": "#/$defs/text" },
+        "akariVersion": { "$ref": "#/$defs/text" },
+        "recordedBy": { "$ref": "#/$defs/text" },
+        "appliedFrom": { "type": "object", "additionalProperties": false,
+          "required": ["path", "playbookVersion", "appliedAt"],
+          "properties": {
+            "path": { "$ref": "#/$defs/text" },
+            "playbookVersion": { "type": "integer", "minimum": 1 },
+            "appliedAt": { "$ref": "#/$defs/text" }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [{ "if": { "properties": { "depth": { "const": 1 } } }, "then": { "not": { "anyOf": [{ "required": ["placeholders"] }, { "required": ["parts"] }] } } }],
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "tags": { "type": "array", "items": { "$ref": "#/$defs/text" }, "uniqueItems": true },
+    "sample": { "type": "object", "additionalProperties": false,
+      "required": ["category", "id"],
+      "properties": {
+        "category": { "$ref": "#/$defs/id" }, "id": { "$ref": "#/$defs/id" },
+        "source": { "enum": ["builtin", "lab", "own", "site", "ai"] }
+      }
+    }
+  }
+}

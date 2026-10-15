@@ -1026,6 +1026,7 @@
   "annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere": "This transition will not be exported because there is a gap between it and the next clip.",
   "annotations.timeline.text.thumbnailsAndWaveformsAreNotDisplayedBecauseFfmpeg": "Thumbnails and waveforms are not displayed because ffmpeg is not found (other operations can be used normally)",
   "annotations.timeline.text.timeline": "Timeline",
+  "annotations.timeline.text.script": "Script",
   "annotations.timeline.text.timelineEmptyState": "Timeline empty state",
   "annotations.timeline.text.trackDeleted": "Track deleted.",
   "annotations.timeline.text.trackNameChanged": "Track name changed.",

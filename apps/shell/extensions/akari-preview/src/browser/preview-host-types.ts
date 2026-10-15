@@ -251,7 +251,7 @@ export interface PreviewAudioSidecarEntry {
     resolve?: () => Promise<PreviewAudioSidecarFields | undefined>;
 }
 
-export type PreviewAudioSidecarFields = Pick<EditSummarySpeech, 'sidecar' | 'sidecarState' | 'sidecarWarningEmitted'>;
+export type PreviewAudioSidecarFields = Pick<EditSummarySpeech, 'sidecar' | 'sidecarKey' | 'sidecarState' | 'sidecarWarningEmitted'>;
 
 export interface EditSummarySpeech {
     id: string;
@@ -265,6 +265,7 @@ export interface EditSummarySpeech {
     track?: number;
     materialDurationSec: number;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarKey?: string;
     sidecarState?: PreviewAudioSidecarState;
     atempo?: { path: string; durationSec: number; generatedMs?: number };
     padBeforeSec?: number;
@@ -318,6 +319,7 @@ export interface EditSummaryAudioSource {
     gainDb: number;
     keyframes?: Array<{ t: number; gainDb: number; easing?: string }>;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarKey?: string;
     sidecarState?: PreviewAudioSidecarState;
 }
 
@@ -725,6 +727,12 @@ export interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewAudioKeepProbes?: Set<string>;
     akariPreviewAudioProjectRootUri?: string;
     akariPreviewAudioPendingRequests?: PreviewAudioPendingRequest[];
+    akariPreviewAudioModel?: PreviewModel;
+    akariPreviewAudioResyncPromise?: Promise<void>;
+    akariPreviewAudioLastResyncAt?: string;
+    akariPreviewAudioLastQueryAt?: string;
+    akariPreviewAudioLastUpdateAt?: string;
+    akariPreviewAudioLastResult?: { key?: string; state?: string };
     akariPreviewAudioPollTimer?: ReturnType<typeof setTimeout>;
     akariPreviewAudioPollGeneration?: object;
     akariPreviewAudioSweepTimer?: ReturnType<typeof setTimeout>;
