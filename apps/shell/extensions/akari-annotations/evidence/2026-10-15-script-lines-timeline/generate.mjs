@@ -1,3 +1,4 @@
+import { scriptFixture } from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -9,7 +10,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[character]);
-const fixture = JSON.parse(await readFile(resolve(here, 'script.json'), 'utf8'));
+const fixture = scriptFixture;
 const lines = parseScriptLines(JSON.stringify(fixture));
 assert.equal(lines.plans.length, 2);
 assert.equal(lines.plans.filter(plan => plan.done).length, 1);

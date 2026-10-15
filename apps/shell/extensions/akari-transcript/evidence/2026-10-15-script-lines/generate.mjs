@@ -1,3 +1,4 @@
+import { scriptFixture, captionsFixture } from './fixtures.mjs';
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -7,8 +8,8 @@ import { chromium } from 'playwright';
 import { formatScriptTime, orderScriptDisplayLines, readScriptLines } from '../../lib/common/daihon-script-lines.js';
 
 const folder = path.dirname(fileURLToPath(import.meta.url));
-const script = readScriptLines(await readFile(path.join(folder, 'script.json'), 'utf8'));
-const captions = JSON.parse(await readFile(path.join(folder, 'captions.json'), 'utf8'));
+const script = readScriptLines(JSON.stringify(scriptFixture));
+const captions = captionsFixture;
 const rows = orderScriptDisplayLines(captions, script.lines);
 assert.deepEqual(rows.map(row => row.kind), ['plan', 'caption', 'plan', 'caption', 'memo', 'caption']);
 
