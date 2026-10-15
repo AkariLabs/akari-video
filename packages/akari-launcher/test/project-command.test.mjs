@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -158,6 +159,78 @@ test('asset resolution checks project first, then isolated library, and detects 
   const asset = (await readManifest(root)).nodes.find(node => node.id === 'asset:still/rose');
   assert.equal(asset.rev, 1);
   assert.equal(asset.where, 'assets/still/rose');
+});
+
+test('sync records own, builtin, and Lab sources from resolved asset locations', async t => {
+  const { root, home } = await fixture(t);
+  const env = { HOME: home, AKARI_HOME: path.join(home, '.akari') };
+  const library = path.join(env.AKARI_HOME, 'assets');
+  await fs.mkdir(path.join(root, 'assets', 'still', 'local'), { recursive: true });
+  await fs.mkdir(path.join(library, 'still', 'bundled'), { recursive: true });
+  const lab = path.join(library, 'store', 'pack-1', 'assets', 'still', 'remote');
+  await fs.mkdir(lab, { recursive: true });
+  await fs.symlink(lab, path.join(library, 'still', 'remote'));
+  await write(path.join(root, '.akari', 'asset-references.json'), { references: [
+    { category: 'still', id: 'local', sourceKind: 'lab' },
+    { category: 'still', id: 'bundled', sourceKind: 'own' },
+    { category: 'still', id: 'remote' }
+  ] });
+  await syncProject(root, { env });
+  const nodes = new Map((await readManifest(root)).nodes.map(node => [node.id, node]));
+  assert.equal(nodes.get('asset:still/local').source, 'own');
+  assert.equal(nodes.get('asset:still/local').where, 'assets/still/local');
+  assert.equal(nodes.get('asset:still/bundled').source, 'builtin');
+  assert.equal(nodes.get('asset:still/bundled').where, undefined);
+  assert.equal(nodes.get('asset:still/remote').source, 'lab');
+  assert.deepEqual((await checkProject(root, { env })).findings, []);
+  await fs.rm(path.join(root, 'assets', 'still', 'local'), { recursive: true });
+  await fs.mkdir(path.join(library, 'still', 'local'), { recursive: true });
+  await syncProject(root, { env });
+  const moved = (await readManifest(root)).nodes.find(node => node.id === 'asset:still/local');
+  assert.equal(moved.source, 'builtin');
+  assert.equal(moved.where, undefined);
+});
+
+test('unacquired Lab reference is a warning with exit 0, while other missing assets are errors', async t => {
+  const { root, home } = await fixture(t);
+  const env = { HOME: home, AKARI_HOME: path.join(home, '.akari') };
+  await write(path.join(root, '.akari', 'asset-references.json'), { references: [
+    { category: 'still', id: 'future', sourceKind: 'lab' }
+  ] });
+  const options = { cwd: root, env, log: () => {} };
+  assert.equal((await runProjectCommand(['sync'], options)).exitCode, 0);
+  assert.equal((await readManifest(root)).nodes.find(node => node.id === 'asset:still/future').source, 'lab');
+  const checked = await runProjectCommand(['check'], options);
+  assert.equal(checked.exitCode, 0);
+  assert.deepEqual(checked.result.summary, { error: 0, warning: 1, info: 0 });
+  assert.equal(checked.result.findings[0].code, 'UNACQUIRED');
+  await write(path.join(root, '.akari', 'asset-references.json'), { references: [
+    { category: 'still', id: 'future', sourceKind: 'lab' },
+    { category: 'still', id: 'lost' }
+  ] });
+  await syncProject(root, { env });
+  const missing = (await readManifest(root)).nodes.find(node => node.id === 'asset:still/lost');
+  assert.equal(missing.source, undefined);
+  const failed = await checkProject(root, { env });
+  assert.equal(failed.exitCode, 1);
+  assert.ok(failed.findings.some(finding => finding.node === missing.id && finding.severity === 'error'));
+});
+
+test('CLI sync and check keep an unacquired Lab reference as a warning', async t => {
+  const { root, home } = await fixture(t);
+  const env = { ...process.env, HOME: home, AKARI_HOME: path.join(home, '.akari'), AKARI_LANG: 'ja' };
+  await write(path.join(root, '.akari', 'asset-references.json'), { references: [
+    { category: 'still', id: 'not-downloaded', sourceKind: 'lab' }
+  ] });
+  const bin = path.join(repo, 'packages', 'akari-launcher', 'bin', 'akari.mjs');
+  const sync = spawnSync(process.execPath, [bin, 'project', 'sync', root], { encoding: 'utf8', env });
+  assert.equal(sync.status, 0, sync.stderr);
+  assert.equal((await readManifest(root)).nodes.find(node => node.id === 'asset:still/not-downloaded').source, 'lab');
+  const check = spawnSync(process.execPath, [bin, 'project', 'check', root, '--json'], { encoding: 'utf8', env });
+  assert.equal(check.status, 0, check.stderr);
+  const report = JSON.parse(check.stdout);
+  assert.deepEqual(report.summary, { error: 0, warning: 1, info: 0 });
+  assert.equal(report.findings[0].code, 'UNACQUIRED');
 });
 
 test('person edited change is stale until sync raises rev', async t => {
