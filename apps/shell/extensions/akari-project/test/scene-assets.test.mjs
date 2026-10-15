@@ -4,7 +4,21 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-const { addSceneFromLauncher, importCommonAsset, importCommonSceneAsset, unlinkedCommonAssetUris } = await import('../lib/node/scene-assets.js');
+const { addSceneFromLauncher, importCommonAsset, importCommonSceneAsset, unlinkedCommonAssetUris,
+    sceneLauncherAssetCandidates, selectSceneLauncherAssets } = await import('../lib/node/scene-assets.js');
+
+test('scene launcher assets select development and app.asar layouts from upward candidates', () => {
+    for (const [root, moduleName, templateName] of [
+        ['/work/repo', 'packages/project-scaffold/src/index.mjs', 'templates/project-default'],
+        ['/app/app.asar', 'lib/packages/project-scaffold/src/index.mjs', 'lib/templates/project-default']
+    ]) {
+        const candidates = sceneLauncherAssetCandidates([path.join(root, 'node_modules/akari-project/lib/node')]);
+        const scaffoldModulePath = path.join(root, moduleName);
+        const templateDir = path.join(root, templateName);
+        assert.deepEqual(selectSceneLauncherAssets(candidates, new Set([scaffoldModulePath]), new Set([templateDir])),
+            { scaffoldModulePath, templateDir });
+    }
+});
 
 async function fixture(run) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'akari-scene-'));
@@ -86,4 +100,10 @@ test('import leaves an absent manifest absent', async () => fixture(async ({ roo
 test('launcher failure exposes stderr from the child process', async () => fixture(async ({ root }) => {
     await assert.rejects(addSceneFromLauncher(pathToFileURL(root).href, 'Bad ID'), error =>
         error.message.includes('project-command.mjs') && error.message.includes('Error:'));
+}));
+
+test('scene launcher passes resolved assets to the child process', async () => fixture(async ({ root }) => {
+    const sceneUri = await addSceneFromLauncher(pathToFileURL(root).href, 's02');
+    assert.equal(sceneUri, pathToFileURL(path.join(root, 'scenes', 's02')).href);
+    assert.equal(JSON.parse(await fs.readFile(path.join(root, 'scenes', 's02', 'edit.json'), 'utf8')).version, 2);
 }));

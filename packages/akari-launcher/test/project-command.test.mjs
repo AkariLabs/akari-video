@@ -85,6 +85,31 @@ test('scene add rejects duplicate and traversal IDs', async t => {
   assert.ok(errors.length >= 2);
 });
 
+test('explicit scene assets use the supplied scaffold and leave no scene on failure', async t => {
+  const { home, root } = await fixture(t);
+  const scaffoldModulePath = path.join(home, 'scaffold.mjs');
+  const templateDir = path.join(home, 'template');
+  await fs.mkdir(path.join(templateDir, 'assets'), { recursive: true });
+  await fs.writeFile(scaffoldModulePath, `import fs from 'node:fs/promises';
+export async function copyTemplateTree(_source, target) {
+  await fs.mkdir(target, { recursive: true });
+  await fs.writeFile(target + '/injected.txt', 'explicit');
+}\n`);
+  await addScene(root, 's01', { scaffoldModulePath, templateDir });
+  assert.equal(await fs.readFile(path.join(root, 'scenes', 's01', 'assets', 'injected.txt'), 'utf8'), 'explicit');
+  assert.equal(JSON.parse(await fs.readFile(path.join(root, 'scenes', 's01', 'edit.json'), 'utf8')).version, 2);
+
+  const failingModulePath = path.join(home, 'failing-scaffold.mjs');
+  await fs.writeFile(failingModulePath, `import fs from 'node:fs/promises';
+export async function copyTemplateTree(_source, target) {
+  await fs.mkdir(target, { recursive: true });
+  await fs.writeFile(target + '/partial.txt', 'partial');
+  throw new Error('scaffold failed midway');
+}\n`);
+  await assert.rejects(addScene(root, 's02', { scaffoldModulePath: failingModulePath, templateDir }), /scaffold failed midway/);
+  assert.equal(await fs.stat(path.join(root, 'scenes', 's02')).then(() => true, () => false), false);
+});
+
 test('check accepts an older project with edit.json but no manifest directory', async t => {
   const { root } = await fixture(t);
   await fs.rm(path.join(root, '.akari'), { recursive: true });

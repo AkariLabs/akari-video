@@ -305,7 +305,13 @@ export async function addScene(root, id, assets = resolveLauncherAssets()) {
       if (await isDirectory(source)) await scaffold.copyTemplateTree(source, path.join(target, name));
       else await fs.mkdir(path.join(target, name), { recursive: true });
     }
-    const { default: editStore } = await import('../../edit-store/lib/index.js');
+    let editStoreUrl;
+    for (const relative of ['../../edit-store/lib/index.js', '../vendor/packages/edit-store/lib/index.js']) {
+      const candidate = new URL(relative, import.meta.url);
+      if (await fs.stat(candidate).then(stat => stat.isFile(), () => false)) { editStoreUrl = candidate; break; }
+    }
+    if (!editStoreUrl) throw new Error('edit-store module not found');
+    const { default: editStore } = await import(editStoreUrl.href);
     await writeJsonAtomic(path.join(target, 'edit.json'), editStore.createEmptyEditV2());
     await writeJsonAtomic(path.join(target, 'captions.json'), []);
     const manifest = await readManifest(root);

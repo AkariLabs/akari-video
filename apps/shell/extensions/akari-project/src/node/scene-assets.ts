@@ -1,6 +1,6 @@
 import { constants, existsSync, promises as fs } from 'fs';
 import type { Stats } from 'fs';
-import { basename, dirname, extname, join, relative, sep } from 'path';
+import { basename, dirname, extname, join, relative, resolve, sep } from 'path';
 import { execFile } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
@@ -102,6 +102,49 @@ export async function unlinkedCommonAssetUris(sceneUri: string, sourceUris: stri
 }
 
 const launcherModule = (name: string): string => join(dirname(require.resolve('akari-video/package.json')), 'src', name);
+
+const SCAFFOLD_MODULES = ['packages/project-scaffold/src/index.mjs', 'lib/packages/project-scaffold/src/index.mjs'];
+const PROJECT_TEMPLATES = ['templates/project-default', 'lib/templates/project-default'];
+const UPWARD_SEARCH_MAX_DEPTH = 12;
+
+/** Match the new-project popup's upward search, including the paths copied into app.asar/lib. */
+export function sceneLauncherAssetCandidates(startDirs: readonly string[]): { scaffoldModules: string[]; templateDirs: string[] } {
+    const candidates = (targets: readonly string[]): string[] => {
+        const paths: string[] = [];
+        for (const start of startDirs) {
+            let dir = resolve(start);
+            for (let depth = 0; depth < UPWARD_SEARCH_MAX_DEPTH; depth++) {
+                for (const target of targets) paths.push(resolve(dir, target));
+                const parent = dirname(dir);
+                if (parent === dir) break;
+                dir = parent;
+            }
+        }
+        return paths;
+    };
+    return { scaffoldModules: candidates(SCAFFOLD_MODULES), templateDirs: candidates(PROJECT_TEMPLATES) };
+}
+
+export function selectSceneLauncherAssets(
+    candidates: ReturnType<typeof sceneLauncherAssetCandidates>, files: ReadonlySet<string>, directories: ReadonlySet<string>
+): { scaffoldModulePath: string; templateDir: string } {
+    const scaffoldModulePath = candidates.scaffoldModules.find(path => files.has(path));
+    const templateDir = candidates.templateDirs.find(path => directories.has(path));
+    if (!scaffoldModulePath || !templateDir) throw new Error('Project scaffold or template not found');
+    return { scaffoldModulePath, templateDir };
+}
+
+async function launcherSceneAssets(): Promise<{ scaffoldModulePath: string; templateDir: string }> {
+    const candidates = sceneLauncherAssetCandidates([__dirname, process.cwd()]);
+    const files = new Set<string>();
+    const directories = new Set<string>();
+    await Promise.all([
+        ...candidates.scaffoldModules.map(async path => { if ((await fs.stat(path).catch(() => undefined))?.isFile()) files.add(path); }),
+        ...candidates.templateDirs.map(async path => { if ((await fs.stat(path).catch(() => undefined))?.isDirectory()) directories.add(path); })
+    ]);
+    return selectSceneLauncherAssets(candidates, files, directories);
+}
+
 const runLauncher = async (name: string, imports: string, body: string, args: string[]): Promise<void> => {
     const script = `import ${imports} from ${JSON.stringify(pathToFileURL(launcherModule(name)).href)};\n${body}`;
     try {
@@ -116,7 +159,9 @@ const runLauncher = async (name: string, imports: string, body: string, args: st
 
 export async function addSceneFromLauncher(rootUri: string, id: string): Promise<string> {
     const root = fileURLToPath(rootUri);
-    await runLauncher('project-command.mjs', '{ addScene }', 'await addScene(process.argv[1], process.argv[2]);', [root, id]);
+    const assets = await launcherSceneAssets();
+    await runLauncher('project-command.mjs', '{ addScene }',
+        'await addScene(process.argv[1], process.argv[2], JSON.parse(process.argv[3]));', [root, id, JSON.stringify(assets)]);
     return pathToFileURL(join(root, 'scenes', id)).href;
 }
 

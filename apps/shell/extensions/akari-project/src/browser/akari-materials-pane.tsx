@@ -39,7 +39,7 @@ import { MaterialContextMenuItem } from '../common/material-context-menu-items';
 import { LibraryImportResult } from '../common/library-import';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import { AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
-import { openAkariContextMenu } from './akari-context-menu';
+import { openAkariContextMenu, withMaterialCardMenu } from './akari-context-menu';
 import { MATERIAL_CHIPS, MaterialChip, materialChipCounts, materialRows, visibleMaterialRows } from '../common/project-panel-bands';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
@@ -1353,7 +1353,7 @@ export class AkariMaterialsPane {
                     onMouseEnter={event => { event.currentTarget.style.borderColor =
                         this.selectedMaterialPath === entry.relativePath ? '#f97316' : '#a3a3a3'; }}
                     onMouseLeave={event => { event.currentTarget.style.borderColor = this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT; }}
-                    onContextMenu={event => this.host.openMaterialContextMenu(event, entry)}
+                    onContextMenu={event => withMaterialCardMenu(entry, () => this.host.openMaterialContextMenu(event, entry))}
                     title={entry.name}
                     {...pickProps}
                     style={{
