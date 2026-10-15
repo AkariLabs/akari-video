@@ -615,7 +615,7 @@ export async function runStoreCommand(args, options = {}) {
           return { exitCode: 1 };
         }
 
-        const hadInstalledKit = readKitsLedger(home).kits.length > 0;
+        const hadSkillKit = readKitsLedger(home).kits.some(kit => Array.isArray(kit.skills) && kit.skills.length > 0);
         const assetLinks = linkKitAssets(kitDir, manifest, home, {
           env,
           assets: options.assets,
@@ -641,7 +641,7 @@ export async function runStoreCommand(args, options = {}) {
           assets: assetLinks.linked
         });
         ensureKitsMarketplace(home);
-        if (!hadInstalledKit) log(enableHint());
+        if (skillLinks.linked.length > 0 && !hadSkillKit) log(enableHint());
       }
       const packPath = findFile(destDir, 'PACK.json');
       if (packPath) {

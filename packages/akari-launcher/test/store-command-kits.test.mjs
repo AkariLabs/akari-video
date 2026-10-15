@@ -47,6 +47,7 @@ function fixtureZip(ctx, {
   withAsset = false,
   id = 'sample-kit',
   skillName = 'sample-kit-skill',
+  withSkills = true,
   requiresCli
 } = {}) {
   const source = path.join(ctx.home, `zip-source-${id}`);
@@ -66,10 +67,19 @@ function fixtureZip(ctx, {
     const value = JSON.parse(readFileSync(manifestPath, 'utf8'));
     value.requires.cli = requiresCli ?? (compatible ? '>=0.1.0' : '>=999.0.0');
     value.id = id;
-    value.skills[0].name = skillName;
+    if (withSkills) value.skills[0].name = skillName;
+    else {
+      value.skills = [];
+      rmSync(path.join(source, 'skills'), { recursive: true, force: true });
+      value.playbooks = [{ dir: 'playbooks/kaisetsu-vertical-60s' }];
+      cpSync(path.join(REPO_ROOT, 'packages', 'project-scaffold', 'test', 'fixtures', 'playbook-sample'),
+        path.join(source, 'playbooks', 'kaisetsu-vertical-60s'), { recursive: true });
+    }
     writeFileSync(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
-    const skillPath = path.join(source, value.skills[0].dir, 'SKILL.md');
-    writeFileSync(skillPath, readFileSync(skillPath, 'utf8').replace('name: sample-kit-skill', `name: ${skillName}`));
+    if (withSkills) {
+      const skillPath = path.join(source, value.skills[0].dir, 'SKILL.md');
+      writeFileSync(skillPath, readFileSync(skillPath, 'utf8').replace('name: sample-kit-skill', `name: ${skillName}`));
+    }
   }
   if (invalid) writeFileSync(path.join(source, 'manifest.json'), '{broken');
   const zipPath = path.join(ctx.home, `${id}.zip`);
@@ -246,6 +256,18 @@ test('有効化案内は最初のキットだけに出し、別 productId の 2 
       JSON.parse(readFileSync(path.join(ctx.home, 'kits', 'installed.json'), 'utf8')).kits.map((kit) => kit.id),
       ['sample-kit', 'second-kit']
     );
+  } finally { ctx.cleanup(); }
+});
+
+test('作り方だけのキットは案内を出さず、後から最初のスキルつきキットで案内する', async () => {
+  const ctx = context();
+  try {
+    const playbookOnly = fixtureZip(ctx, { compatible: true, withSkills: false, id: 'playbook-kit' });
+    assert.equal((await runStoreCommand(['install', 'playbook-kit', '--from', playbookOnly], ctx.options)).exitCode, 0);
+    assert.equal(ctx.lines.filter(line => line.includes('claude plugin marketplace add')).length, 0);
+    const skilled = fixtureZip(ctx, { compatible: true, id: 'skilled-kit' });
+    assert.equal((await runStoreCommand(['install', 'skilled-kit', '--from', skilled], ctx.options)).exitCode, 0);
+    assert.equal(ctx.lines.filter(line => line.includes('claude plugin marketplace add')).length, 1);
   } finally { ctx.cleanup(); }
 });
 

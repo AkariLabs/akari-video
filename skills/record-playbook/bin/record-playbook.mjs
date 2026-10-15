@@ -147,22 +147,22 @@ function defaultSteps(decisions) {
   ];
 }
 
-function settingsFromEdit(edit) {
+function settingsFromEdit(edit, intake, priorSettings = {}) {
   const width = edit.output?.width;
   const height = edit.output?.height;
   const aspect = width && height ? (width < height ? '9:16' : width === height ? '1:1' : '16:9') : '16:9';
   const fps = Number.isInteger(edit.output?.fps) ? edit.output.fps : 30;
   const seconds = asArray(edit.tracks).flatMap(track => asArray(track.items).map(item => ((item.at ?? 0) + (item.duration ?? 0)) / fps));
-  const gains = { ...(edit.audio?.role_gains_db ?? {}) };
+  const gains = { ...(priorSettings.audio?.roles ?? {}) };
   for (const track of asArray(edit.tracks)) for (const item of asArray(track.items)) {
     if (item.role && Number.isFinite(item.gain_db) && gains[item.role] === undefined) gains[item.role] = item.gain_db;
   }
   const transition = asArray(edit.tracks).flatMap(track => asArray(track.items))
     .map(item => item.source?.transition_out?.kind ?? item.source?.transition_out?.type).find(Boolean);
-  return { aspect, fps, targetDurationSec: Math.ceil(Math.max(0, ...seconds)),
-    ...(edit.output?.caption_style_uid ? { captions: { styleUid: edit.output.caption_style_uid,
-      ...(edit.output.caption_position ? { position: edit.output.caption_position } : {}) } } : {}),
-    transitions: { default: edit.output?.default_transition ?? transition ?? 'cut' },
+  return { aspect, fps, targetDurationSec: Number.isFinite(intake.target?.duration_s) && intake.target.duration_s > 0
+    ? intake.target.duration_s : Math.ceil(Math.max(0, ...seconds)),
+    ...(priorSettings.captions ? { captions: priorSettings.captions } : {}),
+    transitions: { default: priorSettings.transitions?.default ?? transition ?? 'cut' },
     ...(Object.keys(gains).length ? { audio: { roles: gains } } : {}) };
 }
 
@@ -393,6 +393,7 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
   if (!name || !categories.has(category)) throw new Error('name と category（定義済み語彙）が必要です');
   const project = path.resolve(projectRoot);
   const edit = await readOptional(path.join(project, 'edit.json'));
+  const intake = await readOptional(path.join(project, '.akari', 'intake.json'));
   const analysis = await readOptional(path.join(project, 'analysis.json'));
   const references = await readOptional(path.join(project, '.akari', 'asset-references.json'));
   const styles = await readOptional(path.join(project, '.akari', 'style-usage.json'));
@@ -417,7 +418,7 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
     playbookVersion: (prior?.playbookVersion ?? 0) + 1, depth: 2, category,
     tags: { form: [], length: [], technique: [], tools: [], style: [], industry: [], materials: [], scale: [] },
     requires: { cli: `>=${packageJson.version ?? '0.0.0'}`, tools, skills },
-    steps, settings: settingsFromEdit(edit),
+    steps, settings: settingsFromEdit(edit, intake, prior?.settings),
     placeholders: collectPlaceholders(edit, analysis, references), parts: await collectParts(project, references, styles),
     license, provenance: { fromProject: path.basename(project), recordedAt: now.toISOString(),
       akariVersion: packageJson.version ?? '0.0.0', recordedBy: 'record-playbook' }

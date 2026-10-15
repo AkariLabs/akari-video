@@ -34,7 +34,7 @@ export function buildKitCardModel(input: KitCardInput): KitCardModel {
         return {
             kind: 'installed',
             kits: input.installedKits,
-            showEnableHint: input.pluginEnabled !== true,
+            showEnableHint: input.pluginEnabled !== true && input.installedKits.some(kit => kit.skills.length > 0),
             enableCommand: KIT_ENABLE_HINT
         };
     }
