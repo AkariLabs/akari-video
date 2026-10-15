@@ -329,6 +329,8 @@ export interface CreateAnnotationRequest {
     insertPosition?: 'before' | 'after' | null;
     intent?: string | null;
     text: string;
+    /** false suppresses the partner terminal nudge while retaining the event record. */
+    nudge?: boolean;
 }
 
 export interface CreateAnnotationResult {

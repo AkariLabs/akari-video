@@ -29,4 +29,12 @@ export class SentAnnotationStore {
         this.entries.set(reviewUri, Promise.resolve(ids));
         this.changed.fire(reviewUri);
     }
+
+    async remove(reviewUri: string, id: string): Promise<void> {
+        const ids = new Set(await this.read(reviewUri));
+        if (!ids.delete(id)) return;
+        await this.storage.setData(`akari-review-sent-annotations:${reviewUri}`, [...ids]);
+        this.entries.set(reviewUri, Promise.resolve(ids));
+        this.changed.fire(reviewUri);
+    }
 }

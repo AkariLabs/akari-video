@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -92,6 +92,29 @@ test('イベント記録と commit は review.json のロック解放後に行�
     const result = await service.createAnnotation({ reviewUri, projectRootUri, text: '新規', sourceT: 1 });
     assert.equal(result.committed, true);
     assert.deepEqual(calls, ['event', 'commit']);
+}));
+
+test('createAnnotation keeps event files and records nudge false only when requested', async () => fixture(async ({ root, service, reviewUri, projectRootUri }) => {
+    const committedPaths = [];
+    service.commitIfOwnRoot = async (_root, _message, paths) => {
+        committedPaths.push(paths);
+        return true;
+    };
+    await service.createAnnotation({ reviewUri, projectRootUri, text: 'preview', sourceT: 1, nudge: false });
+    await service.createAnnotation({ reviewUri, projectRootUri, text: 'panel', sourceT: 2 });
+    const names = await readdir(join(root, '.akari/events'));
+    assert.equal(names.length, 2);
+    const events = await Promise.all(names.map(async name => JSON.parse(await readFile(join(root, '.akari/events', name), 'utf8'))));
+    const byId = new Map(events.map(event => [event.annotationId, event]));
+    assert.equal(byId.get('a-0001').type, 'annotation-created');
+    assert.equal(byId.get('a-0001').nudge, false);
+    assert.equal(byId.get('a-0002').type, 'annotation-created');
+    assert.equal(Object.hasOwn(byId.get('a-0002'), 'nudge'), false);
+    assert.equal(committedPaths.length, 2);
+    for (const paths of committedPaths) {
+        assert.equal(paths[0], join(root, 'review.json'));
+        assert.match(paths[1], /[/\\]\.akari[/\\]events[/\\].+annotation-created-.+\.json$/);
+    }
 }));
 
 test('別セッションが記録した ID をアプリの追加でも再利用しない', async () => fixture(async ({ root, review, service, reviewUri, projectRootUri }) => {

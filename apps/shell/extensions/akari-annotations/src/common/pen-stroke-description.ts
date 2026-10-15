@@ -1,9 +1,19 @@
 import { t } from '@akari-video/i18n';
+import { AnnotationRegion } from './annotation-store';
 
 export interface DescribableStroke {
     tool?: string;
     space?: string;
     points?: readonly (readonly [number, number])[];
+}
+
+export function describeAnnotationPosition(region: AnnotationRegion | null | undefined): string | undefined {
+    if (!region) return undefined;
+    const [x, y, width, height] = region.box;
+    return t('annotationscommon.annotationPosition.text.center', {
+        x: Math.round((x + width / 2) * 100),
+        y: Math.round((y + height / 2) * 100)
+    });
 }
 
 export function describePenStrokes(strokes: readonly DescribableStroke[] | null | undefined): string | undefined {

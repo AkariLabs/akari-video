@@ -20,6 +20,7 @@ export interface CreateFromPreviewRequest {
     src?: string | null;
     sourceT: number;
     sourceRange?: [number, number] | null;
+    point?: [number, number] | null;
     target?: string | null;
     strokes?: AnnotationStroke[] | null;
     text: string;
@@ -29,6 +30,21 @@ export interface PreviewPacketRequest {
     projectRootUri: string;
     ids: string[];
     extraLines?: string[];
+}
+
+export interface DeleteFromPreviewRequest {
+    projectRootUri: string;
+    id: string;
+}
+
+/** A schema-valid 2% box centred as closely as possible on a content-rect point. */
+export function previewPointRegion(point: [number, number]): { box: [number, number, number, number] } {
+    const size = 0.02;
+    return { box: [
+        Math.min(1 - size, Math.max(0, point[0] - size / 2)),
+        Math.min(1 - size, Math.max(0, point[1] - size / 2)),
+        size, size
+    ] };
 }
 
 export function composePreviewPacket(
@@ -99,6 +115,10 @@ export class PreviewAnnotationCommands implements CommandContribution {
             || (request.sourceRange != null && (!Array.isArray(request.sourceRange)
                 || request.sourceRange.length !== 2 || !request.sourceRange.every(Number.isFinite)
                 || request.sourceRange[0] < 0 || request.sourceRange[0] >= request.sourceRange[1]))
+            || (request.point != null && (!Array.isArray(request.point) || request.point.length !== 2
+                || !([0, 1] as const).every(index => typeof request.point?.[index] === 'number'
+                    && Number.isFinite(request.point[index])
+                    && request.point[index] >= 0 && request.point[index] <= 1)))
             || (request.strokes != null && (!Array.isArray(request.strokes)
                 || request.strokes.some(stroke => stroke?.space !== 'content-rect'
                     || !Number.isFinite(stroke.frame?.sourceT) || stroke.frame.sourceT < 0
@@ -115,15 +135,35 @@ export class PreviewAnnotationCommands implements CommandContribution {
             sourceRange: request.sourceRange ?? null,
             timelineT: null,
             target: request.target ?? null,
-            targetKind: request.sourceRange ? 'range' : request.strokes?.length ? 'region' : 'instant',
+            targetKind: request.sourceRange ? 'range' : request.strokes?.length || request.point ? 'region' : 'instant',
+            region: request.point ? previewPointRegion(request.point) : null,
             strokes: request.strokes ?? null,
-            text: request.text
+            text: request.text,
+            nudge: false
         });
         if (this.model.location?.reviewUri.toString() === reviewUri
             && !this.model.annotations.some(annotation => annotation.id === result.annotation.id)) {
             this.model.annotations = [...this.model.annotations, result.annotation];
         }
         return { id: result.annotation.id };
+    }
+
+    protected async delete(request: DeleteFromPreviewRequest): Promise<{ deleted: boolean }> {
+        if (!request || typeof request.id !== 'string' || !request.id.trim()) {
+            throw new Error('Invalid annotation id');
+        }
+        const reviewUri = (await this.reviewLocation(request.projectRootUri)).reviewUri.toString();
+        const review = parseReview((await this.files.readFile(new URI(reviewUri))).value.toString());
+        if (!review.annotations.some(annotation => annotation.id === request.id)) {
+            await this.sent.remove(reviewUri, request.id);
+            return { deleted: false };
+        }
+        await this.annotationsService.deleteAnnotation({ reviewUri, annotationId: request.id });
+        if (this.model.location?.reviewUri.toString() === reviewUri) {
+            this.model.annotations = this.model.annotations.filter(annotation => annotation.id !== request.id);
+        }
+        await this.sent.remove(reviewUri, request.id);
+        return { deleted: true };
     }
 
     protected async hand(request: PreviewPacketRequest): Promise<PromptResult> {
@@ -155,5 +195,6 @@ export class PreviewAnnotationCommands implements CommandContribution {
             }
         });
         registry.registerCommand({ id: 'akari.annotations.handToPartner' }, { execute: request => this.hand(request) });
+        registry.registerCommand({ id: 'akari.annotations.deleteFromPreview' }, { execute: request => this.delete(request) });
     }
 }

@@ -18,6 +18,7 @@ const RENDER_PINS_RELATIVE = '.akari/render-pins.json';
 
 interface AkariEvent {
     type: string;
+    nudge?: boolean;
     // Canonical events use `occurredAt`; older fixtures used `at`. Accept both.
     occurredAt?: string;
     at?: string;
@@ -125,6 +126,7 @@ export class PartnerSessionService implements FrontendApplicationContribution {
                 }
             }
             this.processedContent.set(resource.toString(), content);
+            if (parsed.nudge === false) return;
             this.queue.push(this.nudgeFor(parsed as AkariEvent));
             this.scheduleFlush();
         } catch (error) {
