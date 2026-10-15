@@ -78,7 +78,7 @@
 | [contract-2026-10-15-playbook-v0.md](./contract-2026-10-15-playbook-v0.md) | 作り方 v0（完成プロジェクトからの記録と、新規プロジェクトへの適用） |
 | [contract-2026-10-15-project-manifest-v0.md](./contract-2026-10-15-project-manifest-v0.md) | プロジェクトの依存グラフ v0 — `<project>/.akari/manifest.json`（nodes = 関わるもの・edges = 誰が誰を使うか）。シーンを持つプロジェクトは `scenes/<scene>/` に 1 段だけ入れ子（シーンのフォルダを作業フォルダとして開く）。実体も編集の中身も持たず、相関図・構成の木・確認シート・検査の正本になる。`akari project sync / check / scene add`。参照台帳・利用台帳は変えない |
 | [contract-2026-10-16-automation-gates-v0.md](./contract-2026-10-16-automation-gates-v0.md) | 自動化の門と「やったこと」v0 — 戻せることは見ていなくても進め（`agent-action` を記録して節目に撮る）、戻せないこと（公開・提出・有償・外部送信・元素材の削除・ライセンス・作り方の確認点・人の指定）だけ門で止める（`gate-requested` / `gate-resolved`）。やったこと一覧から変更を見て、ここまで戻す。おまかせ度は既存の 3 つのまま |
-| [contract-2026-10-16-recipes-and-connectors-v0.md](./contract-2026-10-16-recipes-and-connectors-v0.md) | レシピと接続の 2 層 v0（ドラフト・語の裁定待ち）— レシピ = シチュエーション（BGM を 30 秒作る 等。要る能力だけを書く）/ 接続 = サービス・ソフトウェア（認証・叩き方・料金・規約・持つ能力）。差し替えても作り方とレシピは変わらない。自前アダプタはキットで配り、非公式な叩き方は同梱しない |
+| [contract-2026-10-16-recipes-and-connectors-v0.md](./contract-2026-10-16-recipes-and-connectors-v0.md) | レシピと接続の 2 層 v0— レシピ = シチュエーション（BGM を 30 秒作る 等。要る能力だけを書く）/ 接続 = サービス・ソフトウェア（認証・叩き方・料金・規約・持つ能力）。差し替えても作り方とレシピは変わらない。自前アダプタはキットで配り、非公式な叩き方は同梱しない |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | ワールドマップ v0（スキーマ・カメラ関数・描画 3 層・CLI akari world・俯瞰 HTML・制作フロー） |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | 作品の言語の保存先・解決順・正規化・言語パックの代用規則 |
 

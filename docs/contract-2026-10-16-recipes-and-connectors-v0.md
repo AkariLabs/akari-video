@@ -1,5 +1,5 @@
 ---
-lifecycle: draft
+lifecycle: accepted
 created: 2026-10-16
 updated: 2026-10-16
 ---
@@ -7,7 +7,7 @@ updated: 2026-10-16
 # recipes-and-connectors-v0（レシピと接続の 2 層）契約
 
 - 日付: 2026-10-16
-- 状態: **ドラフト・語の裁定待ち**（§6。形と層の分け方は確定方向、「レシピ」の語の割り当てが未裁定）
+- 状態: **accepted**（2026-10-16。語と置き場は §6 の既定で確定。語は後から改名できるよう、ファイルの見分けは `kind` で行う）
 - 前提: `contract-2026-07-14-3d-bake-recipe.md`（道具のレシピ = 正本、焼いた出力 = 再生成できるキャッシュ）/
   `contract-2026-09-13-extension-kit-v0.md`（キットの manifest。v0 の `kind` は `kit` のみ）/
   `packages/schemas/connections.schema.json`（接続の台帳。`kind`: genai / image / video / tts / music / sns / analytics / notify）/
@@ -73,10 +73,17 @@ updated: 2026-10-16
 - 公式の API が無いサービスを非公式に叩くアダプタは**同梱しない**。配る場合は個別に審査する（相手の規約に触れうる）
 - 有償・外部送信は門（`paid` / `external-send`）。どのおまかせ度でも止まる
 - MCP サーバーは作らない（2 種類目のエージェントか外部アプリが要ったとき）。外から叩く口はファイル契約と `akari` の副コマンド
-- 個々のアダプタの実装・レシピの GUI
+- 個々のアダプタの実装・レシピの GUI・レシピの実行エンジン（実行はエージェント）
 
-## 6. 開けた問い（オーナー裁定待ち）
+## 6. 語と置き場（2026-10-16 の既定）
 
-1. **語**: 「レシピ」は既に `contract-2026-07-25-recipe-v0.md`（好みの凍結 `recipe.json`。ドラフト・スキル 2 本が参照）と
-   3D ベイクのレシピで使われている。シチュエーションの層を「レシピ」と呼ぶなら、好みの凍結の側を「好み」などへ改名するか
-2. 置き場: レシピの宣言を キット（`recipes/<id>/recipe.json`）と手元（`~/.akari/…`）のどこに置くか（1 の語が決まってから）
+- 画面の語: シチュエーションの層を **レシピ** と呼ぶ。既存の `contract-2026-07-25-recipe-v0.md` の `recipe.json`
+  （確認済みの好みの凍結。`~/.akari/recipes/<name>.json`）は**そのまま**で、画面では「好みの記憶」と呼ぶ。2 つはファイルの `kind` で見分ける
+  （本契約の宣言は `"kind": "akari-recipe"`。好みの凍結は `kind` を持たない）
+- 置き場（作り方と同じ形の棚）: 手元 = `~/.akari/tool-recipes/<id>/recipe.json`（`~/.akari/recipes/` には置かない）/
+  キット = `recipes/<id>/recipe.json`（キットの manifest に `recipes: [{ "dir": "recipes/<id>" }]`。`akari store install` で手元の棚へ symlink）/
+  プロジェクト = `<project>/recipes/<id>/recipe.json`（そのプロジェクトだけで使うもの）。同じ id はプロジェクト → 手元 → キットの順で先を使う
+- 動詞（CLI）: `akari recipe list [--json]`（棚の一覧）/ `akari recipe plan <id> [--project <dir>]`（要る能力 → 使える接続の候補・
+  止まる門〈`paid` / `external-send` / `terms.checked` が無ければ `license`〉を出す。**実行はしない** — 実行はエージェントがスキルと既存の動詞
+  〈`akari generate` など〉で行い、出力を manifest の tool-output に recipe / connector つきで載せる）
+- 改名するときは、画面の語と CLI の別名を足すだけで、ファイルの `kind` と置き場は変えない
