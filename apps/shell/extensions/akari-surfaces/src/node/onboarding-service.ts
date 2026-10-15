@@ -6,7 +6,8 @@ import { basename, dirname, join, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
-import { rederiveCaptionWords } from '@akari-video/edit-store';
+import { planCaptionLookMigration, rederiveCaptionWords, type CaptionRun } from '@akari-video/edit-store';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { runEditLint, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
@@ -363,7 +364,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             }
         } catch { /* An absent or incompatible transcript leaves the model captions intact. */ }
         const captions = createOnboardingCaptions(adjusted, count, false, guide) as { captions: Array<{
-            text: string; display_text: string; runs: object[]; start: number; end: number; [key: string]: unknown
+            text: string; display_text: string; runs: CaptionRun[]; start: number; end: number; [key: string]: unknown
         }> };
         if (transcriptTokens) {
             for (const caption of captions.captions) {
@@ -405,9 +406,13 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             if (caption) Object.assign(caption, { style: 'karaoke', runs: [],
                 text_style: { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 } });
         }
+        // Use the same migration and catalog as the timeline's offer before the guide writes captions.
+        // This also covers the legacy emphasis runs added by the later demo stages.
+        const migratedCaptions = planCaptionLookMigration(captions,
+            loadTextstyleCatalogSync({ env: process.env }).catalog).next;
         const desired: Record<string, string> = {
             'edit.json': `${JSON.stringify(edit, null, 2)}\n`,
-            'captions.json': `${JSON.stringify(captions, null, 2)}\n`
+            'captions.json': `${JSON.stringify(migratedCaptions, null, 2)}\n`
         };
         const candidates: Record<string, string> = {};
         for (const [name, content] of Object.entries(desired)) {

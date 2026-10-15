@@ -65,7 +65,7 @@ export function createCaptionLookMigrationOffer() {
                 dry.before[deps.captionsName]?.text ?? null);
             if (count === 0) return;
             const choice = await deps.ask(count);
-            if (choice === 'later') { await deps.remember(key); return; }
+            if (choice === 'later' || choice === undefined) { await deps.remember(key); return; }
             if (choice !== 'fix') return;
             const result = await deps.migrate({ ...destination, input: {},
                 expectedHashes: {

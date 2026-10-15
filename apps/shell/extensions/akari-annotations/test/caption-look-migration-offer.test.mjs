@@ -76,13 +76,14 @@ test('dry-run の後の外部変更は書かずに競合だけ知らせる', asy
   assert.equal(f.state().conflict, 1);
 });
 
-test('通知を閉じただけなら次の起動で一度だけ再提案する', async () => {
+test('通知を閉じたプロジェクトは次の起動でも再提案しない', async () => {
   const f = fixture({ choice: undefined });
   f.deps.ask = async () => { f.deps.askCount = (f.deps.askCount ?? 0) + 1; return undefined; };
   await f.offer(f.deps); await f.offer(f.deps);
   await createCaptionLookMigrationOffer()(f.deps);
-  assert.equal(f.deps.askCount, 2);
-  assert.equal(f.state().remembered, false);
+  assert.equal(f.deps.askCount, 1);
+  assert.equal(f.state().remembered, true);
+  assert.equal(f.state().writes, 0);
 });
 
 test('root の強調だけの差分も属する行を数える', () => {

@@ -175,7 +175,7 @@ test('英語 guide の最終段と古いライブラリ guide の上書き防止
     assert.equal(overlay.items[0].name, guide.title_caption);
     const captions = (await json(join(project, 'captions.json'))).captions;
     assert.ok(captions.some(caption => caption.text === 'Editing with AI is simple.' &&
-        caption.runs.some(run => run.role === 'emphasis' && run.style.scale === 1.15)));
+        caption.runs.some(run => run.role === 'emphasis' && run.look.scale === 1.15)));
     assert.ok(captions.some(caption => caption.text === guide.karaoke.text && caption.style === 'karaoke'));
     let importedName;
     service.projectService = { recordDroppedAssets: async (_uri, items) => {

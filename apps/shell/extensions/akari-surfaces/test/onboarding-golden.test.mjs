@@ -7,6 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createOnboardingEdit, createOnboardingCaptions, createEmptyOnboardingEdit, splitOnboardingTokens } from '../lib/onboarding/model.js';
 import { AkariOnboardingServiceImpl } from '../lib/node/onboarding-service.js';
+import { planCaptionLookMigration, resolveCaptionStylePreset } from '@akari-video/edit-store';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sample = join(here, '../../../resources/onboarding-sample/talkinghead-desk-ja-01');
@@ -14,7 +16,7 @@ const guide = JSON.parse(await readFile(join(sample, 'guide.json'), 'utf8'));
 const expected = JSON.parse(await readFile(join(here, 'fixtures/onboarding/golden-base-sha256.json'), 'utf8'));
 const digest = value => createHash('sha256').update(value).digest('hex');
 
-test('起点の日本語サンプル出力と model・全段階の edit / captions がバイト一致する', async t => {
+test('日本語サンプルの model・全段階の edit / captions が期待値とバイト一致する', async t => {
     const transcript = JSON.parse(await readFile(join(sample, 'transcript.json'), 'utf8'));
     const segments = splitOnboardingTokens(transcript.tokens.items, guide.subtitles);
     const check = (name, value) => assert.equal(digest(value), expected[name], name);
@@ -51,6 +53,56 @@ test('起点の日本語サンプル出力と model・全段階の edit / captio
         await run.service.writeExample(run.uri, join(sample, 'clip.mp4'), segments, count, title);
         check(`noprogress-${label}-edit.json`, await readFile(join(run.root, 'edit.json')));
         check(`noprogress-${label}-captions.json`, await readFile(join(run.root, 'captions.json')));
+    }
+});
+
+test('ja / en のガイド全段階で字幕の見た目は保たれ、移行の試しは差分なし', async t => {
+    const scratch = await mkdtemp(join(tmpdir(), 'akari-look-stages-'));
+    t.after(async () => { await import('node:fs/promises').then(fs => fs.rm(scratch,
+        { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })); });
+    const catalog = loadTextstyleCatalogSync({ env: process.env }).catalog;
+    const baseStyle = resolveCaptionStylePreset({ style_preset: 'subtitle-standard' }, catalog).record.text_style;
+    for (const language of ['ja', 'en']) {
+        const source = join(here, `../../../resources/onboarding-sample/talkinghead-desk-${language}-01`);
+        const selectedGuide = JSON.parse(await readFile(join(source, 'guide.json'), 'utf8'));
+        const transcript = JSON.parse(await readFile(join(source, 'transcript.json'), 'utf8'));
+        const segments = splitOnboardingTokens(transcript.tokens.items, selectedGuide.subtitles);
+        const root = join(scratch, language);
+        await mkdir(join(root, 'assets'), { recursive: true });
+        await mkdir(join(root, '.akari'));
+        await copyFile(join(source, 'clip.mp4'), join(root, 'assets', selectedGuide.asset_name));
+        await writeFile(join(root, 'edit.json'), '{}');
+        const uri = pathToFileURL(root).toString();
+        const service = new AkariOnboardingServiceImpl();
+        service.load = async () => ({ schema: 1, step: 'work', sub: 0,
+            projectUri: uri, sampleId: `talkinghead-desk-${language}-01`,
+            imported: true, exampleActive: true });
+        let expectedText;
+        for (let stage = 0; stage <= 8; stage++) {
+            await service.writeExample(uri, join(source, 'clip.mp4'), segments, segments.length,
+                stage > 0, { stage });
+            const written = JSON.parse(await readFile(join(root, 'captions.json'), 'utf8'));
+            const migration = planCaptionLookMigration(written, catalog);
+            assert.deepEqual(migration.diff, [], `${language} stage ${stage}`);
+            expectedText ??= written.captions.map(row => row.text);
+            assert.deepEqual(written.captions.map(row => row.text), expectedText);
+            for (const row of written.captions) {
+                assert.equal(row.style_preset, undefined);
+                assert.deepEqual(row.style_sources.look.kind, 'builtin');
+                assert.equal(row.style_sources.look.id, 'subtitle-standard');
+                if (row.style === 'karaoke') {
+                    assert.equal(row.text_style.size_px, 62);
+                    assert.deepEqual(row.text_style.karaoke, { fill: 'smooth', done_color: '#FB923C' });
+                } else assert.deepEqual(row.text_style, baseStyle);
+                for (const run of row.runs) {
+                    assert.ok(run.id);
+                    assert.equal(run.style, undefined);
+                    assert.equal(run.look.color, '#FB923C');
+                    assert.equal(run.look.font_weight, 900);
+                }
+            }
+        }
+        assert.equal(await service.lintExample(uri), 0, `${language} edit-lint`);
     }
 });
 
