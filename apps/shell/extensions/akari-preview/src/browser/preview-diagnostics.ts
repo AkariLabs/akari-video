@@ -260,6 +260,16 @@ export function isPreviewDiagnosticsReport(message: unknown): message is Preview
             || candidate.phase === 'stage' || candidate.phase === 'event' || candidate.phase === 'heartbeat');
 }
 
+/** setHTML の直後に届く診断を、通常のメッセージ購読が整うまで受け取る。 */
+export function listenForEarlyPreviewDiagnostics(widget: {
+    onMessage(listener: (message: unknown) => void): { dispose(): void };
+    akariPreviewDiagnostics?: PreviewDiagnosticsSession;
+}): { dispose(): void } {
+    return widget.onMessage(message => {
+        if (isPreviewDiagnosticsReport(message)) widget.akariPreviewDiagnostics?.ingest(message);
+    });
+}
+
 export class PreviewDiagnosticsSession {
     readonly trace: PreviewInitTrace = createPreviewInitTrace(PREVIEW_INIT_STAGES);
     readonly role: string;

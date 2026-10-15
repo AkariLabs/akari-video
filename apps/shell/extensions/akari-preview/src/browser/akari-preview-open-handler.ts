@@ -98,6 +98,7 @@ import {
     PreviewDiagnosticsLog,
     createDomPreviewDiagnosticsOverlay,
     isPreviewDiagnosticsReport,
+    listenForEarlyPreviewDiagnostics,
     shouldDeliverPreviewRendererGone
 } from './preview-diagnostics';
 import {
@@ -2911,13 +2912,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri: identityUri.toString(), workspaceRoots
             })).catch(() => undefined)
             : Promise.resolve(undefined);
-        await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
+        // 素材なしのページは setHTML の直後に ready を送る。通常の購読はこの後の
+        // サイドカー読込を待つので、初回ロード中だけ先に診断を受け取る。
+        const earlyDiagnostics = listenForEarlyPreviewDiagnostics(widget);
+        widget.disposed.connect(() => earlyDiagnostics.dispose());
+        try {
+            await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
+        } catch (error) {
+            earlyDiagnostics.dispose();
+            throw error;
+        }
 
         if (widget.isDisposed) {
+            earlyDiagnostics.dispose();
             return;
         }
 
         if (widget.akariPreviewConfigured) {
+            earlyDiagnostics.dispose();
             return;
         }
         widget.akariPreviewConfigured = true;
@@ -3627,6 +3639,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, true);
             }
         }));
+        earlyDiagnostics.dispose();
         void this.handleChatReviewMessage(widget, identityUri, kind, { type: 'akari-preview-chat-review-load' });
         let placement: { key: string; at: number; until?: number; baseline: Promise<string>;
             refreshedContent?: string } | undefined;
