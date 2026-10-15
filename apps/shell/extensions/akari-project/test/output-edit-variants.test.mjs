@@ -49,24 +49,29 @@ const paneHarness = (name, dependencies) => {
     return new Function(...Object.keys(dependencies), code + '\nreturn Harness;')(...Object.values(dependencies));
 };
 
-test('outputs collection includes root edit variants and keeps canonical edit first', async () => {
-    const Harness = paneHarness('loadOutputs', { isEditDataFileName, orderDataEntries });
+test('records include root edit variants and keep review findings in reports', async () => {
+    const Harness = paneHarness('loadOutputs', { isEditDataFileName, orderDataEntries,
+        EXTRA_REPORT_FILES: ['analysis.json', 'decision-log.md', 'review.json'] });
     const root = { toString: () => 'root', resolve: name => ({ toString: () => name }) };
     const names = ['edit.v20.json', 'captions.json', 'edit.json', 'edit.timeline-2.json', 'edit.V20.json', 'review.json'];
     const files = names.map((name, mtime) => ({ resource: { path: { base: name } }, mtime, size: 1 }));
     const instance = new Harness();
+    instance.foldedRecordGroups = new Set();
+    instance.expandedRecordGroups = new Set();
     instance.host = { workflow: { workspaceRoot: root }, update: () => {},
         projectDataFiles: [{ name: 'edit.json' }, { name: 'captions.json' }, { name: 'review.json' }], rootReportFiles: [] };
     instance.outputsGeneration = 0;
     instance.collectTopLevelFiles = async uri => uri === root ? files : [];
     instance.collectPlanFiles = async () => [];
-    instance.collectRootFilesNamed = () => [];
+    instance.collectRootFilesNamed = (_, requested) => requested.includes('review.json') ? [files.find(file => file.resource.path.base === 'review.json')] : [];
+    instance.collectSidecarAnalysisFiles = async () => [];
     instance.buildOutputEntry = async (_, file, kind) => ({ kind, name: file.resource.path.base, mtime: file.mtime });
     instance.hydrateOutputThumbnails = async () => {};
     await instance.loadOutputs();
-    assert.deepEqual(instance.outputs.map(entry => entry.name), [
-        'edit.json', 'edit.timeline-2.json', 'edit.v20.json', 'captions.json', 'review.json'
+    assert.deepEqual(instance.outputs.filter(entry => entry.kind === 'data').map(entry => entry.name), [
+        'edit.json', 'edit.timeline-2.json', 'edit.v20.json', 'captions.json'
     ]);
+    assert.deepEqual(instance.outputs.filter(entry => entry.kind === 'report').map(entry => entry.name), ['review.json']);
 });
 
 test('opening an edit output opens its preview and requested timeline', async () => {
