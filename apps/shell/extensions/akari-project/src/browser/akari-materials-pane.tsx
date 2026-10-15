@@ -73,6 +73,12 @@ export interface MaterialCardEntry {
     missing?: boolean;
     recipe?: boolean;
     baked?: boolean;
+    commonSourceUri?: string;
+}
+
+/** Common cards belong to the containing project; scene-local cards belong to the workspace. */
+export function materialSourceRoot(workspaceRoot: URI, entry: Pick<MaterialCardEntry, 'commonSourceUri'>): URI {
+    return entry.commonSourceUri ? workspaceRoot.parent.parent : workspaceRoot;
 }
 
 /**
@@ -349,6 +355,19 @@ export class AkariMaterialsPane {
             Promise.all(assetEntries.assetGroups.map(dir => this.buildAssetGroupEntry(root, dir))),
             Promise.all(rootFiles.map(file => this.buildMaterialEntry(root, file, true)))
         ]);
+        let commonMaterials: MaterialCardEntry[] = [];
+        if (root.parent?.path?.base === 'scenes' && await this.host.files.exists(root.parent.parent.resolve('.akari'))) {
+            const projectRoot = root.parent.parent;
+            commonMaterials.push(...await this.collectCommonEntries(projectRoot));
+            if (commonMaterials.length) {
+                const service = this.host.projectService as typeof this.host.projectService & {
+                    unlinkedCommonAssetUris(sceneUri: string, sourceUris: string[]): Promise<string[]>;
+                };
+                const unlinked = await service.unlinkedCommonAssetUris(root.toString(), commonMaterials.map(entry => entry.commonSourceUri!));
+                const visible = new Set(unlinked);
+                commonMaterials = commonMaterials.filter(entry => visible.has(entry.commonSourceUri!));
+            }
+        }
         const states = await this.host.projectService.transcriptStates({
             projectRoot: root.toString(),
             relativePaths: [...fileMaterials, ...groupMaterials, ...unorganizedMaterials]
@@ -375,7 +394,7 @@ export class AkariMaterialsPane {
         if (generation !== this.materialsGeneration) return;
         const referencedDirectories = new Set(referenceMaterials.map(entry => entry.relativePath));
         const materials = [...fileMaterials.filter(entry => !referenceMaterials.some(ref => entry.relativePath.startsWith(`${ref.relativePath}/`))),
-            ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials];
+            ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials, ...commonMaterials];
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
         this.transcriptStateByPath = states;
         this.materials = materials;
@@ -463,6 +482,38 @@ export class AkariMaterialsPane {
         return { files, assetGroups };
     }
 
+    protected async collectCommonEntries(projectRoot: URI): Promise<MaterialCardEntry[]> {
+        const result: MaterialCardEntry[] = [];
+        const walk = async (directory: URI): Promise<void> => {
+            let children: FileStat[];
+            try { children = (await this.host.files.resolve(directory)).children ?? []; } catch { return; }
+            for (const child of children) {
+                if (child.name.startsWith('.') || /(^meta\.json$|^preview\.png$|\.(meta|analysis)\.json$)/i.test(child.name)) continue;
+                if (!child.isDirectory) {
+                    const entry = await this.buildMaterialEntry(projectRoot, child, false);
+                    entry.relativePath = projectRoot.relative(child.resource)?.toString() ?? entry.relativePath;
+                    entry.commonSourceUri = child.resource.toString();
+                    if (entry.kind === 'image' && !entry.thumbnailUri) entry.thumbnailUri = child.resource;
+                    result.push(entry);
+                    continue;
+                }
+                let resolved: FileStat;
+                try { resolved = await this.host.files.resolve(child.resource); } catch { continue; }
+                if (isAssetBinGroupDirectory(this.host.toAssetBinChildren(resolved))) {
+                    const entry = await this.buildAssetGroupEntry(projectRoot, resolved);
+                    const mediaName = entry.mediaRelativePath?.split('/').pop();
+                    if (!mediaName) continue;
+                    entry.relativePath = projectRoot.relative(child.resource)?.toString() ?? entry.relativePath;
+                    entry.mediaRelativePath = `${entry.relativePath}/${mediaName}`;
+                    entry.commonSourceUri = child.resource.resolve(mediaName).toString();
+                    result.push(entry);
+                } else await walk(child.resource);
+            }
+        };
+        await walk(projectRoot.resolve('assets'));
+        return result;
+    }
+
     /**
      * プロジェクトルート**直下**（非再帰）の未整理素材を集める。判定は
      * unorganized-materials.ts の純関数（project-tree-policy.ts の既存ノイズ判定 +
@@ -484,7 +535,8 @@ export class AkariMaterialsPane {
     }
 
     protected async buildMaterialEntry(root: URI, file: FileStat, unorganized: boolean): Promise<MaterialCardEntry> {
-        const relativePath = this.host.workflow.relativePath(file.resource) ?? file.resource.path.base;
+        const relativePath = root.relative?.(file.resource)?.toString()
+            ?? this.host.workflow.relativePath(file.resource) ?? file.resource.path.base;
         const kind = this.host.classifyKind(file.resource.path.base);
         const analysisRelativePath = `.akari/sidecars/${relativePath}.analysis/analysis.json`;
         const analysisUri = root.resolve(analysisRelativePath);
@@ -611,16 +663,17 @@ export class AkariMaterialsPane {
         const candidates = entries.filter(entry => !entry.assetGroup && !entry.analyzed
             && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
         await Promise.all(candidates.map(async entry => {
+            const sourceRoot = materialSourceRoot(root, entry);
             let outcome;
             try {
-                outcome = await this.host.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image' | 'audio');
+                outcome = await this.host.projectService.resolveMaterialThumbnail(sourceRoot.toString(), entry.relativePath, entry.kind as 'video' | 'image' | 'audio');
             } catch {
                 return;
             }
             if (generation !== this.materialsGeneration || !outcome.available || !outcome.cacheRelativePath) {
                 return;
             }
-            entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
+            entry.thumbnailUri = sourceRoot.resolve(outcome.cacheRelativePath);
             this.host.update();
         }));
     }
@@ -628,19 +681,28 @@ export class AkariMaterialsPane {
     protected async hydrateMaterialMeta(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
         const candidates = entries.filter(entry => !entry.assetGroup && !entry.reference);
         if (candidates.length === 0) return;
-        for (let start = 0; start < candidates.length; start += 20) {
-            if (generation !== this.materialsGeneration) return;
-            const batch = candidates.slice(start, start + 20);
-            try {
-                const metadata = await this.host.projectService.materialMeta(root.toString(), batch.map(entry => entry.relativePath));
+        const groups = new Map<string, { root: URI; entries: MaterialCardEntry[] }>();
+        for (const entry of candidates) {
+            const sourceRoot = materialSourceRoot(root, entry);
+            const key = sourceRoot.toString();
+            if (!groups.has(key)) groups.set(key, { root: sourceRoot, entries: [] });
+            groups.get(key)!.entries.push(entry);
+        }
+        for (const group of groups.values()) {
+            for (let start = 0; start < group.entries.length; start += 20) {
                 if (generation !== this.materialsGeneration) return;
-                for (const entry of batch) {
-                    const meta = metadata[entry.relativePath];
-                    if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+                const batch = group.entries.slice(start, start + 20);
+                try {
+                    const metadata = await this.host.projectService.materialMeta(group.root.toString(), batch.map(entry => entry.relativePath));
+                    if (generation !== this.materialsGeneration) return;
+                    for (const entry of batch) {
+                        const meta = metadata[entry.relativePath];
+                        if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+                    }
+                    this.host.update();
+                } catch {
+                    // Metadata is supplemental; continue with later batches.
                 }
-                this.host.update();
-            } catch {
-                // Metadata is supplemental; continue with later batches.
             }
         }
     }
@@ -656,11 +718,12 @@ export class AkariMaterialsPane {
             const batch = candidates.slice(start, start + 20);
             await Promise.all(batch.map(async entry => {
                 try {
-                    const outcome = await this.host.projectService.resolveMaterialStrip(root.toString(), entry.relativePath,
+                    const sourceRoot = materialSourceRoot(root, entry);
+                    const outcome = await this.host.projectService.resolveMaterialStrip(sourceRoot.toString(), entry.relativePath,
                         { cells: materialStripCells(entry.durationSeconds), cellWidth: 80 });
                     if (generation === this.materialsGeneration && isMaterialsList(this.mode)
                         && outcome.available && outcome.cacheRelativePath) {
-                        entry.stripUri = root.resolve(outcome.cacheRelativePath);
+                        entry.stripUri = sourceRoot.resolve(outcome.cacheRelativePath);
                         this.host.update();
                     }
                 } catch { /* Keep the first thumbnail when strip generation is unavailable. */ }
@@ -1148,6 +1211,7 @@ export class AkariMaterialsPane {
      * CustomEvent もミラー送信する（受け側のゴースト計算・実尺プローブ用、司令塔裁定4）。
      */
     protected handleMaterialDragStart(event: React.DragEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
+        if (entry.commonSourceUri) { event.preventDefault(); return; }
         const known = entry.reference && this.host.assetCatalogItems.find(item =>
             item.key === `${entry.reference!.category}/${entry.reference!.id}`) as
             (AssetCatalogViewItem & { width?: number; height?: number }) | undefined;
@@ -1200,6 +1264,25 @@ export class AkariMaterialsPane {
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
         const range = this.materialRanges?.[entry.mediaRelativePath ?? entry.relativePath];
         const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
+        const pickProps = this.host.generationPickCardProps(pickCandidate);
+        if (entry.commonSourceUri && this.host.generationPick.request) {
+            const pick = async (): Promise<void> => {
+                try {
+                    const path = await this.importCommon(entry);
+                    await this.host.generationPick.pick({ ...pickCandidate, path });
+                } catch (error) { this.host.messages.error(String(error)); }
+            };
+            pickProps.onClickCapture = event => {
+                event.preventDefault(); event.stopPropagation();
+                if (!pickProps['aria-disabled']) void pick();
+            };
+            pickProps.onKeyDown = event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault(); event.stopPropagation();
+                    if (!pickProps['aria-disabled']) void pick();
+                }
+            };
+        }
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
@@ -1227,7 +1310,7 @@ export class AkariMaterialsPane {
             style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316', flex: '0 0 6px' }} />);
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
-        const draggable = !entry.missing && !this.host.generationPick.request && !entry.unorganized
+        const draggable = !entry.commonSourceUri && !entry.missing && !this.host.generationPick.request && !entry.unorganized
             && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image');
         return (
             <div
@@ -1237,6 +1320,7 @@ export class AkariMaterialsPane {
                 data-akari-material-reference={entry.reference ? 'true' : undefined}
                 data-akari-material-missing={entry.missing ? 'true' : undefined}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
+                data-akari-common-asset={entry.commonSourceUri ? 'true' : undefined}
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1261,7 +1345,7 @@ export class AkariMaterialsPane {
                         this.host.update();
                         const root = this.host.workflow.workspaceRoot;
                         if (root) window.dispatchEvent(new CustomEvent(AKARI_MATERIAL_SELECTED_EVENT, {
-                            detail: { projectRoot: root.toString(), relativePath: entry.mediaRelativePath ?? entry.relativePath,
+                            detail: { projectRoot: (entry.commonSourceUri ? root.parent.parent : root).toString(), relativePath: entry.mediaRelativePath ?? entry.relativePath,
                                 kind: entry.assetGroup && !entry.mediaRelativePath ? 'other' : entry.kind, name: entry.name }
                         }));
                     }}
@@ -1271,7 +1355,7 @@ export class AkariMaterialsPane {
                     onMouseLeave={event => { event.currentTarget.style.borderColor = this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT; }}
                     onContextMenu={event => this.host.openMaterialContextMenu(event, entry)}
                     title={entry.name}
-                    {...this.host.generationPickCardProps(pickCandidate)}
+                    {...pickProps}
                     style={{
                         position: 'relative',
                         aspectRatio: isMaterialsList(this.mode) ? undefined : layout.aspectRatio,
@@ -1338,6 +1422,7 @@ export class AkariMaterialsPane {
                         item.key === `${entry.reference!.category}/${entry.reference!.id}` && item.sourceKind === 'lab')
                         && <span className='akari-material-mark'>{t('project.workspace.materialChips.labMarkLabel')}</span>}
                     {entry.recipe && <span className='akari-material-mark'>{t('project.workspace.materialChips.recipeLabel')}</span>}
+                    {entry.commonSourceUri && <span className='akari-material-mark' data-akari-common-badge='true'>{t('project.materials.pane.sharedAsset.label')}</span>}
                     {entry.baked && <span className='akari-material-mark'>{t('project.workspace.materialChips.bakedLabel')}</span>}
                     {isMaterialsList(this.mode) && entry.missing && <span data-akari-reference-missing
                         style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>{t('project.materials.pane.notFoundError')}</span>}
@@ -1412,7 +1497,7 @@ export class AkariMaterialsPane {
      */
     public async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
         try {
-            const relativePath = this.rangePath(entry);
+            const relativePath = entry.commonSourceUri ? await this.importCommon(entry) : this.rangePath(entry);
             const root = this.host.workflow.workspaceRoot;
             const timerKey = root ? `${root.toString()}\n${relativePath}` : '';
             const timer = this.rangeSaveTimers.get(timerKey);
@@ -1440,6 +1525,17 @@ export class AkariMaterialsPane {
         } catch {
             this.host.messages.error(t('project.materials.pane.timelineFeatureNeedsUpdateMessage'));
         }
+    }
+
+    protected async importCommon(entry: MaterialCardEntry): Promise<string> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || !entry.commonSourceUri) return this.rangePath(entry);
+        const service = this.host.projectService as typeof this.host.projectService & {
+            importCommonSceneAsset(sceneUri: string, sourceUri: string): Promise<string>;
+        };
+        const relativePath = await service.importCommonSceneAsset(root.toString(), entry.commonSourceUri);
+        void this.loadMaterials();
+        return relativePath;
     }
 
     /**

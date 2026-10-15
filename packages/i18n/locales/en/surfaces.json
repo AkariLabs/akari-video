@@ -1,4 +1,13 @@
 {
+  "surfaces.titleBar.sceneList.label": "Scene list (project)",
+  "surfaces.home.sceneList.heading": "Scenes",
+  "surfaces.home.sceneAssets.label_one": "{count} asset",
+  "surfaces.home.sceneAssets.label_other": "{count} assets",
+  "surfaces.home.sceneOpen.button": "Open",
+  "surfaces.home.sceneAdd.button": "+ Add scene",
+  "surfaces.home.sceneId.placeholder": "Scene ID (lowercase letters, numbers, hyphens)",
+  "surfaces.projects.sceneCount.label_one": "{count} scene",
+  "surfaces.projects.sceneCount.label_other": "{count} scenes",
   "surfaces.aiModels.stillImage.label": "Still image",
   "surfaces.aiModels.video.label": "Video",
   "surfaces.aiModels.voice.label": "Voice",

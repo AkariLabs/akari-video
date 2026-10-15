@@ -1,4 +1,13 @@
 {
+  "surfaces.titleBar.sceneList.label": "シーンの一覧（プロジェクト）",
+  "surfaces.home.sceneList.heading": "シーンの一覧",
+  "surfaces.home.sceneAssets.label_one": "素材 {count} 件",
+  "surfaces.home.sceneAssets.label_other": "素材 {count} 件",
+  "surfaces.home.sceneOpen.button": "開く",
+  "surfaces.home.sceneAdd.button": "＋ シーンを足す",
+  "surfaces.home.sceneId.placeholder": "シーン ID（英小文字・数字・ハイフン）",
+  "surfaces.projects.sceneCount.label_one": "シーン {count}",
+  "surfaces.projects.sceneCount.label_other": "シーン {count}",
   "surfaces.aiModels.stillImage.label": "静止画",
   "surfaces.aiModels.video.label": "動画",
   "surfaces.aiModels.voice.label": "声",

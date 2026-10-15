@@ -10,6 +10,8 @@ import { t } from '@akari-video/i18n';
 export type ProjectStageKey = 'plan' | 'assets' | 'edit' | 'check' | 'export';
 
 export interface ProjectPresence {
+    /** scenes/<id>/edit.json の件数。単一プロジェクトは 0。 */
+    sceneCount?: number;
     /** planning/ 配下に .md が 1 つ以上 */
     planningDocs: number;
     /** assets/ 直下のメディア */
@@ -37,6 +39,10 @@ export const PROJECT_STAGE_LABELS: Record<ProjectStageKey, string> = {
 };
 
 export const EMPTY_PRESENCE: ProjectPresence = { planningDocs: 0, assetFiles: 0, editHasContent: false, reportFiles: 0, exportFiles: 0 };
+
+export function sceneBadge(p: ProjectPresence): string | undefined {
+    return p.sceneCount ? t('surfaces.projects.sceneCount.label', { count: p.sceneCount, n: p.sceneCount }) : undefined;
+}
 
 /** 「いまここ」の段: 最初の未完。ただし 編集あり・確認なし は「編集」（編集の途中）。全部済みなら書き出し。 */
 export function currentStage(p: ProjectPresence): ProjectStageKey {

@@ -2,13 +2,14 @@ import { t } from '@akari-video/i18n';
 import { formatDate } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
-import { ProjectPresence, stageSummary } from './project-progress-model';
+import { ProjectPresence, sceneBadge, stageSummary } from './project-progress-model';
 import type { ProjectListRow } from '../akari-home-widget';
 import { VisibleCardGrid, visibleCardGridCss } from './visible-card-grid';
 
 interface CachedProjectCard {
     version: number | undefined;
     badge?: string;
+    scenes?: string;
     thumbnail?: string;
     pending?: Promise<void>;
     complete: boolean;
@@ -43,6 +44,7 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
     const { row } = props;
     const initial = projectCardCache.get(row.uri.toString());
     const [badge, setBadge] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.badge : undefined);
+    const [scenes, setScenes] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.scenes : undefined);
     const [thumbnail, setThumbnail] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.thumbnail : undefined);
     const [settled, setSettled] = React.useState(initial?.version === props.rowVersion && initial.complete === true);
     React.useEffect(() => {
@@ -55,14 +57,14 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
             projectCardCache.set(key, cached);
         }
         const entry = cached;
-        setBadge(entry.badge); setThumbnail(entry.thumbnail); setSettled(entry.complete);
+        setBadge(entry.badge); setScenes(entry.scenes); setThumbnail(entry.thumbnail); setSettled(entry.complete);
         if (!entry.complete && !entry.pending) {
             entry.pending = Promise.all([
-                props.readPresence(row.uri).then(presence => { entry.badge = stageSummary(presence); if (active) setBadge(entry.badge); }).catch(() => undefined),
+                props.readPresence(row.uri).then(presence => { entry.badge = stageSummary(presence); entry.scenes = sceneBadge(presence); if (active) { setBadge(entry.badge); setScenes(entry.scenes); } }).catch(() => undefined),
                 props.loadThumbnails(row.uri).then(frames => { entry.thumbnail = frames[0]; if (active) setThumbnail(entry.thumbnail); }).catch(() => undefined)
             ]).then(() => { entry.complete = true; entry.pending = undefined; });
         }
-        void entry.pending?.then(() => { if (active) { setBadge(entry.badge); setThumbnail(entry.thumbnail); setSettled(true); } });
+        void entry.pending?.then(() => { if (active) { setBadge(entry.badge); setScenes(entry.scenes); setThumbnail(entry.thumbnail); setSettled(true); } });
         return () => { active = false; };
     }, [row.key, row.uri.toString(), props.rowVersion, props.active]);
     React.useEffect(() => { if (settled) props.onSettled?.(); }, [settled, props.onSettled]);
@@ -73,7 +75,8 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
         <span className='akari-os-thumb'>{thumbnail
             ? <img src={thumbnail} alt='' /> : <span className='codicon codicon-device-camera-video' aria-hidden='true' />}</span>
         <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? t('surfaces.projects.currentProjectUpdatedAt.label', { date: row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label') }) : row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label')}</small>
-            {badge && <span className='akari-os-stage'>{badge}</span>}</span>
+            {badge && <span className='akari-os-stage'>{badge}</span>}
+            {scenes && <span className='akari-os-stage' data-akari-scene-count={scenes}>{scenes}</span>}</span>
     </button>;
 }
 

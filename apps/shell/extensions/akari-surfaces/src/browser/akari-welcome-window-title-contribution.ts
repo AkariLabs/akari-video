@@ -9,6 +9,7 @@ import URI from '@theia/core/lib/common/uri';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { homeWindowTitle } from './home/home-model';
 import { parseIntakeTitle } from '../common/project-display-name';
+import { projectLocation } from '../common/project-location';
 
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
 
@@ -124,8 +125,7 @@ export class AkariWelcomeWindowTitleUpdater implements FrontendApplicationContri
             const home = override?.value ? URI.fromFilePath(override.value) : new URI(await this.envVariables.getHomeDirUri()).resolve('.akari');
             const pointer = JSON.parse((await this.fileService.readFile(home.resolve('creator-root.json'))).value.toString());
             if (typeof pointer?.lastRoot !== 'string') { return undefined; }
-            const segments = URI.fromFilePath(pointer.lastRoot).relative(projectUri)?.toString().split('/');
-            return segments?.length === 4 && segments[0] === 'channels' && segments[2] === 'videos' ? segments[1] : undefined;
+            return projectLocation(URI.fromFilePath(pointer.lastRoot).relative(projectUri)?.toString())?.channel;
         } catch { return undefined; }
     }
 

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import uriModule from '@theia/core/lib/common/uri.js';
 import { channelFromProjectPath } from '../lib/browser/channel/channel-context-model.js';
+import { projectLocation } from '../lib/common/project-location.js';
 
 const URI = uriModule.default ?? uriModule;
 const source = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
@@ -14,8 +15,8 @@ const body = ['syncCreatorRootContext', 'resolveStandaloneProjects', 'refreshCur
 const code = ts.transpileModule(`class Home { ${body} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 
 test('一覧を読んでいなくても作業場内のプロジェクトを単体へ混ぜない', async () => {
-    const Home = new Function('URI', 'channelFromProjectPath', 'CREATOR_ROOT_CHANNELS_DIRNAME', 'CREATOR_ROOT_VIDEOS_DIRNAME',
-        `${code}\nreturn Home;`)(URI, channelFromProjectPath, 'channels', 'videos');
+    const Home = new Function('URI', 'channelFromProjectPath', 'projectLocation', 'CREATOR_ROOT_CHANNELS_DIRNAME', 'CREATOR_ROOT_VIDEOS_DIRNAME',
+        `${code}\nreturn Home;`)(URI, channelFromProjectPath, projectLocation, 'channels', 'videos');
     const home = new Home();
     const root = new URI('file:///creator');
     const inside = root.resolve('channels/main/videos/current');
@@ -37,6 +38,7 @@ test('一覧を読んでいなくても作業場内のプロジェクトを単�
     assert.equal(checked, 1);
     home.workspaceService.roots = Promise.resolve([{ resource: inside }]);
     home.formatDisplayPath = async () => '作業場';
+    home.refreshSceneList = async () => {};
     home.update = () => {};
     await home.refreshCurrentLocation();
     assert.equal(home.currentLocation.kind, 'inside');

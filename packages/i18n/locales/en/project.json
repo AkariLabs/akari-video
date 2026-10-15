@@ -1,4 +1,5 @@
 {
+  "project.materials.pane.sharedAsset.label": "Shared",
   "project.account.connection.couldNotCheckConnectionStatusError": "Could not check connection status: {value1}",
   "project.account.connection.couldNotOpenAuthorizationPageError": "Could not open authorization page: {value1}",
   "project.account.connection.couldNotStartConnectionError": "Could not start connection: {value1}",
