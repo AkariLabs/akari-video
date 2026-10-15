@@ -10,6 +10,7 @@ import {
     scaleEvaluationPlan
 } from '../common/frame-engine-render-scale';
 import { clampPreviewPlaybackRate } from '../common/preview-playback-rate';
+import { previewAudioResyncKeys } from '../common/preview-audio-heal';
 
 export function frameEngineBootstrapScript(): string {
         return `(() => {
@@ -22,6 +23,7 @@ export function frameEngineBootstrapScript(): string {
             };
             const initial = window.__akariPreview || {};
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
+            const previewAudioResyncKeysFn = (${previewAudioResyncKeys.toString()});
             let engineSummary = initial.summary || {};
             const applyAdjustBypassFn = (${applyAdjustBypass.toString()});
             window.akari = window.akari || {};
@@ -680,11 +682,23 @@ export function frameEngineBootstrapScript(): string {
                         throw error;
                     }
                 };
+                const pendingSidecarSince = new Map();
+                const sidecarGateState = { holdingSidecar: false, startedAt: undefined };
+                let lastAudioResyncAt = -Infinity;
                 const updateAudioStatus = () => {
                     if (!audioStatus || disposed) return;
                     const statusPlaying = audioStatusPlaying();
                     const audioState = audioSupply.debug();
+                    if (typeof window !== 'undefined') {
+                        window.__akariPreviewDiag?.audioSample(audioState, initial.playbackPageId, new Date().toISOString());
+                    }
                     const supply = audioState.supply;
+                    const resyncKeys = typeof previewAudioResyncKeysFn === 'function'
+                        ? previewAudioResyncKeysFn(supply, pendingSidecarSince, performance.now(), sidecarGateState) : [];
+                    if (resyncKeys.length && performance.now() - lastAudioResyncAt >= 5000) {
+                        lastAudioResyncAt = performance.now();
+                        window.__akariPreviewDiag?.requestAudioResync(resyncKeys, initial.playbackPageId);
+                    }
                     const missing = supply.required.filter(key => !supply.ready.includes(key)
                         && !supply.failed.includes(key) && !supply.noAudio.includes(key));
                     const missingKeys = missing.join('|');

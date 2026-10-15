@@ -12,6 +12,7 @@ import {
     recordPreviewDiagnosticEvent,
     summarizePreviewInit
 } from '../common/preview-init-diagnostics';
+import { formatPreviewAudioDiagnostics } from '../common/preview-audio-heal';
 
 /**
  * 第13項のガードと、初期化段の診断（第11・12項）。**どのバンドルよりも先に**走る。
@@ -47,6 +48,73 @@ export function previewDiagnosticsGuardScript(): string {
             const summarizePreviewInit = (${summarizePreviewInit.toString()});
             const describePreviewRendererGoneReason = (${describePreviewRendererGoneReason.toString()});
             const formatPreviewInitReport = (${formatPreviewInitReport.toString()});
+            const previewAudioSnapshotFn = (debug, pageId, at) => {
+                const supply = debug?.supply || {};
+                const gate = supply.gate || {};
+                const scheduled = debug?.scheduled || {};
+                const prefetch = debug?.prefetch || {};
+                return {
+                    at, pageId,
+                    supply: {
+                        phase: supply.phase, gate: { holding: gate.holding, heldMs: gate.heldMs,
+                            reason: gate.reason, startSec: gate.startSec },
+                        required: supply.required, ready: supply.ready, pendingSidecar: supply.pendingSidecar,
+                        failed: supply.failed, noAudio: supply.noAudio, bufferedUntil: supply.bufferedUntil
+                    },
+                    contextState: debug?.contextState, playing: debug?.playing, rate: debug?.rate,
+                    scheduled: { startAtSec: scheduled.startAtSec, itemCount: scheduled.itemCount,
+                        speech: scheduled.speech, skipped: scheduled.skipped },
+                    prefetch: { pending: prefetch.pending, decodedBytes: prefetch.decodedBytes,
+                        overBudget: prefetch.overBudget, windows: prefetch.windows },
+                    audioPositionSec: debug?.audioPositionSec, renderedTimelineSec: debug?.renderedTimelineSec,
+                    driftMs: debug?.driftMs, outputLatencyMs: debug?.outputLatencyMs
+                };
+            };
+            const updatePreviewAudioDiagnosticsFn = (previous, sample) => {
+                const old = previous.latest;
+                const events = [...previous.events];
+                const gate = sample.supply?.gate || {};
+                const oldGate = old?.supply?.gate || {};
+                const gateRestarted = oldGate.holding && gate.holding && oldGate.startSec !== gate.startSec;
+                const gateStartedAt = gate.holding
+                    ? (oldGate.holding && !gateRestarted ? previous.gateStartedAt ?? old?.at : sample.at) : undefined;
+                const abnormal = (gate.holding && gate.heldMs >= 300)
+                    || sample.supply?.phase === 'degraded' || (sample.supply?.failed?.length || 0) > 0;
+                const wasAbnormal = (oldGate.holding && oldGate.heldMs >= 300)
+                    || old?.supply?.phase === 'degraded' || (old?.supply?.failed?.length || 0) > 0;
+                let changed = false;
+                const add = (kind, detail) => { events.push({ at: sample.at, kind, detail }); changed = true; };
+                if (!old) add('audio-start');
+                if (gateRestarted) add('gate-end', 'generation');
+                if (gate.holding && (!oldGate.holding || gateRestarted)) add('gate-start', gate.reason);
+                if (gate.holding && gate.heldMs >= 300
+                    && !(oldGate.holding && !gateRestarted && oldGate.heldMs >= 300)) add('gate-300ms', gate.reason);
+                if (sample.supply?.phase === 'degraded' && old?.supply?.phase !== 'degraded') add('degraded');
+                if ((sample.supply?.failed?.length || 0) > (old?.supply?.failed?.length || 0)) add('failed');
+                if (abnormal && !wasAbnormal) add('abnormal', gate.reason || sample.supply?.phase);
+                // 上限は最後の保持時間に観測間隔を足し、次に再生または必要素材の準備完了を判定する。
+                if (oldGate.holding && !gate.holding) add('gate-end',
+                    (oldGate.heldMs ?? 0) + Math.max(0, Date.parse(sample.at) - Date.parse(old?.at) || 0) >= 2900
+                        ? 'limit'
+                        : sample.playing === true || ((sample.supply?.pendingSidecar?.length ?? 0) === 0
+                            && (sample.supply?.required || []).every(key => (sample.supply?.ready || []).includes(key)))
+                            ? 'ready' : 'generation');
+                if (!abnormal && wasAbnormal) add('resolved');
+                if (old && old.contextState !== sample.contextState) add('context-state', sample.contextState);
+                const episodePending = abnormal ? [...new Set([
+                    ...(wasAbnormal ? previous.abnormal?.episodePending || [] : []),
+                    ...(sample.supply?.pendingSidecar || [])
+                ])] : undefined;
+                const episodeFailed = abnormal ? [...new Set([
+                    ...(wasAbnormal ? previous.abnormal?.episodeFailed || [] : []),
+                    ...(sample.supply?.failed || [])
+                ])] : undefined;
+                return { record: { latest: sample, abnormal: abnormal ? { ...sample, episodePending, episodeFailed } : previous.abnormal,
+                    gateStartedAt,
+                    events: events.slice(-20) }, changed };
+            };
+            const formatPreviewAudioDiagnosticsFn = (${typeof formatPreviewAudioDiagnostics === 'function'
+                ? formatPreviewAudioDiagnostics.toString() : '(record, labels) => labels.heading'});
             const describeKeyEventConversionFailure = (${describeKeyEventConversionFailure.toString()});
             const isSuspiciousKeyEventShape = (${isSuspiciousKeyEventShape.toString()});
             const guardedKeyHandler = (${guardedKeyHandler.toString()});
@@ -71,6 +139,20 @@ export function previewDiagnosticsGuardScript(): string {
             let settled = false;
             let cardShown = false;
             let keyFailures = 0;
+            let audioRecord = { events: [] };
+            let audioHost;
+            const resyncOutstanding = new Set();
+            const audioLabels = {
+                heading: t('preview.diagnostics.audio.heading'),
+                latest: t('preview.diagnostics.audio.latest'),
+                abnormal: t('preview.diagnostics.audio.abnormal'),
+                events: t('preview.diagnostics.audio.events'),
+                host: t('preview.diagnostics.audio.host'),
+                pending: t('preview.diagnostics.audio.pending'),
+                lastQuery: t('preview.diagnostics.audio.lastQuery'),
+                lastUpdate: t('preview.diagnostics.audio.lastUpdate'),
+                lastResult: t('preview.diagnostics.audio.lastResult')
+            };
             const send = message => {
                 if (posted >= 40) return;
                 posted += 1;
@@ -126,7 +208,8 @@ export function previewDiagnosticsGuardScript(): string {
                     margin: '8px 0 0', whiteSpace: 'pre-wrap',
                     font: '11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace'
                 });
-                body.textContent = formatPreviewInitReport(summary, context());
+                body.textContent = formatPreviewInitReport(summary, context()) + '\\n\\n'
+                    + formatPreviewAudioDiagnosticsFn(audioRecord, audioLabels, audioHost);
                 const copy = document.createElement('button');
                 copy.id = 'akari-preview-diagnostics-copy';
                 copy.type = 'button';
@@ -137,6 +220,8 @@ export function previewDiagnosticsGuardScript(): string {
                     font: 'inherit', cursor: 'pointer'
                 });
                 copy.addEventListener('click', () => {
+                    body.textContent = formatPreviewInitReport(summarizePreviewInit(trace), context()) + '\\n\\n'
+                        + formatPreviewAudioDiagnosticsFn(audioRecord, audioLabels, audioHost);
                     const text = body.textContent || '';
                     try {
                         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -202,8 +287,39 @@ export function previewDiagnosticsGuardScript(): string {
                         try { post(message); } catch { /* 報告の失敗で本筋を止めない */ }
                     }
                 },
+                audioSample(debug, pageId, at) {
+                    const sample = previewAudioSnapshotFn(debug, pageId, at);
+                    const next = updatePreviewAudioDiagnosticsFn(audioRecord, sample);
+                    audioRecord = next.record;
+                    let changed = next.changed;
+                    for (const key of resyncOutstanding) {
+                        if ((sample.supply?.ready || []).includes(key)) {
+                            audioRecord.events = [...audioRecord.events, { at, kind: 'resync-ready', detail: key }].slice(-20);
+                            resyncOutstanding.delete(key);
+                            changed = true;
+                        }
+                    }
+                    if (changed && post) {
+                        try { post({ type: 'akari-preview-audio-diagnostics', pageId, record: audioRecord }); } catch { /* 診断で再生を止めない */ }
+                    }
+                },
+                audioRecord() { return audioRecord; },
+                setAudioHost(host) { audioHost = host; },
+                requestAudioResync(keys, pageId) {
+                    const at = new Date().toISOString();
+                    for (const key of keys) {
+                        resyncOutstanding.add(key);
+                        audioRecord.events = [...audioRecord.events, { at, kind: 'resync-sent', detail: key }].slice(-20);
+                    }
+                    if (post) try { post({ type: 'akari-preview-audio-diagnostics', pageId, record: audioRecord }); } catch { /* 再生を止めない */ }
+                    if (post) try { post({ type: 'akari-preview-audio-resync', pageId, keys }); } catch { /* 再生を止めない */ }
+                },
+                postAudioRecord(pageId) {
+                    if (post) try { post({ type: 'akari-preview-audio-diagnostics', pageId, record: audioRecord }); } catch { /* 再生を止めない */ }
+                },
                 report() {
-                    return formatPreviewInitReport(summarizePreviewInit(trace), context());
+                    return formatPreviewInitReport(summarizePreviewInit(trace), context()) + '\\n\\n'
+                        + formatPreviewAudioDiagnosticsFn(audioRecord, audioLabels, audioHost);
                 },
                 summary() { return summarizePreviewInit(trace); }
             };

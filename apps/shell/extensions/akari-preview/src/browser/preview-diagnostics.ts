@@ -38,6 +38,7 @@ import {
     summarizePreviewInit,
     summaryForLog
 } from '../common/preview-init-diagnostics';
+import { formatPreviewAudioDiagnostics, type PreviewAudioDiagnosticRecord } from '../common/preview-audio-heal';
 
 /** 診断ログの保存先（ホームディレクトリ相対）。第11項で利用者が最初に見に行く場所に合わせる。 */
 export const PREVIEW_DIAGNOSTICS_LOG_RELATIVE_PATH = '.akari/logs/akari-preview-diagnostics.log';
@@ -275,6 +276,9 @@ export class PreviewDiagnosticsSession {
     protected disposed = false;
     protected unresponsive = false;
     protected ready = false;
+    protected audioRecord?: PreviewAudioDiagnosticRecord;
+    protected audioHost?: { pending?: Array<{ key?: string; state?: string }>; lastQuery?: string;
+        lastUpdate?: string; lastResult?: { key?: string; state?: string } };
     protected missingHeartbeatMs = 0;
     protected attachedIframe?: object;
     protected iframeAttachedAt = 0;
@@ -583,13 +587,33 @@ export class PreviewDiagnosticsSession {
     copyReport(): string {
         const text = formatPreviewInitReport(summarizePreviewInit(this.trace), {
             ...this.context(), unresponsive: this.unresponsive
-        });
+        }) + '\n\n' + formatPreviewAudioDiagnostics(this.audioRecord, {
+            heading: t('preview.diagnostics.audio.heading'),
+            latest: t('preview.diagnostics.audio.latest'),
+            abnormal: t('preview.diagnostics.audio.abnormal'),
+            events: t('preview.diagnostics.audio.events'),
+            host: t('preview.diagnostics.audio.host'),
+            pending: t('preview.diagnostics.audio.pending'),
+            lastQuery: t('preview.diagnostics.audio.lastQuery'),
+            lastUpdate: t('preview.diagnostics.audio.lastUpdate'),
+            lastResult: t('preview.diagnostics.audio.lastResult')
+        }, this.audioHost);
         try {
             this.io.copyText?.(text);
         } catch (error) {
             this.io.warn('[akari-preview] 診断のコピーに失敗しました', error);
         }
         return text;
+    }
+
+    setAudioDiagnostics(record: PreviewAudioDiagnosticRecord): void {
+        if (this.disposed || !record || !Array.isArray(record.events)) return;
+        this.audioRecord = record;
+    }
+
+    setAudioHost(host: { pending?: Array<{ key?: string; state?: string }>; lastQuery?: string;
+        lastUpdate?: string; lastResult?: { key?: string; state?: string } }): void {
+        this.audioHost = host;
     }
 }
 
