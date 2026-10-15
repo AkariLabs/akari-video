@@ -32,6 +32,7 @@ import {
   enableHint,
   ensureKitsMarketplace,
   linkKitAssets,
+  linkKitPlaybooks,
   linkKitSkills,
   readKitManifest,
   readKitsLedger,
@@ -347,11 +348,43 @@ export async function runStoreCommand(args, options = {}) {
 
   if (sub === 'download') {
     const productId = args[1];
-    if (!productId || productId.startsWith('--')) {
+    if (!isSafePathSegment(productId) || productId.startsWith('--')) {
       log(cliText('cli.store.help.downloadUsage'));
       return { exitCode: 1 };
     }
     const creds = readCredentials(env);
+    const publicBase = (options.baseUrl ?? creds?.url ?? DEFAULT_STORE_BASE_URL).replace(/\/$/, '');
+    let freeProduct;
+    try {
+      const listing = await fetchImpl(`${publicBase}/products`);
+      if (listing.ok) {
+        const data = await readJsonResponse(listing);
+        freeProduct = data?.products?.find(item => item.id === productId && item.tier === 'free'
+          && Number.isInteger(item.current_version) && item.current_version >= 1);
+      }
+    } catch { /* Paid download remains available when the public catalog is offline. */ }
+    if (freeProduct) {
+      const version = freeProduct.current_version;
+      const assetUrl = new URL(`/assets/products/${productId}/v${version}/${productId}-v${version}.zip`, publicBase);
+      try {
+        const response = await fetchImpl(assetUrl.href);
+        if (response.ok) {
+          const destDir = parseFlag(args, '--dest') ?? process.cwd();
+          mkdirSync(destDir, { recursive: true });
+          const filePath = path.join(destDir, `${productId}-v${version}.zip`);
+          writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
+          log(cliText('cli.store.download.saved', { path: filePath }));
+          return { exitCode: 0, filePath };
+        }
+        if (response.status !== 404 || !creds) {
+          log(cliText('cli.store.download.httpFailed', { status: response.status }));
+          return { exitCode: 1 };
+        }
+      } catch (error) {
+        log(cliText('cli.store.download.failed', { message: error instanceof Error ? error.message : String(error) }));
+        return { exitCode: 1 };
+      }
+    }
     if (!creds) {
       log(cliText('cli.store.status.disconnectedGuide'));
       return { exitCode: 1 };
@@ -410,8 +443,8 @@ export async function runStoreCommand(args, options = {}) {
       log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
     }
-    const hasFrom = args.includes('--from');
-    const fromZip = parseFlag(args, '--from');
+    const hasFrom = args.includes('--from') || args.includes('--from-file');
+    const fromZip = parseFlag(args, '--from-file') ?? parseFlag(args, '--from');
     if (hasFrom && !fromZip) {
       log(cliText('cli.store.help.installUsage'));
       return { exitCode: 1 };
@@ -562,6 +595,8 @@ export async function runStoreCommand(args, options = {}) {
           for (const blocker of skillLinks.blockers) log(cliText('cli.store.install.blocked', { blocker }));
           return { exitCode: 1 };
         }
+        const playbookLinks = linkKitPlaybooks(kitDir, manifest, home, { platform: options.platform });
+        for (const warning of playbookLinks.warnings) log(cliText('cli.store.install.warning', { warning }));
         registerKitAssets(home, manifest, kitDir, assetLinks.items, env);
         writeKitsLedger(home, {
           id: manifest.id,
@@ -569,6 +604,7 @@ export async function runStoreCommand(args, options = {}) {
           installedAt: new Date().toISOString(),
           kitDir,
           skills: skillLinks.linked,
+          playbooks: playbookLinks.linked,
           assets: assetLinks.linked
         });
         ensureKitsMarketplace(home);

@@ -49,6 +49,7 @@ validateManifest(manifest);
 validateRequiredFiles();
 validateRuntimes(manifest);
 validateSkills(manifest);
+validatePlaybooks(manifest);
 validateTemplates(manifest);
 validateAssets(manifest);
 validateDocs(manifest);
@@ -89,7 +90,7 @@ function validateManifest(value) {
   }
 
   const required = ["schemaVersion", "id", "kind", "name", "version", "requires", "license"];
-  const optional = ["skills", "templates", "assets", "docs", "provenance"];
+  const optional = ["skills", "templates", "assets", "docs", "playbooks", "provenance"];
   requireFields(value, required, "manifest");
   rejectUnknownFields(value, [...required, ...optional], "manifest");
 
@@ -107,6 +108,11 @@ function validateManifest(value) {
   validateObjectArray(value.skills, "skills", ["dir", "name"], (entry, label) => {
     validateNonEmptyString(entry.dir, `${label}.dir`);
     validateNonEmptyString(entry.name, `${label}.name`);
+  });
+  validateObjectArray(value.playbooks, "playbooks", ["dir"], (entry, label) => {
+    if (typeof entry.dir !== "string" || !/^playbooks\/[a-z0-9][a-z0-9-]*$/u.test(entry.dir)) {
+      fail(`${label}.dir は playbooks/<id> である必要があります`);
+    }
   });
   validateObjectArray(value.templates, "templates", ["path", "for", "label"], (entry, label) => {
     validateNonEmptyString(entry.path, `${label}.path`);
@@ -266,6 +272,44 @@ function validateTemplates(value) {
     if (!isPlainObject(template) || typeof template.path !== "string") continue;
     if (!pathExists(path.resolve(kitDir, template.path))) {
       fail(`templates[${index}].path が見つかりません: ${template.path}`);
+    }
+  }
+}
+
+function validatePlaybooks(value) {
+  if (!Array.isArray(value?.playbooks)) return;
+  const validator = path.join(ownDir, '..', 'validate-playbook.mjs');
+  const seen = new Set();
+  for (const [index, entry] of value.playbooks.entries()) {
+    if (!isPlainObject(entry) || typeof entry.dir !== 'string'
+      || !/^playbooks\/[a-z0-9][a-z0-9-]*$/u.test(entry.dir)) continue;
+    const id = path.posix.basename(entry.dir);
+    if (seen.has(id)) { fail(`playbooks[${index}].dir が重複しています: ${id}`); continue; }
+    seen.add(id);
+    const dir = path.resolve(kitDir, entry.dir);
+    if (!isDirectory(dir) || !isInside(kitRealDir, fs.realpathSync(dir))) {
+      fail(`playbooks[${index}].dir が見つからないか kit-dir の外を指します: ${entry.dir}`);
+      continue;
+    }
+    const json = path.join(dir, 'playbook.json');
+    const markdown = path.join(dir, 'playbook.md');
+    if (!isRegularFile(json) || !isRegularFile(markdown)
+      || !isInside(kitRealDir, fs.realpathSync(json))
+      || !isInside(kitRealDir, fs.realpathSync(markdown))) {
+      fail(`playbooks[${index}] に playbook.json と playbook.md が必要です: ${entry.dir}`);
+      continue;
+    }
+    try {
+      if (JSON.parse(fs.readFileSync(json, 'utf8')).id !== id) {
+        fail(`playbooks[${index}] の id がフォルダ名と一致しません: ${id}`);
+      }
+    } catch (error) {
+      fail(`playbooks[${index}] の playbook.json を読めません: ${messageOf(error)}`);
+      continue;
+    }
+    const result = spawnSync(process.execPath, [validator, json, markdown], { encoding: 'utf8' });
+    if (result.status !== 0) {
+      fail(`playbooks[${index}] が validate-playbook に失敗しました: ${(result.stderr || result.error?.message || '').trim()}`);
     }
   }
 }

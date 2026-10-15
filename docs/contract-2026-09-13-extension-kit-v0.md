@@ -8,6 +8,7 @@
 ~/.akari/assets/store/<productId>/
 ├── manifest.json
 ├── skills/<skill-name>/SKILL.md
+├── playbooks/<id>/{playbook.json, playbook.md, preview/}
 ├── templates/<name>.json
 ├── assets/<category>/<id>/{meta.json, …}
 ├── docs/*.md
@@ -35,6 +36,7 @@
     "products": ["akari-pop-motion-set"]
   },
   "skills": [{ "dir": "skills/design-world", "name": "design-world" }],
+  "playbooks": [{ "dir": "playbooks/world-intro" }],
   "templates": [{ "path": "templates/paper-to-browser.json", "for": "world-map", "label": "紙の地図 → ブラウザの中" }],
   "assets": [{ "category": "overlay", "id": "world-far-bands" }],
   "docs": [{ "path": "docs/world-hen.md", "label": "ワールド編（抜粋）" }],
@@ -44,6 +46,7 @@
 ```
 
 必須フィールドは `schemaVersion`、`id`、`kind`、`name`、`version`、`requires.cli`、`license`。`kind` は v0 では `kit` のみ。`validate-kit-manifest.mjs` はスキル実体、素材メタデータ、テンプレート用途語彙を含めて検査する。
+任意の `playbooks[]` は `playbooks/<id>` を指し、各ディレクトリに playbook-v0 形式の `playbook.json` と `playbook.md`、任意の `preview/` を置く。
 
 ## 3. 展開
 
@@ -53,8 +56,9 @@
 2. `assets[]` を `~/.akari/assets/<category>/<id>` へ相対 symlink で公開する。各素材はリンク前に `validate-asset.mjs` で検査する。
    素材の実体ファイルと checksum は `~/.akari/assets/installed.json` にも登録し、素材 id から解決できるようにする。
 3. `skills[]` を `~/.akari/kits/plugin/skills/<name>` へ相対 symlink で公開する。
-4. `~/.akari/kits/installed.json` に id、version、導入日時、展開先、スキル、素材を記録する。
-5. `templates[]` は移動せず、CLI が各展開先の manifest を列挙して読む。
+4. `playbooks[]` を `~/.akari/playbooks/<id>` へ相対 symlink で公開する。同じ id が手元に実体であれば上書きせず警告して飛ばす。
+5. `~/.akari/kits/installed.json` に id、version、導入日時、展開先、スキル、素材、公開した作り方を記録する。uninstall では記録した作り方の symlink も外す。
+6. `templates[]` は移動せず、CLI が各展開先の manifest を列挙して読む。
 
 manifest が無い商品は従来の素材商品として扱う。検査器や runtime registry が npm 配布物に同梱されておらず照合できない場合は、その検査だけを警告付きでスキップする。`akari store uninstall <productId>` は台帳に記録した symlink と台帳エントリを外し、再導入用の展開ディレクトリは残す。
 
