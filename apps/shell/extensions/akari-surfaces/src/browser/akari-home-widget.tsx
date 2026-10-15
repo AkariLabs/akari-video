@@ -1752,7 +1752,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.newProjectOriginRect = undefined;
             this.closeHomeDialog();
             this.pendingCreatePlaybook = playbook;
-            this.pendingCreateTitle = custom ? this.startName.trim() : undefined;
+            this.pendingCreateTitle = this.startName.trim() || undefined;
             await this.createAndOpenProject(videos.resolve(name), originRect);
         } catch (error) { this.reportNewProjectError(error); }
     }
@@ -1766,15 +1766,9 @@ export class AkariHomeWidget extends ReactWidget {
         this.startingNewProject = true;
         this.update();
         try {
-            if (this.pendingCreatePlaybook) await this.newProjectService.createProjectFromPlaybook(destination.toString(), this.pendingCreatePlaybook.dir);
-            else await this.newProjectService.createProject(destination.toString());
-            const intake = {
-                version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
-                autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: newProjectDisplayTitleFor(destination.path.base)
-            };
-            if (this.pendingCreateTitle) intake.title = this.pendingCreateTitle;
-            await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
-                BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
+            const title = this.pendingCreateTitle || newProjectDisplayTitleFor(destination.path.base);
+            if (this.pendingCreatePlaybook) await this.newProjectService.createProjectFromPlaybook(destination.toString(), this.pendingCreatePlaybook.dir, title);
+            else await this.newProjectService.createProject(destination.toString(), title);
             // 一覧の読み直しは待たない。全プロジェクトの intake などを読み直すので、数百件あると
             // 数分かかり、そのあいだ「作成しています…」のまま「開きますか」が出なかった。
             // 開く側は一覧に無ければ intake.json から名前を読む。
@@ -2869,7 +2863,7 @@ export class AkariHomeWidget extends ReactWidget {
                             const fromStart = this.startStandaloneFlow;
                             this.closeHomeDialog();
                             if (fromStart) {
-                                this.pendingCreateTitle = this.startName.trim() !== this.startDefaultName ? this.startName.trim() : undefined;
+                                this.pendingCreateTitle = this.startName.trim() || undefined;
                                 void this.createAndOpenProject(destination);
                             } else void this.startNewProjectIn(destination);
                         }}>{t('surfaces.home.homeDialogMake.button')}</button>

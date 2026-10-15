@@ -73,7 +73,7 @@ const importEsm = new Function('specifier', 'return import(specifier)') as <T>(s
 
 const UPWARD_SEARCH_MAX_DEPTH = 12;
 const PLAYBOOK_CATEGORIES = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
-const PREVIEW_MAX_BYTES = 400 * 1024;
+const PREVIEW_MAX_BYTES = 1024 * 1024;
 const PREVIEW_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
 
 /** Resolve only small images inside the playbook directory, including after symlinks. */
@@ -104,7 +104,8 @@ async function playbookPreviewData(dir: string, preview: AkariPlaybook['preview'
         const uri = await read(frame);
         if (uri && !frameUris.includes(uri)) frameUris.push(uri);
     }
-    return { ...(coverUri ? { coverUri } : {}), ...(frameUris.length ? { frameUris } : {}) };
+    const firstCover = coverUri ?? frameUris[0];
+    return { ...(firstCover ? { coverUri: firstCover } : {}), ...(frameUris.length ? { frameUris } : {}) };
 }
 
 /** browser/home/home-model.ts の validateChannelName と同じパス安全規則。 */
@@ -241,7 +242,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         return selectLabCleanupTargets(candidates, roots, directories);
     }
 
-    async createProject(destinationUri: string): Promise<void> {
+    async createProject(destinationUri: string, title?: string): Promise<void> {
         const destination = new URI(destinationUri).path.fsPath();
         const scaffold = await this.loadScaffoldModule();
         const templateDir = await this.resolveTemplateDir();
@@ -252,6 +253,14 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
             templateDir,
             skillsSourceDir ? { skillsSourceDir, schemasSourceDir } : {}
         );
+        if (title?.trim()) {
+            const intakePath = join(destination, '.akari', 'intake.json');
+            const intake = JSON.parse(await fs.readFile(intakePath, 'utf8'));
+            // Preserve the popup's existing draft target when moving the title write to this service.
+            intake.target.keep_length = true;
+            intake.title = title.trim();
+            await fs.writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`);
+        }
     }
 
     async listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]> {
@@ -296,9 +305,9 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         return result;
     }
 
-    async createProjectFromPlaybook(destinationUri: string, playbookDir: string): Promise<void> {
+    async createProjectFromPlaybook(destinationUri: string, playbookDir: string, title?: string): Promise<void> {
         const projectDir = new URI(destinationUri).path.fsPath();
-        await this.createProject(destinationUri);
+        await this.createProject(destinationUri, title);
         const scaffold = await this.loadScaffoldModule();
         if (typeof scaffold.applyPlaybook === 'function') {
             await scaffold.applyPlaybook({ projectDir, playbookDir });
