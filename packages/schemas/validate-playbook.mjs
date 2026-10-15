@@ -15,6 +15,13 @@ export async function validatePlaybook(playbook, { markdown, skillsDir = path.re
   if (!checkSchema(playbook)) {
     errors.push(...checkSchema.errors.map(error => `${error.instancePath || '/'} ${error.message}`));
   }
+  for (const previewPath of [playbook?.preview?.cover, ...(Array.isArray(playbook?.preview?.frames) ? playbook.preview.frames : [])]) {
+    if (typeof previewPath !== 'string') continue;
+    if (!previewPath || path.isAbsolute(previewPath) || /^[a-zA-Z]:[\\/]/.test(previewPath)
+      || previewPath.includes('..') || previewPath.startsWith('\\\\')) {
+      errors.push(`preview のパスは playbook.json からの相対パスで、.. を含められません: ${previewPath}`);
+    }
+  }
   for (const [index, item] of (Array.isArray(playbook?.placeholders) ? playbook.placeholders : []).entries()) {
     if (['own', 'site'].includes(item?.sample?.source)) errors.push(`placeholders[${index}].sample に own / site は使えません`);
   }

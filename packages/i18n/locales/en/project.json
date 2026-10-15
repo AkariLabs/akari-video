@@ -65,6 +65,7 @@
   "project.editCheck.result.checkCountIssuesAction_other": "Check: {count} issues",
   "project.editCheck.result.checkingStatus": "Checking…",
   "project.editCheck.result.checkNoIssuesAction": "Check: No issues",
+  "project.editCheck.result.checkNoIssuesWithInfoAction": "Check: No issues (info {count})",
   "project.editCheck.result.checkNotRunAction": "Check: Not run",
   "project.editCheck.result.editCheckLengthIssuesLabel_one": "[Edit check] {length} issue:\n{value2}",
   "project.editCheck.result.editCheckLengthIssuesLabel_other": "[Edit check] {length} issues:\n{value2}",

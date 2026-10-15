@@ -4,8 +4,8 @@ import { MessageService } from '@theia/core/lib/common';
 import { AkariProjectService, EditLintFinding } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AKARI_BORDER, AKARI_FAINT } from '../common/akari-surface-tokens';
-import { lintStatusLabel } from '../common/lint-results';
 import { LintResultsDialog } from './lint-results-dialog';
+import { lintBadgeCounts, lintBadgeLabel } from './lint-badge-counts';
 
 export interface LintPaneHost {
     readonly workflow: Pick<AkariWorkflowService, 'workspaceRoot'>;
@@ -16,7 +16,6 @@ export interface LintPaneHost {
 
 export class AkariLintPane {
     protected lintAvailable = false;
-    protected lintCount?: number;
     protected lintRunning = false;
     protected lintChecked = false;
     protected lintFindings: EditLintFinding[] = [];
@@ -29,7 +28,6 @@ export class AkariLintPane {
         const root = this.host.workflow.workspaceRoot;
         if (!root) {
             this.lintAvailable = false;
-            this.lintCount = undefined;
             this.lintRunning = false;
             this.lintChecked = false;
             this.lintFindings = [];
@@ -51,12 +49,14 @@ export class AkariLintPane {
             const outcome = await this.host.projectService.runEditLint(root);
             this.lintChecked = true;
             this.lintAvailable = outcome.available;
-            this.lintCount = outcome.available ? outcome.issueCount : undefined;
             this.lintFindings = outcome.available ? outcome.findings ?? [] : [];
             this.lintCheckedAt = outcome.available ? Date.now() : undefined;
             if (notify) {
                 if (!outcome.available) this.host.messages.warn(t('project.editCheck.pane.editCheckIsUnavailableProjectMessage'));
-                else if (outcome.issueCount) this.host.messages.warn(t('project.editCheck.pane.editCheckIssueCountIssuesFoundMessage', { issueCount: outcome.issueCount, n: outcome.issueCount }));
+                else {
+                    const { issues } = lintBadgeCounts(this.lintFindings);
+                    if (issues) this.host.messages.warn(t('project.editCheck.pane.editCheckIssueCountIssuesFoundMessage', { issueCount: issues, n: issues }));
+                }
             }
         } catch (error) {
             if (notify) this.host.messages.error(t('project.editCheck.pane.couldNotCheckEditError', { value1: this.errorMessage(error) }));
@@ -91,7 +91,7 @@ export class AkariLintPane {
         if (!this.host.workflow.workspaceRoot || (this.lintChecked && !this.lintAvailable)) {
             return undefined;
         }
-        const label = lintStatusLabel(this.lintRunning, this.lintCount);
+        const label = lintBadgeLabel(this.lintRunning, this.lintChecked ? this.lintFindings : undefined);
         const hasErrors = this.lintFindings.some(finding => finding.severity === 'error');
         return (
             <div style={{ flex: '0 0 auto', minHeight: '28px', borderTop: AKARI_BORDER.hairline }}>

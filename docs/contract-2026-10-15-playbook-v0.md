@@ -48,7 +48,8 @@ updated: 2026-10-15
 | 確認シート | `<project>/.akari/reports/playbook-sheet.html`（読み取り専用・派生） | `akari new --from` |
 
 - 一覧の解決順は **チャンネル → 手元** の 2 択だけ（`create-project` の雛形解決と同じ規律。他の経路を作らない）
-- `preview/` は任意。`cover.png` か `sample.mp4` を 1 つまで。無ければ画面は文字だけで出す
+- `preview/` は任意（下の項）
+- `preview` のパスはすべて **playbook.json からの相対**。棚（手元・チャンネル）では `preview/cover.png`（任意）と `preview/frames/01.png`〜`05.png`（重要な場面のコマ 3〜5 枚・長辺 640px 以下・作り方の画面比）を置く。表紙が無ければ `frames` の 1 枚目を表紙にする。動画（sample.mp4）は持たない（重いため）。プロジェクトの中では `planning/playbook-preview/frames/` に置く
 - `<id>` は英小文字・数字・ハイフン。同じ `id` は版で区別する（`version` 整数）
 
 ## 2. 形 — playbook.json
@@ -94,6 +95,7 @@ updated: 2026-10-15
 - 必須: `version`（0 固定。原則 1）・`kind`（`"akari-playbook"`）・`id`・`name`・`playbookVersion`・`depth`・
   `category`・`steps[]`・`settings`・`license`・`provenance`。`tags` / `requires` / `placeholders` / `parts` は
   省略可（depth 1 では `placeholders` と `parts` を持たない）
+- 任意: `preview`（`{ "cover"?: string, "frames"?: string[] }`。パスは上の規則）・`example`（`true` なら見本として配る例。画面に「例」の印を出す）
 - `category` は 1 つだけ。語彙は閉じる: `film` / `short-drama` / `mv` / `explainer` / `product` / `vlog` / `cm` /
   `education` / `clip` / `logo`。足すときは本表に追記してから
 - `tags` の 8 軸は開いた語彙（自由に足せる）。軸の名前だけ固定: `form` / `length` / `technique` / `tools` /

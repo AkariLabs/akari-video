@@ -13,6 +13,14 @@
     "playbookVersion": { "type": "integer", "minimum": 1 },
     "depth": { "enum": [1, 2] },
     "category": { "enum": ["film", "short-drama", "mv", "explainer", "product", "vlog", "cm", "education", "clip", "logo"] },
+    "preview": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "cover": { "type": "string" },
+        "frames": { "type": "array", "maxItems": 5, "items": { "type": "string" } }
+      }
+    },
+    "example": { "type": "boolean" },
     "tags": {
       "type": "object", "additionalProperties": false,
       "properties": {

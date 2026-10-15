@@ -1957,6 +1957,22 @@ test("draft intake.json warns without failing", async () => {
   });
 });
 
+test("draft intake is informational only when edit has no sources or media items", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-valid-draft");
+    const editPath = join(project, "edit.json");
+    const original = JSON.parse(await readFile(editPath, "utf8"));
+    const empty = { ...original, sources: [], tracks: [] };
+    await writeFile(editPath, `${JSON.stringify(empty)}\n`);
+    let result = parseResult(run(project));
+    assert.equal(result.findings.find(finding => finding.check === "intake.status")?.severity, "info");
+    const withMedia = { ...empty, sources: [{ id: "clip", path: "clip.mp4" }] };
+    await writeFile(editPath, `${JSON.stringify(withMedia)}\n`);
+    result = parseResult(run(project));
+    assert.equal(result.findings.find(finding => finding.check === "intake.status")?.severity, "warning");
+  });
+});
+
 test("submitted intake.json with valid tasks/target passes with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "intake-valid-submitted");
