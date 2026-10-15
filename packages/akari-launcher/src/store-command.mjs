@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync,
@@ -363,6 +364,38 @@ export async function runStoreCommand(args, options = {}) {
           && Number.isInteger(item.current_version) && item.current_version >= 1);
       }
     } catch { /* Paid download remains available when the public catalog is offline. */ }
+    if (!freeProduct) {
+      // Lab の無料の作り方（playbook）は商品データベースに載らず、無料 R2 の公開カタログ（/assets/catalog.json）にだけ載る。
+      // その行の files[0].key を /assets/<key> から取り、sha256 を照合して保存する。
+      try {
+        const catalogResponse = await fetchImpl(new URL('/assets/catalog.json', publicBase).href);
+        if (catalogResponse.ok) {
+          const catalog = await readJsonResponse(catalogResponse);
+          const row = catalog?.items?.find(item => item?.id === productId && item?.category === 'playbook' && item?.tier === 'free'
+            && Number.isInteger(item?.version) && item.version >= 1 && typeof item?.files?.[0]?.key === 'string');
+          const key = row?.files?.[0]?.key;
+          if (row && /^[a-z0-9][a-z0-9/._-]*\.zip$/.test(key) && !key.includes('..')) {
+            const response = await fetchImpl(new URL(`/assets/${key}`, publicBase).href);
+            if (!response.ok) {
+              log(cliText('cli.store.download.httpFailed', { status: response.status }));
+              return { exitCode: 1 };
+            }
+            const bytes = Buffer.from(await response.arrayBuffer());
+            const expected = row.files[0].sha256;
+            if (typeof expected === 'string' && createHash('sha256').update(bytes).digest('hex') !== expected) {
+              log(cliText('cli.store.download.failed', { message: 'sha256 mismatch' }));
+              return { exitCode: 1 };
+            }
+            const destDir = parseFlag(args, '--dest') ?? process.cwd();
+            mkdirSync(destDir, { recursive: true });
+            const filePath = path.join(destDir, `${productId}-v${row.version}.zip`);
+            writeFileSync(filePath, bytes);
+            log(cliText('cli.store.download.saved', { path: filePath }));
+            return { exitCode: 0, filePath };
+          }
+        }
+      } catch { /* 公開カタログが取れなければ従来の経路へ */ }
+    }
     if (freeProduct) {
       const version = freeProduct.current_version;
       const assetUrl = new URL(`/assets/products/${productId}/v${version}/${productId}-v${version}.zip`, publicBase);

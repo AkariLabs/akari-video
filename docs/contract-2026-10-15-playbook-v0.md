@@ -49,6 +49,7 @@ updated: 2026-10-15
 
 - 一覧の解決順は **チャンネル → 手元** の 2 択だけ（`create-project` の雛形解決と同じ規律。他の経路を作らない）
 - Lab で入れた作り方は手元の棚に symlink で入る。解決順は 2 択のまま、画面の入手先は `~/.akari/kits/installed.json` の `playbooks` に載っていれば Lab と表示する。
+- Lab の無料の作り方は商品データベースに載せない。無料 R2 の公開カタログ（`/assets/catalog.json`）の `category: playbook` の行の `files[0].key` を `/assets/<key>` から取り、`sha256` を照合してから入れる（`akari store install <id>`）
 - `preview/` は任意（下の項）
 - `preview` のパスはすべて **playbook.json からの相対**。棚（手元・チャンネル）では `preview/cover.png`（任意）と `preview/frames/01.png`〜`05.png`（重要な場面のコマ 3〜5 枚・長辺 640px 以下・作り方の画面比）を置く。表紙が無ければ `frames` の 1 枚目を表紙にする。動画（sample.mp4）は持たない（重いため）。プロジェクトの中では `planning/playbook-preview/frames/` に置く
 - `<id>` は英小文字・数字・ハイフン。同じ `id` は版で区別する（`version` 整数）

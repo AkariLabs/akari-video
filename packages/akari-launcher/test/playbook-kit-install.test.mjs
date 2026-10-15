@@ -125,3 +125,29 @@ test('a free starter pack still uses the authenticated legacy download when no p
     rmSync(temp, { recursive: true, force: true });
   }
 });
+
+test('a free Lab playbook is found in the public R2 catalog and verified by sha256', async () => {
+  const { createHash } = await import('node:crypto');
+  const temp = mkdtempSync(path.join(tmpdir(), 'akari-free-playbook-'));
+  const body = Buffer.from('PK-playbook-zip');
+  const sha256 = createHash('sha256').update(body).digest('hex');
+  const urls = [];
+  const catalog = sha => ({ items: [{ id: 'example-film', category: 'playbook', tier: 'free', version: 1,
+    files: [{ name: 'example-film.zip', key: 'playbook/example-film/v1/example-film.zip', sha256: sha }] }] });
+  try {
+    const fetchFor = sha => async url => {
+      urls.push(url);
+      if (url.endsWith('/products')) return new Response(JSON.stringify({ products: [] }), { status: 200 });
+      if (url.endsWith('/assets/catalog.json')) return new Response(JSON.stringify(catalog(sha)), { status: 200 });
+      return new Response(body, { status: 200 });
+    };
+    const ok = await runStoreCommand(['download', 'example-film', '--dest', temp], { env: { AKARI_HOME: path.join(temp, 'home') }, log: () => {}, fetch: fetchFor(sha256) });
+    assert.equal(ok.exitCode, 0);
+    assert.ok(urls.includes('https://akari.video/assets/playbook/example-film/v1/example-film.zip'));
+    assert.equal(readFileSync(ok.filePath, 'utf8'), 'PK-playbook-zip');
+    const bad = await runStoreCommand(['download', 'example-film', '--dest', temp], { env: { AKARI_HOME: path.join(temp, 'home') }, log: () => {}, fetch: fetchFor('0'.repeat(64)) });
+    assert.equal(bad.exitCode, 1);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
