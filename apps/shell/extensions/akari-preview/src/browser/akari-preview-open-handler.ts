@@ -8795,7 +8795,7 @@ body.vscode-light .system-volume-notice { color: #754500; }
 .write-error-banner span { flex: 1; overflow-wrap: anywhere; }
 .write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
 .transport { display: grid; gap: 0; padding: 0; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
-.transport-seek { display: flex; width: 100%; margin: 0; order: -1; margin-top: 8px; }
+.transport-seek { display: flex; width: 100%; margin: 0; order: -1; margin-top: 3px; }
 .transport-seek #seek { width: 100%; margin: 0; }
 ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-seek-wrap #seek { height: 22px; }' : ''}
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]) { appearance: none; -webkit-appearance: none; height: 16px; min-width: 0; margin: 0; padding: 0; border: none; background: transparent; outline: none; box-shadow: none; cursor: pointer; --seek-progress: 0%; }
@@ -8807,15 +8807,16 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid var(--akari-seek-played); border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { transform: scale(1.15); }
-.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; height: 34px; padding: 0 10px 2px; box-sizing: border-box; gap: 6px; }
+.transport-controls { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); grid-template-areas: "left center tail"; align-items: center; min-width: 0; min-height: 32px; padding: 0 6px 1px; box-sizing: border-box; column-gap: 4px; }
 .transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 6px; }
-.transport-left { position: relative; min-width: 0; justify-self: start; }
-.transport-center { justify-self: center; }
-.transport-right { position: relative; justify-self: end; }
-.review-toolbar { display:flex; align-items:center; justify-content:space-between; min-width:0; height:28px; padding:0 10px; color:var(--akari-transport-fg); }
-.review-toolbar [data-review-hint] { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--akari-time-fg); font-size:11px; }
+.transport-left { grid-area:left; position: relative; min-width: 0; justify-self: start; }
+.transport-center { grid-area:center; justify-self: center; }
+.transport-tail { grid-area:tail; display:flex; align-items:center; justify-content:flex-end; min-width:0; white-space:nowrap; }
+.transport-right { position: relative; flex:none; }
+.review-toolbar { display:contents; }
+.review-toolbar [data-review-hint] { order:-1; flex:1 1 auto; min-width:0; padding-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--akari-time-fg); font-size:11px; }
 .review-toolbar [data-review-hint][hidden] { display:none; }
-.review-tools { display:flex; flex:none; align-items:center; gap:3px; margin-left:auto; }
+.review-tools { display:flex; flex:none; align-items:center; gap:3px; margin-left:4px; }
 .review-tools .icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"],
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"]:is(:hover,:active) { color:#f97316; background:transparent; box-shadow:none; }
@@ -8823,6 +8824,7 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-tools [data-review-attach-count] { display:inline-flex; align-items:center; justify-content:center; gap:2px; width:auto; min-width:28px; padding:0 3px; font-size:11px; font-variant-numeric:tabular-nums; }
 .review-tools [data-review-attach-count][hidden] { display:none; }
 .review-tools .review-divider { height:18px; width:1px; margin:0 3px; background:var(--akari-transport-fg); opacity:.35; }
+.review-tools:has(> [data-review-attach-count][hidden]) .review-divider { display:none; }
 #review-chat-layer { position:absolute; inset:0; z-index:1800; pointer-events:none; }
 #review-chat-layer.is-active { pointer-events:auto; cursor:crosshair; }
 #review-chat-layer [data-review-ink], #review-chat-layer [data-review-marks] { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
@@ -8864,12 +8866,26 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }
 #review-range-controls { display:flex; align-items:center; gap:3px; }
 #review-range-controls[hidden] { display:none; }
-#review-range-controls button { border:0; border-radius:4px; padding:2px 4px; background:var(--akari-control-active); color:var(--akari-transport-fg); cursor:pointer; font-size:11px; }
+#review-range-controls button { min-height:24px; border:0; border-radius:4px; padding:2px 4px; background:var(--akari-control-active); color:var(--akari-transport-fg); cursor:pointer; font-size:11px; }
 .transport { container-type:inline-size; }
-@container (max-width:600px) {
-  .transport-controls { grid-template-columns:1fr auto; height:auto; min-height:34px; }
-  .transport-center { grid-column:2; }
-  .transport-right { grid-column:1 / -1; justify-self:end; }
+@container (max-width:960px) {
+  .transport-controls { grid-template-areas:"left center ." "tail tail tail"; row-gap:0; }
+  .transport-tail { grid-column:1 / -1; }
+  .transport-right .icon-button, .review-tools .icon-button { width:26px; height:26px; }
+}
+@container (max-width:480px) {
+  .transport-controls { padding:0 4px 1px; column-gap:2px; }
+  .transport-left, .transport-center, .transport-right { gap:2px; }
+  .transport-left .icon-button, .transport-center .icon-button, .transport-right .icon-button { width:24px; height:24px; }
+  .transport-center #play-toggle { width:28px; height:28px; }
+  .transport-right .rate-button { min-width:30px; padding:0 3px; }
+  #time-label { min-width:0; font-size:10px; }
+  .review-tools { gap:1px; margin-left:2px; }
+  .review-tools .icon-button { width:24px; height:24px; }
+  .review-tools [data-review-attach-count] { min-width:24px; padding:0 2px; }
+  .review-tools .review-divider { margin:0 1px; }
+  #review-range-controls { gap:1px; }
+  #review-range-controls button { padding:2px; }
 }
 /* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
 html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
@@ -9058,7 +9074,7 @@ ${previewSelectionHandlesStyle}
       <button id="frame-forward" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.frameForwardLabel')}" title="${t('preview.previewWindow.transport.frameForwardLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM6 5v14l9-7z"/></svg></button>
       <button id="skip-forward" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.skipForwardLabel')}" title="${t('preview.previewWindow.transport.skipForwardLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
-    <div class="transport-right">
+    <div class="transport-tail"><div class="transport-right">
       <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.captureAction')}" title="${t('preview.previewWindow.transport.captureAction')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
       <button id="pen-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.penLabel')}" title="${t('preview.previewWindow.transport.penLabel')}" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
       <button id="caption-row-box-toggle" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.rowBoxAction')}" title="${t('preview.previewWindow.transport.rowBoxAction')}" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></button>
@@ -9087,7 +9103,7 @@ ${previewSelectionHandlesStyle}
           <button class="zoom-preset" type="button" data-zoom="4" aria-label="${t('preview.previewWindow.canvas.zoom400PercentAction')}" title="${t('preview.previewWindow.canvas.zoom400PercentAction')}">400%</button>
         </div>
       </div>
-    </div>
+    </div></div>
   </div>
   <div id="system-volume-notice" class="system-volume-row" role="status" aria-live="polite" hidden>
     <div class="system-volume-notice">
