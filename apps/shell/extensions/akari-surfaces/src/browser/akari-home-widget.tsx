@@ -69,7 +69,7 @@ import {
     withRecordedVersion
 } from '../common/shell-version-notice';
 import {
-    AkariNewProjectService
+    AkariNewProjectService, AkariPlaybookListEntry, AkariToolCheckResponse
 } from '../common/akari-new-project-protocol';
 import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
@@ -83,6 +83,8 @@ import { guideRequiredPanels } from '../onboarding/guide-ui-model';
 import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
+import { StartProjectDialog, PlaybookCategory, PlaybookSource } from './home/start-project-dialog';
+import { startProjectCss } from './home/start-project-style';
 import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
 import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
@@ -197,6 +199,10 @@ function newProjectNameStem(date = new Date()): string {
     const hour = String(date.getHours()).padStart(2, '0');
     const minute = String(date.getMinutes()).padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}-${hour}${minute}`;
+}
+
+function safeProjectFolderName(name: string): string {
+    return [...name].map(char => char === '/' || char === '\\' || char.charCodeAt(0) < 32 ? '-' : char).join('');
 }
 
 function newProjectDisplayTitle(date = new Date()): string {
@@ -417,7 +423,22 @@ export class AkariHomeWidget extends ReactWidget {
     protected currentProjectUri: URI | undefined;
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
-    protected homeDialog: 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
+    protected homeDialog: 'start' | 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
+    protected startName = '';
+    protected startDefaultName = '';
+    protected startChannel: string | undefined;
+    protected startChannelMenu = false;
+    protected startStep: 'start' | 'playbooks' = 'start';
+    protected startPlaybooks: AkariPlaybookListEntry[] = [];
+    protected startSelected: AkariPlaybookListEntry | undefined;
+    protected startCategory: PlaybookCategory | undefined;
+    protected startSource: PlaybookSource = 'all';
+    protected startTools: AkariToolCheckResponse | undefined;
+    protected startPlaybookLoadId = 0;
+    protected startChannelCreation = false;
+    protected startStandaloneFlow = false;
+    protected pendingCreatePlaybook: AkariPlaybookListEntry | undefined;
+    protected pendingCreateTitle: string | undefined;
     protected chosenFolder: URI | undefined;
     protected standaloneFolder: URI | undefined;
     protected standaloneDestination: URI | undefined;
@@ -777,7 +798,7 @@ export class AkariHomeWidget extends ReactWidget {
         const dialog = new AkariProjectLauncherDialog({
             title: t('surfaces.home.openProjectLauncherChooseProject.title'),
             rows: this.buildProjectRows(),
-            onStartNewProject: this.startNewProject,
+            onStartNewProject: async () => { dialog.close(); await this.startNewProject(); },
             onOpenProject: this.openCreatorRootProject,
             onProjectContextMenu: (row, x, y) => this.openProjectContextMenu(row, x, y, () => dialog.close()),
             ...(options?.channel ? { initialChannel: options.channel } : {}),
@@ -1653,32 +1674,81 @@ export class AkariHomeWidget extends ReactWidget {
      * disabled のまま二度と押せなくなる（同上）。
      */
     startNewProject = async (): Promise<void> => {
-        if (this.startingNewProject) {
-            return;
+        if (this.startingNewProject) return;
+        const now = new Date();
+        this.startDefaultName = defaultProjectTitle(t('surfaces.home.startDefaultName.label'), now);
+        this.startName = this.startDefaultName;
+        this.startStep = 'start';
+        this.startChannelMenu = false;
+        this.startSelected = undefined;
+        this.startCategory = undefined;
+        this.startSource = 'all';
+        try {
+            const rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
+            this.channels = rootUri ? await this.resolveManifestChannels(rootUri) : [CREATOR_ROOT_DEFAULT_CHANNEL];
+            const preferredChannel = this.listChannel();
+            this.startChannel = this.channels.includes(preferredChannel) ? preferredChannel : this.channels[0];
+            this.homeDialog = 'start';
+            this.update();
+        } catch (error) {
+            this.reportNewProjectError(error);
         }
-        const originRect = this.newProjectOriginRect;
-        this.newProjectOriginRect = undefined;
-        this.startingNewProject = true;
+    };
+
+    protected async loadStartPlaybooks(): Promise<void> {
+        const loadId = ++this.startPlaybookLoadId;
+        this.startTools = undefined;
+        const tools = this.newProjectService.checkTools().catch(() => ({ platform: 'darwin', checkedAt: '', tools: [] } as AkariToolCheckResponse));
+        const entries = await this.newProjectService.listPlaybooks(this.startChannel).catch(() => []);
+        if (loadId !== this.startPlaybookLoadId) return;
+        this.startPlaybooks = entries;
+        this.startSelected = undefined;
         this.update();
+        const checked = await tools;
+        if (loadId === this.startPlaybookLoadId) { this.startTools = checked; this.update(); }
+    }
+
+    protected async openStartNewChannelDialog(): Promise<void> {
+        this.startChannelCreation = true;
+        this.startChannelMenu = false;
+        try {
+            if (!this.creatorRootUri) {
+                this.creatorRootUri = new URI(await this.newProjectService.ensureCreatorRoot());
+                this.creatorRootAvailable = true;
+            }
+            await this.openNewChannelDialog();
+        } catch (error) {
+            this.startChannelCreation = false;
+            this.reportNewProjectError(error);
+        }
+    }
+
+    protected async submitStartProject(playbook?: AkariPlaybookListEntry): Promise<void> {
+        if (this.startingNewProject) return;
         try {
             let rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
-            const channels = rootUri ? await this.resolveManifestChannels(rootUri) : [CREATOR_ROOT_DEFAULT_CHANNEL];
-            const preferredChannel = this.listChannel();
-            const channel = channels.includes(preferredChannel) ? preferredChannel : channels[0];
             if (!rootUri) {
                 rootUri = new URI(await this.newProjectService.ensureCreatorRoot());
                 this.creatorRootUri = rootUri;
                 this.creatorRootAvailable = true;
             }
-            const name = await this.reserveNewProjectName(rootUri, channel);
-            const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
-            await this.createAndOpenProject(destination, originRect);
-        } catch (error) {
-            this.reportNewProjectError(error);
-            this.startingNewProject = false;
-            this.update();
-        }
-    };
+            const channel = this.startChannel ?? (await this.resolveManifestChannels(rootUri))[0];
+            const videos = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
+            const custom = this.startName.trim() && this.startName.trim() !== this.startDefaultName;
+            let name = custom ? safeProjectFolderName(this.startName.trim()).replace(/^\.+$/, '') : '';
+            if (!name) name = await this.reserveNewProjectName(rootUri, channel);
+            else {
+                const stem = name;
+                for (let index = 2; await this.fileService.exists(videos.resolve(name)); index++) name = `${stem}-${index}`;
+            }
+            const originRect = this.newProjectOriginRect;
+            this.newProjectOriginRect = undefined;
+            this.closeHomeDialog();
+            this.pendingCreatePlaybook = playbook;
+            this.pendingCreateTitle = custom ? this.startName.trim() : undefined;
+            await this.createAndOpenProject(videos.resolve(name), originRect);
+        } catch (error) { this.reportNewProjectError(error); }
+    }
 
     async startNewProjectIn(destination: URI): Promise<void> {
         if (this.startingNewProject) { return; }
@@ -1689,11 +1759,13 @@ export class AkariHomeWidget extends ReactWidget {
         this.startingNewProject = true;
         this.update();
         try {
-            await this.newProjectService.createProject(destination.toString());
+            if (this.pendingCreatePlaybook) await this.newProjectService.createProjectFromPlaybook(destination.toString(), this.pendingCreatePlaybook.dir);
+            else await this.newProjectService.createProject(destination.toString());
             const intake = {
                 version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
                 autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: newProjectDisplayTitleFor(destination.path.base)
             };
+            if (this.pendingCreateTitle) intake.title = this.pendingCreateTitle;
             await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
                 BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
             // 一覧の読み直しは待たない。全プロジェクトの intake などを読み直すので、数百件あると
@@ -1709,6 +1781,8 @@ export class AkariHomeWidget extends ReactWidget {
         } catch (error) {
             this.reportNewProjectError(error);
         } finally {
+            this.pendingCreatePlaybook = undefined;
+            this.pendingCreateTitle = undefined;
             this.startingNewProject = false;
             this.update();
         }
@@ -2571,18 +2645,20 @@ export class AkariHomeWidget extends ReactWidget {
         } catch { this.messages.error(t('surfaces.home.openOutputPreview.error')); }
     }
 
-    protected closeHomeDialog = (): void => { this.homeDialog = undefined; this.update(); };
+    protected closeHomeDialog = (): void => { this.homeDialog = undefined; this.startStandaloneFlow = false; this.startChannelCreation = false; this.update(); };
 
     protected async chooseStandaloneFolder(): Promise<void> {
         const picked = await this.fileDialogs.showOpenDialog({
             title: t('surfaces.home.chooseStandaloneFolderSelectFolderCreateSingleProject.title'),
             canSelectFiles: false, canSelectFolders: true, canSelectMany: false
         });
-        if (!picked) { return; }
+        if (!picked) { this.startStandaloneFlow = false; return; }
         const folder = Array.isArray(picked) ? picked[0] : picked;
-        if (!folder) { return; }
+        if (!folder) { this.startStandaloneFlow = false; return; }
         this.standaloneFolder = folder;
-        const stem = newProjectNameStem();
+        const requested = this.startStandaloneFlow && this.startName.trim() !== this.startDefaultName
+            ? safeProjectFolderName(this.startName.trim()) : '';
+        const stem = requested || newProjectNameStem();
         let name = stem;
         for (let index = 2; await this.fileService.exists(folder.resolve(name)); index++) {
             name = `${stem}-${index}`;
@@ -2694,7 +2770,11 @@ export class AkariHomeWidget extends ReactWidget {
             await this.channelContext.refresh();
             this.channelContext.setViewingChannel(channel);
             this.setListChannelOverride(channel);
-            this.closeHomeDialog();
+            if (this.startChannelCreation) {
+                this.startChannel = channel;
+                this.startChannelCreation = false;
+                this.homeDialog = 'start';
+            } else this.closeHomeDialog();
             this.messages.info(t('surfaces.home.newChannelCreated.message', { channel: channel }));
         } catch (error) {
             this.newChannelError = error instanceof Error ? error.message : t('surfaces.home.newChannelCreationFailed.message');
@@ -2713,6 +2793,25 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected renderHomeDialog(): React.ReactNode {
+        if (this.homeDialog === 'start') {
+            return <HomeScrim kind='start' onClose={this.closeHomeDialog}><StartProjectDialog
+                name={this.startName} channel={this.startChannel} channels={this.channels} channelMenu={this.startChannelMenu}
+                step={this.startStep} playbooks={this.startPlaybooks} selected={this.startSelected}
+                category={this.startCategory} source={this.startSource} tools={this.startTools} busy={this.startingNewProject}
+                onName={value => { this.startName = value; this.update(); }}
+                onChannelMenu={() => { this.startChannelMenu = !this.startChannelMenu; this.update(); }}
+                onChannel={value => { this.startChannel = value; this.startChannelMenu = false; if (this.startStep === 'playbooks') void this.loadStartPlaybooks(); this.update(); }}
+                onNewChannel={() => void this.openStartNewChannelDialog()}
+                onStandalone={() => { this.startStandaloneFlow = true; void this.chooseStandaloneFolder(); }}
+                onStep={step => { this.startStep = step; if (step === 'playbooks') void this.loadStartPlaybooks(); this.update(); }}
+                onCategory={category => { this.startCategory = category; this.startSelected = undefined; this.update(); }}
+                onSource={source => { this.startSource = source; this.startSelected = undefined; this.update(); }}
+                onSelect={entry => { this.startSelected = entry; this.update(); }}
+                onBlank={() => void this.submitStartProject()}
+                onRead={entry => { this.closeHomeDialog(); void open(this.openers, URI.fromFilePath(`${entry.dir}/playbook.md`), { mode: 'activate' }); }}
+                onApply={entry => void this.submitStartProject(entry)} onClose={this.closeHomeDialog} />
+            </HomeScrim>;
+        }
         if (this.homeDialog === 'templates') {
             return <HomeScrim kind='templates' onClose={this.closeHomeDialog}>
                 <h3>{t('surfaces.home.homeDialogChooseTemplate.heading')}</h3>
@@ -2760,8 +2859,12 @@ export class AkariHomeWidget extends ReactWidget {
                         disabled={this.startingNewProject} onClick={() => {
                             const destination = this.standaloneDestination;
                             if (!destination) { return; }
+                            const fromStart = this.startStandaloneFlow;
                             this.closeHomeDialog();
-                            void this.startNewProjectIn(destination);
+                            if (fromStart) {
+                                this.pendingCreateTitle = this.startName.trim() !== this.startDefaultName ? this.startName.trim() : undefined;
+                                void this.createAndOpenProject(destination);
+                            } else void this.startNewProjectIn(destination);
                         }}>{t('surfaces.home.homeDialogMake.button')}</button>
                 </div>
             </HomeScrim>;
@@ -3197,7 +3300,7 @@ export class AkariHomeWidget extends ReactWidget {
             if (this.welcomeMode) return this.renderWelcomeSurface();
             return <div className='akari-home-surface' data-akari-home-stage='dashboard'
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}>
-                <style>{homePanelCss}</style>{this.renderHomeTopBar()}{this.renderDashboardHeader()}
+                <style>{homePanelCss + startProjectCss}</style>{this.renderHomeTopBar()}{this.renderDashboardHeader()}
                 {this.renderProjectList()}{this.renderHomeDialog()}
             </div>;
         }
@@ -3214,7 +3317,7 @@ export class AkariHomeWidget extends ReactWidget {
                 onScroll={this.handleHomeScroll}
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative', containerType: 'inline-size' }}
             >
-                <style>{homePanelCss + projectListCss + projectHomeCss}</style>
+                <style>{homePanelCss + projectListCss + projectHomeCss + startProjectCss}</style>
                 {this.renderHomeTopBar()}
                 {channelMode ? this.renderProjectListForTab() : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
@@ -3270,7 +3373,7 @@ export class AkariHomeWidget extends ReactWidget {
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 style={homeFlowStyles.welcomeSurface}
             >
-                <style>{homePanelCss}</style>
+                <style>{homePanelCss + startProjectCss}</style>
                 <div style={homeFlowStyles.welcomeTopBar}>{this.renderHomeTopBar()}</div>
                 <div style={homeFlowStyles.welcomeStack}>
                     {this.renderWelcomeCard()}

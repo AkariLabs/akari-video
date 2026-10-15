@@ -1,0 +1,36 @@
+/** contract-2026-10-15-playbook-v0.md §2 の playbook.json 例。 */
+export const contractExample = {
+    "version": 0,
+    "kind": "akari-playbook",
+    "id": "kaisetsu-vertical-60s",
+    "name": "縦の解説 60 秒",
+    "playbookVersion": 1,
+    "depth": 2,
+    "category": "explainer",
+    "tags": { "form": ["vertical"], "length": ["30-60s"], "technique": ["live-action"], "tools": ["voicevox"],
+              "style": [], "industry": [], "materials": ["talking-head", "screen-capture"], "scale": ["solo"] },
+    "requires": { "cli": ">=1.4.0", "tools": ["voicevox"], "skills": ["edit-plan", "render-cut"] },
+    "steps": [
+      { "id": "intake",   "title": "素材を置く",        "what": "画面収録と顔出しを assets/ に置き、analyze-footage を回す", "skill": "analyze-footage", "checkpoint": false },
+      { "id": "script",   "title": "台本を確定する",    "what": "planning/script.md を書き、冒頭 3 秒のつかみを決める",        "skill": "research-plan",   "checkpoint": true },
+      { "id": "cut",      "title": "カットを整える",    "what": "無音を詰め、字幕を当てる",                                 "skill": "edit-plan",       "checkpoint": false },
+      { "id": "export",   "title": "書き出す",          "what": "1080x1920 で exports/ に出す",                             "skill": "render-cut",      "checkpoint": false }
+    ],
+    "settings": {
+      "aspect": "9:16", "fps": 30, "targetDurationSec": 60,
+      "captions": { "styleUid": "st_01HZ…", "position": "lower" },
+      "transitions": { "default": "cut" },
+      "audio": { "roles": { "voice": -14, "bgm": -24 } }
+    },
+    "placeholders": [
+      { "id": "talking-head", "role": "話している本人の寄り", "kind": "video", "durationHintSec": 40, "sample": { "category": "sample", "id": "placeholder-talking-head" } },
+      { "id": "screen",       "role": "画面収録",           "kind": "video", "durationHintSec": 20 },
+      { "id": "bgm",          "role": "軽めの BGM",         "kind": "audio", "sample": { "category": "audio", "id": "light-loop-01", "source": "lab" } }
+    ],
+    "parts": [
+      { "kind": "style", "id": "caption-pop", "uid": "st_01HZ…", "revision": 2, "source": "builtin", "license": "CC0-1.0" },
+      { "kind": "asset", "category": "audio", "id": "light-loop-01", "source": "lab", "license": "LicenseRef-AKARI-Assets-v0", "tier": "free" }
+    ],
+    "license": "CC0-1.0",
+    "provenance": { "fromProject": "akari-howto", "recordedAt": "2026-10-15T10:00:00+09:00", "akariVersion": "1.4.0", "recordedBy": "record-playbook" }
+};

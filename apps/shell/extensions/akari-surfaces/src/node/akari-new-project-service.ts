@@ -1,10 +1,11 @@
 import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { promises as fs } from 'fs';
-import { dirname, resolve, join } from 'path';
+import { dirname, resolve, join, basename } from 'path';
+import { homedir } from 'os';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
-import { AkariLibraryStatus, AkariNewProjectService, AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
+import { AkariLibraryStatus, AkariNewProjectService, AkariPlaybook, AkariPlaybookListEntry, AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
 import { LibraryStorageItem, summarizeLibraryStorage } from '../common/library-storage';
 import { selectLabCleanupTargets } from './library-cleanup';
 import { LibraryMigrationContribution } from './library-migration-contribution';
@@ -19,6 +20,7 @@ interface ProjectScaffoldModule {
         templateDir: string,
         options?: { skillsSourceDir?: string; schemasSourceDir?: string }
     ): Promise<unknown>;
+    applyPlaybook?(options: { projectDir: string; playbookDir: string }): Promise<unknown>;
 }
 
 /**
@@ -27,6 +29,7 @@ interface ProjectScaffoldModule {
  * task 2026-08-04-home-no-root-flow）が使う範囲だけの型。
  */
 interface CreatorRootModule {
+    resolveCreatorRoot(options?: { cwd?: string; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform }): Promise<{ rootDir: string } | null>;
     resolveAssetLibraryRoots(env?: NodeJS.ProcessEnv): { write: string; read: string[] };
     readLibraryLocation(env?: NodeJS.ProcessEnv): { root: string; state: string; previousRoot?: string } | null;
     writeLibraryLocation(value: { root: string; state: string; previousRoot?: string }, env?: NodeJS.ProcessEnv): Promise<void>;
@@ -69,6 +72,33 @@ interface CreatorRootModule {
 const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
 
 const UPWARD_SEARCH_MAX_DEPTH = 12;
+const PLAYBOOK_CATEGORIES = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
+
+/** browser/home/home-model.ts の validateChannelName と同じパス安全規則。 */
+function safeChannelPathName(input: string | undefined): string | undefined {
+    const name = input?.trim();
+    if (!name || name === '.' || name.includes('..') || name.length > 64
+        || /[/\\<>:"|?*]/.test(name) || [...name].some(char => char.charCodeAt(0) < 32)) return undefined;
+    return name;
+}
+
+function isPlaybook(value: unknown): value is AkariPlaybook {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const record = value as Partial<AkariPlaybook>;
+    return record.version === 0 && record.kind === 'akari-playbook'
+        && typeof record.id === 'string' && typeof record.name === 'string'
+        && typeof record.playbookVersion === 'number' && (record.depth === 1 || record.depth === 2)
+        && typeof record.category === 'string' && PLAYBOOK_CATEGORIES.has(record.category)
+        && Array.isArray(record.steps) && record.steps.every(step => step && typeof step.id === 'string'
+            && typeof step.title === 'string' && typeof step.what === 'string')
+        && !!record.settings && typeof record.settings === 'object' && !Array.isArray(record.settings)
+        && (!record.placeholders || Array.isArray(record.placeholders) && record.placeholders.every(slot =>
+            slot && typeof slot.id === 'string' && typeof slot.role === 'string' && typeof slot.kind === 'string'))
+        && (!record.parts || Array.isArray(record.parts) && record.parts.every(part =>
+            part && typeof part.kind === 'string' && typeof part.id === 'string' && typeof part.source === 'string'))
+        && (!record.requires || typeof record.requires === 'object' && (!record.requires.tools || Array.isArray(record.requires.tools)))
+        && typeof record.license === 'string' && !!record.provenance && typeof record.provenance === 'object';
+}
 
 /**
  * F5 バックエンド実装（task 2026-08-03-shell-quickwins-feedback、専用パスにした
@@ -179,6 +209,48 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
             templateDir,
             skillsSourceDir ? { skillsSourceDir, schemasSourceDir } : {}
         );
+    }
+
+    async listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]> {
+        const dirs: Array<{ path: string; source: 'channel' | 'local' }> = [];
+        const channelName = safeChannelPathName(channel);
+        if (channelName) {
+            const creator = await this.loadCreatorRootModule();
+            const root = await creator.resolveCreatorRoot({ env: process.env });
+            if (root) dirs.push({ path: join(root.rootDir, 'channels', channelName, 'playbooks'), source: 'channel' });
+        }
+        dirs.push({ path: join(process.env.AKARI_HOME || join(homedir(), '.akari'), 'playbooks'), source: 'local' });
+        const result: AkariPlaybookListEntry[] = [];
+        for (const location of dirs) {
+            for (const child of await fs.readdir(location.path, { withFileTypes: true }).catch(() => [])) {
+                if (!child.isDirectory() || !/^[a-z0-9][a-z0-9-]*$/.test(child.name)) continue;
+                const dir = join(location.path, child.name);
+                try {
+                    const value: unknown = JSON.parse(await fs.readFile(join(dir, 'playbook.json'), 'utf8'));
+                    if (!isPlaybook(value) || value.id !== basename(dir)) continue;
+                    const cover = join(dir, 'preview', 'cover.png');
+                    result.push({ dir, source: location.source, playbook: value,
+                        ...(await this.isFile(cover) ? { coverUri: pathToFileURL(cover).toString() } : {}) });
+                } catch { /* tolerant reader: one broken record does not hide the others */ }
+            }
+        }
+        return result;
+    }
+
+    async createProjectFromPlaybook(destinationUri: string, playbookDir: string): Promise<void> {
+        const projectDir = new URI(destinationUri).path.fsPath();
+        await this.createProject(destinationUri);
+        const scaffold = await this.loadScaffoldModule();
+        if (typeof scaffold.applyPlaybook === 'function') {
+            await scaffold.applyPlaybook({ projectDir, playbookDir });
+            return;
+        }
+        await fs.copyFile(join(playbookDir, 'playbook.md'), join(projectDir, 'planning', 'playbook.md'));
+        await fs.copyFile(join(playbookDir, 'playbook.json'), join(projectDir, 'planning', 'playbook.json'));
+        const report = join(projectDir, '.akari', 'reports', 'create-project-report.html');
+        const html = await fs.readFile(report, 'utf8');
+        const note = `<p>${t('surfaces.home.playbookFallbackNote.message')}</p>`;
+        await fs.writeFile(report, html.includes('</body>') ? html.replace('</body>', `${note}</body>`) : `${html}\n${note}`);
     }
 
     protected async loadScaffoldModule(): Promise<ProjectScaffoldModule> {
