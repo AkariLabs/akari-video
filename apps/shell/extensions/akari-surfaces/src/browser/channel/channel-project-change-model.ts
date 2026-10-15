@@ -1,3 +1,5 @@
+import { projectLocation } from '../../common/project-location';
+
 export interface ChannelProjectChange {
     channel: string;
     project: string;
@@ -8,14 +10,16 @@ export interface ChannelProjectChange {
 
 export function classifyChannelProjectChange(relative: string, type: number, currentProjectRelative?: string): ChannelProjectChange | undefined {
     const parts = relative.split('/');
-    if (parts.length < 4 || parts[0] !== 'channels' || parts[2] !== 'videos' || !parts[1] || !parts[3]) return undefined;
+    if (!projectLocation(parts.slice(0, 4).join('/'))) return undefined;
     const [channel, project] = [parts[1], parts[3]];
     const rest = parts.slice(4).join('/');
-    const own = currentProjectRelative === parts.slice(0, 4).join('/');
+    const current = projectLocation(currentProjectRelative);
+    const own = current?.channel === channel && current.project === project;
     if (!rest) return type === 2 ? { channel, project, kind: 'remove', title: false, card: false }
         : type === 1 ? { channel, project, kind: 'upsert', title: true, card: true } : undefined;
     if (rest.endsWith('.tmp') || /\.tmp\./.test(rest)) return undefined;
     if (rest === '.akari/intake.json') return { channel, project, kind: 'upsert', title: true, card: false };
+    if (/^scenes\/[^/]+(?:\/edit\.json)?$/.test(rest)) return { channel, project, kind: 'upsert', title: false, card: true };
     if (rest.startsWith('.git/') || rest.startsWith('node_modules/')) return undefined;
     if (/^\.akari\/(cache|history|work|sidecars|events)\//.test(rest)
         || /^\.akari\/(lint\.json|saved-by\.json)$/.test(rest)

@@ -1,22 +1,23 @@
 import { t } from '@akari-video/i18n';
 import type { ProjectStage } from '../home/project-progress-model';
+import { projectLocation } from '../../common/project-location';
 
 export interface TitleBarCenterInput {
     scope: 'channel' | 'project';
     channel?: string;
     project?: string;
+    scene?: string;
     standalone?: boolean;
 }
 
 export function titleBarCenter(input: TitleBarCenterInput): string[] {
     if (input.scope === 'channel') { return [input.channel || 'AKARI Video']; }
-    return [input.standalone || !input.channel ? t('surfaces.titleBar.standaloneProject.label') : input.channel, input.project || t('surfaces.titleBar.titleBarCenterProject.label')];
+    return [input.standalone || !input.channel ? t('surfaces.titleBar.standaloneProject.label') : input.channel,
+        input.project || t('surfaces.titleBar.titleBarCenterProject.label'), ...(input.scene ? [input.scene] : [])];
 }
 
 export function channelFromRelativePath(relative: string | undefined): string | undefined {
-    const segments = relative?.split('/');
-    return segments?.length === 4 && segments[0] === 'channels' && segments[2] === 'videos' && !!segments[1]
-        ? segments[1] : undefined;
+    return projectLocation(relative)?.channel;
 }
 
 export function shouldRerenderOnContextKeys(affects: (keys: Set<string>) => boolean): boolean {

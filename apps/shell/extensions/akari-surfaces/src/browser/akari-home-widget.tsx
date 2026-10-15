@@ -98,6 +98,8 @@ import type { OpenProjectRequest } from './akari-home-command-contribution';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { AkariChannelContextService, ChannelProject } from './channel/akari-channel-context-service';
 import { channelFromProjectPath } from './channel/channel-context-model';
+import { projectLocation } from '../common/project-location';
+import { SceneListView } from './home/scene-list-view';
 import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
@@ -420,6 +422,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected currentLocation: CurrentLocation | undefined;
     // U3 のプロジェクト一覧で「開いています」を判定するための現在ワークスペース root。
     protected currentProjectUri: URI | undefined;
+    protected sceneListRoot = false;
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
     protected homeDialog: 'start' | 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
@@ -1562,9 +1565,7 @@ export class AkariHomeWidget extends ReactWidget {
         }
         const uri = new URI(request.uri);
         const root = this.creatorRootUri ?? await this.resolveCreatorRootDir();
-        const relative = root?.relative(uri)?.toString().split('/').filter(Boolean);
-        const channel = relative?.length === 4 && relative[0] === CREATOR_ROOT_CHANNELS_DIRNAME
-            && relative[2] === CREATOR_ROOT_VIDEOS_DIRNAME ? relative[1] : undefined;
+        const channel = projectLocation(root?.relative(uri)?.toString())?.channel;
         if (!newWindow) {
             const row = this.buildProjectRows().find(candidate => candidate.uri.toString() === request.uri);
             await animateProjectOpen(request.originRect, row?.name ?? uri.path.base,
@@ -1817,6 +1818,7 @@ export class AkariHomeWidget extends ReactWidget {
         const projectUri = roots[0]?.resource;
         this.currentProjectUri = projectUri;
         if (!projectUri) {
+            this.sceneListRoot = false;
             this.currentLocation = undefined;
             this.update();
             return;
@@ -1825,22 +1827,24 @@ export class AkariHomeWidget extends ReactWidget {
         const rootUri = this.creatorRootUri;
         if (rootUri) {
             const relative = rootUri.relative(projectUri)?.toString();
-            const segments = relative ? relative.split('/').filter(Boolean) : [];
-            if (
-                segments.length === 4 &&
-                segments[0] === CREATOR_ROOT_CHANNELS_DIRNAME &&
-                segments[2] === CREATOR_ROOT_VIDEOS_DIRNAME
-            ) {
-                const channel = segments[1];
-                const project = segments[3];
+            const location = projectLocation(relative);
+            if (location) {
+                const { channel, project } = location;
                 this.currentLocation = { kind: 'inside', rootPath: await this.formatDisplayPath(rootUri), channel, project };
+                await this.refreshSceneList(projectUri, location.scene);
                 this.update();
                 return;
             }
         }
 
         this.currentLocation = { kind: 'outside', projectUri };
+        await this.refreshSceneList(projectUri);
         this.update();
+    }
+
+    protected async refreshSceneList(root: URI, scene?: string): Promise<void> {
+        this.sceneListRoot = !scene && !await this.fileService.exists(root.resolve('edit.json'))
+            && await this.fileService.exists(root.resolve('scenes'));
     }
 
     // --- U5 チャンネルに入れる（養子縁組。task 2026-08-03-home-v5-terms） -------
@@ -3321,7 +3325,11 @@ export class AkariHomeWidget extends ReactWidget {
             >
                 <style>{homePanelCss + projectListCss + projectHomeCss}</style>
                 {this.renderHomeTopBar()}
-                {channelMode ? this.renderProjectListForTab() : this.renderProjectHome()}
+                {channelMode ? this.renderProjectListForTab() : this.sceneListRoot && this.currentProjectUri
+                    ? <SceneListView root={this.currentProjectUri} files={this.fileService} input={this.quickInputService}
+                        projectService={this.storeService as AkariProjectService & { addScene(rootUri: string, id: string): Promise<unknown> }}
+                        onOpen={uri => void this.openProject({ uri: uri.toString() })} onError={message => void this.messages.error(message)} />
+                    : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderHomeDialog()}
                 {this.renderOpenClosePrompts()}

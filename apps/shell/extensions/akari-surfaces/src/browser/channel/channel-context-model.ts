@@ -1,8 +1,9 @@
+import { projectLocation } from '../../common/project-location';
+
 export type ChannelScope = 'channel' | 'project';
 
 export function channelFromProjectPath(relative: string | undefined): string | undefined {
-    const parts = relative?.split('/').filter(Boolean);
-    return parts?.length === 4 && parts[0] === 'channels' && parts[2] === 'videos' ? parts[1] : undefined;
+    return projectLocation(relative)?.channel;
 }
 
 export function resolveCurrentChannel(scope: ChannelScope, channels: string[], workspaceChannel: string | undefined, readLastChannel: () => string | null): string | undefined {

@@ -1,4 +1,5 @@
 {
+  "project.materials.pane.sharedAsset.label": "共通",
   "project.account.connection.couldNotCheckConnectionStatusError": "接続状態を確認できませんでした: {value1}",
   "project.account.connection.couldNotOpenAuthorizationPageError": "承認ページを開けませんでした: {value1}",
   "project.account.connection.couldNotStartConnectionError": "接続を開始できませんでした: {value1}",

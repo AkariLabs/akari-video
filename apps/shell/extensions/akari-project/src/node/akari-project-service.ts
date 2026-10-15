@@ -23,6 +23,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { randomUUID } from 'crypto';
+import { addSceneFromLauncher, importCommonSceneAsset, unlinkedCommonAssetUris } from './scene-assets';
 import {
     AkariProjectService,
     TranscribeArtifactRequest, TranscribeArtifacts, MaterialTranscriptEvent,
@@ -314,6 +315,18 @@ type ProjectCardPlan =
 
 @injectable()
 export class AkariProjectServiceImpl implements AkariProjectService {
+    /** Reuse the launcher's scene scaffold and manifest writer without copying their logic. */
+    async addScene(rootUri: string, id: string): Promise<string> {
+        return addSceneFromLauncher(rootUri, id);
+    }
+
+    async importCommonSceneAsset(sceneUri: string, sourceUri: string): Promise<string> {
+        return importCommonSceneAsset(sceneUri, sourceUri);
+    }
+
+    async unlinkedCommonAssetUris(sceneUri: string, sourceUris: string[]): Promise<string[]> {
+        return unlinkedCommonAssetUris(sceneUri, sourceUris);
+    }
     protected readonly voiceRecordingWriter = new VoiceRecordingWriter();
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
