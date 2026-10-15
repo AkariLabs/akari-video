@@ -25,9 +25,12 @@ test('applyPlaybook copies both sources, creates three empty edit placeholders a
     const book = JSON.parse(await readFile(result.playbookJsonPath, 'utf8'));
     assert.equal(book.provenance.appliedFrom.playbookVersion, 1);
     const edit = JSON.parse(await readFile(join(projectDir, 'edit.json'), 'utf8'));
-    assert.equal(edit.tracks[0].items.length, 3);
+    // r2（2026-10-15 司令塔の裁定）: 音の仮枠は別の段（playbook-placeholders-audio）で頭から並走する
+    assert.equal(edit.tracks[0].items.length, 2);
     assert.equal(edit.tracks[0].lane, 'visual');
-    assert.equal(edit.tracks[0].items.find(item => item.id === 'playbook-bgm')?.source.kind, 'group');
+    const audioTrack = edit.tracks.find(track => track.id === 'playbook-placeholders-audio');
+    assert.equal(audioTrack?.items.find(item => item.id === 'playbook-bgm')?.source.kind, 'group');
+    assert.equal(audioTrack?.items.find(item => item.id === 'playbook-bgm')?.at, 0);
     assert.deepEqual([edit.output.width, edit.output.height], [1080, 1920]);
     assert.equal(edit.output.caption_style_uid, 'st_01HZ…');
     assert.deepEqual(edit.audio.role_gains_db, { voice: -14, bgm: -24 });
