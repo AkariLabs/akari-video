@@ -763,5 +763,14 @@
   "cli.connectCommand.ui.noKeyHasBeenSetMessage": "鍵が設定されていません。",
   "cli.connectCommand.ui.couldNotStartChildProcessError": "子プロセスを起動できませんでした。",
   "cli.connectCommand.group.toolsLabel": "AKARI の道具",
-  "cli.connectCommand.group.generateLabel": "素材を作る"
+  "cli.connectCommand.group.generateLabel": "素材を作る",
+  "cli.playbook.help.usage": "使い方: akari playbook list [--json] [--category <c>] [--tag <t>] [--channel <ch>] | akari playbook apply <id> --into <project> [--dry-run]",
+  "cli.playbook.error.scaffoldMissing": "作り方の処理を読み込めません。",
+  "cli.playbook.warning.broken": "警告: 壊れた作り方を飛ばしました: {dir} ({message})",
+  "cli.playbook.list.row": "{id} | {name} | {category} | {source} | {duration} 秒",
+  "cli.playbook.list.durationUnknown": "未設定",
+  "cli.playbook.error.notFound": "作り方が見つかりません: {id}",
+  "cli.playbook.apply.dryRun": "予定: {name} / {changes} / 確認シート: {report}",
+  "cli.playbook.apply.applied": "適用: {name} / {changes} / 確認シート: {report}",
+  "cli.playbook.apply.noChanges": "設定・仮枠・内訳の変更なし"
 }

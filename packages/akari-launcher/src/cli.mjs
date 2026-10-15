@@ -30,6 +30,7 @@ import { runSpeakersCommand } from './speakers-command.mjs';
 import { runToolsCommand } from './tools-command.mjs';
 import { runWordBookCommand } from './word-book-command.mjs';
 import { runConnectCommand } from './connect-command.mjs';
+import { runPlaybookCommand } from './playbook-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 import { cliText } from './i18n.mjs';
 
@@ -43,6 +44,7 @@ export const runSubcommands = {
   tools: runToolsCommand,
   'word-book': runWordBookCommand,
   connect: runConnectCommand,
+  playbook: runPlaybookCommand,
 };
 
 /**
