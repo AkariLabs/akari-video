@@ -905,6 +905,7 @@
   "annotationscommon.compileSessionHandoff.text.prompt": "レビューの録音 {id} を文字起こしして、コメントにまとめて",
   "annotationscommon.recording.text.name": "録音 {number}",
   "annotationscommon.penStrokes.text.present": "ペン描画あり",
+  "annotationscommon.annotationPosition.text.center": "位置: {x}%, {y}%",
   "annotationscommon.penStrokes.text.enclosure": "ペンの線: 囲み。中心 {x}%, {y}%",
   "annotationscommon.penStrokes.text.open": "ペンの線: 始点 {startX}%, {startY}% → 終点 {endX}%, {endY}%。{direction}へ",
   "annotationscommon.penStrokes.text.direction.right": "右",

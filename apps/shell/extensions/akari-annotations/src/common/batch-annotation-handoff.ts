@@ -1,6 +1,6 @@
 import { t } from '@akari-video/i18n';
 import { Annotation } from './akari-annotations-protocol';
-import { describePenStrokes } from './pen-stroke-description';
+import { describeAnnotationPosition, describePenStrokes } from './pen-stroke-description';
 
 export function pendingAnnotationHandoff(annotations: readonly Annotation[], sentIds: ReadonlySet<string>): Annotation[] {
     return annotations.filter(annotation => annotation.status === 'open' && !sentIds.has(annotation.id))
@@ -14,8 +14,9 @@ export function composeBatchAnnotationHandoff(annotations: readonly Annotation[]
         const rounded = seconds === null ? null : Math.max(0, Math.round(seconds));
         const time = rounded === null ? '' : `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')}`;
         const stroke = describePenStrokes(annotation.strokes ?? []);
+        const location = stroke || annotation.strokes?.length ? undefined : describeAnnotationPosition(annotation.region);
         const parts = [annotation.id, time, annotation.target ?? '', annotation.text.replace(/\s*\r?\n\s*/g, ' ').trim()].filter(Boolean);
-        lines.push(`\u30fb${parts.join(' ')}${stroke ? `\uff08${stroke}\uff09` : ''}`);
+        lines.push(`\u30fb${parts.join(' ')}${stroke || location ? `\uff08${stroke ?? location}\uff09` : ''}`);
     }
     return lines.join('\n');
 }

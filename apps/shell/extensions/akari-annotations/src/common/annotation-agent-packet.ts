@@ -1,5 +1,6 @@
 import { t } from '@akari-video/i18n';
-import { DescribableStroke, describePenStrokes } from './pen-stroke-description';
+import { DescribableStroke, describeAnnotationPosition, describePenStrokes } from './pen-stroke-description';
+import { AnnotationRegion } from './annotation-store';
 
 export interface AnnotationAgentPacketInput {
     id: string;
@@ -12,6 +13,7 @@ export interface AnnotationAgentPacketInput {
     text: string;
     hasStrokes?: boolean;
     strokes?: readonly DescribableStroke[] | null;
+    region?: AnnotationRegion | null;
 }
 
 function formatAnnotationPacketSeconds(seconds: number): string {
@@ -36,6 +38,9 @@ export function composeAnnotationAgentPacket(input: AnnotationAgentPacketInput):
     const stroke = describePenStrokes(input.strokes);
     if (stroke || input.hasStrokes) {
         details.push(stroke ?? t('annotationscommon.penStrokes.text.present'));
+    } else {
+        const position = describeAnnotationPosition(input.region);
+        if (position) details.push(position);
     }
     const suffix = details.length > 0 ? `・${details.join('・')}` : '';
     const body = input.text.trim() ? input.text.trim() : t('annotationscommon.annotationPacket.text.noBody');

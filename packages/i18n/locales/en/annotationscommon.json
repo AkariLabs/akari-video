@@ -905,6 +905,7 @@
   "annotationscommon.compileSessionHandoff.text.prompt": "Transcribe review recording {id} and turn it into comments",
   "annotationscommon.recording.text.name": "Recording {number}",
   "annotationscommon.penStrokes.text.present": "Pen drawing present",
+  "annotationscommon.annotationPosition.text.center": "Position: {x}%, {y}%",
   "annotationscommon.penStrokes.text.enclosure": "Pen stroke: enclosure. Center {x}%, {y}%",
   "annotationscommon.penStrokes.text.open": "Pen stroke: start {startX}%, {startY}% → end {endX}%, {endY}%. Toward {direction}",
   "annotationscommon.penStrokes.text.direction.right": "right",

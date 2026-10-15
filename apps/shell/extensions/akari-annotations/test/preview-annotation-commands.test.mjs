@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setLanguage } from '@akari-video/i18n';
-import { appendAnnotationLine, emptyReviewSource, parseReview } from '../lib/common/annotation-store.js';
+import { appendAnnotationLine, emptyReviewSource, parseReview, removeAnnotationLine } from '../lib/common/annotation-store.js';
 
 globalThis.Element ??= class { constructor() { this.classList = { add() {} }; this.style = {}; }
     matches() { return false; } };
@@ -25,6 +25,7 @@ require('@theia/core/lib/browser/frontend-application-config-provider').Frontend
 const { PreviewAnnotationCommands } = require('../lib/browser/preview-annotation-commands.js');
 const { SentAnnotationStore } = require('../lib/browser/sent-annotation-store.js');
 const { UiTargetLabelStore } = require('../lib/browser/ui-target-label-store.js');
+const { AkariAnnotationsServiceImpl } = require('../lib/node/akari-annotations-service.js');
 const { handAnnotation } = require('../lib/common/annotation-handoff-flow.js');
 const { CLIP_ANNOTATION_LABELS_EVENT } = require('../lib/common/timeline-context-menu-items.js');
 
@@ -80,11 +81,17 @@ function harness(initial = []) {
                 calls.push(['create', request]);
                 const created = annotation(`a-${String(parseReview(source).annotations.length + 1).padStart(4, '0')}`, {
                     src: request.src, sourceT: request.sourceT, sourceRange: request.sourceRange,
-                    target: request.target, targetKind: request.targetKind,
+                    target: request.target, targetKind: request.targetKind, region: request.region,
                     strokes: request.strokes, text: request.text
                 });
                 source = appendAnnotationLine(source, created);
                 return { annotation: created, committed: false };
+            },
+            deleteAnnotation: async request => {
+                calls.push(['delete', request]);
+                const removed = removeAnnotationLine(source, request.annotationId);
+                source = removed.source;
+                return { annotation: removed.removed };
             }
         },
         commands: { executeCommand: async (id, prompt) => {
@@ -127,6 +134,7 @@ test('createFromPreview writes pen, pin and range annotations through createAnno
     assert.equal(items[2].targetKind, 'range');
     assert.equal(h.model.annotations.length, 3);
     assert.equal(h.calls.filter(call => call[0] === 'create').length, 3);
+    assert.ok(h.calls.filter(call => call[0] === 'create').every(call => call[1].nudge === false));
     const dir = mkdtempSync(join(tmpdir(), 'akari-preview-annotations-'));
     try {
         const file = join(dir, 'review.json');
@@ -137,6 +145,130 @@ test('createFromPreview writes pen, pin and range annotations through createAnno
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
+});
+
+test('createFromPreview writes a real nudge-false event beside review.json', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'akari-preview-event-'));
+    try {
+        const reviewPath = join(dir, 'review.json');
+        writeFileSync(reviewPath, emptyReviewSource());
+        const project = pathToFileURL(dir).toString();
+        const location = { root: new URI(project), reviewUri: new URI(pathToFileURL(reviewPath).toString()) };
+        const commands = new PreviewAnnotationCommands();
+        Object.assign(commands, {
+            model: { location, annotations: [] },
+            annotationsService: new AkariAnnotationsServiceImpl(),
+            files: { exists: async uri => existsSync(fileURLToPath(uri.toString())) },
+            contribution: { findReviewLocationForProjectRoot: async () => location }
+        });
+        const registry = new Map();
+        commands.registerCommands({ registerCommand: (command, handler) => registry.set(command.id, handler.execute) });
+        const result = await registry.get('akari.annotations.createFromPreview')({
+            projectRootUri: project, sourceT: 1, point: [0.65, 0.4], text: 'ピン'
+        });
+        const review = JSON.parse(readFileSync(reviewPath, 'utf8'));
+        assert.equal(review.annotations[0].id, result.id);
+        assert.deepEqual(review.annotations[0].region.box, [0.64, 0.39, 0.02, 0.02]);
+        const eventsDir = join(dir, '.akari/events');
+        const names = readdirSync(eventsDir);
+        assert.equal(names.length, 1);
+        const event = JSON.parse(readFileSync(join(eventsDir, names[0]), 'utf8'));
+        assert.equal(event.annotationId, result.id);
+        assert.equal(event.nudge, false);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('point maps to a centred schema-valid region, including all four edges and range coexistence', async () => {
+    const h = harness();
+    const cases = [
+        [[0.65, 0.4], [0.64, 0.39, 0.02, 0.02], 'region'],
+        [[0, 0], [0, 0, 0.02, 0.02], 'region'],
+        [[1, 0], [0.98, 0, 0.02, 0.02], 'region'],
+        [[0, 1], [0, 0.98, 0.02, 0.02], 'region'],
+        [[1, 1], [0.98, 0.98, 0.02, 0.02], 'region']
+    ];
+    for (const [point, box, targetKind] of cases) {
+        await h.exec('createFromPreview', { projectRootUri: root.toString(), sourceT: 1, point, text: 'ピン' });
+        const item = parseReview(h.source()).annotations.at(-1);
+        assert.deepEqual(item.region.box, box);
+        assert.equal(item.targetKind, targetKind);
+        assert.ok(item.region.box[0] + item.region.box[2] <= 1);
+        assert.ok(item.region.box[1] + item.region.box[3] <= 1);
+    }
+    await h.exec('createFromPreview', { projectRootUri: root.toString(), sourceT: 2,
+        sourceRange: [2, 4], point: [0.5, 0.5], text: '範囲と点' });
+    const ranged = parseReview(h.source()).annotations.at(-1);
+    assert.equal(ranged.targetKind, 'range');
+    assert.deepEqual(ranged.sourceRange, [2, 4]);
+    assert.deepEqual(ranged.region.box, [0.49, 0.49, 0.02, 0.02]);
+    await h.exec('createFromPreview', { projectRootUri: root.toString(), sourceT: 5, text: '時点' });
+    assert.equal(parseReview(h.source()).annotations.at(-1).targetKind, 'instant');
+    const dir = mkdtempSync(join(tmpdir(), 'akari-preview-points-'));
+    try {
+        const file = join(dir, 'review.json');
+        writeFileSync(file, h.source());
+        const validator = fileURLToPath(new URL('../../../../../packages/schemas/bin/validate-review.mjs', import.meta.url));
+        const checked = spawnSync(process.execPath, [validator, file], { encoding: 'utf8' });
+        assert.equal(checked.status, 0, checked.stderr);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('point rejects malformed coordinates with the preview annotation error', async () => {
+    const h = harness();
+    for (const point of ['bad', {}, [], [0], [0, 0, 0], Array(2), [-0.01, 0], [0, 1.01],
+        [NaN, 0], [Infinity, 0], ['0.5', 0]]) {
+        await assert.rejects(h.exec('createFromPreview', {
+            projectRootUri: root.toString(), sourceT: 1, point, text: 'bad'
+        }), { message: 'Invalid preview annotation' });
+    }
+});
+
+test('composePacket includes a point position in both single and batch prompts', async () => {
+    const h = harness();
+    const first = await h.exec('createFromPreview', {
+        projectRootUri: root.toString(), sourceT: 4, point: [0.65, 0.4], text: 'ここを直す'
+    });
+    const single = await h.exec('composePacket', { projectRootUri: root.toString(), ids: [first.id] });
+    assert.match(single, /位置: 65%, 40%/);
+    const second = await h.exec('createFromPreview', {
+        projectRootUri: root.toString(), sourceT: 5, text: '次も直す'
+    });
+    const batch = await h.exec('composePacket', { projectRootUri: root.toString(), ids: [first.id, second.id] });
+    assert.match(batch, /位置: 65%, 40%/);
+    assert.equal(batch.match(/位置:/g)?.length, 1);
+});
+
+test('deleteFromPreview removes any status, refreshes the panel and clears sent state', async () => {
+    const h = harness([annotation('a-0001', { status: 'resolved' }), annotation('a-0002')]);
+    await h.sent.mark(reviewUri, 'a-0001');
+    assert.deepEqual(await h.exec('deleteFromPreview', { projectRootUri: root.toString(), id: 'a-0001' }),
+        { deleted: true });
+    assert.deepEqual(parseReview(h.source()).annotations.map(item => item.id), ['a-0002']);
+    assert.deepEqual(h.model.annotations.map(item => item.id), ['a-0002']);
+    assert.deepEqual([...await h.sent.read(reviewUri)], []);
+    assert.deepEqual(h.calls.find(call => call[0] === 'delete')[1], { reviewUri, annotationId: 'a-0001' });
+    await h.sent.mark(reviewUri, 'a-0001');
+    assert.deepEqual(await h.exec('deleteFromPreview', { projectRootUri: root.toString(), id: 'a-0001' }),
+        { deleted: false });
+    assert.deepEqual([...await h.sent.read(reviewUri)], []);
+    assert.equal(h.calls.filter(call => call[0] === 'delete').length, 1);
+});
+
+test('deleteFromPreview validates id, project and review location', async () => {
+    const h = harness();
+    for (const id of [undefined, null, '', '  ', 42]) {
+        await assert.rejects(h.exec('deleteFromPreview', { projectRootUri: root.toString(), id }),
+            { message: 'Invalid annotation id' });
+    }
+    await assert.rejects(h.exec('deleteFromPreview', { projectRootUri: 'http://bad', id: 'a-0001' }),
+        { message: 'Invalid projectRootUri' });
+    h.setReviewExists(false);
+    await assert.rejects(h.exec('deleteFromPreview', { projectRootUri: root.toString(), id: 'a-0001' }),
+        { message: 'review.json does not exist' });
 });
 
 test('createFromPreview rejects malformed requests and missing review.json', async () => {

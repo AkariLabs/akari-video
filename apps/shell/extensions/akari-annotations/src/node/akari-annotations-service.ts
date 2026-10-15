@@ -1895,7 +1895,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
         let committed = false;
         try {
-            const eventPath = await this.recordGateEvent(root, reviewPath, annotation.id);
+            const eventPath = await this.recordGateEvent(root, reviewPath, annotation.id, request.nudge);
             committed = await this.commitIfOwnRoot(root, 'レビューコメントを追加', [reviewPath, eventPath]);
         } catch (error) {
             console.warn('[akari-annotations] event/commit skipped:', error);
@@ -3213,7 +3213,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
-    protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<string> {
+    protected async recordGateEvent(root: string, reviewPath: string, annotationId: string, nudge = true): Promise<string> {
         const eventsDirectory = join(root, '.akari', 'events');
         await fs.mkdir(eventsDirectory, { recursive: true });
         const occurredAt = new Date().toISOString();
@@ -3224,7 +3224,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             type: 'annotation-created',
             occurredAt,
             path: relative(root, reviewPath).split(sep).join('/'),
-            annotationId
+            annotationId,
+            ...(nudge === false ? { nudge: false } : {})
         };
         const eventPath = join(eventsDirectory, `${id}.json`);
         await this.writeAtomic(eventPath, `${JSON.stringify(event, null, 2)}\n`);

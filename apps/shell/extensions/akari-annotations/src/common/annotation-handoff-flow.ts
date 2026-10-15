@@ -16,7 +16,8 @@ export function composeSingleAnnotationHandoff(
     const targetLabel = uiTarget ? buildUiTargetRow(uiTarget.id, uiTargetLabels).label : null;
     return composeAnnotationAgentPacket({
         id: annotation.id, sourceT: annotation.sourceT, sourceRange: annotation.sourceRange,
-        target: annotation.target, targetLabel, text: annotation.text, strokes: annotation.strokes
+        target: annotation.target, targetLabel, text: annotation.text,
+        strokes: annotation.strokes, region: annotation.region
     });
 }
 
