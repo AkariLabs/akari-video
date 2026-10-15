@@ -178,8 +178,8 @@ test('all initialization steps retain performance measures and print a single da
 
 test('both rendered roots expose readiness only after initial data is ready', () => {
     const React = { createElement: (tag, props, ...children) => ({ tag, props, children }) };
-    const render = loadMethod('render', { React, homePanelCss: '' });
-    const renderWelcomeSurface = loadMethod('renderWelcomeSurface', { React, homeFlowStyles: {}, homePanelCss: '' });
+    const render = loadMethod('render', { React, homePanelCss: '', startProjectCss: '' });
+    const renderWelcomeSurface = loadMethod('renderWelcomeSurface', { React, homeFlowStyles: {}, homePanelCss: '', startProjectCss: '' });
     const instance = { updateStatus: {}, updaterUiState: {}, renderWelcomeSurface };
     for (const name of ['renderDashboardHeader', 'renderHomeDialog', 'renderHomeTopBar', 'renderProjectList', 'renderWelcomeCard']) {
         instance[name] = () => null;

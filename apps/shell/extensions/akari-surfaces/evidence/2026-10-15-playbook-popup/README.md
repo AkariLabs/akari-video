@@ -8,3 +8,5 @@
 - `04-empty-list.html`: 作り方がまだ無い場合
 
 生成: `node apps/shell/extensions/akari-surfaces/evidence/2026-10-15-playbook-popup/render.mjs`
+
+HTML は生成物なので commit しない（Governance の evidence-growth は evidence/ に再現スクリプトと README.md だけを許す）。見るときは上のコマンドで手元に作る。
