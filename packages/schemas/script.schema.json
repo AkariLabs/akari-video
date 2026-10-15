@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:script:v0",
+  "title": "AKARI Video script lines v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "kind", "lines"],
+  "properties": {
+    "version": { "const": 0 },
+    "kind": { "const": "akari-script" },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "at", "text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["plan", "memo"] },
+          "at": { "type": "number", "minimum": 0 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "duration": { "type": "number", "exclusiveMinimum": 0 },
+          "placeholder": { "type": "string" },
+          "beat": { "type": "string" },
+          "done": { "type": "boolean" },
+          "author": { "enum": ["user", "ai", "playbook"] }
+        }
+      }
+    }
+  }
+}

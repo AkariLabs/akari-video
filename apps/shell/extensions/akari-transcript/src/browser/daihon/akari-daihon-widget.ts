@@ -76,6 +76,9 @@ import {
     type DaihonCaptionLike,
     type DaihonRow
 } from '../../common/daihon-row-model';
+import { addScriptLine, firstCaptionAfter, formatScriptTime, nextScriptMemoId, parseScriptLines, readScriptLines,
+    removeScriptLine, toggleScriptPlanDone, updateScriptLine, type ScriptDocument, type ScriptLine
+} from '../../common/daihon-script-lines';
 import { outputToSource, resolveCurrent, sourceToOutput, sourceToOutputForSource, type DaihonHighlight } from '../../common/daihon-time-map';
 import { groupSourceRows, normalizeSourceGroupState, shouldAutoExpandPlayback,
     sourceGroupStorageKey, type SourceGroup } from '../../common/daihon-source-groups';
@@ -197,6 +200,7 @@ const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
 const DAIHON_SHOW_CUT_MARKS_PREFERENCE = 'akari.daihon.showCutMarks';
+const DAIHON_SHOW_SCRIPT_LINES_PREFERENCE = 'akari.daihon.showScriptLines';
 const DAIHON_SILENCE_MIN_PREFERENCE = 'akari.daihon.silenceMin';
 const DAIHON_SILENCE_KEEP_PREFERENCE = 'akari.daihon.silenceKeep';
 const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
@@ -330,6 +334,18 @@ const STYLE = `
 .akari-daihon-rows input { user-select:text; }
 .akari-daihon-empty { color:var(--akari-muted); font-size:12px; line-height:1.6; padding:24px 16px; text-align:center; }
 .akari-daihon-row { position:relative; border-left:3px solid transparent; border-radius:5px; padding:3px 7px 4px 8px; margin:1px 0; transition:background .12s,border-color .12s; }
+.akari-daihon-kind { font-size:9px; font-weight:700; border:1px solid var(--akari-line); border-radius:4px; padding:0 5px; color:var(--akari-muted); white-space:nowrap; }
+.akari-daihon-row > .akari-daihon-row-head > .akari-daihon-kind { display:none; }
+.akari-daihon-rows.show-script-lines .akari-daihon-row > .akari-daihon-row-head > .akari-daihon-kind { display:inline-flex; }
+.akari-daihon-script-line { border-left:3px solid var(--akari-accent); border-radius:5px; padding:5px 8px; margin:2px 0; cursor:pointer; background:var(--akari-card); }
+.akari-daihon-script-line[data-kind="memo"] { border-left-color:#f0b45a; }
+.akari-daihon-script-line:hover { background:var(--akari-elevated); }
+.akari-daihon-script-line .akari-daihon-row-head { align-items:center; }
+.akari-daihon-script-line .akari-daihon-row-text { display:block; padding:2px 0; overflow-wrap:anywhere; }
+.akari-daihon-script-line.is-done .akari-daihon-row-text { opacity:.6; text-decoration:line-through; }
+.akari-daihon-script-line button { color:inherit; font:inherit; cursor:pointer; }
+.akari-daihon-script-line .akari-daihon-script-menu { margin-left:auto; border:0; background:transparent; }
+.akari-daihon-script-line input[type="text"] { width:100%; box-sizing:border-box; color:var(--akari-ink); background:var(--akari-elevated); border:1px solid var(--akari-accent); font:inherit; }
 .akari-daihon-row:hover { background:var(--akari-card); }
 .akari-daihon-row.active { background:color-mix(in srgb, #53d1bc 10%, transparent); }
 .akari-daihon-row.selected { outline:1px solid var(--akari-accent); background:var(--theia-akariTheme-accentTint); }
@@ -482,7 +498,8 @@ const STYLE = `
 .akari-daihon-minitl .hnd::after { content:""; position:absolute; inset:0 3px; background:rgba(8,9,11,.4); }
 .akari-daihon-tl-meta { display:flex; gap:10px; align-items:center; font-size:10px; color:var(--akari-muted); margin-top:3px; }
 .akari-daihon-tl-meta .mono2 { font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; }
-.akari-daihon-footer { height:26px; min-height:26px; max-height:26px; padding:5px 10px; box-sizing:border-box; border-top:1px solid var(--theia-widget-border); color:var(--theia-descriptionForeground); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.akari-daihon-footer { display:flex; align-items:center; gap:8px; height:26px; min-height:26px; max-height:26px; padding:3px 10px; box-sizing:border-box; border-top:1px solid var(--theia-widget-border); color:var(--theia-descriptionForeground); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.akari-daihon-footer .akari-daihon-display { flex:none; }
 .akari-daihon-cutrange { max-height:200px; box-sizing:border-box; overflow:hidden; margin:2px 4px 3px 8px; padding:4px 7px; border:1px solid var(--akari-line); border-radius:7px; background:var(--akari-card); }
 .akari-daihon-cutrange .h { display:flex; align-items:baseline; gap:8px; height:16px; color:var(--akari-ink, var(--theia-foreground)); font-size:10px; line-height:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .akari-daihon-cutrange .h > span:first-child { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -625,6 +642,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected readonly captionsButton = document.createElement('button');
     protected readonly displayButton = document.createElement('button');
+    protected addMemoButton: HTMLButtonElement | undefined;
     protected buildingCaptions = false;
     protected placingText = false;
     protected readonly qcButton = document.createElement('button');
@@ -710,6 +728,14 @@ export class AkariDaihonWidget extends BaseWidget {
     protected rootUri: URI | undefined;
     protected editUri: URI | undefined;
     protected captionsUri: URI | undefined;
+    protected scriptUri: URI | undefined;
+    protected scriptDocument: ScriptDocument = readScriptLines(null);
+    protected showScriptLines = true;
+    protected scriptWriteTail: Promise<void> = Promise.resolve();
+    protected scriptTextInput: HTMLInputElement | undefined;
+    protected scriptReloadPending = false;
+    protected scriptRenderPending = false;
+    protected scriptReloadVersion = 0;
     protected current: DaihonHighlight = { rowId: null, wordIndex: null };
     protected lastOutputT = 0;
     protected lastUserScrollAt = 0;
@@ -798,6 +824,12 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openDisplayPop(event.currentTarget as HTMLElement);
         });
+        this.addMemoButton = document.createElement('button');
+        this.addMemoButton.type = 'button';
+        this.addMemoButton.className = 'akari-daihon-display';
+        this.addMemoButton.textContent = t('transcript.daihon.scriptLines.addMemo');
+        this.addMemoButton.title = t('transcript.daihon.scriptLines.addMemoAtPlayhead');
+        this.addMemoButton.addEventListener('click', () => void this.addMemoAtPlayhead());
         this.cutsButton.type = 'button';
         this.cutsButton.className = 'akari-daihon-cuts';
         this.cutsButton.textContent = t('transcript.daihon.editor.cutRefineCutsText');
@@ -866,6 +898,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = t('transcript.daihon.editor.selectLineSeeActionsHereShiftSelectsRangeCtrlAddsLinesText');
+        this.footer.prepend(this.addMemoButton);
         this.placedEditor.className = 'akari-daihon-placed-editor akari-daihon-dock';
         this.dockGrip.className = 'akari-daihon-dock-grip';
         this.dockGrip.title = t('transcript.daihon.editor.dragUpDownResizeTooltip');
@@ -1219,6 +1252,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
         this.showCutMarks = this.preferences.get(DAIHON_SHOW_CUT_MARKS_PREFERENCE, true);
+        this.showScriptLines = this.preferences.get(DAIHON_SHOW_SCRIPT_LINES_PREFERENCE, true);
         this.silenceMin = this.preferences.get(DAIHON_SILENCE_MIN_PREFERENCE, DAIHON_SILENCE_DEFAULTS.minGapSec);
         this.silenceKeep = this.preferences.get(DAIHON_SILENCE_KEEP_PREFERENCE, DAIHON_SILENCE_DEFAULTS.keepSec);
         const attachmentMode = this.preferences.get(DAIHON_ATTACHMENT_MODE_PREFERENCE);
@@ -1244,9 +1278,13 @@ export class AkariDaihonWidget extends BaseWidget {
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const paths = event.changes.map(change => change.resource.toString());
-            if (!shouldReloadDaihonChanges(paths, this.captionsUri?.toString() ?? '', !!this.editing)) return;
+            const scriptPath = this.scriptUri?.toString();
+            if (scriptPath && paths.includes(scriptPath)) void this.reloadScriptLinesIfChanged();
+            const otherPaths = paths.filter(path => path !== scriptPath);
+            if (!shouldReloadDaihonChanges(otherPaths, this.captionsUri?.toString() ?? '', !!this.editing)) return;
             const meaningful = event.changes.filter(change => shouldReloadDaihonChanges(
-                [change.resource.toString()], this.captionsUri?.toString() ?? '', false));
+                [change.resource.toString()], this.captionsUri?.toString() ?? '', false)
+                && change.resource.toString() !== scriptPath);
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const sidecarChanged = meaningful.some(change => /[\\/]\.akari[\\/]sidecars[\\/]/u.test(change.resource.path.toString())
                 || change.resource.path.base === 'cuts.json');
@@ -1307,6 +1345,33 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
+    protected async reloadScriptLinesIfChanged(): Promise<void> {
+        const uri = this.scriptUri;
+        if (!uri) return;
+        const version = ++this.scriptReloadVersion;
+        try {
+            const source = await this.readText(uri).catch(error => {
+                if (isMissingDaihonFile(error)) return undefined;
+                throw error;
+            });
+            const next = source === undefined ? readScriptLines(null) : parseScriptLines(source);
+            if (version !== this.scriptReloadVersion || this.scriptUri?.toString() !== uri.toString()) return;
+            if (JSON.stringify(next) === JSON.stringify(this.scriptDocument)) {
+                this.scriptReloadPending = false;
+                return;
+            }
+            if (this.scriptTextInput) {
+                this.scriptReloadPending = true;
+                return;
+            }
+            this.scriptReloadPending = false;
+            this.scriptDocument = next;
+            this.renderScriptLines();
+        } catch (error) {
+            console.warn('[akari-daihon] script.json read failed', error);
+        }
+    }
+
     protected requestReload(): Promise<boolean> {
         const result = this.reloadQueue.request().then(success => success, error => {
             this.showDaihonReadError(t('transcript.akariDaihonWidget.ui.couldNotUpdateScriptError'), error);
@@ -1337,6 +1402,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (await this.fileService.exists(selected)) {
             this.editUri = selected;
             this.captionsUri = currentTimelineCaptionsUri(root);
+            this.scriptUri = this.editUri.parent.resolve('planning/script.json');
             return;
         }
         const legacyCaptions = root.resolve('project/captions.json');
@@ -1344,11 +1410,13 @@ export class AkariDaihonWidget extends BaseWidget {
         if (await this.fileService.exists(legacyCaptions) && await this.fileService.exists(legacyEdit)) {
             this.editUri = legacyEdit;
             this.captionsUri = legacyCaptions;
+            this.scriptUri = this.editUri.parent.resolve('planning/script.json');
             return;
         }
         const edits = await this.findNamedFiles(root, 'edit.json');
         this.editUri = edits[0];
         this.captionsUri = this.editUri?.parent.resolve('captions.json');
+        this.scriptUri = this.editUri?.parent.resolve('planning/script.json');
     }
 
     protected async captionSources(): Promise<{ id: string; path: string }[]> {
@@ -1442,6 +1510,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async reload(): Promise<boolean> {
         if (this.wordDrag) { this.reloadPendingAfterDrag = true; return false; }
         if (this.rootUri) await this.locateProject(this.rootUri);
+        this.scriptDocument = this.scriptUri
+            ? readScriptLines(await this.readText(this.scriptUri).catch(() => ''))
+            : readScriptLines(null);
         this.restoreSourceGroupState();
         this.playbackRowInitialized = false;
         this.playbackPendingInitialRowId = null;
@@ -2459,6 +2530,177 @@ export class AkariDaihonWidget extends BaseWidget {
         this.updateQcSummary();
         this.applyQcFilter();
         this.renderPlacedText();
+        this.renderScriptLines();
+    }
+
+    protected renderScriptLines(): void {
+        if (this.scriptTextInput) {
+            this.scriptRenderPending = true;
+            return;
+        }
+        this.scriptRenderPending = false;
+        this.rowsNode.querySelectorAll('.akari-daihon-script-line').forEach(node => node.remove());
+        this.rowsNode.classList?.toggle('show-script-lines', this.showScriptLines && (this.scriptDocument?.lines.length ?? 0) > 0);
+        if (this.addMemoButton) {
+            this.addMemoButton.disabled = !this.scriptUri;
+            this.addMemoButton.hidden = !this.showScriptLines;
+        }
+        if (!this.showScriptLines || !this.scriptDocument.lines.length) return;
+        this.rowsNode.querySelector('.akari-daihon-empty')?.remove();
+        const captions = this.rows.map(row => ({ at: row.outStart ?? row.start, node: this.elements.get(row.id)?.root }))
+            .filter((entry): entry is { at: number; node: HTMLDivElement } => !!entry.node);
+        for (const line of this.scriptDocument.lines) {
+            const node = this.createScriptLine(line);
+            const following = firstCaptionAfter(captions, line.at)?.node;
+            if (following) this.rowsNode.insertBefore(node, following);
+            else this.rowsNode.appendChild(node);
+        }
+    }
+
+    protected createScriptLine(line: ScriptLine): HTMLDivElement {
+        const root = document.createElement('div');
+        root.className = 'akari-daihon-script-line';
+        root.dataset.kind = line.kind;
+        root.dataset.scriptId = line.id;
+        root.classList.toggle('is-done', line.kind === 'plan' && line.done === true);
+        root.addEventListener('click', () => void this.seek(line.at));
+
+        const head = document.createElement('div');
+        head.className = 'akari-daihon-row-head';
+        const kind = document.createElement('span');
+        kind.className = 'akari-daihon-kind';
+        kind.textContent = t(line.kind === 'plan' ? 'transcript.daihon.scriptLines.plan' : 'transcript.daihon.scriptLines.memo');
+        const time = document.createElement('span');
+        time.className = 'akari-daihon-tc';
+        time.textContent = line.kind === 'plan' && line.duration
+            ? `${formatScriptTime(line.at)}–${formatScriptTime(line.at + line.duration)}`
+            : formatScriptTime(line.at);
+        head.append(kind, time);
+        if (line.kind === 'plan') {
+            const done = document.createElement('input');
+            done.type = 'checkbox';
+            done.checked = line.done === true;
+            done.title = t('transcript.daihon.scriptLines.done');
+            done.setAttribute('aria-label', t('transcript.daihon.scriptLines.done'));
+            done.addEventListener('click', event => event.stopPropagation());
+            done.addEventListener('change', event => {
+                event.stopPropagation();
+                void this.mutateScript(document => toggleScriptPlanDone(document, line.id));
+            });
+            head.appendChild(done);
+        }
+        const menu = document.createElement('button');
+        menu.type = 'button';
+        menu.className = 'akari-daihon-script-menu';
+        menu.textContent = '⋯';
+        menu.title = t('transcript.daihon.scriptLines.actions');
+        menu.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openScriptLineMenu(menu, line, root);
+        });
+        head.appendChild(menu);
+        const text = document.createElement('span');
+        text.className = 'akari-daihon-row-text';
+        text.textContent = line.text;
+        text.title = t('transcript.daihon.scriptLines.edit');
+        text.addEventListener('dblclick', event => {
+            event.stopPropagation();
+            this.editScriptLineText(line, root);
+        });
+        root.append(head, text);
+        return root;
+    }
+
+    protected openScriptLineMenu(anchor: HTMLElement, line: ScriptLine, root: HTMLDivElement): void {
+        const pop = this.openPop(anchor);
+        pop.append(
+            this.popButton(t('transcript.daihon.scriptLines.edit'), () => {
+                this.closePop(); this.editScriptLineText(line, root);
+            }),
+            this.popButton(t('transcript.daihon.scriptLines.delete'), () => {
+                this.closePop();
+                void this.mutateScript(document => removeScriptLine(document, line.id));
+            })
+        );
+    }
+
+    protected editScriptLineText(line: ScriptLine, root: HTMLDivElement): void {
+        const text = root.querySelector<HTMLElement>('.akari-daihon-row-text');
+        if (!text || text.querySelector('input')) return;
+        const input = document.createElement('input');
+        input.type = 'text'; input.maxLength = 500; input.value = line.text;
+        this.scriptTextInput = input;
+        input.setAttribute('aria-label', t('transcript.daihon.scriptLines.edit'));
+        input.addEventListener('click', event => event.stopPropagation());
+        let finished = false;
+        const finish = (save: boolean): void => {
+            if (finished) return;
+            finished = true;
+            const value = input.value.trim();
+            text.replaceChildren(document.createTextNode(line.text));
+            if (this.scriptTextInput === input) this.scriptTextInput = undefined;
+            if (save && value && value !== line.text) {
+                void this.mutateScript(document => updateScriptLine(document, line.id, { text: value }))
+                    .then(() => this.flushPendingScriptReload());
+            } else {
+                this.flushPendingScriptReload();
+            }
+        };
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.stopPropagation(); finish(true); }
+            if (event.key === 'Escape') { event.stopPropagation(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+        text.replaceChildren(input);
+        input.focus(); input.select();
+    }
+
+    protected flushPendingScriptReload(): void {
+        if (this.scriptRenderPending) this.renderScriptLines();
+        if (this.scriptReloadPending) void this.reloadScriptLinesIfChanged();
+    }
+
+    protected async addMemoAtPlayhead(): Promise<void> {
+        if (!this.scriptUri) return;
+        const at = Math.max(0, Number.isFinite(this.lastOutputT) ? this.lastOutputT : 0);
+        let id = '';
+        await this.mutateScript(document => {
+            id = nextScriptMemoId(document.lines);
+            return addScriptLine(document, { id, kind: 'memo', at, text: t('transcript.daihon.scriptLines.newMemo'), author: 'user' });
+        });
+        const row = Array.from(this.rowsNode.querySelectorAll<HTMLDivElement>('.akari-daihon-script-line'))
+            .find(candidate => candidate.dataset.scriptId === id);
+        const line = this.scriptDocument.lines.find(candidate => candidate.id === id);
+        if (row && line) this.editScriptLineText(line, row);
+    }
+
+    protected async mutateScript(change: (document: ScriptDocument) => ScriptDocument): Promise<void> {
+        const uri = this.scriptUri;
+        if (!uri) return;
+        const write = async (): Promise<void> => {
+            const source = await this.readText(uri).catch(error => {
+                if (isMissingDaihonFile(error)) return undefined;
+                throw error;
+            });
+            const current = source === undefined ? readScriptLines(null) : parseScriptLines(source);
+            const next = change(current);
+            const temporary = uri.parent.resolve(`script.json.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            await this.fileService.createFolder(uri.parent);
+            try {
+                await this.fileService.writeFile(temporary, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
+                await this.fileService.move(temporary, uri, { overwrite: true });
+            } catch (error) {
+                await this.fileService.delete(temporary).catch(() => undefined);
+                throw error;
+            }
+            if (this.scriptUri?.toString() === uri.toString()) {
+                this.scriptDocument = next;
+                this.renderScriptLines();
+            }
+        };
+        const pending = this.scriptWriteTail.then(write);
+        this.scriptWriteTail = pending.catch(error => this.notifyError(this.errorMessage(error)));
+        await this.scriptWriteTail;
     }
 
     protected placedRanges(): PlacedTextRange[] {
@@ -3541,6 +3783,10 @@ export class AkariDaihonWidget extends BaseWidget {
 
         const head = document.createElement('div');
         head.className = 'akari-daihon-row-head';
+        const kind = document.createElement('span');
+        kind.className = 'akari-daihon-kind';
+        kind.textContent = t('transcript.daihon.scriptLines.caption');
+        head.appendChild(kind);
         const sourceId = this.displaySourceIdForRow(row);
         const dotColor = rowSourceDotColor(this.sourceColors, this.activeSourceIds, sourceId);
         if (dotColor && sourceId) {
@@ -5078,6 +5324,17 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected openDisplayPop(anchor: HTMLElement): void {
         const pop = this.openPop(anchor, 300);
+        const scriptToggle = this.popButton(this.showScriptLines
+            ? t('transcript.daihon.scriptLines.checkedShow')
+            : t('transcript.daihon.scriptLines.show'), () => {
+            this.showScriptLines = !this.showScriptLines;
+            this.renderScriptLines();
+            void this.preferences.set(DAIHON_SHOW_SCRIPT_LINES_PREFERENCE, this.showScriptLines, PreferenceScope.Workspace)
+                .then(() => this.openDisplayPop(anchor))
+                .catch(error => this.notifyError(this.errorMessage(error)));
+        });
+        scriptToggle.classList.toggle('selected', this.showScriptLines);
+        pop.appendChild(scriptToggle);
         const attachmentGroup = document.createElement('div');
         attachmentGroup.className = 'akari-daihon-displaygroup';
         const attachmentLabel = document.createElement('div');
@@ -6594,6 +6851,7 @@ export class AkariDaihonWidget extends BaseWidget {
         empty.className = 'akari-daihon-empty';
         empty.textContent = message;
         this.rowsNode.appendChild(empty);
+        this.renderScriptLines();
     }
 
     protected notifyError(message: string): void {
