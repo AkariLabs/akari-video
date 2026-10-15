@@ -96,6 +96,7 @@ updated: 2026-10-15
   `category`・`steps[]`・`settings`・`license`・`provenance`。`tags` / `requires` / `placeholders` / `parts` は
   省略可（depth 1 では `placeholders` と `parts` を持たない）
 - 任意: `preview`（`{ "cover"?: string, "frames"?: string[] }`。パスは上の規則）・`example`（`true` なら見本として配る例。画面に「例」の印を出す）
+- 任意: `beats`（`{ id, at, duration, title, note?, placeholder? }[]`・秒。作り方の内訳。始めたとき空のキャンバスと台本の予定の行になる。script-lines-v0 §5）
 - `category` は 1 つだけ。語彙は閉じる: `film` / `short-drama` / `mv` / `explainer` / `product` / `vlog` / `cm` /
   `education` / `clip` / `logo`。足すときは本表に追記してから
 - `tags` の 8 軸は開いた語彙（自由に足せる）。軸の名前だけ固定: `form` / `length` / `technique` / `tools` /
@@ -120,6 +121,7 @@ updated: 2026-10-15
 ## 流れ                     ← steps を番号つきで。確認点は「☑ ここで確認」と明記
 ## 設定値                   ← settings を表で（キー / 値 / 意味）
 ## 必要な素材（仮枠）        ← placeholders を表で（役割 / 種類 / 尺の目安 / 見本）
+## 内訳                     ← beats を表で（時刻 / 見出し / メモ / 仮枠）
 ## 使った部品               ← parts を表で（種類 / 名前 / 入手先 / ライセンス）
 ## 要る道具                 ← requires（CLI の版・道具・スキル）。無いときの代案を 1 行
 ## ライセンス               ← license と、外部由来を仮枠にした旨
@@ -127,6 +129,7 @@ updated: 2026-10-15
 ```
 
 章の追加は末尾のみ（additive-only）。章の名前は上の表記で固定し、読み手はこの見出しで章を引く。
+例外として「内訳」の 1 章だけは「必要な素材（仮枠）」の直後に置く。
 
 ## 4. 記録する — プロジェクト → 作り方（`record-playbook` スキル）
 

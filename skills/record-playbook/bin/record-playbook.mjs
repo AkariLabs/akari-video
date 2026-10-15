@@ -38,7 +38,7 @@ async function validateOutput(book, markdown) {
     if (book.version !== 0 || book.kind !== 'akari-playbook' || !book.name || !categories.has(book.category)) errors.push('必須項目または category が不正です');
     if (book.placeholders.some(item => ['own', 'site'].includes(item.sample?.source))) errors.push('own / site の見本は使えません');
     if (book.parts.some(item => ['own', 'site'].includes(item.source))) errors.push('own / site の部品は使えません');
-    for (const heading of ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', '使った部品', '要る道具', 'ライセンス', '出どころ']) {
+    for (const heading of ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', ...(book.beats ? ['内訳'] : []), '使った部品', '要る道具', 'ライセンス', '出どころ']) {
       if (!markdown.includes(`## ${heading}`)) errors.push(`見出しがありません: ${heading}`);
     }
     return { ok: errors.length === 0, errors, warnings: [] };
@@ -166,13 +166,103 @@ function settingsFromEdit(edit) {
     ...(Object.keys(gains).length ? { audio: { roles: gains } } : {}) };
 }
 
+function collectBeats(edit, analysis, script, planMarkdown, captions, placeholders) {
+  const fps = edit.output?.fps || 30;
+  const available = new Set(placeholders.map(item => item.id));
+  const visualTracks = asArray(edit.tracks).filter(track => track.lane === 'visual' && track.id !== 'playbook-placeholders-audio');
+  const mainTrack = visualTracks.find(track => track.id === 'playbook-placeholders')
+    ?? visualTracks.reduce((best, track) => {
+      const mediaCount = candidate => asArray(candidate.items).filter(item => item.source?.kind === 'media' && item.source?.src).length;
+      return !best || mediaCount(track) > mediaCount(best) ? track : best;
+    }, null);
+  const visualCuts = asArray(mainTrack?.items).filter(item => Number.isFinite(item.at) && Number.isFinite(item.duration) && item.duration > 0)
+    .sort((a, b) => a.at - b.at || String(a.id).localeCompare(String(b.id)));
+  const end = Math.max(0, ...visualCuts.map(item => (item.at + item.duration) / fps));
+  const plans = asArray(script?.lines).filter(line => line?.kind === 'plan' && Number.isFinite(line.at) && line.at >= 0 && typeof line.text === 'string' && line.text.trim())
+    .sort((a, b) => a.at - b.at || String(a.id).localeCompare(String(b.id)));
+  const used = new Set();
+  const uniqueId = (value) => {
+    const base = slug(value);
+    let candidate = base;
+    for (let n = 2; used.has(candidate); n++) candidate = `${base}-${n}`;
+    used.add(candidate);
+    return candidate;
+  };
+  if (plans.length) return plans.map((line, index) => {
+    const next = plans[index + 1]?.at ?? end;
+    const [titlePart, ...noteParts] = line.text.split(/:\s*/u);
+    const title = titlePart.trim() || line.text.trim();
+    const note = noteParts.join(': ').trim();
+    return { id: uniqueId(line.beat || line.id || title), at: line.at,
+      duration: line.duration > 0 ? line.duration : Math.max(0.01, next - line.at || 5),
+      title, ...(note ? { note } : {}),
+      ...(available.has(line.placeholder) ? { placeholder: line.placeholder } : {}) };
+  });
+
+  const headings = [];
+  for (const match of String(planMarkdown).matchAll(/^#{2,4}\s+(.+)$/gmu)) {
+    const timed = /^(?:(\d+):)?(\d{1,2}):(\d{2})\s*[—–-]?\s*(.+)$/u.exec(match[1].trim());
+    const at = timed ? Number(timed[1] ?? 0) * 3600 + Number(timed[2]) * 60 + Number(timed[3]) : undefined;
+    headings.push({ at, timed: Boolean(timed), title: (timed ? timed[4] : match[1]).trim() });
+  }
+  const captionRows = Array.isArray(captions) ? captions : asArray(captions?.captions);
+  for (const item of captionRows) {
+    const chapterText = /^(?:#{1,4}\s*|第[一二三四五六七八九十0-9]+章\s*)/u.exec(item?.text ?? '');
+    if (!['chapter', 'heading'].includes(item?.kind ?? item?.type) && !chapterText) continue;
+    const at = item.at ?? item.start;
+    const title = (item.title ?? item.text)?.replace(/^(?:#{1,4}\s*)/u, '');
+    if (Number.isFinite(at) && typeof title === 'string' && title.trim()) headings.push({ at, timed: true, title: title.trim() });
+  }
+  for (const [index, heading] of headings.filter(item => !item.timed).entries()) heading.at = visualCuts[index]?.at / fps;
+  headings.sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
+  const sources = new Map(asArray(edit.sources).map(source => [source.id, source]));
+  const observations = asArray(analysis.sources ?? analysis.assets ?? analysis.observations);
+  const placeholderForCut = cut => {
+    const source = sources.get(cut.source?.src);
+    const role = source ? sourceRole(source, observations) : cut.source?.canvas?.intent;
+    return placeholders.find(item => item.role === role)?.id;
+  };
+  const timedHeadings = headings.filter(heading => heading.timed);
+  if (timedHeadings.length) {
+    const chapters = timedHeadings.filter((heading, index) => index === 0 || heading.at !== timedHeadings[index - 1].at);
+    return chapters.map((heading, index) => {
+      const at = heading.at;
+      const until = chapters[index + 1]?.at ?? Math.max(end, at + 5);
+      const overlapByRole = new Map();
+      for (const cut of visualCuts) {
+        const overlap = Math.max(0, Math.min(until, (cut.at + cut.duration) / fps) - Math.max(at, cut.at / fps));
+        const placeholder = placeholderForCut(cut);
+        if (overlap > 0 && placeholder) overlapByRole.set(placeholder, (overlapByRole.get(placeholder) ?? 0) + overlap);
+      }
+      const placeholder = [...overlapByRole].sort((a, b) => b[1] - a[1])[0]?.[0];
+      return { id: uniqueId(heading.title), at, duration: Math.max(0.01, until - at), title: heading.title,
+        ...(placeholder ? { placeholder } : {}) };
+    });
+  }
+  if (!visualCuts.length) return headings.filter(heading => Number.isFinite(heading.at)).map((heading, index, timed) => ({
+    id: uniqueId(heading.title), at: heading.at,
+    duration: Math.max(0.01, (timed[index + 1]?.at ?? end) - heading.at || 5), title: heading.title }));
+  return visualCuts.map((cut, index) => {
+    const at = cut.at / fps;
+    const heading = headings.find(item => item.at === at);
+    const placeholder = placeholderForCut(cut);
+    const role = placeholders.find(item => item.id === placeholder)?.role;
+    const title = heading?.title || cut.name || role || `カット ${index + 1}`;
+    return { id: uniqueId(cut.id || title), at, duration: cut.duration / fps, title,
+      ...(placeholder ? { placeholder } : {}) };
+  });
+}
+
 function table(rows) { return `| ${rows.map(row => row.map(value => String(value ?? '—').replaceAll('|', '\\|')).join(' | ')).join(' |\n| ')} |`; }
 function renderMarkdown(book) {
   const steps = book.steps.map((step, index) => `${index + 1}. **${step.title}** — ${step.what}${step.checkpoint ? ' ☑ ここで確認' : ''}`).join('\n');
   const settings = table([['キー', '値', '意味'], ['---', '---', '---'], ...Object.entries(book.settings).map(([key, value]) => [key, JSON.stringify(value), '次のプロジェクトの初期値'])]);
   const placeholders = table([['役割', '種類', '尺の目安', '見本'], ['---', '---', '---', '---'], ...asArray(book.placeholders).map(item => [item.role, item.kind, item.durationHintSec ?? '—', item.sample ? `${item.sample.category}/${item.sample.id}` : 'なし'])]);
+  const beats = book.beats?.length
+    ? table([['時刻（秒）', '見出し', 'メモ', '仮枠'], ['---', '---', '---', '---'], ...book.beats.map(item => [`${item.at}–${item.at + item.duration}`, item.title, item.note ?? '—', item.placeholder ?? '—'])])
+    : 'なし';
   const parts = table([['種類', '名前', '入手先', 'ライセンス'], ['---', '---', '---', '---'], ...asArray(book.parts).map(item => [item.kind, item.id, item.source, item.license])]);
-  return `# ${book.name}\n\n${book.category} の作り方。流れと仮枠を再利用できます。\n\n## 目的とできあがり\n\n${book.category}、${book.settings.aspect}、目標 ${book.settings.targetDurationSec} 秒。${book.preview?.frames?.length ? '' : '\n\n見本のコマはまだ（書き出し後に記録し直す）'}\n\n## 流れ\n\n${steps}\n\n## 設定値\n\n${settings}\n\n## 必要な素材（仮枠）\n\n${placeholders}\n\n## 使った部品\n\n${parts}\n\n## 要る道具\n\nCLI ${book.requires.cli}。道具: ${book.requires.tools.join('、') || 'なし'}。スキル: ${book.requires.skills.join('、') || 'なし'}。無い道具は別の道具または手作業で補います。\n\n## ライセンス\n\n${book.license}（要確認）。外部由来の素材は見本を付けず仮枠にしました。\n\n## 出どころ\n\n${book.provenance.fromProject} / ${book.provenance.recordedAt} / AKARI ${book.provenance.akariVersion}\n`;
+  return `# ${book.name}\n\n${book.category} の作り方。流れと仮枠を再利用できます。\n\n## 目的とできあがり\n\n${book.category}、${book.settings.aspect}、目標 ${book.settings.targetDurationSec} 秒。${book.preview?.frames?.length ? '' : '\n\n見本のコマはまだ（書き出し後に記録し直す）'}\n\n## 流れ\n\n${steps}\n\n## 設定値\n\n${settings}\n\n## 必要な素材（仮枠）\n\n${placeholders}\n\n## 内訳\n\n${beats}\n\n## 使った部品\n\n${parts}\n\n## 要る道具\n\nCLI ${book.requires.cli}。道具: ${book.requires.tools.join('、') || 'なし'}。スキル: ${book.requires.skills.join('、') || 'なし'}。無い道具は別の道具または手作業で補います。\n\n## ライセンス\n\n${book.license}（要確認）。外部由来の素材は見本を付けず仮枠にしました。\n\n## 出どころ\n\n${book.provenance.fromProject} / ${book.provenance.recordedAt} / AKARI ${book.provenance.akariVersion}\n`;
 }
 
 async function latestExport(project) {
@@ -310,6 +400,12 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
   const prior = await readOptional(path.join(project, 'planning', 'playbook.json'), null);
   const packageJson = await readOptional(path.join(repoRoot, 'packages', 'akari-launcher', 'package.json'));
   const planningDocs = await planningEvidence(project);
+  const script = await readOptional(path.join(project, 'planning', 'script.json'));
+  const captions = await readOptional(path.join(project, 'captions.json'));
+  const planMarkdown = await fs.readFile(path.join(project, 'planning', 'plan.md'), 'utf8').catch(error => {
+    if (error.code === 'ENOENT') return '';
+    throw error;
+  });
   const recordedSteps = planningDocs.flatMap(doc => asArray(doc.steps)).filter(step => step.id && step.title && step.what);
   const steps = recordedSteps.length ? recordedSteps.map(step => ({ id: slug(step.id), title: String(step.title), what: String(step.what),
     ...(step.skill ? { skill: slug(step.skill) } : {}), checkpoint: Boolean(step.checkpoint) })) : defaultSteps(decisions);
@@ -326,6 +422,8 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
     license, provenance: { fromProject: path.basename(project), recordedAt: now.toISOString(),
       akariVersion: packageJson.version ?? '0.0.0', recordedBy: 'record-playbook' }
   };
+  const beats = collectBeats(edit, analysis, script, planMarkdown, captions, book.placeholders);
+  if (beats.length) book.beats = beats;
   try {
     book.preview = await createPreview(project, edit);
   } catch (error) {
