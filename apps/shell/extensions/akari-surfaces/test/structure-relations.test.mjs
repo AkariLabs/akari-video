@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildStructureTree, layoutRelations, relationEndpoints, relationPath, inspectionCounts, inspectionLabel,
+import { buildStructureTree, layoutRelations, relationEndpoints, relationPath, relationEdgeKey, relationInspection, inspectionCounts, inspectionLabel,
     showsInspectionBand, showsSceneTabs } from '../lib/common/project-structure-model.js';
 import { AkariProjectStructureServiceImpl, hasCaptions } from '../lib/node/project-structure-service.js';
 import { requestStructureTab, consumeStructureTab, clearStructureTab } from '../lib/browser/home/structure-navigation.js';
@@ -37,10 +37,10 @@ test('relations put unknown kinds in Other and retain missing endpoints as ghost
     const graph = layoutRelations([{ id: 's', kind: 'scene' }, { id: 'x', kind: 'future' }, { id: 'p', kind: 'person' }],
         [{ from: 's', uses: 'p' }, { from: 's', uses: 'x' }, { from: 's', uses: 'person:gone' }, { from: 's', uses: 'mystery:lost' }]);
     assert.deepEqual(graph.nodes.map(node => [node.id, node.column, node.x, node.y]),
-        [['s', 0, 90, 48], ['p', 1, 280, 48], ['person:gone', 1, 280, 112],
-            ['mystery:lost', 7, 1420, 48], ['x', 7, 1420, 112]]);
+        [['s', 1, 90, 48], ['p', 2, 280, 48], ['person:gone', 2, 280, 112],
+            ['mystery:lost', 5, 470, 48], ['x', 5, 470, 112]]);
     assert.equal(graph.nodes.find(node => node.id === 'person:gone').missing, true);
-    assert.equal(graph.nodes.find(node => node.id === 'mystery:lost').column, 7);
+    assert.equal(graph.nodes.find(node => node.id === 'mystery:lost').column, 5);
     assert.equal(graph.edges.length, 4);
     const reverse = layoutRelations([{ id: 'tool:a', kind: 'tool-output' }, { id: 'person:b', kind: 'person' }], []).nodes;
     const points = relationEndpoints(reverse.find(node => node.id === 'tool:a'), reverse.find(node => node.id === 'person:b'));
@@ -50,6 +50,35 @@ test('relations put unknown kinds in Other and retain missing endpoints as ghost
     const [, startY, controlY] = wide.match(/^M-?\d+ (\d+) C-?\d+ (\d+),/).map(Number);
     assert.ok(controlY > startY + 100, 'wide relation bends around intervening nodes');
     assert.match(wide, /,.*,/);
+});
+
+test('relation columns follow project to other and compact unoccupied groups', () => {
+    const graph = layoutRelations([
+        { id: 'misc', kind: 'future' }, { id: 'doc', kind: 'doc' }, { id: 'style', kind: 'style' },
+        { id: 'asset', kind: 'asset' }, { id: 'world', kind: 'world' }, { id: 'person', kind: 'person' },
+        { id: 'scene', kind: 'scene' }, { id: 'project', kind: 'project' }, { id: 'tool', kind: 'tool-output' }
+    ], []);
+    assert.deepEqual(graph.nodes.map(node => node.id),
+        ['project', 'scene', 'person', 'world', 'asset', 'style', 'doc', 'tool', 'misc']);
+    assert.deepEqual(graph.columns.map(({ column, x }) => [column, x]),
+        [[0, 90], [1, 280], [2, 470], [3, 660], [4, 850], [5, 1040]]);
+    assert.equal(graph.width, 1150);
+    const sparse = layoutRelations([{ id: 'project', kind: 'project' }, { id: 'scene', kind: 'scene' },
+        { id: 'tool', kind: 'tool-output' }], []);
+    assert.deepEqual(sparse.columns.map(({ column, x }) => [column, x]), [[0, 90], [1, 280], [4, 470]]);
+    assert.deepEqual(sparse.nodes.map(node => node.x), [90, 280, 470]);
+    assert.equal(sparse.width, 580);
+});
+
+test('only the finding edge is dashed and only the missing node border is dashed', () => {
+    const edges = [{ from: 'scene', uses: 'asset:gone' }, { from: 'scene', uses: 'person:ok' }];
+    const graph = layoutRelations([{ id: 'scene', kind: 'scene' }, { id: 'person:ok', kind: 'person' }], edges);
+    const inspection = relationInspection({ findings: [
+        { code: 'MISSING_NODE', severity: 'error', edge: edges[0] }
+    ] }, graph.nodes);
+    assert.deepEqual(edges.map(edge => inspection.badEdges.has(relationEdgeKey(edge))), [true, false]);
+    assert.deepEqual(graph.nodes.map(node => [node.id, inspection.badNodes.has(node.id)]),
+        [['scene', false], ['person:ok', false], ['asset:gone', true]]);
 });
 
 test('inspection label uses the real Japanese and English catalog', () => {

@@ -96,6 +96,10 @@ const DEFAULT_CANVAS_ASPECT = { w: 1920, h: 1080 };
 // ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
 // スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
 const isSkippedSearchDirectory = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
+export function shouldSkipSceneEditSearch(children: readonly { name: string; isFile: boolean; isDirectory: boolean }[]): boolean {
+    return children.some(child => child.name === 'scenes' && child.isDirectory)
+        && !children.some(child => child.name === 'edit.json' && child.isFile);
+}
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 // akari-preview 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
@@ -1479,7 +1483,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const roots = await this.workspaceService.roots;
         for (const root of roots) {
             const analysisUri = await this.findFirstCanonicalAnalysis(root.resource);
-            const editUri = await this.findFirstNamed(root.resource, 'edit.json');
+            const editUri = await this.findFirstNamed(root.resource, 'edit.json', true);
             let videoUri = '';
             if (analysisUri) {
                 try {
@@ -1544,7 +1548,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         return found;
     }
 
-    protected async findFirstNamed(directory: URI, name: string): Promise<URI | undefined> {
+    protected async findFirstNamed(directory: URI, name: string, workspaceRoot = false): Promise<URI | undefined> {
         let stat: FileStat;
         try {
             stat = await this.fileService.resolve(directory);
@@ -1554,8 +1558,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (stat.isFile) {
             return stat.resource.path.base === name ? stat.resource : undefined;
         }
-        const children = [...(stat.children ?? [])]
-            .filter(child => !isSkippedSearchDirectory(child.resource.path.base))
+        const entries = stat.children ?? [];
+        const skipScenes = workspaceRoot && name === 'edit.json' && shouldSkipSceneEditSearch(entries.map(child => ({
+            name: child.resource.path.base, isFile: child.isFile, isDirectory: child.isDirectory
+        })));
+        const children = [...entries]
+            .filter(child => !isSkippedSearchDirectory(child.resource.path.base)
+                && !(skipScenes && child.isDirectory && child.resource.path.base === 'scenes'))
             .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
         for (const child of children) {
             const found = await this.findFirstNamed(child.resource, name);

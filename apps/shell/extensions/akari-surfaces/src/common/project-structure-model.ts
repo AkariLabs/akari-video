@@ -38,27 +38,35 @@ export function buildStructureTree(name: string, scenes: SceneEditInput[]): Stru
     }) };
 }
 
-export const GRAPH_KINDS = ['scene', 'person', 'world', 'asset', 'style', 'tool-output', 'doc', 'other'] as const;
+export const GRAPH_KINDS = ['project', 'scene', 'person', 'world', 'asset', 'style', 'tool-output', 'doc', 'other'] as const;
+export const GRAPH_COLUMNS = [
+    ['project'], ['scene'], ['person', 'world'], ['asset', 'style'], ['tool-output', 'doc'], ['other']
+] as const;
 export interface PositionedNode extends ManifestNode { column: number; x: number; y: number; missing?: boolean }
 const graphColumn = (kind: string): number => {
-    const index = GRAPH_KINDS.indexOf(kind as typeof GRAPH_KINDS[number]);
-    return index < 0 ? GRAPH_KINDS.length - 1 : index;
+    const index = GRAPH_COLUMNS.findIndex(kinds => (kinds as readonly string[]).includes(kind));
+    return index < 0 ? GRAPH_COLUMNS.length - 1 : index;
 };
 const inferredKind = (id: string): string => {
     const prefix = id.split(':', 1)[0];
     return prefix === 'tool' ? 'tool-output' : prefix;
 };
-export function layoutRelations(nodes: ManifestNode[], edges: ManifestEdge[]): { nodes: PositionedNode[]; edges: ManifestEdge[]; width: number; height: number } {
+export function layoutRelations(nodes: ManifestNode[], edges: ManifestEdge[]): {
+    nodes: PositionedNode[]; edges: ManifestEdge[]; columns: { column: number; x: number }[]; width: number; height: number
+} {
     const byId = new Map(nodes.map(node => [node.id, node]));
     for (const edge of edges) for (const id of [edge.from, edge.uses]) {
         if (!byId.has(id)) byId.set(id, { id, kind: inferredKind(id) });
     }
     const positioned = [...byId.values()].map(node => ({ ...node, missing: !nodes.some(known => known.id === node.id),
         column: graphColumn(node.kind), x: 0, y: 0 })).sort((a, b) => a.column - b.column || a.id.localeCompare(b.id));
-    const counts = Array(8).fill(0);
-    for (const node of positioned) { node.x = 90 + node.column * 190; node.y = 48 + counts[node.column]++ * 64; }
+    const columns = [...new Set(positioned.map(node => node.column))].map((column, index) => ({ column, x: 90 + index * 190 }));
+    const xByColumn = new Map(columns.map(({ column, x }) => [column, x]));
+    const counts = Array(GRAPH_COLUMNS.length).fill(0);
+    for (const node of positioned) { node.x = xByColumn.get(node.column)!; node.y = 48 + counts[node.column]++ * 64; }
     return { nodes: positioned, edges,
-        width: 1530, height: Math.max(280, 48 + (Math.max(...counts) - 1) * 64 + 220) };
+        columns, width: Math.max(180, columns.length * 190 + 10),
+        height: Math.max(280, 48 + (Math.max(...counts) - 1) * 64 + 220) };
 }
 
 export function relationEndpoints(from: PositionedNode, to: PositionedNode): { x1: number; y1: number; x2: number; y2: number } {
@@ -97,6 +105,23 @@ export function inspectionCounts(check: ManifestCheck | undefined): {
         if (finding.edge) { affected.add(finding.edge.from); affected.add(finding.edge.uses); }
     }
     return { error, warning, missing, broken, unacquired, otherWarning, affected };
+}
+
+/** A finding marks its own edge; node borders represent node findings or absent endpoints. */
+export function relationInspection(check: ManifestCheck | undefined, nodes: PositionedNode[]): {
+    badNodes: Set<string>; badEdges: Set<string>
+} {
+    const badNodes = new Set(nodes.filter(node => node.missing).map(node => node.id));
+    const badEdges = new Set<string>();
+    for (const finding of check?.findings ?? []) {
+        if (finding.node) badNodes.add(finding.node);
+        if (finding.edge) badEdges.add(relationEdgeKey(finding.edge));
+    }
+    return { badNodes, badEdges };
+}
+
+export function relationEdgeKey(edge: ManifestEdge): string {
+    return `${edge.from}\u0000${edge.uses}`;
 }
 
 export function inspectionLabel(counts: ReturnType<typeof inspectionCounts>,

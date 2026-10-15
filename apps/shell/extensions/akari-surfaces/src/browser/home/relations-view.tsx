@@ -2,9 +2,13 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { t } from '@akari-video/i18n';
 import { AkariProjectStructureService } from '../../common/project-structure-protocol';
-import { GRAPH_KINDS, inspectionCounts, layoutRelations, relationPath, ManifestCheck, ProjectManifest } from '../../common/project-structure-model';
+import { GRAPH_COLUMNS, GRAPH_KINDS, layoutRelations, relationEdgeKey, relationInspection, relationPath, ManifestCheck, ProjectManifest } from '../../common/project-structure-model';
 
-const colors = ['#4a9b99', '#a886d9', '#c79550', '#7199cf', '#ca7990', '#8daf70', '#a0a5ac', '#777'];
+const colors = ['#4a9b99', '#a886d9', '#c79550', '#7199cf', '#ca7990', '#8daf70', '#a0a5ac', '#777', '#777'];
+const kindColor = (kind: string): string => {
+    const index = GRAPH_KINDS.indexOf(kind as typeof GRAPH_KINDS[number]);
+    return colors[index < 0 ? colors.length - 1 : index];
+};
 export function RelationsView({ root, service, onOpenScene, onError, onSync }: {
     root: URI; service: AkariProjectStructureService; onOpenScene(uri: URI): void; onError(message: string): void; onSync(): void;
 }): React.ReactElement {
@@ -32,7 +36,7 @@ export function RelationsView({ root, service, onOpenScene, onError, onSync }: {
     if (!manifest) return <div data-akari-relations-empty='true'>{t('surfaces.structure.noRelations.message')}
         <button type='button' disabled={loading} onClick={() => void sync()}>{t('surfaces.structure.sync.button')}</button></div>;
     const graph = layoutRelations(manifest.nodes, manifest.edges);
-    const affected = inspectionCounts(check).affected;
+    const { badNodes, badEdges } = relationInspection(check, graph.nodes);
     const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
     const selectedNode = nodeById.get(selected || '');
     const neighbors = new Set([selected, ...manifest.edges.filter(edge => edge.from === selected).map(edge => edge.uses),
@@ -56,11 +60,13 @@ export function RelationsView({ root, service, onOpenScene, onError, onSync }: {
                     <marker id='akari-relations-arrow-bad' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto'>
                         <path d='M0 0 L10 5 L0 10 z' fill='#cf9250' /></marker>
                 </defs>
-                {GRAPH_KINDS.map((kind, i) => <text key={kind} x={20 + i * 190} y={20} fill='currentColor' fontSize='12'>{kind === 'other' ? t('surfaces.structure.other.label') : kind}</text>)}
+                {graph.columns.map(({ column, x }) => <text key={column} x={x - 70} y={20} fill='currentColor' fontSize='12'>
+                    {GRAPH_COLUMNS[column].map(kind => kind === 'other' ? t('surfaces.structure.other.label') : kind).join(' / ')}
+                </text>)}
                 {graph.edges.map((edge, i) => {
                     const from = nodeById.get(edge.from)!; const to = nodeById.get(edge.uses)!;
                     const highlighted = selected && (edge.from === selected || edge.uses === selected);
-                    const bad = from.missing || to.missing || affected.has(edge.from) || affected.has(edge.uses);
+                    const bad = badEdges.has(relationEdgeKey(edge));
                     return <path key={`${edge.from}:${edge.uses}:${i}`} d={relationPath(from, to)}
                         data-akari-relation-edge={`${edge.from}→${edge.uses}`} data-akari-relation-bad={bad ? 'true' : undefined}
                         fill='none' stroke={bad ? '#cf9250' : highlighted ? '#50c2bb' : 'currentColor'}
@@ -70,18 +76,18 @@ export function RelationsView({ root, service, onOpenScene, onError, onSync }: {
                 })}
                 {graph.nodes.map(node => <g key={node.id} transform={`translate(${node.x - 70},${node.y})`}
                     data-akari-relation-node={node.id} role='button' tabIndex={0} aria-label={node.id}
-                    data-akari-relation-bad={node.missing || affected.has(node.id) ? 'true' : undefined}
+                    data-akari-relation-bad={badNodes.has(node.id) ? 'true' : undefined}
                     data-akari-relation-missing={node.missing ? 'true' : undefined}
                     onClick={() => setSelected(node.id === selected ? undefined : node.id)}
                     onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(node.id === selected ? undefined : node.id); }}
                     style={{ cursor: 'pointer', opacity: selected && !neighbors.has(node.id) ? 0.25 : 1 }}>
-                    <rect width='140' height='36' rx='6' fill='var(--theia-editorWidget-background)' stroke={node.missing || affected.has(node.id) ? '#cf9250' : colors[node.column]}
-                        strokeWidth={node.id === selected ? 2.5 : 1.5} strokeDasharray={node.missing || affected.has(node.id) ? '5 4' : undefined} />
-                    <rect width='4' height='36' rx='2' fill={colors[node.column]} />
+                    <rect width='140' height='36' rx='6' fill='var(--theia-editorWidget-background)' stroke={badNodes.has(node.id) ? '#cf9250' : kindColor(node.kind)}
+                        strokeWidth={node.id === selected ? 2.5 : 1.5} strokeDasharray={badNodes.has(node.id) ? '5 4' : undefined} />
+                    <rect width='4' height='36' rx='2' fill={kindColor(node.kind)} />
                     <text x='10' y='15' fill='currentColor' fontSize='11'>
                         {String(node.name ?? node.id).length > 20 ? `${String(node.name ?? node.id).slice(0, 18)}…` : String(node.name ?? node.id)}</text>
                     <text x='10' y='29' fill={node.missing ? '#cf9250' : 'var(--theia-descriptionForeground)'} fontSize='9'>
-                        {node.column === 7 ? t('surfaces.structure.other.label') : node.kind}
+                        {node.column === GRAPH_COLUMNS.length - 1 ? t('surfaces.structure.other.label') : node.kind}
                         {node.missing ? ` · ${t('surfaces.structure.missingNode.label')}` : ` · rev ${node.rev ?? 0}`}</text>
                 </g>)}
             </svg>
