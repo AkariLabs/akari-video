@@ -100,6 +100,9 @@ import { AkariChannelContextService, ChannelProject } from './channel/akari-chan
 import { channelFromProjectPath } from './channel/channel-context-model';
 import { projectLocation } from '../common/project-location';
 import { SceneListView } from './home/scene-list-view';
+import { AkariProjectStructureService } from '../common/project-structure-protocol';
+import { showsSceneTabs } from '../common/project-structure-model';
+import { clearStructureTab } from './home/structure-navigation';
 import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
@@ -341,6 +344,8 @@ export class AkariHomeWidget extends ReactWidget {
 
     @inject(AkariNewProjectService)
     protected readonly newProjectService: AkariNewProjectService;
+    @inject(AkariProjectStructureService)
+    protected readonly structureService: AkariProjectStructureService;
 
     @inject(AkariProjectService)
     protected readonly storeService: AkariProjectService;
@@ -1843,8 +1848,12 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected async refreshSceneList(root: URI, scene?: string): Promise<void> {
-        this.sceneListRoot = !scene && !await this.fileService.exists(root.resolve('edit.json'))
-            && await this.fileService.exists(root.resolve('scenes'));
+        const visibility = {
+            sceneFolder: !!scene || root.parent.path.base === 'scenes',
+            hasRootEdit: await this.fileService.exists(root.resolve('edit.json')),
+            hasScenes: await this.fileService.exists(root.resolve('scenes'))
+        };
+        this.sceneListRoot = showsSceneTabs(visibility);
     }
 
     // --- U5 チャンネルに入れる（養子縁組。task 2026-08-03-home-v5-terms） -------
@@ -3328,6 +3337,7 @@ export class AkariHomeWidget extends ReactWidget {
                 {channelMode ? this.renderProjectListForTab() : this.sceneListRoot && this.currentProjectUri
                     ? <SceneListView root={this.currentProjectUri} files={this.fileService} input={this.quickInputService}
                         projectService={this.storeService as AkariProjectService & { addScene(rootUri: string, id: string): Promise<unknown> }}
+                        structureService={this.structureService}
                         onOpen={uri => void this.openProject({ uri: uri.toString() })} onError={message => void this.messages.error(message)} />
                     : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
@@ -3347,7 +3357,9 @@ export class AkariHomeWidget extends ReactWidget {
         const prompt = this.openPrompt;
         const current = this.buildProjectRows().find(row => row.current)?.name ?? this.currentProjectUri?.path.base;
         return <>
-            {prompt && <HomeScrim kind='open-project' onClose={() => { this.openPrompt = undefined; this.update(); }}>
+            {prompt && <HomeScrim kind='open-project' onClose={() => {
+                clearStructureTab(new URI(prompt.request.uri)); this.openPrompt = undefined; this.update();
+            }}>
                 <h3>{t('surfaces.home.openProject.confirm', { name: prompt.name })}</h3>
                 <p>{current ? t('surfaces.home.openClosePromptsCurrentlyOpenSaved.message', { current: current })
                     : t('surfaces.home.openClosePromptsLastTouched.message', { badge: prompt.badge, date: prompt.updatedAt ? formatDate(new Date(prompt.updatedAt)) : t('surfaces.home.openClosePromptsUnknown.label') })}</p>
@@ -3361,7 +3373,8 @@ export class AkariHomeWidget extends ReactWidget {
                 {!prompt.busy && <label><input type='checkbox' checked={this.noAskChecked}
                     onChange={event => { this.noAskChecked = event.currentTarget.checked; this.update(); }} /> {t('surfaces.home.openClosePromptsOpenScreenWithoutAskingNextTime.label')}</label>}
                 <div className='akari-home-dialog-actions'><button type='button' className='theia-button secondary'
-                    onClick={() => { this.openPrompt = undefined; this.update(); }}>{t('surfaces.home.openClosePromptsStop.button')}</button></div>
+                    onClick={() => { clearStructureTab(new URI(prompt.request.uri)); this.openPrompt = undefined; this.update(); }}>
+                    {t('surfaces.home.openClosePromptsStop.button')}</button></div>
             </HomeScrim>}
             {this.closePrompt && <HomeScrim kind='close-project' onClose={() => { this.closePrompt = false; this.update(); }}>
                 <h3>{t('surfaces.home.closeProject.confirm', { name: current })}</h3><p>{t('surfaces.home.openClosePromptsSavedReturnProjectListScreen.message')}</p>

@@ -36,8 +36,15 @@ import { bindHomeOneShell } from './akari-home-bindings';
 import { bindChannelPanel } from './akari-channel-bindings';
 import { bindTitleBar } from './akari-title-bar-bindings';
 import { AkariChildLanguageService, AKARI_CHILD_LANGUAGE_PATH } from '../common/child-language-protocol';
+import { AkariProjectStructureService, AKARI_PROJECT_STRUCTURE_PATH } from '../common/project-structure-protocol';
+import { AkariSceneInspectionBandContribution } from './inspection-band-contribution';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+    bind(AkariProjectStructureService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_PROJECT_STRUCTURE_PATH)
+    ).inSingletonScope();
+    bind(AkariSceneInspectionBandContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariSceneInspectionBandContribution);
     bind(AkariChildLanguageService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_CHILD_LANGUAGE_PATH)
     ).inSingletonScope();

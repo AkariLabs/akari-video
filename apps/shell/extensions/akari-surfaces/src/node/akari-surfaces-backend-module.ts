@@ -21,8 +21,15 @@ import { LocalizationContribution } from '@theia/core/lib/node/i18n/localization
 import { AkariLocalizationContribution } from './akari-localization-contribution';
 import { AkariChildLanguageService, AKARI_CHILD_LANGUAGE_PATH } from '../common/child-language-protocol';
 import { AkariChildLanguageServiceImpl } from './child-language-service';
+import { AkariProjectStructureService, AKARI_PROJECT_STRUCTURE_PATH } from '../common/project-structure-protocol';
+import { AkariProjectStructureServiceImpl } from './project-structure-service';
 
 export default new ContainerModule(bind => {
+    bind(AkariProjectStructureServiceImpl).toSelf().inSingletonScope();
+    bind(AkariProjectStructureService).toService(AkariProjectStructureServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_PROJECT_STRUCTURE_PATH, () => context.container.get(AkariProjectStructureService))
+    ).inSingletonScope();
     bind(AkariChildLanguageServiceImpl).toSelf().inSingletonScope();
     bind(AkariChildLanguageService).toService(AkariChildLanguageServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>
