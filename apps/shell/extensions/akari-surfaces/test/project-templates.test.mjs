@@ -38,6 +38,18 @@ test('テンプレ名と日付で表示名を決める', () => {
     assert.equal(defaultProjectTitle('開発ログ', new Date('2026-10-09T00:00:00Z')), '開発ログ 2026-10-09');
 });
 
+test('JST 0:28 は UTC の前日ではなくローカル当日を表示する', () => {
+    const previous = process.env.TZ;
+    try {
+        process.env.TZ = 'Asia/Tokyo';
+        assert.equal(defaultProjectTitle('新しいプロジェクト', new Date('2026-10-15T15:28:00Z')),
+            '新しいプロジェクト 2026-10-16');
+    } finally {
+        if (previous === undefined) delete process.env.TZ;
+        else process.env.TZ = previous;
+    }
+});
+
 test('企画書名は既存ファイルを避けて連番にする', () => {
     assert.equal(planFileName([]), '企画書.md');
     assert.equal(planFileName(['企画書.md']), '企画書-2.md');

@@ -4680,6 +4680,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         // 表示 cue がまだ無く差分が none の場合も、次の字幕更新には最新の宣言を使う。
         widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;
+        const sameSourceHasAudio = kind === 'output'
+            && (widget as PreviewWidgetMarker & { akariPreviewHasSourceAudio?: boolean }).akariPreviewHasSourceAudio === true
+            && widget.akariPreviewVideoUri?.toString() === model.sourceUri?.toString();
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const previousSnapshot = widget.akariPreviewModelSnapshot;
             let updateKind = classifyPreviewModelUpdate(previousSnapshot, nextSnapshot);
@@ -4713,6 +4716,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (frameEngineEnabled) {
                     const summary = preserveReadyPreviewAudio(widget.akariPreviewSummary,
                         this.summaryWithPreviousAssetUrls(widget, model));
+                    if (sameSourceHasAudio) Object.assign(summary, { hasAudio: true });
                     widget.akariPreviewSummary = summary;
                     widget.akariPreviewModelSnapshot = nextSnapshot;
                     this.sendPendingLayerDimensions(widget, model, summary);
@@ -4742,6 +4746,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const previousLayerCount = widget.akariPreviewSummary?.layers.length ?? 0;
                 const summary = preserveReadyPreviewAudio(widget.akariPreviewSummary,
                     this.summaryWithPreviousAssetUrls(widget, model));
+                if (sameSourceHasAudio) Object.assign(summary, { hasAudio: true });
                 const previousAssetUrls = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
                 const acquiredAssets = [...(model.assetUrlByUri ?? new Map<string, string>())];
                 const streamIdsByUri = widget.akariPreviewAssetStreamIdByUri ?? new Map<string, string>();
@@ -4900,6 +4905,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     .then(result => result.hasAudio)
                     .catch(() => undefined)
         ]);
+        (widget as PreviewWidgetMarker & { akariPreviewHasSourceAudio?: boolean }).akariPreviewHasSourceAudio = hasSourceAudio === true;
+        if (hasSourceAudio === true) {
+            model.summary = { ...model.summary, ...({ hasAudio: true }) };
+        }
         if (videoStream) this.noteServedPreviewMedia?.(mediaWatch, videoUri);
         // v1 マルチソース: 代表ソース以外の cuts[].src 先も webview から再生できるよう
         // それぞれストリームを開く（代表ソースは上の videoStream を再利用）。
@@ -5599,6 +5608,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = undefined;
         widget.akariPreviewAssetUrlByUri = undefined;
         widget.akariPreviewSummary = undefined;
+        (widget as PreviewWidgetMarker & { akariPreviewHasSourceAudio?: boolean }).akariPreviewHasSourceAudio = undefined;
         widget.akariPreviewSeekable = false;
         void this.disposePreviewStreams(widget);
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
@@ -6648,6 +6658,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
             const indicators: string[] = [];
+            const hasAudio = !!(audio?.bgm || audio?.bgms?.length || audio?.sfx?.length
+                || audio?.narration?.length || audio?.speech?.length || embeddedSpeech.length);
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
             if (missingProxyCount > 0) {
@@ -6717,6 +6729,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     cuts,
                     ...(Object.keys(adjustLutCubeTexts).length > 0 ? { adjustLutCubeTexts } : {}),
                     indicators,
+                    ...({ hasAudio }),
                     ...((audio || embeddedSpeech.length > 0) ? {
                         audio: { ...(audio ?? { sfx: [], narration: [], speech: [] }), embeddedSpeech }
                     } : {}),

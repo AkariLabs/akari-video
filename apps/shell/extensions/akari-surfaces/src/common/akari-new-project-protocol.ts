@@ -128,9 +128,9 @@ export interface AkariNewProjectService {
      * （テンプレコピー + フォールバック補完 + スキル同梱 + git init）。
      * フォルダーに既存ファイルがあると失敗する。
      */
-    createProject(destinationUri: string): Promise<void>;
+    createProject(destinationUri: string, title?: string): Promise<void>;
     listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]>;
-    createProjectFromPlaybook(destinationUri: string, playbookDir: string): Promise<void>;
+    createProjectFromPlaybook(destinationUri: string, playbookDir: string, title?: string): Promise<void>;
 
     /**
      * U5「チャンネルに入れる」（task 2026-08-03-home-v5-terms）。単体プロジェクト
