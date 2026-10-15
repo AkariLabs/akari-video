@@ -763,5 +763,22 @@
   "cli.connectCommand.ui.noKeyHasBeenSetMessage": "No key has been set.",
   "cli.connectCommand.ui.couldNotStartChildProcessError": "Could not start child process.",
   "cli.connectCommand.group.toolsLabel": "AKARI tools",
-  "cli.connectCommand.group.generateLabel": "Create assets"
+  "cli.connectCommand.group.generateLabel": "Create assets",
+  "cli.project.command.help": "Usage: akari project sync [<project>] [--json] | check [<project>] [--json] | scene add <id> [--project <dir>]",
+  "cli.project.error.argument": "Invalid argument: {argument}",
+  "cli.project.error.id": "Scene ID must contain lowercase letters, digits, and hyphens",
+  "cli.project.error.project": "AKARI project not found: {path}",
+  "cli.project.error.template": "Project template unavailable",
+  "cli.project.error.exists": "Scene already exists",
+  "cli.project.result.sync": "Manifest synced: {counts} edge:{edges}",
+  "cli.project.result.absent": "There is no manifest yet (run akari project sync to create one)",
+  "cli.project.result.check": "Manifest check: error:{error} warning:{warning} info:{info}",
+  "cli.project.result.scene": "Scene added: {id}",
+  "cli.project.finding.missingNode": "Edge {from} → {uses} references a missing node",
+  "cli.project.finding.selfReference": "Self reference: {id}",
+  "cli.project.finding.cycle": "Cycle: {from} → {uses}",
+  "cli.project.finding.unacquired": "Not acquired: {id}",
+  "cli.project.finding.missingWhere": "Target missing: {id}",
+  "cli.project.finding.stale": "Target is newer: {id}",
+  "cli.project.finding.invalidWhere": "Outside project or invalid where: {id}"
 }
