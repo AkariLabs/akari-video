@@ -13,7 +13,7 @@ function node() {
   const element = {
     dataset: {}, style: {}, attributes: {}, appended: [], hidden: false, value: '12', max: '30',
     classList: { toggle() {}, add() {}, remove() {} },
-    append(...items) { this.appended.push(...items); }, after() {},
+    append(...items) { this.appended.push(...items); }, prepend(...items) { this.appended.unshift(...items); }, after() {},
     replaceChildren(...items) { this.appended = items; },
     setAttribute(name, value) { this.attributes[name] = value; }, toggleAttribute() {},
     hasAttribute() { return false; }, contains() { return true; },
@@ -24,7 +24,7 @@ function node() {
       return children.get(selector);
     },
     querySelectorAll() { return []; },
-    getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
+    getBoundingClientRect() { return { left: 0, right: 100, top: 0, bottom: 100, width: 100, height: 100 }; },
     focus() {}, setSelectionRange() {}, setCustomValidity() {}, reportValidity() {},
     closest() { return null; }
   };
@@ -44,6 +44,7 @@ function reviewPage(recording = false) {
   const ids = { 'preview-stage': stage, seek };
   let created = 0;
   const document = {
+    body: node(),
     getElementById(id) { return ids[id] ?? null; },
     querySelector(selector) { return selector === '.transport' ? transport : node(); },
     querySelectorAll(selector) { return selector === '#caption-plate .caption-row-plate' ? [plate] : []; },
@@ -66,6 +67,7 @@ function reviewPage(recording = false) {
   const posted = [];
   const strokes = [];
   const window = {
+    innerWidth: 400, innerHeight: 300,
     __akariPreview: { kind: 'output', reviewSource: 'edit.json', summary: {
       captions: [{ at: 0, duration: 30, text: 'Caption', box: { x: .4, y: .4, w: .2, h: .2 } }],
       cuts: [{ at: 0, duration: 30, sourcePath: 'clip.mp4' }]

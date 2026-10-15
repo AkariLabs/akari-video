@@ -53,7 +53,7 @@ test('操作行内側に揃うポップアップは右側コントロールを a
     assert.match(rule('.review-toolbar'), /display:\s*contents;/);
     assert.match(rule('.transport-controls > .transport-lead > .transport-left'), /position:\s*relative;/);
     assert.match(html, /<div class="transport-lead"><div class="transport-left">/);
-    assert.match(review, /if \(lead\) lead\.append\(toolbar\);\s*else if \(tail\) tail\.append\(toolbar\);\s*else controls\.after\(toolbar\);/);
+    assert.match(review, /if \(tail\) tail\.prepend\(toolbar\);\s*else controls\.after\(toolbar\);/);
     assert.match(rule('.zoom-popup'), /position:\s*absolute;\s*right:\s*0;/);
     const right = html.slice(html.indexOf('<div class="transport-right">'));
     assert.match(right, /id="rate-popup" class="zoom-popup"/);

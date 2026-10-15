@@ -11,6 +11,22 @@ export function reviewThumbnailEviction(attachments: readonly ChatAttachment[], 
     return withImage.length > limit ? withImage[0] : -1;
 }
 
+export function reviewNotePosition(anchor: { left: number; right: number; top: number; bottom: number },
+    popup: { width: number; height: number }, viewport: { width: number; height: number }, gap = 8, margin = 8):
+    { left: number; top: number; maxHeight: number } {
+    const maxHeight = Math.max(0, viewport.height - margin * 2);
+    const height = Math.min(popup.height, maxHeight);
+    const left = Math.max(margin, Math.min((anchor.left + anchor.right - popup.width) / 2,
+        Math.max(margin, viewport.width - margin - popup.width)));
+    const below = anchor.bottom + gap;
+    const above = anchor.top - gap - height;
+    const preferred = below + height <= viewport.height - margin ? below
+        : above >= margin ? above
+            : viewport.height - anchor.bottom >= anchor.top ? below : above;
+    const top = Math.max(margin, Math.min(preferred, viewport.height - margin - height));
+    return { left, top, maxHeight };
+}
+
 export function previewChatReviewScript(): string {
     const uiText = {
         editingPreview: translate('preview.chatReview.ui.editingPreviewLabel'),
@@ -52,6 +68,7 @@ export function previewChatReviewScript(): string {
         const escapeStep = (${reviewEscapeStep.toString()});
         const enterAction = (${reviewMemoEnterAction.toString()});
         const thumbnailEviction = (${reviewThumbnailEviction.toString()});
+        const notePosition = (${reviewNotePosition.toString()});
         const stage = document.getElementById('preview-stage');
         const transport = document.querySelector('.transport');
         const seek = document.getElementById('seek');
@@ -138,12 +155,10 @@ export function previewChatReviewScript(): string {
         const marksNode = root.querySelector('[data-review-marks]');
         const toolbar = document.createElement('div');
         toolbar.className = 'review-toolbar';
-        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="__AKARI_UI_pen__" aria-label="__AKARI_UI_pen__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="__AKARI_UI_pin__" aria-label="__AKARI_UI_pin__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="__AKARI_UI_range__" aria-label="__AKARI_UI_range__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>__AKARI_UI_start__</button><button type="button" data-review-range-end>__AKARI_UI_end__</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="__AKARI_UI_attachZero__" aria-label="__AKARI_UI_attachZero__" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
+        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="__AKARI_UI_pen__" aria-label="__AKARI_UI_pen__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="__AKARI_UI_pin__" aria-label="__AKARI_UI_pin__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="__AKARI_UI_range__" aria-label="__AKARI_UI_range__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>__AKARI_UI_start__</button><button type="button" data-review-range-end>__AKARI_UI_end__</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="__AKARI_UI_attachZero__" aria-label="__AKARI_UI_attachZero__" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
         const controls = transport.querySelector('.transport-controls');
-        const lead = transport.querySelector('.transport-lead');
         const tail = transport.querySelector('.transport-tail');
-        if (lead) lead.append(toolbar);
-        else if (tail) tail.append(toolbar);
+        if (tail) tail.prepend(toolbar);
         else controls.after(toolbar);
         const hint = toolbar.querySelector('[data-review-hint]');
         const buttons = toolbar.querySelector('.review-tools');
@@ -155,6 +170,7 @@ export function previewChatReviewScript(): string {
         dock.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><textarea data-review-memo placeholder="__AKARI_UI_memoPlaceholder__" rows="2"></textarea><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="__AKARI_UI_delete__" aria-label="__AKARI_UI_delete__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="__AKARI_UI_done__" aria-label="__AKARI_UI_done__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>__AKARI_UI_copyToClipboard__</button></div></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
         controls.after(dock);
         const note = dock.querySelector('[data-review-note]');
+        document.body.append(note);
         const elementsNode = note.querySelector('[data-review-elements]');
         const noteBadge = note.querySelector('[data-review-note-badge]');
         const noteTool = note.querySelector('[data-review-note-tool]');
@@ -165,6 +181,23 @@ export function previewChatReviewScript(): string {
         const seekMarks = document.createElement('div');
         seekMarks.id = 'review-seek-marks';
         document.querySelector('.transport-seek')?.append(seekMarks);
+        const positionNote = () => {
+            if (!activeNote) return;
+            const index = markIndex(activeNote.id);
+            if (index < 0) return;
+            const mark = marks[index]?.review;
+            const stroke = mark?.tool === 'pen' && Array.isArray(mark.points) && mark.points.length >= 2
+                ? marksNode.querySelector('.review-mark-stroke[data-review-index="' + index + '"] polyline') : null;
+            const anchor = marksNode.querySelector('[data-review-index="' + index + '"]')
+                || seekMarks.querySelector('[data-review-index="' + index + '"]') || seek;
+            const position = notePosition((stroke || anchor).getBoundingClientRect(), note.getBoundingClientRect(),
+                { width: window.innerWidth, height: window.innerHeight });
+            note.style.left = position.left + 'px';
+            note.style.top = position.top + 'px';
+            note.style.maxHeight = position.maxHeight + 'px';
+        };
+        window.addEventListener('resize', positionNote);
+        window.addEventListener('scroll', positionNote, true);
         const setBadgeActive = (badge, time) => {
             const active = Math.abs(Number(badge.dataset.reviewTime) - time) <= 1.5;
             badge.style.opacity = active ? '1' : '.25';
@@ -174,10 +207,11 @@ export function previewChatReviewScript(): string {
         const render = () => {
             syncContentRect();
             sendButton.textContent = partnerName === ui.clipboard ? ui.copyToClipboard : formatUi(ui.attachToPartner, { name: partnerName });
-            attachButton.hidden = marks.length === 0;
+            attachButton.disabled = marks.length === 0;
             attachButton.dataset.reviewAttachCount = String(marks.length);
             attachButton.querySelector('[data-review-attach-number]').textContent = String(marks.length);
-            attachButton.title = formatUi(marks.length === 1 ? ui.attachCountOne : ui.attachCountOther, { count: marks.length });
+            attachButton.title = marks.length === 0 ? ui.attachZero
+                : formatUi(marks.length === 1 ? ui.attachCountOne : ui.attachCountOther, { count: marks.length });
             attachButton.setAttribute('aria-label', attachButton.title);
             for (const button of buttons.querySelectorAll('[data-review-tool]')) {
                 button.classList.toggle('on', button.dataset.reviewTool === tool);
@@ -193,7 +227,7 @@ export function previewChatReviewScript(): string {
             else note.hidden = true;
             note.hidden = !activeNote;
             tray.hidden = !trayOpen || marks.length === 0 || Boolean(activeNote);
-            dock.hidden = note.hidden && tray.hidden;
+            dock.hidden = tray.hidden;
             elementsNode.replaceChildren();
             if (activeNote) {
                 const index = markIndex(activeNote.id);
@@ -219,6 +253,7 @@ export function previewChatReviewScript(): string {
                 if (mark.source !== source) continue;
                 const dot = document.createElement('span');
                 dot.className = 'review-seek-dot';
+                dot.dataset.reviewIndex = String(index);
                 dot.style.left = (100 * mark.time / duration) + '%';
                 seekMarks.append(dot);
                 const strokePoints = mark.tool === 'pen' && Array.isArray(mark.points)
@@ -229,6 +264,7 @@ export function previewChatReviewScript(): string {
                     stroke.classList.add('review-mark-stroke');
                     stroke.setAttribute('viewBox', '0 0 100 100');
                     stroke.setAttribute('preserveAspectRatio', 'none');
+                    stroke.dataset.reviewIndex = String(index);
                     stroke.dataset.reviewTime = String(mark.time);
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
                     line.setAttribute('points', strokePoints.map(point =>
@@ -304,6 +340,7 @@ export function previewChatReviewScript(): string {
                 row.append(remove);
                 rows.append(row);
             });
+            positionNote();
         };
         const thumbnail = () => {
             try {
@@ -460,6 +497,7 @@ export function previewChatReviewScript(): string {
             }
         });
         window.addEventListener('pointerdown', event => {
+            if (activeNote && !note.contains(event.target) && !saveNote(true)) return;
             const badge = event.target.closest?.('[data-review-badge][data-review-active]');
             if (badge && marksNode.contains(badge) && event.button === 0) {
                 event.preventDefault(); event.stopImmediatePropagation();
