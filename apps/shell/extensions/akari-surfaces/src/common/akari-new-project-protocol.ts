@@ -48,7 +48,7 @@ export interface AkariPlaybook {
 
 export interface AkariPlaybookListEntry {
     dir: string;
-    source: 'channel' | 'local';
+    source: 'channel' | 'local' | 'lab';
     coverUri?: string;
     frameUris?: string[];
     playbook: AkariPlaybook;

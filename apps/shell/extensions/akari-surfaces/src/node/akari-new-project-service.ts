@@ -115,6 +115,16 @@ function safeChannelPathName(input: string | undefined): string | undefined {
     return name;
 }
 
+async function isInstalledPlaybookLink(dir: string, installedPath: string | undefined): Promise<boolean> {
+    if (!installedPath) return false;
+    try {
+        const [actual, expected] = await Promise.all([fs.realpath(dir), fs.realpath(installedPath)]);
+        return actual === expected;
+    } catch {
+        return false;
+    }
+}
+
 function isPlaybook(value: unknown): value is AkariPlaybook {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const record = value as Partial<AkariPlaybook>;
@@ -245,6 +255,19 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     }
 
     async listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]> {
+        const home = process.env.AKARI_HOME || join(homedir(), '.akari');
+        const installed = new Map<string, string>();
+        try {
+            const ledger = JSON.parse(await fs.readFile(join(home, 'kits', 'installed.json'), 'utf8'));
+            if (ledger?.schema === 'akari-installed-kits/v0' && Array.isArray(ledger.kits)) {
+                for (const kit of ledger.kits) {
+                    if (typeof kit?.kitDir !== 'string' || !Array.isArray(kit.playbooks)) continue;
+                    for (const id of kit.playbooks) {
+                        if (typeof id === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(id)) installed.set(id, resolve(kit.kitDir, 'playbooks', id));
+                    }
+                }
+            }
+        } catch { /* A missing or invalid ledger leaves local playbooks available. */ }
         const dirs: Array<{ path: string; source: 'channel' | 'local' }> = [];
         const channelName = safeChannelPathName(channel);
         if (channelName) {
@@ -252,17 +275,21 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
             const root = await creator.resolveCreatorRoot({ env: process.env });
             if (root) dirs.push({ path: join(root.rootDir, 'channels', channelName, 'playbooks'), source: 'channel' });
         }
-        dirs.push({ path: join(process.env.AKARI_HOME || join(homedir(), '.akari'), 'playbooks'), source: 'local' });
+        dirs.push({ path: join(home, 'playbooks'), source: 'local' });
         const result: AkariPlaybookListEntry[] = [];
         for (const location of dirs) {
             for (const child of await fs.readdir(location.path, { withFileTypes: true }).catch(() => [])) {
-                if (!child.isDirectory() || !/^[a-z0-9][a-z0-9-]*$/.test(child.name)) continue;
+                if ((!child.isDirectory() && !child.isSymbolicLink()) || !/^[a-z0-9][a-z0-9-]*$/.test(child.name)) continue;
                 const dir = join(location.path, child.name);
                 try {
+                    const stat = await fs.stat(dir);
+                    if (!stat.isDirectory()) continue;
                     const value: unknown = JSON.parse(await fs.readFile(join(dir, 'playbook.json'), 'utf8'));
                     if (!isPlaybook(value) || value.id !== basename(dir)) continue;
                     const preview = await playbookPreviewData(dir, value.preview);
-                    result.push({ dir, source: location.source, playbook: value, ...preview });
+                    const source = location.source === 'local' && child.isSymbolicLink()
+                        && await isInstalledPlaybookLink(dir, installed.get(child.name)) ? 'lab' : location.source;
+                    result.push({ dir, source, playbook: value, ...preview });
                 } catch { /* tolerant reader: one broken record does not hide the others */ }
             }
         }

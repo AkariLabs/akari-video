@@ -2292,6 +2292,7 @@
   "surfaces.home.playbookSource.all.label": "All",
   "surfaces.home.playbookSource.local.label": "Mine",
   "surfaces.home.playbookSource.channel.label": "Channel",
+  "surfaces.home.playbookSource.lab.label": "Lab",
   "surfaces.home.playbookEmpty.message": "No Playbooks yet. Record one from a finished project with record-playbook.",
   "surfaces.home.playbookSelectHint.message": "Select a Playbook to see its review sheet.",
   "surfaces.home.playbookRead.button": "Read contents",

@@ -53,6 +53,17 @@
         }
       }
     },
+    "playbooks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dir"],
+        "properties": {
+          "dir": { "type": "string", "pattern": "^playbooks/[a-z0-9][a-z0-9-]*$" }
+        }
+      }
+    },
     "templates": {
       "type": "array",
       "items": {
