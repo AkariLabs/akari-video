@@ -97,6 +97,7 @@
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` の id 参照・解決順・生成 textstyle カタログ・ピッカー一括適用 RPC・行バッジ・無料字幕テンプレ 3 種 |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | マイスタイル v0 — 部品の束・ライブラリの置き場・字幕の実効の見た目の保存・値を写す適用 |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | 字幕の書記素範囲スタイル・重なり・描画・文字編集時の付け替え |
+| [contract-2026-10-15-script-lines-v0.md](./contract-2026-10-15-script-lines-v0.md) | 台本の予定とメモの行・保存形・パネル表示 |
 | [contract-2026-10-12-caption-look-v1.md](./contract-2026-10-12-caption-look-v1.md) | 字幕の見た目 v1 の保存形・大きさの換算・範囲の寿命・時刻と検証 |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | textstyle v1 の多層縁取り・グラデ / 柄フィル・描画経路・overlay 残留条件 |
 | [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | 素材 tier 契約 v1 — free / pro の tier 必須・price 廃止予定・互換規則・pro × CC0 の禁止・鍵はライブラリ側 |
