@@ -615,7 +615,6 @@
   "preview.previewWindow.transport.frameBackLabel": "1コマ戻る",
   "preview.previewWindow.transport.frameForwardLabel": "1コマ進む",
   "preview.previewWindow.transport.fullscreenLabel": "全画面",
-  "preview.previewWindow.transport.penLabel": "ペン",
   "preview.previewWindow.transport.playAction": "再生",
   "preview.previewWindow.transport.rateLabel": "再生速度",
   "preview.previewWindow.transport.reloadLabel": "再読み込み",

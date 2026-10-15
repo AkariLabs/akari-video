@@ -22,8 +22,8 @@ export interface AnnotationStrokeFrame {
  * annotation への着地型（review セッション契約 §4.2）。strokes.json 原本の間引き済みポリライン
  * を review.json に埋め込み、`sessionRef` で原本（review/sessions/<id>/strokes.json）を指す。
  *
- * `space: "content-rect"`（動画面）は review セッション由来（S3）のみのため frame / sessionRef
- * が必須。`space: "image-rect"`（画像面。contract-2026-07-26-doc-image-annotations §3）は
+ * `space: "content-rect"`（動画面）は frame が必須。sessionRef は録音由来の線だけが持ち、
+ * 録音なしで直接描いた線では省略する。`space: "image-rect"`（画像面。contract-2026-07-26-doc-image-annotations §3）は
  * レポート内画像のポップアップから単発 typed 注釈に付随して作られるため、動画フレームアンカーが
  * 存在せず frame は省略し、録音セッション由来でもないため sessionRef も省略できる。
  */
@@ -33,7 +33,7 @@ export interface AnnotationStrokeContentRect {
     frame: AnnotationStrokeFrame;
     /** 正規化 0〜1・content-rect 基準の間引き済みポリライン（〜100 点程度） */
     points: [number, number][];
-    sessionRef: string;
+    sessionRef?: string;
 }
 
 export interface AnnotationStrokeImageRect {
@@ -290,7 +290,7 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
 /**
  * review セッション契約 §4.2 / contract-2026-07-26-doc-image-annotations §3 /
  * contract-2026-07-26-canvas-surface §4 の annotation 着地型を検証する。`space` により分岐する:
- * `content-rect`（動画面・frame + sessionRef 必須）、`image-rect`（画像面・frame は省略・
+ * `content-rect`（動画面・frame 必須、sessionRef は録音由来だけ）、`image-rect`（画像面・frame は省略・
  * sessionRef は単発注釈では省略可）、`canvas-rect`（キャンバス面・frame は省略・canvasRef は省略可）。
  */
 function normalizeStroke(value: any): AnnotationStroke | undefined {
@@ -306,7 +306,8 @@ function normalizeStroke(value: any): AnnotationStroke | undefined {
         if (!frame || typeof frame !== 'object' || typeof frame.sourceT !== 'number' || !Number.isFinite(frame.sourceT)) {
             return undefined;
         }
-        if (typeof value.sessionRef !== 'string' || !value.sessionRef.trim()) {
+        if (Object.prototype.hasOwnProperty.call(value, 'sessionRef')
+            && (typeof value.sessionRef !== 'string' || !value.sessionRef.trim())) {
             return undefined;
         }
         const cutIndex = typeof frame.cutIndex === 'number' && Number.isFinite(frame.cutIndex) ? frame.cutIndex : null;
@@ -315,7 +316,7 @@ function normalizeStroke(value: any): AnnotationStroke | undefined {
             space: 'content-rect',
             frame: { sourceT: frame.sourceT, cutIndex },
             points,
-            sessionRef: value.sessionRef
+            ...(value.sessionRef != null ? { sessionRef: value.sessionRef } : {})
         };
     }
     if (value.space === 'image-rect') {

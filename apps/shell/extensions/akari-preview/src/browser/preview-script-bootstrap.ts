@@ -252,7 +252,6 @@ export function previewBootstrapScript(): string {
                 restoreInitialPlayback();
                 tick(true);
             });
-            const penToggle = document.getElementById('pen-toggle');
             const rateToggle = document.getElementById('rate-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
@@ -1060,15 +1059,13 @@ export function previewBootstrapScript(): string {
             };
             const setPenModeActive = active => {
                 penModeActive = active === true && reviewRecordingActive && !isPlaying;
-                penToggle.setAttribute('aria-pressed', String(penModeActive));
                 penLayer.classList.toggle('is-active', penModeActive || rectModeActive);
             };
             const setRectModeActive = active => {
                 rectModeActive = active === true && reviewRecordingActive && !isPlaying;
                 penLayer.classList.toggle('is-active', penModeActive || rectModeActive);
             };
-            // ReviewSessionRecorder（host）が唯一の正本。ここはブロードキャストの反映と、
-            // 既存入口（pen-toggle）からの request の両方が通る単一の適用点。
+            // ReviewSessionRecorder（host）が唯一の正本。ここはブロードキャストを反映する。
             const applyReviewToolMode = mode => {
                 reviewToolMode = mode;
                 setPenModeActive(mode === 'pen');
@@ -1187,15 +1184,6 @@ export function previewBootstrapScript(): string {
                     ...(segment && typeof segment.trackId === 'string' ? { trackId: segment.trackId } : {})
                 };
             };
-            // task.md 指示3: pen-toggle は既存の入口として残しつつ、実体は共有 toolMode への
-            // request に載せ替える（host が唯一の正本 -- 右パネルの選択/ペン/四角ボタンと同じ経路）。
-            // 楽観的にローカルへも即時反映し、host からのブロードキャストで再確認される。
-            penToggle.addEventListener('click', () => {
-                if (!reviewRecordingActive || isPlaying) return;
-                const nextMode = reviewToolMode === 'pen' ? 'neutral' : 'pen';
-                applyReviewToolMode(nextMode);
-                window.akari.reviewSetToolMode(nextMode);
-            });
             penLayer.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
                 if (canDraw() && !currentStroke) {
@@ -7440,7 +7428,6 @@ export function previewBootstrapScript(): string {
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
                 seek.style.setProperty('--seek-progress', (timelineDuration > 0 ? Number(seek.value) / timelineDuration * 100 : 0) + '%');
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
-                penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
                     playToggleRenderedIsPlaying = isPlaying;
                     const label = isPlaying ? uiText.pause : uiText.play;
@@ -11643,14 +11630,12 @@ export function previewBootstrapScript(): string {
                         redrawStaticBitmap();
                         recomposite();
                     }
-                    penToggle.hidden = !reviewRecordingActive;
                     if (!reviewRecordingActive) {
                         abortCurrentStroke();
                         abortCurrentRect();
                         applyReviewToolMode('neutral');
                     } else if (typeof message.mode === 'string') {
-                        // ReviewSessionRecorder（host）が唯一の正本 -- 右パネルの選択/ペン/四角
-                        // ボタンやキーボードショートカットで切り替わった mode をここで反映する。
+                        // ReviewSessionRecorder（host）が持つ既存の mode 状態を反映する。
                         applyReviewToolMode(message.mode);
                     }
                     updateTransport();

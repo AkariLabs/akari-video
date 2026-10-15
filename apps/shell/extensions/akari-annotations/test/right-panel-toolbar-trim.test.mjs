@@ -24,9 +24,9 @@ test('見出し、件数、メニューと 4 件数フィルタを並べる', ()
     assert.match(panel, /this\.openBoardButton\.addEventListener\('click'/);
 });
 
-test('選択中の絞り込みと録音道具はテーマの secondary 規則より優先して表示する', () => {
+test('選択中の絞り込みはテーマの secondary 規則より優先して表示し、録音道具は出さない', () => {
     assert.match(panel, /\[data-review-filter\]\[aria-pressed="true"\]/);
-    assert.match(panel, /\[data-review-tool-mode-button\]\[aria-pressed="true"\]/);
+    assert.doesNotMatch(panel, /data-review-tool-mode-button|requestToolMode/);
     assert.match(panel, /border-color: var\(--theia-focusBorder\) !important/);
     assert.match(panel, /background-color: var\(--theia-list-activeSelectionBackground\) !important/);
     assert.match(panel, /color: var\(--theia-list-activeSelectionForeground, var\(--theia-foreground\)\) !important/);

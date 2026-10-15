@@ -21,6 +21,10 @@ import { AkariRoughCanvasService, AKARI_ROUGH_CANVAS_SERVICE_PATH } from '../com
 import { RoughCanvasCommands } from './rough-canvas-commands';
 import { AkariTaskifyService, AKARI_TASKIFY_SERVICE_PATH } from '../common/taskify-protocol';
 import { TaskifyClient, taskifyRpcClient } from './taskify/taskify-client';
+import { PreviewAnnotationCommands } from './preview-annotation-commands';
+import { SentAnnotationStore } from './sent-annotation-store';
+import { UiTargetLabelStore } from './ui-target-label-store';
+import { ProjectReviewLocation } from './project-review-location';
 
 export default new ContainerModule(bind => {
     bind(TaskifyClient).toSelf().inSingletonScope();
@@ -44,6 +48,10 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
 
     bind(ReviewModel).toSelf().inSingletonScope();
+    bind(SentAnnotationStore).toSelf().inSingletonScope();
+    bind(UiTargetLabelStore).toSelf().inSingletonScope();
+    bind(PreviewAnnotationCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(PreviewAnnotationCommands);
     bind(TimelineSelectionModel).toSelf().inSingletonScope();
     bind(AkariEditHistoryService).toSelf().inSingletonScope();
 
@@ -82,6 +90,7 @@ export default new ContainerModule(bind => {
     })).inSingletonScope();
 
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();
+    bind(ProjectReviewLocation).toService(AkariAnnotationsContribution);
     bind(CommandContribution).toService(AkariAnnotationsContribution);
     bind(MenuContribution).toService(AkariAnnotationsContribution);
     bind(FrontendApplicationContribution).toService(AkariAnnotationsContribution);

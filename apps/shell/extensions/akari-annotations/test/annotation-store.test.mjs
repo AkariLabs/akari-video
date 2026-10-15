@@ -70,6 +70,23 @@ test("review セッション由来の annotation（session/strokes/transcript）
   });
 });
 
+test("録音なしの content-rect 線は sessionRef を省略して round-trip できる", () => {
+  const stroke = {
+    tool: 'pen', space: 'content-rect', frame: { sourceT: 3, cutIndex: null },
+    points: [[0.1, 0.2], [0.7, 0.8]]
+  };
+  const parsed = parseReview(appendAnnotationLine(emptyReviewSource(), baseAnnotation({
+    sourceT: 3, strokes: [stroke]
+  })));
+  assert.deepEqual(parsed.warnings, []);
+  assert.deepEqual(parsed.annotations[0].strokes, [stroke]);
+  const invalid = parseReview(appendAnnotationLine(emptyReviewSource(), baseAnnotation({
+    strokes: [{ ...stroke, sessionRef: null }]
+  })));
+  assert.equal(invalid.annotations[0].strokes, null);
+  assert.ok(invalid.warnings.length > 0);
+});
+
 test("BGM 等の overlay 注釈は既存 overlay:<id> target のまま round-trip できる", () => {
   const annotation = baseAnnotation({
     target: "overlay:bgm-main",

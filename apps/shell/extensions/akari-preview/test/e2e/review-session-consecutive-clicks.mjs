@@ -170,10 +170,8 @@ try {
     await waitFor(`document.querySelector('[data-review-recording-toggle]')?.textContent === '録音終了'`, 'recording start');
     record('recording-started');
 
-    const selectButton = await waitFor(elementCenter('[data-review-tool-mode-button="select"]'), 'select tool button');
-    await realClick(main, selectButton.x, selectButton.y);
-    await waitFor(`document.querySelector('[data-review-tool-mode-button="select"]')?.getAttribute('aria-pressed') === 'true'`, 'select tool activation');
-    record('select-tool-active');
+    assert.equal(await evalMain(main, `document.querySelector('[data-review-tool-mode-button]')`), null);
+    record('recording-tool-buttons-absent');
 
     await realClick(main, cut0.x, cut0.y);
     await sleep(50);
@@ -200,7 +198,7 @@ try {
         && (event.target === 'timeline:cut:0' || event.target === 'timeline:cut:1'));
     record('events-read', { sessionId: sessionIds.at(-1), clicks });
     assert.deepEqual(clicks.map(event => event.target), ['timeline:cut:0', 'timeline:cut:1']);
-    assert.ok(clicks.every(event => event.intent === true));
+    assert.ok(clicks.every(event => event.intent !== true));
 
     await copyFile(eventsPath, path.join(evidenceDir, 'events.jsonl'));
     await writeFile(path.join(evidenceDir, 'run-log.json'), `${JSON.stringify(log, null, 2)}\n`);

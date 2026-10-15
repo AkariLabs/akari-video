@@ -1,7 +1,7 @@
 import { formatDate, t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
-import { BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
+import { BaseWidget, OpenerService, open } from '@theia/core/lib/browser';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
@@ -25,7 +25,6 @@ import {
     needsUiTargetLabels
 } from '../common/doc-target';
 import {
-    CLIP_ANNOTATION_LABELS_EVENT,
     CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
     CLIP_ANNOTATION_OPEN_EVENT,
     CLIP_ANNOTATION_REVEAL_EVENT
@@ -46,6 +45,9 @@ import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notic
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
 import { ReviewModel, reviewSessionBadge, sessionIdForAnnotation } from './review-model';
+import { SentAnnotationStore } from './sent-annotation-store';
+import { UiTargetLabelStore } from './ui-target-label-store';
+import { replayableAnnotationStrokes } from '../common/annotation-display-strokes';
 
 export interface ReviewScrollRow {
     id: string;
@@ -119,9 +121,6 @@ const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
-// M2 (task.md): ツールモード（neutral/pen/rect/select）切替 request。akari-preview 側
-// （akari-preview-open-handler.ts の REVIEW_TOOL_MODE_SET_EVENT）と文字列だけミラーする。
-const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
 // M3 (task.md 指示2): 「選択を解除」ボタンからの request。akari-preview 側
 // （akari-preview-open-handler.ts の REVIEW_UI_SELECTION_CLEAR_EVENT）と文字列だけミラーする。
 const REVIEW_UI_SELECTION_CLEAR_EVENT = 'akari.review.uiSelection.clear';
@@ -129,15 +128,7 @@ const REVIEW_UI_SELECTION_CLEAR_EVENT = 'akari.review.uiSelection.clear';
 // フォーカス中の素材 URI と source 秒をこの additive な経路で受け取る。
 const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 
-// docs/contract-2026-08-11-review-session-ui-events.md #1 / internal annotation-everywhere §3
-// (M2): neutral はツールなし、pen/rect はプレビュー内、select はシェル全域。裁定 2026-08-11 の
-// ショートカット 1=select / 2=pen / 3=rect / Esc=neutral をボタンの補助表示にも使う。
 type ReviewToolMode = 'neutral' | 'pen' | 'rect' | 'select';
-const REVIEW_TOOL_MODE_BUTTONS: ReadonlyArray<{ mode: ReviewToolMode; label: string; key: string }> = [
-    { mode: 'select', get label() { return t('annotations.reviewPanelWidget.text.selection'); }, key: '1' },
-    { mode: 'pen', get label() { return t('annotations.reviewPanelWidget.text.pen'); }, key: '2' },
-    { mode: 'rect', get label() { return t('annotations.reviewPanelWidget.text.square'); }, key: '3' }
-];
 
 interface ReviewSessionSummary {
     id: string;
@@ -208,8 +199,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
     @inject(CommandService)
     protected readonly commands!: CommandService;
 
-    @inject(StorageService)
-    protected readonly storage!: StorageService;
+    @inject(SentAnnotationStore)
+    protected readonly sentStore!: SentAnnotationStore;
+
+    @inject(UiTargetLabelStore)
+    protected readonly labelStore!: UiTargetLabelStore;
 
     @inject(FileService)
     protected readonly fileService!: FileService;
@@ -251,9 +245,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly recordingSection = document.createElement('section');
     protected readonly recordingButton = document.createElement('button');
     protected readonly recordingIndicator = document.createElement('span');
-    // task.md 指示2: 選択/ペン/四角のツールボタン列（記録セッション中のみ有効）。
-    protected readonly toolModeRow = document.createElement('div');
-    protected readonly toolModeButtons = new Map<ReviewToolMode, HTMLButtonElement>();
     protected readonly recordingElapsed = document.createElement('span');
     protected readonly recordingLevelMeter = document.createElement('div');
     protected readonly recordingLevelFill = document.createElement('div');
@@ -271,7 +262,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected rawSourceResolutionSequence = 0;
     protected rawSourceResolutionPromise: Promise<void> | undefined;
     protected clipAnnotationSelection: { editUri: string; target: string; label: string; sourceT: number } | undefined;
-    protected uiTargetLabels: Record<string, string> = {};
+    protected get uiTargetLabels(): Readonly<Record<string, string>> {
+        return this.labelStore.get(this.model.location?.editUri?.toString());
+    }
     protected lastUiTargetLabelsRequest = '';
     protected sentAnnotationIds = new Set<string>();
     protected sentAnnotationsReviewUri = '';
@@ -499,35 +492,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingButton.addEventListener('click', () => this.toggleRecording());
         recordingControls.append(this.recordingButton);
 
-        // task.md 指示2/6: 選択/ペン/四角 + アクティブ表示 + ショートカットキーの小表示。
-        // 記録セッション中のみ有効（非セッション時は disabled）。
-        Object.assign(this.toolModeRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
-        this.toolModeRow.setAttribute('data-review-tool-mode-row', '');
-        for (const { mode, label, key } of REVIEW_TOOL_MODE_BUTTONS) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'theia-button secondary';
-            button.setAttribute('data-review-tool-mode-button', mode);
-            button.setAttribute('aria-pressed', 'false');
-            button.title = `${label}（${key}）`;
-            Object.assign(button.style, {
-                display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 9px', fontSize: '12px'
-            });
-            const labelSpan = document.createElement('span');
-            labelSpan.textContent = label;
-            const keySpan = document.createElement('span');
-            keySpan.textContent = key;
-            keySpan.setAttribute('data-review-tool-mode-key', '');
-            Object.assign(keySpan.style, {
-                fontSize: '11px', opacity: '0.65', border: '1px solid currentColor',
-                borderRadius: '3px', padding: '0 4px', lineHeight: '1.4'
-            });
-            button.append(labelSpan, keySpan);
-            button.addEventListener('click', () => this.requestToolMode(mode));
-            this.toolModeButtons.set(mode, button);
-            this.toolModeRow.appendChild(button);
-        }
-
         this.recordingLevelMeter.setAttribute('data-review-level-meter', '');
         this.recordingLevelMeter.setAttribute('data-review-level', '0');
         this.recordingLevelMeter.setAttribute('role', 'meter');
@@ -559,7 +523,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
             recordingHeading,
             recordingHint,
             recordingControls,
-            this.toolModeRow,
             this.recordingLevelMeter,
             this.silenceWarningNotice,
             this.recordingNotice
@@ -597,8 +560,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     .akari-review-panel-widget [role="menu"] button {
         font-size: 12px;
     }
-    .akari-review-panel-widget .theia-button.secondary[data-review-filter][aria-pressed="true"],
-    .akari-review-panel-widget .theia-button.secondary[data-review-tool-mode-button][aria-pressed="true"] {
+    .akari-review-panel-widget .theia-button.secondary[data-review-filter][aria-pressed="true"] {
         border-color: var(--theia-focusBorder) !important;
         background-color: var(--theia-list-activeSelectionBackground) !important;
         color: var(--theia-list-activeSelectionForeground, var(--theia-foreground)) !important;
@@ -625,6 +587,13 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push(this.model.onChanged(() => {
             this.syncSentAnnotationsForLocation();
             this.render();
+        }));
+        this.toDispose.push(this.sentStore.onDidChange(reviewUri => {
+            if (reviewUri !== this.sentAnnotationsReviewUri) return;
+            void this.sentStore.read(reviewUri).then(ids => {
+                this.sentAnnotationIds = new Set(ids);
+                this.renderList();
+            });
         }));
         this.toDispose.push(this.model.onReveal(id => this.revealAnnotation(id)));
         const onReviewSessionState = (event: Event): void => {
@@ -684,19 +653,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.renderDocSelectionChip();
             this.textInput.focus();
         };
-        const onClipAnnotationLabels = (event: Event): void => {
-            const detail = (event as CustomEvent<{ editUri?: string; labels?: Record<string, string> }>).detail;
+        this.toDispose.push(this.labelStore.onDidChange(changedEditUri => {
             const editUri = this.model.location?.editUri?.normalizePath().toString();
-            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
-                || !detail.labels || typeof detail.labels !== 'object') return;
-            this.uiTargetLabels = { ...detail.labels };
+            if (!editUri || changedEditUri !== editUri) return;
             this.renderList();
-        };
+        }));
         window.addEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
-        window.addEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
-            window.removeEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
         } });
         this.syncSentAnnotationsForLocation();
         this.render();
@@ -940,7 +904,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingIndicator.classList.toggle('is-recording', active);
         this.recordingIndicator.setAttribute('aria-label', active ? t('annotations.reviewPanelWidget.text.recordingInProgress') : t('annotations.reviewPanelWidget.text.recordingStopped'));
         this.recordingElapsed.textContent = this.formatSessionDuration(state?.elapsedSec ?? 0);
-        this.toolModeRow.style.display = active ? 'flex' : 'none';
         this.recordingLevelMeter.style.display = active ? 'block' : 'none';
         this.silenceWarningNotice.style.display = active && state?.silenceWarning ? 'block' : 'none';
         const level = active ? Math.max(0, Math.min(1, state?.level ?? 0)) : 0;
@@ -949,14 +912,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingLevelFill.style.width = `${level * 100}%`;
 
 
-        // task.md 指示2: ボタンは記録セッション中のみ有効。アクティブなモードだけ強調する。
-        const toolMode = active ? (state?.toolMode ?? 'neutral') : 'neutral';
-        for (const [mode, button] of this.toolModeButtons) {
-            button.disabled = !active || busy;
-            const pressed = active && mode === toolMode;
-            button.setAttribute('aria-pressed', String(pressed));
-            button.className = 'theia-button secondary';
-        }
         if (state?.error) {
             this.recordingNotice.textContent = state.error;
             this.recordingNotice.style.display = 'block';
@@ -1073,19 +1028,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.reviewSessionState?.active ? REVIEW_SESSION_STOP_EVENT : REVIEW_SESSION_START_EVENT,
             { detail: { projectRootUri, editUri } }
         ));
-    }
-
-    /** task.md 指示2: ボタンクリックで ReviewSessionRecorder（akari-preview 側）へ mode 切替を渡す。 */
-    protected requestToolMode(mode: ReviewToolMode): void {
-        const location = this.model.location;
-        const editUri = location?.editUri?.normalizePath().toString();
-        if (!location || !editUri || this.reviewSessionState?.active !== true) {
-            return;
-        }
-        const projectRootUri = location.root.normalizePath().toString();
-        window.dispatchEvent(new CustomEvent(REVIEW_TOOL_MODE_SET_EVENT, {
-            detail: { projectRootUri, editUri, mode }
-        }));
     }
 
     protected openSessionsFolder(): void {
@@ -1246,28 +1188,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             });
             head.insertBefore(sentBadge, badge);
         }
-        // Shared Annotation.strokes is still the legacy point-array type; keep this ready for its future rich shape.
-        const candidateStrokes = annotation.strokes as unknown as Array<{
-            frame?: unknown;
-            points?: unknown;
-            sessionRef?: unknown;
-        }>;
-        const richStrokes = Array.isArray(candidateStrokes)
-            ? candidateStrokes.filter((stroke): stroke is {
-                frame: { sourceT?: unknown; cutIndex?: unknown };
-                points: Array<[number, number]>;
-                sessionRef: string;
-            } => Boolean(
-                stroke
-                && typeof stroke === 'object'
-                && !Array.isArray(stroke)
-                && stroke.frame
-                && typeof stroke.frame === 'object'
-                && Array.isArray(stroke.points)
-                && stroke.points.length >= 2
-                && typeof stroke.sessionRef === 'string'
-            ))
-            : [];
+        const richStrokes = replayableAnnotationStrokes(annotation.strokes);
         if (richStrokes.length > 0) {
             const strokeButton = document.createElement('button');
             strokeButton.type = 'button';
@@ -1892,11 +1813,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         if (!reviewUri) {
             return;
         }
-        void this.storage.getData<string[]>(`akari-review-sent-annotations:${reviewUri}`, []).then(ids => {
+        void this.sentStore.read(reviewUri).then(ids => {
             if (sequence !== this.sentAnnotationsLoadSequence || reviewUri !== this.sentAnnotationsReviewUri) {
                 return;
             }
-            this.sentAnnotationIds = new Set(Array.isArray(ids) ? ids.filter(id => typeof id === 'string') : []);
+            this.sentAnnotationIds = new Set(ids);
             this.renderList();
         });
     }
@@ -1906,18 +1827,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         if (!reviewUri) {
             return;
         }
-        this.sentAnnotationIds.add(id);
-        await this.storage.setData(
-            `akari-review-sent-annotations:${reviewUri}`,
-            [...this.sentAnnotationIds]
-        );
-        this.renderList();
+        await this.sentStore.mark(reviewUri, id);
     }
 
     protected async sendAnnotationToAgent(annotation: Annotation): Promise<void> {
-        const uiTarget = parseUiTarget(annotation.target);
-        const targetLabel = uiTarget ? buildUiTargetRow(uiTarget.id, this.uiTargetLabels).label : null;
-        await handAnnotation(annotation, targetLabel, {
+        await handAnnotation(annotation, this.uiTargetLabels, {
             hand: prompt => this.handPrompt(prompt, t('annotations.reviewPanelWidget.text.annotation')),
             markSent: id => this.markAnnotationSent(id)
         });

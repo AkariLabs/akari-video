@@ -4,6 +4,7 @@ setLanguage('ja');
 after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { ReviewSessionRecorder } from '../lib/browser/review-session-recorder.js';
 
 const MICROPHONE_DENIED_MESSAGE = 'マイクの使用が許可されませんでした。設定で権限を確認してください。';
@@ -270,6 +271,38 @@ test('records completed strokes on the session clock and discards a pending stro
 
         recorder.handleStrokeStart(active.editUri, { timelineT: 4, sourceT: 14, cutIndex: 0 });
         recorder.handleTransport(active.editUri, { type: 'play', timelineT: 4 });
+        recorder.handleStrokeEnd(active.editUri, [[0, 0], [1, 1]]);
+        await active.writeTail;
+        assert.equal(stored.length, 1);
+    } finally {
+        recorder.active = undefined;
+        restorePerformance();
+    }
+});
+
+test('second-row stroke messages record while paused in neutral mode, but not during playback', async () => {
+    const stored = [];
+    const recorder = new ReviewSessionRecorder({
+        appendReviewSessionStroke: async request => stored.push(request.stroke)
+    }, () => undefined);
+    const active = {
+        editUri: 'file:///project/edit.json', sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 0, lastRecT: 0, transport: { timelineT: 3, playing: false, rate: 1 },
+        writeTail: Promise.resolve(), nextStrokeNumber: 1
+    };
+    const restorePerformance = replaceGlobal('performance', { now: () => 500 });
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'neutral', sessionActive: true };
+    try {
+        const frame = { timelineT: 3, sourceT: 13, cutIndex: 0 };
+        recorder.handleStrokeStart(active.editUri, frame);
+        recorder.handleStrokeEnd(active.editUri, [[0, 0], [0.5, 0.5]]);
+        await active.writeTail;
+        assert.equal(stored.length, 1);
+        assert.equal(stored[0].space, 'content-rect');
+        active.transport.playing = true;
+        recorder.handleStrokeStart(active.editUri, frame);
         recorder.handleStrokeEnd(active.editUri, [[0, 0], [1, 1]]);
         await active.writeTail;
         assert.equal(stored.length, 1);
@@ -1108,82 +1141,9 @@ test('handleRectStart is a no-op unless toolMode is rect (defense in depth along
     }
 });
 
-// task.md 指示6: 1=select/2=pen/3=rect/Esc=neutral, active session only, inert while typing.
-
-test('keyboard shortcuts switch tool mode while recording, and Escape resets to neutral', async () => {
-    const events = [];
-    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
-    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
-    const recorder = new ReviewSessionRecorder(service, () => undefined);
-    const active = {
-        editUri: 'file:///project/edit.json',
-        sessionDir: 'file:///project/review/sessions/s-0001',
-        monotonicStartedAt: 1_000,
-        lastRecT: 0,
-        writeTail: Promise.resolve()
-    };
-    recorder.active = active;
-    recorder.status = 'recording';
-    recorder.toolModeState = { mode: 'neutral', sessionActive: true };
-    const key = (value, target) => ({
-        key: value,
-        target: target ?? { tagName: 'DIV' },
-        metaKey: false,
-        ctrlKey: false,
-        altKey: false,
-        preventDefault: () => undefined
-    });
-    try {
-        recorder.handleKeydown(key('2'));
-        recorder.handleKeydown(key('3'));
-        recorder.handleKeydown(key('Escape'));
-        await active.writeTail;
-        assert.deepEqual(events.map(event => event.mode), ['pen', 'rect', 'neutral']);
-    } finally {
-        recorder.active = undefined;
-        recorder.status = 'idle';
-        restorePerformance();
-    }
-});
-
-test('keyboard shortcuts are inert while a text input has focus (event target or document.activeElement)', async () => {
-    const events = [];
-    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
-    const restoreDocument = replaceGlobal('document', { activeElement: { tagName: 'TEXTAREA' } });
-    const recorder = new ReviewSessionRecorder(service, () => undefined);
-    const active = {
-        editUri: 'file:///project/edit.json',
-        sessionDir: 'file:///project/review/sessions/s-0001',
-        monotonicStartedAt: 1_000,
-        lastRecT: 0,
-        writeTail: Promise.resolve()
-    };
-    recorder.active = active;
-    recorder.status = 'recording';
-    try {
-        recorder.handleKeydown({
-            key: '2', target: { tagName: 'DIV' }, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => undefined
-        });
-        recorder.handleKeydown({
-            key: '2', target: { tagName: 'INPUT' }, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => undefined
-        });
-        await active.writeTail;
-        assert.equal(events.length, 0);
-    } finally {
-        recorder.active = undefined;
-        recorder.status = 'idle';
-        restoreDocument();
-    }
-});
-
-test('keyboard shortcuts outside a recording session are inert', async () => {
-    const events = [];
-    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
-    const recorder = new ReviewSessionRecorder(service, () => undefined);
-    recorder.handleKeydown({
-        key: '2', target: { tagName: 'DIV' }, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => undefined
-    });
-    assert.equal(events.length, 0);
+test('recording shortcuts have no listener or mode-change entry', () => {
+    const source = readFileSync(new URL('../src/browser/review-session-recorder.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /installKeydownListener|handleKeydown|keydownListener/);
 });
 
 test('installs a capture-phase click listener only while recording, and removes it on stop', async () => {
