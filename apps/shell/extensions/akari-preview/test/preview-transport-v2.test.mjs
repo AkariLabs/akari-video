@@ -7,6 +7,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
 const source = readHandlerSource();
+const review = readFileSync(new URL('../src/browser/preview-chat-review.ts', import.meta.url), 'utf8');
 const htmlStart = source.indexOf('return `<!doctype html>');
 const html = source.slice(htmlStart, source.indexOf('</html>', htmlStart));
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
@@ -34,7 +35,7 @@ test('舞台とシークは左右余白ゼロ、上 3px と操作行の下余白
     assert.match(rule('.transport-seek #seek'), /margin:\s*0;/);
     const controls = rule('.transport-controls');
     assert.match(controls, /grid-template-columns:\s*minmax\(0,1fr\) auto minmax\(0,1fr\);/);
-    assert.match(controls, /grid-template-areas:\s*"left center tail";/);
+    assert.match(controls, /grid-template-areas:\s*"lead center tail";/);
     assert.match(controls, /min-height:\s*32px;/);
     assert.match(controls, /padding:\s*0 6px 1px;/);
     assert.match(controls, /box-sizing:\s*border-box;/);
@@ -48,8 +49,11 @@ test('舞台とシークは左右余白ゼロ、上 3px と操作行の下余白
 test('操作行内側に揃うポップアップは右側コントロールを absolute の基準にする', () => {
     assert.match(rule('.transport-right'), /position:\s*relative;/);
     assert.match(rule('.transport-tail'), /justify-content:\s*flex-end;/);
+    assert.match(rule('.transport-lead'), /grid-area:\s*lead;\s*display:\s*flex;/);
     assert.match(rule('.review-toolbar'), /display:\s*contents;/);
-    assert.match(rule('.transport-left'), /position:\s*relative;/);
+    assert.match(rule('.transport-controls > .transport-lead > .transport-left'), /position:\s*relative;/);
+    assert.match(html, /<div class="transport-lead"><div class="transport-left">/);
+    assert.match(review, /if \(lead\) lead\.append\(toolbar\);\s*else if \(tail\) tail\.append\(toolbar\);\s*else controls\.after\(toolbar\);/);
     assert.match(rule('.zoom-popup'), /position:\s*absolute;\s*right:\s*0;/);
     const right = html.slice(html.indexOf('<div class="transport-right">'));
     assert.match(right, /id="rate-popup" class="zoom-popup"/);

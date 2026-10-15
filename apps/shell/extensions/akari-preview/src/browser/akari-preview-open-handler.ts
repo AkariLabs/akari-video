@@ -8854,16 +8854,18 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid var(--akari-seek-played); border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { transform: scale(1.15); }
-.transport-controls { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); grid-template-areas: "left center tail"; align-items: center; min-width: 0; min-height: 32px; padding: 0 6px 1px; box-sizing: border-box; column-gap: 4px; }
+.transport-controls { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); grid-template-areas: "lead center tail"; align-items: center; min-width: 0; min-height: 32px; padding: 0 6px 1px; box-sizing: border-box; column-gap: 4px; }
 .transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 6px; }
-.transport-left { grid-area:left; position: relative; min-width: 0; justify-self: start; }
+.transport-lead { grid-area:lead; display:flex; align-items:center; min-width:0; }
+.transport-controls > .transport-lead > .transport-left { position:relative; flex:none; min-width:0; }
 .transport-center { grid-area:center; justify-self: center; }
 .transport-tail { grid-area:tail; display:flex; align-items:center; justify-content:flex-end; min-width:0; white-space:nowrap; }
 .transport-right { position: relative; flex:none; }
 .review-toolbar { display:contents; }
-.review-toolbar [data-review-hint] { order:-1; flex:1 1 auto; min-width:0; padding-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--akari-time-fg); font-size:11px; }
+.review-toolbar [data-review-hint] { order:2; flex:1 1 auto; min-width:0; margin-right:4px; padding-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; color:var(--akari-time-fg); font-size:11px; }
 .review-toolbar [data-review-hint][hidden] { display:none; }
-.review-tools { display:flex; flex:none; align-items:center; gap:3px; margin-left:4px; }
+.review-tools { order:1; display:flex; flex:none; align-items:center; gap:3px; margin-left:4px; }
+.review-tools::before { content:""; flex:none; height:18px; width:1px; margin:0 3px; background:var(--akari-transport-fg); opacity:.35; }
 .review-tools .icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"],
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"]:is(:hover,:active) { color:#f97316; background:transparent; box-shadow:none; }
@@ -8918,8 +8920,13 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 #review-range-controls button { min-height:24px; border:0; border-radius:4px; padding:2px 4px; background:var(--akari-control-active); color:var(--akari-transport-fg); cursor:pointer; font-size:11px; }
 .transport { container-type:inline-size; }
 @container (max-width:960px) {
-  .transport-controls { grid-template-areas:"left center ." "tail tail tail"; row-gap:0; }
-  .transport-tail { grid-column:1 / -1; }
+  .transport-controls { grid-template-areas:"left center hint" "tools tools tools"; row-gap:0; }
+  .transport-lead { display:contents; }
+  .transport-controls > .transport-lead > .transport-left { grid-area:left; justify-self:start; }
+  .review-toolbar [data-review-hint] { grid-area:hint; justify-self:end; width:100%; box-sizing:border-box; margin-right:0; padding-left:0; text-align:right; }
+  .review-tools { grid-area:tools; justify-self:start; margin-left:0; }
+  .review-tools::before { display:none; }
+  .transport-tail { grid-area:tools; grid-column:1 / -1; justify-self:end; }
   .transport-right .icon-button, .review-tools .icon-button { width:26px; height:26px; }
 }
 @container (max-width:480px) {
@@ -9111,11 +9118,11 @@ ${previewSelectionHandlesStyle}
     ${materialRangeEnabled ? `<div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="${t('preview.previewWindow.transport.setInAction')}">I</button><button id="material-range-button-out" title="${t('preview.previewWindow.transport.setOutAction')}">O</button><button id="material-range-button-clear" title="${t('preview.previewWindow.transport.clearRangeAction')}">×</button></div>` : ''}
   </div>
   <div class="transport-controls">
-    <div class="transport-left">
+    <div class="transport-lead"><div class="transport-left">
       <button id="audio-meter-open" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.audioMeterLabel')}" title="${t('preview.previewWindow.transport.audioMeterLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <span id="time-label">0:00 / 0:00</span>
       <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
-    </div>
+    </div></div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.skipBackLabel')}" title="${t('preview.previewWindow.transport.skipBackLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
       <button id="frame-back" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.frameBackLabel')}" title="${t('preview.previewWindow.transport.frameBackLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM18 5v14l-9-7z"/></svg></button>
