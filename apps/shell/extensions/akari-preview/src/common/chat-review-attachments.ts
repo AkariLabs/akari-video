@@ -10,6 +10,13 @@ export interface ChatReviewMark {
     sourceLabel: string;
     time: number;
     timeEnd?: number;
+    sourceT?: number;
+    sourceRange?: [number, number];
+    cutIndex?: number | null;
+    src?: string;
+    points?: [number, number][];
+    annotationId?: string;
+    packet?: string;
     shape?: { x: number; y: number; w?: number; h?: number };
     elements?: string[];
     text: string;
@@ -17,6 +24,41 @@ export interface ChatReviewMark {
 }
 
 export const REVIEW_PENDING_PATH = '.akari/review/pending.json';
+
+export class ReviewAnnotationFailureGate {
+    private readonly failedRequests = new Map<string, string>();
+
+    shouldAttempt(key: string, request: string, retry = false): boolean {
+        return retry || this.failedRequests.get(key) !== request;
+    }
+
+    recordFailure(key: string, request: string): boolean {
+        const firstForRequest = this.failedRequests.get(key) !== request;
+        this.failedRequests.set(key, request);
+        return firstForRequest;
+    }
+
+    clear(key: string): void {
+        this.failedRequests.delete(key);
+    }
+}
+
+export function reviewAnnotationRequest(projectRootUri: string, mark: ChatReviewMark): {
+    projectRootUri: string; src?: string; sourceT: number; sourceRange?: [number, number];
+    strokes?: { tool: 'pen'; space: 'content-rect'; frame: { sourceT: number; cutIndex: number | null }; points: [number, number][] }[];
+    text: string;
+} {
+    const sourceT = mark.sourceT ?? mark.time;
+    return {
+        projectRootUri,
+        ...(mark.src ? { src: mark.src } : {}),
+        sourceT,
+        ...(mark.tool === 'range' && mark.sourceRange ? { sourceRange: mark.sourceRange } : {}),
+        ...(mark.tool === 'pen' && mark.points?.length ? { strokes: [{ tool: 'pen', space: 'content-rect',
+            frame: { sourceT, cutIndex: mark.cutIndex ?? null }, points: mark.points }] } : {}),
+        text: mark.text
+    };
+}
 
 export function normalizeReviewPoint(clientX: number, clientY: number,
     rect: { left: number; top: number; width: number; height: number }): { x: number; y: number } {

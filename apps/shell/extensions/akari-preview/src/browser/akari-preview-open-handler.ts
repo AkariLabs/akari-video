@@ -9,7 +9,7 @@ import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewChatReviewScript } from './preview-chat-review';
 import { attachReviewToPartner, currentReviewPartner } from './preview-chat-review-host';
 import { ChatAttachment, ChatReviewMark, parseReviewPending, serializeReviewPending,
-    REVIEW_PENDING_PATH, updateReviewPending } from '../common/chat-review-attachments';
+    REVIEW_PENDING_PATH, updateReviewPending, reviewAnnotationRequest, ReviewAnnotationFailureGate } from '../common/chat-review-attachments';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
 import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
@@ -595,14 +595,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected currentAppVersionPromise?: Promise<string | undefined>;
     protected readonly reviewChatWrites = new Map<string, Promise<void>>();
+    protected readonly reviewAnnotationFailures = new ReviewAnnotationFailureGate();
 
     protected async handleChatReviewMessage(widget: PreviewWidgetMarker, identityUri: URI,
         kind: 'raw' | 'output', message: any): Promise<void> {
+        const workspaceRoots = await this.workspaceService.roots;
+        const normalizePath = (uri: URI): string => uri.toString().replace(/^file:\/\/\/tmp(?=\/|$)/, 'file:///private/tmp').replace(/\/$/, '');
+        const containingRoot = (uri: URI): URI | undefined => workspaceRoots
+            .filter(root => normalizePath(uri) === normalizePath(root.resource)
+                || normalizePath(uri).startsWith(normalizePath(root.resource) + '/'))
+            .sort((left, right) => normalizePath(right.resource).length - normalizePath(left.resource).length)[0]?.resource;
         const projectRoot = kind === 'output' ? identityUri.parent
-            : widget.akariPreviewRelatedEditUri?.parent
-                ?? (await this.workspaceService.roots).find(root => identityUri.toString()
-                    .startsWith(root.resource.toString().replace(/\/$/, '') + '/'))?.resource;
-        if (!projectRoot) {
+            : widget.akariPreviewRelatedEditUri?.parent ?? containingRoot(identityUri);
+        const workspaceRootUri = projectRoot && containingRoot(projectRoot)?.toString();
+        if (!projectRoot || !workspaceRootUri) {
             this.messages.warn(renderT('preview.openHandler.ui.openProjectFirstMessage'));
             return;
         }
@@ -623,6 +629,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return identified;
             });
             let attachments: ChatAttachment[] = current;
+            const createAnnotation = async (mark: ChatReviewMark, notify = true, retry = false): Promise<ChatReviewMark> => {
+                if (mark.annotationId || (mark.tool !== 'pen' && !mark.text.trim())) return mark;
+                const failureKey = `${key}\0${mark.id ?? ''}`;
+                const request = reviewAnnotationRequest(workspaceRootUri, mark);
+                const requestKey = JSON.stringify(request);
+                if (!this.reviewAnnotationFailures.shouldAttempt(failureKey, requestKey, retry)) return mark;
+                try {
+                    const result = await this.commandRegistry.executeCommand<{ id: string }>(
+                        'akari.annotations.createFromPreview', request);
+                    if (!result?.id) throw new Error('Missing annotation id');
+                    this.reviewAnnotationFailures.clear(failureKey);
+                    return { ...mark, annotationId: result.id };
+                } catch {
+                    const firstForRequest = this.reviewAnnotationFailures.recordFailure(failureKey, requestKey);
+                    if (notify && firstForRequest) this.messages.warn(renderT('preview.openHandler.ui.annotationCreateFailedMessage'));
+                    return mark;
+                }
+            };
             if (message.type === 'akari-preview-chat-review-add') {
                 const mark = message.review as ChatReviewMark;
                 const candidate: ChatAttachment = { kind: 'review', label: renderT('preview.openHandler.ui.reviewTimeLabel', { sourceLabel: mark.sourceLabel, time: mark.time.toFixed(1) }), review: mark };
@@ -633,25 +657,38 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ? current.findIndex(item => item.kind === 'review' && item.review.id === message.id)
                     : message.index;
                 if (!Number.isInteger(index) || index < 0 || index >= current.length) return;
+                const removed = current[index];
+                if (removed.kind === 'review') this.reviewAnnotationFailures.clear(`${key}\0${removed.review.id ?? ''}`);
                 attachments = current.filter((_, position) => position !== index);
             } else if (message.type === 'akari-preview-chat-review-update') {
                 if (!Number.isInteger(message.index) || message.index < 0 || message.index >= current.length) return;
                 const target = current[message.index];
                 if (target.kind !== 'review') return;
-                const mark = message.review as ChatReviewMark;
+                const mark = { ...(message.review as ChatReviewMark),
+                    text: target.review.annotationId ? target.review.text : message.review.text,
+                    annotationId: target.review.annotationId };
                 if (typeof message.id === 'string' && target.review.id !== message.id) return;
                 if (mark?.id !== target.review.id) return;
                 const candidate: ChatAttachment = { ...target, review: mark };
                 if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) return;
                 const updated = updateReviewPending(current, message.index, mark);
                 if (updated === current) return;
-                attachments = updated;
+                attachments = updated.map((item, index) => index === message.index && item.kind === 'review'
+                    ? { ...item, review: { ...item.review, annotationId: target.review.annotationId } } : item);
+                const saved = attachments[message.index];
+                if (saved.kind === 'review' && !saved.review.annotationId) {
+                    attachments[message.index] = { ...saved, review: await createAnnotation(saved.review) };
+                }
             } else if (message.type === 'akari-preview-chat-review-attach') {
                 if (!current.length) return;
-                if (!await attachReviewToPartner(projectRoot, current, await currentReviewPartner(this.commandRegistry),
-                    this.commandRegistry, this.fileService, this.clipboard, this.messages,
+                attachments = await Promise.all(current.map(async item => item.kind === 'review' && !item.review.annotationId
+                    ? { ...item, review: await createAnnotation(item.review, false, true) } : item));
+                if (attachments.some(item => item.kind === 'review' && !item.review.annotationId)) {
+                    this.messages.warn(renderT('preview.openHandler.ui.annotationCreateFailedMessage'));
+                } else if (!await attachReviewToPartner(projectRoot, workspaceRootUri, attachments, await currentReviewPartner(this.commandRegistry),
+                    this.commandRegistry, this.fileService, this.messages,
                     this.preferences.get<boolean>('akari.chat.experimental.enabled', false))) return;
-                attachments = [];
+                else attachments = [];
             }
             if (attachments !== current || assignedIds) {
                 await this.fileService.createFolder(projectRoot.resolve('.akari/review'));
@@ -8827,6 +8864,8 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 #review-chat-layer.is-active { pointer-events:auto; cursor:crosshair; }
 #review-chat-layer [data-review-ink], #review-chat-layer [data-review-marks] { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
 #review-chat-layer [data-review-ink] polyline { fill:none; stroke:#fb923c; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+#review-chat-layer .review-mark-stroke { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+#review-chat-layer .review-mark-stroke polyline { fill:none; stroke:#fb923c; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
 .review-mark { position:absolute; display:grid; place-items:center; min-width:20px; min-height:20px; border-radius:50%; background:#f97316; color:#171717; font-size:11px; font-weight:700; transform:translate(-50%,-50%); }
 .review-mark.pen { box-sizing:border-box; transform:none; border:2px solid #fb923c; background:rgba(249,115,22,.12); color:#fff; pointer-events:none; }
 .review-mark.pen [data-review-badge] { position:absolute; left:0; top:0; display:grid; place-items:center; min-width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); background:#f97316; color:#171717; }

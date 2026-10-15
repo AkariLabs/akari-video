@@ -1184,6 +1184,14 @@ export function previewBootstrapScript(): string {
                     ...(segment && typeof segment.trackId === 'string' ? { trackId: segment.trackId } : {})
                 };
             };
+            window.akari.previewReviewState = () => ({ recording: reviewRecordingActive, playing: isPlaying });
+            window.akari.previewAnnotationFrame = () => {
+                const mapped = timelineToSource(outputTime);
+                const segment = segments[mapped.index];
+                return { ...currentFrame(), ...(segment?.kind === 'src' && typeof segment.src === 'string'
+                    ? { src: segment.src } : initial.kind === 'raw' && typeof initial.reviewSource === 'string'
+                        ? { src: initial.reviewSource } : {}) };
+            };
             penLayer.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
                 if (canDraw() && !currentStroke) {

@@ -11,9 +11,11 @@ function node() {
   const children = new Map();
   const listeners = new Map();
   const element = {
-    dataset: {}, style: {}, hidden: false, value: '12', max: '30',
+    dataset: {}, style: {}, attributes: {}, appended: [], hidden: false, value: '12', max: '30',
     classList: { toggle() {}, add() {}, remove() {} },
-    append() {}, after() {}, replaceChildren() {}, setAttribute() {}, toggleAttribute() {},
+    append(...items) { this.appended.push(...items); }, after() {},
+    replaceChildren(...items) { this.appended = items; },
+    setAttribute(name, value) { this.attributes[name] = value; }, toggleAttribute() {},
     hasAttribute() { return false; }, contains() { return true; },
     addEventListener(type, listener) { listeners.set(type, listener); },
     dispatch(type, event) { return listeners.get(type)?.(event); },
@@ -29,7 +31,7 @@ function node() {
   return element;
 }
 
-function reviewPage() {
+function reviewPage(recording = false) {
   const stage = node();
   const transport = node();
   const seek = node();
@@ -47,9 +49,12 @@ function reviewPage() {
     querySelectorAll(selector) { return selector === '#caption-plate .caption-row-plate' ? [plate] : []; },
     createElement() {
       const element = node();
-      if (++created === 2) document.createdToolbar = element;
+      created += 1;
+      if (created === 1) document.createRoot = element;
+      if (created === 2) document.createdToolbar = element;
       return element;
     },
+    createElementNS(_namespace, name) { const element = node(); element.tagName = name; return element; },
     createTreeWalker() { return { nextNode: (() => { let once = false; return () => {
       if (once) return null;
       once = true;
@@ -59,16 +64,65 @@ function reviewPage() {
   };
   const listeners = new Map();
   const posted = [];
+  const strokes = [];
   const window = {
     __akariPreview: { kind: 'output', reviewSource: 'edit.json', summary: {
       captions: [{ at: 0, duration: 30, text: 'Caption', box: { x: .4, y: .4, w: .2, h: .2 } }],
       cuts: [{ at: 0, duration: 30, sourcePath: 'clip.mp4' }]
     } },
-    akari: { reviewChatPost(message) { posted.push(message); } },
+    akari: { reviewChatPost(message) { posted.push(message); },
+      previewReviewState: () => ({ recording, playing: false }),
+      previewAnnotationFrame: () => ({ timelineT: 12, sourceT: 3.5, cutIndex: 2,
+        itemId: 'item-a', trackId: 'V1', src: 'clip-a' }),
+      reviewStrokeStart(frame) { strokes.push(['start', frame]); },
+      reviewStrokeEnd(points) { strokes.push(['end', points]); } },
     addEventListener(type, listener) { listeners.set(type, listener); }
   };
-  return { document, window, stage, transport, seek, listeners, posted };
+  return { document, window, stage, transport, seek, listeners, posted, strokes };
 }
+
+test('paused recording pen sends a source frame and content-rect points without adding a mark', () => {
+  const page = reviewPage(true);
+  runInNewContext(previewChatReviewScript(), { ...page, TextEncoder,
+    crypto: { randomUUID: () => 'review-1' }, setInterval() {},
+    setTimeout() { return 1; }, clearTimeout() {} });
+  page.document.createdToolbar.querySelector('.review-tools').dispatch('click', {
+    target: { closest: selector => selector === '[data-review-tool]'
+      ? { dataset: { reviewTool: 'pen' } } : null }
+  });
+  const pointer = (x, y) => ({ target: page.stage, button: 0, pointerId: 1,
+    clientX: x, clientY: y, preventDefault() {}, stopImmediatePropagation() {} });
+  page.listeners.get('pointerdown')(pointer(20, 30));
+  page.listeners.get('pointermove')(pointer(80, 70));
+  page.listeners.get('pointerup')(pointer(80, 70));
+  assert.equal(page.strokes[0][0], 'start');
+  assert.equal(JSON.stringify(page.strokes[0][1]), JSON.stringify({ timelineT: 12,
+    sourceT: 3.5, cutIndex: 2, itemId: 'item-a', trackId: 'V1' }));
+  assert.equal(JSON.stringify(page.strokes[1]), JSON.stringify(['end', [[.2, .3], [.8, .7]]]));
+  assert.equal(page.posted.some(message => message.type === 'akari-preview-chat-review-add'), false);
+});
+
+test('pen points render as a content-rect polyline; an old pen keeps its outline', () => {
+  const page = reviewPage();
+  runInNewContext(previewChatReviewScript(), { ...page, TextEncoder,
+    crypto: { randomUUID: () => 'review-1' }, setInterval() {},
+    setTimeout() { return 1; }, clearTimeout() {} });
+  const review = { id: 'new', tool: 'pen', source: 'edit.json', sourceLabel: 'Edit',
+    time: 12, text: '', shape: { x: .1, y: .2, w: .7, h: .5 },
+    points: [[.1, .2], [.8, .7]] };
+  page.listeners.get('message')({ data: { type: 'akari-preview-chat-review-state', attachments: [
+    { kind: 'review', label: 'new', review },
+    { kind: 'review', label: 'old', review: { ...review, id: 'old', points: undefined } }
+  ] } });
+  const marks = page.document.createRoot.querySelector('[data-review-marks]').appended;
+  assert.equal(marks.length, 3);
+  assert.equal(marks[0].tagName, 'svg');
+  assert.equal(marks[0].appended[0].tagName, 'polyline');
+  assert.equal(marks[0].appended[0].attributes.points, '10,20 80,70');
+  assert.equal(marks[1].dataset.reviewBadge, '0');
+  assert.equal(marks[1].style.left, '10%');
+  assert.equal(marks[2].className, 'review-mark pen');
+});
 
 test('minified output review collects pen, pin and range attachments in ja and en', async () => {
   try {
@@ -108,6 +162,11 @@ test('minified output review collects pen, pin and range attachments in ja and e
         assert.ok(button);
         button.dispatch('click', { target: { closest: selector => selector === '[data-review-tool]'
           ? { dataset: { reviewTool: tool } } : null } });
+        if (tool === 'range') {
+          page.seek.value = '13';
+          page.window.akari.previewAnnotationFrame = () => ({ timelineT: 13, sourceT: 4.5,
+            cutIndex: 2, src: 'clip-a' });
+        }
         const pointer = { target: page.stage, button: 0, pointerId: 1, clientX: 50, clientY: 50,
           preventDefault() {}, stopImmediatePropagation() {} };
         page.listeners.get('pointerdown')(pointer);

@@ -22,7 +22,3 @@ export function partnerReviewTarget(widget: {
         candidate.viewContainerIds.some(id => widget.id === `plugin-view-container:${id}`));
     return entry ? { kind: 'extension', name: entry.name } : undefined;
 }
-
-export function insertReviewText(terminal: { sendText(text: string): void }, text: string): void {
-    terminal.sendText(text);
-}

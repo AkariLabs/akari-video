@@ -13,7 +13,7 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
-import { insertReviewText, partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
+import { partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { CHAT_ENABLED_PREFERENCE, visibleReviewKind } from './partner-chat-visibility';
 import { choosePromptPartner, ForegroundWidget, PromptPartnerTarget, rememberPromptPartner } from '../common/prompt-partner-target';
@@ -73,7 +73,6 @@ export const AkariPartnerCommands = {
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
     CURRENT: { id: 'akari.partner.current' } as Command,
-    INSERT_TEXT: { id: 'akari.partner.insertText' } as Command,
     STOP_FOR_GUIDE: { id: 'akari.partner.stopForGuide' } as Command,
     HAS_LIVE_FOR_GUIDE: { id: 'akari.partner.hasLiveForGuide' } as Command,
     TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: t('partner.navigation.commands.typeInPartnerInputAction') } as Command
@@ -177,20 +176,6 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         });
         this.rememberForegroundPartner(this.shell.activeWidget);
         registry.registerCommand(AkariPartnerCommands.CURRENT, { execute: () => this.reviewTarget() });
-        registry.registerCommand(AkariPartnerCommands.INSERT_TEXT, {
-            execute: async (request: { text?: unknown }): Promise<boolean> => {
-                if (typeof request?.text !== 'string' || this.reviewTarget()?.kind !== 'terminal') return false;
-                const widget = this.currentReviewWidget();
-                const terminal = this.terminals.all.find(candidate => candidate.id === widget?.id &&
-                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed && !candidate.exitStatus && candidate.terminalId >= 0);
-                if (!terminal) return false;
-                try {
-                    await this.shell.activateWidget(terminal.id);
-                    insertReviewText(terminal, request.text);
-                    return true;
-                } catch { return false; }
-            }
-        });
         registry.registerCommand(AkariPartnerCommands.LOGIN_CLAUDE, { execute: async () => {
             const entry = PARTNER_CATALOG.find(candidate => candidate.agent === 'claude' && candidate.form === 'cli');
             if (!entry) return;

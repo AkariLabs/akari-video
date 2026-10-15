@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { Script } from 'node:vm';
 import {
   normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt, REVIEW_PENDING_PATH,
-  parseReviewPending, serializeReviewPending, reviewAttachArgument, reviewEscapeStep,
+  parseReviewPending, serializeReviewPending, reviewAttachArgument, reviewAnnotationRequest,
+  ReviewAnnotationFailureGate, reviewEscapeStep,
   reviewMemoEnterAction, updateReviewPending
 } from '../lib/common/chat-review-attachments.js';
 import { reviewThumbnailEviction, previewChatReviewScript } from '../lib/browser/preview-chat-review.js';
@@ -20,6 +21,40 @@ test('動画矩形から 0〜1 の座標とペン外接矩形を得る', () => {
   assert.equal(box.y, .4);
   assert.ok(Math.abs(box.w - .6) < 1e-10);
   assert.ok(Math.abs(box.h - .2) < 1e-10);
+});
+
+test('annotation request keeps source frames, ranges and content-rect strokes without sessionRef', () => {
+  const base = { tool: 'pen', source: 'edit.json', sourceLabel: 'edit', time: 12,
+    sourceT: 3.25, cutIndex: 2, src: 'clip-a', text: '',
+    points: [[.1, .2], [.8, .9]] };
+  assert.deepEqual(reviewAnnotationRequest('file:///project', base), {
+    projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25,
+    strokes: [{ tool: 'pen', space: 'content-rect', frame: { sourceT: 3.25, cutIndex: 2 },
+      points: [[.1, .2], [.8, .9]] }], text: ''
+  });
+  assert.deepEqual(reviewAnnotationRequest('file:///project', { ...base, tool: 'pin',
+    shape: { x: .5, y: .4 }, text: 'Fix this' }), {
+    projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25, text: 'Fix this'
+  });
+  assert.deepEqual(reviewAnnotationRequest('file:///project', { ...base, tool: 'range',
+    sourceRange: [3.25, 4.5], text: 'Shorten' }), {
+    projectRootUri: 'file:///project', src: 'clip-a', sourceT: 3.25,
+    sourceRange: [3.25, 4.5], text: 'Shorten'
+  });
+});
+
+test('one failed mark update notifies once, while handoff retries and can notify again', () => {
+  const gate = new ReviewAnnotationFailureGate();
+  const key = 'project:mark-1';
+  assert.equal(gate.shouldAttempt(key, 'memo A'), true);
+  assert.equal(gate.recordFailure(key, 'memo A'), true);
+  assert.equal(gate.shouldAttempt(key, 'memo A'), false);
+  assert.equal(gate.recordFailure(key, 'memo A'), false);
+  assert.equal(gate.shouldAttempt(key, 'memo A', true), true);
+  assert.equal(gate.shouldAttempt(key, 'memo B'), true);
+  assert.equal(gate.recordFailure(key, 'memo B'), true);
+  gate.clear(key);
+  assert.equal(gate.shouldAttempt(key, 'memo B'), true);
 });
 
 test('review thumbnails keep each pending item below 64KB and retain only 50 images', async () => {

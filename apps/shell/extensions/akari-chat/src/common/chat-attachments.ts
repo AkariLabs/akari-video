@@ -12,6 +12,7 @@ export interface ChatReviewMark {
     shape?: { x: number; y: number; w?: number; h?: number };
     elements?: string[];
     text: string;
+    packet?: string;
     thumbnail?: string;
 }
 
@@ -24,6 +25,7 @@ export function describeAttachments(attachments: readonly ChatAttachment[]): str
     return attachments.map(item => {
         if (item.kind === 'file') return t('chat.chatAttachments.ui.labelPathLabel', { label: item.label, path: item.path });
         const mark = item.review;
+        if (mark.packet !== undefined) return mark.packet;
         const span = reviewTimeSpan(mark);
         const tool = { pen: t('chat.chatAttachments.ui.penLabel'), pin: t('chat.chatAttachments.ui.pinLabel'), range: t('chat.chatAttachments.ui.rangeLabel') }[mark.tool];
         const context = mark.elements?.length ? t('chat.chatAttachments.ui.nearElementsLabel', { elements: mark.elements.join('、') }) : '';

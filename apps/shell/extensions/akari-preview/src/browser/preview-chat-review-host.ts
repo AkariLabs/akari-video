@@ -2,10 +2,8 @@ import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
-import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { ChatAttachment, reviewAttachArgument } from '../common/chat-review-attachments';
-import { describeReviewAttachments } from './preview-chat-review-text';
+import { ChatAttachment } from '../common/chat-review-attachments';
 import { reviewAttachDestination } from '../common/review-attach-destination';
 
 export interface ReviewPartnerTarget {
@@ -34,25 +32,54 @@ async function saveReviewImages(root: URI, attachments: readonly ChatAttachment[
     return paths;
 }
 
-export async function attachReviewToPartner(root: URI, attachments: readonly ChatAttachment[], target: ReviewPartnerTarget | undefined,
-    commands: CommandRegistry, files: FileService, clipboard: ClipboardService, messages: MessageService, chatEnabled = true): Promise<boolean> {
+function workspaceRelativeImagePath(projectRoot: URI, workspaceRootUri: string, imagePath: string): string {
+    const normalized = (uri: string): string => uri.replace(/^file:\/\/\/tmp(?=\/|$)/, 'file:///private/tmp').replace(/\/$/, '');
+    const root = normalized(workspaceRootUri);
+    const project = normalized(projectRoot.toString());
+    const projectPath = project === root ? '' : decodeURIComponent(project.slice(root.length + 1));
+    return projectPath ? `${projectPath}/${imagePath}` : imagePath;
+}
+
+export async function attachReviewToPartner(projectRoot: URI, workspaceRootUri: string,
+    attachments: readonly ChatAttachment[], target: ReviewPartnerTarget | undefined,
+    commands: CommandRegistry, files: FileService, messages: MessageService, chatEnabled = true): Promise<boolean> {
     const destination = reviewAttachDestination(target?.kind, chatEnabled);
     if (destination === 'chat') {
-        if (!commands.getCommand('akari.chat.attach')) {
-            messages.info(t('preview.previewChatReviewHost.ui.openAkariChatAction'));
+        if (!commands.getCommand('akari.chat.attach') || !commands.getCommand('akari.annotations.composePacket')) {
+            messages.error(t('preview.previewChatReviewHost.ui.packetFailedError'));
             return false;
         }
-        await commands.executeCommand('akari.chat.attach', reviewAttachArgument(attachments));
+        try {
+            const packetAttachments: ChatAttachment[] = [];
+            for (const item of attachments) {
+                if (item.kind !== 'review' || !item.review.annotationId) return false;
+                const packet = await commands.executeCommand<string>('akari.annotations.composePacket',
+                    { projectRootUri: workspaceRootUri, ids: [item.review.annotationId] });
+                if (typeof packet !== 'string' || !packet) throw new Error('Empty annotation packet');
+                packetAttachments.push({ ...item, review: { ...item.review, packet } });
+            }
+            await commands.executeCommand('akari.chat.attach', { attachments: packetAttachments });
+        } catch {
+            messages.error(t('preview.previewChatReviewHost.ui.packetFailedError'));
+            return false;
+        }
         return true;
     }
-    const images = await saveReviewImages(root, attachments, files);
-    const text = describeReviewAttachments(attachments, images);
-    if (destination === 'terminal' && commands.getCommand('akari.partner.insertText')) {
-        try {
-            if (await commands.executeCommand<boolean>('akari.partner.insertText', { text })) return true;
-        } catch { /* Clipboard fallback below. */ }
+    if (!commands.getCommand('akari.annotations.handToPartner')) {
+        messages.error(t('preview.previewChatReviewHost.ui.handoffFailedError'));
+        return false;
     }
-    await clipboard.writeText(text);
-    messages.info(target && target.kind !== 'chat' ? t('preview.previewChatReviewHost.ui.pasteIntoInputFieldTargetAction', { target: target.name }) : t('preview.previewChatReviewHost.ui.reviewCopiedClipboardLabel'));
+    const images = await saveReviewImages(projectRoot, attachments, files);
+    const ids = attachments.flatMap(item => item.kind === 'review' && item.review.annotationId ? [item.review.annotationId] : []);
+    if (ids.length !== attachments.length) return false;
+    const extraLines = [...images.values()].map(path => t('preview.previewChatReviewHost.ui.frameImagePathLabel',
+        { path: workspaceRelativeImagePath(projectRoot, workspaceRootUri, path) }));
+    try {
+        void commands.executeCommand('akari.annotations.handToPartner', { projectRootUri: workspaceRootUri, ids, extraLines })
+            .catch(() => messages.error(t('preview.previewChatReviewHost.ui.handoffFailedError')));
+    } catch {
+        messages.error(t('preview.previewChatReviewHost.ui.handoffFailedError'));
+        return false;
+    }
     return true;
 }

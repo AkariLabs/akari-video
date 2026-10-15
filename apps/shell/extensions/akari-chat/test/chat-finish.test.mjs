@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { describeAttachments } from '../lib/common/chat-attachments.js';
+
+test('composed annotation packet replaces the legacy review body', () => {
+  const text = describeAttachments([{ kind: 'review', label: 'Review', review: {
+    tool: 'pin', source: 'edit.json', sourceLabel: 'Edit', time: 2, text: 'legacy',
+    packet: 'Prepared annotation packet'
+  } }]);
+  assert.equal(text, 'Prepared annotation packet');
+});
 import { connectorPrefill, initialChatPermission, partnerPermission, partnerPermissionAfterChoice,
     permissionOption, runningTools } from '../lib/common/chat-ui-logic.js';
 import { screenRecordingFormat } from '../lib/common/screen-recording.js';

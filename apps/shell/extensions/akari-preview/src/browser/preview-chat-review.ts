@@ -59,6 +59,8 @@ export function previewChatReviewScript(): string {
         const source = initial.reviewSource || (initial.kind === 'output' ? 'edit.json' : ${JSON.stringify(translate('preview.chatReview.source.defaultVideoLabel', {}, 'ja'))});
         const sourceLabel = initial.reviewSourceLabel || (initial.kind === 'output' ? ui.editingPreview : ui.exportedVideo);
         const currentTime = () => Number(seek.value) || 0;
+        const frameAt = () => window.akari?.previewAnnotationFrame?.() ||
+            { timelineT: currentTime(), sourceT: currentTime(), cutIndex: null, src: initial.reviewSource };
         const clock = time => {
             const seconds = Math.max(0, Math.floor(time));
             return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
@@ -88,6 +90,7 @@ export function previewChatReviewScript(): string {
             }, 0);
         };
         let rangeStart = null;
+        let rangeStartFrame = null;
         let trimTail = Promise.resolve();
         const waitForState = predicate => new Promise(resolve => {
             const timer = setTimeout(() => { stateWaiters.delete(done); resolve(false); }, 5000);
@@ -121,6 +124,16 @@ export function previewChatReviewScript(): string {
         root.id = 'review-chat-layer';
         root.innerHTML = '<svg data-review-ink viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div data-review-marks></div>';
         stage.append(root);
+        const contentRect = () => (document.getElementById('pen-layer') || stage).getBoundingClientRect();
+        const syncContentRect = () => {
+            const outer = stage.getBoundingClientRect();
+            const content = contentRect();
+            root.style.inset = 'auto';
+            root.style.left = (content.left - outer.left) + 'px';
+            root.style.top = (content.top - outer.top) + 'px';
+            root.style.width = content.width + 'px';
+            root.style.height = content.height + 'px';
+        };
         const ink = root.querySelector('[data-review-ink]');
         const marksNode = root.querySelector('[data-review-marks]');
         const toolbar = document.createElement('div');
@@ -154,6 +167,7 @@ export function previewChatReviewScript(): string {
             if (badge.hasAttribute('data-review-badge')) badge.toggleAttribute('data-review-active', active);
         };
         const render = () => {
+            syncContentRect();
             sendButton.textContent = partnerName === ui.clipboard ? ui.copyToClipboard : formatUi(ui.attachToPartner, { name: partnerName });
             attachButton.hidden = marks.length === 0;
             attachButton.dataset.reviewAttachCount = String(marks.length);
@@ -202,6 +216,33 @@ export function previewChatReviewScript(): string {
                 dot.className = 'review-seek-dot';
                 dot.style.left = (100 * mark.time / duration) + '%';
                 seekMarks.append(dot);
+                const strokePoints = mark.tool === 'pen' && Array.isArray(mark.points)
+                    ? mark.points.filter(point => Array.isArray(point) && point.length === 2
+                        && point.every(value => Number.isFinite(value) && value >= 0 && value <= 1)) : [];
+                if (strokePoints.length >= 2) {
+                    const stroke = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    stroke.classList.add('review-mark-stroke');
+                    stroke.setAttribute('viewBox', '0 0 100 100');
+                    stroke.setAttribute('preserveAspectRatio', 'none');
+                    stroke.dataset.reviewTime = String(mark.time);
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    line.setAttribute('points', strokePoints.map(point =>
+                        (point[0] * 100) + ',' + (point[1] * 100)).join(' '));
+                    stroke.append(line);
+                    setBadgeActive(stroke, currentTime());
+                    marksNode.append(stroke);
+                    const badge = document.createElement('span');
+                    badge.className = 'review-mark pen-point';
+                    badge.dataset.reviewIndex = String(index);
+                    badge.dataset.reviewTime = String(mark.time);
+                    badge.dataset.reviewBadge = String(index);
+                    badge.textContent = String(index + 1);
+                    badge.style.left = (strokePoints[0][0] * 100) + '%';
+                    badge.style.top = (strokePoints[0][1] * 100) + '%';
+                    setBadgeActive(badge, currentTime());
+                    marksNode.append(badge);
+                    continue;
+                }
                 if (!mark.shape) continue;
                 const badge = document.createElement('span');
                 badge.className = 'review-mark ' + mark.tool;
@@ -304,6 +345,11 @@ export function previewChatReviewScript(): string {
             if (!activeNote) return true;
             const index = markIndex(activeNote.id);
             if (index < 0) { activeNote = null; render(); return true; }
+            if (marks[index].review.annotationId) {
+                memo.value = marks[index].review.text;
+                if (close) { activeNote = null; render(); }
+                return true;
+            }
             const review = { ...marks[index].review, text: memo.value.trim() };
             const candidate = { ...marks[index], review };
             const size = item => new TextEncoder().encode(JSON.stringify(item)).byteLength;
@@ -314,7 +360,7 @@ export function previewChatReviewScript(): string {
                 return false;
             }
             memo.setCustomValidity('');
-            if (review.text !== activeNote.savedText || review.thumbnail !== marks[index].review.thumbnail) {
+            if (review.text !== activeNote.savedText || review.thumbnail !== marks[index].review.thumbnail || (close && activeNote.fresh)) {
                 requestUpdate(index, review);
                 activeNote.savedText = review.text;
             }
@@ -347,14 +393,18 @@ export function previewChatReviewScript(): string {
             }
             activeNote = { id: item.review.id, savedText: item.review.text, fresh };
             memo.value = item.review.text;
+            memo.readOnly = Boolean(item.review.annotationId);
             render();
             memo.focus();
             memo.setSelectionRange(memo.value.length, memo.value.length);
         };
-        const beginNote = (kind, time, shape, clientX, clientY) => {
+        const beginNote = (kind, time, shape, clientX, clientY, points, frame) => {
             if (activeNote && !saveNote(true)) return;
+            const at = frame || frameAt();
+            const endFrame = kind === 'range' ? frameAt() : null;
+            if (endFrame && endFrame.sourceT === at.sourceT) return;
             const point = shape ? { x: shape.x + (shape.w || 0) / 2, y: shape.y + (shape.h || 0) / 2 } : { x: .5, y: .5 };
-            const stageRect = stage.getBoundingClientRect();
+            const stageRect = contentRect();
             const hit = kind === 'pen' && shape
                 ? { kind: 'rect', left: stageRect.left + shape.x * stageRect.width,
                     top: stageRect.top + shape.y * stageRect.height,
@@ -367,7 +417,11 @@ export function previewChatReviewScript(): string {
                 ? [...new Set([...domLabels, ...elementsAt({ ...initial.summary, captions: window.akari?.previewCaptions || initial.captions }, time, point, attachmentUi)])]
                 : [];
             const review = { id: crypto.randomUUID(), tool: kind, source, sourceLabel, time,
+                sourceT: at.sourceT, cutIndex: at.cutIndex, ...(at.src ? { src: at.src } : {}),
+                ...(points?.length ? { points } : {}),
                 ...(kind === 'range' ? { timeEnd: currentTime() } : {}),
+                ...(endFrame ? { sourceRange: [Math.min(at.sourceT, endFrame.sourceT),
+                    Math.max(at.sourceT, endFrame.sourceT)] } : {}),
                 ...(shape ? { shape } : {}), elements, text: '', thumbnail: thumbnail() };
             const item = { kind: 'review', label: formatUi(ui.reviewLabel, { sourceLabel: review.sourceLabel, time: review.time.toFixed(1) }), review };
             if (new TextEncoder().encode(JSON.stringify(item)).byteLength > 64 * 1024) review.thumbnail = undefined;
@@ -375,7 +429,7 @@ export function previewChatReviewScript(): string {
             pendingAdds.set(review.id, item);
             post({ type: 'akari-preview-chat-review-add', review });
             openNote(marks.length - 1, true);
-            if (kind === 'range') rangeStart = null;
+            if (kind === 'range') { rangeStart = null; rangeStartFrame = null; }
             void trim(50);
         };
         buttons.addEventListener('click', event => {
@@ -384,6 +438,7 @@ export function previewChatReviewScript(): string {
                 if (activeNote && !saveNote(true)) return;
                 tool = tool === picked.dataset.reviewTool ? null : picked.dataset.reviewTool;
                 rangeStart = tool === 'range' ? currentTime() : null;
+                rangeStartFrame = tool === 'range' ? frameAt() : null;
                 render();
             } else if (event.target.closest('[data-review-attach-count]')) {
                 if (activeNote && !saveNote(true)) return;
@@ -394,9 +449,9 @@ export function previewChatReviewScript(): string {
         });
         rangeControls.addEventListener('click', event => {
             if (event.target.closest('[data-review-range-start]')) {
-                rangeStart = currentTime(); render();
+                rangeStart = currentTime(); rangeStartFrame = frameAt(); render();
             } else if (event.target.closest('[data-review-range-end]')) {
-                beginNote('range', rangeStart ?? currentTime());
+                beginNote('range', rangeStart ?? currentTime(), undefined, undefined, undefined, undefined, rangeStartFrame);
             }
         });
         window.addEventListener('pointerdown', event => {
@@ -412,12 +467,19 @@ export function previewChatReviewScript(): string {
             event.preventDefault(); event.stopImmediatePropagation();
             claimedPointerId = event.pointerId;
             claimReviewClick();
-            const rect = stage.getBoundingClientRect();
+            const rect = contentRect();
             const point = normalizePoint(event.clientX, event.clientY, rect);
             if (tool === 'pin') { beginNote('pin', currentTime(), point, event.clientX, event.clientY); return; }
-            if (tool === 'range') { beginNote('range', rangeStart ?? currentTime(), undefined, event.clientX, event.clientY); return; }
+            if (tool === 'range') { beginNote('range', rangeStart ?? currentTime(), undefined, event.clientX, event.clientY, undefined, rangeStartFrame); return; }
+            const frame = frameAt();
+            const recording = window.akari?.previewReviewState?.();
+            const recordingStroke = recording?.recording === true && recording.playing === false;
+            if (recordingStroke) window.akari?.reviewStrokeStart?.({ timelineT: frame.timelineT,
+                sourceT: frame.sourceT, cutIndex: frame.cutIndex,
+                ...(frame.itemId ? { itemId: frame.itemId } : {}),
+                ...(frame.trackId ? { trackId: frame.trackId } : {}) });
             drawing = { pointerId: event.pointerId, points: [point], time: currentTime(), rect,
-                x: event.clientX, y: event.clientY };
+                x: event.clientX, y: event.clientY, frame, recordingStroke };
         }, true);
         window.addEventListener('pointermove', event => {
             if (claimedPointerId !== event.pointerId) return;
@@ -435,12 +497,26 @@ export function previewChatReviewScript(): string {
             if (!drawing) return;
             const done = drawing; drawing = null;
             ink.replaceChildren();
+            const endpoint = normalizePoint(event.clientX, event.clientY, done.rect);
+            if (endpoint.x !== done.points[done.points.length - 1].x
+                || endpoint.y !== done.points[done.points.length - 1].y) done.points.push(endpoint);
+            const points = done.points.map(point => [point.x, point.y]);
+            if (done.recordingStroke) {
+                if (points.length >= 2) window.akari?.reviewStrokeEnd?.(points);
+                return;
+            }
+            if (points.length === 1) points.push([Math.min(1, points[0][0] + .001), points[0][1]]);
+            if (points.length > 100) {
+                const sampled = Array.from({ length: 100 }, (_, index) =>
+                    points[Math.round(index * (points.length - 1) / 99)]);
+                points.splice(0, points.length, ...sampled);
+            }
             const shape = boxFromPoints(done.points);
             if (shape && done.points.length === 1) {
                 shape.x = Math.max(0, shape.x - .035); shape.y = Math.max(0, shape.y - .035);
                 shape.w = .07; shape.h = .07;
             }
-            beginNote('pen', done.time, shape, done.x, done.y);
+            beginNote('pen', done.time, shape, done.x, done.y, points, done.frame);
         }, true);
         window.addEventListener('pointercancel', event => {
             if (claimedPointerId !== event.pointerId) return;
@@ -473,8 +549,9 @@ export function previewChatReviewScript(): string {
                 if (row) openNote(Number(row.dataset.reviewRow));
             }
         });
-        seek.addEventListener('pointerdown', () => { if (tool === 'range') rangeStart = currentTime(); });
-        seek.addEventListener('pointerup', () => { if (tool === 'range' && rangeStart !== null && currentTime() !== rangeStart) beginNote('range', rangeStart); });
+        seek.addEventListener('pointerdown', () => { if (tool === 'range') { rangeStart = currentTime(); rangeStartFrame = frameAt(); } });
+        seek.addEventListener('pointerup', () => { if (tool === 'range' && rangeStart !== null && currentTime() !== rangeStart)
+            beginNote('range', rangeStart, undefined, undefined, undefined, undefined, rangeStartFrame); });
         seek.addEventListener('input', render);
         const escapeOne = event => {
             const step = escapeStep({ noteOpen: Boolean(activeNote), trayOpen, tool,
@@ -526,7 +603,8 @@ export function previewChatReviewScript(): string {
                 for (const [id, pending] of pendingUpdates) {
                     const index = markIndex(id);
                     if (index < 0) { pendingUpdates.delete(id); continue; }
-                    if (JSON.stringify(marks[index].review) === JSON.stringify(pending.review)) {
+                    if (JSON.stringify(marks[index].review) === JSON.stringify(pending.review)
+                        || (marks[index].review.annotationId && marks[index].review.text === pending.review.text)) {
                         pendingUpdates.delete(id);
                     } else {
                         marks[index] = { ...marks[index], review: pending.review };
@@ -537,6 +615,7 @@ export function previewChatReviewScript(): string {
                     }
                 }
                 if (activeNote && markIndex(activeNote.id) < 0) activeNote = null;
+                if (activeNote) memo.readOnly = Boolean(marks[markIndex(activeNote.id)]?.review.annotationId);
             }
             partnerName = typeof event.data.partnerName === 'string' && /\\S/.test(event.data.partnerName)
                 ? event.data.partnerName : ui.clipboard;

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { partnerReviewTarget, insertReviewText } = require('../lib/browser/partner-review-target.js');
+const { partnerReviewTarget } = require('../lib/browser/partner-review-target.js');
 const catalog = [
     { form: 'cli', agent: 'claude', name: 'Claude Code CLI' },
     { form: 'cli', agent: 'codex', name: 'Codex CLI' },
@@ -21,11 +21,4 @@ test('右パネルの前面ウィジェットから渡し先を判定する', ()
         { kind: 'extension', name: 'Claude Code 拡張' });
     assert.deepEqual(partnerReviewTarget({ id: 'akari-chat-widget' }, catalog), { kind: 'chat', name: 'AKARI' });
     assert.equal(partnerReviewTarget({ id: 'unrelated' }, catalog), undefined);
-});
-
-test('PTY へ文章を書くだけで Enter を押さない', () => {
-    const writes = [];
-    insertReviewText({ sendText: text => writes.push(text) }, '[レビュー] 確認してください\n');
-    assert.deepEqual(writes, ['[レビュー] 確認してください\n']);
-    assert.equal(writes[0].includes('\r'), false);
 });
