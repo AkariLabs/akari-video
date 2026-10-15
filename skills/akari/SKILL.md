@@ -19,6 +19,13 @@ Use the `akari` CLI on PATH. If unavailable, use
 if that is also unavailable, run `packages/akari-launcher/bin/akari.mjs` from an actual repository checkout with
 `node`. If none exists, explain what is missing and stop; do not invent paths.
 
+## Recipes for external tools
+
+For work using external tools or generative AI, if a matching recipe exists, run `akari recipe plan <id>`
+to check connector candidates and gates. Follow the gate procedure when a gate blocks execution.
+Execute with the existing verbs, then run `akari project sync` and record each output as a manifest
+`tool-output` with `recipe: "<id>@<version>"`, `connector`, and `inputs_sha256`.
+
 ## Recommend a playbook
 
 Recommend at most twice: when starting a project and immediately after the user places new source material.

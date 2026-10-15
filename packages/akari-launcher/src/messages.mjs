@@ -335,7 +335,7 @@ export function describeCliHelp() {
     cliText('cli.help.header.usage'),
     '',
     cliText('cli.help.commands.heading'),
-    ...['launch', 'store', 'sounds', 'doctor', 'speakers', 'toolsVoice', 'update', 'status', 'migrate', 'migrateLook', 'generate', 'storyboard', 'project', 'playbook', 'clean'].map((name) => cliText(`cli.help.commands.${name}`)),
+    ...['launch', 'store', 'sounds', 'doctor', 'speakers', 'toolsVoice', 'update', 'status', 'migrate', 'migrateLook', 'generate', 'storyboard', 'project', 'playbook', 'recipe', 'clean'].map((name) => cliText(`cli.help.commands.${name}`)),
     '',
     cliText('cli.help.developer.heading'),
     ...['opencode', 'claude', 'yes', 'version', 'new', 'init', 'other', 'help'].map((name) => cliText(`cli.help.developer.${name}`)),

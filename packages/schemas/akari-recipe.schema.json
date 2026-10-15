@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:akari-recipe:v0",
+  "title": "AKARI Video recipe v0",
+  "type": "object",
+  "required": ["version", "kind", "id", "name", "needs", "inputs", "outputs", "checkpoint", "gates"],
+  "properties": {
+    "version": { "const": 0 },
+    "kind": { "const": "akari-recipe" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "needs": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "inputs": { "type": "object" },
+    "outputs": { "type": "array", "items": { "type": "object" } },
+    "checkpoint": { "type": "string" },
+    "gates": { "type": "array", "uniqueItems": true, "items": { "enum": ["publish", "lab-submit", "paid", "external-send", "delete-original", "license", "playbook-checkpoint", "human-asked"] } }
+  },
+  "additionalProperties": true
+}

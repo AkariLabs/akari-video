@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "kind": "akari-recipe",
+  "id": "music-30s",
+  "name": "30-second music",
+  "needs": ["music-generation"],
+  "inputs": { "durationSec": 30 },
+  "outputs": [{ "kind": "audio", "role": "bgm" }],
+  "checkpoint": "Listen and choose",
+  "gates": ["paid", "external-send"]
+}

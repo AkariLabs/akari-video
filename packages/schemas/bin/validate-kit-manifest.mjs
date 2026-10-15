@@ -50,6 +50,7 @@ validateRequiredFiles();
 validateRuntimes(manifest);
 validateSkills(manifest);
 validatePlaybooks(manifest);
+validateRecipes(manifest);
 validateTemplates(manifest);
 validateAssets(manifest);
 validateDocs(manifest);
@@ -90,7 +91,7 @@ function validateManifest(value) {
   }
 
   const required = ["schemaVersion", "id", "kind", "name", "version", "requires", "license"];
-  const optional = ["skills", "templates", "assets", "docs", "playbooks", "provenance"];
+  const optional = ["skills", "templates", "assets", "docs", "playbooks", "recipes", "provenance"];
   requireFields(value, required, "manifest");
   rejectUnknownFields(value, [...required, ...optional], "manifest");
 
@@ -112,6 +113,11 @@ function validateManifest(value) {
   validateObjectArray(value.playbooks, "playbooks", ["dir"], (entry, label) => {
     if (typeof entry.dir !== "string" || !/^playbooks\/[a-z0-9][a-z0-9-]*$/u.test(entry.dir)) {
       fail(`${label}.dir は playbooks/<id> である必要があります`);
+    }
+  });
+  validateObjectArray(value.recipes, "recipes", ["dir"], (entry, label) => {
+    if (typeof entry.dir !== "string" || !/^recipes\/[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(entry.dir)) {
+      fail(`${label}.dir は recipes/<id> である必要があります`);
     }
   });
   validateObjectArray(value.templates, "templates", ["path", "for", "label"], (entry, label) => {
@@ -311,6 +317,37 @@ function validatePlaybooks(value) {
     if (result.status !== 0) {
       fail(`playbooks[${index}] が validate-playbook に失敗しました: ${(result.stderr || result.error?.message || '').trim()}`);
     }
+  }
+}
+
+function validateRecipes(value) {
+  if (!Array.isArray(value?.recipes)) return;
+  const validator = path.join(ownDir, '..', 'validate-akari-recipe.mjs');
+  const seen = new Set();
+  for (const [index, entry] of value.recipes.entries()) {
+    if (!isPlainObject(entry) || typeof entry.dir !== 'string'
+      || !/^recipes\/[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(entry.dir)) continue;
+    const id = path.posix.basename(entry.dir);
+    if (seen.has(id)) { fail(`recipes[${index}].dir が重複しています: ${id}`); continue; }
+    seen.add(id);
+    const dir = path.resolve(kitDir, entry.dir);
+    if (!isDirectory(dir) || !isInside(kitRealDir, fs.realpathSync(dir))) {
+      fail(`recipes[${index}].dir が見つからないか kit-dir の外を指します: ${entry.dir}`);
+      continue;
+    }
+    const json = path.join(dir, 'recipe.json');
+    if (!isRegularFile(json) || !isInside(kitRealDir, fs.realpathSync(json))) {
+      fail(`recipes[${index}] に recipe.json が必要です: ${entry.dir}`);
+      continue;
+    }
+    try {
+      if (JSON.parse(fs.readFileSync(json, 'utf8')).id !== id) fail(`recipes[${index}] の id がフォルダ名と一致しません: ${id}`);
+    } catch (error) {
+      fail(`recipes[${index}] の recipe.json を読めません: ${messageOf(error)}`);
+      continue;
+    }
+    const result = spawnSync(process.execPath, [validator, json], { encoding: 'utf8' });
+    if (result.status !== 0) fail(`recipes[${index}] が validate-akari-recipe に失敗しました: ${(result.stderr || result.error?.message || '').trim()}`);
   }
 }
 
