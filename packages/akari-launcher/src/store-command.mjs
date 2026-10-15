@@ -34,6 +34,7 @@ import {
   ensureKitsMarketplace,
   linkKitAssets,
   linkKitPlaybooks,
+  linkKitRecipes,
   linkKitSkills,
   readKitManifest,
   readKitsLedger,
@@ -630,6 +631,8 @@ export async function runStoreCommand(args, options = {}) {
         }
         const playbookLinks = linkKitPlaybooks(kitDir, manifest, home, { platform: options.platform });
         for (const warning of playbookLinks.warnings) log(cliText('cli.store.install.warning', { warning }));
+        const recipeLinks = linkKitRecipes(kitDir, manifest, home, { platform: options.platform });
+        for (const warning of recipeLinks.warnings) log(cliText('cli.store.install.warning', { warning }));
         registerKitAssets(home, manifest, kitDir, assetLinks.items, env);
         writeKitsLedger(home, {
           id: manifest.id,
@@ -638,6 +641,7 @@ export async function runStoreCommand(args, options = {}) {
           kitDir,
           skills: skillLinks.linked,
           playbooks: playbookLinks.linked,
+          recipes: recipeLinks.linked,
           assets: assetLinks.linked
         });
         ensureKitsMarketplace(home);

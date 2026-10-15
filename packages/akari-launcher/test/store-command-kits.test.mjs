@@ -45,6 +45,7 @@ function fixtureZip(ctx, {
   invalid = false,
   manifest = true,
   withAsset = false,
+  withRecipe = false,
   id = 'sample-kit',
   skillName = 'sample-kit-skill',
   withSkills = true,
@@ -74,6 +75,13 @@ function fixtureZip(ctx, {
       value.playbooks = [{ dir: 'playbooks/kaisetsu-vertical-60s' }];
       cpSync(path.join(REPO_ROOT, 'packages', 'project-scaffold', 'test', 'fixtures', 'playbook-sample'),
         path.join(source, 'playbooks', 'kaisetsu-vertical-60s'), { recursive: true });
+    }
+    if (withRecipe) {
+      value.recipes = [{ dir: 'recipes/music-30s' }];
+      const recipeDir = path.join(source, 'recipes', 'music-30s');
+      mkdirSync(recipeDir, { recursive: true });
+      cpSync(path.join(REPO_ROOT, 'packages', 'schemas', 'test', 'fixtures', 'akari-recipes', 'music.json'),
+        path.join(recipeDir, 'recipe.json'));
     }
     writeFileSync(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
     if (withSkills) {
@@ -144,6 +152,19 @@ test('kit install --from: compatible fixture を検査して台帳・skill・mar
     assert.equal(readlinkSync(skill), '../../../assets/store/sample-kit/skills/sample-kit-skill');
     assert.ok(existsSync(path.join(ctx.home, 'kits', '.claude-plugin', 'marketplace.json')));
     assert.ok(ctx.lines.some((line) => line.includes('claude plugin install akari-kits@akari-kits')));
+  } finally { ctx.cleanup(); }
+});
+
+test('kit install/uninstall links and removes recipes from the local shelf', async () => {
+  const ctx = context();
+  try {
+    const zipPath = fixtureZip(ctx, { compatible: true, withRecipe: true });
+    assert.equal((await runStoreCommand(['install', 'sample-kit', '--from', zipPath], ctx.options)).exitCode, 0);
+    const link = path.join(ctx.home, 'tool-recipes', 'music-30s');
+    assert.equal(existsSync(link), true);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(ctx.home, 'kits', 'installed.json'), 'utf8')).kits[0].recipes, ['music-30s']);
+    assert.equal((await runStoreCommand(['uninstall', 'sample-kit'], ctx.options)).exitCode, 0);
+    assert.equal(existsSync(link), false);
   } finally { ctx.cleanup(); }
 });
 

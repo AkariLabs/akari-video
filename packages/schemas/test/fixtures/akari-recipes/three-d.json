@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "kind": "akari-recipe",
+  "id": "turntable-3d",
+  "name": "3D product turntable",
+  "needs": ["3d-render"],
+  "inputs": { "scene": "string" },
+  "outputs": [{ "kind": "video", "role": "broll" }],
+  "checkpoint": "Review the render",
+  "gates": []
+}
