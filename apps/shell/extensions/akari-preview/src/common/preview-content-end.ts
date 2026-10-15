@@ -7,6 +7,14 @@ export function previewContentEnd(summary: Record<string, any>, captions: readon
         const duration = Number(item.duration ?? 0);
         if (Number.isFinite(at) && Number.isFinite(duration) && duration > 0) end = Math.max(end, at + duration);
     }
+    // 空のキャンバス（canvas-v0）は「区間を持つ仮枠」。中身が無くても区間の分だけ尺に数える。
+    for (const node of summary.tree ?? []) {
+        const canvas = node?.emptyCanvas;
+        if (!canvas) continue;
+        const at = Number(canvas.at ?? 0);
+        const duration = Number(canvas.duration ?? 0);
+        if (Number.isFinite(at) && Number.isFinite(duration) && duration > 0) end = Math.max(end, at + duration);
+    }
     const audio = summary.audio ?? {};
     let automaticBgmEnd = probedBgmEnd;
     const bgms = Array.isArray(audio.bgms) ? audio.bgms : audio.bgm ? [audio.bgm] : [];

@@ -28,3 +28,8 @@ test('multiple automatic BGM tails keep the legacy audio-only rule',()=>{
  assert.equal(previewContentEnd({audio:{bgms}},[],0),6);
  assert.equal(previewContentEnd({audio:{bgms}},[],4.5),4.5);
 });
+test('empty canvases are placeholders with an interval, so they extend the timeline',()=>{
+ const tree=[{id:'a',kind:'group',at:0,duration:40,emptyCanvas:{at:0,duration:40,intent:'x'}},{id:'b',kind:'group',at:40,duration:20,emptyCanvas:{at:40,duration:20,intent:'y'}},{id:'c',kind:'group',at:0,duration:99}];
+ assert.equal(previewContentEnd({tree},[],0),60);
+ assert.equal(previewContentEnd({tree},[],75),75);
+});
