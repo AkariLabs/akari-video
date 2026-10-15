@@ -2278,10 +2278,13 @@
   "surfaces.home.startNoChannel.label": "チャンネルなし",
   "surfaces.home.startNewChannel.button": "＋ 新しいチャンネル",
   "surfaces.home.startStandalone.button": "チャンネルに入れずに作る",
+  "surfaces.home.startStandaloneNote.heading": "特別な作り方です",
+  "surfaces.home.startStandaloneNote.message": "チャンネルのキット・人物・スタイルが使えません。保存先は作るときに選びます。",
+  "surfaces.home.startStandaloneLater.message": "あとからチャンネルに入れることもできます。",
   "surfaces.home.startBlank.button": "白紙から",
-  "surfaces.home.startBlank.description": "いつものプロジェクトを空で開きます。",
+  "surfaces.home.startBlank.description": "素材も設定もない状態から始めます。あとで好きな形に組み立てられます。",
   "surfaces.home.startFromPlaybook.button": "作り方（Playbook）から",
-  "surfaces.home.startFromPlaybook.description": "手元かチャンネルの作り方を選びます。",
+  "surfaces.home.startFromPlaybook.description": "手元やチャンネルの作り方を選びます。流れと設定を引き継いで始められます。",
   "surfaces.home.startDefaultName.label": "新しいプロジェクト",
   "surfaces.home.playbookCategory.label": "カテゴリー",
   "surfaces.home.playbookAll.label": "すべて",
@@ -2333,5 +2336,10 @@
   "surfaces.home.startBlankAction.label": "そのまま作る →",
   "surfaces.home.startPlaybookAction.label": "選ぶ →",
   "surfaces.home.playbookListHeading.message": "{category} Playbook · {count} 件",
-  "surfaces.home.playbookCheckingTools.message": "道具を確認しています…"
+  "surfaces.home.playbookCheckingTools.message": "道具を確認しています…",
+  "surfaces.home.playbookExample.label": "例",
+  "surfaces.home.playbookNoPreview.message": "見本はまだありません",
+  "surfaces.home.playbookPreviewPause.button": "見本の再生を止める",
+  "surfaces.home.playbookPreviewResume.button": "見本の再生を再開する",
+  "surfaces.home.playbookPreviewFrame.button": "見本のコマ {frame} を見る"
 }

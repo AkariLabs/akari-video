@@ -1,7 +1,7 @@
 import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { promises as fs } from 'fs';
-import { dirname, resolve, join, basename } from 'path';
+import { dirname, resolve, join, basename, extname, isAbsolute, relative, win32 } from 'path';
 import { homedir } from 'os';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
@@ -73,6 +73,39 @@ const importEsm = new Function('specifier', 'return import(specifier)') as <T>(s
 
 const UPWARD_SEARCH_MAX_DEPTH = 12;
 const PLAYBOOK_CATEGORIES = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
+const PREVIEW_MAX_BYTES = 400 * 1024;
+const PREVIEW_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
+
+/** Resolve only small images inside the playbook directory, including after symlinks. */
+async function playbookPreviewData(dir: string, preview: AkariPlaybook['preview']): Promise<{ coverUri?: string; frameUris?: string[] }> {
+    const root = await fs.realpath(dir);
+    const cache = new Map<string, string>();
+    const read = async (name: unknown): Promise<string | undefined> => {
+        if (typeof name !== 'string' || !name || isAbsolute(name) || win32.isAbsolute(name)
+            || name.split(/[\\/]/).includes('..') || name.includes('\\')) return undefined;
+        const mime = PREVIEW_MIME[extname(name).toLowerCase()];
+        if (!mime) return undefined;
+        const candidate = resolve(root, name);
+        const real = await fs.realpath(candidate).catch(() => undefined);
+        if (!real || relative(root, real).startsWith('..') || isAbsolute(relative(root, real))) return undefined;
+        if (cache.has(real)) return cache.get(real);
+        if (cache.size >= 5) return undefined;
+        const stat = await fs.stat(real).catch(() => undefined);
+        if (!stat?.isFile() || stat.size > PREVIEW_MAX_BYTES) return undefined;
+        const data = await fs.readFile(real);
+        if (data.byteLength > PREVIEW_MAX_BYTES) return undefined;
+        const uri = `data:${mime};base64,${data.toString('base64')}`;
+        cache.set(real, uri);
+        return uri;
+    };
+    const coverUri = await read(preview?.cover ?? 'preview/cover.png');
+    const frameUris: string[] = [];
+    for (const frame of Array.isArray(preview?.frames) ? preview.frames : []) {
+        const uri = await read(frame);
+        if (uri && !frameUris.includes(uri)) frameUris.push(uri);
+    }
+    return { ...(coverUri ? { coverUri } : {}), ...(frameUris.length ? { frameUris } : {}) };
+}
 
 /** browser/home/home-model.ts の validateChannelName と同じパス安全規則。 */
 function safeChannelPathName(input: string | undefined): string | undefined {
@@ -228,9 +261,8 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
                 try {
                     const value: unknown = JSON.parse(await fs.readFile(join(dir, 'playbook.json'), 'utf8'));
                     if (!isPlaybook(value) || value.id !== basename(dir)) continue;
-                    const cover = join(dir, 'preview', 'cover.png');
-                    result.push({ dir, source: location.source, playbook: value,
-                        ...(await this.isFile(cover) ? { coverUri: pathToFileURL(cover).toString() } : {}) });
+                    const preview = await playbookPreviewData(dir, value.preview);
+                    result.push({ dir, source: location.source, playbook: value, ...preview });
                 } catch { /* tolerant reader: one broken record does not hide the others */ }
             }
         }

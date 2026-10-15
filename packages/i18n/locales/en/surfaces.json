@@ -2278,10 +2278,13 @@
   "surfaces.home.startNoChannel.label": "No channel",
   "surfaces.home.startNewChannel.button": "＋ New channel",
   "surfaces.home.startStandalone.button": "Create without a channel",
+  "surfaces.home.startStandaloneNote.heading": "This is a special setup",
+  "surfaces.home.startStandaloneNote.message": "Channel kits, people, and styles are unavailable. Choose the save location when you create it.",
+  "surfaces.home.startStandaloneLater.message": "You can add it to a channel later.",
   "surfaces.home.startBlank.button": "Start blank",
-  "surfaces.home.startBlank.description": "Open an empty project.",
+  "surfaces.home.startBlank.description": "Start with an empty project. Add your own content and settings as you go.",
   "surfaces.home.startFromPlaybook.button": "Start from a Playbook",
-  "surfaces.home.startFromPlaybook.description": "Choose a Playbook from your library or channel.",
+  "surfaces.home.startFromPlaybook.description": "Choose a Playbook from your library or channel. Start with its steps and settings.",
   "surfaces.home.startDefaultName.label": "New project",
   "surfaces.home.playbookCategory.label": "Category",
   "surfaces.home.playbookAll.label": "All",
@@ -2333,5 +2336,10 @@
   "surfaces.home.startBlankAction.label": "Create now →",
   "surfaces.home.startPlaybookAction.label": "Choose →",
   "surfaces.home.playbookListHeading.message": "{category} Playbooks · {count} items",
-  "surfaces.home.playbookCheckingTools.message": "Checking tools…"
+  "surfaces.home.playbookCheckingTools.message": "Checking tools…",
+  "surfaces.home.playbookExample.label": "Example",
+  "surfaces.home.playbookNoPreview.message": "No preview yet",
+  "surfaces.home.playbookPreviewPause.button": "Pause preview",
+  "surfaces.home.playbookPreviewResume.button": "Resume preview",
+  "surfaces.home.playbookPreviewFrame.button": "Show preview frame {frame}"
 }

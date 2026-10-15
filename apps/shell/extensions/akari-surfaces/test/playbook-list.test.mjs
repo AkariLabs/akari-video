@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AkariNewProjectServiceImpl } from '../lib/node/akari-new-project-service.js';
@@ -32,6 +32,38 @@ test('チャンネルと手元を順に合算し、壊れた作り方を飛ば�
         await rm(join(temp, 'home', 'playbooks'), { recursive: true });
         await rm(join(root, 'channels', channelName, 'playbooks'), { recursive: true });
         assert.deepEqual(await service.listPlaybooks(channelName), []);
+    } finally {
+        if (previous === undefined) delete process.env.AKARI_HOME;
+        else process.env.AKARI_HOME = previous;
+        await rm(temp, { recursive: true, force: true });
+    }
+});
+
+test('見本は安全な画像だけを data URL で最大 5 枚・各 400KB 読む', async () => {
+    const temp = await mkdtemp(join(tmpdir(), 'akari-playbook-preview-'));
+    const previous = process.env.AKARI_HOME;
+    try {
+        process.env.AKARI_HOME = temp;
+        const dir = join(temp, 'playbooks', 'preview-one');
+        await mkdir(join(dir, 'preview'), { recursive: true });
+        const outside = join(temp, 'outside.png');
+        await writeFile(outside, Buffer.from('outside'));
+        await symlink(outside, join(dir, 'preview', 'link.png'));
+        for (let n = 1; n <= 6; n++) await writeFile(join(dir, 'preview', `${n}.png`), Buffer.from(`frame-${n}`));
+        await writeFile(join(dir, 'preview', 'large.png'), Buffer.alloc(400 * 1024 + 1));
+        await writeFile(join(dir, 'preview', 'wrong.svg'), '<svg/>');
+        const playbook = { ...makePlaybook('preview-one'), example: true, preview: {
+            cover: 'preview/1.png', frames: ['preview/1.png', 'preview/2.png', '../outside.png', '/tmp/outside.png',
+                'preview/link.png', 'preview/large.png', 'preview/wrong.svg', 'preview/3.png', 'preview/4.png', 'preview/5.png', 'preview/6.png']
+        } };
+        await writeFile(join(dir, 'playbook.json'), JSON.stringify(playbook));
+        const [entry] = await new AkariNewProjectServiceImpl().listPlaybooks();
+        assert.equal(entry.playbook.example, true);
+        assert.match(entry.coverUri, /^data:image\/png;base64,/);
+        assert.equal(entry.frameUris.length, 5);
+        assert.equal(entry.frameUris[0], entry.coverUri);
+        assert.ok(entry.frameUris.every(uri => !uri.includes(Buffer.from('outside').toString('base64'))));
+        assert.ok(!entry.frameUris.some(uri => uri.includes(Buffer.from('frame-6').toString('base64'))));
     } finally {
         if (previous === undefined) delete process.env.AKARI_HOME;
         else process.env.AKARI_HOME = previous;
