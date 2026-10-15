@@ -73,6 +73,8 @@ review.json の data `version` は 0 のまま据え置く。compile-review-sess
 ```
 
 - `strokeRefs` は `null`、省略、または 1 件以上の配列。欠落は従来データとして正常である。
+- `strokeRefs` は録音の原本への参照なので、録音なしで直接描いた線には付かない。その線は
+  `strokes[].points`（描いた順）がそのまま原本になる。
 - pen は従来どおり最大 100 点の `strokes[].points` も埋め込み、`strokeRefs` から無加工の原本へ
   戻れる。rect は従来どおり `targetKind:"region"` + `region.box` を埋め込み、同じ `strokeRefs`
   から `strokes.json` 内の rect 原本へ戻れる。

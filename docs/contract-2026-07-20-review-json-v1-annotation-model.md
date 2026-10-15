@@ -92,8 +92,10 @@
 - `target` が `doc:<path>#<block-id>`、`image:<path>`、`canvas:<c-NNNN>` のときだけ
   `sourceT:null` を許容する。動画面では従来どおり 0 以上の source 秒が必要である。
 - `strokes[]` は `{tool:"pen", space, points, ...}` の object。`content-rect` は
-  `frame:{sourceT,cutIndex?}` と `sessionRef` が必須、`image-rect` / `canvas-rect` は
-  `frame` を持たない。後二者の `sessionRef` / `canvasRef` は任意である。
+  `frame:{sourceT,cutIndex?}` が必須。`sessionRef` は録音から作った線だけが持ち、録音なしで
+  プレビューへ直接描いた線では省略する。`image-rect` / `canvas-rect` は `frame` を持たない。
+  `content-rect` / `image-rect` の `sessionRef` と `canvas-rect` の `canvasRef` は
+  いずれも任意である。
 
 実行可能仕様は `packages/schemas/fixtures/review/` に一元化し、`validate-review` と
 `edit-lint` が同じ valid / invalid 全件を消費する。片方だけの専用 fixture で契約差を

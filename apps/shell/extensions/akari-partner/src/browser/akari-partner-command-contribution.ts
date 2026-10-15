@@ -16,6 +16,7 @@ import { resolveDeliveryTarget } from '../common/delivery-target';
 import { insertReviewText, partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { CHAT_ENABLED_PREFERENCE, visibleReviewKind } from './partner-chat-visibility';
+import { choosePromptPartner, ForegroundWidget, PromptPartnerTarget, rememberPromptPartner } from '../common/prompt-partner-target';
 
 import { resolvePromptRoute } from '../common/prompt-route';
 import { activePartnerTerminals, stopPartnerTerminals } from './partner-terminal-shutdown';
@@ -110,6 +111,26 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     }
 
     protected lastReviewWidgetId?: string;
+    protected lastPromptPartnerId?: string;
+
+    protected promptTargets(web?: PartnerWebWidget): PromptPartnerTarget[] {
+        const extensionViewIds = PARTNER_CATALOG.filter(entry => entry.form === 'extension')
+            .flatMap(entry => entry.form === 'extension' ? entry.viewContainerIds : []);
+        return [
+            ...this.terminals.all.filter(terminal => terminal.kind === PartnerTerminal.KIND)
+                .map(terminal => ({ id: terminal.id, form: 'terminal' as const,
+                    live: !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0 })),
+            ...(web ? [{ id: web.id, form: 'web' as const, live: !web.isDisposed && web.isRunning() }] : []),
+            ...this.shell.widgets.filter(widget => extensionViewIds.some(id => widget.id === `plugin-view-container:${id}`))
+                .map(widget => ({ id: widget.id, form: 'extension' as const,
+                    live: widget.isAttached && !widget.isDisposed }))
+        ];
+    }
+
+    protected rememberForegroundPartner(widget?: ForegroundWidget): void {
+        const web = this.shell.widgets.find(widget => widget.id === PartnerWebWidget.ID) as PartnerWebWidget | undefined;
+        this.lastPromptPartnerId = rememberPromptPartner(this.lastPromptPartnerId, widget, this.promptTargets(web));
+    }
 
     protected currentReviewWidget(): ReviewWidget | undefined {
         const current = this.shell.rightPanelHandler.tabBar.currentTitle?.owner;
@@ -146,8 +167,15 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     }
 
     registerCommands(registry: CommandRegistry): void {
-        this.shell.onDidChangeActiveWidget(() => { this.currentReviewWidget(); });
-        this.shell.onDidChangeCurrentWidget(() => { this.currentReviewWidget(); });
+        this.shell.onDidChangeActiveWidget(change => {
+            this.currentReviewWidget();
+            this.rememberForegroundPartner(change.newValue ?? undefined);
+        });
+        this.shell.onDidChangeCurrentWidget(change => {
+            this.currentReviewWidget();
+            this.rememberForegroundPartner(change.newValue ?? undefined);
+        });
+        this.rememberForegroundPartner(this.shell.activeWidget);
         registry.registerCommand(AkariPartnerCommands.CURRENT, { execute: () => this.reviewTarget() });
         registry.registerCommand(AkariPartnerCommands.INSERT_TEXT, {
             execute: async (request: { text?: unknown }): Promise<boolean> => {
@@ -216,19 +244,18 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         registry.registerCommand(AkariPartnerCommands.TYPE_PROMPT, {
             execute: async (text: unknown): Promise<'typed' | 'no-partner' | 'unsupported'> => {
                 if (typeof text !== 'string') return 'unsupported';
-                const terminal = this.liveTerminal();
-                if (terminal) {
+                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+                const target = choosePromptPartner(this.lastPromptPartnerId, this.promptTargets(web));
+                if (target?.form === 'terminal') {
+                    const terminal = this.terminals.all.find(candidate => candidate.id === target.id);
+                    if (!terminal) return 'no-partner';
                     const channel = new TerminalPartnerChannel(terminal);
                     try { channel.type(typedPromptText(text)); }
                     finally { channel.dispose(); }
                     await this.shell.activateWidget(terminal.id);
                     return 'typed';
                 }
-                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
-                const extensionViewIds = PARTNER_CATALOG.filter(entry => entry.form === 'extension')
-                    .flatMap(entry => entry.form === 'extension' ? entry.viewContainerIds : []);
-                if (web?.isRunning() || this.shell.widgets.some(widget => widget.isAttached &&
-                    extensionViewIds.some(id => widget.id === `plugin-view-container:${id}`))) {
+                if (target) {
                     await this.clipboard.writeText(text);
                     return 'unsupported';
                 }

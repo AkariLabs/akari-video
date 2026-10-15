@@ -64,10 +64,11 @@ test('p5 rate UI は zoom の直前にあり、契約どおりの 7 プリセッ
     const end = handlerSource.indexOf('<script>window.__akariPreview', start);
     assert.ok(start >= 0 && end > start, 'transport-right HTML が見つからない');
     const transport = sliceBetween('<div class="transport-right">', '<script>window.__akariPreview', { source: handlerSource, from: start });
-    const ids = ['pen-toggle', 'rate-toggle', 'zoom-toggle', 'fullscreen-toggle'];
+    const ids = ['rate-toggle', 'zoom-toggle', 'fullscreen-toggle'];
     const positions = ids.map(id => transport.indexOf(`id="${id}"`));
     assert.ok(positions.every(position => position >= 0));
     assert.deepEqual([...positions].sort((left, right) => left - right), positions);
+    assert.doesNotMatch(transport, /id="pen-toggle"/u);
     assert.match(transport,
         /id="rate-toggle"[^>]*data-akari-ui="preview:rate"[^>]*>1×<\/button>/u);
 

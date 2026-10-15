@@ -1458,6 +1458,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         return this.projectLocationsPromise;
     }
 
+    /** Preview commands resolve sidecars through the same timeline lookup as the panel. */
+    async findReviewLocationForProjectRoot(root: URI): Promise<ProjectLocation | undefined> {
+        const find = (locations: ProjectLocation[]): ProjectLocation | undefined =>
+            locations.find(location => location.root.normalizePath().toString() === root.normalizePath().toString());
+        const cached = find(await this.locateAll());
+        if (cached) return cached;
+        return find(await this.resolveProjectLocations(root));
+    }
+
     protected async findProjectLocation(editUri: string): Promise<ProjectLocation | undefined> {
         const find = (locations: ProjectLocation[]): ProjectLocation | undefined =>
             locations.find(item => item.editUri && sameProjectFile(item.editUri.toString(), editUri));
@@ -1475,9 +1484,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         return location;
     }
 
-    protected async resolveProjectLocations(): Promise<ProjectLocation[]> {
+    protected async resolveProjectLocations(requestedRoot?: URI): Promise<ProjectLocation[]> {
         const roots = await this.workspaceService.roots;
         for (const root of roots) {
+            if (requestedRoot && root.resource.normalizePath().toString() !== requestedRoot.normalizePath().toString()) {
+                continue;
+            }
             const analysisUri = await this.findFirstCanonicalAnalysis(root.resource);
             const editUri = await this.findFirstNamed(root.resource, 'edit.json');
             let videoUri = '';

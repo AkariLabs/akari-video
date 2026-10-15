@@ -317,7 +317,7 @@ function validateReviewStroke(stroke) {
       && (!Object.hasOwn(stroke.frame, "cutIndex")
         || stroke.frame.cutIndex === null
         || (Number.isInteger(stroke.frame.cutIndex) && stroke.frame.cutIndex >= 0))
-      && isNonEmptyString(stroke.sessionRef);
+      && (!Object.hasOwn(stroke, "sessionRef") || isNonEmptyString(stroke.sessionRef));
   }
   if (Object.hasOwn(stroke, "frame")) return false;
   if (stroke.space === "image-rect") {

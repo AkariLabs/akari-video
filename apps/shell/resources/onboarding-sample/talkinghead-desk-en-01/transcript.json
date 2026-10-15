@@ -1,0 +1,453 @@
+{
+  "source": "clip.mp4",
+  "language": "en",
+  "script": "Hi there! Today I'm trying out a video editing tool called Akari Video. With this, all you do is talk with the AI. Just by talking, the editing is basically done. For example, right in the middle of talking, sound effects, or effects… pop! See, just like that. I can also show diagrams like this, and phone mockups too, background music, and even karaoke-style captions. Well, all I'm actually doing is talking.",
+  "segments": {
+    "precision": "Sentence level. Use the tokens for caption practice.",
+    "asr": "whisper.cpp large-v3-turbo-q5_0 (check) + torchaudio MMS_FA forced alignment to the script",
+    "items": [
+      {
+        "start": 0.24,
+        "end": 0.82,
+        "text": "Hi there!"
+      },
+      {
+        "start": 2.22,
+        "end": 5.9,
+        "text": "Today I'm trying out a video editing tool called Akari Video."
+      },
+      {
+        "start": 6.4,
+        "end": 9.32,
+        "text": "With this, all you do is talk with the AI."
+      },
+      {
+        "start": 9.71,
+        "end": 12.71,
+        "text": "Just by talking, the editing is basically done."
+      },
+      {
+        "start": 13.33,
+        "end": 18.25,
+        "text": "For example, right in the middle of talking, sound effects, or effects… pop!"
+      },
+      {
+        "start": 18.97,
+        "end": 19.87,
+        "text": "See, just like that."
+      },
+      {
+        "start": 20.61,
+        "end": 30.12,
+        "text": "I can also show diagrams like this, and phone mockups too, background music, and even karaoke-style captions."
+      },
+      {
+        "start": 30.76,
+        "end": 33.02,
+        "text": "Well, all I'm actually doing is talking."
+      }
+    ]
+  },
+  "tokens": {
+    "precision": "2026-10-14 forced alignment (torchaudio MMS_FA) of the script to the voice. Word onsets about ±0.05 s",
+    "items": [
+      {
+        "t": "Hi",
+        "start": 0.24,
+        "end": 0.44
+      },
+      {
+        "t": "there!",
+        "start": 0.5,
+        "end": 0.82
+      },
+      {
+        "t": "Today",
+        "start": 2.22,
+        "end": 2.54
+      },
+      {
+        "t": "I'm",
+        "start": 2.74,
+        "end": 2.8
+      },
+      {
+        "t": "trying",
+        "start": 2.86,
+        "end": 3.12
+      },
+      {
+        "t": "out",
+        "start": 3.16,
+        "end": 3.26
+      },
+      {
+        "t": "a",
+        "start": 3.28,
+        "end": 3.3
+      },
+      {
+        "t": "video",
+        "start": 3.42,
+        "end": 3.7
+      },
+      {
+        "t": "editing",
+        "start": 3.86,
+        "end": 4.14
+      },
+      {
+        "t": "tool",
+        "start": 4.16,
+        "end": 4.38
+      },
+      {
+        "t": "called",
+        "start": 4.46,
+        "end": 4.7
+      },
+      {
+        "t": "Akari",
+        "start": 4.82,
+        "end": 5.4
+      },
+      {
+        "t": "Video.",
+        "start": 5.6,
+        "end": 5.9
+      },
+      {
+        "t": "With",
+        "start": 6.4,
+        "end": 6.54
+      },
+      {
+        "t": "this,",
+        "start": 6.56,
+        "end": 6.78
+      },
+      {
+        "t": "all",
+        "start": 7.22,
+        "end": 7.36
+      },
+      {
+        "t": "you",
+        "start": 7.4,
+        "end": 7.52
+      },
+      {
+        "t": "do",
+        "start": 7.56,
+        "end": 7.64
+      },
+      {
+        "t": "is",
+        "start": 7.84,
+        "end": 7.95
+      },
+      {
+        "t": "talk",
+        "start": 8.14,
+        "end": 8.56
+      },
+      {
+        "t": "with",
+        "start": 8.69,
+        "end": 8.8
+      },
+      {
+        "t": "the",
+        "start": 8.82,
+        "end": 8.9
+      },
+      {
+        "t": "AI.",
+        "start": 9.01,
+        "end": 9.32
+      },
+      {
+        "t": "Just",
+        "start": 9.71,
+        "end": 9.89
+      },
+      {
+        "t": "by",
+        "start": 9.91,
+        "end": 10.03
+      },
+      {
+        "t": "talking,",
+        "start": 10.11,
+        "end": 10.61
+      },
+      {
+        "t": "the",
+        "start": 10.85,
+        "end": 10.93
+      },
+      {
+        "t": "editing",
+        "start": 11.07,
+        "end": 11.37
+      },
+      {
+        "t": "is",
+        "start": 11.39,
+        "end": 11.47
+      },
+      {
+        "t": "basically",
+        "start": 11.65,
+        "end": 12.13
+      },
+      {
+        "t": "done.",
+        "start": 12.41,
+        "end": 12.71
+      },
+      {
+        "t": "For",
+        "start": 13.33,
+        "end": 13.43
+      },
+      {
+        "t": "example,",
+        "start": 13.45,
+        "end": 13.75
+      },
+      {
+        "t": "right",
+        "start": 14.27,
+        "end": 14.47
+      },
+      {
+        "t": "in",
+        "start": 14.49,
+        "end": 14.53
+      },
+      {
+        "t": "the",
+        "start": 14.55,
+        "end": 14.61
+      },
+      {
+        "t": "middle",
+        "start": 14.65,
+        "end": 14.85
+      },
+      {
+        "t": "of",
+        "start": 14.87,
+        "end": 14.93
+      },
+      {
+        "t": "talking,",
+        "start": 14.99,
+        "end": 15.41
+      },
+      {
+        "t": "sound",
+        "start": 15.83,
+        "end": 16.07
+      },
+      {
+        "t": "effects,",
+        "start": 16.09,
+        "end": 16.47
+      },
+      {
+        "t": "or",
+        "start": 16.71,
+        "end": 16.79
+      },
+      {
+        "t": "effects…",
+        "start": 17.03,
+        "end": 17.45
+      },
+      {
+        "t": "pop!",
+        "start": 17.99,
+        "end": 18.25
+      },
+      {
+        "t": "See,",
+        "start": 18.97,
+        "end": 19.13
+      },
+      {
+        "t": "just",
+        "start": 19.31,
+        "end": 19.47
+      },
+      {
+        "t": "like",
+        "start": 19.49,
+        "end": 19.65
+      },
+      {
+        "t": "that.",
+        "start": 19.67,
+        "end": 19.87
+      },
+      {
+        "t": "I",
+        "start": 20.61,
+        "end": 20.63
+      },
+      {
+        "t": "can",
+        "start": 20.65,
+        "end": 20.75
+      },
+      {
+        "t": "also",
+        "start": 20.89,
+        "end": 21.13
+      },
+      {
+        "t": "show",
+        "start": 21.25,
+        "end": 21.39
+      },
+      {
+        "t": "diagrams",
+        "start": 21.55,
+        "end": 22.21
+      },
+      {
+        "t": "like",
+        "start": 22.41,
+        "end": 22.55
+      },
+      {
+        "t": "this,",
+        "start": 22.57,
+        "end": 22.81
+      },
+      {
+        "t": "and",
+        "start": 25.23,
+        "end": 25.41
+      },
+      {
+        "t": "phone",
+        "start": 25.54,
+        "end": 25.8
+      },
+      {
+        "t": "mockups",
+        "start": 25.84,
+        "end": 26.34
+      },
+      {
+        "t": "too,",
+        "start": 26.39,
+        "end": 26.64
+      },
+      {
+        "t": "background",
+        "start": 27.05,
+        "end": 27.52
+      },
+      {
+        "t": "music,",
+        "start": 27.54,
+        "end": 27.9
+      },
+      {
+        "t": "and",
+        "start": 28.06,
+        "end": 28.16
+      },
+      {
+        "t": "even",
+        "start": 28.26,
+        "end": 28.46
+      },
+      {
+        "t": "karaoke-style",
+        "start": 28.58,
+        "end": 29.58
+      },
+      {
+        "t": "captions.",
+        "start": 29.62,
+        "end": 30.12
+      },
+      {
+        "t": "Well,",
+        "start": 30.76,
+        "end": 30.92
+      },
+      {
+        "t": "all",
+        "start": 31.22,
+        "end": 31.34
+      },
+      {
+        "t": "I'm",
+        "start": 31.42,
+        "end": 31.48
+      },
+      {
+        "t": "actually",
+        "start": 31.62,
+        "end": 31.96
+      },
+      {
+        "t": "doing",
+        "start": 32.0,
+        "end": 32.26
+      },
+      {
+        "t": "is",
+        "start": 32.54,
+        "end": 32.62
+      },
+      {
+        "t": "talking.",
+        "start": 32.68,
+        "end": 33.02
+      }
+    ]
+  },
+  "silences": {
+    "precision": "Measured (ffmpeg silencedetect -40 dB). Pauses built into this clip on purpose",
+    "items": [
+      {
+        "start": 0.883,
+        "end": 1.978,
+        "duration": 1.094,
+        "intent": "keep",
+        "note": "Deliberate beat right after \"Hi there!\". Meant to be kept for tempo"
+      },
+      {
+        "start": 17.474,
+        "end": 17.996,
+        "duration": 0.522,
+        "intent": "natural",
+        "note": "Build-up before \"pop!\""
+      },
+      {
+        "start": 22.871,
+        "end": 24.96,
+        "duration": 2.089,
+        "intent": "trim",
+        "note": "Deliberately dead pause. For practicing tightening"
+      }
+    ]
+  },
+  "safe_area": {
+    "note": "The speaker stays on the left and does not move right. Room for titles, diagrams and mockups",
+    "x_pct": [
+      55,
+      100
+    ],
+    "y_pct": [
+      0,
+      100
+    ]
+  }
+}

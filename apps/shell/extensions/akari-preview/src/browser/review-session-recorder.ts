@@ -11,14 +11,10 @@ import {
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
 import {
-    EditableTargetLike,
     REVIEW_TOOL_MODE_INITIAL,
     ReviewToolMode,
     ReviewToolModeState,
-    isEditableEventTarget,
-    isImeCompositionKeydown,
-    reduceReviewToolMode,
-    reviewToolModeForShortcutKey
+    reduceReviewToolMode
 } from '../common/review-tool-mode';
 import { classifyUiEventType, resolveUiEventTarget } from '../common/ui-event-target';
 import {
@@ -113,7 +109,6 @@ export class ReviewSessionRecorder {
     protected requestedProjectRootUri = '';
     protected uiClickListener: ((event: MouseEvent) => void) | undefined;
     protected uiPointerUpListener: ((event: PointerEvent) => void) | undefined;
-    protected keydownListener: ((event: KeyboardEvent) => void) | undefined;
     protected toolModeState: ReviewToolModeState = REVIEW_TOOL_MODE_INITIAL;
     /** pointerup ごとの遅延記録。後続ジェスチャの click と抑止状態を共有しない。 */
     protected readonly pendingPointerUpFallbacks = new Set<PendingPointerUpFallback>();
@@ -197,7 +192,6 @@ export class ReviewSessionRecorder {
             processor.onaudioprocess = event => this.captureAudio(active, event);
             this.active = active;
             this.installUiClickListener();
-            this.installKeydownListener();
             // task.md 指示1: 記録セッション開始時は必ず neutral から始まる。
             this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-start' });
             // task.md 指示2: 新しいセッションでは前回の選択を持ち越さない。
@@ -239,7 +233,6 @@ export class ReviewSessionRecorder {
         active.pendingRect = undefined;
         this.stopTimers();
         this.removeUiClickListener();
-        this.removeKeydownListener();
         // task.md 指示1: セッション終了で必ず neutral へ戻す。
         this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-end' });
         // task.md 指示2: セッションが終われば「選択中」の文脈も無効になる。
@@ -408,12 +401,7 @@ export class ReviewSessionRecorder {
         }));
     }
 
-    /**
-     * task.md 指示1/6: the single mode-change entry point -- used by the right panel's tool
-     * buttons, the preview's pen-toggle (re-wired onto this in M2), and this class's own keyboard
-     * shortcut handler. A no-op (state unchanged, nothing emitted) outside a recording session or
-     * when the requested mode is already current.
-     */
+    /** Legacy mode-change receiver retained for previously recorded UI selection state. */
     setToolMode(editUri: string, mode: ReviewToolMode): void {
         const active = this.active;
         if (!active || active.editUri !== editUri || this.status !== 'recording') {
@@ -438,7 +426,6 @@ export class ReviewSessionRecorder {
         } else {
             this.stopTimers();
             this.removeUiClickListener();
-            this.removeKeydownListener();
         }
     }
 
@@ -582,53 +569,6 @@ export class ReviewSessionRecorder {
                 event: uiEvent
             }));
         }, 0);
-    }
-
-    /**
-     * task.md 指示6: 1=select / 2=pen / 3=rect / Esc=neutral, active recording session only,
-     * inert while typing (isEditableEventTarget checks both the event target and
-     * document.activeElement -- matches akari-annotations-widget.ts's own isEditableTarget
-     * double-check pattern). Installed/removed alongside the UI click listener. Deliberately does
-     * not call stopPropagation -- see report.md's keybinding conflict investigation: no existing
-     * bare 1/2/3/Escape bindings were found, and co-existing with unrelated Escape handlers
-     * (timeline drag-cancel, Theia quick-open close) only requires not blocking their delivery.
-     */
-    protected installKeydownListener(): void {
-        if (this.keydownListener || typeof document === 'undefined') {
-            return;
-        }
-        const listener = (event: KeyboardEvent): void => this.handleKeydown(event);
-        document.addEventListener('keydown', listener, true);
-        this.keydownListener = listener;
-    }
-
-    protected removeKeydownListener(): void {
-        if (this.keydownListener && typeof document !== 'undefined') {
-            document.removeEventListener('keydown', this.keydownListener, true);
-        }
-        this.keydownListener = undefined;
-    }
-
-    protected handleKeydown(event: KeyboardEvent): void {
-        const active = this.active;
-        if (!active || this.status !== 'recording' || event.metaKey || event.ctrlKey || event.altKey) {
-            return;
-        }
-        // IME 変換中の 1 / 2 / 3 / Escape でツールモードを切り替えない（issue #51）。
-        if (isImeCompositionKeydown(event)) {
-            return;
-        }
-        const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
-        if (isEditableEventTarget(event.target as EditableTargetLike | null)
-            || isEditableEventTarget(activeElement as EditableTargetLike | null)) {
-            return;
-        }
-        const mode = event.key === 'Escape' ? 'neutral' : reviewToolModeForShortcutKey(event.key);
-        if (!mode) {
-            return;
-        }
-        event.preventDefault();
-        this.setToolMode(active.editUri, mode);
     }
 
     protected captureAudio(active: ActiveReviewSession, event: AudioProcessingEvent): void {

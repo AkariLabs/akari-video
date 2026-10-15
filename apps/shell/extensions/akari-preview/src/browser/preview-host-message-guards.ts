@@ -86,8 +86,7 @@ export function isReviewRectEndRequest(message: any): message is PreviewReviewRe
         && Array.isArray(box) && box.length === 4 && box.every((value: unknown) => Number.isFinite(value));
 }
 
-// task.md 指示3: pen-toggle（既存入口）からの mode request。右パネルのボタン/ショートカット
-// と同じ ReviewSessionRecorder.setToolMode に着地させる（正本は host 側の 1 箇所のみ）。
+// 旧 mode request の受け口。描く UI は 2 行目に集約され、この request を出す入口はない。
 export function isReviewToolModeRequest(message: any): message is PreviewReviewToolModeRequest {
     return message?.type === 'akari-preview-review-tool-mode-request'
         && ['neutral', 'pen', 'rect', 'select'].includes(message?.mode);

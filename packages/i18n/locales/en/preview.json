@@ -615,7 +615,6 @@
   "preview.previewWindow.transport.frameBackLabel": "Previous frame",
   "preview.previewWindow.transport.frameForwardLabel": "Next frame",
   "preview.previewWindow.transport.fullscreenLabel": "Full screen",
-  "preview.previewWindow.transport.penLabel": "Pen",
   "preview.previewWindow.transport.playAction": "Play",
   "preview.previewWindow.transport.rateLabel": "Playback speed",
   "preview.previewWindow.transport.reloadLabel": "Reload",

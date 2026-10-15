@@ -686,8 +686,7 @@ export interface PreviewReviewStrokeEndRequest {
     points: Array<[number, number]>;
 }
 
-// task.md 指示4/6 (M2): rect ツールの開始/終了 (pen の start/end request と対をなす) と、
-// pen-toggle からの mode 切替 request (右パネルのボタン/ショートカットと同じ setToolMode 経路)。
+// 録音の旧 rect / mode request 型。2 行目のペンが使う stroke start/end 型は上にある。
 export interface PreviewReviewRectStartRequest {
     type: 'akari-preview-review-rect-start';
     frame: ReviewStrokeFrame;

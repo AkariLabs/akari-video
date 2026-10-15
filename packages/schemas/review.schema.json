@@ -59,7 +59,7 @@
         {
           "type": "object",
           "additionalProperties": true,
-          "required": ["tool", "space", "frame", "points", "sessionRef"],
+          "required": ["tool", "space", "frame", "points"],
           "properties": {
             "tool": { "const": "pen" },
             "space": { "const": "content-rect" },
@@ -67,7 +67,7 @@
             "points": { "$ref": "#/$defs/strokePoints" },
             "sessionRef": { "$ref": "#/$defs/nonEmptyString" }
           },
-          "$comment": "動画面（review セッション S3・§4.2）。frame + sessionRef は必須（録音セッション由来のみ）。"
+          "$comment": "動画面。frame は必須。sessionRef は録音から作った線だけが持ち、録音なしでプレビューへ直接描いた線では省略する。"
         },
         {
           "type": "object",

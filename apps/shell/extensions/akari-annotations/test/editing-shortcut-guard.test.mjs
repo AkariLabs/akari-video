@@ -63,7 +63,7 @@ test('inner editable Delete is stopped before Theia can synthesize an iframe key
 });
 
 // issue #51: 素のキーを取るショートカットは IME 変換中に走ってはいけない。ホスト document 側
-// (timeline / dialog / recorder) と webview 側 (preview) の両方に同じ判定を通す。
+// (timeline / dialog) と webview 側 (preview) の両方に同じ判定を通す。
 
 test('IME composition disarms bare-key shortcuts on every global keydown consumer', () => {
     // Theia command callback retains the IME guard before Escape; the remaining window capture
@@ -82,12 +82,13 @@ test('IME composition disarms bare-key shortcuts on every global keydown consume
     // 音量キーフレームダイアログ: Space / Delete / Escape。
     assert.match(audioDialog, /dialogKeydown = \(event: KeyboardEvent\): void => \{[\s\S]{0,300}?if \(isImeCompositionKeydown\(event\)\) return;/);
 
-    // レビュー収録: 1 / 2 / 3 / Escape のツールモード切替。
-    assert.match(recorder, /if \(isImeCompositionKeydown\(event\)\) \{\s*return;\s*\}/);
-
     // プレビュー webview: スペースの再生トグル。転送前のネイティブイベントを自前で弾く。
     assert.match(preview, /const isImeComposing = \(\$\{isImeCompositionKeydown\.toString\(\)\}\)/);
     assert.match(preview, /if \(event\.repeat \|\| isImeComposing\(event\)\s*\|\|\s*\(event\.code !== 'Space' && event\.key !== ' '\)/);
+});
+
+test('review recording has no global keydown shortcut entry', () => {
+    assert.doesNotMatch(recorder, /keydown/i);
 });
 
 test('the forwarded-keydown path is covered because Theia drops isComposing but keeps keyCode', () => {

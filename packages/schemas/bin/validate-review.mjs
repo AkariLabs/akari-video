@@ -32,7 +32,7 @@ const STATUSES = new Set(["open", "addressed", "resolved"]);
 // input: "session" が昇格済みだったが、この enum は追随していなかった（実データに 2 件エラー）。
 const INPUTS = new Set(["typed", "voice", "session"]);
 // review セッション契約 §4.2 で確定した annotation 着地型。space により frame / sessionRef(canvasRef) の
-// 要否が変わる（content-rect = 動画面・録音セッション由来のみ / image-rect = 画像面・単発注釈可 /
+// 要否が変わる（content-rect = 動画面・frame 必須・sessionRef 任意 / image-rect = 画像面・単発注釈可 /
 // canvas-rect = キャンバス面・単発注釈可・contract-2026-07-26-canvas-surface §4）。
 const STROKE_SPACES = new Set(["content-rect", "image-rect", "canvas-rect"]);
 // contract-2026-07-26-doc-image-annotations §1: doc:<プロジェクト相対パス>#<block-id> / image:<プロジェクト相対パス>。
@@ -275,8 +275,8 @@ function validateStroke(stroke, label) {
       fail(`${label}.frame.cutIndex は null または整数である必要があります`);
       return false;
     }
-    if (!isNonEmptyString(stroke.sessionRef)) {
-      fail(`${label}.sessionRef は空でない文字列である必要があります（content-rect は必須）`);
+    if (hasOwn(stroke, "sessionRef") && !isNonEmptyString(stroke.sessionRef)) {
+      fail(`${label}.sessionRef を持たせる場合は空でない文字列である必要があります`);
       return false;
     }
     return true;
