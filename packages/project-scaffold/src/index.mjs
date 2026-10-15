@@ -546,11 +546,18 @@ ${REPORT_STYLE}
         <dt${attr('git.eligibility.label')}>${q('git.eligibility.label')}</dt><dd>${escapeHtml(report.git.eligibility)}</dd>
         <dt${attr('git.reason.label')}>${q('git.reason.label')}</dt><dd>${escapeHtml(gitReason)}</dd>
       </dl>
-    </section>${report.missingTools?.length ? `\n    <section><h2>無い道具</h2>${renderList(report.missingTools, '')}</section>` : ''}
+    </section>${report.missingTools?.length ? `\n    <section><h2>無い道具</h2>${renderList(report.missingTools, '')}</section>` : ''}${renderInactiveSettingsSection(report.beforeCommit?.inactiveSettings, lang)}
   </main>
 ${dictionary}</body>
 </html>
 `;
+}
+
+function renderInactiveSettingsSection(inactiveSettings, lang) {
+    if (!inactiveSettings?.length) return '';
+    const q = key => reportText('report-project', `report-project.${key}`, lang);
+    const attr = key => lang === 'en' ? ` data-i18n="report-project.${key}"` : '';
+    return `\n    <section data-akari-playbook-inactive><h2${attr('playbook.inactive.heading')}>${q('playbook.inactive.heading')}</h2>${renderList(inactiveSettings.map(key => `${key}: ${q('playbook.inactive.status')}`), q('files.empty.text'))}</section>`;
 }
 
 function renderPlaybookSheetHtml(playbook, missingTools) {
@@ -560,7 +567,8 @@ function renderPlaybookSheetHtml(playbook, missingTools) {
     const placeholders = (playbook.placeholders ?? []).map(item => `${item.role} / ${item.kind} / 見本 ${item.sample ? `あり (${item.sample.category}/${item.sample.id})` : 'なし'}`);
     const beats = (playbook.beats ?? []).map(beat => `${beat.at}–${beat.at + beat.duration} 秒 / ${beat.title}${beat.note ? ` / ${beat.note}` : ''}`);
     const parts = (playbook.parts ?? []).map(item => `${item.kind}: ${item.id} / ${item.source} / ${item.license} / Pro ${item.tier === 'pro' ? '要' : item.tier === 'free' ? '不要' : '不明'}`);
-    const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}`);
+    const inactiveSettings = inactivePlaybookSettings(playbook.settings);
+    const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}${inactiveSettings.some(inactive => inactive === key || inactive.startsWith(`${key}.`)) ? '（まだ効かない・作業の目安）' : ''}`);
     const provenance = playbook.provenance;
     const applied = provenance.appliedFrom;
     const origin = `${provenance.fromProject} / ${provenance.recordedAt} / AKARI ${provenance.akariVersion}`
@@ -692,7 +700,16 @@ async function toolExists(name) {
     return false;
 }
 
-function applySettings(edit, settings) {
+function inactivePlaybookSettings(settings) {
+    return [
+        ...(settings.captions?.styleUid ? ['captions.styleUid'] : []),
+        ...(settings.captions?.position ? ['captions.position'] : []),
+        ...(settings.transitions?.default ? ['transitions.default'] : []),
+        ...(settings.audio?.roles ? ['audio.roles'] : [])
+    ];
+}
+
+function applySettings(edit, intake, settings) {
     const aspect = settings.aspect;
     if (typeof aspect === 'string' && /^\d+:\d+$/.test(aspect)) {
         const [widthRatio, heightRatio] = aspect.split(':').map(Number);
@@ -703,17 +720,14 @@ function applySettings(edit, settings) {
         }
     }
     if (Number.isInteger(settings.fps) && settings.fps > 0) edit.output.fps = settings.fps;
-    if (Number.isFinite(settings.targetDurationSec)) edit.output.target_duration_sec = settings.targetDurationSec;
-    if (settings.captions?.styleUid) edit.output.caption_style_uid = settings.captions.styleUid;
-    if (settings.captions?.position) edit.output.caption_position = settings.captions.position;
-    if (settings.transitions?.default) edit.output.default_transition = settings.transitions.default;
-    if (settings.audio?.roles) {
-        edit.audio ??= {};
-        edit.audio.role_gains_db = { ...settings.audio.roles };
+    if (Number.isFinite(settings.targetDurationSec) && settings.targetDurationSec > 0) {
+        intake.target ??= {};
+        intake.target.duration_s = settings.targetDurationSec;
+        intake.target.keep_length = false;
     }
 }
 
-function addPlaceholders(edit, placeholders, beats) {
+function addPlaceholders(edit, placeholders, beats, targetDurationSec) {
     const fps = edit.output.fps;
     const hasBeats = Array.isArray(beats) && beats.length > 0;
     const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
@@ -753,7 +767,7 @@ function addPlaceholders(edit, placeholders, beats) {
     if (track.items.length) edit.tracks.push(track);
     for (const placeholder of placeholders) {
         if (placeholder.kind !== 'audio') continue;
-        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? edit.output.target_duration_sec ?? 5) * fps));
+        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? targetDurationSec ?? 5) * fps));
         audioTrack.items.push({
             id: `playbook-${placeholder.id}`, at: 0, duration,
             name: placeholder.sample
@@ -812,19 +826,26 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     }
     const planning = path.join(destination, 'planning');
     const editPath = path.join(destination, 'edit.json');
+    const intakePath = path.join(destination, '.akari', 'intake.json');
     const edit = JSON.parse(await fs.readFile(editPath, 'utf8'));
+    const intake = JSON.parse(await fs.readFile(intakePath, 'utf8'));
     if (edit.version !== 2) throw new Error('作り方の適用には edit.json v2 が必要です');
     const playbookJsonPath = path.join(planning, 'playbook.json');
     const playbookMdPath = path.join(planning, 'playbook.md');
     const sheetPath = path.join(destination, '.akari', 'reports', 'playbook-sheet.html');
+    const creationReportPath = path.join(destination, '.akari', 'reports', 'create-project-report.html');
+    const existingCreationReport = await fs.readFile(creationReportPath, 'utf8').catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    });
     for (const file of [playbookJsonPath, playbookMdPath, sheetPath]) {
         try { await fs.access(file); throw new Error(`既存ファイルは上書きしません: ${file}`); }
         catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     playbook.provenance.appliedFrom = { path: source, playbookVersion: playbook.playbookVersion, appliedAt: now.toISOString() };
-    applySettings(edit, playbook.settings);
+    applySettings(edit, intake, playbook.settings);
     const activeBeats = playbook.beats?.length ? playbook.beats : undefined;
-    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats);
+    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats, playbook.settings.targetDurationSec);
     const scriptPath = path.join(planning, 'script.json');
     const existingScript = activeBeats ? await fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
         if (error.code === 'ENOENT') return null;
@@ -838,7 +859,17 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     await fs.writeFile(playbookMdPath, markdown, { flag: 'wx' });
     await writeJsonAtomic(playbookJsonPath, playbook);
     await writeJsonAtomic(editPath, edit);
+    await writeJsonAtomic(intakePath, intake);
     if (script) await writeJsonAtomic(scriptPath, script);
     await fs.writeFile(sheetPath, renderReportHtml(null, { playbook, missingTools }), { flag: 'wx' });
-    return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools };
+    const inactiveSettings = inactivePlaybookSettings(playbook.settings);
+    if (existingCreationReport && inactiveSettings.length > 0
+        && !existingCreationReport.includes('data-akari-playbook-inactive')
+        && existingCreationReport.includes('</main>')) {
+        const lang = reportLanguage(/<html lang="([^"]+)"/.exec(existingCreationReport)?.[1]);
+        const section = renderInactiveSettingsSection(inactiveSettings, lang);
+        await fs.writeFile(creationReportPath, existingCreationReport.replace('</main>', `${section}\n  </main>`), 'utf8');
+    }
+    return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools,
+        inactiveSettings };
 }
