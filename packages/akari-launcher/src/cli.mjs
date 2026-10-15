@@ -31,6 +31,7 @@ import { runToolsCommand } from './tools-command.mjs';
 import { runWordBookCommand } from './word-book-command.mjs';
 import { runConnectCommand } from './connect-command.mjs';
 import { runProjectCommand } from './project-command.mjs';
+import { runPlaybookCommand } from './playbook-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 import { cliText } from './i18n.mjs';
 
@@ -45,6 +46,7 @@ export const runSubcommands = {
   'word-book': runWordBookCommand,
   connect: runConnectCommand,
   project: runProjectCommand,
+  playbook: runPlaybookCommand,
 };
 
 /**
