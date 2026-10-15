@@ -26,15 +26,17 @@ function section(start, end) {
     return source.slice(from, to);
 }
 
-test('舞台とシークは左右余白ゼロ、上 8px と操作行 34px で transport は 58px', () => {
+test('舞台とシークは左右余白ゼロ、上 3px と操作行の下余白 1px', () => {
     assert.match(rule('.preview-pane'), /padding:\s*0;/);
     assert.match(rule('.transport'), /padding:\s*0;/);
     assert.match(rule('.transport-seek'), /width:\s*100%;/);
-    assert.match(rule('.transport-seek'), /margin-top:\s*8px;/);
+    assert.match(rule('.transport-seek'), /margin-top:\s*3px;/);
     assert.match(rule('.transport-seek #seek'), /margin:\s*0;/);
     const controls = rule('.transport-controls');
-    assert.match(controls, /height:\s*34px;/);
-    assert.match(controls, /padding:\s*0 10px 2px;/);
+    assert.match(controls, /grid-template-columns:\s*minmax\(0,1fr\) auto minmax\(0,1fr\);/);
+    assert.match(controls, /grid-template-areas:\s*"left center tail";/);
+    assert.match(controls, /min-height:\s*32px;/);
+    assert.match(controls, /padding:\s*0 6px 1px;/);
     assert.match(controls, /box-sizing:\s*border-box;/);
     assert.match(rule('#play-toggle'), /height:\s*32px;/);
     assert.doesNotMatch(source, /margin-top:\s*-6px/);
@@ -45,7 +47,8 @@ test('舞台とシークは左右余白ゼロ、上 8px と操作行 34px で tr
 
 test('操作行内側に揃うポップアップは右側コントロールを absolute の基準にする', () => {
     assert.match(rule('.transport-right'), /position:\s*relative;/);
-    assert.match(rule('.transport-right'), /justify-self:\s*end;/);
+    assert.match(rule('.transport-tail'), /justify-content:\s*flex-end;/);
+    assert.match(rule('.review-toolbar'), /display:\s*contents;/);
     assert.match(rule('.transport-left'), /position:\s*relative;/);
     assert.match(rule('.zoom-popup'), /position:\s*absolute;\s*right:\s*0;/);
     const right = html.slice(html.indexOf('<div class="transport-right">'));

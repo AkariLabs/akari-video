@@ -148,7 +148,7 @@ test('音声の知らせは映像領域に重ね、出入りしても映像と�
     try {
         const page = await browser.newPage();
         const css = ['body', '.workspace', '.preview-pane', '.transport', '.transport-seek', '.transport-controls',
-            '.transport-left', '.transport-center', '.transport-right', '.audio-status']
+            '.transport-left', '.transport-center', '.transport-tail', '.transport-right', '.audio-status']
             .map(rule).filter(Boolean).join('\n');
         for (const width of [320, 480, 900]) {
             await page.setViewport({ width, height: 200 });
@@ -157,7 +157,7 @@ test('音声の知らせは映像領域に重ね、出入りしても映像と�
                 <main class="workspace"><section class="preview-pane">映像</section></main>
                 <div class="transport" style="position:relative"><div class="transport-seek"><input id="seek" type="range"></div><div class="transport-controls">
                 <div class="transport-left"><button>音声</button><span>0:00 / 0:00</span></div>
-                <div class="transport-center"><button id="play">再生</button></div><div class="transport-right"><button>全画面</button></div>
+                <div class="transport-center"><button id="play">再生</button></div><div class="transport-tail"><div class="transport-right"><button>全画面</button></div></div>
                 </div><div id="status-row" style="${rowStyle}" hidden><span id="audio-status" class="audio-status" style="${statusStyle}" title="${message}">${message}</span></div></div>`);
             const measure = () => page.evaluate(() => {
                 const rect = element => {
