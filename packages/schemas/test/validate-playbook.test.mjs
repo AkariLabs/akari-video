@@ -32,3 +32,14 @@ test('own part fails, unknown skill warns, missing heading fails', async () => {
   assert.match(result.errors.join(' '), /要る道具/);
   assert.match(result.warnings.join(' '), /no-such-skill/);
 });
+test('relative preview paths and example pass', async () => {
+  const value = structuredClone(sample);
+  value.preview = { cover: 'preview/cover.png', frames: ['preview/frames/01.png', 'preview/frames/02.png', 'preview/frames/03.png'] };
+  value.example = true;
+  assert.equal((await validatePlaybook(value, { markdown })).ok, true);
+});
+test('parent traversal in preview fails', async () => {
+  const value = structuredClone(sample);
+  value.preview = { frames: ['../outside.png'] };
+  assert.equal((await validatePlaybook(value, { markdown })).ok, false);
+});

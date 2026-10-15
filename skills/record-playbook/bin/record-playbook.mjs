@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const categories = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
+const execFileAsync = promisify(execFile);
 
 async function readOptional(file, fallback = {}) {
   try { return JSON.parse(await fs.readFile(file, 'utf8')); }
@@ -169,7 +172,112 @@ function renderMarkdown(book) {
   const settings = table([['キー', '値', '意味'], ['---', '---', '---'], ...Object.entries(book.settings).map(([key, value]) => [key, JSON.stringify(value), '次のプロジェクトの初期値'])]);
   const placeholders = table([['役割', '種類', '尺の目安', '見本'], ['---', '---', '---', '---'], ...asArray(book.placeholders).map(item => [item.role, item.kind, item.durationHintSec ?? '—', item.sample ? `${item.sample.category}/${item.sample.id}` : 'なし'])]);
   const parts = table([['種類', '名前', '入手先', 'ライセンス'], ['---', '---', '---', '---'], ...asArray(book.parts).map(item => [item.kind, item.id, item.source, item.license])]);
-  return `# ${book.name}\n\n${book.category} の作り方。流れと仮枠を再利用できます。\n\n## 目的とできあがり\n\n${book.category}、${book.settings.aspect}、目標 ${book.settings.targetDurationSec} 秒。\n\n## 流れ\n\n${steps}\n\n## 設定値\n\n${settings}\n\n## 必要な素材（仮枠）\n\n${placeholders}\n\n## 使った部品\n\n${parts}\n\n## 要る道具\n\nCLI ${book.requires.cli}。道具: ${book.requires.tools.join('、') || 'なし'}。スキル: ${book.requires.skills.join('、') || 'なし'}。無い道具は別の道具または手作業で補います。\n\n## ライセンス\n\n${book.license}（要確認）。外部由来の素材は見本を付けず仮枠にしました。\n\n## 出どころ\n\n${book.provenance.fromProject} / ${book.provenance.recordedAt} / AKARI ${book.provenance.akariVersion}\n`;
+  return `# ${book.name}\n\n${book.category} の作り方。流れと仮枠を再利用できます。\n\n## 目的とできあがり\n\n${book.category}、${book.settings.aspect}、目標 ${book.settings.targetDurationSec} 秒。${book.preview?.frames?.length ? '' : '\n\n見本のコマはまだ（書き出し後に記録し直す）'}\n\n## 流れ\n\n${steps}\n\n## 設定値\n\n${settings}\n\n## 必要な素材（仮枠）\n\n${placeholders}\n\n## 使った部品\n\n${parts}\n\n## 要る道具\n\nCLI ${book.requires.cli}。道具: ${book.requires.tools.join('、') || 'なし'}。スキル: ${book.requires.skills.join('、') || 'なし'}。無い道具は別の道具または手作業で補います。\n\n## ライセンス\n\n${book.license}（要確認）。外部由来の素材は見本を付けず仮枠にしました。\n\n## 出どころ\n\n${book.provenance.fromProject} / ${book.provenance.recordedAt} / AKARI ${book.provenance.akariVersion}\n`;
+}
+
+async function latestExport(project) {
+  const directory = path.join(project, 'exports');
+  let files;
+  try { files = await fs.readdir(directory); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  const videos = await Promise.all(files.filter(file => /\.(mp4|mov|m4v|webm)$/i.test(file)).map(async file => {
+    const fullPath = path.join(directory, file);
+    const stat = await fs.stat(fullPath);
+    return stat.isFile() ? { path: fullPath, modified: stat.mtimeMs } : null;
+  }));
+  return videos.filter(Boolean).sort((a, b) => b.modified - a.modified)[0]?.path ?? null;
+}
+
+function frameTimes(edit, outputDuration) {
+  const fps = edit.output?.fps || 30;
+  const cuts = asArray(edit.tracks).filter(track => track.lane === 'visual')
+    .flatMap(track => asArray(track.items))
+    .filter(item => item.source?.kind === 'media' && Number.isFinite(item.at) && Number.isFinite(item.duration) && item.duration > 0);
+  const editDuration = Math.max(0, ...cuts.map(item => (item.at + item.duration) / fps));
+  const count = Math.min(5, Math.max(3, cuts.length));
+  return Array.from({ length: count }, (_, index) => {
+    const start = outputDuration * index / count;
+    const end = outputDuration * (index + 1) / count;
+    const selected = cuts.map(item => ({ duration: item.duration,
+      midpoint: (item.at + item.duration / 2) / fps * outputDuration / (editDuration || outputDuration) }))
+      .filter(item => item.midpoint >= start && item.midpoint < end)
+      .sort((a, b) => b.duration - a.duration)[0];
+    return Math.min(outputDuration - 0.05, Math.max(0, selected?.midpoint ?? (start + end) / 2));
+  });
+}
+
+async function clearPreviewFrames(directory) {
+  await fs.mkdir(directory, { recursive: true });
+  for (const file of await fs.readdir(directory)) {
+    if (file.toLowerCase().endsWith('.png')) await fs.rm(path.join(directory, file));
+  }
+}
+
+async function createPreview(project, edit) {
+  const video = await latestExport(project);
+  if (!video) return undefined;
+  const ffmpeg = process.env.AKARI_FFMPEG ?? 'ffmpeg';
+  const ffprobe = process.env.AKARI_FFPROBE ?? 'ffprobe';
+  const directory = path.join(project, 'planning', 'playbook-preview', 'frames');
+  await clearPreviewFrames(directory);
+  try {
+    const { stdout } = await execFileAsync(ffprobe, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', video]);
+    const duration = Number(stdout.trim());
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error(`書き出しの尺を取得できません: ${video}`);
+    const width = edit.output?.width || 1920;
+    const height = edit.output?.height || 1080;
+    const frameWidth = width >= height ? 640 : Math.max(1, Math.round(640 * width / height));
+    const frameHeight = height >= width ? 640 : Math.max(1, Math.round(640 * height / width));
+    const frames = [];
+    for (const [index, at] of frameTimes(edit, duration).entries()) {
+      const filename = `${String(index + 1).padStart(2, '0')}.png`;
+      await execFileAsync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(at), '-i', video,
+        '-frames:v', '1', '-vf', `scale=${frameWidth}:${frameHeight}:force_original_aspect_ratio=increase,crop=${frameWidth}:${frameHeight}`,
+        path.join(directory, filename)]);
+      frames.push(`playbook-preview/frames/${filename}`);
+    }
+    return { frames };
+  } catch (error) {
+    await clearPreviewFrames(directory);
+    throw error;
+  }
+}
+
+async function installPlaybook(project, book) {
+  const destination = path.join(process.env.AKARI_HOME ?? path.join(os.homedir(), '.akari'), 'playbooks', book.id);
+  const installed = await readOptional(path.join(destination, 'playbook.json'), null);
+  if (installed && installed.playbookVersion >= book.playbookVersion) return false;
+  await fs.mkdir(destination, { recursive: true });
+  await fs.cp(path.join(project, 'planning', 'playbook.md'), path.join(destination, 'playbook.md'));
+  await fs.rm(path.join(destination, 'preview'), { recursive: true, force: true });
+  const shelfBook = structuredClone(book);
+  if (book.preview?.frames?.length) {
+    const frameDirectory = path.join(destination, 'preview', 'frames');
+    await fs.mkdir(frameDirectory, { recursive: true });
+    shelfBook.preview.frames = [];
+    for (const frame of book.preview.frames) {
+      const filename = path.basename(frame);
+      await fs.cp(path.join(project, 'planning', frame), path.join(frameDirectory, filename));
+      shelfBook.preview.frames.push(`preview/frames/${filename}`);
+    }
+  }
+  if (book.preview?.cover) {
+    await fs.mkdir(path.join(destination, 'preview'), { recursive: true });
+    await fs.cp(path.join(project, 'planning', book.preview.cover), path.join(destination, 'preview', 'cover.png'));
+    shelfBook.preview.cover = 'preview/cover.png';
+  }
+  await writeAtomic(path.join(destination, 'playbook.json'), `${JSON.stringify(shelfBook, null, 2)}\n`);
+  return true;
+}
+
+export async function installExistingPlaybook(projectRoot) {
+  const project = path.resolve(projectRoot);
+  const planning = path.join(project, 'planning');
+  const book = JSON.parse(await fs.readFile(path.join(planning, 'playbook.json'), 'utf8'));
+  const markdown = await fs.readFile(path.join(planning, 'playbook.md'), 'utf8');
+  const validation = await validateOutput(book, markdown);
+  if (!validation.ok) throw new Error(`作り方が不正です: ${validation.errors.join('; ')}`);
+  return installPlaybook(project, book);
 }
 
 async function writeAtomic(file, data) {
@@ -191,7 +299,7 @@ async function planningEvidence(project) {
   return docs;
 }
 
-export async function recordPlaybook(projectRoot, { name, category, license = 'CC0-1.0', now = new Date() }) {
+export async function recordPlaybook(projectRoot, { name, category, license = 'CC0-1.0', now = new Date(), install = false }) {
   if (!name || !categories.has(category)) throw new Error('name と category（定義済み語彙）が必要です');
   const project = path.resolve(projectRoot);
   const edit = await readOptional(path.join(project, 'edit.json'));
@@ -218,6 +326,12 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
     license, provenance: { fromProject: path.basename(project), recordedAt: now.toISOString(),
       akariVersion: packageJson.version ?? '0.0.0', recordedBy: 'record-playbook' }
   };
+  try {
+    book.preview = await createPreview(project, edit);
+  } catch (error) {
+    console.warn(`WARN: 見本のコマを作れませんでした: ${error.message}`);
+  }
+  if (!book.preview) delete book.preview;
   const markdown = renderMarkdown(book);
   book.tags.tools = tools;
   const validation = await validateOutput(book, markdown);
@@ -226,6 +340,7 @@ export async function recordPlaybook(projectRoot, { name, category, license = 'C
   await fs.mkdir(planning, { recursive: true });
   await writeAtomic(path.join(planning, 'playbook.json'), `${JSON.stringify(book, null, 2)}\n`);
   await writeAtomic(path.join(planning, 'playbook.md'), markdown);
+  if (install) await installPlaybook(project, book);
   return book;
 }
 
@@ -233,15 +348,22 @@ if (process.argv[1] && await fs.realpath(path.resolve(process.argv[1])).catch(()
   const args = process.argv.slice(2);
   const project = args.shift();
   const options = {};
-  for (let index = 0; index < args.length; index += 2) {
+  for (let index = 0; index < args.length;) {
+    if (args[index] === '--install') { options.install = true; index += 1; continue; }
     if (!['--name', '--category', '--license'].includes(args[index]) || !args[index + 1]) {
-      console.error('使い方: record-playbook.mjs <project-root> --name <name> --category <category> [--license <license>]');
+      console.error('使い方: record-playbook.mjs <project-root> --name <name> --category <category> [--license <license>] [--install]');
       process.exit(2);
     }
     options[args[index].slice(2)] = args[index + 1];
+    index += 2;
   }
   if (!project) { console.error('プロジェクトの場所が必要です'); process.exit(2); }
   try {
+    if (options.install && !options.name && !options.category) {
+      const installed = await installExistingPlaybook(project);
+      console.log(installed ? '作り方を手元の棚へ写しました' : '手元の棚には同じ版か新しい版があります');
+      process.exit(0);
+    }
     const result = await recordPlaybook(project, options);
     console.log(`作り方: ${path.join(path.resolve(project), 'planning', 'playbook.md')} / 流れ ${result.steps.length}、仮枠 ${result.placeholders.length}、部品 ${result.parts.length}、要る道具 ${result.requires.tools.length}`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }

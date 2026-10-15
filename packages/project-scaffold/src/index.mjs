@@ -713,9 +713,11 @@ function applySettings(edit, settings) {
 
 function addPlaceholders(edit, placeholders) {
     const fps = edit.output.fps;
-    const track = { id: 'playbook-placeholders', lane: 'visual', items: [] };
+    const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
+    const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'visual', items: [] };
     let at = 0;
     for (const placeholder of placeholders) {
+        if (placeholder.kind === 'audio') continue;
         const duration = Math.max(1, Math.round((placeholder.durationHintSec ?? 5) * fps));
         // Empty planned canvas items are valid edit-v2 nodes without a media path. A
         // sample is a catalog reference, never an asset copied into the project.
@@ -730,6 +732,19 @@ function addPlaceholders(edit, placeholders) {
         at += duration;
     }
     if (track.items.length) edit.tracks.push(track);
+    for (const placeholder of placeholders) {
+        if (placeholder.kind !== 'audio') continue;
+        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? edit.output.target_duration_sec ?? 5) * fps));
+        audioTrack.items.push({
+            id: `playbook-${placeholder.id}`, at: 0, duration,
+            name: placeholder.sample
+                ? `${placeholder.role} (${placeholder.sample.category}/${placeholder.sample.id})`
+                : placeholder.role,
+            source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: placeholder.role,
+                background: { type: 'none' } } }, items: []
+        });
+    }
+    if (audioTrack.items.length) edit.tracks.push(audioTrack);
     return placeholders.length;
 }
 

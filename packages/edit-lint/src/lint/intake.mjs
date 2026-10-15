@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addFinding, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
 import { t } from "../../../akari-tools/src/decision-log/i18n.mjs";
@@ -152,12 +153,20 @@ export function validateIntake(intake, findings, paths) {
         `${intakeRelative}#submitted_at`,
       );
     }
+    let emptyProject = false;
+    try {
+      const edit = JSON.parse(readFileSync(paths.editPath, "utf8"));
+      const hasMedia = (items) => Array.isArray(items) && items.some(item =>
+        item?.source?.kind === "media" || hasMedia(item?.items));
+      emptyProject = (edit.sources === undefined || (Array.isArray(edit.sources) && edit.sources.length === 0))
+        && !edit.tracks?.some(track => hasMedia(track?.items));
+    } catch { /* If edit.json cannot be read, retain the existing warning. */ }
     intakeFinding(
       findings,
       "intake.status",
       "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
       intakeRelative,
-      "warning",
+      emptyProject ? "info" : "warning",
     );
   }
 }
