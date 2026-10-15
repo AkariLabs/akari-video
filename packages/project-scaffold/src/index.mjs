@@ -98,7 +98,7 @@ const FALLBACK_WORKFLOW = {
     },
     events: {
         directory: '.akari/events',
-        gateTypes: ['report-generated', 'report-approved', 'edit-completed', 'export-completed']
+        gateTypes: ['report-generated', 'report-approved', 'edit-completed', 'export-completed', 'agent-action']
     }
 };
 

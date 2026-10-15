@@ -2,6 +2,7 @@ import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,6 +18,15 @@ const git = (root, ...args) => exec('git', ['-C', root, ...args]);
 class Service extends AkariProjectServiceImpl {
     fsPath(uri) { return uri; }
     async event(root, file) { await this.handleEvent(root, file); }
+}
+
+class WatchedService extends Service {
+    watchEventsDirectory(_directory, listener) {
+        this.eventListener = listener;
+        const watcher = new EventEmitter();
+        watcher.close = () => undefined;
+        return watcher;
+    }
 }
 
 async function project() {
@@ -58,6 +68,30 @@ test('each closed gate has a label in both languages', async () => {
             assert.ok(catalog[key], `${language}: ${key}`);
         }
     }
+});
+
+test('project watcher notification updates the gate state on event additions', async () => {
+    const root = await project();
+    try {
+        const service = new WatchedService();
+        await service.watchProject(root);
+        const changed = service.waitForGateChange(root, 0);
+        const requested = await addEvent(root, { version: 1, id: 'gate-watch', type: 'gate-requested',
+            occurredAt: '2026-10-16T01:00:00Z', gate: 'paid', requestId: 'watch-1', summary: 'Generate' });
+        service.eventListener('rename', requested.split('/').at(-1));
+        const first = await Promise.race([changed, new Promise((_resolve, reject) =>
+            setTimeout(() => reject(new Error('watch notification timed out')), 2000))]);
+        assert.equal(first.watching, true);
+        assert.equal((await service.pendingGates(root)).length, 1);
+        const resolved = service.waitForGateChange(root, first.revision);
+        const resolution = await addEvent(root, { version: 1, id: 'resolve-watch', type: 'gate-resolved',
+            occurredAt: '2026-10-16T01:00:01Z', requestId: 'watch-1', decision: 'approved', by: 'human' });
+        service.eventListener('rename', resolution.split('/').at(-1));
+        const second = await Promise.race([resolved, new Promise((_resolve, reject) =>
+            setTimeout(() => reject(new Error('resolution notification timed out')), 2000))]);
+        assert.ok(second.revision > first.revision);
+        assert.equal((await service.pendingGates(root)).length, 0);
+    } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('two agent actions create two summary commits; gate events do not commit', async () => {

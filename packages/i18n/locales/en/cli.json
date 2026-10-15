@@ -8,6 +8,8 @@
   "cli.help.commands.doctor": "  doctor [--json]          Diagnose required components and their locations",
   "cli.help.commands.update": "  update [--force]         Check for updates (--force reinstalls the app installed with install.sh)",
   "cli.help.commands.status": "  status                   Check connection status",
+  "cli.status.automation.actions": "Actions: {count} (latest: {summary})",
+  "cli.status.automation.pending": "Awaiting confirmation: {count}",
   "cli.help.commands.migrate": "  migrate [dir]            Convert an old edit.json to v2 with a backup",
   "cli.help.commands.migrateLook": "  captions migrate-look <project> [--dry-run] [--json]  Lock existing subtitle appearance",
   "cli.help.commands.generate": "  generate                 Generate still-image clips from script beats",
