@@ -84,7 +84,6 @@ import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { StartProjectDialog, PlaybookCategory, PlaybookSource } from './home/start-project-dialog';
-import { startProjectCss } from './home/start-project-style';
 import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
 import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
@@ -1683,6 +1682,8 @@ export class AkariHomeWidget extends ReactWidget {
         this.startSelected = undefined;
         this.startCategory = undefined;
         this.startSource = 'all';
+        this.startStandaloneFlow = false;
+        this.pendingCreatePlaybook = undefined;
         try {
             const rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
             this.channels = rootUri ? await this.resolveManifestChannels(rootUri) : [CREATOR_ROOT_DEFAULT_CHANNEL];
@@ -1725,6 +1726,12 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected async submitStartProject(playbook?: AkariPlaybookListEntry): Promise<void> {
         if (this.startingNewProject) return;
+        if (!this.startChannel) {
+            this.startStandaloneFlow = true;
+            this.pendingCreatePlaybook = playbook;
+            await this.chooseStandaloneFolder();
+            return;
+        }
         try {
             let rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
             if (!rootUri) {
@@ -2652,9 +2659,9 @@ export class AkariHomeWidget extends ReactWidget {
             title: t('surfaces.home.chooseStandaloneFolderSelectFolderCreateSingleProject.title'),
             canSelectFiles: false, canSelectFolders: true, canSelectMany: false
         });
-        if (!picked) { this.startStandaloneFlow = false; return; }
+        if (!picked) { this.startStandaloneFlow = false; this.pendingCreatePlaybook = undefined; return; }
         const folder = Array.isArray(picked) ? picked[0] : picked;
-        if (!folder) { this.startStandaloneFlow = false; return; }
+        if (!folder) { this.startStandaloneFlow = false; this.pendingCreatePlaybook = undefined; return; }
         this.standaloneFolder = folder;
         const requested = this.startStandaloneFlow && this.startName.trim() !== this.startDefaultName
             ? safeProjectFolderName(this.startName.trim()) : '';
@@ -2800,9 +2807,9 @@ export class AkariHomeWidget extends ReactWidget {
                 category={this.startCategory} source={this.startSource} tools={this.startTools} busy={this.startingNewProject}
                 onName={value => { this.startName = value; this.update(); }}
                 onChannelMenu={() => { this.startChannelMenu = !this.startChannelMenu; this.update(); }}
-                onChannel={value => { this.startChannel = value; this.startChannelMenu = false; if (this.startStep === 'playbooks') void this.loadStartPlaybooks(); this.update(); }}
+                onChannel={value => { this.startChannel = value; this.startStandaloneFlow = false; this.startChannelMenu = false; if (this.startStep === 'playbooks') void this.loadStartPlaybooks(); this.update(); }}
                 onNewChannel={() => void this.openStartNewChannelDialog()}
-                onStandalone={() => { this.startStandaloneFlow = true; void this.chooseStandaloneFolder(); }}
+                onStandalone={() => { this.startChannel = undefined; this.startStandaloneFlow = true; this.startChannelMenu = false; this.update(); }}
                 onStep={step => { this.startStep = step; if (step === 'playbooks') void this.loadStartPlaybooks(); this.update(); }}
                 onCategory={category => { this.startCategory = category; this.startSelected = undefined; this.update(); }}
                 onSource={source => { this.startSource = source; this.startSelected = undefined; this.update(); }}
@@ -2849,12 +2856,12 @@ export class AkariHomeWidget extends ReactWidget {
             </HomeScrim>;
         }
         if (this.homeDialog === 'standalone-create' && this.standaloneDestination) {
-            return <HomeScrim kind='standalone-create' onClose={this.closeHomeDialog}>
+            return <HomeScrim kind='standalone-create' onClose={() => { this.pendingCreatePlaybook = undefined; this.closeHomeDialog(); }}>
                 <h3>{t('surfaces.home.homeDialogCreateWithoutEnteringChannel.heading')}</h3>
                 <p>{t('surfaces.home.standaloneProject.description')}</p>
                 <div className='akari-home-dialog-path'>{this.standaloneDestination.path.fsPath()}</div>
                 <div className='akari-home-dialog-actions'>
-                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>{t('surfaces.home.homeDialogStop.button')}</button>
+                    <button type='button' className='theia-button secondary' onClick={() => { this.pendingCreatePlaybook = undefined; this.closeHomeDialog(); }}>{t('surfaces.home.homeDialogStop.button')}</button>
                     <button type='button' className='theia-button main' data-akari-standalone-create-submit='true'
                         disabled={this.startingNewProject} onClick={() => {
                             const destination = this.standaloneDestination;
@@ -3300,7 +3307,7 @@ export class AkariHomeWidget extends ReactWidget {
             if (this.welcomeMode) return this.renderWelcomeSurface();
             return <div className='akari-home-surface' data-akari-home-stage='dashboard'
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}>
-                <style>{homePanelCss + startProjectCss}</style>{this.renderHomeTopBar()}{this.renderDashboardHeader()}
+                <style>{homePanelCss}</style>{this.renderHomeTopBar()}{this.renderDashboardHeader()}
                 {this.renderProjectList()}{this.renderHomeDialog()}
             </div>;
         }
@@ -3317,7 +3324,7 @@ export class AkariHomeWidget extends ReactWidget {
                 onScroll={this.handleHomeScroll}
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative', containerType: 'inline-size' }}
             >
-                <style>{homePanelCss + projectListCss + projectHomeCss + startProjectCss}</style>
+                <style>{homePanelCss + projectListCss + projectHomeCss}</style>
                 {this.renderHomeTopBar()}
                 {channelMode ? this.renderProjectListForTab() : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
@@ -3373,7 +3380,7 @@ export class AkariHomeWidget extends ReactWidget {
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 style={homeFlowStyles.welcomeSurface}
             >
-                <style>{homePanelCss + startProjectCss}</style>
+                <style>{homePanelCss}</style>
                 <div style={homeFlowStyles.welcomeTopBar}>{this.renderHomeTopBar()}</div>
                 <div style={homeFlowStyles.welcomeStack}>
                     {this.renderWelcomeCard()}

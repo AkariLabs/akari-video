@@ -42,12 +42,15 @@ export interface AkariPlaybook {
     requires?: { cli?: string; tools?: string[]; skills?: string[] };
     license: string;
     provenance: Record<string, unknown>;
+    preview?: { cover?: string; frames?: string[] };
+    example?: boolean;
 }
 
 export interface AkariPlaybookListEntry {
     dir: string;
     source: 'channel' | 'local';
     coverUri?: string;
+    frameUris?: string[];
     playbook: AkariPlaybook;
 }
 
