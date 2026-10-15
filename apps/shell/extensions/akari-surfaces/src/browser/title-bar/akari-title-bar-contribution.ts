@@ -18,6 +18,7 @@ import { savedChip, shouldRerenderOnContextKeys, showsMenuInTitleBar, stageDots,
 import { projectLocation, ProjectLocation } from '../../common/project-location';
 import { parseIntakeTitle } from '../../common/project-display-name';
 import { readSceneList } from '../home/scene-list';
+import { requestStructureTab } from '../home/structure-navigation';
 
 // この拡張には既存の限定的な electronTheiaCore 宣言があるため、Theia の
 // Window 宣言を重ねず実行時のクラスを使う。継承メソッドは Theia の .d.ts と同じ可視性。
@@ -308,6 +309,15 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
                     all.textContent = t('surfaces.titleBar.sceneList.label');
                     all.addEventListener('click', () => void this.commands.executeCommand('akari.home.openProject', { uri: projectRoot.toString() }));
                     menu.append(all);
+                    const structure = document.createElement('button');
+                    structure.type = 'button';
+                    structure.dataset.akariStructureOption = 'true';
+                    structure.textContent = t('surfaces.titleBar.viewAllStructure.label');
+                    structure.addEventListener('click', () => {
+                        requestStructureTab(projectRoot, 'structure');
+                        void this.commands.executeCommand('akari.home.openProject', { uri: projectRoot.toString() });
+                    });
+                    menu.append(structure);
                     center.append(menu);
                 });
                 nodes.push(separator, projectName, sceneSeparator, sceneButton);
