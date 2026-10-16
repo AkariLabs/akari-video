@@ -33,3 +33,9 @@ test('empty canvases are placeholders with an interval, so they extend the timel
  assert.equal(previewContentEnd({tree},[],0),60);
  assert.equal(previewContentEnd({tree},[],75),75);
 });
+test('the frame-engine visual end keeps a 45-second planned-only project seekable',()=>{
+ const tree=[{emptyCanvas:{at:0,duration:3}},{emptyCanvas:{at:3,duration:33}},
+  {emptyCanvas:{at:36,duration:9}}];
+ assert.equal(previewContentEnd({tree},[],45),45);
+ assert.equal(previewContentEnd({tree},[],0),45);
+});

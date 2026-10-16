@@ -242,7 +242,9 @@ export function buildGpuPage({
     adjustLutCubeTexts,
     spriteManifest,
     eligibility: effectiveEligibility,
-    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder"), longGop: t("render.frameEngine.warning.longGop") },
+    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder"), longGop: t("render.frameEngine.warning.longGop"),
+      placeholderCard: { defaultName: t("preview.previewWindow.placeholderCard.defaultName"),
+        replaceHint: t("preview.previewWindow.placeholderCard.replaceHint") } },
   };
   if (interleaved) {
     const spriteZ = Object.fromEntries([...stackZByOverlay]);

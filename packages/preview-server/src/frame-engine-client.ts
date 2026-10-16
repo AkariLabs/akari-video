@@ -1,5 +1,6 @@
 import {
   buildResolvedTimelinePlan,
+  collectPlanPlaceholderCards,
   CachedStillImageSource,
   chooseSource,
   ClipSessionPool,
@@ -829,6 +830,9 @@ class FrameEngineRuntime {
       fps,
       layers: engineLayers as FrameEngineLayer[],
       overlays: Array.isArray(edit?.overlays) ? edit.overlays : [],
+      placeholders: collectPlanPlaceholderCards(edit?.tracks, fps),
+      placeholderText: (window as unknown as { __AKARI_PREVIEW_MESSAGES__?: { placeholderCard?: { defaultName: string; replaceHint: string } } })
+        .__AKARI_PREVIEW_MESSAGES__?.placeholderCard,
     });
     this.totalDuration = this.timeline.totalDuration;
     const speech = speechDeclarations(edit, fps, sourceChoices);
@@ -1314,7 +1318,10 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [],
+      placeholders: collectPlanPlaceholderCards(edit?.tracks, fps),
+      placeholderText: (window as unknown as { __AKARI_PREVIEW_MESSAGES__?: { placeholderCard?: { defaultName: string; replaceHint: string } } })
+        .__AKARI_PREVIEW_MESSAGES__?.placeholderCard });
     // 総尺は「最後の有効フレームの次」= 終端位置で、そこでは終了位置が総尺と一致する layers[]
     // が半開区間（frame < endFrame）から外れる（不具合メモ 第16項）。編集適用で尺が縮んだとき、
     // 素のクランプだと prime() が終端位置を 1 枚描いて追加映像だけ欠けた絵を出すため、

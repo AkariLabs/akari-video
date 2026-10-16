@@ -538,6 +538,9 @@
       this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit, config.adjustLutCubeTexts), {
         fps: config.fps,
         layers: engineLayers,
+        placeholders: typeof FE.collectPlanPlaceholderCards === "function"
+          ? FE.collectPlanPlaceholderCards(config.edit.tracks, config.fps) : [],
+        placeholderText: config.messages?.placeholderCard,
         onWarning: warn,
       });
       const look = config.look && typeof config.look.cubeText === "string"

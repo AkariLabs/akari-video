@@ -3,14 +3,16 @@ import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import * as editStore from '@akari-video/edit-store';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
+import * as groupEnd from '../lib/common/timeline-group-end.js';
 
 const source = readCompiledSource('widget').text;
 const rest = source.slice(source.indexOf('    computeContentEndDuration('));
 const method = rest.slice(0, rest.indexOf('\n    }') + 6);
 // Bind the imported modules by their emitted aliases, without assuming tsc's numbering.
-const aliases = [...new Set([...method.matchAll(/\b((?:edit_store|edit_v2_mutations)_\d+)\./g)].map(match => match[1]))];
+const aliases = [...new Set([...method.matchAll(/\b((?:edit_store|edit_v2_mutations|timeline_group_end)_\d+)\./g)].map(match => match[1]))];
 const Widget = new Function(...aliases, `return class {${method}}`)(
-    ...aliases.map(alias => alias.startsWith('edit_store_') ? editStore : mutations)
+    ...aliases.map(alias => alias.startsWith('edit_store_') ? editStore
+        : alias.startsWith('timeline_group_end_') ? groupEnd : mutations)
 );
 
 test('timeline extent includes output captions and resolved BGM, while respecting excludes and trims', () => {
@@ -35,4 +37,14 @@ test('timeline extent includes output captions and resolved BGM, while respectin
     assert.equal(w.computeContentEndDuration(), 30);
     Object.assign(w.rawV2Item('bgm'), { duration: 0, source: { kind: 'media', path: 'music', in: 5, out: 10 } });
     assert.equal(w.computeContentEndDuration(), 12);
+});
+
+test('cut-free timeline counts the ends of planned groups', () => {
+    const group = (id, at, duration) => ({ id, at, duration, source: { kind: 'group' }, children: [] });
+    const w = Object.assign(new Widget(), {
+        cuts: [], segments: [], overlays: [], layers: [], audioSfx: [], audioNarration: [], audioSpeech: [],
+        beats: [], annotations: [], captions: [], audioDurationCache: new Map(), fps: 30,
+        timelineTreeTracks: [{ items: [group('hook', 0, 3), group('body', 3, 33), group('reaction', 36, 9)] }]
+    });
+    assert.equal(w.computeContentEndDuration(), 45);
 });

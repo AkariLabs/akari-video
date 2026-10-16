@@ -291,7 +291,7 @@ export function previewBootstrapScript(): string {
                 emptyCanvasHint.style.fontSize = Math.max(36, Math.round(Math.min(
                     Number(summary.output?.width) || 1280, Number(summary.output?.height) || 720
                 ) * 0.065)) + 'px';
-                emptyCanvasHint.style.display = active ? 'flex' : 'none';
+                emptyCanvasHint.style.display = active && previewStage?.dataset.frameEngineActive !== 'true' ? 'flex' : 'none';
                 if (active) {
                     emptyCanvasHint.dataset.akariCanvasId = active.id;
                     emptyCanvasHint.textContent = active.emptyCanvas.intent || active.label;

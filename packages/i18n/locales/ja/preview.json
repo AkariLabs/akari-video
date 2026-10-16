@@ -1,4 +1,6 @@
 {
+  "preview.previewWindow.placeholderCard.defaultName": "仮枠",
+  "preview.previewWindow.placeholderCard.replaceHint": "仮枠 — 素材を入れると置き換わります",
   "preview.emphasisWords.validation.expectedArrayWarning": "[akari-preview] emphasis_words を無視しました（配列ではありません）",
   "preview.emphasisWords.validation.invalidItemWarning": "[akari-preview] emphasis_words[{index}] を無視しました（要素が不正です）",
   "preview.audioMeter.command.openAudioMeterAction": "音声メーターを開く",
