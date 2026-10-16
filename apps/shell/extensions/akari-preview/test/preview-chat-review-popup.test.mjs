@@ -47,19 +47,40 @@ test('popup clamps vertically and limits its height', () => {
         { left: 128, top: 8, maxHeight: 284 });
 });
 
+test('bottom limit keeps right and left popups above the transport, even when anchors are below it', () => {
+    const limited = { ...viewport, bottom: 180 };
+    assert.deepEqual({ ...position(box(100, 150), popup, limited) },
+        { left: 128, top: 110, maxHeight: 172 });
+    assert.deepEqual({ ...position(box(370, 150), popup, limited) },
+        { left: 182, top: 110, maxHeight: 172 });
+    assert.equal(position(box(100, 220), popup, limited).top, 110);
+    assert.equal(position(box(370, 220), popup, limited).top, 110);
+    assert.deepEqual({ ...position(box(100, 150), { width: 180, height: 500 }, limited) },
+        { left: 128, top: 8, maxHeight: 172 });
+    assert.equal(position(box(100, 220), popup, viewport).top, 220);
+});
+
+test('horizontally clamped popup tries below then above using the bottom limit', () => {
+    const limited = { ...viewport, bottom: 120 };
+    assert.equal(position(box(180, 20), { width: 250, height: 70 }, limited).top, 48);
+    assert.equal(position(box(180, 100), { width: 250, height: 70 }, limited).top, 22);
+    assert.equal(position(box(180, 20), { width: 250, height: 70 }, { ...viewport, bottom: 110 }).top, 20);
+});
+
 const positionStart = source.indexOf('        const positionPopups = () => {');
 const positionEnd = source.indexOf("        window.addEventListener('resize', positionPopups);", positionStart);
 assert.ok(positionStart >= 0 && positionEnd > positionStart);
 const positionScript = source.slice(positionStart, positionEnd) + '\npositionPopups();';
 
-function placedNote(review, strokeRect) {
+function placedNote(review, strokeRect, transportTop = 500) {
     const badge = { getBoundingClientRect: () => box(515, 100) };
     const stroke = strokeRect && { getBoundingClientRect: () => strokeRect };
     const note = { style: {}, getBoundingClientRect: () => ({ width: 180, height: 70 }) };
     const marksNode = { querySelector: selector => selector.startsWith('.review-mark-stroke') ? stroke : badge };
     vm.runInNewContext(positionScript, { activeNote: { id: 'mark' }, pinDrag: null, trayOpen: false,
         markIndex: () => 0, marks: [{ review }], marksNode, seekMarks: { querySelector: () => null }, seek: badge,
-        attachButton: badge, tray: note, note, notePosition: position, window: { innerWidth: 1100, innerHeight: 500 } });
+        attachButton: badge, tray: note, note, notePosition: position, window: { innerWidth: 1100, innerHeight: 500 },
+        transport: { getBoundingClientRect: () => ({ top: transportTop }) }, document: { querySelector: () => null } });
     return note.style;
 }
 
@@ -68,6 +89,11 @@ test('pen note anchors to the entire stroke; legacy pen uses its badge', () => {
         { left: 525, right: 575, top: 100, bottom: 470 }),
     { left: '583px', top: '100px', maxHeight: '484px' });
     assert.deepEqual(placedNote({ tool: 'pen', shape: { x: .5, y: .5 } }, null),
+        { left: '543px', top: '100px', maxHeight: '484px' });
+});
+
+test('very low transport falls back to the viewport bottom', () => {
+    assert.deepEqual(placedNote({ tool: 'pin' }, null, 100),
         { left: '543px', top: '100px', maxHeight: '484px' });
 });
 
@@ -233,6 +259,44 @@ test('real Chrome keeps both popups open on outside click and closes them with t
         assert.equal(await page.evaluate(() => document.querySelector('#review-chat-tray').hidden), false);
         await page.click('[data-review-attach-count]');
         assert.equal(await page.evaluate(() => document.querySelector('#review-chat-tray').hidden), true);
+        await page.close();
+    } finally { await browser.close(); }
+});
+
+test('real Chrome keeps a tall attachment tray and a low pin note above the transport', async t => {
+    let browser;
+    try { browser = await launchBrowser(); }
+    catch (error) { if (error?.message !== 'headless Chrome が見つかりません') throw error; t.skip('headless Chrome 不在'); return; }
+    try {
+        const page = await reviewPage(browser);
+        await page.setViewport({ width: 1100, height: 600 });
+        await state(page, Array.from({ length: 24 }, (_, index) => ({ ...pin, id: `pin-${index}`, shape: { x: .4, y: .98 } })));
+        await page.click('[data-review-attach-count]');
+        await page.click('[data-review-row="0"]');
+        const bounds = await page.evaluate(() => {
+            const tray = document.querySelector('#review-chat-tray');
+            const rows = tray.querySelector('[data-review-rows]');
+            const send = tray.querySelector('[data-review-send]');
+            const note = document.querySelector('[data-review-note]');
+            const floor = Math.min(document.querySelector('.transport').getBoundingClientRect().top,
+                document.querySelector('.transport-seek').getBoundingClientRect().top);
+            return { floor, tray: tray.getBoundingClientRect().toJSON(), note: note.getBoundingClientRect().toJSON(),
+                send: send.getBoundingClientRect().toJSON(), rowsScrollable: rows.scrollHeight > rows.clientHeight,
+                trayHidden: tray.hidden, noteHidden: note.hidden };
+        });
+        assert.equal(bounds.trayHidden, false);
+        assert.equal(bounds.noteHidden, false);
+        assert.ok(bounds.tray.bottom <= bounds.floor - 7.5, JSON.stringify(bounds));
+        assert.ok(bounds.note.bottom <= bounds.floor - 7.5, JSON.stringify(bounds));
+        assert.ok(bounds.rowsScrollable, JSON.stringify(bounds));
+        assert.ok(bounds.send.top >= bounds.tray.top && bounds.send.bottom <= bounds.tray.bottom, JSON.stringify(bounds));
+        const rowScroll = await page.evaluate(async () => {
+            const rows = document.querySelector('[data-review-rows]');
+            rows.scrollTop = 100;
+            await new Promise(resolve => setTimeout(resolve, 0));
+            return rows.scrollTop;
+        });
+        assert.ok(rowScroll > 0, `attachment rows retain scroll position: ${rowScroll}`);
         await page.close();
     } finally { await browser.close(); }
 });

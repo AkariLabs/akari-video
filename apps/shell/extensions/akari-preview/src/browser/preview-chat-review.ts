@@ -12,9 +12,10 @@ export function reviewThumbnailEviction(attachments: readonly ChatAttachment[], 
 }
 
 export function reviewNotePosition(anchor: { left: number; right: number; top: number; bottom: number },
-    popup: { width: number; height: number }, viewport: { width: number; height: number }, gap = 8, margin = 8):
+    popup: { width: number; height: number }, viewport: { width: number; height: number; bottom?: number }, gap = 8, margin = 8):
     { left: number; top: number; maxHeight: number } {
-    const maxHeight = Math.max(0, viewport.height - margin * 2);
+    const bottom = viewport.bottom ?? viewport.height - margin;
+    const maxHeight = Math.max(0, bottom - margin);
     const height = Math.min(popup.height, maxHeight);
     const right = anchor.right + gap;
     const leftSide = anchor.left - gap - popup.width;
@@ -25,9 +26,9 @@ export function reviewNotePosition(anchor: { left: number; right: number; top: n
     const below = anchor.bottom + gap;
     const above = anchor.top - gap - height;
     const preferredTop = fitsRight || fitsLeft ? anchor.top
-        : below + height <= viewport.height - margin ? below
+        : below + height <= bottom ? below
             : above >= margin ? above : anchor.top;
-    const top = Math.max(margin, Math.min(preferredTop, viewport.height - margin - height));
+    const top = Math.max(margin, Math.min(preferredTop, bottom - height));
     return { left, top, maxHeight };
 }
 
@@ -186,9 +187,16 @@ export function previewChatReviewScript(): string {
         seekMarks.id = 'review-seek-marks';
         document.querySelector('.transport-seek')?.append(seekMarks);
         const positionPopups = () => {
+            const transportTop = Math.min(transport.getBoundingClientRect().top,
+                document.querySelector('.transport-seek')?.getBoundingClientRect().top ?? Infinity);
+            const bottom = transportTop - 8;
+            const viewport = { width: window.innerWidth, height: window.innerHeight,
+                ...(bottom - 8 >= 96 ? { bottom } : {}) };
+            const maxHeight = Math.max(0, (viewport.bottom ?? viewport.height - 8) - 8);
             if (trayOpen && marks.length) {
+                tray.style.maxHeight = maxHeight + 'px';
                 const position = notePosition(attachButton.getBoundingClientRect(), tray.getBoundingClientRect(),
-                    { width: window.innerWidth, height: window.innerHeight });
+                    viewport);
                 tray.style.left = position.left + 'px';
                 tray.style.top = position.top + 'px';
                 tray.style.maxHeight = position.maxHeight + 'px';
@@ -201,8 +209,9 @@ export function previewChatReviewScript(): string {
                 ? marksNode.querySelector('.review-mark-stroke[data-review-index="' + index + '"] polyline') : null;
             const anchor = marksNode.querySelector('[data-review-index="' + index + '"]')
                 || seekMarks.querySelector('[data-review-index="' + index + '"]') || seek;
+            note.style.maxHeight = maxHeight + 'px';
             const position = notePosition((stroke || anchor).getBoundingClientRect(), note.getBoundingClientRect(),
-                { width: window.innerWidth, height: window.innerHeight });
+                viewport);
             note.style.left = position.left + 'px';
             note.style.top = position.top + 'px';
             note.style.maxHeight = position.maxHeight + 'px';
