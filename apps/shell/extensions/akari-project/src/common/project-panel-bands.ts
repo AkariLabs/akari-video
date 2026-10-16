@@ -65,15 +65,50 @@ export function visibleMaterialRows<T extends PanelMaterial>(rows: readonly Pane
 export interface PanelOutput { readonly kind: 'data' | 'plan' | 'report' | 'export'; readonly mtime: number }
 export type RecordKind = 'plan' | 'data' | 'report';
 
+export const EXPORT_BAND_HEIGHT_KEY = 'akari.exportBand.height';
+export const EXPORT_BAND_ROW_HEIGHT = 22;
+export const EXPORT_BAND_MIN_HEIGHT = 49;
+export const EXPORT_BAND_DEFAULT_HEIGHT = EXPORT_BAND_MIN_HEIGHT + EXPORT_BAND_ROW_HEIGHT;
+
+export function parseExportBandHeight(value: string | null): number | undefined {
+    if (value === null || !/^\d+$/.test(value)) return undefined;
+    const height = Number(value);
+    return Number.isSafeInteger(height) ? height : undefined;
+}
+
+export function serializeExportBandHeight(height: number): string {
+    return String(Math.round(height));
+}
+
+export function clampExportBandHeight(height: number, panelHeight: number): number {
+    const maximum = Number.isFinite(panelHeight)
+        ? Math.max(EXPORT_BAND_MIN_HEIGHT, Math.floor(panelHeight * 0.7))
+        : Number.POSITIVE_INFINITY;
+    return Math.min(maximum, Math.max(EXPORT_BAND_MIN_HEIGHT, Math.round(height)));
+}
+
+export function dragExportBandHeight(startHeight: number, startY: number, currentY: number, panelHeight: number): number {
+    return clampExportBandHeight(startHeight + startY - currentY, panelHeight);
+}
+
+export function formatExportTimestamp(mtime: number, now = Date.now()): string {
+    const date = new Date(mtime);
+    const today = new Date(now);
+    const pad = (value: number): string => value.toString().padStart(2, '0');
+    return date.getFullYear() === today.getFullYear()
+        && date.getMonth() === today.getMonth()
+        && date.getDate() === today.getDate()
+        ? `${pad(date.getHours())}:${pad(date.getMinutes())}`
+        : `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
 export function recordGroupWindow<T>(entries: readonly T[], expanded = false): { rows: T[]; remaining: number } {
     return { rows: expanded ? [...entries] : entries.slice(0, 5), remaining: expanded ? 0 : Math.max(0, entries.length - 5) };
 }
 
 export function projectPanelBands<T extends PanelOutput>(entries: readonly T[]): {
     records: Record<RecordKind, T[]>;
-    exportPreview: T[];
     exportAll: T[];
-    showAllExports: boolean;
 } {
     const newest = (a: T, b: T): number => b.mtime - a.mtime;
     const records = {
@@ -82,5 +117,5 @@ export function projectPanelBands<T extends PanelOutput>(entries: readonly T[]):
         report: entries.filter(entry => entry.kind === 'report').sort(newest)
     };
     const exportAll = entries.filter(entry => entry.kind === 'export').sort(newest);
-    return { records, exportPreview: exportAll.slice(0, 3), exportAll, showAllExports: exportAll.length > 3 };
+    return { records, exportAll };
 }
