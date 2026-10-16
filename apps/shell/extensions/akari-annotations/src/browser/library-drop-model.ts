@@ -7,6 +7,10 @@ export interface LibraryTransitionDragPayload {
     name: string;
 }
 
+export interface LibraryPlaybookDragPayload {
+    kind: 'playbook'; id: string; name: string; depth: 2 | 3; dir: string;
+}
+
 export interface LibraryAssetDragPayload {
     kind: 'asset';
     key: string;
@@ -58,7 +62,7 @@ export interface LibraryShapeDragPayload {
     preset: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryOverlayDragPayload | LibraryScene3dDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryPlaybookDragPayload | LibraryAssetDragPayload | LibraryOverlayDragPayload | LibraryScene3dDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
 
 export function textPlaceOptions(start: number): { start: number } {
     return { start };
@@ -106,6 +110,12 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     }
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
     const candidate = decoded as Record<string, unknown>;
+    if (candidate.kind === 'playbook') return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(candidate.id))
+        && typeof candidate.name === 'string' && !!candidate.name.trim()
+        && (candidate.depth === 2 || candidate.depth === 3)
+        && typeof candidate.dir === 'string' && !!candidate.dir.trim()
+        ? { kind: 'playbook', id: candidate.id as string, name: candidate.name,
+            depth: candidate.depth, dir: candidate.dir } as LibraryPlaybookDragPayload : undefined;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
     if (candidate.kind === 'overlay' || candidate.kind === 'scene3d') {
         return candidate.category === candidate.kind && candidate.locked !== true && candidate.state !== 'locked'

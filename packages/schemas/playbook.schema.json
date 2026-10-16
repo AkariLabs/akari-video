@@ -11,7 +11,29 @@
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "name": { "$ref": "#/$defs/text" },
     "playbookVersion": { "type": "integer", "minimum": 1 },
-    "depth": { "enum": [1, 2] },
+    "depth": { "enum": [1, 2, 3] },
+    "template": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item", "fps", "width", "height", "durationSec", "slots", "media"],
+      "properties": {
+        "item": { "const": "template/item.json" },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "durationSec": { "type": "number", "exclusiveMinimum": 0 },
+        "slots": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+          "required": ["placeholder", "item"], "properties": {
+            "placeholder": { "$ref": "#/$defs/id" }, "item": { "type": "string", "minLength": 1 }
+          } } },
+        "media": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+          "required": ["path", "sha256", "license", "source"], "properties": {
+            "path": { "type": "string", "pattern": "^template/media/[^./][^/]*$" },
+            "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "license": { "$ref": "#/$defs/text" },
+            "source": { "enum": ["builtin", "lab", "ai", "own"] }
+          } } }
+      }
+    },
     "category": { "enum": ["film", "short-drama", "mv", "explainer", "product", "vlog", "cm", "education", "clip", "logo"] },
     "preview": {
       "type": "object", "additionalProperties": false,
@@ -101,7 +123,10 @@
       }
     }
   },
-  "allOf": [{ "if": { "properties": { "depth": { "const": 1 } } }, "then": { "not": { "anyOf": [{ "required": ["placeholders"] }, { "required": ["parts"] }] } } }],
+  "allOf": [
+    { "if": { "properties": { "depth": { "const": 1 } } }, "then": { "not": { "anyOf": [{ "required": ["placeholders"] }, { "required": ["parts"] }] } } },
+    { "if": { "properties": { "depth": { "const": 3 } }, "required": ["depth"] }, "then": { "required": ["template"] }, "else": { "not": { "required": ["template"] } } }
+  ],
   "$defs": {
     "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },

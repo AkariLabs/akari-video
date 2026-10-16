@@ -1,4 +1,5 @@
 import type { MaterialKind } from './asset-group-media';
+import { materialMatchesFilter } from './project-panel-bands';
 
 export type MaterialsSort = 'imported-desc' | 'imported-asc' | 'name' | 'dur' | 'kind' | 'created';
 export type MaterialsMode = 'grid' | 'list';
@@ -18,6 +19,9 @@ export interface MaterialsViewEntry {
     name: string;
     kind: MaterialKind;
     assetGroup?: { category: string };
+    relativePath?: string;
+    recipe?: boolean;
+    baked?: boolean;
     durationSeconds?: number;
     importedAt?: string;
     createdAt?: string;
@@ -36,7 +40,7 @@ export function visibleMaterials<T extends MaterialsViewEntry>(
 ): T[] {
     const search = query.trim().toLocaleLowerCase();
     const included = entries.filter(entry =>
-        (filter.length === 0 || filter.includes(materialViewKind(entry)))
+        materialMatchesFilter({ ...entry, relativePath: entry.relativePath ?? '' }, filter)
         && (!search || entry.name.toLocaleLowerCase().includes(search)));
     const present = (value: number | string | undefined): boolean =>
         value !== undefined && value !== '' && (typeof value !== 'number' || Number.isFinite(value));

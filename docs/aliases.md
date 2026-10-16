@@ -21,5 +21,6 @@
 | レシピ（素材の絞り込み・接続の「3D レシピ」） | 画面に出さない / 3D の設定 | 表示 | `project.workspace.materialChips.recipeLabel`・`connect.catalog.connector.recipesLabel` | 値だけ変更。`kind: akari-recipe`・`akari recipe` 不変 | vocabulary-v0 §1（recipes-and-connectors-v0 §6 を上書き） |
 | ブランドキット | チャンネルの設定 | 表示 | `inspector.colorPanel.label.brandKit`・`project.library.home.brandKitLabel`・タイル key `brandkit`（不変）・`brand-kit.json`（不変） | 値だけ変更 | オーナー 2026-10-16 |
 | セット / パック（ライブラリのタイル） | 出さない（Lab の売り方だけ） | 表示 | タイル key `pack`（不変）・`setLabel` / `packsLabel` | タイルは非表示にするか Lab への導線にする。key 不変 | vocabulary-v0 §1 |
-| 作り方の例（Lab の棚見出し）/ Playbook examples | 作例の英語名が決まってから | 表示 | `akari-video-store` index.html・`i18n/en.json` | 値だけ変更。id `example-*`・URL 不変 | vocabulary-v0 §9・§11-1 |
 | `example: true`（playbook.json） | 変えない | データ値 | playbook-v0 §2 | 既存値不変。移行表が確定してから個別に | vocabulary-v0 §8 |
+| 記憶パック（チャンネルの人物 / 単語帳） | 記憶（人物 / 単語帳）。束は「記憶の束」 | 表示 | `surfaces.channel.memoryPackCatalog*`（キー不変） | 値だけ変更 | vocabulary-v0 §11-5 |
+| 作り方の例 / Playbook examples（Lab） | 作例 / Showcases | 表示 | `akari-video-store` index.html・`i18n/en.json` | 値だけ変更。id `example-*` 不変（動画の無い物は「作り方」のまま） | vocabulary-v0 §11-1 |

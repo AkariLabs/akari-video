@@ -7,7 +7,7 @@ updated: 2026-10-16
 # showcase-v0（作例 = 完成した 1 本と、そこから辿る根拠）契約
 
 - 日付: 2026-10-16
-- 状態: **v0 ドラフト**（語は vocabulary-v0。本契約は作例のデータの形・区間・解決・CLI・スキルを決める。英語名〈Showcase〉は vocabulary-v0 §11-1 の裁定待ち）
+- 状態: **v0 ドラフト**（語は vocabulary-v0。本契約は作例のデータの形・区間・解決・CLI・スキルを決める。英語名は **Showcase** で確定〈2026-10-16〉。作例と作り方は一緒に扱う〈別々に公開しない〉）
 - 前提: `contract-2026-10-16-vocabulary-v0.md` §3〜§7 / `contract-2026-10-15-playbook-v0.md`（作り方・`beats`・`preview`・`provenance`）/
   `contract-2026-10-15-project-manifest-v0.md`（`uses` の線と `kind` 語彙）/ `contract-2026-09-02-asset-reference-model.md`（参照台帳）/
   `contract-2026-10-16-automation-gates-v0.md`（公開は門）/ `contract-2026-09-13-extension-kit-v0.md`（キットで配る）
@@ -124,7 +124,7 @@ akari showcase capture <project> --id <id> [--title] [--video <exports/…mp4>] 
 - **参考にして作る**: スキル `create-from-showcase`。入力 = 作例（と区間）+ 依頼者の**注目点**（文字の動き / 色 / テンポ / 構図 / 音。複数可）+ 対象（新規 / 既存プロジェクトの区間）。`inspect` の 4 分類をそのまま文脈に渡し、できたプロジェクトの manifest に `uses: showcase:<id>@<版>#<区間>` と注目点を残す
 - **編集データを開く**: `akari new <dir> --from showcase:<id>[@<版>]`。`openable` が `ready` のときだけ。`sources/` を雛形の上に写し、`parts[]` の Lab の部品は入手（門: 有償なら止まる）。`sources` 止まりなら「足りない物」を出して止める
 - **テンプレートを使う**: 作例の `parts[]` に `kind: template` があれば、作例の詳細から直接そのテンプレートを置ける（重複表示しない。vocabulary-v0 §2）
-- **ホームと編集中**: ホームの「作り始める」に作例の一覧（区間と開けるかの印つき）。編集中に開く場所は vocabulary-v0 §11-3
+- **ホームと編集中**: ホームの「作り始める」に作例の一覧（区間と開けるかの印つき）。編集中は**左のライブラリのパネル**に「作例」の分類で一覧し、押すと**真ん中のパネル**（プレビューの面）に作例のプレビューと詳細（区間・部品・作り方・開けるか・「参考にして作る」「編集データを開く」）を収める（vocabulary-v0 §11-3）
 
 ## 8. 出典と利用実績
 
@@ -147,4 +147,4 @@ akari showcase capture <project> --id <id> [--title] [--video <exports/…mp4>] 
 
 1. `video.mp4` を手元に持つ既定にするか、`preview/frames` + URL を既定にするか（重さ）
 2. 区間の `edit.itemIds` を登録時に埋める（捕まえやすい）か、常に `timeMap` から引く（ずれにくい）か
-3. 作例と作り方を別々に公開できるか（vocabulary-v0 §11-4 と同じ問い）
+3. （裁定済み: 作例と作り方は一緒に公開する。vocabulary-v0 §11-4）

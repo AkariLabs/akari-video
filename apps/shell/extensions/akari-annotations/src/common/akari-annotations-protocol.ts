@@ -8,6 +8,8 @@ export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
 export interface AkariAnnotationsService {
+    placePlaybook(request: { projectUri: string; playbookDir: string; at: number; trackId?: string; edit: unknown }): Promise<{ edit: unknown; rollback?: unknown }>;
+    undoPlacePlaybook(request: { projectUri: string; rollback?: unknown }): Promise<void>;
     getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>>;
 }
 

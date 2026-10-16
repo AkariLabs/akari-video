@@ -330,6 +330,34 @@ export const ANNOTATIONS_WIDGET_CSS = `
         cursor: pointer;
         flex: none;
     }
+    .akari-annotations-widget [data-akari-track-header-resizer] {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: -4px;
+        width: 8px;
+        z-index: 12;
+        cursor: col-resize;
+        touch-action: none;
+    }
+    .akari-annotations-widget [data-akari-track-header-resizer]:hover,
+    .akari-annotations-widget [data-akari-track-header-resizer]:active {
+        background: color-mix(in srgb, var(--theia-focusBorder) 45%, transparent);
+    }
+    .akari-track-header-tooltip {
+        position: fixed;
+        z-index: 10000;
+        pointer-events: none;
+        max-width: min(600px, calc(100vw - 8px));
+        padding: 5px 7px;
+        overflow-wrap: anywhere;
+        border: 1px solid var(--theia-widget-border);
+        border-radius: 4px;
+        background: var(--theia-editorWidget-background);
+        color: var(--theia-foreground);
+        box-shadow: 0 3px 12px var(--theia-widget-shadow);
+        font-size: 11px;
+    }
     .akari-annotations-widget .akari-track-header-row {
         position: absolute;
         left: 0;
@@ -349,9 +377,6 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]),
     .akari-annotations-widget .akari-track-header-trackline:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]) { gap: 0; }
-    .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control) .akari-track-header-name {
-        min-width: 24px;
-    }
     .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]) .akari-track-header-icon {
         width: 12px; flex: 0 0 12px;
     }
@@ -368,6 +393,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         align-items: center;
         gap: 2px;
         min-width: 0;
+        padding: 0 3px;
         box-sizing: border-box;
     }
     .akari-annotations-widget .akari-track-header-row:not([data-akari-tree-track]):has(.akari-track-ripple-control[data-akari-ripple-placement="second"]) > .akari-track-header-trackline {
@@ -405,7 +431,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-widget .akari-track-header-name {
         min-width: 0;
-        flex: 1;
+        flex: 1 1 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -443,6 +469,10 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] {
         width: 18px; min-width: 18px; max-width: 18px;
+        overflow: hidden;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-tag > span:not(.akari-track-ripple-icon) {
+        display: none;
     }
     .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"][data-akari-ripple-display="switches"] {
         width: 28px; min-width: 28px; max-width: 28px; gap: 0;

@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -13,6 +14,7 @@ import { t } from '../../i18n/index.mjs';
 // 焼かれるため（akari-launcher/scripts/prepack.mjs の VENDOR_SOURCES）。
 import { PROJECT_GITIGNORE } from '../../akari-launcher/src/history-policy.mjs';
 import editStore from '../../edit-store/lib/index.js';
+import { validatePlaybookFiles } from '../../schemas/validate-playbook.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -731,6 +733,7 @@ function addPlaceholders(edit, placeholders, beats, targetDurationSec) {
     const fps = edit.output.fps;
     const hasBeats = Array.isArray(beats) && beats.length > 0;
     const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
+    // 音の仮枠も visual レーンに置く。edit-lint の v2.lane-source が audio レーンに media しか許さないため（別票で lint 側を広げるまで）
     const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'visual', items: [] };
     let at = 0;
     if (hasBeats) {
@@ -845,7 +848,10 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     playbook.provenance.appliedFrom = { path: source, playbookVersion: playbook.playbookVersion, appliedAt: now.toISOString() };
     applySettings(edit, intake, playbook.settings);
     const activeBeats = playbook.beats?.length ? playbook.beats : undefined;
-    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats, playbook.settings.targetDurationSec);
+    const placed = playbook.depth === 3
+        ? await placePlaybookProject({ projectDir: destination, playbookDir: source, book: playbook, edit, at: 0 }) : null;
+    if (placed) Object.assign(edit, placed.edit);
+    const placeholdersAdded = placed ? 0 : addPlaceholders(edit, playbook.placeholders ?? [], activeBeats, playbook.settings.targetDurationSec);
     const scriptPath = path.join(planning, 'script.json');
     const existingScript = activeBeats ? await fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
         if (error.code === 'ENOENT') return null;
@@ -943,11 +949,17 @@ export async function applyPlaybookToExisting({ projectDir, playbookDir, dryRun 
         return id;
     };
     const lastFrame = Math.max(0, ...allItems.map(item => (item.at ?? 0) + (item.duration ?? 0)));
+    if (book.depth === 3) {
+        const placed = await placePlaybookProject({ projectDir: destination, playbookDir: source, book, edit,
+            at: lastFrame, dryRun });
+        Object.assign(edit, placed.edit);
+        changes.push(`テンプレ: ${book.name}`);
+    }
     const fps = edit.output.fps;
     const visual = { id: nextId('playbook-placeholders'), name: '仮枠（映像）', lane: 'visual', items: [] };
     const audio = { id: nextId('playbook-placeholders-audio'), name: '仮枠（音）', lane: 'visual', items: [] };
     let at = lastFrame;
-    for (const slot of missing) {
+    for (const slot of book.depth === 3 ? [] : missing) {
         const duration = Math.max(1, Math.round((slot.durationHintSec ?? book.settings.targetDurationSec ?? 5) * fps));
         const item = { id: nextId(`playbook-${slot.id}`), at: slot.kind === 'audio' ? lastFrame : at,
             duration, name: slot.role, source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed',
@@ -1021,7 +1033,8 @@ function valid(value) {
     return value && typeof value === 'object' && !Array.isArray(value)
         && value.version === 0 && value.kind === 'akari-playbook'
         && typeof value.id === 'string' && typeof value.name === 'string'
-        && typeof value.playbookVersion === 'number' && (value.depth === 1 || value.depth === 2)
+        && typeof value.playbookVersion === 'number' && [1, 2, 3].includes(value.depth)
+        && (value.depth === 3 ? value.template?.item === 'template/item.json' : value.template === undefined)
         && CATEGORIES.has(value.category)
         && Array.isArray(value.steps) && value.steps.every(step => step && typeof step.id === 'string'
             && typeof step.title === 'string' && typeof step.what === 'string')
@@ -1075,4 +1088,300 @@ export async function listPlaybooks({ akariHome, channelDir, category, tag, onWa
         }
     }
     return result;
+}
+
+// Template v0: placement and export share this vendored scaffold entry point.
+export function depthTwoGroup(book, fps) {
+  let cursor = 0;
+  const beats = book.beats?.length ? [...book.beats].sort((a, b) => a.at - b.at) :
+    (book.placeholders ?? []).map(slot => {
+      const beat = { id: slot.id, at: cursor, duration: slot.durationHintSec ?? 5, title: slot.role, note: slot.role };
+      cursor += beat.duration;
+      return beat;
+    });
+  let nextFrame = 0;
+  const items = beats.map(beat => {
+    const at = Math.max(nextFrame, Math.round(beat.at * fps));
+    const duration = Math.max(1, Math.round((beat.at + beat.duration) * fps) - at);
+    nextFrame = at + duration;
+    return { id: `slot-${beat.id}`, at, duration,
+      name: `${beat.title} [${(book.placeholders ?? []).find(slot => slot.id === (beat.placeholder ?? beat.id))?.kind ?? 'video'}]`,
+      source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed', intent: beat.note ?? beat.title,
+        background: { type: 'none' } } }, items: [] };
+  });
+  const duration = Math.max(1, ...items.map(item => item.at + item.duration));
+  return { id: `playbook-${book.id}`, at: 0, duration, name: book.name,
+    source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items };
+}
+
+const unique = (base, used) => {
+  let candidate = base;
+  for (let suffix = 2; used.has(candidate); suffix++) candidate = `${base}-${suffix}`;
+  used.add(candidate);
+  return candidate;
+};
+
+export function placeTemplateInEdit(edit, book, fragment, { at = 0, trackId, mediaPaths = {} } = {}) {
+  if (edit?.version !== 2 || !Number.isInteger(at) || at < 0) throw new Error('edit v2 と非負のフレームが必要です');
+  const result = structuredClone(edit);
+  const fps = result.output.fps;
+  const sourceFps = book.depth === 3 ? book.template.fps : fps;
+  const group = structuredClone(book.depth === 3 ? fragment : depthTwoGroup(book, fps));
+  const itemIds = new Set();
+  const collect = items => items.forEach(item => { itemIds.add(item.id); collect(item.items ?? []); });
+  result.tracks.forEach(track => collect(track.items ?? []));
+  const sourceIds = new Set(result.sources.map(source => source.id));
+  const sourceByPath = new Map(result.sources.map(source => [source.path, source.id]));
+  const sourceIdFor = file => {
+    let id = sourceByPath.get(file);
+    if (!id) { id = unique(`src-${book.id}`, sourceIds); result.sources.push({ id, path: file }); sourceByPath.set(file, id); }
+    return id;
+  };
+  const slotKindByItem = new Map((book.template?.slots ?? []).map(slot => [slot.item,
+    (book.placeholders ?? []).find(placeholder => placeholder.id === slot.placeholder)]));
+  const scale = value => Math.round(value * fps / sourceFps);
+  const rewrite = item => {
+    const slot = slotKindByItem.get(item.id);
+    if (slot && !/ \[(video|image|audio)\]$/.test(item.name ?? '')) item.name = `${item.name || slot.role} [${slot.kind}]`;
+    item.id = unique(item.id, itemIds);
+    const start = scale(item.at); const end = scale(item.at + item.duration);
+    item.at = start; item.duration = Math.max(1, end - start);
+    const source = item.source ?? {};
+    if (source.kind === 'media' && typeof source.src === 'string') {
+      const file = mediaPaths[source.src] ?? source.src;
+      source.src = sourceIdFor(file);
+    }
+    if (typeof item.mask === 'string' && mediaPaths[item.mask]) item.mask = sourceIdFor(mediaPaths[item.mask]);
+    for (const key of ['path', 'baked', 'derivedFrom']) if (typeof source[key] === 'string' && mediaPaths[source[key]])
+      source[key] = mediaPaths[source[key]];
+    for (const child of item.items ?? []) rewrite(child);
+  };
+  rewrite(group);
+  group.at = at; group.name = book.name;
+  const occupied = track => (track.items ?? []).some(item => item.at < at + group.duration && at < item.at + item.duration);
+  const requested = result.tracks.find(track => track.id === trackId && track.lane === 'visual');
+  let track = requested ?? result.tracks.find(track => track.lane === 'visual' && !occupied(track));
+  if (!track || occupied(track)) {
+    const ids = new Set(result.tracks.map(entry => entry.id));
+    track = { id: unique(`playbook-${book.id}`, ids), name: book.name, lane: 'visual', items: [] };
+    result.tracks.push(track);
+  }
+  track.items.push(group);
+  track.items.sort((a, b) => a.at - b.at);
+  return { edit: result, groupId: group.id, trackId: track.id };
+}
+
+async function writeAtomic(file, value) {
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  try { await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' }); await fs.rename(temporary, file); }
+  finally { await fs.rm(temporary, { force: true }); }
+}
+
+async function sha256File(file) {
+  const digest = createHash('sha256');
+  for await (const chunk of createReadStream(file)) digest.update(chunk);
+  return digest.digest('hex');
+}
+
+/** Import media with hard links, cross-device copy fallback, and -2 collisions. */
+export async function importTemplateMedia(projectDir, playbookDir, book, createdPaths = []) {
+  const paths = {};
+  const targetDir = path.join(projectDir, 'assets', 'templates', book.id);
+  await fs.mkdir(targetDir, { recursive: true });
+  const root = await fs.realpath(playbookDir);
+  for (const media of book.template.media) {
+    const source = path.resolve(root, media.path);
+    const real = await fs.realpath(source);
+    if (!real.startsWith(`${root}${path.sep}`)) throw new Error(`素材が作り方の外を指しています: ${media.path}`);
+    if (await sha256File(real) !== media.sha256) throw new Error(`sha256 が一致しません: ${media.path}`);
+    const extension = path.extname(media.path); const stem = path.basename(media.path, extension);
+    for (let number = 1; ; number++) {
+      const file = path.join(targetDir, `${stem}${number === 1 ? '' : `-${number}`}${extension}`);
+      try { await fs.link(real, file); }
+      catch (error) {
+        if (error.code === 'EEXIST') {
+          if (await sha256File(file) === media.sha256) { paths[media.path] = path.relative(projectDir, file).split(path.sep).join('/'); break; }
+          continue;
+        }
+        if (error.code !== 'EXDEV') throw error;
+        try { await fs.copyFile(real, file, fsConstants.COPYFILE_EXCL); }
+        catch (copyError) { if (copyError.code === 'EEXIST') continue; throw copyError; }
+      }
+      paths[media.path] = path.relative(projectDir, file).split(path.sep).join('/');
+      createdPaths.push(paths[media.path]); break;
+    }
+  }
+  return paths;
+}
+
+export async function placePlaybookProject({ projectDir, playbookDir, book, edit, at = 0, trackId, dryRun = false }) {
+  if (book.depth !== 3) return placeTemplateInEdit(edit, book, null, { at, trackId });
+  const validation = await validatePlaybookFiles(path.join(playbookDir, 'playbook.json'));
+  if (!validation.ok) throw new Error(`テンプレが不正です: ${validation.errors.join('; ')}`);
+  const fragment = JSON.parse(await fs.readFile(path.join(playbookDir, book.template.item), 'utf8'));
+  const ledgerFile = path.join(projectDir, '.akari', 'asset-references.json');
+  const manifestFile = path.join(projectDir, '.akari', 'manifest.json');
+  const readOptional = file => fs.readFile(file, 'utf8').catch(error => error.code === 'ENOENT' ? null : Promise.reject(error));
+  const rollback = dryRun ? undefined : { createdPaths: [], ledgerBefore: await readOptional(ledgerFile),
+    manifestBefore: await readOptional(manifestFile) };
+  const mediaPaths = dryRun ? Object.fromEntries(book.template.media.map(media => [media.path,
+    `assets/templates/${book.id}/${path.basename(media.path)}`])) : await importTemplateMedia(projectDir, playbookDir, book, rollback.createdPaths);
+  const result = placeTemplateInEdit(edit, book, fragment, { at, trackId, mediaPaths });
+  if (!dryRun) {
+    const ledger = JSON.parse(await fs.readFile(ledgerFile, 'utf8').catch(error => error.code === 'ENOENT' ? '{"version":0,"references":[]}' : Promise.reject(error)));
+    ledger.version ??= 0; ledger.references ??= [];
+    for (const media of book.template.media) {
+      const id = book.id;
+      if (!ledger.references.some(ref => ref.category === 'templates' && ref.id === id))
+        ledger.references.push({ category: 'templates', id, sourceKind: media.source, license: media.license });
+    }
+    ledger.references.sort((a, b) => `${a.category}/${a.id}`.localeCompare(`${b.category}/${b.id}`));
+    await writeAtomic(ledgerFile, ledger);
+    const manifestText = await fs.readFile(manifestFile, 'utf8').catch(error => error.code === 'ENOENT' ? null : Promise.reject(error));
+    if (manifestText) {
+      const manifest = JSON.parse(manifestText); manifest.nodes ??= []; manifest.edges ??= [];
+      const projectName = String(manifest.project?.id ?? path.basename(projectDir)).toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '') || 'project';
+      const from = manifest.nodes.find(node => node.kind === 'project')?.id ?? `project:${projectName}`;
+      if (!manifest.nodes.some(node => node.id === from)) manifest.nodes.push({ id: from, kind: 'project', rev: 0, where: '.' });
+      for (const media of book.template.media) {
+        const where = `assets/templates/${book.id}`; const id = `asset:templates/${book.id}`;
+        if (!manifest.nodes.some(node => node.id === id)) manifest.nodes.push({ id, kind: 'asset', rev: 0, category: 'templates', where, source: media.source });
+        if (!manifest.edges.some(edge => edge.from === from && edge.uses === id)) manifest.edges.push({ from, uses: id });
+      }
+      await writeAtomic(manifestFile, manifest);
+    }
+  }
+  return { ...result, mediaPaths, rollback };
+}
+
+export async function undoPlaybookProject(projectDir, rollback) {
+  if (!rollback || !Array.isArray(rollback.createdPaths)) return;
+  const root = path.resolve(projectDir);
+  for (const relative of rollback.createdPaths) {
+    if (typeof relative !== 'string' || !relative.startsWith('assets/templates/') || relative.includes('..')) throw new Error('invalid rollback path');
+    const file = path.resolve(root, relative);
+    if (!file.startsWith(`${root}${path.sep}`)) throw new Error('rollback escapes project');
+    await fs.rm(file, { force: true });
+  }
+  for (const [name, before] of [['asset-references.json', rollback.ledgerBefore], ['manifest.json', rollback.manifestBefore]]) {
+    const file = path.join(root, '.akari', name);
+    if (before === null) await fs.rm(file, { force: true });
+    else if (typeof before === 'string') {
+      const temporary = `${file}.${randomUUID()}.tmp`;
+      try { await fs.writeFile(temporary, before, { flag: 'wx' }); await fs.rename(temporary, file); }
+      finally { await fs.rm(temporary, { force: true }); }
+    }
+  }
+}
+
+export function planTemplateExport(edit, itemId, metadata, { licenseOwn } = {}) {
+  const find = items => { for (const item of items ?? []) { if (item.id === itemId) return item;
+    const nested = find(item.items); if (nested) return nested; } };
+  const found = edit.tracks?.map(track => find(track.items)).find(Boolean);
+  if (!found || found.source?.kind !== 'group' || found.source.canvas?.origin !== 'user') throw new Error(`group の項目が見つかりません: ${itemId}`);
+  const fragment = structuredClone(found); fragment.at = 0;
+  const media = new Map(); const slots = [];
+  const placeholderRows = [];
+  const walk = item => {
+    if (item.keyframes && !Array.isArray(item.keyframes) && typeof item.keyframes.path === 'string')
+      throw new Error(`外部キーフレームを含む項目は書き出せません: ${item.id}`);
+    if (item.source?.kind === 'group' && item.source.canvas?.origin === 'plan') {
+      const content = item.items?.[0];
+      const sourcePath = edit.sources?.find(entry => entry.id === content?.source?.src)?.path ?? '';
+      const kind = /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(sourcePath) ? 'audio'
+        : /\.(png|jpe?g|webp|gif|avif)$/i.test(sourcePath) ? 'image' : 'video';
+      const id = `slot-${slots.length + 1}`;
+      slots.push({ placeholder: id, item: item.id });
+      placeholderRows.push({ id, role: item.source.canvas.intent || item.name || id, kind, durationHintSec: item.duration / edit.output.fps });
+      item.items = [];
+    }
+    const source = item.source ?? {};
+    for (const [holder, key] of [...['src', 'path', 'baked', 'derivedFrom'].map(key => [source, key]), [item, 'mask']]) {
+      if (typeof holder[key] !== 'string') continue;
+      const original = key === 'src' || key === 'mask'
+        ? edit.sources?.find(entry => entry.id === holder[key])?.path : holder[key];
+      if (!original || path.isAbsolute(original) || original.includes('..') || !original.startsWith('assets/'))
+        throw new Error(`素材参照が不正です: ${original ?? source[key]}`);
+      const known = metadata[original];
+      const rights = known?.source === 'site' ? known
+        : known?.source && known?.license ? known
+          : licenseOwn ? { source: 'own', license: licenseOwn } : null;
+      if (rights?.source === 'site') throw new Error(`site の素材は仮枠にしてから書き出してください: ${original}`);
+      if (!rights?.license || !rights?.source) throw new Error(`ライセンスまたは出どころが不明です: ${original}`);
+      let name = path.basename(original); let number = 2;
+      while ([...media.values()].some(value => value.output === name && value.input !== original)) {
+        name = `${path.basename(original, path.extname(original))}-${number++}${path.extname(original)}`;
+      }
+      const output = `template/media/${name}`;
+      media.set(original, { input: original, output, license: rights.license, source: rights.source });
+      holder[key] = output;
+    }
+    for (const child of item.items ?? []) walk(child);
+  };
+  walk(fragment);
+  return { fragment, media: [...media.values()], slots, placeholders: placeholderRows };
+}
+
+async function rightsFor(projectDir, edit) {
+  const ledger = JSON.parse(await fs.readFile(path.join(projectDir, '.akari', 'asset-references.json'), 'utf8')
+    .catch(error => error.code === 'ENOENT' ? '{"references":[]}' : Promise.reject(error)));
+  const result = {};
+  const locations = new Set((edit.sources ?? []).map(source => source.path).filter(value => typeof value === 'string'));
+  const collect = items => { for (const item of items ?? []) {
+    for (const key of ['path', 'baked', 'derivedFrom']) {
+      const value = item.source?.[key]; if (typeof value === 'string' && value.startsWith('assets/')) locations.add(value);
+    }
+    collect(item.items);
+  } };
+  for (const track of edit.tracks ?? []) collect(track.items);
+  for (const location of locations) {
+    const parts = location.split('/'); const category = parts[1]; const id = parts[2];
+    const record = (ledger.references ?? []).find(entry => entry.category === category && entry.id === id);
+    let meta = null;
+    try { meta = JSON.parse(await fs.readFile(path.join(projectDir, 'assets', category, id, 'meta.json'), 'utf8')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    result[location] = { source: record?.sourceKind ?? record?.source ?? meta?.source,
+      license: record?.license ?? meta?.license };
+  }
+  return result;
+}
+
+export async function exportPlaybookTemplate({ projectDir, itemId, id, name, out, licenseOwn, now = new Date() }) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id ?? '')) throw new Error('作り方の id が不正です');
+  const edit = JSON.parse(await fs.readFile(path.join(projectDir, 'edit.json'), 'utf8'));
+  if (edit.version !== 2) throw new Error('edit.json v2 が必要です');
+  const plan = planTemplateExport(edit, itemId, await rightsFor(projectDir, edit), { licenseOwn });
+  const target = path.resolve(out ?? path.join(process.env.AKARI_HOME ?? path.join(homedir(), '.akari'), 'playbooks'), id);
+  if (await fs.stat(target).catch(() => null)) throw new Error(`既存の作り方は上書きしません: ${target}`);
+  const title = name ?? id;
+  const durationSec = plan.fragment.duration / edit.output.fps;
+  const book = { version: 0, kind: 'akari-playbook', id, name: title, playbookVersion: 1, depth: 3,
+    category: 'clip', steps: [{ id: 'slots', title: '仮枠を埋める', what: '素材を仮枠へ置く' },
+      { id: 'export', title: '書き出す', what: '完成した映像を書き出す' }],
+    settings: { fps: edit.output.fps, targetDurationSec: durationSec }, placeholders: plan.placeholders,
+    license: plan.media.find(media => media.license !== 'CC0-1.0')?.license ?? 'CC0-1.0', provenance: { fromProject: path.basename(projectDir), recordedAt: now.toISOString(),
+      akariVersion: '1.4.0', recordedBy: 'akari playbook template' },
+    template: { item: 'template/item.json', fps: edit.output.fps, width: edit.output.width,
+      height: edit.output.height, durationSec, slots: plan.slots, media: [] } };
+  const markdown = `# ${title}\n\n映像を差し替えて使えるテンプレ。\n\n## 目的とできあがり\n\n${title}\n\n## 流れ\n\n1. 仮枠を埋める\n2. 書き出す\n\n## 設定値\n\n${edit.output.fps} fps\n\n## 必要な素材（仮枠）\n\n${plan.placeholders.map(slot => `- ${slot.role} (${slot.kind})`).join('\n')}\n\n## 使った部品\n\n${plan.media.map(media => `- ${media.output}`).join('\n')}\n\n## 要る道具\n\nAKARI Video\n\n## ライセンス\n\n${book.license}\n\n## 出どころ\n\n${book.provenance.fromProject}\n`;
+  await fs.mkdir(path.join(target, 'template', 'media'), { recursive: true });
+  try {
+    const projectReal = await fs.realpath(projectDir);
+    for (const media of plan.media) {
+      const source = path.resolve(projectDir, media.input);
+      const real = await fs.realpath(source);
+      if (!real.startsWith(`${projectReal}${path.sep}`)) throw new Error(`素材がプロジェクト外です: ${media.input}`);
+      await fs.copyFile(real, path.join(target, media.output), fsConstants.COPYFILE_EXCL);
+      book.template.media.push({ path: media.output, sha256: await sha256File(real),
+        license: media.license, source: media.source });
+    }
+    await fs.writeFile(path.join(target, 'template', 'item.json'), `${JSON.stringify(plan.fragment, null, 2)}\n`);
+    await fs.writeFile(path.join(target, 'playbook.md'), markdown);
+    await fs.writeFile(path.join(target, 'playbook.json'), `${JSON.stringify(book, null, 2)}\n`);
+    const result = await validatePlaybookFiles(path.join(target, 'playbook.json'));
+    if (!result.ok) throw new Error(`書き出したテンプレが不正です: ${result.errors.join('; ')}`);
+    return { dir: target, playbook: book };
+  } catch (error) { await fs.rm(target, { recursive: true, force: true }); throw error; }
 }

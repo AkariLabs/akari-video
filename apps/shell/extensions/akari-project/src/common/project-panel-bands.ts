@@ -1,12 +1,25 @@
 /** The left project panel's three bands. These selectors have no browser or file-system dependencies. */
-export type MaterialChip = 'all' | 'video' | 'image' | 'audio' | 'recipe' | 'baked' | 'placeholder';
-export const MATERIAL_CHIPS: readonly MaterialChip[] = ['all', 'video', 'image', 'audio', 'recipe', 'baked', 'placeholder'];
+export type MaterialChip = 'all' | 'video' | 'image' | 'audio' | 'recipe' | 'placeholder' | 'other';
+/** 3d remains available to voice commands; the visible Other option includes it. */
+export type MaterialFilterKind = Exclude<MaterialChip, 'all'> | '3d';
+export const MATERIAL_CHIPS: readonly MaterialChip[] = ['all', 'video', 'image', 'audio', 'recipe', 'placeholder', 'other'];
+export const MATERIAL_FILTER_KINDS: readonly MaterialFilterKind[] = ['video', 'image', 'audio', 'recipe', 'placeholder', 'other', '3d'];
+
+export function normalizeMaterialFilter(values: readonly string[]): MaterialFilterKind[] {
+    return MATERIAL_FILTER_KINDS.filter(kind => values.includes(kind));
+}
+
+export function migrateLegacyMaterialChip(chip: string | null): MaterialFilterKind[] | undefined {
+    if (chip === null || chip === 'all') return undefined;
+    return chip === 'baked' ? ['other'] : normalizeMaterialFilter([chip]);
+}
 
 export interface PanelMaterial {
     readonly relativePath: string;
     readonly kind: string;
     readonly recipe?: boolean;
     readonly baked?: boolean;
+    readonly assetGroup?: { readonly category: string };
 }
 
 export interface PlanPlaceholder {
@@ -15,7 +28,7 @@ export interface PlanPlaceholder {
 }
 
 export interface PanelMaterialRow<T extends PanelMaterial> {
-    readonly chip: Exclude<MaterialChip, 'all'> | 'other';
+    readonly chip: Exclude<MaterialChip, 'all'>;
     readonly material?: T;
     readonly placeholder?: PlanPlaceholder;
 }
@@ -43,9 +56,7 @@ export function planPlaceholders(edit: unknown): PlanPlaceholder[] {
 
 export function materialRows<T extends PanelMaterial>(files: readonly T[], edit: unknown): PanelMaterialRow<T>[] {
     const rows: PanelMaterialRow<T>[] = files.map(material => ({
-        chip: material.recipe ? 'recipe' : material.baked ? 'baked'
-            : material.kind === 'video' || material.kind === 'image' || material.kind === 'audio'
-                ? material.kind : 'other',
+        chip: materialCategory(material),
         material
     }));
     for (const placeholder of planPlaceholders(edit)) rows.push({ chip: 'placeholder', placeholder });
@@ -53,13 +64,27 @@ export function materialRows<T extends PanelMaterial>(files: readonly T[], edit:
 }
 
 export function materialChipCounts(rows: readonly PanelMaterialRow<PanelMaterial>[]): Record<MaterialChip, number> {
-    const counts = { all: rows.length, video: 0, image: 0, audio: 0, recipe: 0, baked: 0, placeholder: 0 };
-    for (const row of rows) if (row.chip !== 'other') counts[row.chip]++;
+    const counts = { all: rows.length, video: 0, image: 0, audio: 0, recipe: 0, placeholder: 0, other: 0 };
+    for (const row of rows) counts[row.chip]++;
     return counts;
 }
 
-export function visibleMaterialRows<T extends PanelMaterial>(rows: readonly PanelMaterialRow<T>[], chip: MaterialChip): PanelMaterialRow<T>[] {
-    return chip === 'all' ? [...rows] : rows.filter(row => row.chip === chip);
+/** The same classification drives file cards, placeholder rows, and popover counts. */
+export function materialCategory(material: PanelMaterial): Exclude<MaterialChip, 'all' | 'placeholder'> {
+    if (material.recipe) return 'recipe';
+    if (material.baked || material.assetGroup) return 'other';
+    return material.kind === 'video' || material.kind === 'image' || material.kind === 'audio' ? material.kind : 'other';
+}
+
+export function materialMatchesFilter(material: PanelMaterial, filter: readonly string[]): boolean {
+    if (!filter.length) return true;
+    const category = materialCategory(material);
+    return filter.includes(category) || (filter.includes('3d') && (material.baked || material.assetGroup?.category === 'scene3d'));
+}
+
+export function visibleMaterialRows<T extends PanelMaterial>(rows: readonly PanelMaterialRow<T>[], filter: readonly string[]): PanelMaterialRow<T>[] {
+    return rows.filter(row => row.material ? materialMatchesFilter(row.material, filter)
+        : row.placeholder ? filter.length === 0 || filter.includes('placeholder') : false);
 }
 
 export interface PanelOutput { readonly kind: 'data' | 'plan' | 'report' | 'export'; readonly mtime: number }

@@ -8,6 +8,42 @@ export interface MaterialSwapTarget {
     currentRelativePath: string;
 }
 
+export function planSlotDrop(doc: EditV2Document, slotId: string, kind: 'audio' | 'video' | 'image'):
+    { action: 'insert' | 'swap' | 'reject'; reason?: string } {
+    const found = locateSwapItem(doc, slotId);
+    const slot = found?.item;
+    if (!slot || slot.source?.kind !== 'group' || slot.source.canvas?.origin !== 'plan') return { action: 'insert' };
+    const declaredKind = /\[(video|image|audio)\]$/.exec(slot.name ?? '')?.[1];
+    if (declaredKind && declaredKind !== kind) return { action: 'reject', reason: 'slot media kind differs' };
+    if (kind === 'audio') return { action: 'reject', reason: 'visual slot requires video or image' };
+    if (!Array.isArray(slot.items) || slot.items.length === 0) return { action: 'insert' };
+    if (slot.items.length !== 1 || slot.items[0].source?.kind !== 'media') return { action: 'reject', reason: 'slot has multiple items' };
+    const previous = (doc.sources as Row[]).find(source => source.id === slot.items[0].source.src)?.path;
+    const previousKind = /\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$/i.test(previous ?? '') ? 'image' : 'video';
+    return previousKind === kind ? { action: 'swap' } : { action: 'reject', reason: 'slot media kind differs' };
+}
+
+export function swapPlannedSlot(doc: EditV2Document, options: {
+    slotId: string; relativePath: string; kind: 'video' | 'image'; actualDurationS?: number;
+}): { doc: EditV2Document; short: boolean } {
+    if (planSlotDrop(doc, options.slotId, options.kind).action !== 'swap') throw new Error('slot kind mismatch');
+    const next = structuredClone(doc) as EditV2Document;
+    const slot = locateSwapItem(next, options.slotId)!.item;
+    const fps = Number((next.output as Row).fps);
+    const sources = next.sources as Row[];
+    let source = sources.find(entry => entry.path === options.relativePath);
+    if (!source) { let index = 1; while (sources.some(entry => entry.id === `src-${index}`)) index++;
+        source = { id: `src-${index}`, path: options.relativePath }; sources.push(source); }
+    const child = slot.items[0];
+    const seconds = slot.duration / fps;
+    const short = options.kind === 'video' && Number.isFinite(options.actualDurationS) && options.actualDurationS! < seconds;
+    child.at = 0; child.duration = slot.duration;
+    child.source = { ...child.source, src: source.id, in: 0,
+        out: options.kind === 'image' ? seconds : Math.min(options.actualDurationS ?? seconds, seconds),
+        freeze: short ? { at_sec: options.actualDurationS, duration_sec: seconds - options.actualDurationS! } : null };
+    return { doc: next, short };
+}
+
 /** packages/generate/src/cli/edit-replace.mjs の planReplacement と同じ秒数規則。 */
 export function planReplacement({ actualDurationS, cutsDurationS }: { actualDurationS: number; cutsDurationS: number }): {
     in: number; out: number; freeze: { at_sec: number; duration_sec: number } | null; mismatch_s: number; warn: boolean;

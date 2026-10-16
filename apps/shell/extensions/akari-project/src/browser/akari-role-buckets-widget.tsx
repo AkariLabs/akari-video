@@ -4,6 +4,8 @@ import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
 import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
 import { AkariLintPane, LintPaneHost } from './akari-lint-pane';
+import { PlaybookShelfView } from './playbook-shelf-view';
+import { channelFromProjectPath } from '../common/playbook-shelf';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -88,6 +90,7 @@ import {
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, canPlaceOverlay, isScene3dBakeRecipe, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
+import { MATERIAL_CHIPS, MaterialChip } from '../common/project-panel-bands';
 import { MaterialsSort } from '../common/materials-view';
 import { DEFAULT_MATERIAL_VIEW, MaterialViewPatch } from '../common/material-view';
 import { CatalogPack } from '../common/catalog-packs';
@@ -342,6 +345,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly workflow!: AkariWorkflowService;
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
+    @inject(require('../../../akari-surfaces/lib/common/akari-new-project-protocol').AkariNewProjectService)
+    protected readonly playbookService!: { listPlaybooks(channel?: string): Promise<any[]> };
     @inject(FileService)
     protected readonly files!: FileService;
     @inject(OpenerService)
@@ -2386,6 +2391,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderMaterialsViewButtons(): React.ReactNode {
         const { filter, sort, mode } = this.materialsPane.getMaterialView();
+        const counts = this.materialsPane.getMaterialFilterCounts();
         const buttonStyle: React.CSSProperties = { position: 'relative', display: 'inline-flex', alignItems: 'center',
             justifyContent: 'center', height: '28px', minWidth: '28px', padding: '3px 5px',
             border: '1px solid transparent', borderRadius: '6px', background: 'transparent',
@@ -2403,7 +2409,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 event.currentTarget.style.borderColor = 'transparent';
             }
         };
-        const popoverWidth = 220;
+        const popoverWidth = this.materialsPopover === 'filter' ? 300 : 220;
         const anchor = this.materialsPopoverAnchor;
         const popStyle: React.CSSProperties = { position: 'fixed',
             left: anchor ? Math.max(8, Math.min(window.innerWidth - popoverWidth - 8, anchor.right - popoverWidth)) : 8,
@@ -2414,8 +2420,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const rowStyle: React.CSSProperties = { display: 'flex', width: '100%', alignItems: 'center', gap: '8px',
             padding: '6px 8px', border: 0, borderRadius: '5px', background: 'transparent', color: AKARI_INK,
             textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer' };
-        const kindOptions: readonly [MaterialKind | 'all', string][] =
-            [['all', t('project.library.shelf.allLabel')], ['video', t('project.library.shelf.videoLabel')], ['audio', t('project.library.shelf.audioMediaLabel')], ['image', t('project.library.shelf.imageLabel')], ['other', t('project.library.shelf.otherHTMLDFontsLabel')]];
+        const kindLabels: Record<MaterialChip, string> = {
+            all: t('project.workspace.materialChips.allLabel'),
+            video: t('project.workspace.materialChips.videoLabel'),
+            image: t('project.workspace.materialChips.imageLabel'),
+            audio: t('project.workspace.materialChips.audioLabel'),
+            recipe: t('project.workspace.materialChips.recipeLabel'),
+            placeholder: t('project.workspace.materialChips.placeholderLabel'),
+            other: t('project.workspace.materialChips.otherLabel')
+        };
         const sortOptions: readonly [MaterialsSort, string][] = [
             ['imported-desc', t('project.library.shelf.importDateNewestFirstAction')], ['imported-asc', t('project.library.shelf.importDateOldestFirstAction')],
             ['name', t('project.library.shelf.nameLabel')], ['dur', t('project.library.shelf.lengthLabel')], ['kind', t('project.library.shelf.typeLabel')], ['created', t('project.library.shelf.dateCreatedLabel')]
@@ -2472,14 +2485,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ fontSize: '11px', color: '#737373', padding: '4px 8px 2px' }}>
                     {this.materialsPopover === 'filter' ? t('project.library.shelf.typesMultipleLabel') : t('project.library.shelf.sortLabel')}
                 </div>
-                {this.materialsPopover === 'filter' ? kindOptions.map(([kind, label]) =>
+                {this.materialsPopover === 'filter' ? MATERIAL_CHIPS.map(kind =>
                     <button key={kind} type='button' className='akari-materials-popover-option'
+                        data-akari-material-filter-kind={kind} data-akari-material-filter-count={counts[kind]}
                         role='menuitemcheckbox' aria-checked={kind === 'all' ? filter.length === 0 : filter.includes(kind)}
-                        style={rowStyle} onClick={() => {
+                        style={{ ...rowStyle, boxSizing: 'border-box', opacity: counts[kind] ? 1 : 0.48 }} onClick={() => {
                             const next = kind === 'all' ? [] : filter.includes(kind) ? filter.filter(value => value !== kind) : [...filter, kind];
                             this.materialsPane.setMaterialView({ filter: next }); this.saveMaterialsUiState();
-                        }}><span style={{ width: '14px', color: '#f97316' }}>
-                            {(kind === 'all' ? filter.length === 0 : filter.includes(kind)) ? '✓' : ''}</span>{label}</button>)
+                        }}><span style={{ width: '14px', flex: 'none', color: '#f97316' }}>
+                            {(kind === 'all' ? filter.length === 0 : filter.includes(kind)) ? '✓' : ''}</span>
+                        <span style={{ flex: '1 1 auto' }}>{kindLabels[kind]}</span>
+                        <span style={{ flex: 'none', marginLeft: 'auto' }}>{counts[kind]}</span></button>)
                     : sortOptions.map(([value, label]) =>
                         <button key={value} type='button' className='akari-materials-popover-option'
                             role='menuitemradio' aria-checked={sort === value} style={rowStyle}
@@ -2782,6 +2798,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }, { rows: [], group: [] }).rows}
                 </section>
                 {this.renderRecentLibraryStrip()}
+                {typeof PlaybookShelfView !== 'undefined' && <PlaybookShelfView service={this.playbookService}
+                    channel={channelFromProjectPath(this.workflow.workspaceRoot?.path.fsPath())}
+                    openMarkdown={dir => void open(this.openers, new URI(`file://${dir}/playbook.md`))} />}
                 <button type='button' data-akari-library-details-toggle aria-expanded={this.libraryDetailsOpen}
                     onClick={event => { event.stopPropagation(); this.toggleLibraryDetails(); }}
                     style={{
