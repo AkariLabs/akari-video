@@ -31,7 +31,7 @@ function innerHtml(name) {
 assert.ok(styleStart > 0 && styleEnd > styleStart && transportStart > styleEnd && transportEnd > transportStart);
 assert.doesNotMatch(transportHtml, /\$\{/);
 const toolbarHtml = innerHtml('toolbar');
-const dockHtml = innerHtml('dock');
+const popupsHtml = innerHtml('popups');
 const OLD_SEEK_TO_BUTTON = { wide: 16 + 34 + 28, narrow: 16 + 34 + 34 + 28 };
 
 test('transport はツールを 1 段目右に置き、2 段以内と再生中央を維持する', async t => {
@@ -47,7 +47,7 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
         for (const width of [1100, 961, 800, 600, 480, 461, 460, 420, 400, 380]) {
             await page.setViewport({ width, height: 500 });
             await page.setContent(`<style>${css}</style><main class="workspace"><section class="preview-pane"></section></main>${transportHtml}`);
-            await page.evaluate(({ toolbarHtml, dockHtml }) => {
+            await page.evaluate(({ toolbarHtml, popupsHtml }) => {
                 const transport = document.querySelector('.transport');
                 const controls = transport.querySelector('.transport-controls');
                 const toolbar = document.createElement('div');
@@ -56,14 +56,11 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 const tail = transport.querySelector('.transport-tail');
                 if (tail) tail.prepend(toolbar);
                 else controls.after(toolbar);
-                const dock = document.createElement('div');
-                dock.id = 'review-dock';
-                dock.hidden = true;
-                dock.innerHTML = dockHtml;
-                controls.after(dock);
-                document.body.append(dock.querySelector('[data-review-note]'));
+                const popups = document.createElement('div');
+                popups.innerHTML = popupsHtml;
+                document.body.append(popups.querySelector('[data-review-note]'), popups.querySelector('#review-chat-tray'));
                 document.querySelector('#time-label').textContent = '12:34 / 1:02:03';
-            }, { toolbarHtml, dockHtml });
+            }, { toolbarHtml, popupsHtml });
 
             const measure = () => page.evaluate(() => {
                 const rect = element => {
@@ -100,9 +97,11 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                     hintVisible: hintStyle.display !== 'none', hintEllipsis: hintStyle.textOverflow === 'ellipsis',
                     attachVisible: getComputedStyle(attach).display !== 'none', attachDisabled: attach.disabled,
                     area, dividerDisplay: getComputedStyle(divider).display,
-                    dividerWidth: rect(divider).width, dockAfterControls: document.querySelector('.transport-controls').nextElementSibling.id === 'review-dock',
-                    trayInsideDock: document.querySelector('#review-chat-tray').parentElement.id === 'review-dock',
+                    dividerWidth: rect(divider).width, noDock: !document.querySelector('#review-dock'),
+                    trayInBody: document.querySelector('#review-chat-tray').parentElement === document.body,
+                    trayFixed: getComputedStyle(document.querySelector('#review-chat-tray')).position === 'fixed',
                     noteFixed: getComputedStyle(document.querySelector('[data-review-note]')).position === 'fixed',
+                    previewPane: rect(document.querySelector('.preview-pane')),
                     timeClipped: time.scrollWidth > time.clientWidth,
                     popupAnchor: popup.parentElement === right && getComputedStyle(right).position === 'relative'
                         && getComputedStyle(popup).position === 'absolute' };
@@ -110,8 +109,8 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
             const check = (result, state) => {
                 assert.ok(result.rows <= 2, `${width}px ${state}: ${result.rows} rows`);
                 assert.ok(result.playDrift <= 8, `${width}px ${state}: play drift ${result.playDrift}`);
-                assert.ok(result.dockAfterControls, `${width}px ${state}: dock order`);
-                assert.ok(result.trayInsideDock, `${width}px ${state}: tray inside dock`);
+                assert.ok(result.noDock, `${width}px ${state}: no layout dock`);
+                assert.ok(result.trayInBody && result.trayFixed, `${width}px ${state}: tray fixed in body`);
                 assert.ok(result.noteFixed, `${width}px ${state}: note fixed`);
                 assert.ok(result.attachVisible, `${width}px ${state}: attachment visible`);
                 assert.ok(result.popupAnchor, `${width}px ${state}: popup anchor`);
@@ -186,22 +185,23 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
             check(selected, 'range and attachment');
             assert.equal(selected.dividerDisplay, 'block', `${width}px shown attachment divider`);
             assert.equal(selected.attachDisabled, false, `${width}px attachment enabled`);
-            const beforeDock = { rows: selected.rows, playDrift: selected.playDrift, seekTop: selected.seekTop, controlsTop: selected.controlsTop };
+            const layout = result => ({ area: result.area, previewPane: result.previewPane,
+                seekTop: result.seekTop, controlsTop: result.controlsTop, rows: result.rows });
+            const beforePopups = layout(selected);
             await page.evaluate(() => {
                 document.querySelector('[data-review-note]').hidden = false;
             });
-            const dockOpen = await measure();
-            check(dockOpen, 'dock');
-            assert.deepEqual({ rows: dockOpen.rows, playDrift: dockOpen.playDrift, seekTop: dockOpen.seekTop, controlsTop: dockOpen.controlsTop }, beforeDock,
-                `${width}px dock does not move controls`);
+            const noteOpen = await measure();
+            check(noteOpen, 'note');
+            assert.deepEqual(layout(noteOpen), beforePopups, `${width}px note leaves layout unchanged`);
             await page.evaluate(() => {
                 document.querySelector('#review-chat-tray').hidden = false;
-                document.querySelector('#system-volume-notice').hidden = false;
             });
             const trayOpen = await measure();
-            check(trayOpen, 'tray and system volume');
-            assert.deepEqual({ rows: trayOpen.rows, playDrift: trayOpen.playDrift },
-                { rows: beforeDock.rows, playDrift: beforeDock.playDrift }, `${width}px tray keeps transport layout`);
+            check(trayOpen, 'tray');
+            assert.deepEqual(layout(trayOpen), beforePopups, `${width}px tray leaves preview, seek and transport unchanged`);
+            await page.evaluate(() => { document.querySelector('#system-volume-notice').hidden = false; });
+            check(await measure(), 'tray and system volume');
             const old = width > 600 ? OLD_SEEK_TO_BUTTON.wide : OLD_SEEK_TO_BUTTON.narrow;
             const limit = selected.rows === 1 ? 49 : width <= 480 ? 69 : 74;
             assert.ok(selected.seekToButton < old, `${width}px seek to button: ${selected.seekToButton} < ${old}`);

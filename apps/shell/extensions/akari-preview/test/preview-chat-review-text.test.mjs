@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import { setLanguage } from '@akari-video/i18n';
 
 const require = createRequire(import.meta.url);
 const { describeReviewAttachments } = require('../lib/browser/preview-chat-review-text.js');
-const { describeAttachments } = require('../../akari-chat/lib/common/chat-attachments.js');
+const chatSource = readFileSync(new URL('../../akari-chat/src/common/chat-attachments.ts', import.meta.url), 'utf8');
+const chatExports = {};
+runInNewContext(ts.transpileModule(chatSource, { compilerOptions: {
+    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS
+} }).outputText, { exports: chatExports, require });
+const { describeAttachments } = chatExports;
 
 const attachments = [
     { kind: 'review', label: 'ペン', review: { tool: 'pen', source: 'exports/draft.mp4', sourceLabel: '下書き v2',

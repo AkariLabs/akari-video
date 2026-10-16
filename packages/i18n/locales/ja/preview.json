@@ -744,6 +744,8 @@
   "preview.chatReview.ui.memoPlaceholderLabel": "変更したい内容を入力",
   "preview.chatReview.ui.deleteLabel": "削除",
   "preview.chatReview.ui.doneLabel": "完了",
+  "preview.chatReview.ui.noteCloseLabel": "メモを閉じる",
+  "preview.chatReview.ui.trayCloseLabel": "添付一覧を閉じる",
   "preview.chatReview.ui.copyToClipboardAction": "AI に渡す",
   "preview.chatReview.ui.attachToPartnerLabel": "AI に渡す",
   "preview.chatReview.ui.penHintText": "動画に線を描く",
@@ -755,7 +757,7 @@
   "preview.chatReview.ui.removeLabel": "外す",
   "preview.chatReview.ui.memoTooLongMessage": "メモが長すぎます。短くしてください",
   "preview.chatReview.ui.reviewLabel": "{sourceLabel} {time}秒",
-  "preview.chatReview.ui.attachCountLabel_one": "AI に渡す（{count} 件）",
-  "preview.chatReview.ui.attachCountLabel_other": "AI に渡す（{count} 件）",
+  "preview.chatReview.ui.attachCountLabel_one": "添付 {count} 件",
+  "preview.chatReview.ui.attachCountLabel_other": "添付 {count} 件",
   "preview.chatReview.source.defaultVideoLabel": "動画"
 }

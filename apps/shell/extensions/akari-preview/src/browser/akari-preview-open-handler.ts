@@ -452,6 +452,29 @@ export const normalizePreviewCaptionClock = (
 
 const Z_ORDER_PREVIEW_MENU = [...WEBVIEW_CONTEXT_MENU, 'akari-preview-z-order'];
 
+export async function movePinAnnotation(mark: ChatReviewMark, previous: ChatReviewMark, projectRootUri: string,
+    executeCommand: (id: string, request: unknown) => Promise<unknown>):
+    Promise<{ mark: ChatReviewMark; createFailed: boolean; deleteFailed: boolean }> {
+    if (mark.tool !== 'pin' || !previous.annotationId || !mark.shape || !previous.shape
+        || (mark.shape.x === previous.shape.x && mark.shape.y === previous.shape.y)) {
+        return { mark, createFailed: false, deleteFailed: false };
+    }
+    let id: string;
+    try {
+        const result = await executeCommand('akari.annotations.createFromPreview', reviewAnnotationRequest(projectRootUri, mark)) as { id?: string } | undefined;
+        if (!result?.id) throw new Error('Missing annotation id');
+        id = result.id;
+    } catch {
+        return { mark: { ...mark, annotationId: previous.annotationId }, createFailed: true, deleteFailed: false };
+    }
+    try {
+        await executeCommand('akari.annotations.deleteFromPreview', { projectRootUri, id: previous.annotationId });
+    } catch {
+        return { mark: { ...mark, annotationId: id }, createFailed: false, deleteFailed: true };
+    }
+    return { mark: { ...mark, annotationId: id }, createFailed: false, deleteFailed: false };
+}
+
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     protected lastCaptionRunNotice: string | undefined;
@@ -685,11 +708,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) return;
                 const updated = updateReviewPending(current, message.index, mark);
                 if (updated === current) return;
-                attachments = updated.map((item, index) => index === message.index && item.kind === 'review'
-                    ? { ...item, review: { ...item.review, annotationId: target.review.annotationId } } : item);
+                attachments = updated;
                 const saved = attachments[message.index];
-                if (saved.kind === 'review' && !saved.review.annotationId) {
-                    attachments[message.index] = { ...saved, review: await createAnnotation(saved.review) };
+                if (saved.kind === 'review') {
+                    if (target.review.annotationId && mark.tool === 'pin') {
+                        const moved = await movePinAnnotation(saved.review, target.review, workspaceRootUri,
+                            (id, request) => this.commandRegistry.executeCommand(id, request));
+                        attachments[message.index] = { ...saved, review: moved.mark };
+                        if (moved.createFailed) this.messages.warn(renderT('preview.openHandler.ui.annotationCreateFailedMessage'));
+                        if (moved.deleteFailed) this.messages.warn(renderT('preview.openHandler.ui.annotationDeleteFailedMessage'));
+                    } else if (!saved.review.annotationId) {
+                        attachments[message.index] = { ...saved, review: await createAnnotation(saved.review) };
+                    }
                 }
             } else if (message.type === 'akari-preview-chat-review-attach') {
                 if (!current.length) return;
@@ -9124,26 +9154,28 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-mark.pen [data-review-badge] { position:absolute; left:0; top:0; display:grid; place-items:center; min-width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); background:#f97316; color:#171717; }
 #review-chat-layer [data-review-badge][data-review-active] { pointer-events:auto; cursor:pointer; }
 #review-chat-layer [data-review-badge]:not([data-review-active]) { pointer-events:none; }
-#review-dock { position:relative; z-index:1; width:100%; max-height:min(40vh,220px); overflow:auto; padding:5px 10px; border-top:1px solid var(--akari-control-active); background:var(--akari-transport-bg); color:var(--akari-transport-fg); font-size:12px; }
-#review-dock[hidden], #review-dock [hidden] { display:none; }
-#review-dock:has(> #review-chat-tray:not([hidden])) { display:flex; flex-direction:column; overflow:hidden; }
-[data-review-note] { position:fixed; z-index:2200; width:min(560px, calc(100vw - 16px)); box-sizing:border-box; padding:8px 10px; border:1px solid var(--akari-control-active); border-radius:7px; background:var(--akari-transport-bg); color:var(--akari-transport-fg); box-shadow:0 6px 20px rgba(0,0,0,.3); font-size:12px; overflow:auto; overflow-wrap:anywhere; }
-[data-review-note][hidden] { display:none; }
+[data-review-note], #review-chat-tray { position:fixed; box-sizing:border-box; padding:8px 10px; border:1px solid rgba(255,255,255,.24); border-radius:7px; background:color-mix(in srgb, color-mix(in srgb, var(--akari-transport-bg) 78%, #3a4350) 78%, transparent); color:var(--akari-transport-fg); box-shadow:0 8px 24px rgba(0,0,0,.42); backdrop-filter:blur(8px); font-size:12px; overflow:auto; overflow-wrap:anywhere; }
+[data-review-note] { z-index:2201; width:min(340px, calc(100vw - 16px)); }
+#review-chat-tray { z-index:2200; width:min(420px, calc(100vw - 16px)); display:flex; flex-direction:column; min-height:0; }
+[data-review-note][hidden], #review-chat-tray[hidden] { display:none; }
 .review-note-line { display:flex; align-items:center; gap:6px; min-width:0; }
-.review-note-meta { display:flex; flex:none; align-items:center; gap:6px; white-space:nowrap; font-size:11px; }
+.review-note-meta { display:flex; flex:1 1 auto; min-width:0; align-items:center; gap:6px; white-space:nowrap; font-size:11px; }
 .review-note-meta [data-review-note-badge] { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-weight:700; }
 .review-note-meta [data-review-note-tool] { flex:none; display:inline-grid; place-items:center; width:18px; height:18px; }
 .review-note-meta [data-review-note-tool] svg { width:15px; height:15px; }
 .review-note-meta [data-review-note-time] { flex:none; font-variant-numeric:tabular-nums; }
 [data-review-note] [data-review-elements] { display:flex; gap:4px; max-height:24px; min-width:0; overflow-x:auto; overflow-y:hidden; white-space:nowrap; margin-top:2px; }
 [data-review-note] [data-review-element] { flex:none; padding:2px 5px; border-radius:4px; background:var(--akari-control-active); }
-[data-review-note] textarea { display:block; flex:1 1 auto; min-width:0; width:auto; height:36px; min-height:30px; max-height:50px; border:1px solid var(--akari-control-active); border-radius:5px; padding:5px 6px; background:var(--akari-transport-bg); color:var(--akari-transport-fg); resize:vertical; font:inherit; }
+[data-review-note] textarea { display:block; box-sizing:border-box; width:100%; height:42px; min-height:30px; max-height:50px; margin-top:6px; border:1px solid var(--akari-control-active); border-radius:5px; padding:5px 6px; background:var(--akari-transport-bg); color:var(--akari-transport-fg); resize:vertical; font:inherit; }
 .review-note-actions { display:flex; flex:none; align-items:center; gap:4px; margin:0; }
 .review-note-actions button, #review-chat-tray button { border:0; border-radius:5px; padding:4px 7px; color:var(--akari-transport-fg); background:var(--akari-control-active); cursor:pointer; font:inherit; font-size:11px; white-space:nowrap; }
+.review-note-actions .review-popup-close, #review-chat-tray .review-popup-close { display:grid; place-items:center; flex:none; width:24px; height:24px; margin:0; padding:0; border:0; background:transparent; color:var(--akari-transport-fg); font:inherit; font-size:19px; cursor:pointer; outline:none; }
+.review-note-actions .review-popup-close:hover, #review-chat-tray .review-popup-close:hover { background:var(--akari-control-hover); }
+.review-note-actions .review-popup-close:focus-visible, #review-chat-tray .review-popup-close:focus-visible { outline:2px solid var(--akari-accent); outline-offset:1px; }
 .review-note-actions button.icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
 .review-note-actions button.icon-button:hover { background:var(--akari-control-hover); }
 #review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
-#review-chat-tray { display:flex; flex-direction:column; min-height:0; overflow-wrap:anywhere; }
+.review-tray-header { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:24px; font-weight:600; }
 #review-chat-tray [data-review-rows] { flex:0 1 auto; min-height:0; overflow-y:auto; }
 .review-tray-row { display:flex; align-items:center; gap:8px; min-height:42px; padding:3px 0; border-bottom:1px solid var(--akari-control-active); cursor:pointer; }
 .review-row-badge { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-size:11px; font-weight:700; }
@@ -9151,7 +9183,7 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-tray-row .review-row-text { flex:1; min-width:0; overflow-wrap:anywhere; }
 .review-empty-memo { color:var(--akari-time-fg); }
 .review-tray-row [data-review-remove] { flex:none; }
-.review-tray-actions { display:flex; flex:none; justify-content:flex-end; gap:7px; padding-top:5px; background:var(--akari-transport-bg); }
+.review-tray-actions { display:flex; flex:none; justify-content:flex-end; gap:7px; padding-top:5px; }
 #review-seek-marks { position:absolute; inset:0; pointer-events:none; }
 .transport-seek { position:relative; }
 .review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }

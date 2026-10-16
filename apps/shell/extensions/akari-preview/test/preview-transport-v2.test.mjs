@@ -84,11 +84,13 @@ test('seek だけ focus 枠を廃止し他の range とボタンのキーボー�
     assert.match(rule('#seek:focus-visible'), /box-shadow:\s*none;/);
     const outlined = rules.filter(entry => entry.selector.includes(':focus-visible')
         && /outline:\s*2px solid/.test(entry.body));
-    assert.equal(outlined.length, 2);
+    assert.equal(outlined.length, 3);
     for (const entry of outlined) assert.ok(!entry.selector.includes('#seek'));
     assert.match(rule(':is(#zoom-slider, .akari-perspective-angle-row input[type=range]):focus-visible'),
         /outline:\s*2px solid var\(--akari-accent\);/);
     assert.match(rule(':is(.icon-button, .zoom-preset, .rate-preset):focus-visible'),
+        /outline:\s*2px solid var\(--akari-accent\);/);
+    assert.match(rule('.review-note-actions .review-popup-close:focus-visible, #review-chat-tray .review-popup-close:focus-visible'),
         /outline:\s*2px solid var\(--akari-accent\);/);
 });
 

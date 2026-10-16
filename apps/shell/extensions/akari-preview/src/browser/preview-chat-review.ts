@@ -16,14 +16,18 @@ export function reviewNotePosition(anchor: { left: number; right: number; top: n
     { left: number; top: number; maxHeight: number } {
     const maxHeight = Math.max(0, viewport.height - margin * 2);
     const height = Math.min(popup.height, maxHeight);
-    const left = Math.max(margin, Math.min((anchor.left + anchor.right - popup.width) / 2,
-        Math.max(margin, viewport.width - margin - popup.width)));
+    const right = anchor.right + gap;
+    const leftSide = anchor.left - gap - popup.width;
+    const fitsRight = right + popup.width <= viewport.width - margin;
+    const fitsLeft = leftSide >= margin;
+    const preferred = fitsRight ? right : fitsLeft ? leftSide : anchor.left;
+    const left = Math.max(margin, Math.min(preferred, Math.max(margin, viewport.width - margin - popup.width)));
     const below = anchor.bottom + gap;
     const above = anchor.top - gap - height;
-    const preferred = below + height <= viewport.height - margin ? below
-        : above >= margin ? above
-            : viewport.height - anchor.bottom >= anchor.top ? below : above;
-    const top = Math.max(margin, Math.min(preferred, viewport.height - margin - height));
+    const preferredTop = fitsRight || fitsLeft ? anchor.top
+        : below + height <= viewport.height - margin ? below
+            : above >= margin ? above : anchor.top;
+    const top = Math.max(margin, Math.min(preferredTop, viewport.height - margin - height));
     return { left, top, maxHeight };
 }
 
@@ -41,6 +45,8 @@ export function previewChatReviewScript(): string {
         memoPlaceholder: translate('preview.chatReview.ui.memoPlaceholderLabel'),
         delete: translate('preview.chatReview.ui.deleteLabel'),
         done: translate('preview.chatReview.ui.doneLabel'),
+        noteClose: translate('preview.chatReview.ui.noteCloseLabel'),
+        trayClose: translate('preview.chatReview.ui.trayCloseLabel'),
         copyToClipboard: translate('preview.chatReview.ui.copyToClipboardAction'),
         attachToPartner: translate('preview.chatReview.ui.attachToPartnerLabel'),
         attachCountOne: translate('preview.chatReview.ui.attachCountLabel_one'),
@@ -91,6 +97,7 @@ export function previewChatReviewScript(): string {
         let partnerName = ui.clipboard;
         let trayOpen = false;
         let drawing = null;
+        let pinDrag = null;
         let claimedPointerId = null;
         let suppressReviewClick = false;
         let suppressReviewClickTimer = null;
@@ -164,25 +171,29 @@ export function previewChatReviewScript(): string {
         const buttons = toolbar.querySelector('.review-tools');
         const rangeControls = toolbar.querySelector('#review-range-controls');
         const attachButton = buttons.querySelector('[data-review-attach-count]');
-        const dock = document.createElement('div');
-        dock.id = 'review-dock';
-        dock.hidden = true;
-        dock.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><textarea data-review-memo placeholder="__AKARI_UI_memoPlaceholder__" rows="2"></textarea><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="__AKARI_UI_delete__" aria-label="__AKARI_UI_delete__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="__AKARI_UI_done__" aria-label="__AKARI_UI_done__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>__AKARI_UI_copyToClipboard__</button></div></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
-        controls.after(dock);
-        const note = dock.querySelector('[data-review-note]');
-        document.body.append(note);
+        const popups = document.createElement('div');
+        popups.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="__AKARI_UI_delete__" aria-label="__AKARI_UI_delete__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="__AKARI_UI_done__" aria-label="__AKARI_UI_done__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="review-popup-close" data-review-note-close title="__AKARI_UI_noteClose__" aria-label="__AKARI_UI_noteClose__">×</button></div></div><textarea data-review-memo placeholder="__AKARI_UI_memoPlaceholder__" rows="2"></textarea><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div class="review-tray-header"><span data-review-tray-heading></span><button type="button" class="review-popup-close" data-review-tray-close title="__AKARI_UI_trayClose__" aria-label="__AKARI_UI_trayClose__">×</button></div><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>__AKARI_UI_copyToClipboard__</button></div></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
+        const note = popups.querySelector('[data-review-note]');
+        const tray = popups.querySelector('#review-chat-tray');
+        document.body.append(note, tray);
         const elementsNode = note.querySelector('[data-review-elements]');
         const noteBadge = note.querySelector('[data-review-note-badge]');
         const noteTool = note.querySelector('[data-review-note-tool]');
         const noteTime = note.querySelector('[data-review-note-time]');
         const memo = note.querySelector('[data-review-memo]');
-        const tray = dock.querySelector('#review-chat-tray');
         const sendButton = tray.querySelector('[data-review-send]');
         const seekMarks = document.createElement('div');
         seekMarks.id = 'review-seek-marks';
         document.querySelector('.transport-seek')?.append(seekMarks);
-        const positionNote = () => {
-            if (!activeNote) return;
+        const positionPopups = () => {
+            if (trayOpen && marks.length) {
+                const position = notePosition(attachButton.getBoundingClientRect(), tray.getBoundingClientRect(),
+                    { width: window.innerWidth, height: window.innerHeight });
+                tray.style.left = position.left + 'px';
+                tray.style.top = position.top + 'px';
+                tray.style.maxHeight = position.maxHeight + 'px';
+            }
+            if (!activeNote || pinDrag?.dragging) return;
             const index = markIndex(activeNote.id);
             if (index < 0) return;
             const mark = marks[index]?.review;
@@ -196,8 +207,8 @@ export function previewChatReviewScript(): string {
             note.style.top = position.top + 'px';
             note.style.maxHeight = position.maxHeight + 'px';
         };
-        window.addEventListener('resize', positionNote);
-        window.addEventListener('scroll', positionNote, true);
+        window.addEventListener('resize', positionPopups);
+        window.addEventListener('scroll', positionPopups, true);
         const setBadgeActive = (badge, time) => {
             const active = Math.abs(Number(badge.dataset.reviewTime) - time) <= 1.5;
             badge.style.opacity = active ? '1' : '.25';
@@ -213,6 +224,8 @@ export function previewChatReviewScript(): string {
             attachButton.title = marks.length === 0 ? ui.attachZero
                 : formatUi(marks.length === 1 ? ui.attachCountOne : ui.attachCountOther, { count: marks.length });
             attachButton.setAttribute('aria-label', attachButton.title);
+            tray.querySelector('[data-review-tray-heading]').textContent = formatUi(
+                marks.length === 1 ? ui.attachCountOne : ui.attachCountOther, { count: marks.length });
             for (const button of buttons.querySelectorAll('[data-review-tool]')) {
                 button.classList.toggle('on', button.dataset.reviewTool === tool);
                 button.setAttribute('aria-pressed', String(button.dataset.reviewTool === tool));
@@ -223,11 +236,8 @@ export function previewChatReviewScript(): string {
             hint.textContent = tool === 'pen' ? ui.penHint
                 : tool === 'pin' ? ui.pinHint
                 : tool === 'range' ? (rangeStart === null ? ui.rangeStartHint : ui.rangeEndHint) : '';
-            if (activeNote) tray.hidden = true;
-            else note.hidden = true;
-            note.hidden = !activeNote;
-            tray.hidden = !trayOpen || marks.length === 0 || Boolean(activeNote);
-            dock.hidden = tray.hidden;
+            note.hidden = !activeNote || Boolean(pinDrag?.dragging);
+            tray.hidden = !trayOpen || marks.length === 0;
             elementsNode.replaceChildren();
             if (activeNote) {
                 const index = markIndex(activeNote.id);
@@ -340,7 +350,7 @@ export function previewChatReviewScript(): string {
                 row.append(remove);
                 rows.append(row);
             });
-            positionNote();
+            positionPopups();
         };
         const thumbnail = () => {
             try {
@@ -426,8 +436,6 @@ export function previewChatReviewScript(): string {
             const item = marks[index];
             if (!item || item.kind !== 'review') return;
             if (activeNote && activeNote.id !== item.review.id && !saveNote(true)) return;
-            trayOpen = false;
-            tray.hidden = true;
             const end = item.review.timeEnd ?? item.review.time;
             if (!fresh && (currentTime() < item.review.time - 1.5 || currentTime() > end + 1.5)) {
                 seek.value = String(item.review.time);
@@ -471,7 +479,7 @@ export function previewChatReviewScript(): string {
             pendingAdds.set(review.id, item);
             post({ type: 'akari-preview-chat-review-add', review });
             openNote(marks.length - 1, true);
-            if (kind === 'range') { rangeStart = null; rangeStartFrame = null; }
+            if (kind === 'range') { tool = null; rangeStart = null; rangeStartFrame = null; render(); }
             void trim(50);
         };
         buttons.addEventListener('click', event => {
@@ -483,8 +491,6 @@ export function previewChatReviewScript(): string {
                 rangeStartFrame = tool === 'range' ? frameAt() : null;
                 render();
             } else if (event.target.closest('[data-review-attach-count]')) {
-                if (activeNote && !saveNote(true)) return;
-                note.hidden = true;
                 trayOpen = !trayOpen;
                 render();
             }
@@ -497,13 +503,16 @@ export function previewChatReviewScript(): string {
             }
         });
         window.addEventListener('pointerdown', event => {
-            if (activeNote && !note.contains(event.target) && !saveNote(true)) return;
             const badge = event.target.closest?.('[data-review-badge][data-review-active]');
             if (badge && marksNode.contains(badge) && event.button === 0) {
                 event.preventDefault(); event.stopImmediatePropagation();
                 claimedPointerId = event.pointerId;
                 claimReviewClick();
-                openNote(Number(badge.dataset.reviewBadge));
+                const index = Number(badge.dataset.reviewBadge);
+                const review = marks[index]?.review;
+                if (review?.tool === 'pin') pinDrag = { pointerId: event.pointerId, index, badge,
+                    startX: event.clientX, startY: event.clientY, shape: { ...review.shape }, dragging: false };
+                else openNote(index);
                 return;
             }
             if (!tool || event.button !== 0 || !stage.contains(event.target)) return;
@@ -527,6 +536,20 @@ export function previewChatReviewScript(): string {
         window.addEventListener('pointermove', event => {
             if (claimedPointerId !== event.pointerId) return;
             event.preventDefault(); event.stopImmediatePropagation();
+            if (pinDrag) {
+                const drag = pinDrag;
+                const dx = event.clientX - drag.startX;
+                const dy = event.clientY - drag.startY;
+                if (!drag.dragging && Math.hypot(dx, dy) >= 4) { drag.dragging = true; note.hidden = true; }
+                if (drag.dragging) {
+                    const rect = contentRect();
+                    const point = normalizePoint(rect.left + drag.shape.x * rect.width + dx,
+                        rect.top + drag.shape.y * rect.height + dy, rect);
+                    drag.badge.style.left = (point.x * 100) + '%';
+                    drag.badge.style.top = (point.y * 100) + '%';
+                }
+                return;
+            }
             if (!drawing) return;
             drawing.points.push(normalizePoint(event.clientX, event.clientY, drawing.rect));
             const points = drawing.points;
@@ -537,6 +560,18 @@ export function previewChatReviewScript(): string {
             claimedPointerId = null;
             releaseReviewClick();
             event.preventDefault(); event.stopImmediatePropagation();
+            if (pinDrag) {
+                const drag = pinDrag; pinDrag = null;
+                if (drag.dragging) {
+                    const rect = contentRect();
+                    const point = normalizePoint(rect.left + drag.shape.x * rect.width + event.clientX - drag.startX,
+                        rect.top + drag.shape.y * rect.height + event.clientY - drag.startY, rect);
+                    const review = marks[drag.index]?.review;
+                    if (review?.tool === 'pin') requestUpdate(drag.index, { ...review, shape: { ...review.shape, ...point } });
+                    else render();
+                } else openNote(drag.index);
+                return;
+            }
             if (!drawing) return;
             const done = drawing; drawing = null;
             ink.replaceChildren();
@@ -567,6 +602,12 @@ export function previewChatReviewScript(): string {
             suppressReviewClick = false;
             if (suppressReviewClickTimer !== null) clearTimeout(suppressReviewClickTimer);
             suppressReviewClickTimer = null;
+            if (pinDrag) {
+                pinDrag.badge.style.left = (pinDrag.shape.x * 100) + '%';
+                pinDrag.badge.style.top = (pinDrag.shape.y * 100) + '%';
+                pinDrag = null;
+                render();
+            }
             drawing = null;
             ink.replaceChildren();
             event.preventDefault(); event.stopImmediatePropagation();
@@ -579,11 +620,16 @@ export function previewChatReviewScript(): string {
             event.preventDefault(); event.stopImmediatePropagation();
         }, true);
         note.querySelector('[data-review-done]').addEventListener('click', () => { saveNote(true); });
+        note.querySelector('[data-review-note-close]').addEventListener('click', () => {
+            if (activeNote?.fresh && !memo.value.trim()) removeMark(markIndex(activeNote.id));
+            else saveNote(true);
+        });
         note.querySelector('[data-review-delete]').addEventListener('click', () => {
             if (activeNote) removeMark(markIndex(activeNote.id));
         });
         memo.addEventListener('blur', () => { if (activeNote) saveNote(false); });
         tray.addEventListener('click', event => {
+            if (event.target.closest('[data-review-tray-close]')) { trayOpen = false; render(); return; }
             const remove = event.target.closest('[data-review-remove]');
             if (remove) removeMark(Number(remove.dataset.reviewRemove));
             else if (event.target.closest('[data-review-send]')) post({ type: 'akari-preview-chat-review-attach' });
