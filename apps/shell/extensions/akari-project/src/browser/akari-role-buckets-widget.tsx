@@ -345,6 +345,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly workflow!: AkariWorkflowService;
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     @inject(require('../../../akari-surfaces/lib/common/akari-new-project-protocol').AkariNewProjectService)
     protected readonly playbookService!: { listPlaybooks(channel?: string): Promise<any[]> };
     @inject(FileService)
