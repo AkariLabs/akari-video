@@ -1,4 +1,6 @@
 {
+  "preview.previewWindow.placeholderCard.defaultName": "Placeholder",
+  "preview.previewWindow.placeholderCard.replaceHint": "Placeholder — add media to replace this card",
   "preview.emphasisWords.validation.expectedArrayWarning": "[akari-preview] Ignored emphasis_words because it is not an array",
   "preview.emphasisWords.validation.invalidItemWarning": "[akari-preview] Ignored invalid emphasis_words[{index}]",
   "preview.audioMeter.command.openAudioMeterAction": "Open audio meter",

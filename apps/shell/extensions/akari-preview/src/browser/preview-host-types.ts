@@ -422,6 +422,7 @@ export interface PreviewSelectionNode {
 
 export interface EditSummary {
     tree?: PreviewSelectionNode[];
+    placeholderTracks?: unknown[];
     /** geometry は幾何統一（別票）が入れる出力座標系マーカー。'source' = ソース実寸基準へ移行済み。 */
     output: { width: number; height: number; fps?: number; geometry?: string };
     /** 生 edit.json の version。cuts[].crop の書き戻しは v2 のみ（legacy schema に席が無い）。 */

@@ -6769,6 +6769,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(rawVersion === 2 ? { editVersion: 2 } : {}),
                     overlays,
                     tree,
+                    ...(rawVersion === 2 ? { placeholderTracks: (rawEdit as { tracks?: unknown[] }).tracks ?? [] } : {}),
                     ...(rawVersion === 2 ? { canvasDropTargets: canvasDropTargets(
                         (rawEdit as { tracks?: Record<string, unknown>[] }).tracks ?? []) } : {}),
                     layers,
@@ -8702,6 +8703,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             'preview.chatReviewAttachments.ui.videoSourcePathLabel',
             'preview.chatReviewAttachments.ui.imageLabel',
             'preview.chatReviewAttachments.ui.videoLabel',
+            'preview.previewWindow.placeholderCard.defaultName',
+            'preview.previewWindow.placeholderCard.replaceHint',
         ];
         const previewText = scriptDictionary({
             play: t('preview.previewWindow.transport.playAction'),

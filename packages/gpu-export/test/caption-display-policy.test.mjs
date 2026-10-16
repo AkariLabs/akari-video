@@ -271,7 +271,8 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
     .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")
-      .replace(/"messages":\{"preserve3dOrder":"[^"]*","longGop":"[^"]*"\}/gu, '"messages":{"preserve3dOrder":"LOCALIZED"}')).digest("hex");
+      .replace(/"messages":\{"preserve3dOrder":"[^"]*","longGop":"[^"]*"(?:,"placeholderCard":\{"defaultName":"[^"]*","replaceHint":"[^"]*"\})?\}/gu,
+        '"messages":{"preserve3dOrder":"LOCALIZED"}')).digest("hex");
   const legacyArray = [punctuated, { id: "c-0008", src: "main", start: 3, end: 5, text: "短い字幕" }];
   const legacyObject = {
     default_text_style: { color: "#ffffff", size_px: 64, weight: 700 },

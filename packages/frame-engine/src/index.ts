@@ -1,6 +1,7 @@
 export * from './types.js';
 export * from './evaluate.js';
 export * from './timeline/plan.js';
+export * from './timeline/placeholder-card.js';
 export * from './timeline/layer-visual.js';
 export * from './compositor/backend.js';
 export * from './compositor/webgl2.js';

@@ -25,6 +25,10 @@ for (const language of ['ja', 'en']) {
       const script = rendered.match(/<script>(window\.__AKARI_PREVIEW_MESSAGES__=[^<]+)<\/script>/u)?.[1];
       assert.ok(script);
       vm.runInNewContext(script, { window });
+      assert.equal(window.__AKARI_PREVIEW_MESSAGES__.placeholderCard.defaultName,
+        t('preview.previewWindow.placeholderCard.defaultName', {}, language));
+      assert.equal(window.__AKARI_PREVIEW_MESSAGES__.placeholderCard.replaceHint,
+        t('preview.previewWindow.placeholderCard.replaceHint', {}, language));
       const formatFrameEngineWarning = vm.runInNewContext(
         `(() => { ${formatter}; return formatFrameEngineWarning; })()`, { window });
       const actual = formatFrameEngineWarning(oldMessage,

@@ -57,6 +57,21 @@ function extractTemplate(methodName) {
 
 const watchdog = extractTemplate('frameEngineWatchdogScript');
 
+test('initial frame-engine timeline receives planned groups from the summary', () => {
+    const bootstrap = extractTemplate('frameEngineBootstrapScript');
+    const start = bootstrap.indexOf('let timeline = ((summary) => engine.buildResolvedTimelinePlan(');
+    const end = bootstrap.indexOf('let visualDuration = timeline.totalDuration;', start);
+    assert.ok(start >= 0 && end > start);
+    const build = new Function('engine', 'normalizedCuts', 'fps', 'engineLayers', 'engineSummary', 't',
+        `${bootstrap.slice(start, end)} return timeline;`);
+    const groups = [{ id: 'visual' }];
+    const timeline = build({
+        collectPlanPlaceholderCards: tracks => tracks.map(track => track.id),
+        buildResolvedTimelinePlan: (_cuts, options) => options
+    }, [], 30, [], { overlays: [], placeholderTracks: groups }, key => key);
+    assert.deepEqual(timeline.placeholders, ['visual']);
+});
+
 test('startup applies pending model before the restored frame and ready event', () => {
     const bootstrap = extractTemplate('frameEngineBootstrapScript');
     const startup = bootstrap.slice(bootstrap.indexOf('const pendingSummary = window.akari && window.akari.frameEnginePendingSummary'));

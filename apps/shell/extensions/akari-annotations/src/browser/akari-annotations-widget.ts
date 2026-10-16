@@ -1,4 +1,5 @@
 import { pluralCountForDisplay } from '../common/plural-display-count';
+import { contentEndWithTimelineGroups } from '../common/timeline-group-end';
 import { t } from '@akari-video/i18n';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
@@ -11406,10 +11407,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const narrationEnd = this.audioNarration.reduce(
                 (max, narration) => Math.max(max, narration.t + this.narrationDisplayDuration(narration)), 0);
             const timedEnd = Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd, narrationEnd, captionsEnd);
-            return Math.max(timedEnd, bgmItem?.duration > 0 ? bgmEnd : timedEnd > 0 ? 0 : bgmEnd);
+            return contentEndWithTimelineGroups(
+                Math.max(timedEnd, bgmItem?.duration > 0 ? bgmEnd : timedEnd > 0 ? 0 : bgmEnd),
+                this.timelineTreeTracks, true);
         }
         const candidates = [
-            10, captionsEnd, bgmItem?.duration > 0 || (!captionsEnd && !this.overlays.length && !this.layers.length
+            10, captionsEnd,
+            bgmItem?.duration > 0 || (!captionsEnd && !this.overlays.length && !this.layers.length
                 && !this.audioSfx.length && !this.audioSpeech?.length && !this.audioNarration.length) ? bgmEnd : 0,
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
             ...this.layers.map(layer => layer.t + layer.duration),
@@ -11418,7 +11422,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
-        return Math.max(...candidates);
+        return contentEndWithTimelineGroups(Math.max(...candidates), this.timelineTreeTracks, false);
     }
 
     protected totalDuration(): number {

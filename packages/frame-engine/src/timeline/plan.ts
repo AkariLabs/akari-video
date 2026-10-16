@@ -25,6 +25,7 @@ import type { MotionV0 } from './item-motion.js';
 import itemMotion, { type MotionItem } from '../../../overlay-runtime/src/item-motion.js';
 const { evaluateItemMotion } = itemMotion;
 import type { StillMaskStroke } from '../mask/compose-still-mask.js';
+import { placeholderCardSource, type PlanPlaceholderCard, type PlaceholderCardText } from './placeholder-card.js';
 
 function regionMaskSource(sources: TimelineSourceRegistry, reference: string):
   { mask: StillImageSource } | { maskUrl: string } | undefined {
@@ -143,6 +144,8 @@ export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters
   layers?: readonly FrameEngineLayer[];
   /** DOM overlays also define playback length, including compositions without media cuts. */
   overlays?: readonly { start: number; duration: number }[];
+  placeholders?: readonly PlanPlaceholderCard[];
+  placeholderText?: PlaceholderCardText;
   maskResolver?: (colorSrc: string) => string | null | undefined;
   onWarning?: (message: string) => void;
 }
@@ -164,6 +167,8 @@ export interface ResolvedTimelinePlan {
   readonly cuts: readonly ResolvedCutPlacement[];
   readonly totalDuration: number;
   readonly layers: readonly FrameEngineLayer[];
+  readonly placeholders: readonly PlanPlaceholderCard[];
+  readonly placeholderText?: PlaceholderCardText;
   readonly layerAdjustLuts: readonly (ParsedCubeLut | undefined)[];
   readonly layerAdjustFx?: readonly (ResolvedAdjustFx[] | undefined)[];
   readonly maskSources: ReadonlyMap<string, string | null>;
@@ -377,9 +382,14 @@ export function buildResolvedTimelinePlan(
   const overlaysEnd = overlays.reduce((end, overlay) =>
     Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0
       ? Math.max(end, overlay.start + overlay.duration) : end, 0);
+  const placeholders = options.placeholders ?? [];
+  const placeholdersEnd = placeholders.reduce((end, card) => Math.max(end, card.at + card.duration), 0);
   return {
-    map, trackZ: options.trackZ ?? DEFAULT_TRACK_Z, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
+    map, trackZ: options.trackZ ?? DEFAULT_TRACK_Z, cuts: placements,
+    totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd, placeholdersEnd),
     layers: visibleLayers,
+    placeholders,
+    placeholderText: options.placeholderText,
     layerAdjustLuts,
     ...(layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {}),
     maskSources,
@@ -885,8 +895,17 @@ export function evaluationPlanFromResolvedTimeline(
     } });
   }
   stack.sort((a, b) => a.z - b.z);
+  const baseLayers = keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [];
+  if (baseLayers.length === 0 && stack.length === 0) {
+    const card = timeline.placeholders
+      .filter(candidate => outputSeconds >= candidate.at && outputSeconds < candidate.at + candidate.duration)
+      .sort((a, b) => a.track - b.track || a.at - b.at)[0];
+    if (card && timeline.placeholderText) baseLayers.push({ kind: 'image', id: `placeholder:${card.id}`,
+      image: placeholderCardSource(card, output.width, output.height, timeline.placeholderText),
+      sourceTimeUs: 0, visual: DEFAULT_VISUAL });
+  }
   return { timeUs, frameIndex,
-    base: keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [],
+    base: baseLayers,
     layers: stack.map(entry => entry.layer), transition: { type: 'hard-cut', progress: 0 }, output };
 
 }

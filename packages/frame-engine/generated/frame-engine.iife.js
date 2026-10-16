@@ -4822,11 +4822,11 @@ ${indent}`);
           return true;
         return wordSpans.some((span) => span.wordLike && span.start < boundary && boundary < span.end);
       }
-      function joinCaptionLines(lines, locale) {
+      function joinCaptionLines(lines2, locale) {
         if (/^ja/iu.test(locale)) {
-          return lines.join("");
+          return lines2.join("");
         }
-        return lines.join("");
+        return lines2.join("");
       }
       function validateCaptionDisplayPolicy(value) {
         if (!isRecord2(value))
@@ -4925,9 +4925,9 @@ ${indent}`);
           return null;
         }
         const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
-        const lines = policy.lines ?? 1;
+        const lines2 = policy.lines ?? 1;
         const wrap = policy.wrap ?? "multi";
-        const splitPolicy = wrap === "fold" ? { ...policy, max_line_units: policy.max_line_units * lines } : policy;
+        const splitPolicy = wrap === "fold" ? { ...policy, max_line_units: policy.max_line_units * lines2 } : policy;
         if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
           fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
         }
@@ -5006,7 +5006,7 @@ ${indent}`);
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
           } else {
-            let split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines } : policyWithExtraTerms);
+            let split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines2 } : policyWithExtraTerms);
             if (split.overflow && incrementalProtectedTerms.length > 0) {
               const fallback = splitCaptionFragments(text, splitPolicy);
               if (!fallback.overflow) {
@@ -5042,11 +5042,11 @@ ${indent}`);
           const groups = wrap === "fold" ? scheduledWithOffsets.map((fragment) => ({
             start: fragment.start,
             end: fragment.end,
-            lines: resolved.manual || resolved.overflow ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
+            lines: resolved.manual || resolved.overflow ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines2, policy.locale),
             charStart: fragment.charStart,
             charEnd: fragment.charEnd
-          })) : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines) }, (_3, groupIndex) => {
-            const fragments = scheduledWithOffsets.slice(groupIndex * lines, (groupIndex + 1) * lines);
+          })) : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines2) }, (_3, groupIndex) => {
+            const fragments = scheduledWithOffsets.slice(groupIndex * lines2, (groupIndex + 1) * lines2);
             return {
               start: fragments[0].start,
               end: fragments[fragments.length - 1].end,
@@ -5355,12 +5355,12 @@ ${indent}`);
           return lineVars;
         return { ...lineVars ?? {}, "--caption-word-line-height": `${formatCssNumber(maxTokenSize)}px` };
       }
-      function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText, karaoke) {
+      function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines2, cueText, karaoke) {
         if (!sourceWords)
           return void 0;
         const lineRanges = [];
         let lineOffset = charStart;
-        lines.forEach((line, index) => {
+        lines2.forEach((line, index) => {
           lineRanges.push({ start: lineOffset, end: lineOffset + line.length, line: index });
           lineOffset += line.length;
         });
@@ -5422,16 +5422,16 @@ ${indent}`);
           wordStyles
         };
       }
-      function trimManualCueDisplay(lines, locale, runs, wordDisplay, karaokeOffset) {
-        const kept = lines.map((line, index) => ({
+      function trimManualCueDisplay(lines2, locale, runs, wordDisplay, karaokeOffset) {
+        const kept = lines2.map((line, index) => ({
           start: index > 0 ? 0 : line.length - line.trimStart().length,
-          end: index < lines.length - 1 ? line.length : line.trimEnd().length
+          end: index < lines2.length - 1 ? line.length : line.trimEnd().length
         }));
-        const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
-        if (lines.every((line, index) => line === trimmedLines[index])) {
+        const trimmedLines = lines2.map((line, index) => line.slice(kept[index].start, kept[index].end));
+        if (lines2.every((line, index) => line === trimmedLines[index])) {
           return {
-            text: joinCaptionLines(lines, locale),
-            lines,
+            text: joinCaptionLines(lines2, locale),
+            lines: lines2,
             runs,
             words: wordDisplay?.words,
             wordStyles: wordDisplay?.wordStyles,
@@ -5439,9 +5439,9 @@ ${indent}`);
           };
         }
         const graphemeBoundaries = [0];
-        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        for (let lineIndex = 0; lineIndex < lines2.length; lineIndex++) {
           let position = 0;
-          for (const grapheme of captionDisplayGraphemes(lines[lineIndex])) {
+          for (const grapheme of captionDisplayGraphemes(lines2[lineIndex])) {
             const visible = position >= kept[lineIndex].start && position + grapheme.length <= kept[lineIndex].end;
             graphemeBoundaries.push(graphemeBoundaries[graphemeBoundaries.length - 1] + (visible ? 1 : 0));
             position += grapheme.length;
@@ -5452,7 +5452,7 @@ ${indent}`);
           const to = graphemeBoundaries[run.to];
           return from < to ? [{ ...run, from, to }] : [];
         });
-        const wordPositions = lines.map(() => 0);
+        const wordPositions = lines2.map(() => 0);
         const retainedWords = [];
         const wordBoundaries = [0];
         for (const word of wordDisplay?.words ?? []) {
@@ -5475,7 +5475,7 @@ ${indent}`);
           runs: trimmedRuns?.length ? trimmedRuns : void 0,
           words: wordDisplay ? retainedWords : void 0,
           wordStyles,
-          karaokeOffset: karaokeOffset === void 0 ? void 0 : karaokeOffset + captionDisplayGraphemes(lines[0].slice(0, kept[0].start)).length
+          karaokeOffset: karaokeOffset === void 0 ? void 0 : karaokeOffset + captionDisplayGraphemes(lines2[0].slice(0, kept[0].start)).length
         };
       }
       function roundOutputSecond(value) {
@@ -6266,11 +6266,11 @@ ${indent}`);
         }
         return void 0;
       }
-      function foldCaptionLines(text, maxLineUnits, lines, locale = "ja") {
-        if (!finitePositive4(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {
+      function foldCaptionLines(text, maxLineUnits, lines2, locale = "ja") {
+        if (!finitePositive4(maxLineUnits) || !Number.isInteger(lines2) || lines2 < 1) {
           fail("INVALID_POLICY", "foldCaptionLines requires positive maxLineUnits and lines >= 1");
         }
-        if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
+        if (lines2 === 1 || measureCaptionUnits(text) <= maxLineUnits)
           return [text];
         const Segmenter = Intl.Segmenter;
         const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
@@ -6284,7 +6284,7 @@ ${indent}`);
             continue;
           }
           result.push(current);
-          if (result.length === lines - 1) {
+          if (result.length === lines2 - 1) {
             current = tokens.slice(index).join("");
             break;
           }
@@ -7291,7 +7291,7 @@ ${indent}`);
           const doc = node.ownerDocument;
           const height = Number.parseFloat(data.style.lineHeight) || Number.parseFloat(data.style.fontSize) * 1.2;
           const range = doc.createRange();
-          const lines = [];
+          const lines2 = [];
           const canWrap = wraps.has(data.style.whiteSpace);
           let offset = 0;
           let previousEnd = 0;
@@ -7302,8 +7302,8 @@ ${indent}`);
             if (rect && rect.width > 0 && rect.height > 0) {
               const center = new doc.defaultView.DOMPoint(rect.left + rect.width / 2, rect.top + rect.height / 2).matrixTransform(inverse);
               const along = vertical ? -center.x : center.y;
-              if (!lines.length || Math.abs(along - lines[lines.length - 1].along) > height / 2) {
-                lines.push({ start: previousEnd, anchor: offset, length: character.length, center, along });
+              if (!lines2.length || Math.abs(along - lines2[lines2.length - 1].along) > height / 2) {
+                lines2.push({ start: previousEnd, anchor: offset, length: character.length, center, along });
               }
               previousEnd = offset + character.length;
               if (!canWrap)
@@ -7311,27 +7311,27 @@ ${indent}`);
             }
             offset += character.length;
           }
-          if (!lines.length)
+          if (!lines2.length)
             return false;
           const original = svg.firstChild;
-          for (let index = 0; index < lines.length; index += 1) {
+          for (let index = 0; index < lines2.length; index += 1) {
             const text = index ? original.cloneNode(false) : original;
-            text.textContent = outlineText(node, data, lines[index].start, index + 1 < lines.length ? lines[index + 1].start : node.data.length);
+            text.textContent = outlineText(node, data, lines2[index].start, index + 1 < lines2.length ? lines2[index + 1].start : node.data.length);
             if (index)
               svg.appendChild(text);
-            const anchor = outlineText(node, data, lines[index].start, lines[index].anchor).length;
+            const anchor = outlineText(node, data, lines2[index].start, lines2[index].anchor).length;
             if (anchor >= text.getNumberOfChars())
               continue;
             const extent = text.getExtentOfChar(anchor);
-            text.setAttribute("x", String(Number(text.getAttribute("x")) + lines[index].center.x - extent.x - extent.width / 2));
-            text.setAttribute("y", String(Number(text.getAttribute("y")) + lines[index].center.y - extent.y - extent.height / 2));
+            text.setAttribute("x", String(Number(text.getAttribute("x")) + lines2[index].center.x - extent.x - extent.width / 2));
+            text.setAttribute("y", String(Number(text.getAttribute("y")) + lines2[index].center.y - extent.y - extent.height / 2));
           }
           return {
             svg,
             node,
-            offset: lines[0].anchor,
-            length: lines[0].length,
-            center: lines[0].center
+            offset: lines2[0].anchor,
+            length: lines2[0].length,
+            center: lines2[0].center
           };
         }
         function moved(anchors) {
@@ -20305,22 +20305,22 @@ ${indent}`);
           const entries = Object.entries(value);
           if (entries.length === 0)
             return "{}";
-          const lines = ["{"];
+          const lines2 = ["{"];
           entries.forEach(([id, points], index) => {
             const prefix = `${" ".repeat(indent + 2)}${JSON.stringify(id)}: `;
             if (!Array.isArray(points) || points.length === 0) {
-              lines.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
+              lines2.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
               return;
             }
-            lines.push(`${prefix}[`);
+            lines2.push(`${prefix}[`);
             const orderedPoints = [...points].sort((left, right) => frameOf(left) - frameOf(right));
             orderedPoints.forEach((point, pointIndex) => {
-              lines.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
+              lines2.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
             });
-            lines.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
+            lines2.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
           });
-          lines.push(`${" ".repeat(indent)}}`);
-          return lines.join("\n");
+          lines2.push(`${" ".repeat(indent)}}`);
+          return lines2.join("\n");
         })}
 `;
       }
@@ -20328,18 +20328,18 @@ ${indent}`);
         const keys = orderedKeys(value, preferred);
         if (keys.length === 0)
           return "{}";
-        const lines = ["{"];
+        const lines2 = ["{"];
         keys.forEach((key, index) => {
           const rendered = render(key, value[key], 2);
           const renderedLines = rendered.split("\n");
-          lines.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
+          lines2.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
           for (const line of renderedLines.slice(1))
-            lines.push(line);
+            lines2.push(line);
           if (index + 1 < keys.length)
-            lines[lines.length - 1] += ",";
+            lines2[lines2.length - 1] += ",";
         });
-        lines.push("}");
-        return lines.join("\n");
+        lines2.push("}");
+        return lines2.join("\n");
       }
       function serializeTopValue(value, indent) {
         if (Array.isArray(value)) {
@@ -20353,31 +20353,31 @@ ${indent}`);
         return inline(value);
       }
       function serializeStructuredArray(values, indent) {
-        const lines = ["["];
+        const lines2 = ["["];
         values.forEach((entry, index) => {
           const rendered = serializeTopValue(entry, indent + 2).split("\n");
-          lines.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
-          lines.push(...rendered.slice(1));
+          lines2.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
+          lines2.push(...rendered.slice(1));
           if (index + 1 < values.length)
-            lines[lines.length - 1] += ",";
+            lines2[lines2.length - 1] += ",";
         });
-        lines.push(`${" ".repeat(indent)}]`);
-        return lines.join("\n");
+        lines2.push(`${" ".repeat(indent)}]`);
+        return lines2.join("\n");
       }
       function serializeStructuredObject(value, indent) {
         const entries = Object.entries(value);
         if (entries.length === 0)
           return "{}";
-        const lines = ["{"];
+        const lines2 = ["{"];
         entries.forEach(([key, entry], index) => {
           const rendered = serializeTopValue(entry, indent + 2).split("\n");
-          lines.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
-          lines.push(...rendered.slice(1));
+          lines2.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
+          lines2.push(...rendered.slice(1));
           if (index + 1 < entries.length)
-            lines[lines.length - 1] += ",";
+            lines2[lines2.length - 1] += ",";
         });
-        lines.push(`${" ".repeat(indent)}}`);
-        return lines.join("\n");
+        lines2.push(`${" ".repeat(indent)}}`);
+        return lines2.join("\n");
       }
       function hasNonEmptyArray(value) {
         return Object.values(value).some((entry) => Array.isArray(entry) && entry.length > 0);
@@ -20385,14 +20385,14 @@ ${indent}`);
       function serializeTracks(tracks, indent) {
         if (tracks.length === 0)
           return "[]";
-        const lines = ["["];
+        const lines2 = ["["];
         tracks.forEach((track, index) => {
           const record2 = requireRecord(track, "edit.json.tracks[]");
           const rendered = serializeItemLike(record2, indent + 2, true);
-          lines.push(...appendComma(rendered, index + 1 < tracks.length));
+          lines2.push(...appendComma(rendered, index + 1 < tracks.length));
         });
-        lines.push(`${" ".repeat(indent)}]`);
-        return lines.join("\n");
+        lines2.push(`${" ".repeat(indent)}]`);
+        return lines2.join("\n");
       }
       function serializeItemLike(value, indent, track = false) {
         const children = value.items;
@@ -20402,23 +20402,23 @@ ${indent}`);
         }
         const keys = orderedKeys(value, preferred).filter((key) => key !== "items");
         const body = keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], !track)}`).join(", ");
-        const lines = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
+        const lines2 = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
         children.forEach((child, index) => {
           const childRecord = requireRecord(child, "item.items[]");
-          lines.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
+          lines2.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
         });
-        lines.push(`${" ".repeat(indent)}] }`);
-        return lines;
+        lines2.push(`${" ".repeat(indent)}] }`);
+        return lines2;
       }
       function serializeRecordArray(values, indent, render) {
         if (values.length === 0)
           return "[]";
-        const lines = ["["];
+        const lines2 = ["["];
         values.forEach((entry, index) => {
-          lines.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
+          lines2.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
         });
-        lines.push(`${" ".repeat(indent)}]`);
-        return lines.join("\n");
+        lines2.push(`${" ".repeat(indent)}]`);
+        return lines2.join("\n");
       }
       function inlineField(key, value, item) {
         if (item && key === "transform" && isRecord2(value) && (value.scaleX !== void 0 || value.scaleY !== void 0)) {
@@ -20465,10 +20465,10 @@ ${indent}`);
         const keys = preferred.filter((key) => present.delete(key));
         return [...keys, ...Object.keys(value).filter((key) => present.has(key))];
       }
-      function appendComma(lines, comma) {
+      function appendComma(lines2, comma) {
         if (comma)
-          lines[lines.length - 1] += ",";
-        return lines;
+          lines2[lines2.length - 1] += ",";
+        return lines2;
       }
       function frameOf(value) {
         return isRecord2(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
@@ -30410,6 +30410,7 @@ ${indent}`);
     MOTION_LOOP_PRESETS: () => MOTION_LOOP_PRESETS,
     PREFETCH_BUDGET_BASE_BYTES: () => PREFETCH_BUDGET_BASE_BYTES,
     PitchShiftKernel: () => PitchShiftKernel,
+    PlaceholderCardSource: () => PlaceholderCardSource,
     RangeMp4Source: () => RangeMp4Source,
     RefusalError: () => RefusalError,
     ScrubController: () => ScrubController,
@@ -30452,6 +30453,7 @@ ${indent}`);
     childBoxes: () => childBoxes2,
     chooseSource: () => chooseSource,
     cloneWithRotation: () => cloneWithRotation,
+    collectPlanPlaceholderCards: () => collectPlanPlaceholderCards,
     compareRgba: () => compareRgba,
     composeStillMask: () => composeStillMask,
     compositeCutGeometry: () => compositeCutGeometry,
@@ -30522,6 +30524,8 @@ ${indent}`);
     parseFlacStreamInfo: () => parseFlacStreamInfo,
     parseSourceSelectionMode: () => parseSourceSelectionMode,
     parseWavHeader: () => parseWavHeader,
+    placeholderCardMetrics: () => placeholderCardMetrics,
+    placeholderCardSource: () => placeholderCardSource,
     planFxPasses: () => planFxPasses,
     planStreamsBySource: () => planStreamsBySource,
     precedingSyncSample: () => precedingSyncSample,
@@ -33281,9 +33285,9 @@ void main() {
     let domainMin = [0, 0, 0];
     let domainMax = [1, 1, 1];
     const values = [];
-    const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
-    for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-      const line = lines[lineNumber].replace(/#.*$/u, "").trim();
+    const lines2 = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+    for (let lineNumber = 0; lineNumber < lines2.length; lineNumber += 1) {
+      const line = lines2[lineNumber].replace(/#.*$/u, "").trim();
       if (!line) continue;
       const parts = line.split(/\s+/u);
       const keyword = parts[0].toUpperCase();
@@ -34409,6 +34413,157 @@ void main() {
 
   // packages/frame-engine/src/timeline/plan.ts
   var import_item_motion = __toESM(require_item_motion(), 1);
+
+  // packages/frame-engine/src/timeline/placeholder-card.ts
+  function placeholderCardMetrics(width, height) {
+    const short = Math.min(width, height);
+    const inset = short * 0.048;
+    return {
+      inset,
+      textWidth: width - inset * 3.5,
+      titleSize: short * 0.09,
+      titleLineHeight: short * 0.108,
+      titleCenterY: height * 0.42,
+      intentSize: short * 0.045,
+      intentLineHeight: short * 0.0585,
+      hintSize: short * 0.034,
+      hintLineHeight: short * 0.0442,
+      hintBottomY: height - inset * 2
+    };
+  }
+  function collectPlanPlaceholderCards(tracks, fps) {
+    if (!tracks || !(fps > 0)) return [];
+    const cards = [];
+    tracks.forEach((track, index) => {
+      if (track.lane !== "visual" || track.hidden === true || /^playbook-placeholders-audio(?:-\d+)?$/.test(track.id ?? "")) return;
+      const visit = (item, parentAt) => {
+        if (item.hidden === true) return;
+        const at2 = parentAt + Number(item.at ?? 0);
+        const children = Array.isArray(item.items) ? item.items : [];
+        const hasContent = (node) => node.hidden === true ? false : node.source?.kind !== "group" || (node.items ?? []).some(hasContent);
+        if (item.source?.kind === "group" && item.source.canvas?.origin === "plan" && !children.some(hasContent) && Number(item.duration) > 0) {
+          cards.push({
+            id: String(item.id ?? ""),
+            name: String(item.name ?? ""),
+            ...item.source.canvas.intent ? { intent: item.source.canvas.intent } : {},
+            at: at2 / fps,
+            duration: Number(item.duration) / fps,
+            track: index
+          });
+        }
+        children.forEach((child) => visit(child, at2));
+      };
+      (track.items ?? []).forEach((item) => visit(item, 0));
+    });
+    return cards;
+  }
+  function lines(context, value, maxWidth, maxLines) {
+    const result = [];
+    let line = "";
+    for (const char of value) {
+      if (char === "\n" || context.measureText(line + char).width > maxWidth && line) {
+        result.push(line);
+        line = char === "\n" ? "" : char;
+      } else line += char;
+    }
+    if (line) result.push(line);
+    if (result.length > maxLines) {
+      const kept = result.slice(0, maxLines);
+      while (kept[maxLines - 1] && context.measureText(`${kept[maxLines - 1]}\u2026`).width > maxWidth) {
+        kept[maxLines - 1] = kept[maxLines - 1].slice(0, -1);
+      }
+      kept[maxLines - 1] += "\u2026";
+      return kept;
+    }
+    return result;
+  }
+  var PlaceholderCardSource = class {
+    image;
+    card;
+    width;
+    height;
+    text;
+    constructor(card, width, height, text) {
+      this.card = card;
+      this.width = width;
+      this.height = height;
+      this.text = text;
+    }
+    load() {
+      if (!this.image) this.image = this.draw();
+      return this.image;
+    }
+    destroy() {
+      this.image?.then((image) => image.bitmap.close(), () => {
+      });
+      this.image = void 0;
+    }
+    async draw() {
+      const canvas = document.createElement("canvas");
+      canvas.width = this.width;
+      canvas.height = this.height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("placeholder card context unavailable");
+      const metrics = placeholderCardMetrics(this.width, this.height);
+      const short = Math.min(this.width, this.height);
+      context.fillStyle = "#23262d";
+      context.fillRect(0, 0, this.width, this.height);
+      context.strokeStyle = "rgba(255,255,255,0.055)";
+      context.lineWidth = Math.max(1, short * 15e-4);
+      const step = Math.max(24, short * 0.042);
+      for (let x3 = -this.height; x3 < this.width; x3 += step) {
+        context.beginPath();
+        context.moveTo(x3, 0);
+        context.lineTo(x3 + this.height, this.height);
+        context.stroke();
+      }
+      const { inset } = metrics;
+      context.strokeStyle = "rgba(255,255,255,0.18)";
+      context.lineWidth = Math.max(2, short * 2e-3);
+      context.strokeRect(inset, inset, this.width - 2 * inset, this.height - 2 * inset);
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = `600 ${metrics.titleSize}px sans-serif`;
+      const title = lines(context, this.card.name || this.text.defaultName, metrics.textWidth, 3);
+      const titleTop = metrics.titleCenterY - (title.length - 1) * metrics.titleLineHeight / 2;
+      context.fillStyle = "#f1f2f4";
+      title.forEach((line, index) => context.fillText(line, this.width / 2, titleTop + index * metrics.titleLineHeight));
+      if (this.card.intent && this.card.intent !== this.card.name) {
+        context.font = `400 ${metrics.intentSize}px sans-serif`;
+        context.fillStyle = "#c1c5cd";
+        const intentTop = titleTop + (title.length - 1) * metrics.titleLineHeight + metrics.titleLineHeight * 0.7 + metrics.intentLineHeight * 0.5;
+        lines(context, this.card.intent, metrics.textWidth, 3).forEach((line, index) => context.fillText(line, this.width / 2, intentTop + index * metrics.intentLineHeight));
+      }
+      context.font = `400 ${metrics.hintSize}px sans-serif`;
+      context.fillStyle = "#a7adb7";
+      const hint = lines(context, this.text.replaceHint, metrics.textWidth, 2);
+      const hintTop = metrics.hintBottomY - (hint.length - 1) * metrics.hintLineHeight;
+      hint.forEach((line, index) => context.fillText(line, this.width / 2, hintTop + index * metrics.hintLineHeight));
+      return { bitmap: await createImageBitmap(canvas), width: this.width, height: this.height };
+    }
+  };
+  var cardSources = /* @__PURE__ */ new Map();
+  function placeholderCardSource(card, width, height, text) {
+    const key = JSON.stringify([card.id, card.name, card.intent, width, height, text]);
+    let source = cardSources.get(key);
+    if (source) {
+      cardSources.delete(key);
+      cardSources.set(key, source);
+    } else {
+      source = new PlaceholderCardSource(card, width, height, text);
+      cardSources.set(key, source);
+      if (cardSources.size > 8) {
+        const oldest = cardSources.keys().next().value;
+        if (oldest !== void 0) {
+          cardSources.get(oldest)?.destroy();
+          cardSources.delete(oldest);
+        }
+      }
+    }
+    return source;
+  }
+
+  // packages/frame-engine/src/timeline/plan.ts
   var { evaluateItemMotion } = import_item_motion.default;
   function regionMaskSource(sources, reference) {
     const known = sources.get(reference);
@@ -34622,12 +34777,16 @@ void main() {
     }
     const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
     const overlaysEnd = overlays.reduce((end, overlay) => Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0 ? Math.max(end, overlay.start + overlay.duration) : end, 0);
+    const placeholders = options.placeholders ?? [];
+    const placeholdersEnd = placeholders.reduce((end, card) => Math.max(end, card.at + card.duration), 0);
     return {
       map,
       trackZ: options.trackZ ?? DEFAULT_TRACK_Z,
       cuts: placements,
-      totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
+      totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd, placeholdersEnd),
       layers: visibleLayers,
+      placeholders,
+      placeholderText: options.placeholderText,
       layerAdjustLuts,
       ...layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {},
       maskSources,
@@ -35093,10 +35252,21 @@ void main() {
       } });
     }
     stack.sort((a, b) => a.z - b.z);
+    const baseLayers = keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [];
+    if (baseLayers.length === 0 && stack.length === 0) {
+      const card = timeline.placeholders.filter((candidate) => outputSeconds >= candidate.at && outputSeconds < candidate.at + candidate.duration).sort((a, b) => a.track - b.track || a.at - b.at)[0];
+      if (card && timeline.placeholderText) baseLayers.push({
+        kind: "image",
+        id: `placeholder:${card.id}`,
+        image: placeholderCardSource(card, output.width, output.height, timeline.placeholderText),
+        sourceTimeUs: 0,
+        visual: DEFAULT_VISUAL
+      });
+    }
     return {
       timeUs,
       frameIndex,
-      base: keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [],
+      base: baseLayers,
       layers: stack.map((entry) => entry.layer),
       transition: { type: "hard-cut", progress: 0 },
       output

@@ -427,8 +427,12 @@ export function frameEngineBootstrapScript(): string {
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : [],
-                    overlays: Array.isArray(summary.overlays) ? summary.overlays : []
-                }))({ layers: engineLayers, overlays: engineSummary.overlays });
+                    overlays: Array.isArray(summary.overlays) ? summary.overlays : [],
+                    placeholders: engine.collectPlanPlaceholderCards(summary.placeholderTracks, fps),
+                    placeholderText: { defaultName: t('preview.previewWindow.placeholderCard.defaultName'),
+                        replaceHint: t('preview.previewWindow.placeholderCard.replaceHint') }
+                }))({ layers: engineLayers, overlays: engineSummary.overlays,
+                    placeholderTracks: engineSummary.placeholderTracks });
                 let visualDuration = timeline.totalDuration;
                 timeline = { ...timeline, totalDuration: window.akari.previewContentEnd(engineSummary,
                     window.akari.previewCaptions ?? initial.captions ?? [], visualDuration, window.akari.previewAudioEndSeconds ?? 0, window.akari.previewBgmEndSeconds ?? 0) };
@@ -1367,7 +1371,10 @@ export function frameEngineBootstrapScript(): string {
                         let nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
                             fps,
                             layers: nextLayers,
-                            overlays: nextSummary.overlays
+                            overlays: nextSummary.overlays,
+                            placeholders: engine.collectPlanPlaceholderCards(nextSummary.placeholderTracks, fps),
+                            placeholderText: { defaultName: t('preview.previewWindow.placeholderCard.defaultName'),
+                                replaceHint: t('preview.previewWindow.placeholderCard.replaceHint') }
                         });
                         const nextVisualDuration = nextTimeline.totalDuration;
                         nextTimeline = { ...nextTimeline, totalDuration: window.akari.previewContentEnd(nextSummary,
