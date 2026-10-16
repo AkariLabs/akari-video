@@ -98,6 +98,11 @@ import type { OpenProjectRequest } from './akari-home-command-contribution';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { AkariChannelContextService, ChannelProject } from './channel/akari-channel-context-service';
 import { channelFromProjectPath } from './channel/channel-context-model';
+import { projectLocation } from '../common/project-location';
+import { SceneListView } from './home/scene-list-view';
+import { AkariProjectStructureService } from '../common/project-structure-protocol';
+import { showsSceneTabs } from '../common/project-structure-model';
+import { clearStructureTab } from './home/structure-navigation';
 import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
@@ -339,6 +344,8 @@ export class AkariHomeWidget extends ReactWidget {
 
     @inject(AkariNewProjectService)
     protected readonly newProjectService: AkariNewProjectService;
+    @inject(AkariProjectStructureService)
+    protected readonly structureService: AkariProjectStructureService;
 
     @inject(AkariProjectService)
     protected readonly storeService: AkariProjectService;
@@ -420,6 +427,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected currentLocation: CurrentLocation | undefined;
     // U3 のプロジェクト一覧で「開いています」を判定するための現在ワークスペース root。
     protected currentProjectUri: URI | undefined;
+    protected sceneListRoot = false;
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
     protected homeDialog: 'start' | 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
@@ -1562,9 +1570,7 @@ export class AkariHomeWidget extends ReactWidget {
         }
         const uri = new URI(request.uri);
         const root = this.creatorRootUri ?? await this.resolveCreatorRootDir();
-        const relative = root?.relative(uri)?.toString().split('/').filter(Boolean);
-        const channel = relative?.length === 4 && relative[0] === CREATOR_ROOT_CHANNELS_DIRNAME
-            && relative[2] === CREATOR_ROOT_VIDEOS_DIRNAME ? relative[1] : undefined;
+        const channel = projectLocation(root?.relative(uri)?.toString())?.channel;
         if (!newWindow) {
             const row = this.buildProjectRows().find(candidate => candidate.uri.toString() === request.uri);
             await animateProjectOpen(request.originRect, row?.name ?? uri.path.base,
@@ -1752,7 +1758,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.newProjectOriginRect = undefined;
             this.closeHomeDialog();
             this.pendingCreatePlaybook = playbook;
-            this.pendingCreateTitle = custom ? this.startName.trim() : undefined;
+            this.pendingCreateTitle = this.startName.trim() || undefined;
             await this.createAndOpenProject(videos.resolve(name), originRect);
         } catch (error) { this.reportNewProjectError(error); }
     }
@@ -1766,15 +1772,9 @@ export class AkariHomeWidget extends ReactWidget {
         this.startingNewProject = true;
         this.update();
         try {
-            if (this.pendingCreatePlaybook) await this.newProjectService.createProjectFromPlaybook(destination.toString(), this.pendingCreatePlaybook.dir);
-            else await this.newProjectService.createProject(destination.toString());
-            const intake = {
-                version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
-                autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: newProjectDisplayTitleFor(destination.path.base)
-            };
-            if (this.pendingCreateTitle) intake.title = this.pendingCreateTitle;
-            await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
-                BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
+            const title = this.pendingCreateTitle || newProjectDisplayTitleFor(destination.path.base);
+            if (this.pendingCreatePlaybook) await this.newProjectService.createProjectFromPlaybook(destination.toString(), this.pendingCreatePlaybook.dir, title);
+            else await this.newProjectService.createProject(destination.toString(), title);
             // 一覧の読み直しは待たない。全プロジェクトの intake などを読み直すので、数百件あると
             // 数分かかり、そのあいだ「作成しています…」のまま「開きますか」が出なかった。
             // 開く側は一覧に無ければ intake.json から名前を読む。
@@ -1823,6 +1823,7 @@ export class AkariHomeWidget extends ReactWidget {
         const projectUri = roots[0]?.resource;
         this.currentProjectUri = projectUri;
         if (!projectUri) {
+            this.sceneListRoot = false;
             this.currentLocation = undefined;
             this.update();
             return;
@@ -1831,22 +1832,28 @@ export class AkariHomeWidget extends ReactWidget {
         const rootUri = this.creatorRootUri;
         if (rootUri) {
             const relative = rootUri.relative(projectUri)?.toString();
-            const segments = relative ? relative.split('/').filter(Boolean) : [];
-            if (
-                segments.length === 4 &&
-                segments[0] === CREATOR_ROOT_CHANNELS_DIRNAME &&
-                segments[2] === CREATOR_ROOT_VIDEOS_DIRNAME
-            ) {
-                const channel = segments[1];
-                const project = segments[3];
+            const location = projectLocation(relative);
+            if (location) {
+                const { channel, project } = location;
                 this.currentLocation = { kind: 'inside', rootPath: await this.formatDisplayPath(rootUri), channel, project };
+                await this.refreshSceneList(projectUri, location.scene);
                 this.update();
                 return;
             }
         }
 
         this.currentLocation = { kind: 'outside', projectUri };
+        await this.refreshSceneList(projectUri);
         this.update();
+    }
+
+    protected async refreshSceneList(root: URI, scene?: string): Promise<void> {
+        const visibility = {
+            sceneFolder: !!scene || root.parent.path.base === 'scenes',
+            hasRootEdit: await this.fileService.exists(root.resolve('edit.json')),
+            hasScenes: await this.fileService.exists(root.resolve('scenes'))
+        };
+        this.sceneListRoot = showsSceneTabs(visibility);
     }
 
     // --- U5 チャンネルに入れる（養子縁組。task 2026-08-03-home-v5-terms） -------
@@ -2584,6 +2591,7 @@ export class AkariHomeWidget extends ReactWidget {
                         <span>{t('surfaces.home.projectAssets.label', { count: presence.assetFiles, n: presence.assetFiles })}</span>
                         <span>{t('surfaces.home.projectLastUpdated.label', { date: current?.updatedAt ? formatDate(new Date(current.updatedAt)) : t('surfaces.home.projectHomeUnknown.label') })}</span></p>
                     {this.historyOpen && <div className='akari-os-popover akari-os-history'><h4>{t('surfaces.home.projectHistory.heading', { name })}</h4>
+                        <button type='button' data-akari-action-history-open='true' onClick={() => void this.runAvailableCommand('akari.project.actionHistory')}>{t('surfaces.home.projectHomeActionHistory.button')}</button>
                         <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? formatDate(new Date(entry.time)) : t('surfaces.home.projectHomeNoDateTime.label')}</time><span>{entry.label}</span></li>)}</ul>
                         {!this.historyEntries.length && <p>{t('surfaces.home.projectHomeNoHistoryYet.message')}</p>}
                         {this.latestReport && <button type='button' data-akari-project-report='true' onClick={() => void open(this.openers, this.latestReport!)}>{t('surfaces.home.projectHomeViewAnalysisReport.button')}</button>}</div>}
@@ -2869,7 +2877,7 @@ export class AkariHomeWidget extends ReactWidget {
                             const fromStart = this.startStandaloneFlow;
                             this.closeHomeDialog();
                             if (fromStart) {
-                                this.pendingCreateTitle = this.startName.trim() !== this.startDefaultName ? this.startName.trim() : undefined;
+                                this.pendingCreateTitle = this.startName.trim() || undefined;
                                 void this.createAndOpenProject(destination);
                             } else void this.startNewProjectIn(destination);
                         }}>{t('surfaces.home.homeDialogMake.button')}</button>
@@ -3326,7 +3334,12 @@ export class AkariHomeWidget extends ReactWidget {
             >
                 <style>{homePanelCss + projectListCss + projectHomeCss}</style>
                 {this.renderHomeTopBar()}
-                {channelMode ? this.renderProjectListForTab() : this.renderProjectHome()}
+                {channelMode ? this.renderProjectListForTab() : this.sceneListRoot && this.currentProjectUri
+                    ? <SceneListView root={this.currentProjectUri} files={this.fileService} input={this.quickInputService}
+                        projectService={this.storeService as AkariProjectService & { addScene(rootUri: string, id: string): Promise<unknown> }}
+                        structureService={this.structureService}
+                        onOpen={uri => void this.openProject({ uri: uri.toString() })} onError={message => void this.messages.error(message)} />
+                    : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderHomeDialog()}
                 {this.renderOpenClosePrompts()}
@@ -3344,7 +3357,9 @@ export class AkariHomeWidget extends ReactWidget {
         const prompt = this.openPrompt;
         const current = this.buildProjectRows().find(row => row.current)?.name ?? this.currentProjectUri?.path.base;
         return <>
-            {prompt && <HomeScrim kind='open-project' onClose={() => { this.openPrompt = undefined; this.update(); }}>
+            {prompt && <HomeScrim kind='open-project' onClose={() => {
+                clearStructureTab(new URI(prompt.request.uri)); this.openPrompt = undefined; this.update();
+            }}>
                 <h3>{t('surfaces.home.openProject.confirm', { name: prompt.name })}</h3>
                 <p>{current ? t('surfaces.home.openClosePromptsCurrentlyOpenSaved.message', { current: current })
                     : t('surfaces.home.openClosePromptsLastTouched.message', { badge: prompt.badge, date: prompt.updatedAt ? formatDate(new Date(prompt.updatedAt)) : t('surfaces.home.openClosePromptsUnknown.label') })}</p>
@@ -3358,7 +3373,8 @@ export class AkariHomeWidget extends ReactWidget {
                 {!prompt.busy && <label><input type='checkbox' checked={this.noAskChecked}
                     onChange={event => { this.noAskChecked = event.currentTarget.checked; this.update(); }} /> {t('surfaces.home.openClosePromptsOpenScreenWithoutAskingNextTime.label')}</label>}
                 <div className='akari-home-dialog-actions'><button type='button' className='theia-button secondary'
-                    onClick={() => { this.openPrompt = undefined; this.update(); }}>{t('surfaces.home.openClosePromptsStop.button')}</button></div>
+                    onClick={() => { clearStructureTab(new URI(prompt.request.uri)); this.openPrompt = undefined; this.update(); }}>
+                    {t('surfaces.home.openClosePromptsStop.button')}</button></div>
             </HomeScrim>}
             {this.closePrompt && <HomeScrim kind='close-project' onClose={() => { this.closePrompt = false; this.update(); }}>
                 <h3>{t('surfaces.home.closeProject.confirm', { name: current })}</h3><p>{t('surfaces.home.openClosePromptsSavedReturnProjectListScreen.message')}</p>

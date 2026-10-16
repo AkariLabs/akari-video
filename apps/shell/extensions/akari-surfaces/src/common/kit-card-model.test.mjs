@@ -32,6 +32,14 @@ test('導入済みかつ pluginEnabled=null は未有効化扱い', () => {
     assert.equal(model.showEnableHint, true);
 });
 
+test('作り方だけのキットでは案内せず、スキルつきキットがあれば案内する', () => {
+    const playbookOnly = { id: 'playbook-kit', version: 1, skills: [], assetCount: 0 };
+    const withoutSkills = buildKitCardModel({ ...base, installedKits: [playbookOnly], pluginEnabled: false });
+    assert.equal(withoutSkills.showEnableHint, false);
+    const withSkills = buildKitCardModel({ ...base, installedKits: [playbookOnly, installedKit], pluginEnabled: false });
+    assert.equal(withSkills.showEnableHint, true);
+});
+
 test('kit entitlement の未導入 id は入力順・重複除去で購入済みコマンドになる', () => {
     const model = buildKitCardModel({
         ...base,

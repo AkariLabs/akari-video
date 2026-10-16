@@ -32,8 +32,8 @@ test('applyPlaybook copies both sources, creates three empty edit placeholders a
     assert.equal(audioTrack?.items.find(item => item.id === 'playbook-bgm')?.source.kind, 'group');
     assert.equal(audioTrack?.items.find(item => item.id === 'playbook-bgm')?.at, 0);
     assert.deepEqual([edit.output.width, edit.output.height], [1080, 1920]);
-    assert.equal(edit.output.caption_style_uid, 'st_01HZ…');
-    assert.deepEqual(edit.audio.role_gains_db, { voice: -14, bgm: -24 });
+    assert.equal(edit.output.caption_style_uid, undefined);
+    assert.equal(edit.audio?.role_gains_db, undefined);
     const sheet = await readFile(result.sheetPath, 'utf8');
     assert.match(sheet, /要る道具/);
     assert.match(sheet, /仮枠/);
@@ -47,6 +47,79 @@ test('applyPlaybook copies both sources, creates three empty edit placeholders a
     const creationReport = await readFile(join(projectDir, '.akari', 'reports', 'create-project-report.html'), 'utf8');
     assert.equal(sheet.match(/<style>[\s\S]*?<\/style>/)?.[0], creationReport.match(/<style>[\s\S]*?<\/style>/)?.[0]);
     assert.doesNotMatch(sheet, /<script/);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('作り方の目標尺は intake に入り、未配線の設定はレポートで明示する', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-playbook-settings-'));
+  try {
+    const projectDir = join(scratch, 'new');
+    const report = await createProject(projectDir, join(repo, 'templates', 'project-default'), {
+      beforeCommit: async destination => {
+        const intakePath = join(destination, '.akari', 'intake.json');
+        const intake = JSON.parse(await readFile(intakePath, 'utf8'));
+        intake.target.keep_length = true;
+        await writeFile(intakePath, JSON.stringify(intake));
+        return applyPlaybook({ projectDir: destination,
+          playbookDir: join(fixtures, 'playbook-sample'), hasTool: async () => true });
+      }
+    });
+    const intake = JSON.parse(await readFile(join(projectDir, '.akari', 'intake.json'), 'utf8'));
+    const edit = JSON.parse(await readFile(join(projectDir, 'edit.json'), 'utf8'));
+    assert.equal(intake.target.duration_s, 60);
+    assert.equal(intake.target.keep_length, false);
+    for (const key of ['target_duration_sec', 'caption_style_uid', 'caption_position', 'default_transition']) {
+      assert.equal(Object.hasOwn(edit.output, key), false, key);
+    }
+    assert.equal(edit.audio?.role_gains_db, undefined);
+    const creationReport = await readFile(report.reportPath, 'utf8');
+    const sheet = await readFile(join(projectDir, '.akari', 'reports', 'playbook-sheet.html'), 'utf8');
+    for (const key of ['captions.styleUid', 'captions.position', 'transitions.default', 'audio.roles']) {
+      assert.match(creationReport, new RegExp(`${key.replace('.', '\\.')}: まだ効かない`));
+    }
+    assert.equal(creationReport.match(/captions\.styleUid: まだ効かない/g)?.length, 1);
+    assert.match(sheet, /captions:.*まだ効かない/);
+    assert.match(sheet, /transitions:.*まだ効かない/);
+    assert.match(sheet, /audio:.*まだ効かない/);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('アプリ経路では作成済みレポートに未配線の設定を一度だけ追記する', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-playbook-app-report-'));
+  try {
+    const projectDir = join(scratch, 'new');
+    const report = await createProject(projectDir, join(repo, 'templates', 'project-default'));
+    assert.doesNotMatch(await readFile(report.reportPath, 'utf8'), /captions\.styleUid: まだ効かない/);
+    await applyPlaybook({ projectDir, playbookDir: join(fixtures, 'playbook-sample'), hasTool: async () => true });
+    const html = await readFile(report.reportPath, 'utf8');
+    assert.equal(html.match(/captions\.styleUid: まだ効かない/g)?.length, 1);
+    assert.ok(html.indexOf('captions.styleUid: まだ効かない') < html.indexOf('</main>'));
+    assert.equal(html.match(/data-akari-playbook-inactive/g)?.length, 1);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('記録 → 取り込み → 記録で設定値を保つ', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-playbook-roundtrip-'));
+  try {
+    const original = join(scratch, 'original');
+    await cp(join(fixtures, 'finished-project-sample'), original, { recursive: true });
+    const recorder = join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs');
+    const record = project => spawnSync(process.execPath, [recorder, project,
+      '--name', '縦の解説', '--category', 'explainer'], { encoding: 'utf8' });
+    assert.equal(record(original).status, 0);
+    const firstPath = join(original, 'planning', 'playbook.json');
+    const first = JSON.parse(await readFile(firstPath, 'utf8'));
+    first.settings.targetDurationSec = 47;
+    first.settings.captions = { styleUid: 'st_01HZ', position: 'lower' };
+    first.settings.transitions = { default: 'dissolve' };
+    first.settings.audio = { roles: { voice: -14, bgm: -24 } };
+    await writeFile(firstPath, JSON.stringify(first));
+    const next = join(scratch, 'next');
+    await createProject(next, join(repo, 'templates', 'project-default'));
+    await applyPlaybook({ projectDir: next, playbookDir: join(original, 'planning'), hasTool: async () => true });
+    assert.equal(record(next).status, 0);
+    const again = JSON.parse(await readFile(join(next, 'planning', 'playbook.json'), 'utf8'));
+    assert.deepEqual(again.settings, first.settings);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 

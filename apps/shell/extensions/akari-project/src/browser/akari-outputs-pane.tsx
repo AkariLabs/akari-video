@@ -3,7 +3,7 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection } from '@theia/core/lib/common';
 import { QuickInputService } from '@theia/core/lib/browser';
-import { isOSX } from '@theia/core/lib/common/os';
+import { isOSX, isWindows } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService } from '../common/akari-project-protocol';
@@ -17,12 +17,13 @@ import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './
 import { buildMaterialContextMenuItems } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
 import { formatOutputTimestamp } from '../common/output-timestamp';
+import { projectPanelBands, recordGroupWindow, RecordKind } from '../common/project-panel-bands';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 export type OutputEntryKind = 'data' | 'plan' | 'export' | 'report';
 
-/** 下段「できたもの」の 1 件。4 グループ（編集データ / 企画・メモ / 書き出し / レポート）。read-only。 */
+/** 左の記録・出力に現れるファイル。 */
 export interface OutputEntry {
     uri: URI;
     relativePath: string;
@@ -39,13 +40,8 @@ export interface OutputEntry {
     thumbnailUri?: URI;
 }
 
-/** 下段のグループ見出しと表示順。中身が空のグループは見出しごと描画しない。 */
-const OUTPUT_GROUPS: ReadonlyArray<{ readonly kind: OutputEntryKind; readonly label: string }> = [
-    { kind: 'data', label: t('project.workspace.outputs.editDataLabel') },
-    { kind: 'plan', label: t('project.workspace.outputs.planningNotesLabel') },
-    { kind: 'export', label: t('project.workspace.outputs.exportsLabel') },
-    { kind: 'report', label: t('project.workspace.outputs.reportsLabel') }
-];
+const RECORD_GROUPS: readonly RecordKind[] = ['plan', 'data', 'report'];
+const EXTRA_REPORT_FILES = ['analysis.json', 'decision-log.md', 'review.json'] as const;
 
 export interface OutputsPaneHost {
     /** 現在のプロジェクトと相対パス。 */
@@ -94,6 +90,10 @@ export class AkariOutputsPane {
     protected outputsWatchTimer?: ReturnType<typeof setTimeout>;
     protected missingOutputNames?: string;
     protected readonly changedOutputUris = new Set<string>();
+    protected foldedRecordGroups = new Set<RecordKind>();
+    protected expandedRecordGroups = new Set<RecordKind>();
+    protected allExportsOpen = false;
+    protected stateRootKey?: string;
 
     constructor(protected readonly host: OutputsPaneHost) {}
 
@@ -115,6 +115,16 @@ export class AkariOutputsPane {
      */
     public async loadOutputs(): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
+        if (this.stateRootKey !== root?.toString()) {
+            this.stateRootKey = root?.toString();
+            this.allExportsOpen = false;
+            this.foldedRecordGroups.clear();
+            this.expandedRecordGroups.clear();
+            if (root) try {
+                const folded = JSON.parse(window.localStorage.getItem(`akari.records.folded:${root.toString()}`) || '[]');
+                if (Array.isArray(folded)) for (const kind of RECORD_GROUPS) if (folded.includes(kind)) this.foldedRecordGroups.add(kind);
+            } catch { /* The current session still works. */ }
+        }
         const generation = ++this.outputsGeneration;
         if (!root) {
             this.outputs = [];
@@ -124,16 +134,19 @@ export class AkariOutputsPane {
         }
         this.outputsLoading = true;
         this.host.update();
-        const [dataFiles, planFiles, exportFiles, rootReportFiles, managedReportFiles] = await Promise.all([
+        const [dataFiles, planFiles, exportFiles, rootReportFiles, managedReportFiles, analysisFiles] = await Promise.all([
             this.collectTopLevelFiles(root).then(files => files.filter(file =>
                 isEditDataFileName(file.resource.path.base)
-                || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base))),
+                || (file.resource.path.base !== 'review.json'
+                    && this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base)))),
             this.collectPlanFiles(root),
             this.collectTopLevelFiles(root.resolve('exports')),
-            this.collectRootFilesNamed(root, this.host.rootReportFiles),
-            this.collectTopLevelFiles(root.resolve('.akari/reports'))
+            this.collectRootFilesNamed(root, [...this.host.rootReportFiles, ...EXTRA_REPORT_FILES]),
+            this.collectTopLevelFiles(root.resolve('.akari/reports')),
+            this.collectSidecarAnalysisFiles(root.resolve('.akari/sidecars'))
         ]);
-        const reportFiles = [...rootReportFiles, ...managedReportFiles];
+        const reportFiles = [...rootReportFiles,
+            ...managedReportFiles.filter(file => /\.(?:html?|json|md)$/i.test(file.resource.path.base)), ...analysisFiles];
         const [dataEntries, planEntries, exportEntries, reportEntries] = await Promise.all([
             Promise.all(dataFiles.map(file => this.buildOutputEntry(root, file, 'data'))),
             Promise.all(planFiles.map(file => this.buildOutputEntry(root, file, 'plan'))),
@@ -141,7 +154,7 @@ export class AkariOutputsPane {
             Promise.all(
                 reportFiles
                     // プロジェクトを作ったときの記録（scaffold の作成ログ）は「できたもの」に数えない
-                    .filter(file => /\.html?$/i.test(file.resource.path.base) && !/^create-project-report\.html?$/i.test(file.resource.path.base))
+                    .filter(file => !/^create-project-report\.html?$/i.test(file.resource.path.base))
                     .map(file => this.buildOutputEntry(root, file, 'report'))
             )
         ]);
@@ -184,7 +197,21 @@ export class AkariOutputsPane {
             this.collectMarkdownRecursively(root.resolve('planning')),
             this.collectRootFilesNamed(root, this.host.rootPlanFiles)
         ]);
-        return [...rootFiles, ...planning];
+        return [...rootFiles.filter(file => file.resource.path.base !== 'decision-log.md'), ...planning];
+    }
+
+    protected async collectSidecarAnalysisFiles(dirUri: URI): Promise<FileStatWithMetadata[]> {
+        const found: FileStatWithMetadata[] = [];
+        const walk = async (uri: URI): Promise<void> => {
+            let directory: FileStatWithMetadata;
+            try { directory = await this.host.files.resolve(uri, { resolveMetadata: true }); } catch { return; }
+            for (const child of directory.children ?? []) {
+                if (child.isDirectory) await walk(child.resource);
+                else if (child.resource.path.base === 'analysis.json') found.push(child);
+            }
+        };
+        await walk(dirUri);
+        return found;
     }
 
     /** ディレクトリ配下の md を再帰的に集める（ドット始まりのファイル/ディレクトリは除外）。 */
@@ -230,7 +257,12 @@ export class AkariOutputsPane {
             size: file.size
         };
         if (kind === 'report') {
-            entry.title = await this.readReportTitle(file.resource);
+            entry.title = relativePath.startsWith('.akari/sidecars/')
+                ? t('project.workspace.bands.analysisForLabel', {
+                    name: relativePath.replace(/^\.akari\/sidecars\//, '').replace(/\.analysis\/analysis\.json$/, '')
+                })
+                : /\.md$/i.test(name) ? await this.readMarkdownTitle(file.resource)
+                    : /\.html?$/i.test(name) ? await this.readReportTitle(file.resource) : undefined;
         } else if (kind === 'plan') {
             entry.title = await this.readMarkdownTitle(file.resource);
         } else if (kind === 'data') {
@@ -306,9 +338,11 @@ export class AkariOutputsPane {
         const exportsUri = root.resolve('exports');
         const reportsUri = root.resolve('.akari/reports');
         const planningUri = root.resolve('planning');
+        const sidecarsUri = root.resolve('.akari/sidecars');
         this.outputsWatch.push(this.host.files.watch(exportsUri, { recursive: true, excludes: [] }));
         this.outputsWatch.push(this.host.files.watch(reportsUri, { recursive: true, excludes: [] }));
         this.outputsWatch.push(this.host.files.watch(planningUri, { recursive: true, excludes: [] }));
+        this.outputsWatch.push(this.host.files.watch(sidecarsUri, { recursive: true, excludes: [] }));
         this.outputsWatch.push(this.host.files.watch(root));
         this.outputsWatch.push(this.host.files.onDidFilesChange(event =>
             this.handleOutputsFileChange(root, { exportsUri, reportsUri, planningUri }, event)
@@ -321,12 +355,22 @@ export class AkariOutputsPane {
         event: FileChangesEvent
     ): void {
         const rootKey = root.toString();
+        if (event.changes.some(change => root.resolve('.akari/sidecars').isEqualOrParent(change.resource)
+            && change.resource.path.base === 'analysis.json')) {
+            if (this.outputsWatchTimer) clearTimeout(this.outputsWatchTimer);
+            this.outputsWatchTimer = setTimeout(() => {
+                this.outputsWatchTimer = undefined;
+                void this.loadOutputs();
+            }, 900);
+            return;
+        }
         // ルート直下は名前で絞る。`.akari/cache/` の書き込みでも親（`.akari`）の変更として
         // ここに届くため、素通しにすると自分のサムネ生成で再読み込みループが回る。
         const watchedRootNames = new Set([
             ...this.host.projectDataFiles.map(file => file.name),
             ...this.host.rootPlanFiles,
-            ...this.host.rootReportFiles
+            ...this.host.rootReportFiles,
+            'analysis.json', 'decision-log.md', 'review.json'
         ]);
         const relevant = event.changes.some(change =>
             !/\.tmp(?:\.|$)/iu.test(change.resource.path.base) && (
@@ -377,10 +421,11 @@ export class AkariOutputsPane {
             ...rootFiles.filter(file => isEditDataFileName(file.resource.path.base)
                 || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base)
                 || this.host.rootPlanFiles.includes(file.resource.path.base)
-                || this.host.rootReportFiles.includes(file.resource.path.base)),
+                || this.host.rootReportFiles.includes(file.resource.path.base)
+                || ['analysis.json', 'decision-log.md', 'review.json'].includes(file.resource.path.base)),
             ...planFiles.filter(file => planningUri.isEqualOrParent(file.resource)),
             ...exportFiles.filter(file => !/\.tmp(?:\.|$)/iu.test(file.resource.path.base)),
-            ...reportFiles.filter(file => /\.html?$/iu.test(file.resource.path.base)
+            ...reportFiles.filter(file => /\.(?:html?|json|md)$/iu.test(file.resource.path.base)
                 && !/^create-project-report\.html?$/iu.test(file.resource.path.base))
         ];
         const byUri = new Map(files.map(file => [file.resource.toString(), file]));
@@ -467,6 +512,7 @@ export class AkariOutputsPane {
     }
 
     public renderOutputsPane(): React.ReactNode {
+        const bands = projectPanelBands(this.outputs);
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <div style={{
@@ -476,7 +522,7 @@ export class AkariOutputsPane {
                     justifyContent: 'space-between',
                     padding: '8px 10px 4px'
                 }}>
-                    <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>{t('project.workspace.outputs.outputsLabel')}</span>
+                    <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>{t('project.workspace.bands.recordsLabel')}</span>
                     <button
                         type='button'
                         className='theia-button quiet small icon'
@@ -491,6 +537,15 @@ export class AkariOutputsPane {
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.renderOutputsBody()}
                 </div>
+                <div className='akari-export-band' data-akari-export-count={bands.exportAll.length}>
+                    <div className='akari-export-band-heading'>{t('project.workspace.bands.exportsLabel')} <small>exports/</small></div>
+                    {bands.exportPreview.length ? bands.exportPreview.map(entry => this.renderExportRow(entry))
+                        : <div className='akari-export-empty'>{t('project.workspace.bands.noExportsMessage')}</div>}
+                    {bands.showAllExports && <button type='button' className='akari-export-all'
+                        onClick={() => { this.allExportsOpen = !this.allExportsOpen; this.host.update(); }}>
+                        {t('project.workspace.bands.allExportsLabel', { count: bands.exportAll.length })}
+                    </button>}
+                </div>
             </div>
         );
     }
@@ -502,38 +557,72 @@ export class AkariOutputsPane {
         if (this.outputsLoading && !this.outputsLoadedOnce) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         }
-        if (!this.outputs.length) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.workspace.outputs.nothingHereYetEditedExportedFilesMessage')}</p>;
-        }
+        const bands = projectPanelBands(this.outputs);
         return (
             <div
+                data-akari-records-count={RECORD_GROUPS.reduce((sum, kind) => sum + bands.records[kind].length, 0)}
                 data-akari-outputs-count={this.outputs.length}
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 10px 10px' }}
             >
-                {OUTPUT_GROUPS.map(group => this.renderOutputGroup(group.kind, group.label))}
+                {this.allExportsOpen && <div data-akari-all-exports>
+                    <div className='akari-export-band-heading'>{t('project.workspace.bands.exportsLabel')}</div>
+                    {bands.exportAll.map(entry => this.renderOutputCard(entry))}
+                </div>}
+                {RECORD_GROUPS.map(kind => this.renderRecordGroup(kind, bands.records[kind]))}
             </div>
         );
     }
 
-    /** 1 グループ（見出し + カード）。該当 0 件なら見出しごと出さない。 */
-    protected renderOutputGroup(kind: OutputEntryKind, label: string): React.ReactNode {
-        const entries = this.outputs.filter(entry => entry.kind === kind);
-        if (!entries.length) {
-            return undefined;
-        }
+    protected renderRecordGroup(kind: RecordKind, entries: OutputEntry[]): React.ReactNode {
+        const folded = this.foldedRecordGroups.has(kind);
+        const expanded = this.expandedRecordGroups.has(kind);
+        const windowed = recordGroupWindow(entries, expanded);
+        const label = kind === 'plan' ? t('project.workspace.bands.planningLabel')
+            : kind === 'data' ? t('project.workspace.bands.editDataLabel') : t('project.workspace.bands.reportsLabel');
         return (
             <div
                 key={kind}
+                data-akari-records-group={kind}
+                data-akari-records-group-count={entries.length}
                 data-akari-outputs-group={kind}
                 data-akari-outputs-group-count={entries.length}
                 style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
             >
-                <span style={{ fontSize: '0.72em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.6 }}>
-                    {label}
-                </span>
-                {entries.map(entry => this.renderOutputCard(entry))}
+                <button type='button' className='akari-record-group-heading' aria-expanded={!folded}
+                    onClick={() => {
+                        if (folded) this.foldedRecordGroups.delete(kind); else this.foldedRecordGroups.add(kind);
+                        const root = this.host.workflow.workspaceRoot;
+                        if (root) try { window.localStorage.setItem(`akari.records.folded:${root.toString()}`,
+                            JSON.stringify([...this.foldedRecordGroups])); } catch { /* Session state still works. */ }
+                        this.host.update();
+                    }}><span className={`codicon codicon-chevron-${folded ? 'right' : 'down'}`} />{label} <small>{entries.length}</small></button>
+                {!folded && windowed.rows.map(entry => this.renderOutputCard(entry))}
+                {!folded && entries.length > 5 && <button type='button' className='akari-record-more'
+                    onClick={() => {
+                        if (expanded) this.expandedRecordGroups.delete(kind); else this.expandedRecordGroups.add(kind);
+                        this.host.update();
+                    }}>{expanded ? t('project.workspace.bands.showLessAction')
+                        : t('project.workspace.bands.moreRecordsLabel', { count: windowed.remaining })}</button>}
             </div>
         );
+    }
+
+    protected renderExportRow(entry: OutputEntry): React.ReactNode {
+        return <div key={entry.uri.toString()} className='akari-export-row' data-akari-export-path={entry.relativePath}
+            data-akari-output-path={entry.relativePath} data-akari-output-kind='export'
+            data-akari-onboarding-target='export-result'
+            onClick={() => void this.host.openFile(entry.uri)} onContextMenu={event => this.openOutputContextMenu(event, entry)}
+            title={entry.name}>
+            <span className='akari-export-name'>{entry.name}</span>
+            <small>{this.formatOutputTimestamp(entry.mtime)} · {this.formatFileSize(entry.size)}</small>
+            <button type='button' className='akari-export-open' onClick={event => { event.stopPropagation(); void this.host.openFile(entry.uri); }}>
+                {t('project.workspace.bands.openAction')}</button>
+            <button type='button' className='akari-export-reveal' title={revealInFileManagerActionLabel(entry.name)}
+                onClick={event => { event.stopPropagation(); void this.revealOutputInFileManager(entry); }}>
+                {isOSX ? t('project.materials.contextMenu.showFinderAction')
+                    : isWindows ? t('project.workspace.bands.revealExplorerAction')
+                        : t('project.materials.contextMenu.openFolderAction')}</button>
+        </div>;
     }
 
     protected renderOutputCard(entry: OutputEntry): React.ReactNode {

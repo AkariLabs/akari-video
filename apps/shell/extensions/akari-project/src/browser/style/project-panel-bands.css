@@ -1,0 +1,142 @@
+.akari-material-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 4px 8px 3px;
+}
+
+.akari-material-chip {
+    border: 1px solid var(--theia-contrastBorder, #555);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    padding: 0 7px;
+    cursor: pointer;
+    font-size: 10px;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+.akari-material-chip[aria-pressed='true'] {
+    border-color: var(--theia-focusBorder, #f97316);
+    background: var(--theia-focusBorder, #f97316);
+    color: #fff;
+}
+
+.akari-placeholder-row {
+    grid-column: 1 / -1;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 28px;
+    padding: 4px 8px;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border: 1px dashed var(--theia-contrastBorder, #777);
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.akari-placeholder-row .codicon { margin-right: 6px; }
+
+.akari-material-mark { flex: none; border: 1px solid currentColor; border-radius: 3px; padding: 0 2px; font-size: 9px; }
+
+.akari-record-group-heading,
+.akari-record-more,
+.akari-export-all {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.akari-record-group-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 10.5px;
+    color: var(--theia-descriptionForeground, #888);
+    padding: 3px 6px;
+    border-radius: 6px;
+}
+
+.akari-record-group-heading small { font-size: 9.5px; }
+.akari-record-group-heading .codicon { font-size: 9px; }
+.akari-record-group-heading small,
+.akari-export-band-heading small { opacity: .6; font-weight: 400; }
+.akari-record-more,
+.akari-export-all { font-size: 11px; opacity: .78; padding: 2px 4px; line-height: 12px; }
+
+.akari-export-band {
+    flex: none;
+    border-top: 2px solid var(--theia-focusBorder, #f97316);
+    background: var(--theia-sideBar-background);
+    padding: 5px 8px 6px;
+}
+
+.akari-export-band-heading { font-weight: 700; font-size: 11px; padding-bottom: 3px; }
+.akari-export-empty { opacity: .65; font-size: 11px; padding: 5px 0; }
+.akari-export-row {
+    display: grid;
+    grid-template-columns: max-content max-content minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 4px;
+    row-gap: 1px;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-bottom: 2px;
+    padding: 2px 7px;
+    border: 1px solid var(--theia-contrastBorder, #555);
+    border-radius: 8px;
+    background: var(--theia-editor-background);
+    cursor: pointer;
+}
+.akari-export-name {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 14px;
+}
+.akari-export-row small {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: .65;
+    font-size: 9.5px;
+    line-height: 11px;
+}
+.akari-export-row button {
+    grid-row: 3;
+    justify-self: start;
+    border: 1px solid var(--theia-contrastBorder, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--theia-descriptionForeground, inherit);
+    cursor: pointer;
+    font-size: 9.5px;
+    line-height: 13px;
+    padding: 0 6px;
+    white-space: nowrap;
+}
+.akari-export-open { grid-column: 1; }
+.akari-export-reveal { grid-column: 2; }
+.akari-export-row:last-of-type { margin-bottom: 0; }

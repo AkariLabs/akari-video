@@ -9,6 +9,8 @@
   "report-project.files.empty.text": "None",
   "report-project.skills.version.heading": "Template version",
   "report-project.skills.version.missing": "Not recorded",
+  "report-project.playbook.inactive.heading": "Settings (planning guidance only)",
+  "report-project.playbook.inactive.status": "Not yet applied (planning guidance)",
   "report-project.git.result.heading": "Git initialization result",
   "report-project.git.action.label": "Performed",
   "report-project.git.action.done": "Yes",

@@ -9,6 +9,8 @@
   "report-project.files.empty.text": "なし",
   "report-project.skills.version.heading": "雛形バージョン",
   "report-project.skills.version.missing": "記録なし",
+  "report-project.playbook.inactive.heading": "設定値（まだ効かない・作業の目安）",
+  "report-project.playbook.inactive.status": "まだ効かない（作業の目安）",
   "report-project.git.result.heading": "git 初期化の結果",
   "report-project.git.action.label": "実施",
   "report-project.git.action.done": "実施",

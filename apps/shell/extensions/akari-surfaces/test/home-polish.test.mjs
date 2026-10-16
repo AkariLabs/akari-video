@@ -26,7 +26,7 @@ test('フォルダ名の日時を表示名に使う', () => {
     assert.equal(evaluateDisplayTitleFor('2026-10-09-0456'), '新しい動画 10/9 04:56');
     assert.equal(evaluateDisplayTitleFor('2026-10-09-0456-2'), '新しい動画 10/9 04:56');
     assert.match(evaluateDisplayTitleFor('foo'), /^新しい動画 /);
-    assert.match(widget, /title: newProjectDisplayTitleFor\(destination\.path\.base\)/);
+    assert.match(widget, /this\.pendingCreateTitle \|\| newProjectDisplayTitleFor\(destination\.path\.base\)/);
 });
 
 test('新規プロジェクト名と表示名にローカル日時を使う', () => {
@@ -38,7 +38,7 @@ test('新規プロジェクト名と表示名にローカル日時を使う', ()
     assert.match(reserve, /newProjectNameStem\(\)/);
     assert.doesNotMatch(reserve, /toISOString\(\)\.slice\(0, 10\)/);
     assert.doesNotMatch(widget, /new-video/);
-    assert.match(widget, /title: newProjectDisplayTitleFor\(destination\.path\.base\)/);
+    assert.match(widget, /this\.pendingCreateTitle \|\| newProjectDisplayTitleFor\(destination\.path\.base\)/);
 });
 
 test('進め方フォームを閉じられるシートとして表示する', () => {

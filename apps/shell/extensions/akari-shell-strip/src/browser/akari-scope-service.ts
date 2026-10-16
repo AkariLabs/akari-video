@@ -14,6 +14,15 @@ export interface AkariWorldMapMarker {
     error?: string;
 }
 
+export async function hasProjectEdit(files: Pick<FileService, 'exists' | 'resolve'>, root: URI): Promise<boolean> {
+    if (await files.exists(root.resolve('edit.json'))) return true;
+    try {
+        const scenes = (await files.resolve(root.resolve('scenes'))).children ?? [];
+        return (await Promise.all(scenes.filter(child => child.isDirectory)
+            .map(child => files.exists(child.resource.resolve('edit.json'))))).some(Boolean);
+    } catch { return false; }
+}
+
 /**
  * 場所（1 枚の画面 v0・契約 §1 裁定 1）: `channel` = ワークスペース未オープン（チャンネルにいる）/
  * `project` = ルートに edit.json（プロジェクトの中）。edit.json の無いフォルダを開いているときも
@@ -76,7 +85,7 @@ export class AkariScopeService implements FrontendApplicationContribution {
             this.update({ state: 'absent' });
             return;
         }
-        this._hasEditJson = await this.files.exists(root.resolve('edit.json'));
+        this._hasEditJson = await hasProjectEdit(this.files, root);
         this.applyScope('project');
         const planning = root.resolve('planning');
         const marker = planning.resolve('world-map.json');

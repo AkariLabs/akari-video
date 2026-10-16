@@ -10,6 +10,18 @@ description: Read project assets (analysis.json) together with surrounding conte
 Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 In other stages that need writes, Edit the relevant lines or use edit-store's script API.
 
+## Recommend a playbook after source material arrives
+
+Only immediately after new material is placed, read `.akari/intake.json` and existing `analysis.json`
+records for speakers, duration, orientation, and media kinds, then run `akari playbook list --json`.
+Compare `category`, `tags.form`, `tags.length`, `tags.materials`, and `requires` to the observed material.
+Offer at most three ranked matches in chat, with a specific reason and any missing required tool for each.
+Portrait material with a target at or below 60 seconds favors vertical explainers or short dramas;
+talking head plus screen capture favors an explainer; music-led material favors an MV.
+Point to an existing review sheet or to `.akari/reports/playbook-apply.html` as the sheet produced on
+application. Do not apply a playbook until the user selects one. Do not repeat this recommendation later
+in the analysis workflow.
+
 ## Hard rules
 
 - **Do not rerun pass 1.** Delegate per-asset fact extraction (heavy processing such as STT/frame analysis) to existing

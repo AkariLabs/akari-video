@@ -2,6 +2,10 @@ import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
 const FINAL_EVENT_TYPES = new Set(["final-acceptance", "final-acceptance-revoked"]);
+const AUTOMATION_GATES = new Set([
+  "publish", "lab-submit", "paid", "external-send", "delete-original",
+  "license", "playbook-checkpoint", "human-asked",
+]);
 
 export function readProjectEvents(projectRoot, { gateTypes = [] } = {}) {
   let realRoot;
@@ -144,6 +148,36 @@ export function resolveActiveAcceptance(events) {
     activeAcceptance,
     revoked: validRevokedIds.size > 0 && activeAcceptance === null,
     problems: [...new Set(problems)].sort((a, b) => a.localeCompare(b, "en")),
+  };
+}
+
+/** Automation requests are separate from milestone gateTypes. Unknown events stay harmless. */
+export function resolveAutomationSummary(events) {
+  const validBase = (payload) => payload.version === 1
+    && isNonEmptyString(payload.id) && isNonEmptyString(payload.occurredAt);
+  const actions = events.filter(({ type, payload }) => type === "agent-action" && validBase(payload)
+    && isNonEmptyString(payload.summary)
+    && !/[\r\n]/u.test(payload.summary)
+    && ["partner", "external", "unattended"].includes(payload.actor)
+    && Array.isArray(payload.files) && payload.files.every(isNonEmptyString));
+  const resolved = new Set(events.filter(({ type, payload }) => type === "gate-resolved"
+    && validBase(payload) && isNonEmptyString(payload.requestId)
+    && ["approved", "declined"].includes(payload.decision) && payload.by === "human")
+    .map(({ payload }) => payload.requestId));
+  const pendingIds = new Set();
+  for (const { type, payload } of events) {
+    if (type === "gate-requested" && validBase(payload)
+      && isNonEmptyString(payload.requestId) && isNonEmptyString(payload.summary)
+      && AUTOMATION_GATES.has(payload.gate)
+      && (payload.detail === undefined || typeof payload.detail === "string")
+      && !resolved.has(payload.requestId)) {
+      pendingIds.add(payload.requestId);
+    }
+  }
+  return {
+    action_count: actions.length,
+    latest_action: actions.at(-1)?.payload.summary ?? null,
+    pending_gate_count: pendingIds.size,
   };
 }
 

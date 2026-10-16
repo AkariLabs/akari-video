@@ -121,7 +121,10 @@ test('all three renderers wire mode props/badges, preserve normal actions and di
         assert.match(text, /!this\.generationPick\.request/);
     }
     assert.match(materialCardText, /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
-    assert.match(materialCardText, /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
+    assert.match(materialCardText, /const path = await this\.importCommon\(entry\)/);
+    const previewHandlers = materialCardText.slice(materialCardText.indexOf('onClickCapture={event => {'), materialCardText.indexOf('onMouseEnter={event =>'));
+    assert.doesNotMatch(previewHandlers, /importCommon\(/);
+    assert.match(materialCardText, /onContextMenu=\{event => withMaterialCardMenu\(entry, \(\) => this\.openMaterialContextMenu\(event, entry\)\)\}/);
     assert.match(member('generationPick'), /key => this\.resolveCatalogMaterial\(key\)/);
     assert.match(member('init'), /removeEventListener\('keydown', this\.handleGenerationPickKey, true\)/);
     assert.match(member('init'), /this\.generationPick\.cancel\(\)/);

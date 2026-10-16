@@ -21,7 +21,7 @@ export * from './project-progress-model';
 
 const MEDIA_EXT = /\.(mp4|mov|m4v|webm|mkv|avi|mp3|wav|m4a|aac|flac|ogg|png|jpe?g|webp|gif|heic|svg)$/i;
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv)$/i;
-const WATCHED_RELATIVE = ['planning', 'assets', 'exports', '.akari/reports', 'edit.json', 'analysis-report.html'];
+const WATCHED_RELATIVE = ['planning', 'assets', 'exports', '.akari/reports', 'edit.json', 'analysis-report.html', 'scenes'];
 
 /**
  * いま開いているプロジェクトの進み具合を読む・見張る（契約 §2.4）。
@@ -63,17 +63,27 @@ export class ProjectProgressService implements FrontendApplicationContribution {
     /** 任意のプロジェクトを 1 回だけ読む（一覧のカードの札用）。 */
     async readPresence(root: URI): Promise<ProjectPresence> {
         const known = new Set<string>();
-        const [planningDocs, assetFiles, editHasContent, rootReport, managedReports, exportFiles] = await Promise.all([
+        const [planningDocs, assetFiles, editHasContent, rootReport, managedReports, exportFiles, sceneCount] = await Promise.all([
             this.countRecursive(root.resolve('planning'), name => /\.md$/i.test(name), 3, known),
             this.countTopLevel(root.resolve('assets'), name => MEDIA_EXT.test(name), known),
             this.readEditHasContent(root.resolve('edit.json')),
             this.files.exists(root.resolve('analysis-report.html')).then(exists => { if (exists) known.add('analysis-report.html'); return exists ? 1 : 0; }, () => 0),
             // scaffold が作成時に置く作成レポート・空の lint レポートは「確認」に数えない（作ったばかりで ✓ にならないように）
             this.countTopLevel(root.resolve('.akari/reports'), name => /\.html?$/i.test(name) && !/^(create-project-report|edit-lint-report)/i.test(name), known),
-            this.countTopLevel(root.resolve('exports'), name => VIDEO_EXT.test(name), known)
+            this.countTopLevel(root.resolve('exports'), name => VIDEO_EXT.test(name), known),
+            this.countScenes(root)
         ]);
         if (this._root?.isEqual(root)) { this.knownFiles.clear(); for (const name of known) this.knownFiles.add(name); }
-        return { planningDocs, assetFiles, editHasContent, reportFiles: rootReport + managedReports, exportFiles };
+        return { planningDocs, assetFiles, editHasContent, reportFiles: rootReport + managedReports, exportFiles, ...(sceneCount ? { sceneCount } : {}) };
+    }
+
+    protected async countScenes(root: URI): Promise<number> {
+        try {
+            const scenes = (await this.files.resolve(root.resolve('scenes'))).children ?? [];
+            const exists = await Promise.all(scenes.filter(child => child.isDirectory && !child.name.startsWith('.'))
+                .map(child => this.files.exists(child.resource.resolve('edit.json'))));
+            return exists.filter(Boolean).length;
+        } catch { return 0; }
     }
 
     protected async refreshRoot(): Promise<void> {
@@ -96,7 +106,8 @@ export class ProjectProgressService implements FrontendApplicationContribution {
                 const relative = root.relative(change.resource)?.toString();
                 if (!relative) continue;
                 const known = this.knownFiles.has(relative);
-                const kind = classifyPresenceChange(relative, change.type, known);
+                const kind = /^scenes(?:\/[^/]+(?:\/edit\.json)?)?$/.test(relative) ? 'count'
+                    : classifyPresenceChange(relative, change.type, known);
                 if (kind === 'count') {
                     if (change.type === FileChangeType.ADDED) this.knownFiles.add(relative);
                     if (change.type === FileChangeType.DELETED) this.knownFiles.delete(relative);

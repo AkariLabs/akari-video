@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -6,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { assembleResources, BROWSER_VIEW_PRELOAD_PATHS, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls,
-  scanRepoFileCalls, scanRequiredBrowserResources, walkImports } from '../check-packaged-imports.mjs';
+  scanRepoFileCalls, scanRequiredBrowserResources, vendorValidatorEntries, walkImports } from '../check-packaged-imports.mjs';
 import { packagedRoots, resolvePackagedSpecifier } from '../../../apps/shell/test/helpers/packaged-imports.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -16,6 +17,37 @@ function fixture(t) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+
+test('vendor の子プロセス検査器を入口にし、静的な bare 依存漏れを検出する', (t) => {
+  const vendorRoot = fixture(t);
+  const entries = vendorValidatorEntries(vendorRoot);
+  assert.deepEqual(entries.map(file => path.relative(vendorRoot, file).split(path.sep).join('/')), [
+    'packages/schemas/bin/validate-kit-manifest.mjs',
+    'packages/schemas/validate-playbook.mjs',
+  ]);
+  for (const entry of entries) mkdirSync(path.dirname(entry), { recursive: true });
+  writeFileSync(entries[0], "import 'node:fs';\n");
+  writeFileSync(entries[1], "import Ajv2020 from 'ajv/dist/2020.js';\n");
+  const before = walkImports(entries, vendorRoot);
+  assert.deepEqual(before.missing, [{
+    specifier: '(bare) ajv/dist/2020.js', from: 'packages/schemas/validate-playbook.mjs',
+  }]);
+  writeFileSync(entries[1], "await import('ajv/dist/2020.js');\n");
+  const after = walkImports(entries, vendorRoot);
+  assert.deepEqual(after.missing, []);
+  assert.deepEqual(after.dynamic, [{
+    specifier: 'ajv/dist/2020.js', from: 'packages/schemas/validate-playbook.mjs',
+  }]);
+});
+
+test('prepack の vendor ミラーにある検査器は同梱済み import だけを要求する', (t) => {
+  const vendorRoot = path.join(fixture(t), 'vendor');
+  execFileSync(process.execPath, [path.join(root, 'packages/akari-launcher/scripts/prepack.mjs'),
+    '--vendor-root', vendorRoot]);
+  const result = walkImports(vendorValidatorEntries(vendorRoot), vendorRoot);
+  assert.deepEqual(result.missing, []);
+  assert.ok(result.walked >= 2);
+});
 
 test('ブラウザ設定とビュー preload のソースが欠けたとき名指しする', (t) => {
   const dir = fixture(t);

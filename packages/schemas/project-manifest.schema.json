@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AKARI project manifest v0",
+  "type": "object",
+  "required": [
+    "version",
+    "kind",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "version": {
+      "const": 0
+    },
+    "kind": {
+      "const": "akari-project-manifest"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "rev"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rev": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "where": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?![/#])(?![A-Za-z]:)(?!.*\\.\\.)[^\\\\]*$"
+          },
+          "source": {
+            "enum": [
+              "builtin",
+              "lab",
+              "own",
+              "site",
+              "ai",
+              "channel"
+            ]
+          },
+          "tool": {
+            "type": "string"
+          },
+          "recipe": {
+            "type": "string"
+          },
+          "connector": {
+            "type": "string"
+          },
+          "inputs_sha256": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "edited": {
+            "type": "string"
+          },
+          "mtime": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "project"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^project:[a-z0-9]+(?:-[a-z0-9]+)*$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "scene"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^scene:[a-z0-9]+(?:-[a-z0-9]+)*$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "world"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^world:.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "person"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^person:.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "asset"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^asset:[^/]+/[^/]+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "style"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^style:.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "kit"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^kit:.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "playbook"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^playbook:.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "tool-output"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^tool:[^/]+/.+$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "doc"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "pattern": "^doc:.+$"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "uses"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uses": {
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

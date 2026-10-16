@@ -191,6 +191,7 @@ export function previewBootstrapScript(): string {
             const skipForward = document.getElementById('skip-forward');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            const unavailableIndicatorLabel = indicatorToggle.getAttribute('aria-label');
             window.addEventListener('message', event => {
                 if (event.data?.type !== 'akari-preview-context-bar-rect') return;
                 const rect = event.data.rect;
@@ -216,9 +217,9 @@ export function previewBootstrapScript(): string {
                 clipLutReplacement: t('preview.previewWindow.canvas.viewBothEffectsTogetherFrameEngine')
             };
             const refreshIndicators = () => {
-                const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
-                const approximation = document.getElementById('preview-stage')?.dataset.frameEngineActive === 'true'
-                    ? ['audioApproximation'] : [];
+                const declared = (Array.isArray(summary.indicators) ? summary.indicators : []).filter(item => item !== 'audioApproximation');
+                const audioNote = summary.hasAudio === true
+                    && document.getElementById('preview-stage')?.dataset.frameEngineActive === 'true';
                 const adjustApproximation = !frameEngineMediaIdle && adjustCssApproximationActive
                     ? ['colorApproximation'] : [];
                 const clipLutReplacement = !frameEngineMediaIdle && summary.videoFx?.look
@@ -228,22 +229,26 @@ export function previewBootstrapScript(): string {
                 const indicators = [...new Set([
                     ...declared,
                     ...videoFxFailedIndicators,
-                    ...approximation,
                     ...adjustApproximation,
                     ...clipLutReplacement
                 ])];
-                indicatorToggle.hidden = indicators.length === 0;
-                if (indicators.length === 0) {
+                indicatorToggle.hidden = indicators.length === 0 && !audioNote;
+                if (indicators.length === 0 && !audioNote) {
                     indicatorPopup.hidden = true;
                     indicatorPopup.textContent = '';
                     return;
                 }
-                indicatorToggle.textContent = t('preview.previewWindow.canvas.unavailablePrefix') + indicators.length;
+                indicatorToggle.textContent = indicators.length
+                    ? t('preview.previewWindow.canvas.unavailablePrefix') + indicators.length
+                    : 'ⓘ';
+                indicatorToggle.setAttribute('aria-label', indicators.length ? unavailableIndicatorLabel : INDICATOR_LABELS.audioApproximation);
+                indicatorToggle.title = indicators.length ? unavailableIndicatorLabel : INDICATOR_LABELS.audioApproximation;
                 const items = indicators.map(item => {
                     const label = INDICATOR_LABELS[item] || item;
                     return INDICATOR_GLOSSARY[item] ? label + ' = ' + INDICATOR_GLOSSARY[item] : label;
                 }).join(' / ');
-                indicatorPopup.textContent = t('preview.previewWindow.canvas.unavailablePreviewPrefix') + items;
+                indicatorPopup.textContent = (indicators.length ? t('preview.previewWindow.canvas.unavailablePreviewPrefix') + items : '')
+                    + (audioNote ? (indicators.length ? ' / ' : '') + INDICATOR_LABELS.audioApproximation : '');
             };
             window.addEventListener('akari-frame-engine-ready', () => {
                 refreshIndicators();

@@ -2,18 +2,51 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Ajv2020 from 'ajv/dist/2020.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const schema = JSON.parse(await fs.readFile(path.join(root, 'playbook.schema.json'), 'utf8'));
-const checkSchema = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+let checkSchema;
+try {
+  const { default: Ajv2020 } = await import('ajv/dist/2020.js');
+  checkSchema = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+} catch (error) {
+  if (error.code !== 'ERR_MODULE_NOT_FOUND' || !/(?:package|module) 'ajv(?:\/dist\/2020\.js)?'/u.test(error.message)) throw error;
+}
 const headings = ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', '使った部品', '要る道具', 'ライセンス', '出どころ'];
+
+// ajv を同梱しない CLI では、schema の required と基本的な型だけを確認する。
+function checkBasicShape(value, definition, location = '') {
+  const rule = definition.$ref ? schema.$defs[definition.$ref.split('/').at(-1)] : definition;
+  const errors = [];
+  const typeMatches = rule.type === 'object' ? value !== null && typeof value === 'object' && !Array.isArray(value)
+    : rule.type === 'array' ? Array.isArray(value)
+      : rule.type === 'integer' ? Number.isInteger(value)
+        : rule.type === 'number' ? typeof value === 'number' && Number.isFinite(value)
+          : rule.type ? typeof value === rule.type : true;
+  if (!typeMatches) return [`${location || '/'} must be ${rule.type}`];
+  if (rule.type === 'object') {
+    for (const key of rule.required ?? []) {
+      if (!Object.hasOwn(value, key)) errors.push(`${location || '/'} must have required property '${key}'`);
+    }
+    for (const [key, property] of Object.entries(rule.properties ?? {})) {
+      if (Object.hasOwn(value, key)) errors.push(...checkBasicShape(value[key], property, `${location}/${key}`));
+    }
+  } else if (rule.type === 'array' && rule.items) {
+    for (const [index, item] of value.entries()) errors.push(...checkBasicShape(item, rule.items, `${location}/${index}`));
+  }
+  return errors;
+}
 
 export async function validatePlaybook(playbook, { markdown, skillsDir = path.resolve(root, '../../skills') } = {}) {
   const errors = [];
   const warnings = [];
-  if (!checkSchema(playbook)) {
-    errors.push(...checkSchema.errors.map(error => `${error.instancePath || '/'} ${error.message}`));
+  if (checkSchema) {
+    if (!checkSchema(playbook)) {
+      errors.push(...checkSchema.errors.map(error => `${error.instancePath || '/'} ${error.message}`));
+    }
+  } else {
+    errors.push(...checkBasicShape(playbook, schema));
+    warnings.push('ajv が無いため schema の詳細な検査を省きました');
   }
   for (const previewPath of [playbook?.preview?.cover, ...(Array.isArray(playbook?.preview?.frames) ? playbook.preview.frames : [])]) {
     if (typeof previewPath !== 'string') continue;

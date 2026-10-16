@@ -43,6 +43,7 @@ import { AkariVoiceRecordDialog } from './voice-recording/akari-voice-record-dia
 import { VoiceRecordScript } from './voice-recording/voice-recorder';
 import { preferWorkspaceEditUri } from '../common/voice-recording';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
+import { ActionHistoryWidget } from './action-history-widget';
 
 /**
  * 「場所を選んで新規作成…」。File メニュー先頭の「新規プロジェクト作成」は
@@ -169,6 +170,14 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             execute: (args?: { editUri?: string; script?: VoiceRecordScript }) => this.openVoiceRecordDialog(args)
         });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
+        commands.registerCommand({ id: 'akari.project.actionHistory', label: t('project.automation.history.title') }, {
+            execute: async () => {
+                const widget = await this.widgets.getOrCreateWidget(ActionHistoryWidget.ID) as ActionHistoryWidget;
+                await widget.refresh();
+                if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
+                this.shell.activateWidget(widget.id);
+            }
+        });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {
             execute: () => this.toggleDeveloperMode(),
             isToggled: () => this.mode.developerMode

@@ -46,3 +46,20 @@ test('表紙と帯を選び、preview/example の無い前回フィクスチャ�
         assert.match(menu, /data-akari-standalone-note="true"/);
     } finally { setLanguage(undefined); }
 });
+
+test('Lab が 0 件のとき一覧へのリンクとインストール方法を案内する', () => {
+    setLanguage('ja');
+    try {
+        const base = { name: '動画', channel: 'A', channels: ['A'], channelMenu: false, playbooks: [], source: 'lab', busy: false,
+            step: 'playbooks', tools: { platform: 'darwin', checkedAt: '', tools: [] },
+            onName() {}, onChannelMenu() {}, onChannel() {}, onNewChannel() {}, onStandalone() {}, onStep() {},
+            onCategory() {}, onSource() {}, onSelect() {}, onBlank() {}, onRead() {}, onApply() {}, onClose() {} };
+        const lab = renderToStaticMarkup(React.createElement(StartProjectDialog, base));
+        assert.match(lab, /Lab から入れた作り方はまだありません/);
+        assert.match(lab, /https:\/\/akari\.video\/lab\/#playbooks/);
+        assert.match(lab, /akari store install &lt;id&gt;/);
+        assert.doesNotMatch(lab, /record-playbook/);
+        const local = renderToStaticMarkup(React.createElement(StartProjectDialog, { ...base, source: 'local' }));
+        assert.match(local, /record-playbook/);
+    } finally { setLanguage(undefined); }
+});

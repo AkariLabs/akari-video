@@ -20,7 +20,8 @@
 //      の packages/<pkg>/<rel> に実体があるか検査する。非リテラル引数は参考情報に留める
 //   5. backend の findGenerationAsset / findAsset / resolveRepoFile の文字列リテラルを検査し、非リテラルは参考にする
 //   6. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
-//   7. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
+//   7. launcher の npm vendor ミラーを prepack と同じ手順で組み、子プロセスで起動する検査器も入口にする
+//   8. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
 //
 // 前提: resources/cli-node-modules が staging 済み（scripts/release/install-bundled-cli-deps.mjs →
 // apps/shell/resources/scripts/bundle-cli-node-modules.mjs）。無ければ bare import は全部 missing になる。
@@ -28,6 +29,7 @@
 // 使い方:
 //   node scripts/release/check-packaged-imports.mjs [--shell-package apps/shell/package.json] [--keep]
 // 終了コード: 欠け 0 なら 0、1 件以上なら 1。
+import { execFileSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, rmdirSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -569,13 +571,30 @@ export function defaultEntries(resourcesRoot) {
   return entries.sort();
 }
 
+// validate-kit-manifest は validate-playbook を spawn するため、静的 import の再帰走査だけでは届かない。
+// npm 配布時と同じ vendor ミラーの二つを明示的な入口にする。
+export function vendorValidatorEntries(vendorRoot) {
+  return [
+    join(vendorRoot, 'packages', 'schemas', 'bin', 'validate-kit-manifest.mjs'),
+    join(vendorRoot, 'packages', 'schemas', 'validate-playbook.mjs'),
+  ];
+}
+
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const shellPackage = JSON.parse(readFileSync(shellPackagePath, 'utf8'));
   const resourcesRoot = join(mkdtempSync(join(tmpdir(), 'akari-packaged-')), 'Resources');
   mkdirSync(resourcesRoot, { recursive: true });
   const { skipped, linkedDirectories } = assembleResources(shellPackage, { resourcesRoot });
   const entries = defaultEntries(resourcesRoot);
-  const { walked, missing, dynamic } = walkImports(entries, resourcesRoot);
+  const resourcesImports = walkImports(entries, resourcesRoot);
+  const vendorRoot = join(dirname(resourcesRoot), 'vendor');
+  execFileSync(process.execPath, [join(REPO_ROOT, 'packages', 'akari-launcher', 'scripts', 'prepack.mjs'),
+    '--vendor-root', vendorRoot]);
+  const vendorEntries = vendorValidatorEntries(vendorRoot);
+  const vendorImports = walkImports(vendorEntries, vendorRoot);
+  const walked = resourcesImports.walked + vendorImports.walked;
+  const missing = [...resourcesImports.missing, ...vendorImports.missing];
+  const dynamic = [...resourcesImports.dynamic, ...vendorImports.dynamic];
   const packageResolvers = scanPackageResolverCalls({ resourcesRoot });
   const generatedResources = (shellPackage.build?.extraResources ?? []).filter((entry) =>
     skipped.includes(typeof entry === 'string' ? entry : entry.from)
@@ -589,6 +608,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
   console.log(`check-packaged-imports: entries ${entries.length} / walked ${walked} files / Resources = ${resourcesRoot}`);
   if (skipped.length > 0) console.log(`  skipped (from が存在しない・生成物など): ${skipped.join(', ')}`);
   for (const entry of entries) console.log(`  entry: ${relative(resourcesRoot, entry)}`);
+  for (const entry of vendorEntries) console.log(`  vendor entry: ${relative(vendorRoot, entry)}`);
   if (dynamic.length > 0) {
     console.log(`  dynamic import（参考・fail にしない）: ${dynamic.length}`);
     for (const item of dynamic) console.log(`    ${item.specifier}  <- ${item.from}`);

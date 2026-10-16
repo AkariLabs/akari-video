@@ -65,6 +65,21 @@
         "kind": {
           "enum": ["genai", "image", "video", "tts", "music", "sns", "analytics", "notify"]
         },
+        "provides": {
+          "type": "array", "uniqueItems": true,
+          "items": { "type": "string", "enum": ["image-generation", "video-generation", "music-generation", "speech-synthesis", "3d-render", "transcription", "publish"] }
+        },
+        "adapter": {
+          "type": "object", "required": ["type"], "additionalProperties": true,
+          "properties": { "type": { "enum": ["official-api", "local", "custom"] } }
+        },
+        "terms": {
+          "type": "object", "additionalProperties": true,
+          "properties": {
+            "checked": { "type": "string", "format": "date" },
+            "commercialUse": { "type": "string" }
+          }
+        },
         "auth": {
           "enum": ["login", "env-key", "oauth-mcp", "none"]
         },

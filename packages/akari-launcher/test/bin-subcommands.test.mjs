@@ -69,3 +69,21 @@ for (const flag of ['--help', '-h']) {
     assert.ok(devFlagIndex > updateIndex, '開発者向けフラグ（--opencode 等）はよく使うコマンドより後ろに降格');
   });
 }
+
+test('akari --help lists project and playbook commands in Japanese and English', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'akari-help-'));
+  try {
+    for (const lang of ['ja', 'en']) {
+      const result = spawnSync(process.execPath, [bin, '--help'], {
+        encoding: 'utf8', env: { ...process.env, HOME: home, AKARI_HOME: join(home, '.akari'), AKARI_LANG: lang }
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /^  project sync\|check\|scene add  /m);
+      assert.match(result.stdout, /^  playbook list\|apply  /m);
+      assert.equal(result.stdout.match(/^  project sync\|check\|scene add  /gm)?.length, 1);
+      assert.equal(result.stdout.match(/^  playbook list\|apply  /gm)?.length, 1);
+    }
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});

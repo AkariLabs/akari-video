@@ -92,6 +92,10 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
 
     const intakePath = join(destination, ".akari", "intake.json");
     assert.ok((await stat(intakePath)).isFile());
+    const workflow = JSON.parse(await readFile(join(destination, ".akari", "workflow.json"), "utf8"));
+    assert.ok(workflow.events.gateTypes.includes("agent-action"));
+    assert.ok(!workflow.events.gateTypes.includes("gate-requested"));
+    assert.ok(!workflow.events.gateTypes.includes("gate-resolved"));
 
     const validated = validateIntake(intakePath);
     assert.equal(validated.status, 0, validated.stderr);

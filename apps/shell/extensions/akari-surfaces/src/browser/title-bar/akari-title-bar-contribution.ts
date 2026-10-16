@@ -14,7 +14,11 @@ import { WindowTitleService } from '@theia/core/lib/browser/window/window-title-
 import { AkariAnnotationsClientImpl } from 'akari-annotations/lib/browser/akari-annotations-client';
 import { AkariWelcomeWindowTitleContribution } from '../akari-welcome-window-title-contribution';
 import { ProjectProgressService } from '../home/project-progress';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, showsMenuInTitleBar, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from './title-bar-model';
+import { savedChip, shouldRerenderOnContextKeys, showsMenuInTitleBar, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from './title-bar-model';
+import { projectLocation, ProjectLocation } from '../../common/project-location';
+import { parseIntakeTitle } from '../../common/project-display-name';
+import { readSceneList } from '../home/scene-list';
+import { requestStructureTab } from '../home/structure-navigation';
 
 // この拡張には既存の限定的な electronTheiaCore 宣言があるため、Theia の
 // Window 宣言を重ねず実行時のクラスを使う。継承メソッドは Theia の .d.ts と同じ可視性。
@@ -36,6 +40,9 @@ body.akari-title-mac #theia-drag-panel .akari-title-left { padding-left: var(--a
 #theia-drag-panel .akari-title-channel { color: inherit; border: 0; padding: 3px 5px; background: transparent; font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 #theia-drag-panel .akari-title-channel:hover { background: rgba(127,127,127,.14); border-radius: 5px; }
 #theia-drag-panel .akari-title-project { overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-weight: 600; }
+#theia-drag-panel .akari-title-scene-menu { position: absolute; top: 100%; left: 50%; z-index: 1000; min-width: 230px; padding: 5px; background: var(--theia-menu-background, #242830); border: 1px solid var(--akari-line, #666); box-shadow: 0 8px 24px #0005; }
+#theia-drag-panel .akari-title-scene-menu button { display: block; width: 100%; padding: 7px 9px; text-align: left; color: inherit; background: transparent; border: 0; cursor: pointer; }
+#theia-drag-panel .akari-title-scene-menu button:hover { background: rgba(127,127,127,.18); }
 #theia-drag-panel .akari-title-separator { opacity: .5; }
 #theia-drag-panel .akari-title-dots { display: flex; align-items: center; gap: 10px; margin-left: 6px; padding: 4px 5px; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; }
 #theia-drag-panel .akari-title-dots:hover { background: rgba(127,127,127,.14); }
@@ -80,7 +87,7 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
     protected pending = 0;
     protected maximized = false;
     protected renderVersion = 0;
-    protected channelCache: { root: string; channel: Promise<string | undefined> } | undefined;
+    protected channelCache: { root: string; location: Promise<ProjectLocation | undefined> } | undefined;
 
     constructor(@inject(ElectronMainMenuFactory) factory: { setMenuBar(): void; createMenuBar(): Widget }) { super(factory); }
 
@@ -201,23 +208,23 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
         return (window as unknown as { electronTheiaCore: AkariTitleBarContribution['core'] }).electronTheiaCore;
     }
 
-    protected async readWorkspaceChannel(root: URI): Promise<string | undefined> {
+    protected async readWorkspaceLocation(root: URI): Promise<ProjectLocation | undefined> {
         try {
             const override = await this.environment.getValue('AKARI_HOME');
             const home = override?.value ? URI.fromFilePath(override.value) : new URI(await this.environment.getHomeDirUri()).resolve('.akari');
             const pointer = JSON.parse((await this.files.readFile(home.resolve('creator-root.json'))).value.toString());
             if (typeof pointer?.lastRoot !== 'string') { return undefined; }
             const relative = URI.fromFilePath(pointer.lastRoot).relative(root)?.toString();
-            return channelFromRelativePath(relative);
+            return projectLocation(relative);
         } catch { return undefined; }
     }
 
-    protected cachedWorkspaceChannel(root: URI): Promise<string | undefined> {
+    protected cachedWorkspaceLocation(root: URI): Promise<ProjectLocation | undefined> {
         const rootKey = root.toString();
         if (this.channelCache?.root !== rootKey) {
-            this.channelCache = { root: rootKey, channel: this.readWorkspaceChannel(root) };
+            this.channelCache = { root: rootKey, location: this.readWorkspaceLocation(root) };
         }
-        return this.channelCache.channel;
+        return this.channelCache.location;
     }
 
     protected async readChannelAtHome(): Promise<string | undefined> {
@@ -240,10 +247,19 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
         const version = ++this.renderVersion;
         const root = (await this.workspace.roots)[0]?.resource;
         const opened = this.workspace.opened && !!root;
-        const channel = opened ? await this.cachedWorkspaceChannel(root) : await this.readChannelAtHome();
+        const location = opened ? await this.cachedWorkspaceLocation(root) : undefined;
+        const channel = opened ? location?.channel : await this.readChannelAtHome();
         if (version !== this.renderVersion) { return; }
-        const project = opened ? Reflect.get(this.welcomeTitle, 'resolvedTitle') as string | null || root.path.base : undefined;
-        const parts = titleBarCenter({ scope: opened ? 'project' : 'channel', channel, project, standalone: opened && !channel });
+        let project = opened ? Reflect.get(this.welcomeTitle, 'resolvedTitle') as string | null || root.path.base : undefined;
+        let scene: string | undefined;
+        const projectRoot = opened && location?.scene ? root.parent.parent : undefined;
+        if (projectRoot) {
+            scene = project;
+            try { project = parseIntakeTitle(JSON.parse((await this.files.readFile(projectRoot.resolve('.akari/intake.json'))).value.toString())) || location!.project; }
+            catch { project = location!.project; }
+        }
+        if (version !== this.renderVersion) return;
+        const parts = titleBarCenter({ scope: opened ? 'project' : 'channel', channel, project, scene, standalone: opened && !channel });
         if (!opened && !channel) { center.replaceChildren(); return; }
         const channelButton = document.createElement('button');
         channelButton.className = 'akari-title-channel';
@@ -260,6 +276,52 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             const projectName = document.createElement('span');
             projectName.className = 'akari-title-project';
             projectName.textContent = parts[1];
+            projectName.dataset.akariBreadcrumbProject = 'true';
+            if (projectRoot && scene) {
+                const sceneSeparator = document.createElement('span');
+                sceneSeparator.className = 'akari-title-separator';
+                sceneSeparator.textContent = '›';
+                const sceneButton = document.createElement('button');
+                sceneButton.type = 'button';
+                sceneButton.className = 'akari-title-channel';
+                sceneButton.dataset.akariBreadcrumbScene = location!.scene;
+                sceneButton.textContent = `${parts[2]} ▾`;
+                sceneButton.addEventListener('click', async () => {
+                    const existing = center.querySelector('.akari-title-scene-menu');
+                    if (existing) { existing.remove(); return; }
+                    const menu = document.createElement('div');
+                    menu.className = 'akari-title-scene-menu';
+                    menu.dataset.akariSceneMenu = 'true';
+                    const menuVersion = this.renderVersion;
+                    const rows = await readSceneList(this.files, projectRoot);
+                    if (menuVersion !== this.renderVersion) return;
+                    for (const row of rows) {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.dataset.akariSceneOption = row.id;
+                        item.textContent = row.title;
+                        item.addEventListener('click', () => void this.commands.executeCommand('akari.home.openProject', { uri: row.uri.toString() }));
+                        menu.append(item);
+                    }
+                    const all = document.createElement('button');
+                    all.type = 'button';
+                    all.dataset.akariSceneListOption = 'true';
+                    all.textContent = t('surfaces.titleBar.sceneList.label');
+                    all.addEventListener('click', () => void this.commands.executeCommand('akari.home.openProject', { uri: projectRoot.toString() }));
+                    menu.append(all);
+                    const structure = document.createElement('button');
+                    structure.type = 'button';
+                    structure.dataset.akariStructureOption = 'true';
+                    structure.textContent = t('surfaces.titleBar.viewAllStructure.label');
+                    structure.addEventListener('click', () => {
+                        requestStructureTab(projectRoot, 'structure');
+                        void this.commands.executeCommand('akari.home.openProject', { uri: projectRoot.toString() });
+                    });
+                    menu.append(structure);
+                    center.append(menu);
+                });
+                nodes.push(separator, projectName, sceneSeparator, sceneButton);
+            }
             const dots = document.createElement('button');
             dots.className = 'akari-title-dots';
             dots.type = 'button';
@@ -279,7 +341,8 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             const chip = document.createElement('span');
             chip.className = `akari-title-chip${busy ? ' busy' : this.pending ? ' pending' : ''}`;
             chip.textContent = savedChip({ pending: this.pending, busy });
-            nodes.push(separator, projectName, dots, chip);
+            if (!projectRoot) nodes.push(separator, projectName);
+            nodes.push(dots, chip);
         }
         center.replaceChildren(...nodes);
     }

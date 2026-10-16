@@ -168,7 +168,8 @@ test('初期モデルと字幕差分更新は同じ純関数で宣言を供給�
     assert.match(source, /captions: outputCaptions,/);
     assert.match(source, /captions: buildCaptionAnimatorSummaryFields\(normalizePreviewCaptionClock\(captions, \[\]\), internal\)/);
     assert.equal(source.match(/widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal/g)?.length, 2);
-    assert.match(source, /widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal;\s*if \(!forceRebuild/);
+    assert.ok(source.indexOf('widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;')
+        < source.indexOf('if (!forceRebuild'), '字幕の内部宣言は in-place 判定より前に更新する');
     const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
     const start = compiled.indexOf('queueCaptionsUpdate(widget, sourceOverride) {');
     const end = compiled.indexOf('previewModelSnapshot(', start);

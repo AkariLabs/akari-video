@@ -128,6 +128,7 @@ import { SUPPORTED_DROP_EXTENSIONS } from '../common/import-fab-items';
 
 try { require('../../src/browser/style/generation-pick.css'); } catch { /* node 単体テスト環境 */ }
 try { require('../../src/browser/style/library-tiles.css'); } catch { /* node 単体テスト環境 */ }
+try { require('../../src/browser/style/project-panel-bands.css'); } catch { /* node 単体テスト環境 */ }
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -2223,6 +2224,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}
                 data-akari-left-panel-layout={libraryOnly ? 'library-only' : 'split'}
+                data-akari-project-bands={libraryOnly ? undefined : 'three'}
             >
                 <div style={{
                     flex: libraryOnly ? '1 1 0%' : '1.2 1 0%',

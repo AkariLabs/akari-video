@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import { homedir } from 'node:os';
@@ -98,7 +98,7 @@ const FALLBACK_WORKFLOW = {
     },
     events: {
         directory: '.akari/events',
-        gateTypes: ['report-generated', 'report-approved', 'edit-completed', 'export-completed']
+        gateTypes: ['report-generated', 'report-approved', 'edit-completed', 'export-completed', 'agent-action']
     }
 };
 
@@ -546,11 +546,18 @@ ${REPORT_STYLE}
         <dt${attr('git.eligibility.label')}>${q('git.eligibility.label')}</dt><dd>${escapeHtml(report.git.eligibility)}</dd>
         <dt${attr('git.reason.label')}>${q('git.reason.label')}</dt><dd>${escapeHtml(gitReason)}</dd>
       </dl>
-    </section>${report.missingTools?.length ? `\n    <section><h2>無い道具</h2>${renderList(report.missingTools, '')}</section>` : ''}
+    </section>${report.missingTools?.length ? `\n    <section><h2>無い道具</h2>${renderList(report.missingTools, '')}</section>` : ''}${renderInactiveSettingsSection(report.beforeCommit?.inactiveSettings, lang)}
   </main>
 ${dictionary}</body>
 </html>
 `;
+}
+
+function renderInactiveSettingsSection(inactiveSettings, lang) {
+    if (!inactiveSettings?.length) return '';
+    const q = key => reportText('report-project', `report-project.${key}`, lang);
+    const attr = key => lang === 'en' ? ` data-i18n="report-project.${key}"` : '';
+    return `\n    <section data-akari-playbook-inactive><h2${attr('playbook.inactive.heading')}>${q('playbook.inactive.heading')}</h2>${renderList(inactiveSettings.map(key => `${key}: ${q('playbook.inactive.status')}`), q('files.empty.text'))}</section>`;
 }
 
 function renderPlaybookSheetHtml(playbook, missingTools) {
@@ -560,7 +567,8 @@ function renderPlaybookSheetHtml(playbook, missingTools) {
     const placeholders = (playbook.placeholders ?? []).map(item => `${item.role} / ${item.kind} / 見本 ${item.sample ? `あり (${item.sample.category}/${item.sample.id})` : 'なし'}`);
     const beats = (playbook.beats ?? []).map(beat => `${beat.at}–${beat.at + beat.duration} 秒 / ${beat.title}${beat.note ? ` / ${beat.note}` : ''}`);
     const parts = (playbook.parts ?? []).map(item => `${item.kind}: ${item.id} / ${item.source} / ${item.license} / Pro ${item.tier === 'pro' ? '要' : item.tier === 'free' ? '不要' : '不明'}`);
-    const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}`);
+    const inactiveSettings = inactivePlaybookSettings(playbook.settings);
+    const settings = Object.entries(playbook.settings).map(([key, value]) => `${key}: ${JSON.stringify(value)}${inactiveSettings.some(inactive => inactive === key || inactive.startsWith(`${key}.`)) ? '（まだ効かない・作業の目安）' : ''}`);
     const provenance = playbook.provenance;
     const applied = provenance.appliedFrom;
     const origin = `${provenance.fromProject} / ${provenance.recordedAt} / AKARI ${provenance.akariVersion}`
@@ -692,7 +700,16 @@ async function toolExists(name) {
     return false;
 }
 
-function applySettings(edit, settings) {
+function inactivePlaybookSettings(settings) {
+    return [
+        ...(settings.captions?.styleUid ? ['captions.styleUid'] : []),
+        ...(settings.captions?.position ? ['captions.position'] : []),
+        ...(settings.transitions?.default ? ['transitions.default'] : []),
+        ...(settings.audio?.roles ? ['audio.roles'] : [])
+    ];
+}
+
+function applySettings(edit, intake, settings) {
     const aspect = settings.aspect;
     if (typeof aspect === 'string' && /^\d+:\d+$/.test(aspect)) {
         const [widthRatio, heightRatio] = aspect.split(':').map(Number);
@@ -703,17 +720,14 @@ function applySettings(edit, settings) {
         }
     }
     if (Number.isInteger(settings.fps) && settings.fps > 0) edit.output.fps = settings.fps;
-    if (Number.isFinite(settings.targetDurationSec)) edit.output.target_duration_sec = settings.targetDurationSec;
-    if (settings.captions?.styleUid) edit.output.caption_style_uid = settings.captions.styleUid;
-    if (settings.captions?.position) edit.output.caption_position = settings.captions.position;
-    if (settings.transitions?.default) edit.output.default_transition = settings.transitions.default;
-    if (settings.audio?.roles) {
-        edit.audio ??= {};
-        edit.audio.role_gains_db = { ...settings.audio.roles };
+    if (Number.isFinite(settings.targetDurationSec) && settings.targetDurationSec > 0) {
+        intake.target ??= {};
+        intake.target.duration_s = settings.targetDurationSec;
+        intake.target.keep_length = false;
     }
 }
 
-function addPlaceholders(edit, placeholders, beats) {
+function addPlaceholders(edit, placeholders, beats, targetDurationSec) {
     const fps = edit.output.fps;
     const hasBeats = Array.isArray(beats) && beats.length > 0;
     const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
@@ -753,7 +767,7 @@ function addPlaceholders(edit, placeholders, beats) {
     if (track.items.length) edit.tracks.push(track);
     for (const placeholder of placeholders) {
         if (placeholder.kind !== 'audio') continue;
-        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? edit.output.target_duration_sec ?? 5) * fps));
+        const duration = at || Math.max(1, Math.round((placeholder.durationHintSec ?? targetDurationSec ?? 5) * fps));
         audioTrack.items.push({
             id: `playbook-${placeholder.id}`, at: 0, duration,
             name: placeholder.sample
@@ -812,19 +826,26 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     }
     const planning = path.join(destination, 'planning');
     const editPath = path.join(destination, 'edit.json');
+    const intakePath = path.join(destination, '.akari', 'intake.json');
     const edit = JSON.parse(await fs.readFile(editPath, 'utf8'));
+    const intake = JSON.parse(await fs.readFile(intakePath, 'utf8'));
     if (edit.version !== 2) throw new Error('作り方の適用には edit.json v2 が必要です');
     const playbookJsonPath = path.join(planning, 'playbook.json');
     const playbookMdPath = path.join(planning, 'playbook.md');
     const sheetPath = path.join(destination, '.akari', 'reports', 'playbook-sheet.html');
+    const creationReportPath = path.join(destination, '.akari', 'reports', 'create-project-report.html');
+    const existingCreationReport = await fs.readFile(creationReportPath, 'utf8').catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    });
     for (const file of [playbookJsonPath, playbookMdPath, sheetPath]) {
         try { await fs.access(file); throw new Error(`既存ファイルは上書きしません: ${file}`); }
         catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     playbook.provenance.appliedFrom = { path: source, playbookVersion: playbook.playbookVersion, appliedAt: now.toISOString() };
-    applySettings(edit, playbook.settings);
+    applySettings(edit, intake, playbook.settings);
     const activeBeats = playbook.beats?.length ? playbook.beats : undefined;
-    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats);
+    const placeholdersAdded = addPlaceholders(edit, playbook.placeholders ?? [], activeBeats, playbook.settings.targetDurationSec);
     const scriptPath = path.join(planning, 'script.json');
     const existingScript = activeBeats ? await fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
         if (error.code === 'ENOENT') return null;
@@ -838,7 +859,220 @@ export async function applyPlaybook({ projectDir, playbookDir, now = new Date(),
     await fs.writeFile(playbookMdPath, markdown, { flag: 'wx' });
     await writeJsonAtomic(playbookJsonPath, playbook);
     await writeJsonAtomic(editPath, edit);
+    await writeJsonAtomic(intakePath, intake);
     if (script) await writeJsonAtomic(scriptPath, script);
     await fs.writeFile(sheetPath, renderReportHtml(null, { playbook, missingTools }), { flag: 'wx' });
-    return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools };
+    const inactiveSettings = inactivePlaybookSettings(playbook.settings);
+    if (existingCreationReport && inactiveSettings.length > 0
+        && !existingCreationReport.includes('data-akari-playbook-inactive')
+        && existingCreationReport.includes('</main>')) {
+        const lang = reportLanguage(/<html lang="([^"]+)"/.exec(existingCreationReport)?.[1]);
+        const section = renderInactiveSettingsSection(inactiveSettings, lang);
+        await fs.writeFile(creationReportPath, existingCreationReport.replace('</main>', `${section}\n  </main>`), 'utf8');
+    }
+    return { playbookJsonPath, playbookMdPath, sheetPath, placeholdersAdded, missingTools,
+        inactiveSettings };
+}
+
+/** Add a playbook to a project without replacing its existing work. */
+export async function applyPlaybookToExisting({ projectDir, playbookDir, dryRun = false, now = new Date() }) {
+    const destination = path.resolve(projectDir);
+    const source = path.resolve(playbookDir);
+    const [book, markdown] = await Promise.all([
+        fs.readFile(path.join(source, 'playbook.json'), 'utf8').then(JSON.parse),
+        fs.readFile(path.join(source, 'playbook.md'), 'utf8')
+    ]);
+    const required = ['version', 'kind', 'id', 'name', 'playbookVersion', 'depth', 'category', 'steps', 'settings', 'license', 'provenance'];
+    const categories = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
+    const headings = ['目的とできあがり', '流れ', '設定値', '必要な素材（仮枠）', '使った部品', '要る道具', 'ライセンス', '出どころ'];
+    if (required.some(key => book[key] === undefined) || book.version !== 0 || book.kind !== 'akari-playbook'
+        || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(book.id) || !categories.has(book.category)
+        || !Array.isArray(book.steps) || !book.settings || !book.provenance
+        || !Array.isArray(book.placeholders ?? []) || !Array.isArray(book.beats ?? [])
+        || (book.placeholders ?? []).some(slot => !slot?.id || !slot.role || !['video', 'image', 'audio'].includes(slot.kind)
+            || ['own', 'site'].includes(slot.sample?.source))
+        || (book.parts ?? []).some(part => ['own', 'site'].includes(part.source))
+        || !markdown.includes(`# ${book.name}`)
+        || headings.some(heading => !new RegExp(`^## ${heading}$`, 'm').test(markdown))) {
+        throw new Error('作り方が不正です');
+    }
+    const editPath = path.join(destination, 'edit.json');
+    const intakePath = path.join(destination, '.akari', 'intake.json');
+    const scriptPath = path.join(destination, 'planning', 'script.json');
+    const reportPath = path.join(destination, '.akari', 'reports', 'playbook-apply.html');
+    const [edit, intake, script] = await Promise.all([
+        fs.readFile(editPath, 'utf8').then(JSON.parse),
+        fs.readFile(intakePath, 'utf8').then(JSON.parse),
+        fs.readFile(scriptPath, 'utf8').then(JSON.parse).catch(error => {
+            if (error.code === 'ENOENT') return null;
+            throw error;
+        })
+    ]);
+    if (edit.version !== 2 || !Array.isArray(edit.tracks)) throw new Error('作り方の適用には edit.json v2 が必要です');
+    const previousEdit = JSON.stringify(edit);
+    const previousIntake = JSON.stringify(intake);
+    const changes = [];
+    const hasCuts = (edit.cuts?.length ?? 0) > 0 || edit.tracks.some(track => (track.items?.length ?? 0) > 0);
+    if (!hasCuts) {
+        const before = JSON.stringify(edit.output);
+        const unsetAspect = edit.output.width === FALLBACK_EDIT_JSON.output.width
+            && edit.output.height === FALLBACK_EDIT_JSON.output.height;
+        const unsetFps = edit.output.fps === FALLBACK_EDIT_JSON.output.fps;
+        applySettings(edit, { target: { duration_s: 1 } }, {
+            ...(unsetAspect ? { aspect: book.settings.aspect } : {}),
+            ...(unsetFps ? { fps: book.settings.fps } : {})
+        });
+        if (JSON.stringify(edit.output) !== before) changes.push('aspect / fps');
+    }
+    if (intake.target?.duration_s == null && Number.isFinite(book.settings.targetDurationSec)
+        && book.settings.targetDurationSec > 0) {
+        intake.target ??= {};
+        intake.target.duration_s = book.settings.targetDurationSec;
+        intake.target.keep_length = false;
+        changes.push('targetDurationSec');
+    }
+    const allItems = edit.tracks.flatMap(track => track.items ?? []);
+    const ids = new Set([...edit.tracks.map(track => track.id), ...allItems.map(item => item.id)]);
+    const present = slot => allItems.some(item => item.id === `playbook-${slot.id}`
+        || item.name === slot.role || item.source?.canvas?.intent === slot.role);
+    const missing = (book.placeholders ?? []).filter(slot => !present(slot));
+    const nextId = base => {
+        let id = base;
+        for (let suffix = 2; ids.has(id); suffix++) id = `${base}-${suffix}`;
+        ids.add(id);
+        return id;
+    };
+    const lastFrame = Math.max(0, ...allItems.map(item => (item.at ?? 0) + (item.duration ?? 0)));
+    const fps = edit.output.fps;
+    const visual = { id: nextId('playbook-placeholders'), name: '仮枠（映像）', lane: 'visual', items: [] };
+    const audio = { id: nextId('playbook-placeholders-audio'), name: '仮枠（音）', lane: 'visual', items: [] };
+    let at = lastFrame;
+    for (const slot of missing) {
+        const duration = Math.max(1, Math.round((slot.durationHintSec ?? book.settings.targetDurationSec ?? 5) * fps));
+        const item = { id: nextId(`playbook-${slot.id}`), at: slot.kind === 'audio' ? lastFrame : at,
+            duration, name: slot.role, source: { kind: 'group', canvas: { origin: 'plan', durationMode: 'fixed',
+                intent: slot.role, background: { type: 'none' } } }, items: [] };
+        if (slot.kind === 'audio') audio.items.push(item);
+        else { visual.items.push(item); at += duration; }
+        changes.push(`仮枠: ${slot.role}`);
+    }
+    if (visual.items.length) edit.tracks.push(visual);
+    if (audio.items.length) edit.tracks.push(audio);
+    const planned = script ? structuredClone(script) : { version: 0, kind: 'akari-script', lines: [] };
+    const lineIds = new Set(planned.lines.map(line => line.id));
+    const beatIds = new Set(planned.lines.map(line => line.beat).filter(Boolean));
+    for (const beat of book.beats ?? []) {
+        if (beatIds.has(beat.id) || lineIds.has(`p-${beat.id}`)) continue;
+        planned.lines.push({ id: `p-${beat.id}`, kind: 'plan', at: beat.at, duration: beat.duration,
+            text: beat.note ? `${beat.title}: ${beat.note}` : beat.title,
+            ...(beat.placeholder ? { placeholder: beat.placeholder } : {}), beat: beat.id, author: 'playbook' });
+        lineIds.add(`p-${beat.id}`);
+        beatIds.add(beat.id);
+        changes.push(`内訳: ${beat.title}`);
+    }
+    const scriptChanged = JSON.stringify(planned) !== JSON.stringify(script ?? { version: 0, kind: 'akari-script', lines: [] });
+    const planning = path.join(destination, 'planning');
+    let suffix = '';
+    for (let number = 2; ; number++) {
+        const md = path.join(planning, `playbook${suffix}.md`);
+        const json = path.join(planning, `playbook${suffix}.json`);
+        if (!(await fs.stat(md).catch(() => null)) && !(await fs.stat(json).catch(() => null))) break;
+        suffix = number === 2 ? `-${book.id}` : `-${book.id}-${number - 1}`;
+    }
+    const playbookMdPath = path.join(planning, `playbook${suffix}.md`);
+    const playbookJsonPath = path.join(planning, `playbook${suffix}.json`);
+    const applied = structuredClone(book);
+    applied.provenance = { ...applied.provenance,
+        appliedFrom: { path: source, playbookVersion: book.playbookVersion, appliedAt: now.toISOString() } };
+    const editChanged = JSON.stringify(edit) !== previousEdit;
+    const intakeChanged = JSON.stringify(intake) !== previousIntake;
+    const files = [path.relative(destination, playbookMdPath), path.relative(destination, playbookJsonPath),
+        ...(editChanged ? ['edit.json'] : []), ...(intakeChanged ? ['.akari/intake.json'] : []),
+        ...(scriptChanged ? ['planning/script.json'] : []), '.akari/reports/playbook-apply.html'];
+    const html = `<!doctype html>\n<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n<title>作り方の適用</title>\n${REPORT_STYLE}</head><body><main><h1>作り方の適用</h1>\n<dl><dt>名前</dt><dd>${escapeHtml(book.name)}</dd><dt>状態</dt><dd>${dryRun ? '予定（未書き込み）' : '適用済み'}</dd>\n<dt>変更</dt><dd>${escapeHtml(changes.join('、') || '設定・仮枠・内訳の変更なし')}</dd></dl>\n<section><h2>書き込むファイル</h2>${renderList(files, 'なし')}</section>\n<section><h2>既存のカット</h2><p>位置と内容を維持</p></section></main></body></html>\n`;
+    if (!dryRun) {
+        await fs.mkdir(planning, { recursive: true });
+        await fs.mkdir(path.dirname(reportPath), { recursive: true });
+        await fs.writeFile(playbookMdPath, markdown, { flag: 'wx' });
+        await writeJsonAtomic(playbookJsonPath, applied);
+        if (editChanged) await writeJsonAtomic(editPath, edit);
+        if (intakeChanged) await writeJsonAtomic(intakePath, intake);
+        if (scriptChanged) await writeJsonAtomic(scriptPath, planned);
+        await fs.writeFile(reportPath, html);
+        if (editChanged) {
+            const events = path.join(destination, '.akari', 'events');
+            await fs.mkdir(events, { recursive: true });
+            const occurredAt = now.toISOString();
+            const id = `act-${randomUUID()}`;
+            const event = { version: 1, id, type: 'agent-action', occurredAt, actor: 'external',
+                summary: `作り方 ${book.name} を当てた`, files };
+            await fs.writeFile(path.join(events, `${occurredAt.replace(/\D/g, '')}-${id}.json`),
+                `${JSON.stringify(event, null, 2)}\n`, { flag: 'wx' });
+        }
+    }
+    return { dryRun, playbookMdPath, playbookJsonPath, reportPath, changes, files,
+        placeholdersAdded: missing.length, editChanged };
+}
+
+const CATEGORIES = new Set(['film', 'short-drama', 'mv', 'explainer', 'product', 'vlog', 'cm', 'education', 'clip', 'logo']);
+const ID = /^[a-z0-9][a-z0-9-]*$/;
+
+function valid(value) {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        && value.version === 0 && value.kind === 'akari-playbook'
+        && typeof value.id === 'string' && typeof value.name === 'string'
+        && typeof value.playbookVersion === 'number' && (value.depth === 1 || value.depth === 2)
+        && CATEGORIES.has(value.category)
+        && Array.isArray(value.steps) && value.steps.every(step => step && typeof step.id === 'string'
+            && typeof step.title === 'string' && typeof step.what === 'string')
+        && value.settings && typeof value.settings === 'object' && !Array.isArray(value.settings)
+        && (!value.placeholders || Array.isArray(value.placeholders) && value.placeholders.every(slot =>
+            slot && typeof slot.id === 'string' && typeof slot.role === 'string' && typeof slot.kind === 'string'))
+        && (!value.parts || Array.isArray(value.parts) && value.parts.every(part =>
+            part && typeof part.kind === 'string' && typeof part.id === 'string' && typeof part.source === 'string'))
+        && (!value.requires || typeof value.requires === 'object' && (!value.requires.tools || Array.isArray(value.requires.tools)))
+        && typeof value.license === 'string' && value.provenance && typeof value.provenance === 'object';
+}
+
+/** Shell-independent shelf resolver. Entries stay in the same filesystem order as the popup. */
+export async function listPlaybooks({ akariHome, channelDir, category, tag, onWarning = () => {} }) {
+    const installed = new Map();
+    try {
+        const ledger = JSON.parse(await fs.readFile(path.join(akariHome, 'kits', 'installed.json'), 'utf8'));
+        if (ledger?.schema === 'akari-installed-kits/v0' && Array.isArray(ledger.kits)) {
+            for (const kit of ledger.kits) {
+                if (typeof kit?.kitDir !== 'string' || !Array.isArray(kit.playbooks)) continue;
+                for (const id of kit.playbooks) if (typeof id === 'string' && ID.test(id)) {
+                    installed.set(id, path.resolve(kit.kitDir, 'playbooks', id));
+                }
+            }
+        }
+    } catch { /* Missing or invalid ledger means no Lab attribution. */ }
+    const locations = [...(channelDir ? [{ dir: channelDir, source: 'channel' }] : []),
+        { dir: path.join(akariHome, 'playbooks'), source: 'local' }];
+    const result = [];
+    for (const location of locations) {
+        for (const child of await fs.readdir(location.dir, { withFileTypes: true }).catch(() => [])) {
+            if ((!child.isDirectory() && !child.isSymbolicLink()) || !ID.test(child.name)) continue;
+            const dir = path.join(location.dir, child.name);
+            try {
+                if (!(await fs.stat(dir)).isDirectory()) continue;
+                const value = JSON.parse(await fs.readFile(path.join(dir, 'playbook.json'), 'utf8'));
+                if (!valid(value) || value.id !== path.basename(dir)) throw new Error('invalid playbook');
+                if (category && value.category !== category) continue;
+                if (tag && !Object.values(value.tags ?? {}).some(tags => Array.isArray(tags) && tags.includes(tag))) continue;
+                let source = location.source;
+                if (source === 'local' && child.isSymbolicLink() && installed.has(child.name)) {
+                    const [actual, expected] = await Promise.all([
+                        fs.realpath(dir).catch(() => null), fs.realpath(installed.get(child.name)).catch(() => null)
+                    ]);
+                    if (actual && actual === expected) source = 'lab';
+                }
+                result.push({ id: value.id, name: value.name, category: value.category,
+                    tags: value.tags ?? {}, source, dir, targetDurationSec: value.settings.targetDurationSec ?? null,
+                    requires: value.requires ?? {} });
+            } catch (error) { onWarning(dir, error); }
+        }
+    }
+    return result;
 }
