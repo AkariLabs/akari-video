@@ -14,6 +14,8 @@ export const ALLOWED_MISSING = new Map([
   ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./helper.mjs', 'scratch module fixture'],
   ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./nested/value.mjs', 'scratch nested module fixture'],
   ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./unregistered.mjs', 'intentional missing scratch module fixture'],
+  // The template schema test reads a fixture owned by project-scaffold; package tests are not run from the vendor.
+  ['packages/schemas/test/validate-template.test.mjs: ../../project-scaffold/test/fixtures/playbook-sample/playbook.json', 'test-only cross-package fixture'],
 ]);
 
 const IMPORTS = [

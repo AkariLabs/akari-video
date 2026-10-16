@@ -11,7 +11,8 @@ export function PlaybookShelfView({ service, channel, openMarkdown }: Props): Re
     React.useEffect(() => { let active = true; void service.listPlaybooks(channel).then(value => { if (active) setEntries(value.filter(entry => entry.playbook.depth === 3)); })
         .catch(() => { if (active) setEntries([]); });
         return () => { active = false; }; }, [service, channel]);
-    return <section data-akari-playbook-shelf style={{ padding: '10px' }}>
+    // 親の分類グリッドの 1 列に収まらないよう全幅に広げる（134px に畳まれて印が縦に折れていた）
+    return <section data-akari-playbook-shelf style={{ padding: '10px', gridColumn: '1 / -1', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         <strong>{t('project.library.playbook.shelfLabel')}</strong>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 8 }}>
             {entries.map(entry => {
@@ -22,9 +23,9 @@ export function PlaybookShelfView({ service, channel, openMarkdown }: Props): Re
                     onDragStart={event => { if (action !== 'drag') { event.preventDefault(); return; }
                         event.dataTransfer.setData('application/x-akari-library-item', JSON.stringify(playbookDragPayload(entry.playbook, entry.dir)));
                         event.dataTransfer.effectAllowed = 'copy'; }}
-                    style={{ border: '1px solid var(--theia-panel-border)', background: 'var(--theia-sideBar-background)', color: 'inherit', padding: 6, textAlign: 'left' }}>
+                    style={{ border: '1px solid var(--theia-panel-border)', background: 'var(--theia-sideBar-background)', color: 'inherit', padding: 6, textAlign: 'left', minWidth: 0 }}>
                     {(entry.coverUri || entry.frameUris?.[0]) && <img data-akari-playbook-cover src={entry.coverUri || entry.frameUris?.[0]} alt='' style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover' }} />}
-                    <span>{entry.playbook.name}</span>{entry.playbook.depth === 3 && <b data-akari-template-badge style={{ marginLeft: 6 }}>{t('project.library.playbook.templateBadge')}</b>}
+                    <span>{entry.playbook.name}</span>{entry.playbook.depth === 3 && <b data-akari-template-badge style={{ marginLeft: 6, whiteSpace: 'nowrap', fontSize: 11 }}>{t('project.library.playbook.templateBadge')}</b>}
                     <small style={{ display: 'block', opacity: 0.7 }}>{t(`project.library.playbook.source.${entry.source}`)}</small>
                 </button>;
             })}
