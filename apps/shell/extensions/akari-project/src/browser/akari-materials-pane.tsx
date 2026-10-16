@@ -23,11 +23,11 @@ import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
-import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, materialStripCells, visibleMaterials } from '../common/materials-view';
+import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, materialStripCells, visibleMaterials } from '../common/materials-view';
 import { MaterialStrip } from './material-strip';
 import { MaterialRangeHandles } from './material-range-handles';
 import { MaterialRange } from '../common/material-range';
-import { applyMaterialViewPatch, filterMaterials, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
+import { applyMaterialViewPatch, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout, materialCardTitle, materialStoredName, referenceMaterialBaseName,
     referenceMaterialCardTitle, mergeMaterialCardMeta } from '../common/material-card-layout';
@@ -40,7 +40,7 @@ import { LibraryImportResult } from '../common/library-import';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import { AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { openAkariContextMenu, withMaterialCardMenu } from './akari-context-menu';
-import { MATERIAL_CHIPS, MaterialChip, materialChipCounts, materialRows, visibleMaterialRows } from '../common/project-panel-bands';
+import { MaterialChip, MaterialFilterKind, materialChipCounts, materialRows, migrateLegacyMaterialChip, normalizeMaterialFilter, visibleMaterialRows } from '../common/project-panel-bands';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterialAtPlayhead';
@@ -116,7 +116,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'resolveMaterialStrip' | 'materialMeta' | 'readUiState' | 'readMaterialRanges' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'resolveMaterialStrip' | 'materialMeta' | 'readUiState' | 'writeUiState' | 'readMaterialRanges' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -157,10 +157,9 @@ export class AkariMaterialsPane {
     public referenceWatches = new DisposableCollection();
     protected referenceWatchRoot = '';
     protected referenceWatchParents = new Set<string>();
-    protected filter: string[] = [];
+    protected filter: MaterialFilterKind[] = [];
     protected sort: MaterialsSort = DEFAULT_MATERIALS_SORT;
     protected mode: MaterialsMode = 'grid';
-    protected commandKinds?: readonly MaterialViewKind[];
     protected commandSort?: MaterialViewState['sort'];
     protected viewRootKey?: string;
     protected materialRanges: Record<string, MaterialRange> = {};
@@ -170,8 +169,6 @@ export class AkariMaterialsPane {
     protected materialRangeRevisions = new Map<string, number>();
     protected readonly materialRangeSource = 'materials-pane';
     protected editForPlaceholders: unknown;
-    protected selectedChip: MaterialChip = 'all';
-    protected chipRootKey?: string;
     protected rangeChangedListener?: (event: Event) => void;
 
     constructor(protected readonly host: MaterialsPaneHost) {
@@ -239,9 +236,8 @@ export class AkariMaterialsPane {
     }
 
     public setMaterialView(patch: { filter?: string[]; sort?: MaterialsSort; mode?: MaterialsMode }): void {
-        if (patch.filter) this.commandKinds = undefined;
         if (patch.sort) this.commandSort = undefined;
-        if (patch.filter) this.filter = MATERIALS_KINDS.filter(kind => patch.filter!.includes(kind));
+        if (patch.filter) this.filter = normalizeMaterialFilter(patch.filter);
         if (patch.sort && MATERIALS_SORT_OPTIONS.includes(patch.sort)) this.sort = patch.sort;
         if (patch.mode) this.mode = patch.mode;
         this.host.update();
@@ -258,11 +254,15 @@ export class AkariMaterialsPane {
         return { filter: [...this.filter], sort, mode: this.mode };
     }
 
+    public getMaterialFilterCounts(): Record<MaterialChip, number> {
+        return materialChipCounts(materialRows([...this.materials, ...this.unorganizedMaterials], this.editForPlaceholders));
+    }
+
     public getVoiceMaterialView(): MaterialViewState & { legacySort?: MaterialsSort; mode: MaterialsMode } {
         const sort = this.commandSort ?? (this.sort === 'name' ? { by: 'name', order: 'asc' } as const
             : this.sort === 'dur' ? { by: 'duration', order: 'desc' } as const
                 : { by: 'created', order: this.sort === 'imported-asc' ? 'asc' : 'desc' } as const);
-        return { kinds: [...(this.commandKinds ?? this.filter)] as MaterialViewKind[], sort: { ...sort },
+        return { kinds: [...this.filter] as MaterialViewKind[], sort: { ...sort },
             legacySort: this.commandSort ? undefined : this.sort, mode: this.mode };
     }
 
@@ -270,7 +270,6 @@ export class AkariMaterialsPane {
         const previous = this.getVoiceMaterialView();
         const result = applyMaterialViewPatch(previous, patch);
         if (patch.kinds) {
-            this.commandKinds = result.applied.kinds;
             this.filter = [...result.applied.kinds];
         }
         if (patch.legacySort && MATERIALS_SORT_OPTIONS.includes(patch.legacySort as MaterialsSort)) {
@@ -290,30 +289,36 @@ export class AkariMaterialsPane {
             this.viewRootKey = rootKey;
             this.filter = [];
             this.sort = DEFAULT_MATERIALS_SORT;
-            this.commandKinds = undefined;
             this.commandSort = undefined;
+            this.editForPlaceholders = undefined;
+            let legacyFilter: string[] | undefined;
+            if (root) try {
+                const key = `akari.materials.chip:${root.toString()}`;
+                const chip = window.localStorage.getItem(key);
+                legacyFilter = migrateLegacyMaterialChip(chip);
+                if (chip !== null) window.localStorage.removeItem(key);
+            } catch { /* The current session still works. */ }
+            if (legacyFilter?.length) this.filter = normalizeMaterialFilter(legacyFilter);
             if (root) void this.host.projectService.readUiState(root.toString()).then(state => {
                 if (this.viewRootKey !== rootKey) return;
                 const pane = state.materialsPane;
-                if (!pane || typeof pane !== 'object' || Array.isArray(pane)) return;
-                const saved = pane as { filter?: unknown; sort?: unknown };
+                const saved = pane && typeof pane === 'object' && !Array.isArray(pane)
+                    ? pane as { filter?: unknown; sort?: unknown } : {};
+                const filter = legacyFilter?.length ? legacyFilter
+                    : Array.isArray(saved.filter) ? saved.filter.filter((kind): kind is string => typeof kind === 'string') : [];
+                const sort = typeof saved.sort === 'string' && MATERIALS_SORT_OPTIONS.includes(saved.sort as MaterialsSort)
+                    ? saved.sort as MaterialsSort : DEFAULT_MATERIALS_SORT;
                 this.setMaterialView({
-                    filter: Array.isArray(saved.filter) ? saved.filter.filter((kind): kind is string => typeof kind === 'string') : [],
-                    sort: typeof saved.sort === 'string' && MATERIALS_SORT_OPTIONS.includes(saved.sort as MaterialsSort)
-                        ? saved.sort as MaterialsSort : DEFAULT_MATERIALS_SORT
+                    filter, sort
                 });
-            }).catch(() => undefined);
+                if (legacyFilter?.length) void this.host.projectService.writeUiState(root.toString(),
+                    { materialsPane: { filter: this.filter, sort } }).catch(() => undefined);
+            }).catch(() => {
+                if (legacyFilter?.length && this.viewRootKey === rootKey) void this.host.projectService.writeUiState(root.toString(),
+                    { materialsPane: { filter: this.filter, sort: this.sort } }).catch(() => undefined);
+            });
         }
         const generation = ++this.materialsGeneration;
-        if (this.chipRootKey !== root?.toString()) {
-            this.chipRootKey = root?.toString();
-            this.selectedChip = 'all';
-            this.editForPlaceholders = undefined;
-            if (root) try {
-                const saved = window.localStorage.getItem(`akari.materials.chip:${root.toString()}`);
-                if (MATERIAL_CHIPS.includes(saved as MaterialChip)) this.selectedChip = saved as MaterialChip;
-            } catch { /* The current session still works. */ }
-        }
         if (!root) {
             this.referenceWatches.dispose();
             this.materials = [];
@@ -1108,49 +1113,21 @@ export class AkariMaterialsPane {
         if (this.materialsLoading && !this.materialsLoadedOnce) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         }
-        let materials = visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort);
-        let unorganizedMaterials = visibleMaterials(this.unorganizedMaterials, this.filter, this.host.materialQuery, this.sort);
-        if (this.commandKinds !== undefined || this.commandSort) {
-            const visibleFromCommand = (entries: readonly MaterialCardEntry[]): MaterialCardEntry[] => {
-                const filtered = filterMaterials(entries, this.getVoiceMaterialView(), this.host.materialQuery);
-                return this.commandSort ? sortMaterials(filtered, this.commandSort)
-                    : visibleMaterials(filtered, [], '', this.sort);
-            };
-            materials = visibleFromCommand(this.materials);
-            unorganizedMaterials = visibleFromCommand(this.unorganizedMaterials);
-        }
+        const visible = (entries: readonly MaterialCardEntry[]): MaterialCardEntry[] => {
+            const filtered = visibleMaterials(entries, this.filter, this.host.materialQuery, this.sort);
+            return this.commandSort ? sortMaterials(filtered, this.commandSort) : filtered;
+        };
+        const materials = visible(this.materials);
+        const unorganizedMaterials = visible(this.unorganizedMaterials);
         const allRows = materialRows([...this.materials, ...this.unorganizedMaterials], this.editForPlaceholders);
         const counts = materialChipCounts(allRows);
         const allowed = new Set([...materials, ...unorganizedMaterials]);
-        const rows = visibleMaterialRows(allRows, this.selectedChip).filter(row =>
+        const rows = visibleMaterialRows(allRows, this.filter).filter(row =>
             row.placeholder ? !this.host.materialQuery.trim()
                 || row.placeholder.intent.toLocaleLowerCase().includes(this.host.materialQuery.trim().toLocaleLowerCase())
                 : !!row.material && allowed.has(row.material));
-        const chipLabels: Record<MaterialChip, string> = {
-            all: t('project.workspace.materialChips.allLabel'),
-            video: t('project.workspace.materialChips.videoLabel'),
-            image: t('project.workspace.materialChips.imageLabel'),
-            audio: t('project.workspace.materialChips.audioLabel'),
-            recipe: t('project.workspace.materialChips.recipeLabel'),
-            baked: t('project.workspace.materialChips.bakedLabel'),
-            placeholder: t('project.workspace.materialChips.placeholderLabel')
-        };
         return (
             <div>
-                <div className='akari-material-chips' aria-label={t('project.workspace.materialChips.filterLabel')}>
-                    {MATERIAL_CHIPS.map(chip => <button key={chip} type='button' aria-pressed={this.selectedChip === chip}
-                        data-akari-material-chip={chip} data-akari-material-chip-count={counts[chip]}
-                        className='akari-material-chip' style={{ opacity: counts[chip] ? 1 : 0.48 }}
-                        onClick={() => {
-                            this.selectedChip = chip;
-                            const root = this.host.workflow.workspaceRoot;
-                            if (root) try { window.localStorage.setItem(`akari.materials.chip:${root.toString()}`, chip); }
-                            catch { /* Session state still works. */ }
-                            this.host.update();
-                        }}>
-                        {chipLabels[chip]} <span>{counts[chip]}</span>
-                    </button>)}
-                </div>
                 {!rows.length
                     ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>
                         {counts.all ? t('project.materials.pane.noAssetsMatchFiltersError') : t('project.materials.pane.noAssetsHereYetDragVideoError')}
@@ -1423,7 +1400,7 @@ export class AkariMaterialsPane {
                         && <span className='akari-material-mark'>{t('project.workspace.materialChips.labMarkLabel')}</span>}
                     {entry.recipe && <span className='akari-material-mark'>{t('project.workspace.materialChips.recipeLabel')}</span>}
                     {entry.commonSourceUri && <span className='akari-material-mark' data-akari-common-badge='true'>{t('project.materials.pane.sharedAsset.label')}</span>}
-                    {entry.baked && <span className='akari-material-mark'>{t('project.workspace.materialChips.bakedLabel')}</span>}
+                    {entry.baked && <span className='akari-material-mark'>3D</span>}
                     {isMaterialsList(this.mode) && entry.missing && <span data-akari-reference-missing
                         style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>{t('project.materials.pane.notFoundError')}</span>}
                     {isMaterialsList(this.mode) && entry.unorganized && <span
