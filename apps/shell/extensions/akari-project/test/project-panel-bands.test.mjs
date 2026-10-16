@@ -1,6 +1,9 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { materialRows, materialChipCounts, visibleMaterialRows, projectPanelBands, recordGroupWindow } from '../lib/common/project-panel-bands.js';
+import { materialRows, materialChipCounts, visibleMaterialRows, migrateLegacyMaterialChip, normalizeMaterialFilter, projectPanelBands, recordGroupWindow } from '../lib/common/project-panel-bands.js';
+import { visibleMaterials } from '../lib/common/materials-view.js';
+import { DEFAULT_MATERIAL_VIEW, filterMaterials } from '../lib/common/material-view.js';
 
 test('empty asset folder with three plan canvases has a placeholder chip count of three', () => {
     const edit = { tracks: [{ items: [
@@ -10,10 +13,10 @@ test('empty asset folder with three plan canvases has a placeholder chip count o
     ] }] };
     const rows = materialRows([], edit);
     assert.equal(materialChipCounts(rows).placeholder, 3);
-    assert.deepEqual(visibleMaterialRows(rows, 'placeholder').map(row => row.placeholder.intent), ['Opening', 'Middle', 'Ending']);
+    assert.deepEqual(visibleMaterialRows(rows, ['placeholder']).map(row => row.placeholder.intent), ['Opening', 'Middle', 'Ending']);
 });
 
-test('material chips classify files, recipes, and provenance-backed bakes', () => {
+test('material filter counts files, recipes, and 3D bakes under other', () => {
     const rows = materialRows([
         { relativePath: 'assets/a.mp4', kind: 'video' },
         { relativePath: 'assets/b.png', kind: 'image' },
@@ -22,7 +25,37 @@ test('material chips classify files, recipes, and provenance-backed bakes', () =
         { relativePath: 'assets/scene3d/x/bakes/x.mp4', kind: 'video', baked: true }
     ], {});
     const counts = materialChipCounts(rows);
-    assert.deepEqual([counts.video, counts.image, counts.audio, counts.recipe, counts.baked], [1, 1, 1, 1, 1]);
+    assert.deepEqual([counts.video, counts.image, counts.audio, counts.recipe, counts.other], [1, 1, 1, 1, 1]);
+});
+
+test('one selection controls files and plan canvases, including OR selections', () => {
+    const files = [
+        { relativePath: 'assets/a.mp4', name: 'movie', kind: 'video' },
+        { relativePath: 'assets/b.png', name: 'image', kind: 'image' },
+        { relativePath: 'assets/c.wav', name: 'sound', kind: 'audio' },
+        { relativePath: 'assets/scene3d/x', name: 'scene recipe', kind: 'other', recipe: true },
+        { relativePath: 'assets/scene3d/x/bakes/x.mp4', name: 'scene bake', kind: 'video', baked: true },
+        { relativePath: 'assets/d.html', name: 'overlay', kind: 'other' }
+    ];
+    const edit = { tracks: [{ items: [
+        { id: 'p1', source: { canvas: { origin: 'plan', intent: 'Opening' } } },
+        { id: 'p2', source: { canvas: { origin: 'plan', intent: 'Ending' } } }
+    ] }] };
+    const rows = materialRows(files, edit);
+    assert.deepEqual(materialChipCounts(rows), { all: 8, video: 1, image: 1, audio: 1, recipe: 1, placeholder: 2, other: 2 });
+    assert.deepEqual(visibleMaterialRows(rows, ['placeholder']).map(row => row.placeholder.id), ['p1', 'p2']);
+    assert.deepEqual(visibleMaterialRows(rows, ['recipe', 'video']).map(row => row.material.name), ['movie', 'scene recipe']);
+    assert.deepEqual(visibleMaterialRows(rows, ['other']).map(row => row.material.name), ['scene bake', 'overlay']);
+    assert.equal(visibleMaterialRows(rows, []).length, 8);
+    assert.deepEqual(visibleMaterials(files, ['recipe', 'video'], '', 'name').map(entry => entry.name), ['movie', 'scene recipe']);
+    assert.deepEqual(filterMaterials(files, { ...DEFAULT_MATERIAL_VIEW, kinds: ['other'] }, '').map(entry => entry.name), ['scene bake', 'overlay']);
+});
+
+test('legacy chips migrate once into the new selection; saved old filter kinds stay valid', () => {
+    assert.deepEqual(migrateLegacyMaterialChip('baked'), ['other']);
+    assert.deepEqual(migrateLegacyMaterialChip('placeholder'), ['placeholder']);
+    assert.deepEqual(migrateLegacyMaterialChip('all'), undefined);
+    assert.deepEqual(normalizeMaterialFilter(['video', 'audio', 'image', 'other']), ['video', 'image', 'audio', 'other']);
 });
 
 test('five exports produce three preview rows and All (5); records contain no exports', () => {

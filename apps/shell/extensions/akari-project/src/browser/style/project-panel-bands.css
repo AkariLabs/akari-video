@@ -1,28 +1,3 @@
-.akari-material-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-    padding: 4px 8px 3px;
-}
-
-.akari-material-chip {
-    border: 1px solid var(--theia-contrastBorder, #555);
-    border-radius: 999px;
-    background: transparent;
-    color: inherit;
-    padding: 0 7px;
-    cursor: pointer;
-    font-size: 10px;
-    line-height: 16px;
-    white-space: nowrap;
-}
-
-.akari-material-chip[aria-pressed='true'] {
-    border-color: var(--theia-focusBorder, #f97316);
-    background: var(--theia-focusBorder, #f97316);
-    color: #fff;
-}
-
 .akari-placeholder-row {
     grid-column: 1 / -1;
     display: block;
@@ -76,8 +51,8 @@
 
 .akari-export-band {
     flex: none;
-    border-top: 2px solid var(--theia-focusBorder, #f97316);
-    background: var(--theia-sideBar-background);
+    border-top: 1px solid var(--akari-panel-project-line);
+    background: var(--akari-panel-project);
     padding: 5px 8px 6px;
 }
 

@@ -1,5 +1,6 @@
 import { t } from '../common/project-text';
-export type MaterialViewKind = 'video' | 'audio' | 'image' | 'other' | '3d';
+import { materialMatchesFilter, MaterialFilterKind } from './project-panel-bands';
+export type MaterialViewKind = MaterialFilterKind;
 
 export interface MaterialViewState {
     /** 空ならすべての種類を表示する。 */
@@ -14,9 +15,10 @@ export const DEFAULT_MATERIAL_VIEW: MaterialViewState = {
     sort: { by: 'name', order: 'asc' }
 };
 
-const KIND_ORDER: readonly MaterialViewKind[] = ['video', 'audio', 'image', 'other', '3d'];
+const KIND_ORDER: readonly MaterialViewKind[] = ['video', 'audio', 'image', 'other', '3d', 'recipe', 'placeholder'];
 const KIND_LABELS: Record<MaterialViewKind, string> = {
-    video: t('project.library.shelf.videoLabel'), audio: t('project.handoff.item.audioLabel'), image: t('project.library.shelf.imageLabel'), other: t('project.materials.list.otherLabel'), '3d': '3D'
+    video: t('project.library.shelf.videoLabel'), audio: t('project.handoff.item.audioLabel'), image: t('project.library.shelf.imageLabel'), other: t('project.materials.list.otherLabel'), '3d': '3D',
+    recipe: t('project.workspace.materialChips.recipeLabel'), placeholder: t('project.workspace.materialChips.placeholderLabel')
 };
 
 function copyState(state: MaterialViewState): MaterialViewState {
@@ -43,12 +45,12 @@ export function applyMaterialViewPatch(state: MaterialViewState, patch: Material
 }
 
 /** 名前の検索は既存の素材面と同じ、小文字化した部分一致。 */
-export function filterMaterials<T extends { kind: MaterialViewKind; name: string; assetGroup?: { category: string } }>(
+export function filterMaterials<T extends { kind: string; name: string; relativePath?: string; recipe?: boolean; baked?: boolean; assetGroup?: { category: string } }>(
     entries: readonly T[], state: MaterialViewState, query: string
 ): T[] {
     const normalizedQuery = query.trim().toLowerCase();
     return entries.filter(entry =>
-        (state.kinds.length === 0 || state.kinds.includes(entry.assetGroup?.category === 'scene3d' ? '3d' : entry.kind))
+        materialMatchesFilter({ ...entry, relativePath: entry.relativePath ?? '' }, state.kinds)
         && (!normalizedQuery || entry.name.toLowerCase().includes(normalizedQuery)));
 }
 
