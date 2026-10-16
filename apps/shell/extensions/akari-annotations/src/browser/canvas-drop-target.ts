@@ -7,6 +7,7 @@ export interface CanvasDropTarget {
     trackIndex: number;
     itemIndex: number;
     depth: number;
+    origin?: 'user' | 'plan';
 }
 
 /** tracks は後ろから前。開始時刻を含み、終了時刻は含まない。 */
@@ -17,11 +18,12 @@ export function canvasDropTargets(tracks: readonly Record<string, unknown>[]): C
         const visit = (items: readonly Record<string, unknown>[], parentAt: number, depth: number): void => {
             items.forEach((item, itemIndex) => {
                 const at = parentAt + Number(item.at);
-                const source = item.source as { kind?: string; canvas?: unknown } | undefined;
+                const source = item.source as { kind?: string; canvas?: { origin?: 'user' | 'plan' } } | undefined;
                 if (source?.kind === 'group' && source.canvas && Number.isFinite(at)
                     && Number.isFinite(item.duration) && Number(item.duration) > 0) {
                     result.push({ id: String(item.id), name: typeof item.name === 'string' ? item.name : '',
-                        at, duration: Number(item.duration), trackIndex, itemIndex, depth });
+                        at, duration: Number(item.duration), trackIndex, itemIndex, depth,
+                        origin: source.canvas.origin });
                 }
                 if (Array.isArray(item.items)) visit(item.items as Record<string, unknown>[], at, depth + 1);
             });
@@ -34,7 +36,8 @@ export function canvasDropTargets(tracks: readonly Record<string, unknown>[]): C
 export function canvasAtFrame(targets: readonly CanvasDropTarget[], at: number, outside = false): CanvasDropTarget | undefined {
     if (outside) return undefined;
     return targets.filter(target => at >= target.at && at < target.at + target.duration)
-        .sort((a, b) => b.trackIndex - a.trackIndex || b.depth - a.depth || b.itemIndex - a.itemIndex)[0];
+        .sort((a, b) => b.trackIndex - a.trackIndex || b.depth - a.depth
+            || Number(b.origin === 'plan') - Number(a.origin === 'plan') || b.itemIndex - a.itemIndex)[0];
 }
 
 export function canvasDropDuration(at: number, duration: number, canvas: CanvasDropTarget): number {

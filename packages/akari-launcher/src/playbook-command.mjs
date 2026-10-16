@@ -5,27 +5,30 @@ import { pathToFileURL } from 'node:url';
 import { cliText } from './i18n.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
 
-const usage = () => cliText('cli.playbook.help.usage');
+const usage = () => `${cliText('cli.playbook.help.usage')}\n${cliText('cli.playbook.template.usage')}`;
 const safeChannel = value => typeof value === 'string' && value.trim() && value.length <= 64
     && value !== '.' && !value.includes('..') && !/[/\\<>:"|?*\x00-\x1f]/.test(value);
 
 function parse(args) {
     const action = args[0];
     if (action === '--help' || action === '-h' || args.includes('--help') || args.includes('-h')) return { action: 'help' };
-    if (!['list', 'apply'].includes(action)) throw new Error(usage());
-    const result = { action, id: action === 'apply' ? args[1] : null };
+    if (!['list', 'apply', 'template'].includes(action)) throw new Error(usage());
+    const result = { action, id: action === 'apply' ? args[1] : null, project: action === 'template' ? args[1] : null };
     if (action === 'apply' && (!result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usage());
-    for (let i = action === 'apply' ? 2 : 1; i < args.length; i++) {
+    if (action === 'template' && !result.project) throw new Error(usage());
+    for (let i = action === 'apply' || action === 'template' ? 2 : 1; i < args.length; i++) {
         const arg = args[i];
         if ((action === 'list' && arg === '--json') || (action === 'apply' && arg === '--dry-run')) {
             result[arg.slice(2).replace('-', '')] = true;
         } else if ((action === 'list' && ['--category', '--tag', '--channel'].includes(arg))
-            || (action === 'apply' && arg === '--into')) {
+            || (action === 'apply' && arg === '--into')
+            || (action === 'template' && ['--item', '--id', '--name', '--out', '--license-own'].includes(arg))) {
             if (!args[i + 1] || args[i + 1].startsWith('--')) throw new Error(usage());
             result[arg.slice(2)] = args[++i];
         } else throw new Error(usage());
     }
     if (action === 'apply' && !result.into) throw new Error(usage());
+    if (action === 'template' && (!result.item || !result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usage());
     if (result.channel && !safeChannel(result.channel)) throw new Error(usage());
     return result;
 }
@@ -41,9 +44,16 @@ export async function runPlaybookCommand(args, options = {}) {
         const env = options.env ?? process.env;
         const cwd = options.cwd ?? process.cwd();
         const assets = options.assets ?? resolveLauncherAssets();
+        const akariHome = env.AKARI_HOME || path.join(options.home ?? os.homedir(), '.akari');
         if (!assets.scaffoldModulePath) throw new Error(cliText('cli.playbook.error.scaffoldMissing'));
         const scaffold = await import(pathToFileURL(assets.scaffoldModulePath).href);
-        const akariHome = env.AKARI_HOME || path.join(options.home ?? os.homedir(), '.akari');
+        if (parsed.action === 'template') {
+            const result = await scaffold.exportPlaybookTemplate({ projectDir: path.resolve(cwd, parsed.project),
+                itemId: parsed.item, id: parsed.id, name: parsed.name, out: parsed.out ?? path.join(akariHome, 'playbooks'),
+                licenseOwn: parsed['license-own'] });
+            log(result.dir);
+            return { exitCode: 0, ...result };
+        }
         const projectDir = parsed.into ? path.resolve(cwd, parsed.into) : null;
         let root = null;
         if (assets.creatorRootModulePath) {

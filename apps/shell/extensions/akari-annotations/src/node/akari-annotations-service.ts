@@ -266,6 +266,34 @@ class CandidateInputsCliManager extends GenerationCliManager {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    async placePlaybook(request: { projectUri: string; playbookDir: string; at: number; trackId?: string; edit: unknown }): Promise<{ edit: unknown; rollback?: unknown }> {
+        const projectDir = new URI(request.projectUri).path.fsPath();
+        const book = JSON.parse(await fs.readFile(join(request.playbookDir, 'playbook.json'), 'utf8'));
+        const { placePlaybookProject } = await this.loadPlaybookScaffold();
+        const result = await placePlaybookProject({ projectDir, playbookDir: request.playbookDir, book,
+            edit: request.edit, at: request.at, trackId: request.trackId });
+        return { edit: result.edit, rollback: result.rollback };
+    }
+
+    async undoPlacePlaybook(request: { projectUri: string; rollback?: unknown }): Promise<void> {
+        const { undoPlaybookProject } = await this.loadPlaybookScaffold();
+        await undoPlaybookProject(new URI(request.projectUri).path.fsPath(), request.rollback);
+    }
+
+    private async loadPlaybookScaffold(): Promise<{
+        placePlaybookProject(options: { projectDir: string; playbookDir: string; book: unknown; edit: unknown;
+            at: number; trackId?: string }): Promise<{ edit: unknown; rollback?: unknown }>;
+        undoPlaybookProject(projectDir: string, rollback?: unknown): Promise<void>;
+    }> {
+        for (const relative of ['packages/project-scaffold/src/index.mjs', 'lib/packages/project-scaffold/src/index.mjs']) {
+            const candidate = await this.findGenerationAsset(relative).catch(() => undefined);
+            if (!candidate) continue;
+            const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
+            return importEsm<Awaited<ReturnType<AkariAnnotationsServiceImpl['loadPlaybookScaffold']>>>(
+                pathToFileURL(candidate).toString());
+        }
+        throw new Error('packages/project-scaffold/src/index.mjs was not found');
+    }
     async getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>> {
         const index = await this.findGenerationAsset('presets/transitions/index.jsonl').catch(() => undefined);
         if (!index) return {};

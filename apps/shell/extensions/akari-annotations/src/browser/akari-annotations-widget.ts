@@ -14,7 +14,9 @@ import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from './canvas-drop-target';
 import { placePreviewShapeInCanvas } from './shape-canvas-place';
-import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from './timeline/canvas-row-drop';
+import { canvasForTimelineRow, collapsedPlanSlotAt, timelineRowAtClientY, timelineRowAtY } from './timeline/canvas-row-drop';
+import { executePlaybookDrop } from './playbook-drop';
+import { handlePlannedSlotDrop } from './plan-slot-drop';
 import { mountAudioInlineEnvelope } from './timeline/audio-inline-envelope';
 import { AUDIO_FADE_SHAPE_UNAVAILABLE, inlineRemovePoints, patchInlineAudioItem, patchInlineAudioItemForWrite,
     type InlineAudioPatch } from '../common/audio-inline-envelope';
@@ -7991,8 +7993,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ) : undefined;
         const droppedRow = point.zone === 'strip' ? stripRow
             : this.timelineTreeRows?.find(row => row.id === rowElement?.dataset.akariTreeRowId);
-        const canvasId = droppedRow ? canvasForTimelineRow(droppedRow, this.timelineTreeRows ?? [],
+        const rowCanvasId = droppedRow ? canvasForTimelineRow(droppedRow, this.timelineTreeRows ?? [],
             id => !!this.rawV2Item(id)?.source?.canvas) : undefined;
+        const canvasId = (typeof collapsedPlanSlotAt === 'function'
+            ? collapsedPlanSlotAt(this.rawV2Item(rowCanvasId ?? ''),
+                this.frameAt(this.materialDropTime(point.x, 'layers', 0, 0))) : undefined) ?? rowCanvasId;
         const rawLibrary = event.dataTransfer?.types?.includes(LIBRARY_DRAG_MIME)
             ? event.dataTransfer.getData(LIBRARY_DRAG_MIME) : undefined;
         let lockedKey: string | undefined;
@@ -8005,6 +8010,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideMaterialGhost();
             void this.commands.executeCommand('akari.library.showPremiumPrompt', { key: lockedKey })
                 .catch(() => this.messages.warn(t('annotations.timeline.text.purchaseIsRequiredToUseThisMaterial')));
+            return;
+        }
+        const playbookPayload = rawLibrary ? parseLibraryDragPayload(rawLibrary) : undefined;
+        if (playbookPayload?.kind === 'playbook' && this.location?.root) {
+            const at = this.frameAt(point.zone === 'header-column' ? this.playheadT : this.materialDropTime(point.x, 'layers', 0, 0));
+            void executePlaybookDrop({ projectUri: this.location.root.toString(), playbookDir: playbookPayload.dir,
+                at, trackId: droppedRow?.trackId, name: playbookPayload.name, service: this.annotationsService,
+                commit: (mutate, options) => this.commitEditMutation(playbookPayload.name, mutate, options),
+                record: entry => this.pushHistory(entry), restore: source => this.writeEditSnapshotGuarded(source),
+                reload: () => this.reloadEdit() }).catch(error => this.messages.error(this.errorMessage(error)));
             return;
         }
         const overlayPayload = this.readLibraryOverlayDropPayload?.(event.dataTransfer);
@@ -8114,17 +8129,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         panelZone: TimelinePanelDropZone = 'strip',
         canvasId?: string
     ): Promise<void> {
-        if (target.rejected) {
-            this.footer.textContent = target.reason || t('annotations.timeline.text.materialsCannotBePlacedHere');
-            return;
-        }
-        const durationSeconds = payload.kind === 'image'
+        let durationSeconds = payload.kind === 'image'
             ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
+        if (canvasId && payload.kind === 'video' && durationSeconds === undefined && this.location?.editUri
+            && typeof this.annotationsService.getAudioDuration === 'function') {
+            const pending = this.materialDurationPromises?.get(payload.relativePath);
+            const measured = pending ? await pending : (await this.annotationsService.getAudioDuration({
+                projectRootUri: this.location.root.toString(),
+                audioUri: this.resolveEditMediaUri(payload.relativePath, this.location.editUri).toString()
+            })).durationSeconds;
+            if (typeof measured === 'number' && measured > 0) durationSeconds = measured;
+        }
         const fullDuration = durationSeconds ?? payload.durationSeconds
             ?? (payload.kind === 'image' ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS : MATERIAL_INSERT_FALLBACK_DURATION_SECONDS);
         const resolvedDuration = payload.in !== undefined && payload.out !== undefined
             ? Math.max(0, Math.min(fullDuration, payload.out) - payload.in) : fullDuration;
+        if (typeof handlePlannedSlotDrop === 'function' && await handlePlannedSlotDrop({ doc: this.editDocument as EditV2Document, slotId: canvasId,
+            kind: payload.kind, relativePath: payload.relativePath, actualDurationS: resolvedDuration,
+            label: t('annotations.timeline.text.planSlotSwap'), mismatch: t('annotations.timeline.text.planSlotKindMismatch'),
+            tooShort: t('annotations.timeline.text.planSlotTooShort'), warn: message => this.messages.warn(message),
+            commit: (label, mutate) => this.commitEditMutation(label, mutate) })) return;
+        if (target.rejected) {
+            this.footer.textContent = target.reason || t('annotations.timeline.text.materialsCannotBePlacedHere');
+            return;
+        }
         const timeValue7 = panelZone === 'header-column'
             ? (Number.isFinite(this.playheadT) ? this.playheadT : 0)
             : this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
