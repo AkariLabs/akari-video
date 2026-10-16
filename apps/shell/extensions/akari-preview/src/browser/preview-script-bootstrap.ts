@@ -7440,7 +7440,9 @@ export function previewBootstrapScript(): string {
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
                 seek.style.setProperty('--seek-progress', (timelineDuration > 0 ? Number(seek.value) / timelineDuration * 100 : 0) + '%');
-                timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
+                timeLabel.querySelector('.time-current').textContent = formatTime(timelinePosition);
+                timeLabel.querySelector('.time-total').textContent = ' / ' + formatTime(timelineDuration);
+                timeLabel.title = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
                 if (playToggleRenderedIsPlaying !== isPlaying) {
                     playToggleRenderedIsPlaying = isPlaying;
                     const label = isPlaying ? uiText.pause : uiText.play;

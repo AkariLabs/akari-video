@@ -9151,6 +9151,8 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-toolbar [data-review-hint] { order:1; flex:1 1 auto; min-width:0; margin-right:4px; padding-left:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--akari-time-fg); font-size:11px; }
 .review-toolbar [data-review-hint][hidden] { display:none; }
 .review-tools { order:2; display:flex; flex:none; align-items:center; gap:3px; margin-right:4px; }
+.review-tool-choices { display:contents; }
+.review-mark-toggle { display:none !important; }
 .review-tools .icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"],
 .review-toolbar .review-tools button.icon-button[data-review-tool][aria-pressed="true"]:is(:hover,:active) { color:#f97316; background:transparent; box-shadow:none; }
@@ -9233,6 +9235,28 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
   .review-tools { position:relative; }
   #review-range-controls { position:absolute; top:26px; right:calc(100% + 32px); }
   .review-toolbar [data-review-hint] { width:calc(100% - 68px); }
+}
+@container (max-width:380px) {
+  .transport #time-label { min-width:0; font-size:10px; }
+  #time-label .time-total { display:none; }
+}
+@container (max-width:379px) {
+  .transport-controls { position:relative; }
+  .review-tools { position:static; }
+  #review-range-controls { top:auto; bottom:1px; left:4px; right:auto; }
+  .review-toolbar [data-review-hint] { width:calc(100% - 140px); }
+  .transport-controls:has(#review-range-controls:not([hidden])) .review-toolbar [data-review-hint] { display:none; }
+}
+@container (max-width:359px) {
+  #skip-back, #skip-forward { display:none; }
+  .review-tools .review-divider { display:none; }
+}
+@container (max-width:300px) {
+  .review-mark-toggle { display:inline-flex !important; align-items:center; justify-content:center; width:24px; height:24px; padding:0; }
+  .review-mark-toggle[aria-pressed="true"] { color:#f97316; }
+  .review-tool-choices { display:none; position:absolute; right:4px; bottom:calc(100% + 8px); z-index:30; gap:2px; padding:4px; border:1px solid rgba(255,255,255,.24); border-radius:6px; background:var(--akari-transport-bg); box-shadow:0 8px 24px rgba(0,0,0,.42); }
+  .review-tool-choices.is-open { display:flex; }
+  .review-tool-choices .icon-button { flex:none; }
 }
 /* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
 html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
@@ -9411,7 +9435,7 @@ ${previewSelectionHandlesStyle}
   <div class="transport-controls">
     <div class="transport-lead"><div class="transport-left">
       <button id="audio-meter-open" class="icon-button" type="button" aria-label="${t('preview.previewWindow.transport.audioMeterLabel')}" title="${t('preview.previewWindow.transport.audioMeterLabel')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <span id="time-label">0:00 / 0:00</span>
+      <span id="time-label"><span class="time-current">0:00</span><span class="time-total"> / 0:00</span></span>
       <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div></div>
     <div class="transport-center">
