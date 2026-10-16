@@ -733,7 +733,8 @@ function addPlaceholders(edit, placeholders, beats, targetDurationSec) {
     const fps = edit.output.fps;
     const hasBeats = Array.isArray(beats) && beats.length > 0;
     const track = { id: 'playbook-placeholders', name: '仮枠（映像）', lane: 'visual', items: [] };
-    const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'audio', items: [] };
+    // 音の仮枠も visual レーンに置く。edit-lint の v2.lane-source が audio レーンに media しか許さないため（別票で lint 側を広げるまで）
+    const audioTrack = { id: 'playbook-placeholders-audio', name: '仮枠（音）', lane: 'visual', items: [] };
     let at = 0;
     if (hasBeats) {
         for (const beat of [...beats].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {

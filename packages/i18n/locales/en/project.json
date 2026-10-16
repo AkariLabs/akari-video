@@ -457,7 +457,7 @@
   "project.library.shelf.libraryLabel": "Library",
   "project.library.shelf.lutNotFoundMessage": "LUT not found.",
   "project.library.shelf.myAssetsLabel": "My assets",
-  "project.library.playbook.shelfLabel": "Playbooks",
+  "project.library.playbook.shelfLabel": "Templates",
   "project.library.playbook.templateBadge": "Template",
   "project.library.playbook.source.local": "On this computer",
   "project.library.playbook.source.channel": "Channel",

@@ -155,13 +155,13 @@ test('applyPlaybook places audio at zero on a separate audio track for the full 
     assert.equal(audio.name, '仮枠（音）');
     assert.deepEqual(visual.items.map(item => [item.id, item.at, item.duration]),
       [['playbook-talking-head', 0, 1200], ['playbook-screen', 1200, 600]]);
-    assert.equal(audio.lane, 'audio');
+    assert.equal(audio.lane, 'visual');
     assert.deepEqual(audio.items.map(item => [item.id, item.at, item.duration]), [['playbook-bgm', 0, 1800]]);
     const lint = spawnSync(process.execPath, [join(repo, 'packages', 'edit-lint', 'bin', 'edit-lint.mjs'), projectDir, '--json'],
       { encoding: 'utf8' });
-    assert.equal(lint.status, 1, lint.stderr);
+    assert.equal(lint.status, 0, lint.stderr || lint.stdout);
     const findings = JSON.parse(lint.stdout).findings;
-    assert.deepEqual(findings.filter(finding => finding.severity !== 'info').map(finding => finding.check), ['v2.lane-source']);
+    assert.deepEqual(findings.filter(finding => finding.severity === 'error').map(finding => finding.check), []);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 

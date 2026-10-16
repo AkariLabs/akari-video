@@ -8,7 +8,7 @@ interface Props { service: { listPlaybooks(channel?: string): Promise<Entry[]> }
 
 export function PlaybookShelfView({ service, channel, openMarkdown }: Props): React.ReactElement {
     const [entries, setEntries] = React.useState<Entry[]>([]);
-    React.useEffect(() => { let active = true; void service.listPlaybooks(channel).then(value => { if (active) setEntries(value); })
+    React.useEffect(() => { let active = true; void service.listPlaybooks(channel).then(value => { if (active) setEntries(value.filter(entry => entry.playbook.depth === 3)); })
         .catch(() => { if (active) setEntries([]); });
         return () => { active = false; }; }, [service, channel]);
     return <section data-akari-playbook-shelf style={{ padding: '10px' }}>

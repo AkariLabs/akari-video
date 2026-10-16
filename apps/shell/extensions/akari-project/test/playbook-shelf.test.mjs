@@ -4,9 +4,9 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { playbookShelfAction, playbookDragPayload, channelFromProjectPath } = require('../lib/common/playbook-shelf.js');
-test('template and depth 2 placeholders drag; depth 1 opens', () => {
+test('only templates (depth 3) drag; depth 1 and 2 open the playbook', () => {
   assert.equal(playbookShelfAction({ depth: 1 }), 'open');
-  assert.equal(playbookShelfAction({ depth: 2, placeholders: [{ id: 'a' }] }), 'drag');
+  assert.equal(playbookShelfAction({ depth: 2, placeholders: [{ id: 'a' }] }), 'open');
   assert.equal(playbookShelfAction({ depth: 3 }), 'drag');
   assert.equal(playbookDragPayload({ id: 'x', name: 'X', depth: 3 }, '/tmp/x').kind, 'playbook');
   assert.equal(channelFromProjectPath('/tmp/root/channels/main/videos/project'), 'main');
