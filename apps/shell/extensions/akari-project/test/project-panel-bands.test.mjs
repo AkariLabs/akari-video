@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { materialRows, materialChipCounts, visibleMaterialRows, projectPanelBands, recordGroupWindow } from '../lib/common/project-panel-bands.js';
+import {
+    clampExportBandHeight, dragExportBandHeight, EXPORT_BAND_DEFAULT_HEIGHT, EXPORT_BAND_MIN_HEIGHT,
+    formatExportTimestamp, materialRows, materialChipCounts, parseExportBandHeight, projectPanelBands,
+    recordGroupWindow, serializeExportBandHeight, visibleMaterialRows
+} from '../lib/common/project-panel-bands.js';
 
 test('empty asset folder with three plan canvases has a placeholder chip count of three', () => {
     const edit = { tracks: [{ items: [
@@ -25,7 +29,7 @@ test('material chips classify files, recipes, and provenance-backed bakes', () =
     assert.deepEqual([counts.video, counts.image, counts.audio, counts.recipe, counts.baked], [1, 1, 1, 1, 1]);
 });
 
-test('five exports produce three preview rows and All (5); records contain no exports', () => {
+test('all exports stay in the export band in newest-first order; records contain no exports', () => {
     const entries = [
         ...Array.from({ length: 5 }, (_, mtime) => ({ kind: 'export', mtime, name: `v${mtime}.mp4` })),
         { kind: 'plan', mtime: 8, name: 'plan.md' },
@@ -33,9 +37,7 @@ test('five exports produce three preview rows and All (5); records contain no ex
         { kind: 'report', mtime: 6, name: 'review.html' }
     ];
     const bands = projectPanelBands(entries);
-    assert.deepEqual(bands.exportPreview.map(entry => entry.name), ['v4.mp4', 'v3.mp4', 'v2.mp4']);
-    assert.equal(bands.exportAll.length, 5);
-    assert.equal(bands.showAllExports, true);
+    assert.deepEqual(bands.exportAll.map(entry => entry.name), ['v4.mp4', 'v3.mp4', 'v2.mp4', 'v1.mp4', 'v0.mp4']);
     assert.equal(Object.values(bands.records).flat().some(entry => entry.kind === 'export'), false);
 });
 
@@ -61,12 +63,39 @@ test('record groups show five rows and a remaining count only above five', () =>
     assert.deepEqual(recordGroupWindow(seven.slice(0, 5)), { rows: [0, 1, 2, 3, 4], remaining: 0 });
 });
 
-test('zero exports need an empty band; three exports do not need All', () => {
-    const empty = projectPanelBands([{ kind: 'plan', mtime: 1 }]);
-    assert.equal(empty.exportPreview.length, 0);
-    assert.equal(empty.exportAll.length, 0);
-    assert.equal(empty.showAllExports, false);
-    const three = projectPanelBands(Array.from({ length: 3 }, (_, mtime) => ({ kind: 'export', mtime })));
-    assert.equal(three.exportPreview.length, 3);
-    assert.equal(three.showAllExports, false);
+test('default height does not depend on export count', () => {
+    const heights = [0, 2, 30].map(count => {
+        const exports = projectPanelBands(Array.from({ length: count }, (_, mtime) => ({ kind: 'export', mtime }))).exportAll;
+        assert.equal(exports.length, count);
+        return clampExportBandHeight(EXPORT_BAND_DEFAULT_HEIGHT, 500);
+    });
+    assert.deepEqual(heights, [EXPORT_BAND_DEFAULT_HEIGHT, EXPORT_BAND_DEFAULT_HEIGHT, EXPORT_BAND_DEFAULT_HEIGHT]);
+});
+
+test('upward drag changes height and produces a restorable saved value', () => {
+    const dragged = dragExportBandHeight(EXPORT_BAND_DEFAULT_HEIGHT, 200, 120, 500);
+    assert.equal(dragged, EXPORT_BAND_DEFAULT_HEIGHT + 80);
+    assert.equal(clampExportBandHeight(parseExportBandHeight(serializeExportBandHeight(dragged)), 500), dragged);
+});
+
+test('height clamps to one row minimum and 70 percent of the panel maximum', () => {
+    assert.equal(clampExportBandHeight(0, 500), EXPORT_BAND_MIN_HEIGHT);
+    assert.equal(clampExportBandHeight(1000, 500), 350);
+    assert.equal(dragExportBandHeight(EXPORT_BAND_DEFAULT_HEIGHT, 100, 1000, 500), EXPORT_BAND_MIN_HEIGHT);
+    assert.equal(dragExportBandHeight(EXPORT_BAND_DEFAULT_HEIGHT, 1000, 0, 500), 350);
+    assert.equal(parseExportBandHeight('12px'), undefined);
+    assert.equal(parseExportBandHeight('-1'), undefined);
+    assert.equal(parseExportBandHeight(null), undefined);
+});
+
+test('reset uses the fixed default and clears the saved override', () => {
+    const saved = serializeExportBandHeight(dragExportBandHeight(EXPORT_BAND_DEFAULT_HEIGHT, 200, 120, 500));
+    assert.notEqual(parseExportBandHeight(saved), EXPORT_BAND_DEFAULT_HEIGHT);
+    assert.equal(clampExportBandHeight(parseExportBandHeight(null) ?? EXPORT_BAND_DEFAULT_HEIGHT, 500), EXPORT_BAND_DEFAULT_HEIGHT);
+});
+
+test('export timestamps show time today and month/day on other dates', () => {
+    const now = new Date(2026, 9, 16, 12, 0).getTime();
+    assert.equal(formatExportTimestamp(new Date(2026, 9, 16, 9, 4).getTime(), now), '09:04');
+    assert.equal(formatExportTimestamp(new Date(2026, 9, 15, 23, 59).getTime(), now), '10/15');
 });

@@ -3,7 +3,7 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection } from '@theia/core/lib/common';
 import { QuickInputService } from '@theia/core/lib/browser';
-import { isOSX, isWindows } from '@theia/core/lib/common/os';
+import { isOSX } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService } from '../common/akari-project-protocol';
@@ -17,7 +17,11 @@ import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './
 import { buildMaterialContextMenuItems } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
 import { formatOutputTimestamp } from '../common/output-timestamp';
-import { projectPanelBands, recordGroupWindow, RecordKind } from '../common/project-panel-bands';
+import {
+    clampExportBandHeight, dragExportBandHeight, EXPORT_BAND_DEFAULT_HEIGHT, EXPORT_BAND_HEIGHT_KEY,
+    EXPORT_BAND_MIN_HEIGHT, formatExportTimestamp, parseExportBandHeight, projectPanelBands,
+    recordGroupWindow, RecordKind, serializeExportBandHeight
+} from '../common/project-panel-bands';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
@@ -92,10 +96,75 @@ export class AkariOutputsPane {
     protected readonly changedOutputUris = new Set<string>();
     protected foldedRecordGroups = new Set<RecordKind>();
     protected expandedRecordGroups = new Set<RecordKind>();
-    protected allExportsOpen = false;
     protected stateRootKey?: string;
+    protected exportBandHeight = EXPORT_BAND_DEFAULT_HEIGHT;
+    protected exportBandPanelHeight = Number.POSITIVE_INFINITY;
+    protected exportBandPanel?: HTMLDivElement;
+    protected exportBandResizeObserver?: ResizeObserver;
+    protected exportBandDrag?: { pointerId: number; startY: number; startHeight: number };
 
-    constructor(protected readonly host: OutputsPaneHost) {}
+    constructor(protected readonly host: OutputsPaneHost) {
+        try {
+            this.exportBandHeight = parseExportBandHeight(window.localStorage.getItem(EXPORT_BAND_HEIGHT_KEY))
+                ?? EXPORT_BAND_DEFAULT_HEIGHT;
+        } catch { /* Session resizing still works. */ }
+    }
+
+    protected readonly attachExportBandPanel = (element: HTMLDivElement | null): void => {
+        if (this.exportBandPanel === element) return;
+        this.exportBandResizeObserver?.disconnect();
+        this.exportBandPanel = element ?? undefined;
+        if (!element) return;
+        const updatePanelHeight = (): void => {
+            const nextHeight = element.clientHeight;
+            if (nextHeight === this.exportBandPanelHeight) return;
+            const previousHeight = clampExportBandHeight(this.exportBandHeight, this.exportBandPanelHeight);
+            this.exportBandPanelHeight = nextHeight;
+            if (clampExportBandHeight(this.exportBandHeight, nextHeight) !== previousHeight) this.host.update();
+        };
+        updatePanelHeight();
+        if (typeof ResizeObserver !== 'undefined') {
+            this.exportBandResizeObserver = new ResizeObserver(updatePanelHeight);
+            this.exportBandResizeObserver.observe(element);
+        }
+    };
+
+    protected onExportBandPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        this.exportBandPanelHeight = this.exportBandPanel?.clientHeight ?? this.exportBandPanelHeight;
+        this.exportBandDrag = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startHeight: clampExportBandHeight(this.exportBandHeight, this.exportBandPanelHeight)
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    protected onExportBandPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
+        const drag = this.exportBandDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const height = dragExportBandHeight(drag.startHeight, drag.startY, event.clientY, this.exportBandPanelHeight);
+        if (height !== this.exportBandHeight) {
+            this.exportBandHeight = height;
+            this.host.update();
+        }
+    }
+
+    protected onExportBandPointerEnd(event: React.PointerEvent<HTMLDivElement>): void {
+        if (this.exportBandDrag?.pointerId !== event.pointerId) return;
+        this.exportBandDrag = undefined;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        try { window.localStorage.setItem(EXPORT_BAND_HEIGHT_KEY, serializeExportBandHeight(this.exportBandHeight)); }
+        catch { /* Session resizing still works. */ }
+    }
+
+    protected resetExportBandHeight(): void {
+        this.exportBandHeight = EXPORT_BAND_DEFAULT_HEIGHT;
+        try { window.localStorage.removeItem(EXPORT_BAND_HEIGHT_KEY); }
+        catch { /* Session resizing still works. */ }
+        this.host.update();
+    }
 
     // --- できたもの（下段・read-only） -----------------------------------------
 
@@ -117,7 +186,6 @@ export class AkariOutputsPane {
         const root = this.host.workflow.workspaceRoot;
         if (this.stateRootKey !== root?.toString()) {
             this.stateRootKey = root?.toString();
-            this.allExportsOpen = false;
             this.foldedRecordGroups.clear();
             this.expandedRecordGroups.clear();
             if (root) try {
@@ -514,7 +582,7 @@ export class AkariOutputsPane {
     public renderOutputsPane(): React.ReactNode {
         const bands = projectPanelBands(this.outputs);
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            <div ref={this.attachExportBandPanel} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <div style={{
                     flex: '0 0 auto',
                     display: 'flex',
@@ -537,14 +605,25 @@ export class AkariOutputsPane {
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.renderOutputsBody()}
                 </div>
-                <div className='akari-export-band' data-akari-export-count={bands.exportAll.length}>
-                    <div className='akari-export-band-heading'>{t('project.workspace.bands.exportsLabel')} <small>exports/</small></div>
-                    {bands.exportPreview.length ? bands.exportPreview.map(entry => this.renderExportRow(entry))
-                        : <div className='akari-export-empty'>{t('project.workspace.bands.noExportsMessage')}</div>}
-                    {bands.showAllExports && <button type='button' className='akari-export-all'
-                        onClick={() => { this.allExportsOpen = !this.allExportsOpen; this.host.update(); }}>
-                        {t('project.workspace.bands.allExportsLabel', { count: bands.exportAll.length })}
-                    </button>}
+                <div className='akari-export-band' data-akari-export-count={bands.exportAll.length}
+                    data-akari-export-band-height={clampExportBandHeight(this.exportBandHeight, this.exportBandPanelHeight)}
+                    style={{ height: `${clampExportBandHeight(this.exportBandHeight, this.exportBandPanelHeight)}px` }}>
+                    <div className='akari-export-band-handle' data-akari-export-band-handle
+                        role='separator' aria-orientation='horizontal' aria-label={t('project.workspace.bands.exportsLabel')}
+                        aria-valuemin={EXPORT_BAND_MIN_HEIGHT}
+                        aria-valuemax={Number.isFinite(this.exportBandPanelHeight)
+                            ? Math.max(EXPORT_BAND_MIN_HEIGHT, Math.floor(this.exportBandPanelHeight * 0.7)) : undefined}
+                        aria-valuenow={clampExportBandHeight(this.exportBandHeight, this.exportBandPanelHeight)}
+                        onPointerDown={event => this.onExportBandPointerDown(event)}
+                        onPointerMove={event => this.onExportBandPointerMove(event)}
+                        onPointerUp={event => this.onExportBandPointerEnd(event)}
+                        onPointerCancel={event => this.onExportBandPointerEnd(event)}
+                        onDoubleClick={() => this.resetExportBandHeight()} />
+                    <div className='akari-export-band-heading'>{t('project.workspace.bands.exportsLabel')} <small>exports/</small> <small>{bands.exportAll.length}</small></div>
+                    <div className='akari-export-list'>
+                        {bands.exportAll.length ? bands.exportAll.map(entry => this.renderExportRow(entry))
+                            : <div className='akari-export-empty'>{t('project.workspace.bands.noExportsMessage')}</div>}
+                    </div>
                 </div>
             </div>
         );
@@ -564,10 +643,6 @@ export class AkariOutputsPane {
                 data-akari-outputs-count={this.outputs.length}
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 10px 10px' }}
             >
-                {this.allExportsOpen && <div data-akari-all-exports>
-                    <div className='akari-export-band-heading'>{t('project.workspace.bands.exportsLabel')}</div>
-                    {bands.exportAll.map(entry => this.renderOutputCard(entry))}
-                </div>}
                 {RECORD_GROUPS.map(kind => this.renderRecordGroup(kind, bands.records[kind]))}
             </div>
         );
@@ -613,15 +688,11 @@ export class AkariOutputsPane {
             data-akari-onboarding-target='export-result'
             onClick={() => void this.host.openFile(entry.uri)} onContextMenu={event => this.openOutputContextMenu(event, entry)}
             title={entry.name}>
+            {entry.thumbnailUri
+                ? <img className='akari-export-icon' src={entry.thumbnailUri.toString()} alt='' />
+                : <span className={`${this.outputIcon(entry)} akari-export-icon`} aria-hidden='true' />}
             <span className='akari-export-name'>{entry.name}</span>
-            <small>{this.formatOutputTimestamp(entry.mtime)} · {this.formatFileSize(entry.size)}</small>
-            <button type='button' className='akari-export-open' onClick={event => { event.stopPropagation(); void this.host.openFile(entry.uri); }}>
-                {t('project.workspace.bands.openAction')}</button>
-            <button type='button' className='akari-export-reveal' title={revealInFileManagerActionLabel(entry.name)}
-                onClick={event => { event.stopPropagation(); void this.revealOutputInFileManager(entry); }}>
-                {isOSX ? t('project.materials.contextMenu.showFinderAction')
-                    : isWindows ? t('project.workspace.bands.revealExplorerAction')
-                        : t('project.materials.contextMenu.openFolderAction')}</button>
+            <small>{formatExportTimestamp(entry.mtime)}</small>
         </div>;
     }
 
