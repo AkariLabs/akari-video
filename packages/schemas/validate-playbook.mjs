@@ -23,6 +23,7 @@ function itemSchema() {
 function schemaChecker() {
   schemaCheckerPromise ??= (async () => {
     try {
+      // optional-import: ajv/dist/2020.js — 同梱しない CLI では下の ERR_MODULE_NOT_FOUND で基本検査に落ちる
       const { default: Ajv2020 } = await import('ajv/dist/2020.js');
       return new Ajv2020({ allErrors: true, strict: false }).compile(playbookSchema());
     } catch (error) {

@@ -31,6 +31,15 @@ function specifiers(source) {
   return found;
 }
 
+// 無くても動く読み込み（ERR_MODULE_NOT_FOUND を受けて代替の経路に落ちる設計）だけは、
+// ファイルの中で `// optional-import: <指定子>` と宣言したものに限って裸の指定子を許す。
+// 宣言の無い裸の指定子は従来どおり bare として報告する。
+function optionalSpecifiers(source) {
+  const found = new Set();
+  for (const match of source.matchAll(/(?:\/\/|\/\*)\s*optional-import:\s*([\w@./-]+)/g)) found.add(match[1]);
+  return found;
+}
+
 /** 解決できない参照の理由を、修正方法とともに表示する。 */
 export function describeUnresolved(issue, file = issue.file) {
   const { specifier, path: target, reason } = issue;
@@ -93,9 +102,11 @@ export async function tracePackageClosure({ roots, packagesRoot, readFile, isFil
     if (!/\.(?:js|mjs|cjs)$/.test(file)) continue;
     const contents = await readFile(file);
     const owner = pathApi.relative(packagesRoot, file).split(pathApi.sep)[0];
+    const optional = optionalSpecifiers(contents);
     for (const specifier of specifiers(contents)) {
       if (!specifier.startsWith('.')) {
         if (builtins.has(specifier.replace(/^node:/, ''))) continue;
+        if (optional.has(specifier)) continue;
         if (!rootPackages.has(owner)) unresolved.push({ file, specifier, path: null, reason: 'bare' });
         continue;
       }

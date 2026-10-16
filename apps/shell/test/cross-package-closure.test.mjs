@@ -138,3 +138,18 @@ test('package.json の main が必要なディレクトリは止める', async (
     assert.deepEqual(unresolved.map(item => item.reason), ['package-main']);
   } finally { await f.close(); }
 });
+
+test('optional-import と宣言した裸の指定子だけを許し、宣言の無いものは bare のまま', async () => {
+  const f = await fixture({
+    'entry/src/index.mjs': "import value from '../../schemas/validate.mjs';",
+    'schemas/validate.mjs': [
+      "// optional-import: ajv/dist/2020.js",
+      "export async function compile() { try { return (await import('ajv/dist/2020.js')).default; } catch (error) { if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error; return null; } }",
+      "import other from 'left-pad';"
+    ].join('\n')
+  });
+  try {
+    const result = await f.trace();
+    assert.deepEqual(result.unresolved.map(issue => [issue.specifier, issue.reason]), [['left-pad', 'bare']]);
+  } finally { await f.close(); }
+});
