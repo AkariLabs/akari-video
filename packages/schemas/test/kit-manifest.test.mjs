@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from 'node:crypto';
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -42,6 +43,32 @@ test("validate-kit-manifest accepts the valid fixture", () => {
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^OK: /);
   assert.equal(executed.stderr, "");
+});
+
+test('kit validator includes depth 3 template/media contents', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'akari-template-kit-'));
+  try {
+    cpSync(join(exampleRoot, 'kit-manifest-v1-valid'), scratch, { recursive: true });
+    const dir = join(scratch, 'playbooks', 'pixel');
+    mkdirSync(join(dir, 'template', 'media'), { recursive: true });
+    const bytes = Buffer.from('pixel');
+    writeFileSync(join(dir, 'template', 'media', 'pixel.png'), bytes);
+    writeFileSync(join(dir, 'template', 'item.json'), JSON.stringify({ id: 'group', at: 0, duration: 30,
+      source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [
+        { id: 'image', at: 0, duration: 30, source: { kind: 'media', src: 'template/media/pixel.png', in: 0, out: 1 } }
+      ] }));
+    const book = JSON.parse(readFileSync(join(packageRoot, '..', 'project-scaffold', 'test', 'fixtures', 'playbook-sample', 'playbook.json')));
+    Object.assign(book, { id: 'pixel', depth: 3, placeholders: [], template: { item: 'template/item.json', fps: 30, width: 1080,
+      height: 1920, durationSec: 1, slots: [], media: [{ path: 'template/media/pixel.png',
+        sha256: createHash('sha256').update(bytes).digest('hex'), license: 'CC0-1.0', source: 'own' }] } });
+    writeFileSync(join(dir, 'playbook.json'), JSON.stringify(book));
+    writeFileSync(join(dir, 'playbook.md'), readFileSync(join(packageRoot, '..', 'project-scaffold', 'test', 'fixtures', 'playbook-sample', 'playbook.md')));
+    const manifest = JSON.parse(readFileSync(join(scratch, 'manifest.json')));
+    manifest.playbooks = [{ dir: 'playbooks/pixel' }];
+    writeFileSync(join(scratch, 'manifest.json'), JSON.stringify(manifest));
+    const executed = spawnSync(process.execPath, [cliPath, scratch], { encoding: 'utf8' });
+    assert.equal(executed.status, 0, executed.stderr);
+  } finally { rmSync(scratch, { recursive: true, force: true }); }
 });
 
 const invalidCases = [

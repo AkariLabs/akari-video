@@ -21,6 +21,8 @@ interface ProjectScaffoldModule {
         options?: { skillsSourceDir?: string; schemasSourceDir?: string }
     ): Promise<unknown>;
     applyPlaybook?(options: { projectDir: string; playbookDir: string }): Promise<unknown>;
+    listPlaybooks(options: { akariHome: string; channelDir?: string }): Promise<Array<{
+        dir: string; source: 'channel' | 'local' | 'lab' }>>;
 }
 
 /**
@@ -131,7 +133,7 @@ function isPlaybook(value: unknown): value is AkariPlaybook {
     const record = value as Partial<AkariPlaybook>;
     return record.version === 0 && record.kind === 'akari-playbook'
         && typeof record.id === 'string' && typeof record.name === 'string'
-        && typeof record.playbookVersion === 'number' && (record.depth === 1 || record.depth === 2)
+        && typeof record.playbookVersion === 'number' && [1, 2, 3].includes(record.depth)
         && typeof record.category === 'string' && PLAYBOOK_CATEGORIES.has(record.category)
         && Array.isArray(record.steps) && record.steps.every(step => step && typeof step.id === 'string'
             && typeof step.title === 'string' && typeof step.what === 'string')
@@ -264,6 +266,28 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     }
 
     async listPlaybooks(channel?: string): Promise<AkariPlaybookListEntry[]> {
+        const scaffold = await this.loadScaffoldModule().catch(() => undefined);
+        if (!scaffold?.listPlaybooks) return this.listPlaybooksLegacy(channel);
+        const home = process.env.AKARI_HOME || join(homedir(), '.akari');
+        const channelName = safeChannelPathName(channel);
+        const creator = channelName ? await this.loadCreatorRootModule() : undefined;
+        const root = creator ? await creator.resolveCreatorRoot({ env: process.env }) : undefined;
+        const channelDir = root && channelName ? join(root.rootDir, 'channels', channelName, 'playbooks') : undefined;
+        const entries = await scaffold.listPlaybooks({ akariHome: home, channelDir });
+        const result: AkariPlaybookListEntry[] = [];
+        for (const entry of entries) {
+            try {
+                const value: unknown = JSON.parse(await fs.readFile(join(entry.dir, 'playbook.json'), 'utf8'));
+                if (!isPlaybook(value)) continue;
+                result.push({ dir: entry.dir, source: entry.source, playbook: value,
+                    ...await playbookPreviewData(entry.dir, value.preview) });
+            } catch { /* tolerant reader */ }
+        }
+        return result;
+    }
+
+    /* Legacy shelf resolver retained below for older callers; listPlaybooks above is authoritative. */
+    private async listPlaybooksLegacy(channel?: string): Promise<AkariPlaybookListEntry[]> {
         const home = process.env.AKARI_HOME || join(homedir(), '.akari');
         const installed = new Map<string, string>();
         try {

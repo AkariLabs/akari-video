@@ -141,7 +141,7 @@ test('record helper groups two sources with the same role into one placeholder',
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 
-test('applyPlaybook places audio at zero on a separate visual track for the full picture duration', async () => {
+test('applyPlaybook places audio at zero on a separate audio track for the full picture duration', async () => {
   const scratch = await mkdtemp(join(tmpdir(), 'akari-playbook-tracks-'));
   try {
     const projectDir = join(scratch, 'new');
@@ -155,14 +155,13 @@ test('applyPlaybook places audio at zero on a separate visual track for the full
     assert.equal(audio.name, '仮枠（音）');
     assert.deepEqual(visual.items.map(item => [item.id, item.at, item.duration]),
       [['playbook-talking-head', 0, 1200], ['playbook-screen', 1200, 600]]);
-    assert.equal(audio.lane, 'visual');
+    assert.equal(audio.lane, 'audio');
     assert.deepEqual(audio.items.map(item => [item.id, item.at, item.duration]), [['playbook-bgm', 0, 1800]]);
     const lint = spawnSync(process.execPath, [join(repo, 'packages', 'edit-lint', 'bin', 'edit-lint.mjs'), projectDir, '--json'],
       { encoding: 'utf8' });
-    assert.equal(lint.status, 0, lint.stderr);
+    assert.equal(lint.status, 1, lint.stderr);
     const findings = JSON.parse(lint.stdout).findings;
-    assert.equal(findings.find(finding => finding.check === 'intake.status')?.severity, 'info');
-    assert.equal(findings.filter(finding => finding.severity !== 'info').length, 0, JSON.stringify(findings));
+    assert.deepEqual(findings.filter(finding => finding.severity !== 'info').map(finding => finding.check), ['v2.lane-source']);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 

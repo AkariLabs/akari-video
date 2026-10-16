@@ -79,9 +79,9 @@ test('akari --help lists project and playbook commands in Japanese and English',
       });
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /^  project sync\|check\|scene add  /m);
-      assert.match(result.stdout, /^  playbook list\|apply  /m);
+      assert.match(result.stdout, /^  playbook list\|apply\|template  /m);
       assert.equal(result.stdout.match(/^  project sync\|check\|scene add  /gm)?.length, 1);
-      assert.equal(result.stdout.match(/^  playbook list\|apply  /gm)?.length, 1);
+      assert.equal(result.stdout.match(/^  playbook list\|apply\|template  /gm)?.length, 1);
     }
   } finally {
     await rm(home, { recursive: true, force: true });

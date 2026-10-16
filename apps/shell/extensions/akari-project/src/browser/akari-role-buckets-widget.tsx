@@ -4,6 +4,8 @@ import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
 import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
 import { AkariLintPane, LintPaneHost } from './akari-lint-pane';
+import { PlaybookShelfView } from './playbook-shelf-view';
+import { channelFromProjectPath } from '../common/playbook-shelf';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -343,6 +345,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly workflow!: AkariWorkflowService;
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
+    @inject(require('../../../akari-surfaces/lib/common/akari-new-project-protocol').AkariNewProjectService)
+    protected readonly playbookService!: { listPlaybooks(channel?: string): Promise<any[]> };
     @inject(FileService)
     protected readonly files!: FileService;
     @inject(OpenerService)
@@ -2794,6 +2798,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }, { rows: [], group: [] }).rows}
                 </section>
                 {this.renderRecentLibraryStrip()}
+                {typeof PlaybookShelfView !== 'undefined' && <PlaybookShelfView service={this.playbookService}
+                    channel={channelFromProjectPath(this.workflow.workspaceRoot?.path.fsPath())}
+                    openMarkdown={dir => void open(this.openers, new URI(`file://${dir}/playbook.md`))} />}
                 <button type='button' data-akari-library-details-toggle aria-expanded={this.libraryDetailsOpen}
                     onClick={event => { event.stopPropagation(); this.toggleLibraryDetails(); }}
                     style={{

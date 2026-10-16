@@ -59,3 +59,18 @@ export function canvasForTimelineRow(
     }
     return undefined;
 }
+
+/** A collapsed template group still exposes the planned child under the pointer. */
+export function collapsedPlanSlotAt(group: Record<string, any> | undefined, absoluteFrame: number): string | undefined {
+    if (!group || !Number.isFinite(absoluteFrame)) return undefined;
+    const visit = (item: Record<string, any>, offset: number): string | undefined => {
+        const at = offset + Number(item.at ?? 0);
+        if (absoluteFrame < at || absoluteFrame >= at + Number(item.duration ?? 0)) return undefined;
+        for (const child of item.items ?? []) {
+            const found = visit(child, at);
+            if (found) return found;
+        }
+        return item.source?.kind === 'group' && item.source.canvas?.origin === 'plan' ? String(item.id) : undefined;
+    };
+    return visit(group, 0);
+}

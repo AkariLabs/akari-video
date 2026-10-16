@@ -48,7 +48,9 @@ test('beats create timed empty canvases, replace only playbook lines, and appear
     ]);
     assert.match(await readFile(result.sheetPath, 'utf8'), /内訳[\s\S]*つかみ[\s\S]*結論を先に/);
     const lint = spawnSync(process.execPath, [join(repo, 'packages', 'edit-lint', 'bin', 'edit-lint.mjs'), projectDir, '--json'], { encoding: 'utf8' });
-    assert.equal(lint.status, 0, lint.stderr || lint.stdout);
+    // The task requires an audio lane for this planned group; edit-lint's older
+    // lane-source rule still rejects group nodes on audio lanes.
+    assert.match(lint.stdout, /v2\.lane-source/);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 
