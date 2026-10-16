@@ -744,6 +744,8 @@
   "preview.chatReview.ui.memoPlaceholderLabel": "Describe what to change",
   "preview.chatReview.ui.deleteLabel": "Delete",
   "preview.chatReview.ui.doneLabel": "Done",
+  "preview.chatReview.ui.noteCloseLabel": "Close note",
+  "preview.chatReview.ui.trayCloseLabel": "Close attachments",
   "preview.chatReview.ui.copyToClipboardAction": "Hand to AI",
   "preview.chatReview.ui.attachToPartnerLabel": "Hand to AI",
   "preview.chatReview.ui.penHintText": "Draw on the video",
@@ -755,7 +757,7 @@
   "preview.chatReview.ui.removeLabel": "Remove",
   "preview.chatReview.ui.memoTooLongMessage": "The note is too long. Shorten it.",
   "preview.chatReview.ui.reviewLabel": "{sourceLabel} {time}s",
-  "preview.chatReview.ui.attachCountLabel_one": "Hand to AI ({count})",
-  "preview.chatReview.ui.attachCountLabel_other": "Hand to AI ({count})",
+  "preview.chatReview.ui.attachCountLabel_one": "Attachment ({count})",
+  "preview.chatReview.ui.attachCountLabel_other": "Attachments ({count})",
   "preview.chatReview.source.defaultVideoLabel": "Video"
 }
