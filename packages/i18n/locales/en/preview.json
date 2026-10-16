@@ -740,6 +740,7 @@
   "preview.chatReview.ui.penLabel": "Pen",
   "preview.chatReview.ui.pinLabel": "Pin",
   "preview.chatReview.ui.rangeLabel": "Range",
+  "preview.chatReview.ui.markLabel": "Marks",
   "preview.chatReview.ui.startLabel": "Start",
   "preview.chatReview.ui.endLabel": "End",
   "preview.chatReview.ui.attachZeroLabel": "0 attachments",

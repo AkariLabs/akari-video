@@ -44,7 +44,7 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
     try {
         const page = await browser.newPage();
         const measurements = [];
-        for (const width of [1100, 961, 800, 600, 480, 461, 460, 420, 400, 380]) {
+        for (const width of [1100, 961, 800, 600, 480, 461, 460, 420, 400, 380, 379, 360, 359, 341, 340, 320, 301, 300, 280, 240]) {
             await page.setViewport({ width, height: 500 });
             await page.setContent(`<style>${css}</style><main class="workspace"><section class="preview-pane"></section></main>${transportHtml}`);
             await page.evaluate(({ toolbarHtml, popupsHtml }) => {
@@ -59,18 +59,24 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 const popups = document.createElement('div');
                 popups.innerHTML = popupsHtml;
                 document.body.append(popups.querySelector('[data-review-note]'), popups.querySelector('#review-chat-tray'));
-                document.querySelector('#time-label').textContent = '12:34 / 1:02:03';
+                document.querySelector('.time-current').textContent = '0:02';
+                document.querySelector('.time-total').textContent = ' / 1:02:03';
+                const markToggle = toolbar.querySelector('[data-review-mark-toggle]');
+                const markChoices = toolbar.querySelector('.review-tool-choices');
+                markToggle.addEventListener('click', () => markChoices.classList.toggle('is-open'));
             }, { toolbarHtml, popupsHtml });
 
-            const measure = () => page.evaluate(() => {
+            const measure = () => page.evaluate(width => {
                 const rect = element => {
                     const { left, right, top, bottom, width, height } = element.getBoundingClientRect();
                     return { left, right, top, bottom, width, height };
                 };
                 const transport = document.querySelector('.transport');
-                const buttons = [...document.querySelectorAll('.transport-controls button')]
-                    .filter(button => button.getClientRects().length && getComputedStyle(button).visibility !== 'hidden')
-                    .map(button => ({ id: button.id || button.dataset.reviewTool || button.dataset.reviewRangeStart || button.dataset.reviewRangeEnd || 'attach', ...rect(button) }));
+                const visibleButtons = [...document.querySelectorAll('.transport-controls button')]
+                    .filter(button => button.getClientRects().length && getComputedStyle(button).visibility !== 'hidden');
+                const buttonBox = button => ({ id: button.id || button.dataset.reviewTool || button.dataset.reviewRangeStart || button.dataset.reviewRangeEnd || 'attach', ...rect(button) });
+                const buttons = visibleButtons.map(buttonBox);
+                const inlineButtons = visibleButtons.filter(button => !button.closest('.review-tool-choices')).map(buttonBox);
                 const rows = [];
                 for (const button of buttons) {
                     if (!rows.some(top => Math.abs(top - button.top) <= 4)) rows.push(button.top);
@@ -79,7 +85,7 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 const play = rect(document.querySelector('#play-toggle'));
                 const toolsElement = document.querySelector('.review-tools');
                 const tools = rect(toolsElement);
-                const firstTool = rect(document.querySelector('[data-review-tool="pen"]'));
+                const firstTool = rect(document.querySelector(width <= 300 ? '[data-review-mark-toggle]' : '[data-review-tool="pen"]'));
                 const area = rect(transport);
                 const divider = document.querySelector('.review-divider');
                 const right = document.querySelector('.transport-right');
@@ -90,7 +96,8 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 const hintBox = rect(hint);
                 const center = rect(document.querySelector('.transport-center'));
                 const attach = document.querySelector('[data-review-attach-count]');
-                return { buttons, rows: rows.length, seekToButton: Math.max(...buttons.map(button => button.bottom)) - seek.top,
+                return { buttons, inlineButtons, seek, controls: rect(document.querySelector('.transport-controls')),
+                    rows: rows.length, seekToButton: Math.max(...buttons.map(button => button.bottom)) - seek.top,
                     seekToTransport: area.bottom - seek.top, seekTop: seek.top,
                     controlsTop: rect(document.querySelector('.transport-controls')).top, playDrift: Math.abs((play.left + play.right - area.left - area.right) / 2),
                     tools, firstTool, right: rect(right), center, time: rect(time), hint: hintBox,
@@ -105,7 +112,7 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                     timeClipped: time.scrollWidth > time.clientWidth,
                     popupAnchor: popup.parentElement === right && getComputedStyle(right).position === 'relative'
                         && getComputedStyle(popup).position === 'absolute' };
-            });
+            }, width);
             const check = (result, state) => {
                 assert.ok(result.rows <= 2, `${width}px ${state}: ${result.rows} rows`);
                 assert.ok(result.playDrift <= 8, `${width}px ${state}: play drift ${result.playDrift}`);
@@ -115,10 +122,15 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 assert.ok(result.attachVisible, `${width}px ${state}: attachment visible`);
                 assert.ok(result.popupAnchor, `${width}px ${state}: popup anchor`);
                 assert.equal(result.timeClipped, false, `${width}px ${state}: time label fits`);
+                assert.ok(result.time.right <= result.center.left + 0.5,
+                    `${width}px ${state}: time ${result.time.right} stays clear of playback ${result.center.left}`);
                 assert.ok(result.buttons.length > 10, `${width}px ${state}: buttons present`);
-                assert.ok(result.buttons.every(button => button.width >= 24 && button.height >= 24), `${width}px ${state}: button size`);
+                const minimum = width === 240 ? 22 : 24;
+                assert.ok(result.buttons.every(button => button.width >= minimum && button.height >= minimum), `${width}px ${state}: button size`);
                 assert.ok(result.buttons.every(button => button.left >= result.area.left - 0.5 && button.right <= result.area.right + 0.5),
                     `${width}px ${state}: horizontal bounds`);
+                assert.ok(result.buttons.every(button => button.top >= result.area.top - 0.5 && button.bottom <= result.area.bottom + 0.5),
+                    `${width}px ${state}: vertical bounds`);
                 assert.ok(result.area.right - result.right.right <= 8,
                     `${width}px ${state}: right controls at right edge`);
                 assert.ok(Math.abs((result.firstTool.top + result.firstTool.bottom - result.time.top - result.time.bottom) / 2) <= 6,
@@ -160,8 +172,54 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
             };
             const base = await measure();
             check(base, 'base');
-            assert.equal(base.dividerDisplay, 'block', `${width}px attachment divider`);
-            assert.ok(base.dividerWidth > 0, `${width}px attachment divider width`);
+            assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.time-total')).display === 'none'),
+                width <= 380, `${width}px total time visibility`);
+            if (width <= 359) {
+                assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#skip-back')).display), 'none');
+                assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#skip-forward')).display), 'none');
+            }
+            if (width <= 300) {
+                assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-review-mark-toggle]')).display === 'none'), false);
+                assert.equal(await page.evaluate(() => [...document.querySelectorAll('.review-tool-choices [data-review-tool]')]
+                    .every(button => button.getClientRects().length === 0)), true);
+                assert.deepEqual(await page.evaluate(() => {
+                    const button = document.querySelector('[data-review-mark-toggle]');
+                    return { text:button.textContent.trim(), viewBox:button.querySelector('svg')?.getAttribute('viewBox') };
+                }), { text:'', viewBox:'0 0 24 24' });
+                const snapshot = result => ({ seek: result.seek, controls: result.controls,
+                    area: result.area, buttons: result.inlineButtons });
+                const beforeMark = snapshot(base);
+                await page.click('[data-review-mark-toggle]');
+                const opened = await measure();
+                const menu = await page.evaluate(() => {
+                    const rect = element => { const { left, right, top, bottom, width, height } = element.getBoundingClientRect();
+                        return { left, right, top, bottom, width, height }; };
+                    const choices = document.querySelector('.review-tool-choices');
+                    return { open: choices.classList.contains('is-open'), box: rect(choices),
+                        buttons: [...choices.querySelectorAll('[data-review-tool]')]
+                            .filter(button => button.getClientRects().length)
+                            .map(button => ({ tool:button.dataset.reviewTool, ...rect(button) })) };
+                });
+                assert.equal(menu.open, true, `${width}px mark menu opens`);
+                assert.deepEqual(menu.buttons.map(button => button.tool), ['pen', 'pin', 'range']);
+                assert.ok(menu.buttons.every(button => button.width >= 24 && button.height >= 24),
+                    `${width}px mark menu button size`);
+                assert.ok(menu.box.left >= opened.area.left - 0.5 && menu.box.right <= opened.area.right + 0.5,
+                    `${width}px mark menu stays inside transport width`);
+                for (let i = 0; i < menu.buttons.length; i++) {
+                    for (let j = i + 1; j < menu.buttons.length; j++) {
+                        const a = menu.buttons[i], b = menu.buttons[j];
+                        assert.ok(a.right <= b.left + 0.5 || b.right <= a.left + 0.5
+                            || a.bottom <= b.top + 0.5 || b.bottom <= a.top + 0.5,
+                        `${width}px mark menu ${a.tool} overlaps ${b.tool}`);
+                    }
+                }
+                assert.deepEqual(snapshot(opened), beforeMark, `${width}px mark menu leaves seek, controls and inline buttons in place`);
+                await page.click('[data-review-mark-toggle]');
+                assert.deepEqual(snapshot(await measure()), beforeMark, `${width}px closing mark menu leaves layout in place`);
+            }
+            assert.equal(base.dividerDisplay, width <= 359 ? 'none' : 'block', `${width}px attachment divider`);
+            if (width > 359) assert.ok(base.dividerWidth > 0, `${width}px attachment divider width`);
             assert.equal(base.attachDisabled, true, `${width}px zero attachments disabled`);
             const popupPosition = await page.evaluate(() => {
                 const popup = document.querySelector('#rate-popup');
@@ -179,11 +237,14 @@ test('transport はツールを 1 段目右に置き、2 段以内と再生中�
                 const hint = document.querySelector('[data-review-hint]');
                 hint.hidden = false;
                 hint.textContent = '始めと終わりを選択';
-                document.querySelector('[data-review-attach-count]').disabled = false;
+                const attach = document.querySelector('[data-review-attach-count]');
+                attach.disabled = false;
+                attach.dataset.reviewAttachCount = '12';
+                attach.querySelector('[data-review-attach-number]').textContent = '12';
             });
             const selected = await measure();
             check(selected, 'range and attachment');
-            assert.equal(selected.dividerDisplay, 'block', `${width}px shown attachment divider`);
+            assert.equal(selected.dividerDisplay, width <= 359 ? 'none' : 'block', `${width}px shown attachment divider`);
             assert.equal(selected.attachDisabled, false, `${width}px attachment enabled`);
             const layout = result => ({ area: result.area, previewPane: result.previewPane,
                 seekTop: result.seekTop, controlsTop: result.controlsTop, rows: result.rows });

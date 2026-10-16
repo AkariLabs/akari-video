@@ -40,6 +40,7 @@ export function previewChatReviewScript(): string {
         pen: translate('preview.chatReview.ui.penLabel'),
         pin: translate('preview.chatReview.ui.pinLabel'),
         range: translate('preview.chatReview.ui.rangeLabel'),
+        mark: translate('preview.chatReview.ui.markLabel'),
         start: translate('preview.chatReview.ui.startLabel'),
         end: translate('preview.chatReview.ui.endLabel'),
         attachZero: translate('preview.chatReview.ui.attachZeroLabel'),
@@ -163,7 +164,7 @@ export function previewChatReviewScript(): string {
         const marksNode = root.querySelector('[data-review-marks]');
         const toolbar = document.createElement('div');
         toolbar.className = 'review-toolbar';
-        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="__AKARI_UI_pen__" aria-label="__AKARI_UI_pen__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="__AKARI_UI_pin__" aria-label="__AKARI_UI_pin__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="__AKARI_UI_range__" aria-label="__AKARI_UI_range__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>__AKARI_UI_start__</button><button type="button" data-review-range-end>__AKARI_UI_end__</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="__AKARI_UI_attachZero__" aria-label="__AKARI_UI_attachZero__" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
+        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button review-mark-toggle" data-review-mark-toggle title="__AKARI_UI_mark__" aria-label="__AKARI_UI_mark__" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c4-3 6 3 10 0v10c-4 3-6-3-10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="review-tool-choices"><button type="button" class="icon-button" data-review-tool="pen" title="__AKARI_UI_pen__" aria-label="__AKARI_UI_pen__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="__AKARI_UI_pin__" aria-label="__AKARI_UI_pin__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="__AKARI_UI_range__" aria-label="__AKARI_UI_range__" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span><span id="review-range-controls" hidden><button type="button" data-review-range-start>__AKARI_UI_start__</button><button type="button" data-review-range-end>__AKARI_UI_end__</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="__AKARI_UI_attachZero__" aria-label="__AKARI_UI_attachZero__" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
         const controls = transport.querySelector('.transport-controls');
         const tail = transport.querySelector('.transport-tail');
         if (tail) tail.prepend(toolbar);
@@ -171,6 +172,9 @@ export function previewChatReviewScript(): string {
         const hint = toolbar.querySelector('[data-review-hint]');
         const buttons = toolbar.querySelector('.review-tools');
         const rangeControls = toolbar.querySelector('#review-range-controls');
+        const markToggle = toolbar.querySelector('[data-review-mark-toggle]');
+        const markChoices = toolbar.querySelector('.review-tool-choices');
+        let markMenuOpen = false;
         const attachButton = buttons.querySelector('[data-review-attach-count]');
         const popups = document.createElement('div');
         popups.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="__AKARI_UI_delete__" aria-label="__AKARI_UI_delete__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="__AKARI_UI_done__" aria-label="__AKARI_UI_done__"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="review-popup-close" data-review-note-close title="__AKARI_UI_noteClose__" aria-label="__AKARI_UI_noteClose__">×</button></div></div><textarea data-review-memo placeholder="__AKARI_UI_memoPlaceholder__" rows="2"></textarea><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div class="review-tray-header"><span data-review-tray-heading></span><button type="button" class="review-popup-close" data-review-tray-close title="__AKARI_UI_trayClose__" aria-label="__AKARI_UI_trayClose__">×</button></div><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>__AKARI_UI_copyToClipboard__</button></div></div>'.replace(/__AKARI_UI_(\\w+)__/g, (_, key) => ui[key] ?? '');
@@ -239,6 +243,7 @@ export function previewChatReviewScript(): string {
                 button.classList.toggle('on', button.dataset.reviewTool === tool);
                 button.setAttribute('aria-pressed', String(button.dataset.reviewTool === tool));
             }
+            markToggle.setAttribute('aria-pressed', String(Boolean(tool)));
             root.classList.toggle('is-active', Boolean(tool));
             rangeControls.hidden = tool !== 'range';
             hint.hidden = !tool;
@@ -494,14 +499,29 @@ export function previewChatReviewScript(): string {
         buttons.addEventListener('click', event => {
             const picked = event.target.closest('[data-review-tool]');
             if (picked) {
+                markMenuOpen = false;
+                markChoices.classList.remove('is-open');
+                markToggle.setAttribute('aria-expanded', 'false');
                 if (activeNote && !saveNote(true)) return;
                 tool = tool === picked.dataset.reviewTool ? null : picked.dataset.reviewTool;
                 rangeStart = tool === 'range' ? currentTime() : null;
                 rangeStartFrame = tool === 'range' ? frameAt() : null;
                 render();
+            } else if (event.target.closest('[data-review-mark-toggle]')) {
+                markMenuOpen = !markMenuOpen;
+                markChoices.classList.toggle('is-open', markMenuOpen);
+                markToggle.setAttribute('aria-expanded', String(markMenuOpen));
             } else if (event.target.closest('[data-review-attach-count]')) {
                 trayOpen = !trayOpen;
                 render();
+            }
+        });
+        window.addEventListener('pointerdown', event => {
+            if (markMenuOpen && !(event.target?.nodeType
+                && (markToggle.contains(event.target) || markChoices.contains(event.target)))) {
+                markMenuOpen = false;
+                markChoices.classList.remove('is-open');
+                markToggle.setAttribute('aria-expanded', 'false');
             }
         });
         rangeControls.addEventListener('click', event => {
@@ -665,6 +685,14 @@ export function previewChatReviewScript(): string {
         window.addEventListener('keydown', event => {
             const inMemo = event.target === memo;
             if (inMemo) memoKeys.add(event.code || event.key);
+            if (event.key === 'Escape' && markMenuOpen && !event.isComposing && event.keyCode !== 229) {
+                markMenuOpen = false;
+                markChoices.classList.remove('is-open');
+                markToggle.setAttribute('aria-expanded', 'false');
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
             if (event.key === 'Escape' && (inMemo || activeNote || trayOpen || tool)) {
                 event.stopImmediatePropagation();
                 if (!event.isComposing && event.keyCode !== 229) {

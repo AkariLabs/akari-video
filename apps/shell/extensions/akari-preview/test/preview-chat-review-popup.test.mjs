@@ -149,11 +149,11 @@ const styleStart = handler.indexOf('<style>', htmlStart) + '<style>'.length;
 const styleEnd = handler.indexOf('</style>', styleStart);
 const css = handler.slice(styleStart, styleEnd).split('\n').filter(line => !line.includes('${')).join('\n');
 
-async function reviewPage(browser) {
+async function reviewPage(browser, transportWidth = 500) {
     const page = await browser.newPage();
     await page.setViewport({ width: 800, height: 600 });
     await page.setContent(`<style>${css}\n#preview-stage { position:relative; width:500px; height:300px; margin:40px; background:#080808; }
-#pen-layer { position:absolute; inset:0; } .transport { width:500px; margin:40px; }
+#pen-layer { position:absolute; inset:0; } .transport { width:${transportWidth}px; margin:40px; }
 .transport-tail { display:flex; } .transport-seek { position:relative; }</style>
 <div id="preview-stage"><div id="pen-layer"></div></div><div class="transport"><div class="transport-controls"><div class="transport-tail"></div></div><div class="transport-seek"><input id="seek" type="range" min="0" max="30" value="2"></div></div>`);
     await page.evaluate(script => {
@@ -167,6 +167,38 @@ async function reviewPage(browser) {
     }, previewChatReviewScript());
     return page;
 }
+
+test('narrow mark button opens the three existing tools without moving seek or controls', async t => {
+    let browser;
+    try { browser = await launchBrowser(); }
+    catch (error) { if (error?.message !== 'headless Chrome が見つかりません') throw error; t.skip('headless Chrome 不在'); return; }
+    try {
+        const page = await reviewPage(browser, 240);
+        const layout = () => page.evaluate(() => {
+            const box = selector => { const r = document.querySelector(selector).getBoundingClientRect();
+                return { top:r.top, bottom:r.bottom, left:r.left, right:r.right }; };
+            return { seek:box('.transport-seek'), controls:box('.transport-controls'), transport:box('.transport') };
+        });
+        const before = await layout();
+        await page.click('[data-review-mark-toggle]');
+        const open = await page.evaluate(() => ({ expanded:document.querySelector('[data-review-mark-toggle]').getAttribute('aria-expanded'),
+            tools:[...document.querySelectorAll('.review-tool-choices [data-review-tool]')]
+                .filter(button => button.getClientRects().length).map(button => button.dataset.reviewTool) }));
+        assert.equal(open.expanded, 'true');
+        assert.deepEqual(open.tools, ['pen', 'pin', 'range']);
+        assert.deepEqual(await layout(), before);
+        await page.click('[data-review-tool="range"]');
+        assert.equal(await page.evaluate(() => document.querySelector('#review-range-controls').hidden), false);
+        assert.equal(await page.evaluate(() => document.querySelector('[data-review-mark-toggle]').getAttribute('aria-expanded')), 'false');
+        assert.deepEqual(await layout(), before);
+        await page.click('[data-review-mark-toggle]');
+        await pointer(page, 'window', 'pointerdown', 0, 0);
+        assert.equal(await page.evaluate(() => document.querySelector('[data-review-mark-toggle]').getAttribute('aria-expanded')), 'false');
+        await page.click('[data-review-mark-toggle]');
+        await page.keyboard.press('Escape');
+        assert.equal(await page.evaluate(() => document.querySelector('[data-review-mark-toggle]').getAttribute('aria-expanded')), 'false');
+    } finally { await browser.close(); }
+});
 
 const pin = { id: 'pin-1', tool: 'pin', source: 'edit.json', sourceLabel: 'Edit', time: 2,
     sourceT: 2, text: '', shape: { x: .4, y: .5 } };
