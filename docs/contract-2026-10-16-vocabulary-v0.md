@@ -101,8 +101,8 @@ updated: 2026-10-16
 |---|---|---|
 | CLI | `akari showcase list \| inspect <id> [--segment <id> \| --range <s>-<e>] [--json] \| capture <project> --id <id>` | **新設**（inspect = 区間の依存と手順を解決して出す。capture = 完成した 1 本を手元の作例にする） |
 | CLI | `akari new --from <id>`: **裸の id は今までどおり作り方（playbook）の棚で解決する**（変えない）。作例・テンプレートは `--from showcase:<id>[@<版>] [--segment <id>]` / `--from template:<id>` のように**接頭辞つきでだけ**指す（曖昧な解決順を作らない） | 既存に足す（接頭辞の形は showcase-v0 で確定） |
-| CLI | `akari template export \| list \| place`（template-v0 §6 の `akari playbook template` は別名として残す） | **改名** |
-| CLI | `akari new --scaffold <path>`（器を選ぶ）を新しい名前として足す。**旧 `--template` は別名として残し続ける**（読み取りは永続・使われたら 1 行の案内を出すだけ・廃止の版は本契約では決めない）。両方を同時に渡したら誤り | **別名を足す** |
+| CLI | `akari template export \| list \| place`（template-v0 §6 の `akari playbook template` は別名として残す） | **改名** — export / list は **済 2026-10-17**（`list` は深さ 3 だけ。`place` は未） |
+| CLI | `akari new --scaffold <path>`（器を選ぶ）を新しい名前として足す。**旧 `--template` は別名として残し続ける**（読み取りは永続・使われたら 1 行の案内を出すだけ・廃止の版は本契約では決めない）。両方を同時に渡したら誤り | **別名を足す** — **済 2026-10-17** |
 | CLI | `akari playbook list \| apply`・`akari recipe list \| plan`（AI 向け） | 維持 |
 | スキル | `capture-showcase`（完成した 1 本 + 元データ + 区間 + メモを手元の作例に登録する） | **新設** |
 | スキル | `create-from-showcase`（作例の区間から根拠を辿り、新規または既存のプロジェクトで作る） | **新設** |
@@ -139,6 +139,8 @@ updated: 2026-10-16
 | パック（Lab の束 / 記憶パック） | Lab の売り方だけ。記憶パック → **「記憶」の分類の中の種類名で呼ぶ（人物 / 単語帳）**。束を指すときは「記憶の束」。`memoryPack*` のキーは不変 |
 | 素材（部品 / 自分で撮った映像） | どちらも素材。出どころの印（自分の / Lab / 同梱）と場所（ライブラリ / プロジェクト）で分ける |
 
+英語（画面。2026-10-17 追記・正本は `docs/aliases.md` 冒頭）: 動く部品 = Motion parts / 型 = type / 記憶の束 = memory collection / チャンネルの設定 = Channel settings / 字幕スタイル = Caption style / 使った土台 = Scaffold used / 自分のスタイル = My styles / レシピ（道具の手順）= Tool procedure。
+
 ## 9. データと置き場
 
 - **作例**: `showcase.json`（`version: 0`・`kind: "akari-showcase"`・`id`・`showcaseVersion`・`title`・`author`・`video`・`segments[]`・`sources`（edit.json と参照）・`playbook`（id@版）・`parts[]`・`license`・`provenance`・`preview`）。
@@ -151,7 +153,7 @@ updated: 2026-10-16
 ## 10. 移行の段取り
 
 1. **用語の正本 = 本契約**。代表 20 件（アプリと Lab）を §1 の 5 語に振り分けた表を `docs/` に添える（紙上の試行）
-2. **画面の文言だけ**: §8 の行き先のうち、データを伴わないもの。**変えるのは文言の値だけ**で、i18n のキー・データの値（`category: overlay`・`kind: mystyle` 等）・ライブラリのタイルの key（`template` / `pack` / `mypresets`）は変えない。新しい文言はキーを足してよく、旧キーは残す（消す版は決めない）。CLI の usage も同じ扱い
+2. **画面の文言だけ**: §8 の行き先のうち、データを伴わないもの。**変えるのは文言の値だけ**で、i18n のキー・データの値（`category: overlay`・`kind: mystyle` 等）・ライブラリのタイルの key（`template` / `pack` / `mypresets`）は変えない。新しい文言はキーを足してよく、旧キーは残す（消す版は決めない）。CLI の usage も同じ扱い — **済 2026-10-17**（レーン `2026-10-17-vocabulary-wording`。ライブラリのホームの主タイルから「ひな形」と「セット」を外し、「テンプレート」の棚が唯一の入口・pack は詳細の「素材」に。英語の採用語は `docs/aliases.md` 冒頭）
 3. **ライブラリ**: 漏斗に「種類（素材 / スタイル / テンプレート）・尺あり・空き枠あり」、テンプレートの印。作り方の棚は作らない
 4. **ホーム**: 作り始める = 作例 + 作り方 + 白紙。作例の詳細に区間・開けるかの印・作り方
 5. **データとコマンド**: showcase-v0 契約 → `akari showcase`・2 つのスキル → `akari-template` の分離 → `--scaffold` → Lab の `kind` の列
