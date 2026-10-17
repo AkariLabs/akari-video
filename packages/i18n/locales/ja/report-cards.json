@@ -294,7 +294,7 @@
   "report-cards.template.log.initial": "edit-plan / テンプレート初期記録",
   "report-cards.template.execution.checkpoint": "チェックポイント 3 — 実行",
   "report-cards.template.execution.leadOne": "実行対象、使用する手、理由、費用・負荷、代替案を確認し、人間の明示承認を",
-  "report-cards.template.execution.leadTwo": "decision_log へ追記した後にだけ edit.json v0 と最終オーバーレイ",
+  "report-cards.template.execution.leadTwo": "decision_log へ追記した後にだけ edit.json v0 と最終の動く部品",
   "report-cards.template.execution.leadThree": "HTML を生成する。",
   "report-cards.template.footer.one": "この HTML は外部 CSS・JavaScript・画像を参照しない自己完結レポートです。",
   "report-cards.template.footer.two": "決定カードの回答は localhost ヘルパー経由で対になる decisions.json",

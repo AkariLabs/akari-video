@@ -532,7 +532,7 @@
   "annotationscommon.editV2Mutations.error.audioSfxTrackMustBeNonnegativeInteger": "audio.sfx[].track must be a nonnegative integer.",
   "annotationscommon.materialTrialHistory.error.snapshotBeforeTrialDoesNotMatch": "The snapshot before the trial does not match.",
   "annotationscommon.materialTrialHistory.error.undoPreviousTrialFirst": "Undo the previous trial first.",
-  "annotationscommon.overlayPlace.error.couldNotMeasureOverlaySize": "Could not measure the overlay size.",
+  "annotationscommon.overlayPlace.error.couldNotMeasureOverlaySize": "Could not measure the motion part size.",
   "annotationscommon.placeText.error.textOverlayPositionMustBeFrom0": "Text overlay position must be between 0 and 1.",
   "annotationscommon.placeText.error.checkTextOverlayStartEndTimes": "Check the text overlay start and end times.",
   "annotationscommon.previewCaptionWrap.error.invalidDuplicateDestination": "Invalid duplication destination.",

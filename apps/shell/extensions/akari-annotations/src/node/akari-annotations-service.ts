@@ -2353,7 +2353,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             }
             await this.writeProjectFileGuarded(captionsPath, updated.source);
             const projectRoot = this.fsPath(request.projectRootUri);
-            this.queueEditCommit(projectRoot, '字幕テンプレを適用', [captionsPath]);
+            this.queueEditCommit(projectRoot, '字幕スタイルを適用', [captionsPath]);
             return { committed: false, changed: updated.changed, beforeSource };
         });
     }

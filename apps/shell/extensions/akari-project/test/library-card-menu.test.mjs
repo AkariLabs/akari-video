@@ -122,13 +122,13 @@ test('情報カード: Pro 未契約は鍵と「Lab で見る」1 つ（+ ★）
     assert.equal(bought.creator, 'AKARI Video Lab');
 });
 
-test('情報カード: プリセット・マイスタイル', () => {
+test('情報カード: プリセット・自分のスタイル', () => {
     const style = libraryPresetInfoCard({ key: 'textstyle/news', kind: 'textstyle', name: 'ニュース風', categoryLabel: 'テキストスタイル', tags: ['subtitle'] }, false);
     assert.equal(style.creator, 'AKARI Video（標準）');
     assert.equal(style.license.kind, 'builtin');
     assert.deepEqual(style.actions.map(action => action.id), ['apply', 'place-text', 'favorite']);
     assert.deepEqual(style.keywords, ['テキストスタイル', 'subtitle']);
-    const mine = libraryPresetInfoCard({ key: 'mystyle/o', kind: 'mystyle', name: 'オレンジ', categoryLabel: 'マイスタイル', tags: ['強調'] }, true);
+    const mine = libraryPresetInfoCard({ key: 'mystyle/o', kind: 'mystyle', name: 'オレンジ', categoryLabel: '自分のスタイル', tags: ['強調'] }, true);
     assert.equal(mine.creator, '自分の素材');
     assert.equal(mine.creatorSource, 'own');
     assert.equal(mine.license.kind, 'own');

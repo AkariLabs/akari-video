@@ -190,7 +190,7 @@ test('Japanese CLI list keeps its exact displayed lines after group and status I
     const lines = [];
     await runConnectCommand(['list'], { home: root, env: { AKARI_HOME: path.join(root, '.akari') }, roots: [],
       platform: 'darwin', log: line => lines.push(line) });
-    assert.equal(`${lines.join('\n')}\n`, 'AKARI の道具\n  AKARI Video: 使える\n  3D レシピ: Blender が必要\n素材を作る\n  fal: 鍵が必要\n  Fish Audio: 鍵が必要\n  Google AI: 鍵が必要\n  ElevenLabs: 鍵が必要\n  Groq: 鍵が必要\n');
+    assert.equal(`${lines.join('\n')}\n`, 'AKARI の道具\n  AKARI Video: 使える\n  3D の設定: Blender が必要\n素材を作る\n  fal: 鍵が必要\n  Fish Audio: 鍵が必要\n  Google AI: 鍵が必要\n  ElevenLabs: 鍵が必要\n  Groq: 鍵が必要\n');
     const jsonLines = [];
     await runConnectCommand(['list', '--json'], { home: root, env: { AKARI_HOME: path.join(root, '.akari') }, roots: [],
       platform: 'darwin', log: line => jsonLines.push(line) });

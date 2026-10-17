@@ -9,7 +9,7 @@
   "lint.check.captions.outputDomainExceedsDuration": "出力時間の字幕が動画総尺を超えています。書き出しでは動画終端までにクランプして表示されます。",
   "lint.check.cuts.trackOverlap": "同じ映像トラック上でクリップが重なっています。クリップを重ならない位置へ移動してください。",
   "lint.check.references.files": "参照している素材ファイルが見つかりません。素材の場所またはファイル名を確認してください。",
-  "lint.check.overlays.timeline": "オーバーレイが映像の範囲外にあります。表示位置か映像の長さを調整してください。",
+  "lint.check.overlays.timeline": "動く部品が映像の範囲外にあります。表示位置か映像の長さを調整してください。",
   "lint.check.audio.sfxTimeline": "効果音が映像の範囲外にあります。再生位置か映像の長さを調整してください。",
   "lint.failure.detail.label": " 詳細: ",
   "lint.failure.prefix.validation": "保存後の検証で問題が見つかりました"

@@ -31,6 +31,32 @@ test('akari new: 不明なオプションは exit 1', async () => {
   assert.match(output.errors.join('\n'), /不明なオプション/);
 });
 
+test('akari new: --scaffold と永続別名 --template は同じ土台を使い、案内は 1 行', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-new-alias-test-'));
+  try {
+    const scaffoldDir = join(scratch, 'scaffold');
+    await mkdir(scaffoldDir);
+    const received = [];
+    const createProject = async (destination, source) => {
+      received.push([destination, source]);
+      return { destination, copy: { copiedFiles: [], skippedSymlinks: [] },
+        fallback: { writtenFiles: [] }, git: { action: 'skip' }, reportPath: '' };
+    };
+    const options = { cwd: scratch, assets: { templateDir: null, scaffoldModulePath: null }, createProject };
+    const direct = collectLogs();
+    const alias = collectLogs();
+    assert.equal((await runNewCommand(['direct', '--scaffold', scaffoldDir], { ...options, ...direct })).exitCode, 0);
+    assert.equal((await runNewCommand(['alias', '--template', scaffoldDir], { ...options, ...alias })).exitCode, 0);
+    assert.deepEqual(received.map(([, source]) => source), [scaffoldDir, scaffoldDir]);
+    assert.equal(direct.errors.filter(line => line.includes('--template')).length, 0);
+    assert.deepEqual(alias.errors.filter(line => line.includes('--template')), ['--template は --scaffold の別名です。']);
+    const both = collectLogs();
+    assert.equal((await runNewCommand(['both', '--scaffold', scaffoldDir, '--template', scaffoldDir], { ...options, ...both })).exitCode, 1);
+    assert.match(both.errors.join('\n'), /使い方: akari new.*--scaffold.*--template/);
+    assert.equal(received.length, 2);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
 test('akari new: assets の雛形・skills・schemas と注入した scaffold を使う', async () => {
   const scratch = await mkdtemp(join(tmpdir(), 'akari-new-command-test-'));
   try {

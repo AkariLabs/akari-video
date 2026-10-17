@@ -53,11 +53,11 @@ test('project text follows the selected language and plural rules', () => {
     try {
         setLanguage('ja');
         assert.equal(t('project.materials.inspector.assetInformationLabel'), '素材の情報');
-        assert.equal(t('project.library.home.brandKitLabel'), 'ブランドキット');
+        assert.equal(t('project.library.home.brandKitLabel'), 'チャンネルの設定');
         assert.equal(t('project.catalog.breakdown.count', { n: 1 }), '1 件');
         setLanguage('en');
         assert.equal(t('project.materials.inspector.assetInformationLabel'), 'Asset information');
-        assert.equal(t('project.library.home.brandKitLabel'), 'Brand kit');
+        assert.equal(t('project.library.home.brandKitLabel'), 'Channel settings');
         assert.equal(t('project.catalog.breakdown.count', { n: 1 }), '1 item');
         assert.equal(t('project.catalog.breakdown.count', { n: 2 }), '2 items');
     } finally {

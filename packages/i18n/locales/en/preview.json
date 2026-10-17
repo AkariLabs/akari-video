@@ -535,7 +535,7 @@
   "preview.previewWindow.canvas.roleLabel": "Role",
   "preview.previewWindow.canvas.roleSelectedTextLabel": "Role of selected text",
   "preview.previewWindow.canvas.rotateSelectedTextEightDegreesAction": "Rotate selected text by 8°",
-  "preview.previewWindow.canvas.saveMyStylesAction": "Save to My Styles",
+  "preview.previewWindow.canvas.saveMyStylesAction": "Save to my styles",
   "preview.previewWindow.canvas.secondsDrawingReplaceThemEscCancelSuffix": " seconds. Drawing will replace them (Esc to cancel)",
   "preview.previewWindow.canvas.secondsReplacedEscCancelSuffix": " seconds will be replaced (Esc to cancel)",
   "preview.previewWindow.canvas.secondsSuffix": " seconds",

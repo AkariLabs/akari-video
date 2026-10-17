@@ -101,7 +101,7 @@ test('写真は photos の先頭を優先し、声の有無を判定する', () 
 });
 test('詳細に同意と保存導線、ローカル保存の注記がある', () => {
     const source = readFileSync(new URL('../src/browser/channel/channel-person-detail.tsx', import.meta.url), 'utf8');
-    for (const text of ['写真と声はこの機械の中だけに置きます。クラウドや記憶パックには入りません。',
+    for (const text of ['写真と声はこの機械の中だけに置きます。クラウドや記憶の束には入りません。',
         '本人の声です', '本人の同意を得た声です']) assertCatalogCopy(source, text);
     for (const text of ['data-akari-person-voice-add', 'canAddVoiceSample', "'narration'"]) {
         assert.ok(source.includes(text), text);

@@ -868,7 +868,7 @@ test('行の右クリックはドックを開かず、分割は境界選択モ�
   }
 });
 
-test('ドックの「すべて」は先頭にテンプレなしを表示して解除できる', () => {
+test('ドックの「すべて」は先頭に字幕スタイルなしを表示して解除できる', () => {
   const oldDocument = globalThis.document;
   globalThis.document = { createElement: tag => fakeNode(tag) };
   const body = fakeNode(), applied = [];
@@ -877,10 +877,10 @@ test('ドックの「すべて」は先頭にテンプレなしを表示して�
   try {
     instance.renderDockTemplates(['r1']);
     const grid = body.children[1];
-    assert.equal(grid.children[0].textContent, 'テンプレなし');
+    assert.equal(grid.children[0].textContent, '字幕スタイルなし');
     assert.equal(grid.children[0].dataset.presetId, '');
     grid.children[0].listeners.click();
-    assert.deepEqual(applied, [[['r1'], null, 'テンプレなし', true]]);
+    assert.deepEqual(applied, [[['r1'], null, '字幕スタイルなし', true]]);
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 

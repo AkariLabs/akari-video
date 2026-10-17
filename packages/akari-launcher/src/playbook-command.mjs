@@ -1,5 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 import { cliText } from './i18n.mjs';
@@ -9,13 +10,13 @@ const usage = () => `${cliText('cli.playbook.help.usage')}\n${cliText('cli.playb
 const safeChannel = value => typeof value === 'string' && value.trim() && value.length <= 64
     && value !== '.' && !value.includes('..') && !/[/\\<>:"|?*\x00-\x1f]/.test(value);
 
-function parse(args) {
+function parse(args, usageText = usage()) {
     const action = args[0];
     if (action === '--help' || action === '-h' || args.includes('--help') || args.includes('-h')) return { action: 'help' };
-    if (!['list', 'apply', 'template'].includes(action)) throw new Error(usage());
+    if (!['list', 'apply', 'template'].includes(action)) throw new Error(usageText);
     const result = { action, id: action === 'apply' ? args[1] : null, project: action === 'template' ? args[1] : null };
-    if (action === 'apply' && (!result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usage());
-    if (action === 'template' && !result.project) throw new Error(usage());
+    if (action === 'apply' && (!result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usageText);
+    if (action === 'template' && !result.project) throw new Error(usageText);
     for (let i = action === 'apply' || action === 'template' ? 2 : 1; i < args.length; i++) {
         const arg = args[i];
         if ((action === 'list' && arg === '--json') || (action === 'apply' && arg === '--dry-run')) {
@@ -23,13 +24,13 @@ function parse(args) {
         } else if ((action === 'list' && ['--category', '--tag', '--channel'].includes(arg))
             || (action === 'apply' && arg === '--into')
             || (action === 'template' && ['--item', '--id', '--name', '--out', '--license-own'].includes(arg))) {
-            if (!args[i + 1] || args[i + 1].startsWith('--')) throw new Error(usage());
+            if (!args[i + 1] || args[i + 1].startsWith('--')) throw new Error(usageText);
             result[arg.slice(2)] = args[++i];
-        } else throw new Error(usage());
+        } else throw new Error(usageText);
     }
-    if (action === 'apply' && !result.into) throw new Error(usage());
-    if (action === 'template' && (!result.item || !result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usage());
-    if (result.channel && !safeChannel(result.channel)) throw new Error(usage());
+    if (action === 'apply' && !result.into) throw new Error(usageText);
+    if (action === 'template' && (!result.item || !result.id || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(result.id))) throw new Error(usageText);
+    if (result.channel && !safeChannel(result.channel)) throw new Error(usageText);
     return result;
 }
 
@@ -37,9 +38,12 @@ export async function runPlaybookCommand(args, options = {}) {
     const log = options.log ?? console.log;
     const error = options.error ?? console.error;
     let parsed;
-    try { parsed = parse(args); }
+    try { parsed = parse(args, options.usage ?? usage()); }
     catch (cause) { error(cause.message); return { exitCode: 1 }; }
-    if (parsed.action === 'help') { log(usage()); return { exitCode: 0 }; }
+    if (parsed.action === 'help') { log(options.usage ?? usage()); return { exitCode: 0 }; }
+    if (parsed.action === 'template' && !options.suppressTemplateAliasNotice) {
+        error(cliText('cli.playbook.template.aliasNotice'));
+    }
     try {
         const env = options.env ?? process.env;
         const cwd = options.cwd ?? process.cwd();
@@ -73,11 +77,17 @@ export async function runPlaybookCommand(args, options = {}) {
             category: parsed.category, tag: parsed.tag,
             onWarning: (dir, cause) => error(cliText('cli.playbook.warning.broken', { dir, message: cause.message })) });
         if (parsed.action === 'list') {
-            if (parsed.json) log(JSON.stringify(entries));
-            else for (const entry of entries) log(cliText('cli.playbook.list.row', { id: entry.id, name: entry.name,
+            const listed = options.listDepth === undefined ? entries : (await Promise.all(entries.map(async entry => {
+                try {
+                    const book = JSON.parse(await fs.readFile(path.join(entry.dir, 'playbook.json'), 'utf8'));
+                    return book.depth === options.listDepth ? entry : null;
+                } catch { return null; }
+            }))).filter(Boolean);
+            if (parsed.json) log(JSON.stringify(listed));
+            else for (const entry of listed) log(cliText('cli.playbook.list.row', { id: entry.id, name: entry.name,
                 category: entry.category, source: entry.source,
                 duration: entry.targetDurationSec ?? cliText('cli.playbook.list.durationUnknown') }));
-            return { exitCode: 0, entries };
+            return { exitCode: 0, entries: listed };
         }
         const entry = entries.find(item => item.id === parsed.id);
         if (!entry) throw new Error(cliText('cli.playbook.error.notFound', { id: parsed.id }));

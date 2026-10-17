@@ -9,7 +9,7 @@
   "lint.check.captions.outputDomainExceedsDuration": "An output-timed caption extends beyond the video duration. It will be clipped at the end during export.",
   "lint.check.cuts.trackOverlap": "Clips overlap on the same video track. Move them apart.",
   "lint.check.references.files": "A referenced asset file could not be found. Check its location or filename.",
-  "lint.check.overlays.timeline": "An overlay is outside the video range. Adjust its position or the video duration.",
+  "lint.check.overlays.timeline": "A motion part is outside the video range. Adjust its position or the video duration.",
   "lint.check.audio.sfxTimeline": "A sound effect is outside the video range. Adjust its position or the video duration.",
   "lint.failure.detail.label": " Details: ",
   "lint.failure.prefix.validation": "Validation found problems after saving"

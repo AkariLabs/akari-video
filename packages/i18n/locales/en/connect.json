@@ -41,7 +41,7 @@
   "connect.connectState.ui.connectionWhoseKeyCannotDeletedError": "This connection has no key to delete.",
   "connect.connectState.ui.orderGenerationServicesIncorrectMessage": "The order of generation services is incorrect.",
   "connect.catalog.connector.akariVideoDescription": "Plan and edit videos",
-  "connect.catalog.connector.recipesLabel": "3D Recipes",
+  "connect.catalog.connector.recipesLabel": "3D settings",
   "connect.catalog.connector.recipesDescription": "Create 3D assets with Blender",
   "connect.catalog.connector.falDescription": "Create images, videos, and voiceovers",
   "connect.catalog.connector.fishDescription": "Read a script aloud",

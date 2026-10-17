@@ -109,8 +109,8 @@ test('ライブラリから当てた動き・スタイルと既存マイスタ�
   for (const [applyKind, label, footer] of [
     ['textanim', '動きを当てる', '動きを当てました。'],
     ['textstyle', 'スタイルを当てる', 'スタイルを当てました。'],
-    [undefined, 'マイスタイルを当てる', 'マイスタイルを当てました。'],
-    ['mystyle', 'マイスタイルを当てる', 'マイスタイルを当てました。']
+    [undefined, '自分のスタイルを当てる', '自分のスタイルを当てました。'],
+    ['mystyle', '自分のスタイルを当てる', '自分のスタイルを当てました。']
   ]) {
     const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#fff' } }] },
       [caption('one')], undefined, undefined, undefined, true, undefined, applyKind);

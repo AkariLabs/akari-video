@@ -29,11 +29,21 @@ test('未回答の見出しを省き、型と未知の見出しを往復でき�
     assert.match(markdown, /## ジャンル\n料理/);
     assert.doesNotMatch(markdown, /## 誰に/);
     assert.match(markdown, /## チャンネルの型\n料理ショート 15 秒/);
+    assert.match(markdown, /料理ショート 15 秒（型・字幕スタイル・スキルの下書きが入る）/);
     const parsed = parseChannelMarkdown(markdown);
     assert.deepEqual(parsed.answers, answers);
     assert.equal(parsed.appliedType, '料理ショート 15 秒');
     assert.equal(parsed.rest, '## 独自のメモ\nあとで決める');
     assert.equal(buildChannelMarkdown(parsed.answers, '料理の部屋', parsed.appliedType, parsed.rest), markdown);
+});
+
+test('チャンネルの型は旧文言を読み、新文言で書き戻す', () => {
+    const previous = '# 料理の部屋\n\n## チャンネルの型\n料理ショート 15 秒（テンプレ・字幕スタイル・スキルの下書きが入る）\n';
+    const parsed = parseChannelMarkdown(previous);
+    assert.equal(parsed.appliedType, '料理ショート 15 秒');
+    const updated = buildChannelMarkdown(parsed.answers, '料理の部屋', parsed.appliedType);
+    assert.match(updated, /料理ショート 15 秒（型・字幕スタイル・スキルの下書きが入る）/);
+    assert.doesNotMatch(updated, /（テンプレ・字幕スタイル・スキルの下書きが入る）/);
 });
 
 test('回答の要約は質問順に 1 行で並ぶ', () => {
