@@ -294,7 +294,7 @@
   "report-cards.template.log.initial": "edit-plan / initial template record",
   "report-cards.template.execution.checkpoint": "Checkpoint 3 — Execution",
   "report-cards.template.execution.leadOne": "Review targets, methods, reasons, costs, load, and alternatives; record explicit human approval",
-  "report-cards.template.execution.leadTwo": "in decision_log before generating edit.json v0 and final overlay",
+  "report-cards.template.execution.leadTwo": "in decision_log before generating edit.json v0 and final motion parts",
   "report-cards.template.execution.leadThree": "HTML.",
   "report-cards.template.footer.one": "This self-contained HTML report does not load external CSS, JavaScript, or images.",
   "report-cards.template.footer.two": "Decision card answers are saved to the paired decisions.json through the localhost helper;",

@@ -11,7 +11,7 @@
   {
     "id": "3d-recipes",
     "group": "tools",
-    "name": "3D レシピ",
+    "name": "3D の設定",
     "description": "Blender で 3D 素材を作る",
     "icon": "3D",
     "kind": "blender-recipe",

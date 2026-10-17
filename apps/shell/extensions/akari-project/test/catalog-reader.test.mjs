@@ -210,7 +210,7 @@ test('deriveCatalogCategoryChips: 音声の位置を BGM → 音声クリップ�
     assert.deepEqual(chips.map(chip => chip.category), [
         'overlay', 'still', 'scene3d', CATALOG_AUDIO_BGM_CATEGORY, CATALOG_AUDIO_SFX_CATEGORY, 'broll', 'font'
     ]);
-    assert.deepEqual(chips.map(chip => chip.label), ['オーバーレイ', '静止画', '3D', 'BGM', '音声クリップ', 'Bロール', 'フォント']);
+    assert.deepEqual(chips.map(chip => chip.label), ['動く部品', '静止画', '3D', 'BGM', '音声クリップ', 'Bロール', 'フォント']);
     assert.deepEqual(chips.map(chip => chip.count), [0, 0, 1, 2, 2, 0, 0]);
 });
 

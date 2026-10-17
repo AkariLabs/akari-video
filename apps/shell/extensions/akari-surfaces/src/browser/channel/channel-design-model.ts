@@ -130,7 +130,7 @@ export function buildChannelMarkdown(answers: ChannelAnswers, channelName: strin
     if (place) parts.push(section('どこに出す', place));
     if (values(answers, 'tone').length) parts.push(section('雰囲気', `${values(answers, 'tone')[0]}。字幕・音・つなぎ方もこの雰囲気で`));
     if (values(answers, 'every').length) parts.push(section('毎回入れること（決まりごと）', values(answers, 'every').map(value => `- ${value}`).join('\n')));
-    if (appliedType) parts.push(section('チャンネルの型', `${appliedType}（テンプレ・字幕スタイル・スキルの下書きが入る）`));
+    if (appliedType) parts.push(section('チャンネルの型', `${appliedType}（型・字幕スタイル・スキルの下書きが入る）`));
     parts.push(section('このあと深掘りすると書けること', '- ほかとの違い\n- 見る人の困りごと\n- 続けられる量'));
     parts.push(section('このチャンネルのファイル', '- design.md — 見た目の決まり（色・文字・雰囲気）\n- people.md — 人とモノ\n- notes.md — 辞書とメモ\n- skills/ — このチャンネル用のスキル\n- ライブラリ — いつも使う素材'));
     if (rest?.trim()) parts.push(rest.trimEnd());
@@ -168,7 +168,7 @@ export function parseChannelMarkdown(text: string): { answers: ChannelAnswers; a
             }
             case '雰囲気': answers.tone = body ? [body.split('。')[0]] : []; break;
             case '毎回入れること（決まりごと）': answers.every = body.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2)); break;
-            case 'チャンネルの型': appliedType = body.replace(/（テンプレ・字幕スタイル・スキルの下書きが入る）$/, ''); break;
+            case 'チャンネルの型': appliedType = body.replace(/（(?:テンプレ|型)・字幕スタイル・スキルの下書きが入る）$/, ''); break;
             case 'このあと深掘りすると書けること':
             case 'このチャンネルのファイル': break;
             default: unknown.push(heading ? `## ${heading}\n${body}` : body);

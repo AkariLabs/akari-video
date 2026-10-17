@@ -67,7 +67,7 @@ test('attach を含む一手は edit と字幕の両方の hash を比較して�
   const entry = captionCommandHistory({ written: ['captions.json', 'edit.json'],
     before: { 'captions.json': version(captionsBefore), 'edit.json': version(editBefore) },
     after: { 'captions.json': version(captionsAfter), 'edit.json': version(editAfter) }
-  }, 'マイスタイル', { editUri: 'file:///edit.json', projectRootUri: 'file:///' },
+  }, '自分のスタイル', { editUri: 'file:///edit.json', projectRootUri: 'file:///' },
   async request => {
     assert.equal(request.expectedHashes.captions, projectFileContentHash(disk.captions));
     assert.equal(request.expectedHashes.edit, projectFileContentHash(disk.edit));

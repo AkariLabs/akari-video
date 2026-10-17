@@ -140,10 +140,6 @@ export const LIBRARY_PRIMARY_TILES = [
 
     { key: 'mypresets', kind: 'pick', label: t('project.library.pane.myStylesLabel'), icon: '✎', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'mystyle', plate: ['#f4b942', '#cc8409'], startsGroup: true },
-    { key: 'template', kind: 'pick', label: t('project.library.home.templateGroupLabel'), icon: '⧉', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
-        art: 'template', plate: ['#9aa0b8', '#5c6178'] },
-    { key: 'pack', kind: 'pick', label: t('project.library.home.setLabel'), icon: '▤', hint: t('project.library.home.chooseListAction'), status: 'live',
-        art: 'pack', plate: ['#a3b0c2', '#64748b'] }
 ] as const satisfies readonly LibraryPrimaryTile[];
 
 function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): LibraryGroupDefinition {
@@ -159,13 +155,12 @@ function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): Librar
 /**
  * 主要タイルに移したカテゴリを除いた、詳細内の表示順。
  *
- * 2026-09-27 改訂: 仕上げ（lut / transition / fx / motion）・まとめて（pack / template）・
- * 保存したプリセット（mypresets）は主要タイルへ昇格したので詳細から外す
- * （重複させない規律は 2026-09-23 から継続）。残るのは
- * - マイの残り（fav / brandkit）… まだ実装枠
+ * 2026-10-17 改訂: テンプレートは下の棚を唯一の入口とする。
+ * pack はキットの素材をまとめて入れる既存の経路を保つため詳細へ移す。
  */
 export const LIBRARY_DETAIL_GROUPS: readonly LibraryGroupDefinition[] = [
-    detailGroup(t('project.library.shelf.myAssetsLabel'), ['fav', 'brandkit'])
+    detailGroup(t('project.library.shelf.myAssetsLabel'), ['fav', 'brandkit']),
+    detailGroup(t('project.library.shelf.assetsLabel'), ['pack'])
 ];
 
 /**

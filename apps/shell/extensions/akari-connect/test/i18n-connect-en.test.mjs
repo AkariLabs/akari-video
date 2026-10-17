@@ -15,12 +15,12 @@ test('connection names and descriptions follow the selected language while statu
   try {
     setLanguage('ja');
     const japanese = connectSnapshot(options).rows.find(row => row.id === '3d-recipes');
-    assert.equal(japanese.name, '3D レシピ');
+    assert.equal(japanese.name, '3D の設定');
     assert.equal(japanese.description, 'Blender で 3D 素材を作る');
     assert.equal(t('connect.connectProtocol.ui.availableLabel'), '使える');
     setLanguage('en');
     const english = connectSnapshot(options).rows.find(row => row.id === '3d-recipes');
-    assert.equal(english.name, '3D Recipes');
+    assert.equal(english.name, '3D settings');
     assert.equal(english.description, 'Create 3D assets with Blender');
     assert.equal(t('connect.connectProtocol.ui.availableLabel'), 'Available');
     assert.equal(english.status, japanese.status);

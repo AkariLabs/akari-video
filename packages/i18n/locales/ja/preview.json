@@ -535,7 +535,7 @@
   "preview.previewWindow.canvas.roleLabel": "役割",
   "preview.previewWindow.canvas.roleSelectedTextLabel": "選択文字の役割",
   "preview.previewWindow.canvas.rotateSelectedTextEightDegreesAction": "選択文字を 8° 回転",
-  "preview.previewWindow.canvas.saveMyStylesAction": "マイスタイルに保存",
+  "preview.previewWindow.canvas.saveMyStylesAction": "自分のスタイルに保存",
   "preview.previewWindow.canvas.secondsDrawingReplaceThemEscCancelSuffix": " 秒があります。描く範囲を置き換えます（Esc でやめる）",
   "preview.previewWindow.canvas.secondsReplacedEscCancelSuffix": " 秒を置き換えます（Esc でやめる）",
   "preview.previewWindow.canvas.secondsSuffix": " 秒",

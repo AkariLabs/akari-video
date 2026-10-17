@@ -41,7 +41,7 @@
   "connect.connectState.ui.connectionWhoseKeyCannotDeletedError": "鍵を削除できない接続です。",
   "connect.connectState.ui.orderGenerationServicesIncorrectMessage": "生成サービスの並び順が不正です。",
   "connect.catalog.connector.akariVideoDescription": "動画を企画・編集する",
-  "connect.catalog.connector.recipesLabel": "3D レシピ",
+  "connect.catalog.connector.recipesLabel": "3D の設定",
   "connect.catalog.connector.recipesDescription": "Blender で 3D 素材を作る",
   "connect.catalog.connector.falDescription": "画像・映像・読み上げを作る",
   "connect.catalog.connector.fishDescription": "原稿を読み上げる",

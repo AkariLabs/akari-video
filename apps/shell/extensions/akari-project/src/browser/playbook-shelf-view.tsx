@@ -8,12 +8,18 @@ interface Props { service: { listPlaybooks(channel?: string): Promise<Entry[]> }
 
 export function PlaybookShelfView({ service, channel, openMarkdown }: Props): React.ReactElement {
     const [entries, setEntries] = React.useState<Entry[]>([]);
-    React.useEffect(() => { let active = true; void service.listPlaybooks(channel).then(value => { if (active) setEntries(value.filter(entry => entry.playbook.depth === 3)); })
-        .catch(() => { if (active) setEntries([]); });
+    const [loading, setLoading] = React.useState(true);
+    React.useEffect(() => { let active = true; setLoading(true); void service.listPlaybooks(channel).then(value => { if (active) { setEntries(value.filter(entry => entry.playbook.depth === 3)); setLoading(false); } })
+        .catch(() => { if (active) { setEntries([]); setLoading(false); } });
         return () => { active = false; }; }, [service, channel]);
     // 親の分類グリッドの 1 列に収まらないよう全幅に広げる（134px に畳まれて印が縦に折れていた）
     return <section data-akari-playbook-shelf style={{ padding: '10px', gridColumn: '1 / -1', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         <strong>{t('project.library.playbook.shelfLabel')}</strong>
+        {!loading && entries.length === 0 && <div data-akari-playbook-shelf-empty style={{ marginTop: 8, lineHeight: 1.5 }}>
+            <div>{t('project.library.playbook.empty.title')}</div>
+            <div>{t('project.library.playbook.empty.description')}</div>
+            <code style={{ display: 'block', marginTop: 4, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{t('project.library.playbook.empty.command')}</code>
+        </div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 8 }}>
             {entries.map(entry => {
                 const action = playbookShelfAction(entry.playbook);

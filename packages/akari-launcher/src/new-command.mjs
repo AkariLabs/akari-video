@@ -12,18 +12,20 @@ const languageTagPattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 function parseArguments(args) {
     let target;
+    let scaffold;
     let template;
     let from;
     let lang;
 
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
-        if (argument === '--template') {
+        if (argument === '--template' || argument === '--scaffold') {
             const value = args[index + 1];
             if (!value || value.startsWith('--')) {
-                throw new Error(`${usage()}\n${cliText('cli.new.error.templateMissing', {})}`);
+                throw new Error(`${usage()}\n${cliText(argument === '--scaffold' ? 'cli.new.error.scaffoldMissingPath' : 'cli.new.error.templateMissing', {})}`);
             }
-            template = value;
+            if (argument === '--scaffold') scaffold = value;
+            else template = value;
             index += 1;
         } else if (argument === '--from') {
             const value = args[index + 1];
@@ -51,7 +53,10 @@ function parseArguments(args) {
     if (target === undefined) {
         throw new Error(usage());
     }
-    return { target, template, from, lang };
+    if (scaffold !== undefined && template !== undefined) {
+        throw new Error(`${usage()}\n${cliText('cli.new.error.scaffoldAndTemplate', {})}`);
+    }
+    return { target, scaffold: scaffold ?? template, usedTemplateAlias: template !== undefined, from, lang };
 }
 
 async function directoryHasFile(directory, relativeFile) {
@@ -106,9 +111,10 @@ export async function runNewCommand(args, options = {}) {
         return { exitCode: 1 };
     }
 
-    const { target, template, from, lang } = parsed;
+    const { target, scaffold, usedTemplateAlias, from, lang } = parsed;
+    if (usedTemplateAlias) logError(text('cli.new.notice.templateAlias'));
     const targetDir = path.resolve(cwd, target);
-    const templateDir = template ? path.resolve(cwd, template) : assets.templateDir;
+    const templateDir = scaffold ? path.resolve(cwd, scaffold) : assets.templateDir;
     let playbookDir;
     if (from) {
         try { playbookDir = await resolvePlaybookDir(from, { cwd, targetDir, assets, env: options.env }); }

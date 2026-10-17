@@ -532,7 +532,7 @@
   "annotationscommon.editV2Mutations.error.audioSfxTrackMustBeNonnegativeInteger": "audio.sfx[].track は 0 以上の整数で指定してください。",
   "annotationscommon.materialTrialHistory.error.snapshotBeforeTrialDoesNotMatch": "お試し前のスナップショットが一致しません。",
   "annotationscommon.materialTrialHistory.error.undoPreviousTrialFirst": "前のお試しを巻き戻してください。",
-  "annotationscommon.overlayPlace.error.couldNotMeasureOverlaySize": "オーバーレイの大きさを測れませんでした",
+  "annotationscommon.overlayPlace.error.couldNotMeasureOverlaySize": "動く部品の大きさを測れませんでした",
   "annotationscommon.placeText.error.textOverlayPositionMustBeFrom0": "文字の位置は 0〜1 の範囲で指定してください。",
   "annotationscommon.placeText.error.checkTextOverlayStartEndTimes": "文字を置く開始・終了時刻を確認してください。",
   "annotationscommon.previewCaptionWrap.error.invalidDuplicateDestination": "複製先の位置が不正です",

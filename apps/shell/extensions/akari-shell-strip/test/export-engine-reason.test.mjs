@@ -56,11 +56,11 @@ test('オーバーレイ理由を件数でまとめ、コピーには全件と�
         { kind: 'overlay', id: 'o3', reason: 'css-3d-backface-hidden' }
     ];
     assert.deepEqual(summarizeExportReasons(reasons), [
-        'オーバーレイ 2 件の埋め込みコンテンツ', 'オーバーレイ 1 件の3D の裏面非表示'
+        '動く部品 2 件の埋め込みコンテンツ', '動く部品 1 件の3D の裏面非表示'
     ]);
     const text = exportEngineReasonCopyText({ engine: 'osr', reasons });
     assert.equal(text.split('\n').length, 4);
-    assert.match(text, /オーバーレイ o2: 埋め込みコンテンツ（embedded-context）/u);
+    assert.match(text, /動く部品 o2: 埋め込みコンテンツ（embedded-context）/u);
 });
 
 test('ENGINE / REFUSED 行をチャンク境界をまたいで読む', () => {
