@@ -2,7 +2,7 @@
 
 # Declare your audio (chorus, hits, beats)
 
-The library location defaults to the creator root’s `library/`; without a creator root it remains `~/.akari/assets/`. Run `akari-assets list` (or `akari assets list`) and use the location on the first line. `<library>` below means that location; audio lives in its `audio/` subdirectory.
+The library location defaults to the workspace's `library/`; without a workspace it remains `~/.akari/assets/`. Run `akari-assets list` (or `akari assets list`) and use the location on the first line. `<library>` below means that location; audio lives in its `audio/` subdirectory.
 
 Teach AKARI Video where the chorus, the hits, and the beats of your music are — by
 ear. The skill is `declare-audio`; the result is a `declarations.json` sidecar next
@@ -19,12 +19,15 @@ to the audio file in your library (default `<library>/audio/`).
 ## How it works
 
 1. Ask: "I want to declare this track." The agent starts a local, browser-based
-   timeline UI (bound to `127.0.0.1` only)
+   timeline page (bound to `127.0.0.1` only). It is not a screen inside the app; you open the URL the agent gives you
 2. You pin the chorus sections and the hits on the waveform, and confirm the BPM and
    the first beat. Automatic BPM estimation is only a starting point — the skill
    always walks you through an ear check against a click track
 3. Saving goes through the server (with validation) into `declarations.json`. What
    downstream skills read is the declarations, never the audio itself
+
+If a track already has a declaration that came from a pack, the page shows a "from a pack" badge
+and tells you before it saves your own, so nothing is replaced silently.
 
 The declarations are made by a human on purpose: the skill's hard rules forbid the
 agent from saving an automatic estimate as a confirmed declaration.
@@ -32,5 +35,5 @@ agent from saving an automatic estimate as a confirmed declaration.
 ## Next steps
 
 - Make a video that moves with the music → [Beat-synced edits](./beat-sync.md)
-- Grow the audio library itself → [Grow the asset library](./asset-library.md)
-- Canonical procedure → [skills/declare-audio/SKILL.md](../../skills/declare-audio/SKILL.md) (Japanese)
+- Grow the audio library itself (the official AKARI Sounds are one command away: `akari sounds`) → [Grow the asset library](./asset-library.md)
+- Canonical procedure → [skills/declare-audio/SKILL.md](../../skills/declare-audio/SKILL.md)

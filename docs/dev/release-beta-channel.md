@@ -24,4 +24,4 @@ macOS の `CFBundleShortVersionString` と `CFBundleVersion` には数字 3 組�
 
 ## 受け取る版
 
-`~/.akari/update-preferences.json` の channel は明示的な `prerelease` だけがベータを含む。未設定・破損・それ以外は `stable`。CLI とホームは同じ `update-check.json` を使い、取得元 URL を `feed_url` に記録する。設定切替後に取得元が違うキャッシュは表示しない。古いキャッシュに取得元が無くても、安定版設定では `-` のある版を除外する。`AKARI_UPDATE_FEED_URL` は完全上書きだが、この安定版ガードは外さない。
+アプリの設定「受け取る版」で「安定版だけ」か「プレリリースも」を選ぶ（英語表示は Release channel の Stable only / Include prereleases）。選んだ値は `~/.akari/update-preferences.json` の channel に入り、明示的な `prerelease` だけがベータを含む。既定は安定版。未設定・破損・それ以外は `stable`。CLI とホームは同じ `update-check.json` を使い、取得元 URL を `feed_url` に記録する。設定切替後に取得元が違うキャッシュは表示しない。古いキャッシュに取得元が無くても、安定版設定では `-` のある版を除外する。`AKARI_UPDATE_FEED_URL` は完全上書きだが、この安定版ガードは外さない。

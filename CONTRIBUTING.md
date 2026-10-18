@@ -19,13 +19,61 @@ External PRs are screened and reviewed here. Maintainers may narrow, adapt, or
 partially adopt a change before it lands. **A PR can be a valuable contribution
 even when it is not merged as-is.**
 
+## Development flow
+
+1. Branch from the latest `main` and keep the change small.
+2. Install from the repository root (`npm install`; do not add `--ignore-scripts`,
+   because `packages/media-bin` downloads ffmpeg in its `postinstall`). For the
+   desktop shell, run `npm install --no-workspaces` inside `apps/shell` — see the
+   [Windows build guide](docs/dev/windows-build.md) (Japanese).
+   The repo is pinned to Node 26.3.0 in CI.
+3. Run the checks that match what you touched (below), then open a PR using the template.
+
+### Checks
+
+| Command | What it checks |
+|---|---|
+| `npm run lint:i18n` | UI catalogs have the same keys in `ja` and `en`, placeholders match, static `t('key')` references exist, and no new hard-coded Japanese UI text was added |
+| `npm run check:docs-sync` | Skill counts written in docs match `skills/`, and every `docs/contract-*.md` is linked from both `docs/README.md` and `docs/README.ja.md` |
+| `npm run check:skills-index` | The skill index in `AGENTS.md` is up to date (regenerate with `npm run gen:skills-index`) |
+| `npm run check:entry-skill` | The entry skill's description stays generic (it must not name specific production stages) |
+| `npm run check:cross-package-imports` | Imports between packages stay within what the packaged build ships |
+| `npm run check:status-core` / `check:generation-models` / `check:cut-candidates` | Generated files match their generators (regenerate with the matching `gen:*` script) |
+
+Unit tests are split into lanes. `npm run test:lanes` lists which package is in which lane.
+
+| Lane | Command | Notes |
+|---|---|---|
+| pure | `npm run test:unit` | No external tools, deterministic. Required in CI |
+| shell | `npm run test:shell` | The desktop shell and its extensions. Required in CI |
+| media | `npm run test:media` | Needs ffmpeg / ffprobe / Chrome. Informational in CI |
+| quarantine | `npm run test:quarantine` | Already red on `main`, waiting for a fix. Informational |
+
+For a single package, `node --test` inside it also works.
+
+### UI text and i18n
+
+Text shown in the app lives in `packages/i18n/locales/<ja|en>/<namespace>.json`, and code uses only the
+key: `t('settings.appearance.language.auto')`. Add every key to both languages, keep the key stable when
+the wording changes, and do not add hard-coded Japanese UI strings. Run `npm run lint:i18n` after editing
+(`npm run gen:i18n-catalog` regenerates the catalog). The full rules are in
+[`docs/contract-2026-10-11-ui-i18n.md`](docs/contract-2026-10-11-ui-i18n.md). Use the on-screen words from
+[`docs/contract-2026-10-16-vocabulary-v0.md`](docs/contract-2026-10-16-vocabulary-v0.md) (asset, style,
+template, showcase, playbook) in UI text and docs; internal names such as `kind`, file names, and CLI flags stay as they are.
+
+### Docs
+
+User-facing docs are written in English at the canonical path with a Japanese copy next to it
+(`<name>.ja.md`). Change both in the same commit. A new `docs/contract-*.md` needs entries in both
+`docs/README.md` and `docs/README.ja.md`.
+
 ## PR basics
 
 - One clear problem per PR. Split large changes into stacked PRs and state the
   merge order in the PR description
-- Commit messages follow this repo's convention: Japanese body + a prefix
-  (`[機能追加]` `[修正]` `[ドキュメント]` etc.)
-- `node --test` must pass in each touched package. State exactly what you ran —
+- Commit messages follow this repo's convention: Japanese body + a prefix such as
+  `[機能]` `[改善]` `[修正]` `[ドキュメント]` (merge and release commits use `[合流]` `[リリース]`)
+- The checks above and the tests for each touched package must pass. State exactly what you ran —
   and what you could not run — in the PR description
 - An `accepted` label on an issue means the direction is reasonable. It is not a
   delivery promise

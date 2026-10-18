@@ -1,12 +1,12 @@
 # AKARI Video プラグイン（配布の背骨）
 
-Claude Code のプラグイン形式で、AKARI Video の編集スキル一式と「続きから」体験を 1 つに束ねる。
+Claude Code のプラグイン形式で、AKARI Video の編集スキル一式（28 本）と「続きから」体験を 1 つに束ねる。版は shell / CLI と同じ（1 つのタグで 3 つ同時に上がる。`plugin/.claude-plugin/plugin.json` の `version`）。
 
 ## 中身
 
 | コンポーネント | 場所 | 役割 |
 |---|---|---|
-| スキルパック | `skills/`（`../skills` へのシンボリックリンク。正本を**コピーせず参照**する） | `analyze-footage` / `edit-plan` / `overlay-authoring` などの編集スキル一式 |
+| スキルパック | `skills/`（`../skills` へのシンボリックリンク。正本を**コピーせず参照**する） | `akari`（入口）/ `analyze-footage` / `edit-plan` / `overlay-authoring` などの編集スキル 28 本 |
 | status core | `runtime/status-core/`（generator output） | launcher 正本の byte-identical mirror。fast/full の工程・受理判定を共有する |
 | SessionStart hook | `hooks/hooks.json` + `hooks/scripts/session-start.mjs` | canonical fast status と次の一手をコンテキスト注入する。無ければ何もしない |
 | `/akari` スラッシュコマンド | `commands/akari.md` | canonical status を根拠に案内する。独自の工程表は持たない |
@@ -29,7 +29,7 @@ Claude Code のプラグインマニフェスト（`plugin.json`）のコンポ�
 `plugin/skills → ../skills` のシンボリックリンクを解決して**実体**を置く（全スキルが実ファイルで入る）。
 このため checkout と同じ場所に無いリモート配布でも、スキルの正本がそのまま届く
 （symlink を解決しない単純コピーで `plugin/` だけを持ち出した場合は、この限りでない）。
-ただしマーケットプレイスの clone はリポジトリ全体になる（約 1 GB。スキル本体は 1 MB 弱）。
+ただしマーケットプレイスの clone はリポジトリ全体になる（スキル本体よりずっと大きい）。
 軽量化が要る場合は `plugin/` の実体ミラーを置く専用マーケットプレイスを別途検討する。
 
 capability 検索は `akari capability` CLI の責務である。単体コピー先で CLI が無ければ
@@ -37,7 +37,7 @@ capability 検索は `akari capability` CLI の責務である。単体コピー
 
 ## 有効化
 
-このプラグインは `npm publish` されない（本タスクのスコープは器の実装まで）。
+このプラグインは `npm publish` されない。配るのはマーケットプレイス（このリポジトリ）だけ。
 
 **第一手段 — マーケットプレイスから**（リポジトリ直下の `.claude-plugin/marketplace.json` を使う）:
 
@@ -48,7 +48,9 @@ claude plugin install akari@akari
 
 更新は `claude plugin update akari@akari`（マーケットプレイスの再取得 + 版の再コピー）。
 プラグインが届けるのはスキル・`/akari`・SessionStart hook で、`akari` CLI は含まない
-（CLI はインストーラーで入れる。`docs/getting-started.md` §B）。
+（CLI は `npm i -g akari-video` かインストーラーで入れる。`docs/getting-started.md` の Prerequisites / §A）。
+Claude Code 以外（opencode・Cursor Agent・Codex）では、プロジェクトに置かれる `.agents/skills` などの
+リンクからスキルが自動で見つかるため、このプラグインは要らない。
 
 **第二手段 — ローカル checkout を指す**（開発・検証用）: Claude Code のプラグイン機構
 （`/plugin` 系コマンド、またはプロジェクトの `.claude/settings.json` でこのディレクトリを指す）で

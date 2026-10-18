@@ -123,7 +123,7 @@ npm run build:ext
 npm run build
 
 # 4. パッケージング（--dir ターゲット = インストーラ無し・展開済みディレクトリのみ。
-#    NSIS 等の配布形式は第 2 陣で扱う・本書の範囲外）
+#    配布用の NSIS インストーラ（shell-win-setup.exe）と zip は release.yml が作る・本書の範囲外）
 npm run package
 ```
 
@@ -171,11 +171,11 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
 
 - **HEVC デコード**: 実機の GPU/OS コーデック拡張に依存する。Windows は「HEVC Video
   Extensions」が既定で入っていない構成が多く、その場合は完全にデコード不能（ソフトウェア
-  フォールバックの抜け道は無い見込み）。H.264 → プロキシ変換によるフォールバックは
-  第 2 陣で設計済み・未着手（内部リポの windows-port 設計計画を参照）
-- **フォント見た目差**: テロップは現状 OS フォントフォールバック（Yu Gothic 等）に依存し、
-  Mac の見た目と差が出る。「壊れないが見た目が変わる」状態。Noto Sans JP 同梱は第 2 陣で
-  設計済み・未着手
+  フォールバックの抜け道は無い見込み）。この手順書では代替経路を扱わない。
+  確認は H.264 素材で行う
+- **フォント見た目差**: Noto Sans JP などの日本語フォントは `assets/font/` に同梱済み
+  （[catalog/font/INDEX.md](../../catalog/font/INDEX.md)）なので、同梱書体を使う字幕の見た目は Mac と揃う。
+  同梱していない書体を指定した場合は OS のフォールバック（Yu Gothic 等）になり、見た目が変わる
 - **codex/claude CLI 連携（akari-partner 拡張）**: `claude` が PATH にある環境は
   **Windows 実機で動作確認済み**（issue #9 — 右ペイン PTY で CLI の信頼確認プロンプト
   まで到達。conpty / node-pty prebuilt で動作）。**PATH に無い環境でも起動する** —
@@ -186,9 +186,10 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
   実体が一切無い環境のみで、**その経路は win32 分岐の実装済み・実機未検証**
   （旧記述「win32 では例外を投げる」は bootstrap 実装前の情報で、issue #9 の実機確認を
   受けて更新）
-- **署名なし配布 → SmartScreen 警告**: コード署名していないため、初回起動時に Windows
-  SmartScreen の警告が出る。配布用の署名・NSIS インストーラ化は「配布系」として本書のスコープ外
-  （第 2 陣以降の課題）
+- **署名なし配布 → SmartScreen 警告**: Windows 版（リリースの `shell-win-setup.exe` と
+  `shell-win.zip`）はコード署名していない（macOS は Developer ID 署名 + 公証済み）ため、
+  初回起動時に Windows SmartScreen の警告が出る。「詳細情報」→「実行」で続行できる。
+  署名の導入は本書の範囲外
 - **render-cut の Chrome/Playwright 解決**: `packages/render-cut` の Chrome 実行ファイル
   探索ロジックは darwin 判定の分岐が macOS ハードコードで、win32 は Linux 向けの分岐に
   フォールスルーする（Playwright キャッシュのパス・バイナリ名パターンが Windows と
@@ -256,8 +257,7 @@ CI ランナーの npm では allow-scripts ゲートが electron 等の install
 
 ## 参考
 
-- 設計の正本: 内部リポ（`akari-video-internal`）の windows-port 設計計画
 - Windows 実機での検証記録: issue #5（パッケージ版ファイル検索）/ #6（install 前提）/
   #7（electron postinstall）/ #8（Spectre）/ #9（Tier 0 チェックリスト一周）
 - 本書が検証する範囲は「ビルドが通り、アプリが起動し、基本機能が動く」Tier 0 まで。
-  配布形式（NSIS 等）・コード署名・Windows 版 CI は範囲外
+  配布物（NSIS インストーラと zip はリリースワークフローが作る）の組み方・コード署名は範囲外

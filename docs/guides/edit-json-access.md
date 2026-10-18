@@ -2,6 +2,22 @@
 
 # How the agent reads edit.json
 
+`edit.json` is the source of truth. People don't touch the JSON; they edit with the screen and the knobs.
+The AI reads and writes it, so the format is chosen for the AI's grep and Edit and for git diffs.
+Canonical shape: [edit.json v2 object-tree contract](../contract-2026-08-30-edit-json-v2-object-tree-v0.md) (Japanese)
+
+## The shape of edit.json v2
+
+- `"version": 2`. The tree is `tracks[]` (tracks) → `items[]` (items) → child `items[]` … and it is **recursive**.
+  Group nesting, order, and timing all live in edit.json
+- A child's `at` is an integer frame counted from its parent (the parent is 0). The order of `items[]` is z-order (later is in front)
+- What an item holds is set by `source.kind` (`media`, `html` [a motion part], `telop`, `group`, `captions`, and so on).
+  An empty slot (placeholder) is `source.kind: group` with `canvas.origin: plan`
+- Bulky content goes in a container, and edit.json carries only structure, timing, transforms, references, and counts.
+  The containers are HTML fragments, `captions.json`, and `motion/<group id>.json`
+- Convert an old (v0 / v1) `edit.json` to v2 with `akari migrate [dir] [--dry-run] [--yes] [--json]`.
+  By default it shows what will change, asks you to confirm, and saves the full text from before into `.akari/backup/`
+
 ## Rules for AI access (contract §5.2)
 
 1. **Do not Read edit.json / captions.json / motion/*.json in full**. Run `grep -n '"id": "<id>"'` → Read only the matching line → Edit. To see the tree structure, read only the outer structure with a command such as `grep -n '"kind": "group"\|"items": \['`

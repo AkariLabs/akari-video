@@ -8,8 +8,12 @@ and stores generation-provider API keys in each project's
 
 ## Supported versions
 
-Security fixes are prioritized for the latest public release and the current
-`main` branch. Maintainers usually fix forward.
+Security fixes are prioritized for the latest public release (the 1.x stable line, or a
+newer beta if one is out) and the current `main` branch. Older releases are not patched;
+please update first.
+
+Maintainers usually fix forward: the fix ships in the next release, and the app's
+update check (Settings, "Release channel": Stable only or Include prereleases) delivers it.
 
 ## Reporting a vulnerability
 
@@ -35,7 +39,7 @@ Report privately if the issue involves:
   offline; an unexpected network call from a render is both a defect and a
   potential exfiltration channel
 - Code execution beyond what the user asked for — launcher, installer, update
-  check, lifecycle scripts, or template scaffolding
+  check, lifecycle scripts, or project scaffolding
 - **Instruction injection into skills / plugin files** — AKARI Video's skills
   (`SKILL.md`, plugin commands, adapters) are executed by AI agent harnesses.
   Content that could steer an agent into exfiltrating data or running unintended

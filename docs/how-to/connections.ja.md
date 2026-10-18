@@ -13,7 +13,9 @@
   `~/.akari/credentials.env`（プロジェクト外）に置き、
   connections レジストリは**参照**だけを持つ
 - **旧い場所のキーも読める** — まだ移していないキーは旧い場所から読みます。
-  新しく登録するキーは `~/.akari/credentials.env` に保存します
+  新しく登録するキーは `~/.akari/credentials.env` に保存します。
+  旧い場所は `~/.config/akari-video/credentials.env` で、キーがどちらにあるかは
+  `akari doctor` に出ます
 - **作業場が既定、プロジェクトは上書き** — 既定レジストリは
   `<creator-root>/.akari/connections.json` に置きます。プロジェクトの
   `.akari/connections.json` は任意のオーバーレイで、作業場レジストリが無ければ
@@ -36,6 +38,14 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 
 エージェントが `credentials.env` への記入手順を案内し、登録後に doctor で疎通を確認します。
 
+アプリからも登録できます。**設定 › つなぐ** に、AKARI の道具と素材を作るサービス
+（画像・映像の生成、読み上げ、文字起こし、3D の設定〈v1.5.0 では「3D レシピ」〉）が並びます。カードごとに
+「使える」「鍵が必要」「準備中」が分かり、「鍵を追加」でこのパソコンの資格情報ファイルに
+保存されます。同じ画面で、生成サービスを使う順番と、失敗したときに次のサービスへ
+自動で切り替えるか（既定はオフ）も決められます。キーをチャットに貼る必要はありません。
+ターミナルからは `akari connect list [--json]` で同じ状態を見られ、
+`akari connect exec <id> -- <コマンド>` はそのサービスの鍵を子プロセスにだけ渡して実行します。
+
 ## モデル・プロバイダを選ぶ
 
 文字起こし・TTS などバックエンドが複数あるものは、`connections.json` の
@@ -50,10 +60,18 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 未導入のパートナーは自動で導入せず、案内だけを表示します。
 CLI 内で `/exit` などを実行しても「タブを閉じた」扱いにはならず、次回も自動で開きます。止めるにはタブを閉じるか設定をオフにしてください。
 
+Claude Code と Codex が最初のおすすめで、ほかは使い慣れているものがあるときのための選択肢です。
+パートナーの CLI はアプリから更新もできます。新しい版があると、**設定 › パートナー** の
+該当行に「アップデート」ボタンが出ます。自分で更新する CLI はその旨が表示され、
+AKARI の外（Homebrew・npm など）で入れたものは、入れた方法で更新してください。
+
+AKARI チャット（お試し）は既定では隠れています。使うには 設定 › パートナー の
+「AKARI チャット（お試し）を表示する」をオンにします。
+
 デスクトップシェルの接続ボタンはパートナーカタログを開きます。
 現在のカタログには、PTY タブで動く **CLI 11 種** — Claude Code・Codex・
-opencode・Command Code・Pi・Devin・Copilot・Cursor・Antigravity・Grok Build・Muse Code —
-と Claude Code / Codex のエディタ拡張 2 種があります。
+opencode・Command Code・Pi・Devin・Copilot・Cursor（`cursor-agent`）・Antigravity・Grok Build・Muse Code —
+と Claude Code / Codex のエディタ拡張 2 種、Web パートナーの DeepSeek Harness があります。
 Command Code は Node.js 22 以上が必要で、未導入時は公式の
 `npm install -g command-code` パッケージ経路をシェルが使います。
 Muse Code は公式のインストールスクリプトで導入します（Windows の導入先は
@@ -93,6 +111,41 @@ Workspace Write、すべて許可で Full access です。CLI の `--help` に�
 パートナーのタブ名には実際に適用したモードを表示し、権限オプションを付けなかった場合は
 「ツールの既定で起動」と表示します。起動中の DeepSeek Harness の画面を再利用するときは、
 先に起動したモードを維持します。Claude Code・Codex のエディタ拡張形は各拡張の設定に従います。
+
+## 道具の手順と接続
+
+「やりたいこと」と「どのサービスで叩くか」を 2 つの層に分けています。
+
+- **道具の手順**（`akari-recipe`）: 30 秒の BGM を作る・商品を 3D で回す、のような場面です。
+  サービスの名前は書かず、要る**能力**（`music-generation`・`image-generation`・
+  `video-generation`・`speech-synthesis`・`3d-render`・`transcription`・`publish`）だけを書きます。
+  アプリでは、3D のものは「3D の設定」と表示されます（v1.5.0 では「3D レシピ」）。
+- **接続**: fal・ElevenLabs・Blender のようなサービスやソフトです。`connections.json` の
+  1 件に `provides`（持つ能力）・`adapter`（`official-api` / `local` / `custom`）・
+  `terms`（規約を確認した日と商用利用の可否）を宣言できます。
+
+サービスを差し替えても、手順は変わりません。
+
+```sh
+akari recipe list [--json] [--project <dir>]
+akari recipe plan <id> [--project <dir>] [--json]
+```
+
+`list` は棚にある手順（`~/.akari/tool-recipes/<id>/recipe.json`、そのプロジェクトだけなら
+`<project>/recipes/<id>/recipe.json`）を並べます。`plan` は、要る能力ごとに使える接続の候補・
+認証の状態・止まる**門**（`paid` / `external-send` / `license`。`terms` が確認されていない接続は
+`license` で止まります）を出します。`plan` は報告するだけで、何も実行しません。実行はエージェントが
+対応するスキルとコマンドで行い、できたファイルはどの手順・どの接続で作ったかとともに
+プロジェクトの目録に記録されます。
+
+生成モデルの一覧と価格は [生成モデル](../guides/generation-models.ja.md) にあります。
+
+## AKARI アカウントを連携する（Lab）
+
+`akari store connect` で AKARI アカウントを連携すると、無料の素材パックと Lab で購入した素材が
+使えるようになります。ブラウザが開いて確認コードが出るので、承認すれば完了です。
+ブラウザを開かないなら `--no-open`、手動なら `--token akst_…` を付けます。
+連携の状態は `akari store status`、解除は `akari store disconnect` です。アプリからも案内されます。
 
 ## コスト承認ポリシー
 
