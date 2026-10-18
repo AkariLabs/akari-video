@@ -1,7 +1,7 @@
 # 別名表（旧名 → 新名。読み取りは永続）
 
 > 正本: `contract-2026-10-16-vocabulary-v0.md` §10。画面の語を変えても id・キー・URL・タイルの key は変えない。旧名は**読み取り永続**、CLI の旧フラグは使われたら案内を 1 行出すだけ。消す版はここでは決めない。
-> 2026-10-17: 「表示」の行はレーン `2026-10-17-vocabulary-wording`（公開 main 合流）で当てた。直した i18n キーの全一覧（122 キー・ja/en 新旧）は内部リポ `tasks/2026-10-17-vocabulary-wording/report.md`。契約に英語の無かった語の英語はここが正本: 動く部品 = Motion parts / 型 = type / 記憶の束 = memory collection / チャンネルの設定 = Channel settings / 字幕スタイル = Caption style / 使った土台 = Scaffold used / 自分のスタイル = My styles / 道具の手順 = Tool procedure。
+> 2026-10-17: 「表示」の行はレーン `2026-10-17-vocabulary-wording`（公開 main 合流）で当てた。直した i18n キーの全一覧（122 キー・ja/en 新旧）はレーンの報告（内部リポ）にある。契約に英語の無かった語の英語はここが正本: 動く部品 = Motion parts / 型 = type / 記憶の束 = memory collection / チャンネルの設定 = Channel settings / 字幕スタイル = Caption style / 使った土台 = Scaffold used / 自分のスタイル = My styles / 道具の手順 = Tool procedure。
 > 列: 旧 / 新 / 種類（表示・CLI フラグ・サブコマンド・i18n キー・データ値・タイル key）/ 場所 / 互換の扱い / 根拠
 
 | 旧 | 新 | 種類 | 場所 | 互換の扱い | 根拠 |
