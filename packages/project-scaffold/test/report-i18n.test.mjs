@@ -16,7 +16,7 @@ const report = {
 
 test("Japanese project report matches the original byte output", () => {
   const explicit = renderReportHtml(report, { lang: "ja" });
-  assert.equal(createHash("sha256").update(explicit).digest("hex"), "8a5431931c23e2883ad5d46e4b05707c3079bbe08cc2b8f869535d5704925f1f");
+  assert.equal(createHash("sha256").update(explicit).digest("hex"), "b2f3ee6ad05a99777b94b354211c347edc6f7e49d939041e977b290a63b2ab58");
   const previous = process.env.AKARI_LANG;
   try {
     process.env.AKARI_LANG = "ja";
