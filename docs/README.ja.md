@@ -16,8 +16,8 @@
 
 | ページ | 内容 |
 |---|---|
-| [Introduction](./introduction.ja.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・ワークフロー（[English](./introduction.md)） |
-| [Getting Started](./getting-started.ja.md) | 3 つの入口（marketplace からの Claude Code プラグイン導入を含む）・最初のプロジェクト作成・進め方フォーム（[English](./getting-started.md)） |
+| [Introduction](./introduction.ja.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・1 本ができるまで（作り方・テンプレート・注釈・シーン・AI パートナー・Lab の 2 階層）（[English](./introduction.md)） |
+| [Getting Started](./getting-started.ja.md) | 入口（デスクトップアプリ・CLI・marketplace からの Claude Code プラグイン）・白紙から / 作り方からの最初のプロジェクト作成・進め方フォーム（[English](./getting-started.md)） |
 
 ## Guides
 
@@ -28,14 +28,14 @@
 | [ゼロから企画する](./guides/plan-from-scratch.ja.md) | ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト（research-plan） |
 | [素材を分析する](./guides/analyze-footage.ja.md) | プロキシ・文字起こし・キーフレーム抽出と横断分析（analyze-footage / analyze-project） |
 | [編集計画を立てて実行する](./guides/plan-your-edit.ja.md) | 3 段階承認で edit.json へ（edit-plan） |
-| [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.ja.md) | AI が描く表現と「触れるオーバーレイ」（overlay-authoring） |
+| [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.ja.md) | AI が描く表現と、ツマミで触れる動く部品（overlay-authoring） |
 | [ナレーションを付ける](./guides/narration.ja.md) | ローカル無償 / 声クローン（generate-narration） |
 | [QA・レビューして直す](./guides/review-and-fix.ja.md) | 機械検査・口頭レビューのチケット化・対応（edit-lint / compile-review-session / address-review） |
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
-| [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物の入庫（setup-library / setup-audio-library / harvest-asset） |
-| [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスでレシピを映像素材に（bake-3d） |
+| [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / setup-audio-library / harvest-asset） |
+| [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（bake-3d） |
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
-| [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・ショーケースを機械生成（beat-sync-edit） |
+| [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（beat-sync-edit） |
 | [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |
 | [生成モデル一覧（機械生成）](./guides/generation-models.ja.md) | 価格・尺・入力・音声・較正の事実一覧 |
 
@@ -50,8 +50,8 @@
 | ページ | 内容 |
 |---|---|
 | [接続と API キー](./how-to/connections.ja.md) | 接続レジストリ・doctor 診断・コスト承認ポリシー（manage-connections） |
-| [シェル UI: 素材とタイムライン](./how-to/shell-ui.ja.md) | 素材カード・クリップの右クリックメニュー、タイムラインへの D&D、Finder で表示 |
-| [プロジェクト構成](./how-to/project-structure.ja.md) | `.akari/` 配下のファイルの役割と削除してよいもの |
+| [シェル UI: 素材とタイムライン](./how-to/shell-ui.ja.md) | ライブラリ（素材・スタイル・テンプレート）・プロジェクトパネル・プレビューの注釈・タイムラインと台本パネル・右クリックメニュー・D&D |
+| [プロジェクト構成](./how-to/project-structure.ja.md) | `.akari/` 配下のファイルの役割（目録・作り方・注釈・字幕）と削除してよいもの |
 | [続きから再開する](./how-to/resume-session.ja.md) | `.akari/events/` と SessionStart hook の仕組み |
 | [FAQ・トラブルシューティング](./how-to/faq.ja.md) | よくある質問とエラー対処 |
 
@@ -79,9 +79,9 @@
 | [contract-2026-10-15-project-manifest-v0.md](./contract-2026-10-15-project-manifest-v0.md) | プロジェクトの依存グラフ v0 — `<project>/.akari/manifest.json`（nodes = 関わるもの・edges = 誰が誰を使うか）。シーンを持つプロジェクトは `scenes/<scene>/` に 1 段だけ入れ子（シーンのフォルダを作業フォルダとして開く）。実体も編集の中身も持たず、相関図・構成の木・確認シート・検査の正本になる。`akari project sync / check / scene add`。参照台帳・利用台帳は変えない |
 | [contract-2026-10-16-automation-gates-v0.md](./contract-2026-10-16-automation-gates-v0.md) | 自動化の門と「やったこと」v0 — 戻せることは見ていなくても進め（`agent-action` を記録して節目に撮る）、戻せないこと（公開・提出・有償・外部送信・元素材の削除・ライセンス・作り方の確認点・人の指定）だけ門で止める（`gate-requested` / `gate-resolved`）。やったこと一覧から変更を見て、ここまで戻す。おまかせ度は既存の 3 つのまま |
 | [contract-2026-10-16-recipes-and-connectors-v0.md](./contract-2026-10-16-recipes-and-connectors-v0.md) | レシピと接続の 2 層 v0— レシピ = シチュエーション（BGM を 30 秒作る 等。要る能力だけを書く）/ 接続 = サービス・ソフトウェア（認証・叩き方・料金・規約・持つ能力）。差し替えても作り方とレシピは変わらない。自前アダプタはキットで配り、非公式な叩き方は同梱しない |
-| [contract-2026-10-16-template-v0.md](./contract-2026-10-16-template-v0.md) | テンプレート v0 — 作り方の深さ 3。作り込み済みのまとまり 1 つ + 使う素材の実体。ライブラリからタイムラインへ 1 つのまとまりとして置き、空き枠に映像を落とすと入れ替わる。`akari playbook template` でプロジェクトから書き出す |
+| [contract-2026-10-16-template-v0.md](./contract-2026-10-16-template-v0.md) | テンプレート v0 — 作り方の深さ 3。作り込み済みのまとまり 1 つ + 使う素材の実体。ライブラリからタイムラインへ 1 つのまとまりとして置き、空き枠に映像を落とすと入れ替わる。`akari template export` でプロジェクトから書き出す（v1.5.0 では `akari playbook template`） |
 | [contract-2026-10-16-vocabulary-v0.md](./contract-2026-10-16-vocabulary-v0.md) | 画面の語の正本 v0 — 素材 / スタイル / テンプレート / 作例 / 作り方。名前は「選んだあとに何ができるか」で決め、大きさでは決めない。関係・操作・別名の規則・移行 |
-| [contract-2026-10-16-showcase-v0.md](./contract-2026-10-16-showcase-v0.md) | 作例 v0 — 完成した 1 本と、そこから辿る根拠（区間・元データ・作り方・部品・依存から計算する「開けるか」）。`akari showcase inspect / capture` |
+| [contract-2026-10-16-showcase-v0.md](./contract-2026-10-16-showcase-v0.md) | 作例 v0（ドラフト・アプリと CLI は未実装）— 完成した 1 本と、そこから辿る根拠（区間・元データ・作り方・部品・依存から計算する「開けるか」）。`akari showcase inspect / capture` |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | ワールドマップ v0（スキーマ・カメラ関数・描画 3 層・CLI akari world・俯瞰 HTML・制作フロー） |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | 作品の言語の保存先・解決順・正規化・言語パックの代用規則 |
 

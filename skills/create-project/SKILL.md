@@ -22,7 +22,7 @@ description: Create an AKARI Video project headlessly. Recursively copy `templat
 
 ## Procedure
 
-1. Use `--template <path>` if supplied; otherwise use the repository checkout's `templates/project-default/`. Do not resolve templates by any route beyond these 2 choices.
+1. Use `--scaffold <path>` (alias: `--template <path>`) if supplied; otherwise use the repository checkout's `templates/project-default/`. Do not resolve templates by any route beyond these 2 choices.
    Determine the content language from the user's conversation and source audio, independently of the UI language.
    If the languages appear to disagree, confirm the desired content language with 1 question. Store its BCP 47
    value in intake.json's language field; use akari new's --lang option if available. Resolution order is explicit
@@ -31,7 +31,7 @@ description: Create an AKARI Video project headlessly. Recursively copy `templat
 2. Run this CLI:
 
    ```sh
-   akari new <target-dir> [--template <path>]
+   akari new <target-dir> [--scaffold <path>]
    ```
 
 3. Check the HTML creation report path printed to stdout. The read-only report records copying, fallback additions, skipped symbolic links, template version, and git initialization results.
@@ -39,15 +39,15 @@ description: Create an AKARI Video project headlessly. Recursively copy `templat
 ## Usage
 
 ```sh
-akari new <target-dir> [--template <path>]
+akari new <target-dir> [--scaffold <path>]
 ```
 
 - `<target-dir>`: Destination directory, either new or an existing nonempty folder. Existing files are not overwritten.
-- `--template <path>`: Explicit template directory. Defaults to the repository checkout's `templates/project-default/`. There is no other resolution route.
+- `--scaffold <path>`: Explicit scaffold (project foundation) directory. `--template <path>` is an alias; passing both is an error. Defaults to the repository checkout's `templates/project-default/`. There is no other resolution route.
 
 ## Starting from a playbook
 
-Use `akari new <target-dir> --from <playbook-dir | id>` to create the same project container and then apply a recorded playbook. An ID resolves from the current channel's `playbooks/<id>/` before `~/.akari/playbooks/<id>/`. The command copies the playbook, adds empty role placeholders to edit.json, and prints the creation report and read-only review sheet paths. `--template` may be combined with `--from`; template resolution still has exactly the two choices above.
+Use `akari new <target-dir> --from <playbook-dir | id>` to create the same project container and then apply a recorded playbook. An ID resolves from the current channel's `playbooks/<id>/` before `~/.akari/playbooks/<id>/`. The command copies the playbook, adds empty role placeholders to edit.json, and prints the creation report and read-only review sheet paths. `--scaffold` may be combined with `--from`; template resolution still has exactly the two choices above.
 
 ## When the user wants to start from a worked example
 
@@ -64,7 +64,7 @@ finished example**, which is separate from the 2 template resolution choices (ha
   cd templates/kaisetsu-short && node tools/build.mjs sample-project --no-synthesize
   ```
 
-- **Do not pass a worked example to `--template`.** It lacks container structure such as `.akari/`,
+- **Do not pass a worked example to `--scaffold`.** It lacks container structure such as `.akari/`,
   so resolving it as a template produces an incomplete project. If a container is needed, create it normally
   with `templates/project-default/`, then duplicate the worked example and bring in its contents.
 - See [`templates/INDEX.md`](https://github.com/AkariLabs/akari-video/blob/main/templates/INDEX.md) for the 2 template types (containers / worked examples).

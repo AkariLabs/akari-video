@@ -2,7 +2,7 @@
 
 # Beat-synced edits (PVs and showcases)
 
-Make a video where the picture moves with the music: cuts, overlays, and SFX all
+Make a video where the picture moves with the music: cuts, motion parts, and SFX all
 snapped to the declared beats of a track. The skill is `beat-sync-edit`.
 
 ## When it fits
@@ -16,8 +16,8 @@ snapped to the declared beats of a track. The skill is `beat-sync-edit`.
 
 1. Prerequisite: the track has declarations (BPM, first beat, hits, sections) made
    with [declare-audio](./declare-audio.md). The skill refuses to start without them
-2. A generator script computes every cut, overlay, and SFX time from the declared
-   beat positions and machine-generates `edit.json` plus the overlay set — no
+2. A generator script computes every cut, motion-part, and SFX time from the declared
+   beat positions and machine-generates `edit.json` plus the set of motion parts (overlay fragments) — no
    hand-typed seconds anywhere
 3. Fixes go into the generator, which is re-run; the edit is never patched by hand
    (a hand edit would be lost on the next regeneration)
@@ -28,4 +28,4 @@ snapped to the declared beats of a track. The skill is `beat-sync-edit`.
 
 - Declare a track first → [Declare your audio](./declare-audio.md)
 - Export the finished edit → [Export](./export.md)
-- Canonical procedure → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md) (Japanese)
+- Canonical procedure → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)

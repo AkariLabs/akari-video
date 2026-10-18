@@ -24,7 +24,7 @@ body:
       label: 再現手順 / Reproduction steps
       description: 再現できる最小の手順
       placeholder: |
-        1. `./akari.sh` を実行
+        1. アプリのホームで「＋ 新しい動画を始める」を押す（または `akari new` を実行）
         2. ...
         3. こうなる
     validations:
@@ -33,25 +33,53 @@ body:
     id: version
     attributes:
       label: バージョン / Version
-      description: リリース版 or コミット SHA
-      placeholder: "v0.x.x / abc1234"
+      description: アプリの設定の「このアプリについて」、またはターミナルで `akari --version` の表示。開発版ならコミット SHA / App Settings > About this app, or `akari --version`. Commit SHA if you run from a clone
+      placeholder: "v1.5.0 / v1.5.0-beta.6 / abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 受け取る版 / Release channel
+      description: 設定の「受け取る版」。ベータ版（プレリリース）は版の名前に `-beta.N` が付きます / Settings > Release channel. Beta versions have `-beta.N` in the version name
+      options:
+        - "安定版 / Stable"
+        - "ベータ版（プレリリース）/ Beta (pre-release)"
+        - "開発版（clone して実行）/ From a clone (development)"
+        - "わからない / Not sure"
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - "macOS (Apple Silicon)"
+        - "macOS (Intel)"
+        - "Windows"
+        - "Linux / WSL2"
+        - "その他 / Other"
+    validations:
+      required: true
   - type: input
     id: environment
     attributes:
       label: 環境 / Environment
-      placeholder: "macOS 15, Node 22, installer 経由 / clone"
+      description: OS のバージョン、アプリ / CLI / プラグインのどれで起きたか、使っている AI パートナー（Claude Code・Codex など） / OS version, whether it happened in the app, CLI or plugin, and which AI partner you use
+      placeholder: "macOS 26, デスクトップアプリ, Claude Code / Windows 11, CLI (npm), Codex"
   - type: dropdown
     id: risk_area
     attributes:
       label: 領域 / Area
       description: 一番近いものを選んでください（トリアージが速くなります）
       options:
-        - "セットアップ / インストール"
-        - "ランチャー / CLI"
-        - "レンダー / 書き出し"
-        - "テロップ / presets / 素材"
-        - "プレビュー / アプリ"
-        - "スキル / エージェントの挙動"
+        - "セットアップ / インストール / 更新"
+        - "CLI（akari コマンド）"
+        - "書き出し"
+        - "字幕 / テロップ"
+        - "素材 / 動く部品（オーバーレイ）/ スタイル / テンプレート / ライブラリ"
+        - "作り方 / 台本 / タイムライン"
+        - "プレビュー / 注釈 / アプリの画面"
+        - "AI パートナー / スキルの挙動"
+        - "Lab / 連携（akari store connect）"
         - "ドキュメント"
         - "わからない"
   - type: textarea

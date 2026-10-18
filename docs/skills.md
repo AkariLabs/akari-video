@@ -8,43 +8,48 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 ## Skills in production-flow order
 
+The order follows a video from idea to delivery: plan → prepare → analyze → edit plan → expression → QA & review → export → turn the result into assets or a playbook.
+
 ### Planning
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
 | [research-plan](../skills/research-plan/SKILL.md) | Ideas → target / competitor / trend research → brief, outline, storyboard, shot list. Topic and structure are confirmed through decision-card approval gates | Web research |
 
-### Project & asset setup
+### Preparation
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [akari](../skills/akari/SKILL.md) | Entry point to create, open, or resume a project | akari CLI (init/new/status) |
-| [create-project](../skills/create-project/SKILL.md) | Headless project creation (template copy, creation report) | git (initialized only when safe) |
-| [record-playbook](../skills/record-playbook/SKILL.md) | Record a finished project's steps, settings, role placeholders, parts, and required tools for reuse, attach key scene frames, and copy it to the local shelf | Bundled deterministic helper and playbook validator |
-| [setup-library](../skills/setup-library/SKILL.md) | First-run setup: tool checks → starter-pack proposal → fetch, place, verify | ffmpeg / whisper-cli |
-| [setup-audio-library](../skills/setup-audio-library/SKILL.md) | Semi-automated BGM / SFX intake (candidate list → manual-download matching → listen and keep/drop) | Free audio sources (humans download) |
+| [akari](../skills/akari/SKILL.md) | Entry point: create, open, or resume a project. Also recommends up to three playbooks that fit the footage and applies the one the user picks, and routes work that needs external tools through recipes | akari CLI (`init` / `new` / `status` / `playbook` / `recipe`) |
+| [create-project](../skills/create-project/SKILL.md) | Headless project creation: copy the scaffold (the empty project structure), record its version, and write a creation report. `--from` starts from a playbook | akari CLI (`new`); git (initialized only when safe) |
+| [setup-library](../skills/setup-library/SKILL.md) | First-run setup: tool checks → starter-pack proposal → fetch, place, verify. Also fetches the free assets and purchased Pro assets of the connected Lab account | ffmpeg / whisper-cli; `akari assets`, `akari store connect` |
+| [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM / SFX intake. By default the first-party AKARI Sounds are fetched from GitHub Releases; missing families are filled by a semi-automated flow (candidate list → manual-download matching → listen and keep/drop) | GitHub Releases (AKARI Sounds) / free audio sources (humans download) |
 | [declare-audio](../skills/declare-audio/SKILL.md) | Declaring "where the chorus, hits, and beats are" on your own audio, by ear (a browser timeline UI → `declarations.json`). The BGM auto-suggester reads these declarations and cues the chorus | Browser (a human decides the declarations) |
 | [setup-remote](../skills/setup-remote/SKILL.md) | Remote setup: Tailscale doctor → guided install (human-in-the-loop) → tailnet-only HTTPS for the preview server → Taildrop delivery into the workspace inbox → end-to-end check. Never exposes anything to the public internet by default | Tailscale / Taildrop (install & login are done by the human) |
 | [setup-chat-approval](../skills/setup-chat-approval/SKILL.md) | Chat approval setup: doctor → BotFather token issued and stored in credentials.env (human-in-the-loop) → chat-ID allow-list → notification with buttons → a tap updates `decisions.json`. Long polling only: no public endpoint, and free-text messages are never treated as instructions | Telegram Bot API (the token is issued and stored by the human) |
-| [harvest-asset](../skills/harvest-asset/SKILL.md) | Harvesting high-cost deliverables into the asset library | — |
-| [bake-3d](../skills/bake-3d/SKILL.md) | Baking 3D scenes into footage (clips). Creating, tuning, and re-baking `scene.py` recipes | **Blender** (headless, bpy) |
-| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | Machine-generating a beat-snapped edit.json plus its overlay set from a "generator", using the declared beats / hits / sections of the audio as the only time source (PVs and showcases where the picture moves with the music) | ffmpeg / ffprobe (declarations are made by a human via declare-audio) |
 
 ### Analysis
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [analyze-footage](../skills/analyze-footage/SKILL.md) | Pull-driven analysis of one clip up to the requested level; defaults to L0 metadata + L1 audio → analysis.json | `akari media`; cloud transcription only with approval |
-| [analyze-project](../skills/analyze-project/SKILL.md) | Cross-clip interpretation layer (interpretation.json) and a read-only analysis report | — |
+| [analyze-footage](../skills/analyze-footage/SKILL.md) | Pull-driven analysis of one clip up to the requested level (L0 metadata, L1 audio, L2 visuals, L3 person tracks); defaults to L0 + L1 → analysis.json | `akari media` (local speech recognition; cloud transcription only with approval) |
+| [analyze-project](../skills/analyze-project/SKILL.md) | Cross-clip interpretation layer (interpretation.json) and a read-only analysis report with images | — |
 
-### Editing
+### Edit plan
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [edit-plan](../skills/edit-plan/SKILL.md) | Reads the analysis report as primary evidence; direction, asset plan, and execution confirmed by explicit approval, landing in edit.json v0 + overlays | — |
-| [design-world](../skills/design-world/SKILL.md) | Brief → template → script → `world-map.json` → checked, built, measured flat-world video and overview | Bundled `akari world` CLI |
-| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for overlay HTML (captions, tables & charts, 3D, motion graphics, thumbnails, text-behind-person) | CSS keyframes / WAAPI; Three.js + glTF (declarative only — see [Supported animation runtimes](#supported-animation-runtimes)) |
-| [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json | VOICEVOX (local, free) / fal Qwen3-TTS (cloud voice clone, behind approval) |
+| [edit-plan](../skills/edit-plan/SKILL.md) | Reads the analysis report as primary evidence; direction, asset plan, and execution confirmed by explicit chat approval, landing in edit.json v2 and its motion parts. Also plans from no media through questions and a provisional plan | — |
+| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | Machine-generating a beat-snapped edit.json plus its motion parts from a "generator", using the declared beats / hits / sections of the audio as the only time source (PVs and showcases where the picture moves with the music) | ffmpeg / ffprobe (declarations are made by a human via declare-audio) |
+| [design-world](../skills/design-world/SKILL.md) | Brief → scaffold → script → `world-map.json` → checked, built, measured flat-world video and overview | Bundled `akari world` CLI |
+
+### Expression
+
+| Skill | Owns | External tools / connections |
+|---|---|---|
+| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for motion parts (HTML assets: captions, tables & charts, 3D, glass, motion graphics, thumbnails, text-behind-person). The skill keeps its original name | CSS keyframes / WAAPI; declarative Three.js + glTF, glass, WebGPU, and Canvas 2D world runtimes (see [Supported animation runtimes](#supported-animation-runtimes)) |
+| [bake-3d](../skills/bake-3d/SKILL.md) | Baking 3D scenes into footage (clips) for what the Three.js path cannot draw. Creating, tuning, and re-baking `scene.py` setups | **Blender** (headless, bpy) |
+| [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json. Local engines are free; cloud engines (including cloning your own voice) run only after cost approval | VOICEVOX / Irodori (local, free) / fal, Google AI Gemini TTS, Fish Audio (cloud, behind approval) |
 | [generate-media](../skills/generate-media/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Codex image generation (free) / allowed video providers from manage-connections (cost approval) |
 
 ### QA & review
@@ -54,14 +59,21 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 | [critique-cut](../skills/critique-cut/SKILL.md) | Reads a human-assembled edit.json, observes only the source ranges actually used, and returns a read-only critique of the current cut | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | Deterministic checks of edit.json plus analysis.json / captions.json / media; frame inspection after PASS | Bundled deterministic CLI |
 | [compile-review-session](../skills/compile-review-session/SKILL.md) | Transcribing review recordings → resolving references → open comments in review.json | Three-layer STT (same as analyze-footage) |
-| [address-review](../skills/address-review/SKILL.md) | Executing open comments by the book: fix → edit-lint → comment update (state machine) | Bundled `bin/respond.mjs` |
+| [address-review](../skills/address-review/SKILL.md) | Executing open comments (the notes made in the app's annotation panel are in review.json too) by the book: fix → edit-lint → comment update (state machine) | Bundled `bin/respond.mjs` |
 
 ### Export
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [render-cut](../skills/render-cut/SKILL.md) | From approved edit.json: plan → explicit approval → local export → verification → keyframe inspection | ffmpeg / ffprobe |
+| [render-cut](../skills/render-cut/SKILL.md) | From approved edit.json: plan → explicit approval → local export (`--engine auto` uses the GPU when the work is eligible, otherwise OSR) → verification → keyframe inspection | ffmpeg / ffprobe |
 | [export-nle](../skills/export-nle/SKILL.md) | **BETA (untested against real NLEs)**: one-way export of edit.json to FCPXML (Final Cut / Resolve), FCP7 XML (Premiere) and SRT. Non-portable fields are reported in dropped[] | bundled deterministic CLI (ffprobe optional) |
+
+### Assets and playbooks
+
+| Skill | Owns | External tools / connections |
+|---|---|---|
+| [harvest-asset](../skills/harvest-asset/SKILL.md) | Harvesting high-cost deliverables into the asset library: admission check, `meta.json` with knobs, previews, INDEX, validation | — |
+| [record-playbook](../skills/record-playbook/SKILL.md) | Record a finished project's steps, settings, role placeholders, parts, and required tools as a playbook (`planning/playbook.md` + `playbook.json`), attach key scene frames, and copy it to the local shelf | Bundled deterministic helper and playbook validator; ffmpeg / ffprobe for preview frames |
 
 ### Cross-cutting
 
@@ -77,7 +89,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 | Path | Purpose | Runtime | Entry point |
 |---|---|---|---|
-| A: Three.js overlay (**default**) | 3D in general — composites transparently, can play video on a screen, animates via clips baked into the glb | Transparent canvas + declarative JSON + bundled Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
+| A: Three.js motion part (**default**) | 3D in general — composites transparently, can play video on a screen, animates via clips baked into the glb | Transparent canvas + declarative JSON + bundled Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
 | B: Blender bake | Looks A cannot produce, cutting the simultaneous scene count, delivering a reusable library clip | None (the baked mp4 is ordinary footage) | [bake-3d](../skills/bake-3d/SKILL.md) |
 
 Routing rule: **A is the default. Choose by the capability you need, not by where the result sits**
@@ -96,7 +108,7 @@ Why path B uses Blender (from the contract):
 
 ## Supported animation runtimes
 
-Overlay fragments have two design gates:
+Motion parts (HTML assets) have two design gates:
 
 - **No arbitrary JavaScript execution** (a trusted runtime reads non-executable declarations)
 - **Deterministic seek** — seeking to the same timeline time reproduces the same picture (no wall-clock; time is injected externally via `currentTime`)
@@ -108,8 +120,11 @@ Only runtimes that pass both gates are on board.
 | CSS keyframes | ✅ primary path | The runtime pauses animations and sets `currentTime = localTime * 1000` |
 | Web Animations API (WAAPI) | ✅ primary path | Same, via `getAnimations()` |
 | Three.js + glTF | ✅ declarative only | Non-executable `<script type="application/json">` declaration + bundled pinned runtime. No arbitrary JS in fragments |
+| Glass refraction | ✅ declarative only | `data-akari-glass-scene` declaration + bundled runtime. The backdrop is a still image; it does not capture the video below ([glass.md](../skills/overlay-authoring/glass.md)) |
+| WebGPU layer (vgpu) | ✅ declarative only | `data-akari-vgpu-scene` full-screen fragment passes, drawn at the injected time ([vgpu layer contract](./contract-2026-09-06-vgpu-layer-v0.md), Japanese) |
+| Canvas 2D world | ✅ declarative only | `data-akari-world-scene` flat worlds with a pure `camera(t)`; used by [design-world](../skills/design-world/SKILL.md) ([world.md](../skills/overlay-authoring/world.md)) |
 | Blender | ✅ (bake, not a runtime) | Baked into mp4 and brought in as ordinary footage (path B) |
-| Lottie / Anime.js / GSAP / TypeGPU / others | ❌ not supported | No generic JS seek hook yet. Any addition is expected to follow the "declarative + trusted runtime" shape (same as the Three.js overlay) |
+| Lottie / Anime.js / GSAP / TypeGPU / others | ❌ not supported | No generic JS seek hook yet. Any addition is expected to follow the "declarative + trusted runtime" shape (same as the Three.js motion part; procedure in the overlay-runtime package README) |
 
 Note: among the unsupported group, Lottie fits the shape best (assets carry their own timeline and expose an externally controllable playhead). No adoption timeline is set.
 

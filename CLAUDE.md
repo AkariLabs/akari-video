@@ -1,23 +1,49 @@
 # akari-video — AKARI Video モノレポ
 
-> AI 動画編集ツール「AKARI Video」の製品モノレポ。**private スタート**
-> （公開はコンテンツが検収済みで揃った公開タイミングでまとめて — internal §0 原則）。
-> 旧 Tauri 実装: `akari-video/akari-video-tauri`（レガシー参照・public のまま）
-> 内部文脈（戦略・調査・運用記録）: `akari-video-internal`（非公開）
+> AI 動画編集ツール「AKARI Video」の製品モノレポ（公開リポ。v1.5 系）。
+> デスクトップアプリ（Theia ベースのシェル）・CLI `akari`・Claude Code プラグイン・28 本のスキルを含む。
+> 新しく入る人は [docs/README.md](docs/README.md)（索引）→ [docs/getting-started.md](docs/getting-started.md) の順に読む。
+> 戦略・実機検証・運用の記録は非公開のメンテナリポにあり、ここには置かない。
 
 ## 構造
 
 | ディレクトリ | 内容 |
 |---|---|
-| `apps/shell/` | Theia ベースのシェル本体（タブ + ツリー + 右パートナー + 4 アイコン） |
-| `packages/` | シェル非依存ライブラリ（schemas / frame-engine / サーフェスランタイム / decision-cards） |
-| `skills/` | ステージスキル（調査・企画・編集・QA。ステージはアプリ機能にしない） |
-| `templates/` | プロジェクトの出発点（`templates/INDEX.md`）。**器**（`project-default/` — assets/ planning/ exports/ + CLAUDE.md + AGENTS.md + .akari/ + .claude/。コードとスキルが参照する製品の一部）と**作例**（`kaisetsu-short/` — 人が複製して改造する完成フロー）の 2 種 |
-| `catalog/` | 🧩 キュレーションカタログ定義（**参照配布のみ** — メタデータ・ツマミ宣言・プレビュー。実体バイナリは置かない） |
-| `presets/` | コードが id で引く参照表（テロップテンプレ・LUT）。素材ライブラリ契約の対象外（`presets/INDEX.md`） |
-| `docs/` | 設計文書（シェル非依存のものを internal / legacy から選別移送） |
+| `apps/shell/` | Theia + Electron のデスクトップアプリ本体（`extensions/` に拡張 14 個。ホーム・プロジェクトパネル・ライブラリ・プレビュー・注釈・タイムライン・台本・AI パートナーなど）。Windows のビルドは [docs/dev/windows-build.md](docs/dev/windows-build.md) |
+| `packages/` | シェル非依存のライブラリと CLI（`akari-launcher` = `akari` コマンド・`schemas`・`edit-store`・`edit-lint`・`render-cut`・`i18n` ほか） |
+| `skills/` | エージェント側のスキル 28 本（調査・企画・編集・QA。ステージはアプリ機能にしない）。一覧は [docs/skills.md](docs/skills.md) |
+| `plugin/` `.claude-plugin/` | Claude Code プラグインとマーケットプレイス定義（[plugin/README.md](plugin/README.md)）。スキルは `skills/` へのシンボリックリンクで正本を共有する |
+| `templates/` | **空のプロジェクトの土台**（`project-default/` = scaffold。コードとスキルが参照する製品の一部）と、解説ショートの見本（`kaisetsu-short/`）。画面の「テンプレート」とは別物（[templates/INDEX.md](templates/INDEX.md)） |
+| `assets/` | 同梱の素材（`meta.json` 契約。[assets/INDEX.md](assets/INDEX.md)） |
+| `catalog/` | 素材の取得先の索引（**参照配布のみ**。メタデータ・ツマミ宣言・プレビュー。実体バイナリは置かない。[catalog/INDEX.md](catalog/INDEX.md)） |
+| `presets/` | コードが id で引く読み取り専用の参照表（字幕スタイル・動き・つなぎ・LUT など）。素材ライブラリ契約の対象外（[presets/INDEX.md](presets/INDEX.md)） |
+| `docs/` | 利用者向けの文書（getting-started・guides・how-to・skills）と設計契約（`contract-*.md`）。索引は `docs/README.md` / `docs/README.ja.md` |
+| `scripts/` | 検査・生成・リリースのスクリプト（`check-docs-sync.mjs` など） |
 
-## 設計の不変条件（正本は internal の契約群）
+## 画面の語
+
+アプリの画面と docs の語は [docs/contract-2026-10-16-vocabulary-v0.md](docs/contract-2026-10-16-vocabulary-v0.md) が正本。
+旧名との対応は [docs/aliases.md](docs/aliases.md)。
+
+- **素材**（足す）・**スタイル**（当てる。素材の分類の 1 つ）・**テンプレート**（枠を埋めて使うまとまり 1 つ）・
+  **作例**（見て参考にする完成した 1 本。アプリ側の実装はまだなので「使える機能」として書かない）・
+  **作り方**（読む。1 本ぶんの手順と設定）
+- 「テンプレ」「プレイブック」のような略称・外来語は画面にも docs にも書かない。「オーバーレイ」は **動く部品**、
+  「レシピ」は画面に出さない（3D の設定・道具の手順）、「ひな形」「器」も画面に出さない（CLI は「空のプロジェクト」「土台」= scaffold）
+- 内部の名前（`kind`・ファイル名・CLI のフラグ・スキル名・i18n のキー）は語を変えても変えない。旧名は読み取りだけ永続で残す
+
+## 検査（変更を出す前に）
+
+```sh
+npm run check:docs-sync        # docs のスキル数の表記・契約索引の網羅
+npm run check:skills-index     # AGENTS.md のスキル索引（直すときは npm run gen:skills-index）
+npm run lint:i18n              # 画面の文言のキー・プレースホルダ・日本語の直書き
+npm run test:unit              # pure レーン（CI 必須）。shell レーンは npm run test:shell
+```
+
+ほかの検査とテストのレーンは [CONTRIBUTING.md](CONTRIBUTING.md) にまとめてある。
+
+## 設計の不変条件（正本は `docs/contract-*.md`）
 
 - **ファイル契約が結合の全て**: アプリ⇄エージェント間に IPC を置かない。
   タブ = ファイル + サイドカー、応答 = decisions.json / review.json / git diff の 3 チャネル
@@ -31,10 +57,9 @@
 
 ## 規約
 
-- コミット: 日本語本文 + プレフィックス（`[機能追加]` `[修正]` `[ドキュメント]` 等）
-- 販売予定・非公開素材はこのリポに置かない（実体は私有領域、ここには参照のみ）
+- コミット: 日本語本文 + プレフィックス（`[機能]` `[改善]` `[修正]` `[ドキュメント]` 等。マージは `[合流]`、リリースは `[リリース]`）
+- 有償の素材（Pro）や非公開の素材はこのリポに置かない（実体は Lab 側。ここには参照のみ）。素材を同梱するのはオーナーが明示したときだけ
 - Secrets を書かない（.env 系は別管理）
-- 選別インポート中: 由来（legacy パス）をコミット本文に記録する
 - 新規 `docs/contract-*.md` は `docs/README.md`・`docs/README.ja.md` 両索引への追記まで含めて
   完了（CI: `npm run check:docs-sync` が索引漏れ・スキル数の手書き数字ドリフトを検出する）
 - **Windows では作業スクリプトを PowerShell（`.ps1`）ではなく Node（`.mjs`）で書く**:
@@ -70,5 +95,6 @@
 - **言語パック**: 作品の言語（テロップ・字幕・ナレーション・文字起こし）に依存する知識はスキル本文に書かず、
   `skills/<skill>/lang/<code>.md` に置く。パックはその言語で書いてよい（日本語パックは日本語）。
   別言語のパックを翻訳で作らない
-- アプリの文言はカタログ（`packages/i18n`）。
+- アプリの文言はカタログ（`packages/i18n/locales/<ja|en>/`）に置き、コードには `t('key')` だけを書く。
+  キーは両言語に足し、文言を変えてもキーは変えない（規約: [docs/contract-2026-10-11-ui-i18n.md](docs/contract-2026-10-11-ui-i18n.md)）
 - 直書きの日本語を増やさない（`npm run lint:i18n`）。

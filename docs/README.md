@@ -15,8 +15,8 @@
 
 | Page | Contents |
 |---|---|
-| [Introduction](./introduction.md) | What AKARI Video is — three principles, architecture at a glance, workflow |
-| [Getting Started](./getting-started.md) | Three entrances (incl. Claude Code plugin install from the marketplace), creating your first project, the intake form |
+| [Introduction](./introduction.md) | What AKARI Video is — three principles, architecture at a glance, how a video gets made (playbooks, templates, annotations, scenes, AI partners, the Lab tiers) |
+| [Getting Started](./getting-started.md) | Entrances (desktop app, CLI, Claude Code plugin from the marketplace), creating your first project from a blank start or from a playbook, the intake form |
 
 ## Guides
 
@@ -27,14 +27,14 @@ Task-based guides, ordered by the flow of production.
 | [Plan from scratch](./guides/plan-from-scratch.md) | Ideas → research → brief → storyboard → shot list (research-plan) |
 | [Analyze footage](./guides/analyze-footage.md) | Proxies, transcription, keyframe extraction, and cross-clip analysis (analyze-footage / analyze-project) |
 | [Plan your edit](./guides/plan-your-edit.md) | Three approval steps into edit.json (edit-plan) |
-| [Overlays and captions](./guides/overlays-and-captions.md) | AI-drawn expression and "touchable overlays" (overlay-authoring) |
+| [Overlays and captions](./guides/overlays-and-captions.md) | AI-drawn expression and motion parts with knobs you can touch (overlay-authoring) |
 | [Narration](./guides/narration.md) | Free local voices / voice cloning (generate-narration) |
 | [Review and fix](./guides/review-and-fix.md) | Machine checks, ticketing spoken reviews, fixes (edit-lint / compile-review-session / address-review) |
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
-| [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables (setup-library / setup-audio-library / harvest-asset) |
-| [Bake 3D scenes](./guides/bake-3d.md) | Blender headless recipes into video assets (bake-3d) |
+| [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / setup-audio-library / harvest-asset) |
+| [Bake 3D scenes](./guides/bake-3d.md) | Blender headless 3D settings baked into video assets (bake-3d) |
 | [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
-| [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and showcases machine-generated from declared audio (beat-sync-edit) |
+| [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (beat-sync-edit) |
 | [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |
 | [Generation models (machine-generated)](./guides/generation-models.md) | Facts about price, duration, inputs, audio, and calibration |
 
@@ -49,8 +49,8 @@ animation runtimes it connects to — including the two 3D paths.
 | Page | Contents |
 |---|---|
 | [Connections & API keys](./how-to/connections.md) | Connection registry, doctor diagnostics, cost-approval policy (manage-connections) |
-| [Shell UI: assets & timeline](./how-to/shell-ui.md) | Right-click menus on asset cards and timeline clips, drag & drop onto the timeline, show in Finder |
-| [Project structure](./how-to/project-structure.md) | What each file under `.akari/` does and what is safe to delete |
+| [Shell UI: assets & timeline](./how-to/shell-ui.md) | The library (assets, styles, templates), project panel, preview annotations, timeline and script panel, right-click menus, drag & drop |
+| [Project structure](./how-to/project-structure.md) | What each file under `.akari/` does (manifest, playbook, review, captions) and what is safe to delete |
 | [Resume a session](./how-to/resume-session.md) | How `.akari/events/` and the SessionStart hook work |
 | [FAQ & troubleshooting](./how-to/faq.md) | Common questions and error handling |
 
@@ -83,9 +83,9 @@ All contracts follow the
 | [contract-2026-10-15-project-manifest-v0.md](./contract-2026-10-15-project-manifest-v0.md) | Project manifest v0 — `<project>/.akari/manifest.json` (nodes = what is involved, edges = who uses what). A project that holds scenes nests them one level under `scenes/<scene>/` (a scene folder opens as the workspace). Holds neither media nor edit contents; source of truth for the relation graph, structure tree, import sheet and checks. `akari project sync / check / scene add`. Leaves the asset-reference and style-usage ledgers untouched (Japanese) |
 | [contract-2026-10-16-automation-gates-v0.md](./contract-2026-10-16-automation-gates-v0.md) | Automation gates and activity v0 — reversible changes proceed unattended (recorded as `agent-action` and snapshotted); only irreversible ones (publish, submit, paid, external send, deleting originals, license doubts, playbook checkpoints, human requests) stop at a gate (`gate-requested` / `gate-resolved`). An activity list shows diffs and restores to any point. Autonomy levels unchanged (Japanese) |
 | [contract-2026-10-16-recipes-and-connectors-v0.md](./contract-2026-10-16-recipes-and-connectors-v0.md) | Recipes and connectors v0 — a recipe is a situation (e.g. make 30 s of BGM; declares only needed capabilities) and a connector is a service or software (auth, adapter, pricing, terms, provided capabilities). Swapping services leaves playbooks and recipes intact. Custom adapters ship as kits; unofficial access is never bundled (Japanese) |
-| [contract-2026-10-16-template-v0.md](./contract-2026-10-16-template-v0.md) | Template v0 — a playbook at depth 3: one pre-built group item plus the media it uses, dropped from the library onto the timeline as one chunk; drop footage into its slots to swap it in; `akari playbook template` exports one from a project (Japanese) |
+| [contract-2026-10-16-template-v0.md](./contract-2026-10-16-template-v0.md) | Template v0 — a playbook at depth 3: one pre-built group item plus the media it uses, dropped from the library onto the timeline as one chunk; drop footage into its slots to swap it in; `akari template export` exports one from a project (`akari playbook template` in v1.5.0) (Japanese) |
 | [contract-2026-10-16-vocabulary-v0.md](./contract-2026-10-16-vocabulary-v0.md) | Vocabulary v0 — the canonical on-screen words: Asset / Style / Template / Showcase / Playbook, named by what you can do after picking one, not by size; relations, operations, alias rules and migration (Japanese) |
-| [contract-2026-10-16-showcase-v0.md](./contract-2026-10-16-showcase-v0.md) | Showcase v0 — a finished video with the evidence behind it: segments, source data, playbook, parts and an `openable` level computed from dependencies; `akari showcase inspect / capture` (Japanese) |
+| [contract-2026-10-16-showcase-v0.md](./contract-2026-10-16-showcase-v0.md) | Showcase v0 (draft; not yet in the app or CLI) — a finished video with the evidence behind it: segments, source data, playbook, parts and an `openable` level computed from dependencies; `akari showcase inspect / capture` (Japanese) |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
 | [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | Content language storage, resolution order, normalization, and language-pack fallback |
 

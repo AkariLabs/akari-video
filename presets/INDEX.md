@@ -3,26 +3,38 @@
 ここは**素材ライブラリではありません**。`assets/` と `catalog/` が「人・AI が選んでコピーする
 素材」を置く棚なのに対し、`presets/` は**プログラムが id からファイルを解決する参照表**を置く棚です。
 素材ライブラリ契約（`docs/contract-2026-07-13-asset-library.md` の meta.json v0）の対象外であり、
-各表はそれぞれの形式（`template.json` / `.cube` + `index.jsonl`）で管理します。
+各表はそれぞれの形式（`index.jsonl` / `.cube` / `.json`）で管理します。
 
 | 見分け方 | `assets/` `catalog/` | `presets/` |
 | --- | --- | --- |
 | 使い方 | 選んでプロジェクトへコピーする | 名前で参照し続ける（コピーしない） |
 | 改変 | コピー先で自由に改変する | 改変しない。差し替えるか再生成する |
 | 読む主体 | 人 / AI が INDEX と meta.json を読む | プログラム（解決パスがコードに埋まっている） |
-| 記述 | `meta.json`（ツマミ・使いどころ・ライセンス・価格） | 各表の形式（`template.json` / `.cube` + `index.jsonl`） |
+| 記述 | `meta.json`（ツマミ・使いどころ・ライセンス・価格） | 各表の形式（`index.jsonl` / `.cube` / `.json`） |
+
+## 画面の語との対応
+
+`presets/` に入っているのは、画面では**スタイル**（文字の見た目・字幕スタイル・LUT・つなぎ・動き）として
+見えるものの同梱の表（style-v0）です。読み取り専用で、アプリが id で引きます。ユーザーが自分で保存した
+スタイルは「自分のスタイル」としてライブラリ側に置かれ、ここには入りません。素材や、まとまりの
+「テンプレート」「作り方」もここには置きません（画面の語の正本: [`docs/contract-2026-10-16-vocabulary-v0.md`](../docs/contract-2026-10-16-vocabulary-v0.md)）。
 
 ## エントリ
 
-- [shapes](./shapes/INDEX.md) — 図形 219 種・ライン 45 種・漫画の吹き出し 12 種の値コピー用参照表。
-- [looks](./looks/INDEX.md) — ルック 8 種。id から basic / wheels の初期値セットを解決する
-- ATF テロップの参照表は退役。HTML 素材版は Lab で配布します。
-- [textstyle](./textstyle/INDEX.md) — 字幕スタイル（引き続き利用可能）
-- [luts](./luts/INDEX.md) — 3D LUT 2 件（自前生成）。`edit.json` の `output.look.lut` に id を書くと
-  `packages/render-cut/src/plan.mjs` が `presets/luts/<id>/<id>.cube` を解決する
-- [word-book](./word-book/builtin.json) — 単語帳 v0 の製品出荷デフォルト。
-  `packages/word-book/src/index.mjs` が解決する
-- [voice-dictionary](./voice-dictionary/builtin.json) — 声の辞書 v0 の同梱語彙。`packages/akari-ear/src/dictionary.mjs` が解決する
+| 棚 | 画面の語 | 中身 |
+| --- | --- | --- |
+| [textstyle](./textstyle/INDEX.md) | 文字の見た目・字幕スタイル | 36 種（`index.jsonl`）。字幕の `style_preset` に id を書く |
+| [textanim](./textanim/INDEX.md) | 動き | 文字の登場・退場・ループの語彙 47 種 |
+| [transitions](./transitions/INDEX.md) | つなぎ（トランジション） | 29 語彙の見本画像。タイムラインの選択に使う |
+| [luts](./luts/INDEX.md) | LUT | 3D LUT 10 種（自前生成）。`edit.json` の `output.look.lut` に id を書くと `packages/render-cut/src/render-inputs.mjs` が解決する |
+| [looks](./looks/INDEX.md) | 色の調整のルック | 8 種。id から basic / wheels の初期値セットを解決する |
+| [shapes](./shapes/INDEX.md) | 図形 | 図形 219 種・ライン 45 種・漫画の吹き出し 12 種の値コピー用参照表 |
+| [fx](./fx/INDEX.md) | （なし） | 画面 FX の参照表の仕組み。収録 0 件（2026-08-11 廃止）。仕組みだけ残している |
+| [word-book](./word-book/builtin.json) | 単語帳 | 単語帳 v0 の製品出荷デフォルト。`packages/word-book/src/index.mjs` が解決する |
+| [voice-dictionary](./voice-dictionary/builtin.json) | 声の辞書 | 声の辞書 v0 の同梱語彙。`packages/akari-ear/src/dictionary.mjs` が解決する |
+
+ATF テロップの参照表（旧 `presets/telop/`）は退役しました（[記録](../docs/notes-2026-09-05-bake-layer-retired.md)）。
+文字演出の HTML 素材版（動く部品）は Lab で配布します。
 
 ## 由来（2026-07-29）
 

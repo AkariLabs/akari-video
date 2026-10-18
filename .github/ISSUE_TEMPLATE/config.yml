@@ -6,3 +6,6 @@ contact_links:
   - name: はじめかたガイド / Getting started
     url: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.ja.md
     about: セットアップ・使い方はまずこちらを確認してください。
+  - name: Getting started (English)
+    url: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.md
+    about: Please check the setup guide first.

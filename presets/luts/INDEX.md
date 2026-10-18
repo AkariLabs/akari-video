@@ -39,7 +39,7 @@ presets/luts/
 ## 参照方法
 
 `edit.json` の `output.look.lut` に id（例: `"natural"`）を渡すと、
-`packages/render-cut/src/plan.mjs` が `presets/luts/<id>/<id>.cube` を解決します。
+`packages/render-cut/src/render-inputs.mjs` が `presets/luts/<id>/<id>.cube` を解決します。
 パス区切り文字を含む値（例: `"assets/custom.cube"`）はプロジェクトルート相対のパスとして扱われ、
 プリセット参照にはなりません。強さは `output.look.intensity`（0〜1）で調整します。
 

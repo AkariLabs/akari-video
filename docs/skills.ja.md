@@ -8,43 +8,48 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 ## 制作フロー順の一覧
 
+動画 1 本の流れに沿った並び: 企画 → 準備 → 分析 → 編集計画 → 表現 → QA・レビュー → 書き出し → 素材化・作り方の記録。
+
 ### 企画
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [research-plan](../skills/research-plan/SKILL.md) | ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト。ネタ選定と構成は decision-cards 型の承認ゲート | Web 調査 |
 
-### プロジェクト・素材の準備
+### 準備
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [akari](../skills/akari/SKILL.md) | プロジェクトを作る・開く・続きから再開する入口 | akari CLI（init/new/status） |
-| [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成（雛形コピー・作成レポート） | git（安全な場合のみ初期化） |
-| [record-playbook](../skills/record-playbook/SKILL.md) | 完成プロジェクトの工程・設定値・役割別仮枠・部品・要る道具を作り方として記録し、重要な場面のコマを添えて手元の棚へ写す | 同梱の決定論的補助と作り方検査器 |
-| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証 | ffmpeg / whisper-cli |
-| [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の半自動入庫（候補リスト → 手動 DL 照合 → 試聴 keep/drop） | フリー音源配布元（ダウンロードは人間） |
+| [akari](../skills/akari/SKILL.md) | プロジェクトを作る・開く・続きから再開する入口。素材に合う作りを最大 3 つ薦めて選ばれたものを当てる。外の道具が要る作業は道具の手順（recipe）に回す | akari CLI（`init` / `new` / `status` / `playbook` / `recipe`） |
+| [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成。土台（空のプロジェクトの構造）をコピーし、版を記録して作成レポートを出す。`--from` で作り方から始める | akari CLI（`new`）、git（安全な場合のみ初期化） |
+| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証。つないだ Lab アカウントの無料素材と購入済みの Pro 素材の取得も扱う | ffmpeg / whisper-cli、`akari assets`・`akari store connect` |
+| [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の入庫。既定は AKARI 製の AKARI Sounds を GitHub Releases から取得し、足りない種類だけ半自動（候補リスト → 手動 DL 照合 → 試聴 keep/drop）で補う | GitHub Releases（AKARI Sounds）／フリー音源配布元（ダウンロードは人間） |
 | [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
 | [setup-chat-approval](../skills/setup-chat-approval/SKILL.md) | チャット承認セットアップ。doctor → BotFather でのトークン発行と credentials.env 登録（人間手番）→ chat ID 許可リスト → 通知 + ボタン → タップで `decisions.json` 更新。long polling のみで公開エンドポイントを作らず、自由文は指示として扱わない | Telegram Bot API（トークンの発行・登録は人間） |
-| [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫 | — |
-| [bake-3d](../skills/bake-3d/SKILL.md) | 3D シーンを映像素材（クリップ）に焼く。レシピ `scene.py` の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
-| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
 
 ### 分析
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [analyze-footage](../skills/analyze-footage/SKILL.md) | 素材 1 本を頼まれたレベルまでプル駆動で分析（既定 L0 メタ + L1 音）→ analysis.json | `akari media`、クラウド文字起こしは承認制 |
-| [analyze-project](../skills/analyze-project/SKILL.md) | 素材横断の解釈層 interpretation.json と読み取り専用の分析レポート | — |
+| [analyze-footage](../skills/analyze-footage/SKILL.md) | 素材 1 本を頼まれたレベルまでプル駆動で分析（L0 メタ・L1 音・L2 映像・L3 人物トラック。既定は L0 + L1）→ analysis.json | `akari media`（文字起こしはまずローカル。クラウドは承認制） |
+| [analyze-project](../skills/analyze-project/SKILL.md) | 素材横断の解釈層 interpretation.json と、画像込みの読み取り専用の分析レポート | — |
 
-### 編集
+### 編集計画
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [edit-plan](../skills/edit-plan/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行を明示承認で確定し edit.json v0 + オーバーレイへ | — |
-| [design-world](../skills/design-world/SKILL.md) | ブリーフ → テンプレート → 台本 → `world-map.json` → flat ワールド映像の検査・組み立て・実測・俯瞰 | 同梱 `akari world` CLI |
-| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | オーバーレイ HTML の authoring ルーター（テロップ・字幕・表グラフ・3D・モーション・サムネ・人物の後ろに文字） | CSS keyframes / WAAPI、Three.js + glTF（宣言型のみ。→ [対応ランタイム](#対応アニメーションランタイム)） |
-| [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ | VOICEVOX（ローカル・無償） / fal Qwen3-TTS（クラウド・自声クローン・承認制） |
+| [edit-plan](../skills/edit-plan/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行をチャットの明示承認で確定し edit.json v2 と動く部品へ。素材なしからの質問 → 仮の編集計画も扱う | — |
+| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json と動く部品一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
+| [design-world](../skills/design-world/SKILL.md) | ブリーフ → 土台 → 台本 → `world-map.json` → flat ワールド映像の検査・組み立て・実測・俯瞰 | 同梱 `akari world` CLI |
+
+### 表現
+
+| スキル | 担当 | 外部ツール・接続 |
+|---|---|---|
+| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 動く部品（HTML の素材。テロップ・字幕・表グラフ・3D・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。スキル名は旧名のまま | CSS keyframes / WAAPI、宣言型の Three.js + glTF・ガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
+| [bake-3d](../skills/bake-3d/SKILL.md) | Three.js 経路で出せない 3D を映像素材（クリップ）に焼く。`scene.py` の設定の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
+| [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ。ローカルのエンジンは無償、クラウド（自分の声のクローン含む）は費用承認のあとだけ | VOICEVOX / Irodori（ローカル・無償）、fal・Google AI Gemini TTS・Fish Audio（クラウド・承認制） |
 | [generate-media](../skills/generate-media/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | Codex 画像生成（無償） / manage-connections で許可された動画 provider（費用承認） |
 
 ### QA・レビュー
@@ -54,14 +59,21 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 | [critique-cut](../skills/critique-cut/SKILL.md) | 人間が先に組んだ edit.json を読み、使われている素材区間だけを観察して、現在のカットへ読み取り専用の所見を返す | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | edit.json + analysis.json / captions.json / メディアの決定的検査。PASS 後のフレーム視認まで | 同梱の決定的 CLI |
 | [compile-review-session](../skills/compile-review-session/SKILL.md) | レビューの録音を文字起こし → 参照解決 → review.json の open コメントにまとめる | STT 3 層（analyze-footage と同じ） |
-| [address-review](../skills/address-review/SKILL.md) | open コメントへの実対応 → edit-lint → コメント更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
+| [address-review](../skills/address-review/SKILL.md) | open コメント（アプリの注釈パネルで付けた注釈も review.json に入る）への実対応 → edit-lint → コメント更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
 
 ### 書き出し
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [render-cut](../skills/render-cut/SKILL.md) | 承認済み edit.json から最終 MP4 の計画 → 明示承認 → ローカル書き出し → 検証 → キーフレーム視認 | ffmpeg / ffprobe |
+| [render-cut](../skills/render-cut/SKILL.md) | 承認済み edit.json から最終 MP4 の計画 → 明示承認 → ローカル書き出し（`--engine auto` は対象なら GPU、それ以外は OSR）→ 検証 → キーフレーム視認 | ffmpeg / ffprobe |
 | [export-nle](../skills/export-nle/SKILL.md) | **BETA（実 NLE 取り込み未確認）**: edit.json → FCPXML（Final Cut / Resolve）・FCP7 XML（Premiere）・SRT の片道書き出し。移せないフィールドは dropped[] で明示 | 同梱の決定的 CLI（ffprobe は任意） |
+
+### 素材化・作り方の記録
+
+| スキル | 担当 | 外部ツール・接続 |
+|---|---|---|
+| [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫。入庫の見極め・ツマミ付き `meta.json`・プレビュー・INDEX・検証 | — |
+| [record-playbook](../skills/record-playbook/SKILL.md) | 完成プロジェクトの工程・設定値・役割別仮枠・部品・要る道具を作り方（`planning/playbook.md` + `playbook.json`）として記録し、重要な場面のコマを添えて手元の棚へ写す | 同梱の決定論的補助と作り方検査器、ffmpeg / ffprobe（プレビューのコマ） |
 
 ### 横断
 
@@ -77,7 +89,7 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 | 経路 | 用途 | ランタイム | 入口 |
 |---|---|---|---|
-| A: Three.js オーバーレイ（**既定**） | 3D 全般。透過で合成され、画面に動画も差せ、glb 内蔵クリップで動く | 透明 canvas + 宣言型 JSON + 同梱 Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
+| A: Three.js の動く部品（**既定**） | 3D 全般。透過で合成され、画面に動画も差せ、glb 内蔵クリップで動く | 透明 canvas + 宣言型 JSON + 同梱 Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
 | B: Blender ベイク | A で出せない絵・同時枚数の削減・素材ライブラリ納品 | なし（焼いた mp4 は通常素材） | [bake-3d](../skills/bake-3d/SKILL.md) |
 
 判定基準: **既定は A。置き場所ではなく必要な能力で選ぶ**（「クリップとして置きたいから B」は誤り）。
@@ -94,7 +106,7 @@ GI・パーティクル）(2) 同時 3D シーンを 2 枚以下へ減らすた�
 
 ## 対応アニメーションランタイム
 
-オーバーレイ fragment には 2 つの設計ゲートがある:
+動く部品（HTML の素材）には 2 つの設計ゲートがある:
 
 - **任意 JavaScript を実行しない**（信頼済みランタイムが非実行の宣言を読む）
 - **決定的シーク** — 同じタイムライン時刻へシークしたら同じ絵が再現される（wall-clock 禁止、時刻は `currentTime` で外部から注入）
@@ -106,8 +118,11 @@ GI・パーティクル）(2) 同時 3D シーンを 2 枚以下へ減らすた�
 | CSS keyframes | ✅ 主経路 | ランタイムが animation を pause し `currentTime = localTime * 1000` を設定 |
 | Web Animations API (WAAPI) | ✅ 主経路 | 同上（`getAnimations()` 経由で時刻注入） |
 | Three.js + glTF | ✅ 宣言型のみ | 非実行の `<script type="application/json">` 宣言 + 同梱 pinned ランタイム。fragment 内の任意 JS は実行しない |
+| ガラスの屈折 | ✅ 宣言型のみ | `data-akari-glass-scene` 宣言 + 同梱ランタイム。背景は静止画で、下の映像は取り込まない（[glass.md](../skills/overlay-authoring/glass.md)） |
+| WebGPU レイヤー（vgpu） | ✅ 宣言型のみ | `data-akari-vgpu-scene` のフルスクリーン fragment パスを、外から渡された時刻で描く（[vgpu レイヤー契約](./contract-2026-09-06-vgpu-layer-v0.md)） |
+| Canvas 2D ワールド | ✅ 宣言型のみ | `data-akari-world-scene` の flat ワールドを純粋な `camera(t)` で動かす。[design-world](../skills/design-world/SKILL.md) が使う（[world.md](../skills/overlay-authoring/world.md)） |
 | Blender | ✅（ランタイムではなくベイク） | mp4 に焼いて通常素材として搬入（経路 B） |
-| Lottie / Anime.js / GSAP / TypeGPU ほか | ❌ 未対応 | 汎用 JS seek hook は未実装。追加する場合は「宣言型 + 信頼済みランタイム」の型（Three.js オーバーレイと同型）に載せるのが前提 |
+| Lottie / Anime.js / GSAP / TypeGPU ほか | ❌ 未対応 | 汎用 JS seek hook は未実装。追加する場合は「宣言型 + 信頼済みランタイム」の型（Three.js の動く部品と同型。手順は overlay-runtime パッケージの README）に載せるのが前提 |
 
 補足: 未対応群の中では Lottie が最も型に馴染む候補（アセットが自前のタイムラインを持ち、再生ヘッドを外部制御できるため）。採用時期は未定。
 

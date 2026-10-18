@@ -2,6 +2,22 @@
 
 # edit.json の読み方
 
+`edit.json` が正本です。人間は JSON を触らず、画面の操作とツマミで編集します。
+AI が読み書きするので、書式は AI の grep・Edit と git の差分のために決めてあります。
+形の正本: [edit.json v2 オブジェクトツリー契約](../contract-2026-08-30-edit-json-v2-object-tree-v0.md)
+
+## edit.json v2 の形
+
+- `"version": 2`。木は `tracks[]`（段）→ `items[]`（アイテム）→ 子の `items[]` … と**再帰**します。
+  グループの入れ子・順序・時間は、すべて edit.json が持ちます
+- 子の `at` は、親を 0 とした整数フレームです。`items[]` の順が z 順（後ろが手前）です
+- アイテムの中身は `source.kind` で分かれます（`media`・`html`〔動く部品〕・`telop`・`group`・`captions` など）。
+  空き枠の仮枠は `source.kind: group` で `canvas.origin: plan` を持ちます
+- 量が出る中身は袋に置き、edit.json には構造・時間・変形・参照と件数だけを載せます。
+  袋は、HTML の断片・`captions.json`・`motion/<グループ id>.json` です
+- 古い（v0 / v1）`edit.json` は `akari migrate [dir] [--dry-run] [--yes] [--json]` で v2 へ変換します。
+  既定は内容を見せて確認し、変換前の全文を `.akari/backup/` へ退避します
+
 ## AI の読み方（契約 §5.2）
 
 1. **edit.json / captions.json / motion/*.json を全文 Read しない**。`grep -n '"id": "<id>"'` → 該当行だけ Read → Edit。木の構造を見たいときは `grep -n '"kind": "group"\|"items": \['` のように外枠だけ読む

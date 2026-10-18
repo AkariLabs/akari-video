@@ -19,7 +19,7 @@ Use the `akari` CLI on PATH. If unavailable, use
 if that is also unavailable, run `packages/akari-launcher/bin/akari.mjs` from an actual repository checkout with
 `node`. If none exists, explain what is missing and stop; do not invent paths.
 
-## Recipes for external tools
+## Tool procedures for external tools (`akari recipe`)
 
 For work using external tools or generative AI, if a matching recipe exists, run `akari recipe plan <id>`
 to check connector candidates and gates. Follow the gate procedure when a gate blocks execution.
