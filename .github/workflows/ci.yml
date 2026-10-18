@@ -51,10 +51,14 @@ jobs:
         run: node scripts/ci/check-distribution-import-closure.mjs
 
   skills-index:
-    name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML)
+    name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML + docs facts drift)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gen-docs-facts --check は配布中の版（v* タグとその親）を git から読む。浅い clone だとタグが無く
+          # 版が package.json の値に落ちて facts.json とずれるため、履歴とタグを全部取る
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
@@ -62,6 +66,8 @@ jobs:
       - run: node scripts/gen-skills-index.mjs --check --strict
       - run: npm run lint:i18n
       - run: node scripts/check-docs-sync.mjs
+      - name: "check-docs-facts (docs の事実区間・版の印が i18n / CLI / タグとずれていないか)"
+        run: node scripts/gen-docs-facts.mjs --check
       - run: node scripts/check-entry-skill.mjs
       - run: node scripts/ci/check-cross-package-imports.mjs
       - name: "check-extension-deps (拡張間 file 依存と build:ext 順序の照合)"
