@@ -156,3 +156,7 @@ and Codex. See the [Skills Catalog](./skills.md) for all 28.
 - First time here → [Getting Started](./getting-started.md)
 - Task-based usage → [Guides](./README.md#guides)
 - File contract specs → [Reference](./README.md#reference) (Japanese)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

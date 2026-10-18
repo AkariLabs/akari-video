@@ -55,3 +55,7 @@ Since all state lives in file contracts, moves like these are free to make:
 
 - The full picture of events and files → [Project structure](./project-structure.md)
 - Working through annotations → [QA, review, and fix](../guides/review-and-fix.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

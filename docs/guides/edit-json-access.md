@@ -67,3 +67,7 @@ The Japanese contract is the canonical source; its wording is reproduced verbati
 3. 一括操作（「1:00 以降の字幕を 0.5 秒ずらす」等）は**AI がスクリプトを書く**（§6 の API を import）。前もって一括コマンドを用意しない
 4. 動きを書くときは L0 プリセット / L2 アニメーターを既定にする（数個の値で済む）。L1 の手打ちキーフレームは主に人間がフォーカスモードで作る
 5. **観察・手術のための CLI コマンド（`akari edit tree` / `move` / `group` …）は作らない**（オーナー裁定 2026-08-30。ファイルが API）
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

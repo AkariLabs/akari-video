@@ -38,9 +38,13 @@ description: Create an AKARI Video project headlessly. Recursively copy `templat
 
 ## Usage
 
+<!-- BEGIN GENERATED facts:cli.new -->
 ```sh
-akari new <target-dir> [--scaffold <path>]
+akari new <target-dir> [--scaffold <path>] [--template <path> (alias for --scaffold)] [--lang <code>]
 ```
+
+`--template` remains an alias for `--scaffold`.
+<!-- END GENERATED facts:cli.new -->
 
 - `<target-dir>`: Destination directory, either new or an existing nonempty folder. Existing files are not overwritten.
 - `--scaffold <path>`: Explicit scaffold (project foundation) directory. `--template <path>` is an alias; passing both is an error. Defaults to the repository checkout's `templates/project-default/`. There is no other resolution route.

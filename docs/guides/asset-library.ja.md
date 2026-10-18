@@ -12,8 +12,8 @@
 | 棚 | 中身 |
 |---|---|
 | 素材 | 音・映像・画像、動く部品、3D・アバターなど。足す（置く / 当てる）物で、ツマミで変えられる |
-| スタイル | 字幕スタイル・文字の動き・書体・LUT・つなぎなど。当てる物で、時間を持たない |
-| 自分のスタイル | 自分で調整して保存したスタイル。「自分のスタイルを保存」から増やす |
+| スタイル | <!-- F ui.library.captionStyle -->字幕スタイル<!-- /F -->・文字の動き・書体・LUT・つなぎなど。当てる物で、時間を持たない |
+| <!-- F ui.library.myStyles -->自分のスタイル<!-- /F --> | 自分で調整して保存したスタイル。「自分のスタイルを保存」から増やす |
 | テンプレート | 尺・文字・枠・音が決まったまとまり 1 つ。手元・チャンネル・Lab のものが並び、タイムラインへドラッグして置く（→ [テンプレートを書き出す](#テンプレートを書き出す--akari-template-export)） |
 | キットからまとめて入れる | キットに入っている素材をまとめて取り込む |
 
@@ -38,7 +38,7 @@
 
 **置き場所**: 素材は `assets/<カテゴリ>/<id>/` に、由来と使い方の宣言
 （`meta.json`）・プレビュー画像とセットで配置されます。カテゴリは**配布物の形**で
-6 つです — `overlay`（時間を持つ HTML 断片。画面では「動く部品」）/ `still`（画像に焼く HTML シート）/
+6 つです — `overlay`（時間を持つ HTML 断片。画面では「<!-- F ui.library.motionParts -->動く部品<!-- /F -->」）/ `still`（画像に焼く HTML シート）/
 `scene3d`（3D モデル + 断片・ベイクレシピ）/ `audio` / `broll` / `font`。テロップ・黒板・
 サムネといった主題は tags で引きます。
 
@@ -127,10 +127,14 @@ akari sounds --variant wav
 音・文字・動き・尺まで作り込んだまとまり（グループ）1 つは、テンプレートとして書き出せます。
 `harvest-asset` の入庫とは別の経路です。
 
+<!-- BEGIN GENERATED facts:cli.template -->
 ```sh
-akari template export <プロジェクト> --item <まとまりの項目 id> --id <テンプレート id> [--name <名前>] [--out <dir>] [--license-own <ライセンス>]
-akari template list [--json] [--category <c>] [--tag <t>] [--channel <ch>]
+akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>]
+akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]
 ```
+
+`akari playbook template` は `akari template export` の別名です。
+<!-- END GENERATED facts:cli.template -->
 
 配布中の v1.5.0 には `akari template` がなく、`akari playbook template <プロジェクト> --item … --id …` で書き出します。次の版から `akari template export|list` が使えます。旧名は別名として残ります。
 
@@ -154,3 +158,7 @@ akari template list [--json] [--category <c>] [--tag <t>] [--channel <ch>]
 
 - 3D 素材を作る → [3D シーンをベイクする](./bake-3d.ja.md)
 - 素材の宣言形式（meta.json）の仕様 → [Reference](../README.ja.md#reference)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

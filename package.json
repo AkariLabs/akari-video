@@ -18,6 +18,8 @@
     "check:entry-skill": "node scripts/check-entry-skill.mjs",
     "check:cross-package-imports": "node scripts/ci/check-cross-package-imports.mjs",
     "check:docs-sync": "node scripts/check-docs-sync.mjs",
+    "gen:docs-facts": "node scripts/gen-docs-facts.mjs",
+    "check:docs-facts": "node scripts/gen-docs-facts.mjs --check",
     "gen:i18n-catalog": "node scripts/gen-i18n-catalog.mjs",
     "lint:i18n": "node scripts/gen-i18n-catalog.mjs --check && node scripts/ci/check-no-hardcoded-ja.mjs",
     "test:unit": "node scripts/ci/run-unit-tests.mjs --lane pure",

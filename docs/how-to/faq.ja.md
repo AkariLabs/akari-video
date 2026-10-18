@@ -28,19 +28,20 @@ Windows 版のインストーラはまだコード署名されていないため
 進めてください。macOS 版は Developer ID で署名され、Apple の公証を受けています。
 
 **Q. 安定版とベータ版はどう切り替える？**
-設定 › このアプリについて › **受け取る版** です。既定は**安定版だけ**で、**プレリリースも**に
-すると新しい機能を早く試せるベータ版も届きます。安定版に留まりたいときは「安定版だけ」に戻します。
+設定 › このアプリについて › **受け取る版** です。既定は**<!-- F ui.settings.stableOnly -->安定版だけ<!-- /F -->**で、**<!-- F ui.settings.prereleaseToo -->プレリリースも<!-- /F -->**に
+すると新しい機能を早く試せるベータ版も届きます。安定版に留まりたいときは「<!-- F ui.settings.stableOnly -->安定版だけ<!-- /F -->」に戻します。
 
 **Q. ドキュメントの画面の語やコマンド名が、手元のアプリと違う**
-v1.5.0 のビルドは語の差し替えの前に作られたため、画面や一部のコマンドが旧い名前のままです。
-次の版で新しい名前になります。旧いコマンド名は別名として残ります。
+<!-- BEGIN GENERATED facts:shipped-note -->
+配布中の v1.5.0 では「マイスタイル」→「自分のスタイル」、「オーバーレイ」→「動く部品」、「テンプレ」→「字幕スタイル」、「ブランドキット」→「チャンネルの設定」と表示されます。次の版から右側の名前になります。配布中の v1.5.0 では `--template` を使い、次の版から `--scaffold` も使えます。配布中の v1.5.0 では `akari playbook template` を使い、次の版から `akari template export` と `akari template list` が使えます。旧名は別名として残ります。
+<!-- END GENERATED facts:shipped-note -->
 
 | ドキュメント（新） | v1.5.0 のアプリ（旧） |
 |---|---|
-| 動く部品 | オーバーレイ |
-| 自分のスタイル | マイスタイル・保存したプリセット |
-| 字幕スタイル | 字幕テンプレ |
-| チャンネルの設定 | ブランドキット |
+| <!-- F ui.library.motionParts -->動く部品<!-- /F --> | オーバーレイ |
+| <!-- F ui.library.myStyles -->自分のスタイル<!-- /F --> | マイスタイル・保存したプリセット |
+| <!-- F ui.library.captionStyle -->字幕スタイル<!-- /F --> | 字幕テンプレ |
+| <!-- F ui.library.channelSettings -->チャンネルの設定<!-- /F --> | ブランドキット |
 | 3D の設定 | 3D レシピ |
 | ライブラリの「テンプレート」の棚 | 「ひな形」「セット」のタイル |
 | `akari new --scaffold` | `akari new --template` |
@@ -59,7 +60,7 @@ Codex などのパートナーをつなぎます（[接続と API キー](./conn
 
 **Q. 作り方とテンプレートは何が違う？**
 **作り方**は「読むもの」です。1 本ぶんの手順・確認点・設定・仮枠で、素材は持ちません。
-ホームの「＋ 新しい動画を始める」→「作り方から」、または `akari new <dir> --from <作り方>` で始めます。
+ホームの「<!-- F ui.home.startButton -->＋ 新しい動画を始める<!-- /F -->」→「作り方から」、または `akari new <dir> --from <作り方>` で始めます。
 **テンプレート**はタイムラインに「置くもの」です。尺・文字・枠・音が決まったまとまりで、
 仮枠に映像を差し替えるだけで使えます。テンプレートは作り方を 1 段深くしたものです。
 
@@ -134,8 +135,8 @@ OSR になったときは書き出しの画面に理由が出ます。`--engine 
 whisper のモデルは `akari tools install whisper` で取得できます。
 
 **Q. API キーを設定したのに使えない**
-「doctor かけて」で疎通診断を。キーの実体は `~/.akari/credentials.env`
-（旧い場所の `~/.config/akari-video/credentials.env` も読みます）、
+「doctor かけて」で疎通診断を。キーの実体は <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F -->
+（旧い場所の <!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F --> も読みます）、
 プロジェクト内には参照だけ、が正しい配置です。設定 › つなぐ で、どのサービスが使えるか見られます。
 
 **Q. プロジェクトの開きが遅い・ホームが重い**
@@ -154,3 +155,7 @@ v1.4.1 以降に更新してください。以前の版は保存のたびに全�
 
 再現手順とともに [GitHub Issues](https://github.com/AkariLabs/akari-video/issues) へ。コミュニティの Discord（https://akari.video/discord）でも相談できます。
 `.akari/reports/` 配下のレポート HTML を添えてもらえると原因究明が早くなります。
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

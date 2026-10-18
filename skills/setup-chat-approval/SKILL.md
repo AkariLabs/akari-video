@@ -10,7 +10,7 @@ description: Set up Telegram notifications at approval gates and return approval
 Never proceed in violation of any rule below. These always override detailed leaf documents.
 
 1. **Never expose token values in conversation, reports, logs, or git-tracked files.** Do not ask the user to provide
-   the value. Explain only the location (`~/.akari/credentials.env`, `600`) and KEY name;
+   the value. Explain only the location (<!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F -->, `600`) and KEY name;
    **the human writes it** (inherits `manage-connections` hard rules 1–3).
 2. **Do not start listening without a chat ID allowlist.** Never launch the bridge with
    `AKARI_TELEGRAM_CHAT_ID` unset (otherwise third parties could approve; contract §3-2).

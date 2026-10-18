@@ -169,3 +169,7 @@ You don't have to hand off the whole plan — you can also ask for individual pi
 
 - Inspect the result → [QA, review, and fix](./review-and-fix.md)
 - Export → [Export](./export.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

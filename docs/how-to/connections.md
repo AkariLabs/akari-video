@@ -10,11 +10,11 @@ integrations) are centrally managed by the `manage-connections` skill.
 - **Local-only work needs no connection** — proxy generation, whisper.cpp
   transcription, editing, lint, and export all work with no external connection
 - **API keys never appear in chat** — the key itself lives in
-  `~/.akari/credentials.env` (outside the project); connections
+  <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> (outside the project); connections
   registries hold only a **reference** to it
 - **Older keys still work** — AKARI reads keys from the former location
-  (`~/.config/akari-video/credentials.env`) when they have not been copied yet.
-  New keys are saved in `~/.akari/credentials.env`. `akari doctor` shows which of
+  (<!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F -->) when they have not been copied yet.
+  New keys are saved in <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F -->. `akari doctor` shows which of
   the two a key was found in
 - **Workspace defaults, project overrides** — the default registry lives at
   `<creator-root>/.akari/connections.json`. A project's `.akari/connections.json`
@@ -173,3 +173,7 @@ paid generation.
 
 - First-time setup → [Getting Started](../getting-started.md)
 - Paid vs. free narration generation → [Add narration](../guides/narration.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

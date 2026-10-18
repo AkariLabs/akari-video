@@ -210,3 +210,7 @@ managed in private internal records.
 
 For contribution entry points, see the repository root [README](../README.md) and the
 README of each package.
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

@@ -145,3 +145,7 @@ capability search as unsupported instead of inventing a second catalog.
 - [Guides](./README.md#guides) — task-based guides for each skill (how to use them)
 - [Reference](./README.md#reference) — canonical data contracts (schemas)
 - Root [README](../README.md) — the workflow at a glance
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

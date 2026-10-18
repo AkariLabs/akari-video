@@ -37,3 +37,7 @@ agent from saving an automatic estimate as a confirmed declaration.
 - Make a video that moves with the music → [Beat-synced edits](./beat-sync.md)
 - Grow the audio library itself (the official AKARI Sounds are one command away: `akari sounds`) → [Grow the asset library](./asset-library.md)
 - Canonical procedure → [skills/declare-audio/SKILL.md](../../skills/declare-audio/SKILL.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

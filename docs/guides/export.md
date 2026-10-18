@@ -126,3 +126,7 @@ same save data**, so what you saw is exactly what comes out.
 ## Next steps
 
 - Save a well-made deliverable for next time → [Grow your asset library](./asset-library.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

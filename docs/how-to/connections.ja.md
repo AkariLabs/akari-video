@@ -10,11 +10,11 @@
 - **ローカル完結の範囲は接続なしで使える** — プロキシ生成・whisper.cpp 文字起こし・
   編集・lint・書き出しは外部接続不要
 - **API キーはチャットに出さない** — キーの実体は
-  `~/.akari/credentials.env`（プロジェクト外）に置き、
+  <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F -->（プロジェクト外）に置き、
   connections レジストリは**参照**だけを持つ
 - **旧い場所のキーも読める** — まだ移していないキーは旧い場所から読みます。
-  新しく登録するキーは `~/.akari/credentials.env` に保存します。
-  旧い場所は `~/.config/akari-video/credentials.env` で、キーがどちらにあるかは
+  新しく登録するキーは <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> に保存します。
+  旧い場所は <!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F --> で、キーがどちらにあるかは
   `akari doctor` に出ます
 - **作業場が既定、プロジェクトは上書き** — 既定レジストリは
   `<creator-root>/.akari/connections.json` に置きます。プロジェクトの
@@ -157,3 +157,7 @@ akari recipe plan <id> [--project <dir>] [--json]
 
 - 最初のセットアップ → [Getting Started](../getting-started.ja.md)
 - ナレーション生成の有償 / 無償 → [ナレーションを付ける](../guides/narration.ja.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

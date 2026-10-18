@@ -12,8 +12,8 @@ timeline. Three skills are involved: `setup-library` (initial setup),
 | Shelf | What's in it |
 |---|---|
 | Assets | Audio, video, images, motion parts, 3D and avatars, and so on. Things you add (place or apply), adjustable with knobs |
-| Styles | Caption styles, text motion, fonts, LUTs, transitions, and so on. Things you apply; they have no duration |
-| My styles | Styles you tuned and saved yourself, added through "Save your own styles" |
+| Styles | <!-- F ui.library.captionStyle -->Caption styles<!-- /F -->, text motion, fonts, LUTs, transitions, and so on. Things you apply; they have no duration |
+| <!-- F ui.library.myStyles -->My styles<!-- /F --> | Styles you tuned and saved yourself, added through "Save your own styles" |
 | Templates | One ready-made unit with duration, text, slots, and sound already decided. Local, channel, and Lab templates are listed here; drag one onto the timeline (see [Export a template](#export-a-template--akari-template-export)) |
 | Import together from a kit | Imports the assets inside a kit all at once |
 
@@ -135,10 +135,14 @@ By default, assets go to your own local library. They go into the public reposit
 A finished unit (one group) with sound, text, motion, and duration worked out can be exported as a template.
 This is a separate path from `harvest-asset`.
 
+<!-- BEGIN GENERATED facts:cli.template -->
 ```sh
 akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>]
-akari template list [--json] [--category <c>] [--tag <t>] [--channel <ch>]
+akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]
 ```
+
+`akari playbook template` remains an alias for `akari template export`.
+<!-- END GENERATED facts:cli.template -->
 
 The v1.5.0 build has no `akari template`; export with `akari playbook template <project> --item … --id …`. From the next release, `akari template export|list` is available, and the old name stays as an alias.
 
@@ -162,3 +166,7 @@ The first line of `akari assets list` shows the actual location.
 
 - Create 3D assets → [Bake a 3D scene](./bake-3d.md)
 - Spec for the asset declaration format (meta.json) → [Reference](../README.md#reference)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

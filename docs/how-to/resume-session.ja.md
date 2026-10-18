@@ -49,3 +49,7 @@ Claude Code のプラグインには、セッションを開いた瞬間に続�
 
 - イベントとファイルの全体像 → [プロジェクト構成](./project-structure.ja.md)
 - 注釈の対応 → [QA・レビューして直す](../guides/review-and-fix.ja.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

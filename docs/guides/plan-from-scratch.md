@@ -19,7 +19,7 @@ There are two entrances.
 - **From a blank page** — ask "I want to start from planning the video" or "Brainstorm topics for ◯◯".
   The agent runs the whole pass from ideation.
 - **Start from a playbook** — if you have a Playbook on hand or in the channel, start from it. In Home, choose
-  "Start from a playbook" in "+ Start a new video", or run `akari new <dir> --from <playbook id>` in the CLI. The flow
+  "Start from a playbook" in "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->", or run `akari new <dir> --from <playbook id>` in the CLI. The flow
   and settings carry over, and you get a timeline with open slots and planned lines in the script.
   `akari playbook list` shows which Playbooks you can pick.
 
@@ -34,7 +34,7 @@ When you create a project inside a channel, the channel's belongings are availab
 - **People** — records of the people who appear (name, reading, photos, voice)
 - **Memory** — people and the word book (`.akari/memory/word-book.json`). Words you fix in the Script
   panel are added to the word book too
-- **Channel settings** — the channel's rules for logo, fonts, and colors
+- **<!-- F ui.library.channelSettings -->Channel settings<!-- /F -->** — the channel's rules for logo, fonts, and colors
 
 If `.akari/connections.json` declares a memory connection, `research-plan` reads its entry point
 (`INDEX.md` by default) at the start of planning. The files it read are kept in `sources[]` of
@@ -85,3 +85,7 @@ See [Plan your edit](./plan-your-edit.md) for details.
 
 - Once you have footage → [Analyze footage](./analyze-footage.md)
 - Build placeholder clips and move to editing → [Plan your edit](./plan-your-edit.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

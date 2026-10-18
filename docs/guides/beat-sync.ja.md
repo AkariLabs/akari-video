@@ -29,3 +29,7 @@
 - まず曲に宣言を付ける → [音源に宣言を付ける](./declare-audio.ja.md)
 - 仕上がったら書き出す → [書き出す](./export.ja.md)
 - 手順の正本 → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

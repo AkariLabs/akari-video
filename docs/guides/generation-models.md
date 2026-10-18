@@ -42,3 +42,7 @@ Price is outside drift detection, so check `price_url` manually.
 
 Run `npm run gen:generation-models` to regenerate the list.
 In CI, `npm run check:generation-models` detects drift.
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

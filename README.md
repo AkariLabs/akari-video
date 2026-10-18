@@ -47,7 +47,7 @@ AKARI Video was built to break that trade-off.
 
 ## What's in v1.5.0
 
-- **Start from a playbook** — "+ Start a new video" opens a single "New project" popup: name, channel, then
+- **Start from a playbook** — "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" opens a single "<!-- F ui.home.newProjectHeading -->New project<!-- /F -->" popup: name, channel, then
   "Start blank" or "Start from a playbook". A playbook carries the steps, checkpoints, settings, and
   placeholder slots for one video. Record one from a finished video with the `record-playbook`
   skill, or start from the CLI with `akari new <dir> --from <playbook>`
@@ -55,7 +55,7 @@ AKARI Video was built to break that trade-off.
   template onto the timeline as one unit, then drop your own footage into its open slots; the
   slot's length is kept. Export one with `akari template export` (`akari playbook template` in v1.5.0)
 - **Marks on the preview stay as annotations** — pen, pin, and range tools under the preview
-  land in the right panel as annotations. Hand them to your AI partner with "Hand to AI"
+  land in the right panel as annotations. Hand them to your AI partner with "<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->"
 - **Scenes, structure, relations** — split a long project into scenes. A "Scenes / Structure /
   Relations" tab shows the project → scene → cut tree and how assets, styles, people, and
   documents connect
@@ -68,8 +68,10 @@ AKARI Video was built to break that trade-off.
 - **AI partners** — Claude Code and Codex lead the list; opencode, Cursor Agent, Muse Code CLI
   (Meta), and others work too. Update partner CLIs from Settings
 
+<!-- BEGIN GENERATED facts:shipped-note -->
 > [!NOTE]
-> The v1.5.0 build still uses the older screen names (Overlays, Saved presets, caption templates, Brand kit) and the older CLI names (`akari new --template`, `akari playbook template`). The new names (Motion parts, My styles, caption styles, Channel settings; `akari new --scaffold`, `akari template export`) arrive in the next release. The older CLI names stay as aliases.
+> The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
+<!-- END GENERATED facts:shipped-note -->
 
 Details for each release are in [Releases](https://github.com/AkariLabs/akari-video/releases).
 
@@ -123,7 +125,7 @@ contracts (under `.akari/`). Stop halfway and you can resume from any other entr
 
 | Entrance | What it is | How to launch |
 |---|---|---|
-| Desktop app | Theia-based desktop shell (macOS Apple Silicon / Windows). Provisions its own `akari` CLI | Download from [akari.video/download](https://akari.video/download/), then "+ Start a new video" on Home |
+| Desktop app | Theia-based desktop shell (macOS Apple Silicon / Windows). Provisions its own `akari` CLI | Download from [akari.video/download](https://akari.video/download/), then "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" on Home |
 | Terminal | One-line installer (full setup — browser preview included) → `akari.sh` | `curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh \| bash` — CLI only: `npm i -g akari-video` |
 | Inside an opencode session | Skills auto-discovered from `.opencode/skills/` | Just say "I want to start a new video project" |
 | Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
@@ -199,3 +201,7 @@ follow the license notice in each item's `meta.json`. Bundled third-party binari
 [![GitHub stars](https://img.shields.io/github/stars/AkariLabs/akari-video?style=for-the-badge&logo=github&logoColor=white&color=ff8a00)](https://github.com/AkariLabs/akari-video/stargazers)
 
 </div>
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

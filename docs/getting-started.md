@@ -2,7 +2,10 @@
 
 # Getting Started — your first project
 
-> **A note on screen terms**: this document uses the terms on the latest `main`. The released v1.5.0 screens still show some older words (Overlay → Motion parts, Saved presets → My styles, Caption template → Caption style, Brand kit → Channel settings, and the "Scaffold / Set" tiles in the Library → the "Templates" shelf). The CLI's `akari new --scaffold` and `akari template export|list` also arrive in the next release; in v1.5.0 use `--template` and `akari playbook template`.
+> **A note on screen terms**: this document uses the terms on the latest `main`.
+<!-- BEGIN GENERATED facts:shipped-note -->
+> The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
+<!-- END GENERATED facts:shipped-note -->
 
 AKARI Video is a system where **an AI agent does the video editing**.
 You only do two things: **say what you want to make** and **check the result and fix it**.
@@ -49,7 +52,7 @@ The app downloads new versions automatically. Once the download finishes, an upd
 "On next launch", or just quit and relaunch the app normally, and it applies then. It never force-restarts you mid-session.
 
 By default, updates include stable versions only. To try new features early, choose
-“Include prereleases” under “Release channel” in the app settings to receive beta versions too.
+“<!-- F ui.settings.prereleaseToo -->Include prereleases<!-- /F -->” under “Release channel” in the app settings to receive beta versions too.
 This is the same as setting `"channel": "prerelease"` in
 `~/.akari/update-preferences.json`, and it also applies to CLI automatic updates.
 
@@ -341,7 +344,7 @@ so you can start from anywhere and continue from another later.
 | A. Terminal | Comfortable with command line | `akari` (no arguments) |
 | B. opencode / Claude Code / Codex session | Already using an AI agent CLI | Say "I want to start a new video project" |
 | C. Cursor Agent | Prefer an IDE with Agent chat | Open the repo or project in Cursor and say "I want to start a new video project" |
-| D. App | Prefer GUI | Open the desktop app and use "+ Start a new video" on Home |
+| D. App | Prefer GUI | Open the desktop app and use "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" on Home |
 | E. Entry skill | Want to start from any folder | Run `akari skills install --entry` once, then say "I want to make a video" |
 
 **Recommended for beginners: start with D (the app)**. You build with the AI while looking at the screen.
@@ -398,7 +401,7 @@ shown in the menu, and appending `?frameEngine=0` switches to the legacy view.
 
 ### D. From the app
 
-Open the desktop app (the Theia-based shell, `apps/shell/`) and start from "+ Start a new video" on Home.
+Open the desktop app (the Theia-based shell, `apps/shell/`) and start from "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" on Home.
 The flow is in "[Create your first project in the app](#create-your-first-project-in-the-app)" below.
 The app is the main entrance: you run your AI partner in the right-hand panel and review and
 fix what the partner built in the same window. The terminal and session entrances (A–C, E) work too.
@@ -456,7 +459,7 @@ This is the path from opening the app for the first time to exporting one video.
    (the guide points to these three). The app installs the parts it needs, and then you just sign in in the browser.
    You can also choose opencode, Cursor, GitHub Copilot, Grok Build, Command Code, Pi, Devin, Muse Code, and DeepSeek Harness.
    Under "Partner privileges" in Settings you choose between auto mode, asking every time, and all permissions. You can also update the CLI agents from Settings
-4. **Create a new project** — press **"+ Start a new video"** on Home to open a single "New project" popup.
+4. **Create a new project** — press **"<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->"** on Home to open a single "<!-- F ui.home.newProjectHeading -->New project<!-- /F -->" popup.
    Give it a name, pick the channel it goes in (or "Create without a channel"), and choose **"Start blank"** or **"Start from a playbook"**.
    - **Start blank**: begin with no assets and no settings
    - **Start from a playbook**: pick a playbook (the steps, checkpoints, settings, and placeholder slots for one video) from yours, your channel's, or Lab's,
@@ -469,7 +472,7 @@ This is the path from opening the app for the first time to exporting one video.
    You can do something else while it works. If you're not sure how to ask, open "Open Planning form" on Home (see below)
    and pick the tasks, length, and how much to delegate
 7. **Check and fix** — play it in the preview in the middle. To point at something to change, mark it with the pen, pin, or range tool
-   under the preview, write your note, and press **"Hand to AI"**; it reaches the partner as an annotation in the right-hand panel.
+   under the preview, write your note, and press **"<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->"**; it reaches the partner as an annotation in the right-hand panel.
    You can fix things by hand too: cut and move things on the timeline, select words or lines in the script panel and use "Cut with video",
    or apply a caption look to "the whole caption" or "selected words". After fixing by hand you can still ask the partner to continue
 8. **Export** — use **"Export…"** in the menu on the left, then press Export. The rendered file appears under "Exports" in the left
@@ -494,6 +497,14 @@ akari new my-video
 | `akari new <dir> --scaffold <path>` | Create from the scaffold at `<path>`. In v1.5.0 the flag is `--template` (`--scaffold` arrives in the next release; the old name stays as an alias) |
 | `akari new <dir> --from <playbook directory \| id>` | Create from a playbook, carrying over its flow and settings |
 | `--lang <code>` | Set the project's language (for example `en`); it is stored as `language` in `.akari/intake.json` |
+
+<!-- BEGIN GENERATED facts:cli.new -->
+```sh
+akari new <target-dir> [--scaffold <path>] [--template <path> (alias for --scaffold)] [--lang <code>]
+```
+
+`--template` remains an alias for `--scaffold`.
+<!-- END GENERATED facts:cli.new -->
 
 `akari playbook list` shows playbooks from yours, your channel's, and Lab's, and
 `akari playbook apply <id> --into <project>` applies one to a project already in progress (it doesn't move existing cuts; it only adds missing placeholder slots and plan items).
@@ -562,7 +573,7 @@ Once connected, the free asset packs and the Pro assets you have bought arrive i
 
 **Example playbooks**: Lab gives away ten example playbooks for free (film, short drama, music video, explainer, product intro,
 vlog, commercial, education, clips, logo). Install one with `akari store install <id>` and it shows up in the list under
-"+ Start a new video" → "Start from a playbook", with the source "Lab". Installing a playbook-only item does not ask you to enable
+"<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" → "Start from a playbook", with the source "Lab". Installing a playbook-only item does not ask you to enable
 a Claude Code extension kit (that only appears for items that include skills).
 
 ---
@@ -595,7 +606,7 @@ If you have one piece of footage:
 
 3. **Assemble the edit** → The agent automatically creates `edit.json`, titles, and captions
 
-4. **Check and fix** → play it in the preview, mark what you want changed, and "Hand to AI"
+4. **Check and fix** → play it in the preview, mark what you want changed, and "<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->"
    → [Review and fix](./guides/review-and-fix.md)
 
 5. **Export** → say "export it"
@@ -628,3 +639,7 @@ confirmation screen the first time (see "The first screen you'll see on Windows"
 **Q. I only speak English — is that okay?**
 You can choose Japanese or English under "Language" in the app settings (it starts from your OS language).
 In the English UI, asset names and the first guide are in English too. Some error messages and documentation may still be in Japanese.
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

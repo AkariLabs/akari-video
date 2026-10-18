@@ -31,21 +31,21 @@ Choose "More info" and then "Run anyway" if you downloaded it from the official 
 page. The macOS app is signed with a Developer ID and notarized by Apple.
 
 **Q. How do I switch between the stable and beta versions?**
-Open Settings → About this app → **Release channel**. **Stable only** is the default;
-**Include prereleases** also offers beta builds so you can try new features sooner.
-Switch back to Stable only when you want to stay on stable releases.
+Open Settings → About this app → **Release channel**. **<!-- F ui.settings.stableOnly -->Stable only<!-- /F -->** is the default;
+**<!-- F ui.settings.prereleaseToo -->Include prereleases<!-- /F -->** also offers beta builds so you can try new features sooner.
+Switch back to <!-- F ui.settings.stableOnly -->Stable only<!-- /F --> when you want to stay on stable releases.
 
 **Q. The docs use screen names or commands that differ from my app**
-The v1.5.0 build was cut before the wording update, so its screens and some commands use
-the older names. The next release uses the new names, and the old command names stay as
-aliases.
+<!-- BEGIN GENERATED facts:shipped-note -->
+The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
+<!-- END GENERATED facts:shipped-note -->
 
 | Docs (new) | v1.5.0 app (older name) |
 |---|---|
-| Motion parts | Overlays |
-| My styles | My styles / saved presets |
-| Caption style | Caption template |
-| Channel settings | Brand kit |
+| <!-- F ui.library.motionParts -->Motion parts<!-- /F --> | Overlays |
+| <!-- F ui.library.myStyles -->My styles<!-- /F --> | My styles / saved presets |
+| <!-- F ui.library.captionStyleSingular -->Caption style<!-- /F --> | Caption template |
+| <!-- F ui.library.channelSettings -->Channel settings<!-- /F --> | Brand kit |
 | 3D settings | 3D recipes |
 | Templates shelf in the Library | "Scaffold" and "Set" tiles |
 | `akari new --scaffold` | `akari new --template` |
@@ -64,7 +64,7 @@ Settings → Partner. For regular work, connect a partner such as Claude Code or
 
 **Q. What is the difference between a playbook and a template?**
 A **playbook** is something you read: the steps, check points, settings, and placeholder
-slots for one video. It holds no footage. Start one from Home → "+ Start a new video" → "Start from a
+slots for one video. It holds no footage. Start one from Home → "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" → "Start from a
 playbook" or with `akari new <dir> --from <playbook>`. A **template** is a finished chunk
 you place on the timeline: length, text, frames, and sound are already decided, and you
 only swap the footage into its placeholder slots. A template is a playbook one level deeper.
@@ -146,8 +146,8 @@ setup-library), or run `akari doctor`. The whisper model is fetched with
 
 **Q. I set an API key but it's still not working**
 Ask to "run doctor" for a connectivity diagnosis. The key itself should live at
-`~/.akari/credentials.env` (keys in the older location,
-`~/.config/akari-video/credentials.env`, are still read), with only a reference inside the
+<!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> (keys in the older location,
+<!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F -->, are still read), with only a reference inside the
 project — that's the correct layout. Settings → Connect shows which services are usable.
 
 **Q. A project opens slowly, or Home feels heavy**
@@ -169,3 +169,7 @@ doesn't surface, but if it recurs, run this by hand:
 Open a [GitHub Issue](https://github.com/AkariLabs/akari-video/issues) with
 reproduction steps, or ask in the Discord community (https://akari.video/discord). Attaching the report HTML from `.akari/reports/` speeds up
 root-causing.
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

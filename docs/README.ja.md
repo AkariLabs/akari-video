@@ -205,3 +205,7 @@
 
 コントリビュートの入口はリポジトリルートの [README](../README.ja.md) と
 各パッケージの README を参照してください。
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

@@ -29,3 +29,7 @@ snapped to the declared beats of a track. The skill is `beat-sync-edit`.
 - Declare a track first → [Declare your audio](./declare-audio.md)
 - Export the finished edit → [Export](./export.md)
 - Canonical procedure → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

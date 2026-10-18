@@ -48,7 +48,7 @@ You don't have to record anything. Mark what bothers you directly while you watc
    you can still play and seek meanwhile.)
 3. Confirmed marks appear as **annotations in the right panel**. They also show in the
    "Attachments (N)" list on the playback bar, and they survive reopening the app
-4. Press **"Hand to AI"** on one annotation, or **"Hand all to AI"** for all of them. The request
+4. Press **"<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->"** on one annotation, or **"Hand all to AI"** for all of them. The request
    is placed in the input of the partner you used last and stops there, so you can read it
    before sending. For partners that can't be typed into, you're guided to copy and paste it
 
@@ -132,3 +132,7 @@ within the asset)**. Reordering cuts doesn't shift what a ticket points to.
 ## Next steps
 
 - Once everything passes → [Export](./export.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

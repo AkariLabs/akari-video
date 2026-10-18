@@ -108,3 +108,7 @@ akari media transcribe <素材> --diarize --speakers 2
 
 - 方針を立てて編集する → [編集計画を立てて実行する](./plan-your-edit.ja.md)
 - 文字起こしのクラウド利用を設定する → [接続と API キー](../how-to/connections.ja.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

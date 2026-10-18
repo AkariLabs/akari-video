@@ -62,3 +62,7 @@ CLI・ファイル・スキルでは従来どおり recipe / `scene.py` です�
   場所は環境変数 `AKARI_BLENDER_BIN` で指定できます
 
 仕様の詳細: [3D ベイクレシピ契約](../contract-2026-07-14-3d-bake-recipe.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

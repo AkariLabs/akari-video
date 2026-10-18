@@ -14,7 +14,7 @@ The top bar shows where you are (Channel › Project), the five-step progress, a
 ## Home
 
 - **Home** lists your "Recent projects", newest first. When you open one you can choose "Open in this window" or "Open in new window". If the partner is working, you can also wait until it finishes
-- **+ Start a new video** opens a single "New project" popup. Choose a name and a channel, then "Start blank" or "Start from a playbook". You can also create a project without a channel
+- **<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->** opens a single "<!-- F ui.home.newProjectHeading -->New project<!-- /F -->" popup. Choose a name and a channel, then "Start blank" or "Start from a playbook". You can also create a project without a channel
 - "Start from a playbook" lists playbooks from your own, your channel, and Lab, filtered by category and source. Picking one opens a confirmation sheet that shows what will be added and whether the tools it needs are available. "Import and start" creates a project with its placeholders in place
 - The home of a freshly created project shows "Where would you like to start?" with three choices: "Start from a type", "Start with Assets", and "Talk to Partner"
 - On a project's home you can rename it in place. "History" and "Activity" let you review and roll back what agents did. Only irreversible actions, such as publishing, submitting, paid generation, sending data out, or deleting source assets, make the agent stop and ask you to approve or decline
@@ -49,11 +49,11 @@ The Library is one shelf of everything you can drop onto the timeline. Categorie
 
 - **Asset categories**: BGM, SFX, B-roll, images, motion parts, 3D and avatars, fonts, and shapes. Press a tile (or card) to open its list, then drag onto the timeline or right-click to place
 - **Styles**: caption styles, text animations, LUTs, and transitions. You apply them to selected text or a cut boundary, and hover plays a sample
-- **My styles**: save the current look of text or captions with "Save to my styles" and apply it later. You can rename and delete them
-- **Motion parts**: moving HTML assets (formerly called overlays)
+- **<!-- F ui.library.myStyles -->My styles<!-- /F -->**: save the current look of text or captions with "Save to my styles" and apply it later. You can rename and delete them
+- **<!-- F ui.library.motionParts -->Motion parts<!-- /F -->**: moving HTML assets (formerly called overlays)
 - **The "Templates" shelf** sits below the categories. Templates from this computer, your channel, and Lab appear with a "Template" badge. Until you have one, the shelf shows how to export one
 - **Import together from a kit** is in the Assets group under "Details". It imports the assets inside a kit in one go
-- **Channel settings** is under "Details" in "My assets"
+- **<!-- F ui.library.channelSettings -->Channel settings<!-- /F -->** is under "Details" in "My assets"
 
 The **filter** button to the right of the search field is a single button. It filters by source (All / Mine / Asset site / Lab), tier (Free / Pro), license (commercial use allowed / attribution required / no commercial use), and status (downloaded / not downloaded / ★). Pro assets are shown locked. Categories with no matches appear dimmed and can still be opened.
 
@@ -80,7 +80,7 @@ The output preview plays your timeline for real.
 ## Right panel
 
 - **Inspector**: the settings of what you selected, such as text (font, size, color), color, motion, and 3D. When you select a transition you can change its type, direction, length, and position, or set it to none. Keyframes are handled here too
-- **Annotations**: the marks and recordings you made in the preview, in an order you can read from the top. You can **Hand to AI** one at a time or all together. It stops once the request is in the partner's input field. For a pen stroke, "from where to where" is written into the request. Annotations and recordings can be deleted
+- **Annotations**: the marks and recordings you made in the preview, in an order you can read from the top. You can **<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->** one at a time or all together. It stops once the request is in the partner's input field. For a pen stroke, "from where to where" is written into the request. Annotations and recordings can be deleted
 - **Partner**: where the AI partner (Claude Code, Codex, opencode, Cursor Agent, Muse Code, and others) runs. The open project becomes the working project, and the partner you used last opens automatically
 
 ## Timeline
@@ -101,7 +101,7 @@ The output preview plays your timeline for real.
 The Script panel lists transcript lines grouped by source file (press a heading to open it; "Open all" is available).
 
 - **Plans and memos**: plans from a playbook (a span such as "0:00–0:03 Hook: …") and memos appear together in time order. Tick a plan off when it is done, and use "+ Memo" to add a memo at the current playhead. Turn off "Show plans and memos" under "Display" to get a captions-only script. Press a row to jump to that time
-- **Caption style**: select words and apply a caption style. Applying it to the **whole caption** does not change the caption's size. You can also apply it to **selected words only**, and the preview outlines them with a dotted frame. "Restore whole-caption appearance" undoes that
+- **<!-- F ui.library.captionStyleSingular -->Caption style<!-- /F -->**: select words and apply a caption style. Applying it to the **whole caption** does not change the caption's size. You can also apply it to **selected words only**, and the preview outlines them with a dotted frame. "Restore whole-caption appearance" undoes that
 - **Speakers**: captions with split speakers get a speaker tag. You can connect it to a person or give it a name, and "Filter by speaker" shows one speaker's lines
 - The 🎙 on a row records a voice-over while showing the text read from the start of that row
 
@@ -119,7 +119,7 @@ A long piece can be divided into scenes inside one project.
 
 Open Settings from the far-left rail to see six pillars on the left. Choosing one shows its items as a single page on the right, and the table of contents in the middle jumps to an item.
 
-- **General**: your AKARI account, the first-time guide, help, and About. "Release channel" is in About (the default is "Stable only"; choose "Include prereleases" to receive beta versions too)
+- **General**: your AKARI account, the first-time guide, help, and About. "Release channel" is in About (the default is "<!-- F ui.settings.stableOnly -->Stable only<!-- /F -->"; choose "<!-- F ui.settings.prereleaseToo -->Include prereleases<!-- /F -->" to receive beta versions too)
 - **Partner**: the AI that works with you. Each shows "current version · latest version", and "Update" appears when a newer version exists. "Show AKARI Chat (preview)" is here too (hidden by default)
 - **Connect**: connections to outside services and their keys, AI models, narration, transcription, and export defaults. Enter keys card by card; the status reads "Available" or "Key required", and only the last 4 characters of a key are shown
 - **Workflow and limits**: preview quality (including the scrub-audio on/off), notifications, and tools
@@ -138,3 +138,7 @@ Anything you do by mouse can be continued conversationally, and vice versa.
 - What each file under `.akari/` means → [Project structure](./project-structure.md)
 - How screen words are decided → [contract-2026-10-16-vocabulary-v0.md](../contract-2026-10-16-vocabulary-v0.md) (Japanese)
 - The preview behavior spec → [contract-2026-08-02-preview-parity.md](../contract-2026-08-02-preview-parity.md) (Japanese)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

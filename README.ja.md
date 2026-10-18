@@ -42,7 +42,7 @@ AKARI Video はその二択を壊すために作りました。
 
 ## v1.5.0 の主な体験
 
-- **作り方から始める** — 「＋ 新しい動画を始める」で開く「新しいプロジェクト」は 1 枚のポップアップ。名前とチャンネルを決めて、
+- **作り方から始める** — 「<!-- F ui.home.startButton -->＋ 新しい動画を始める<!-- /F -->」で開く「<!-- F ui.home.newProjectHeading -->新しいプロジェクト<!-- /F -->」は 1 枚のポップアップ。名前とチャンネルを決めて、
   「白紙から」か「作り方から」を選びます。作り方は、1 本ぶんの手順・確認点・設定・仮枠のまとまりです。
   終わった動画からはスキル `record-playbook` で書き出せます。コマンドからは
   `akari new <フォルダ> --from <作り方>` で始められます
@@ -50,7 +50,7 @@ AKARI Video はその二択を壊すために作りました。
   タイムラインへまとまり 1 つとしてドラッグし、空いている枠に自分の映像を落とすと、枠の尺のまま
   中身が入れ替わります。`akari template export` で書き出せます（v1.5.0 では `akari playbook template`）
 - **プレビューの印が注釈に残る** — プレビューの下のペン・ピン・範囲で付けた印が、右パネルの注釈に
-  なります。「AI に渡す」でパートナーに渡せます
+  なります。「<!-- F ui.annotation.handToAi -->AI に渡す<!-- /F -->」でパートナーに渡せます
 - **シーン / 構成 / 関係** — 長い作品は 1 つのプロジェクトをシーンに分けて作れます。
   「シーン / 構成 / 関係」のタブで、プロジェクト → シーン → カットの木と、素材・スタイル・人物・
   文書のつながりを見られます
@@ -61,8 +61,10 @@ AKARI Video はその二択を壊すために作りました。
 - **AI パートナー** — Claude Code と Codex を軸に、opencode・Cursor Agent・Muse Code CLI（Meta）
   ほかが使えます。パートナーの CLI は設定から更新できます
 
+<!-- BEGIN GENERATED facts:shipped-note -->
 > [!NOTE]
-> 配布中の v1.5.0 では、画面の語は旧名（オーバーレイ・マイスタイル・字幕テンプレ・ブランドキット）、CLI は旧名（`akari new --template`・`akari playbook template`）のままです。新名（動く部品・自分のスタイル・字幕スタイル・チャンネルの設定 / `akari new --scaffold`・`akari template export`）は次の版からです。CLI の旧名は以後も別名として残ります。
+> 配布中の v1.5.0 では「マイスタイル」→「自分のスタイル」、「オーバーレイ」→「動く部品」、「テンプレ」→「字幕スタイル」、「ブランドキット」→「チャンネルの設定」と表示されます。次の版から右側の名前になります。配布中の v1.5.0 では `--template` を使い、次の版から `--scaffold` も使えます。配布中の v1.5.0 では `akari playbook template` を使い、次の版から `akari template export` と `akari template list` が使えます。旧名は別名として残ります。
+<!-- END GENERATED facts:shipped-note -->
 
 各版の詳細は [Releases](https://github.com/AkariLabs/akari-video/releases) にあります。
 
@@ -115,7 +117,7 @@ flowchart LR
 
 | 入口 | 実体 | 発動方法 |
 |---|---|---|
-| アプリ | Theia ベースのデスクトップシェル（macOS Apple Silicon / Windows）。`akari` CLI は自動で配備される | [akari.video/download](https://akari.video/download/) から入れて、ホームの「＋ 新しい動画を始める」 |
+| アプリ | Theia ベースのデスクトップシェル（macOS Apple Silicon / Windows）。`akari` CLI は自動で配備される | [akari.video/download](https://akari.video/download/) から入れて、ホームの「<!-- F ui.home.startButton -->＋ 新しい動画を始める<!-- /F -->」 |
 | ターミナル | ワンライナーインストーラー（フル構成 — ブラウザプレビュー込み）→ `akari.sh` | `curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh \| bash` — CLI だけ軽量に入れるなら `npm i -g akari-video` |
 | opencode セッション内 | `.opencode/skills/` から自動発見 | 「新しい動画プロジェクトを作りたい」と発話 |
 | Claude Code セッション内 | `plugin/` の `/akari` コマンド + SessionStart hook | セッション内で `/akari`、または「新しい動画プロジェクトを作りたい」と発話 |
@@ -186,3 +188,7 @@ Claude Code プラグインとして入れる: `claude plugin marketplace add Ak
 [![GitHub stars](https://img.shields.io/github/stars/AkariLabs/akari-video?style=for-the-badge&logo=github&logoColor=white&color=ff8a00)](https://github.com/AkariLabs/akari-video/stargazers)
 
 </div>
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->

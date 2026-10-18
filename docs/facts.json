@@ -1,0 +1,168 @@
+{
+  "meta": {
+    "version": "1.5.0",
+    "releaseDate": "2026-10-17",
+    "shippedTag": "v1.5.0"
+  },
+  "ui": {
+    "ja": {
+      "home.startButton": "＋ 新しい動画を始める",
+      "home.newProjectHeading": "新しいプロジェクト",
+      "settings.stableOnly": "安定版だけ",
+      "settings.prereleaseToo": "プレリリースも",
+      "library.myStyles": "自分のスタイル",
+      "library.motionParts": "動く部品",
+      "library.captionStyle": "字幕スタイル",
+      "library.captionStyleSingular": "字幕スタイル",
+      "library.channelSettings": "チャンネルの設定",
+      "annotation.handToAi": "AI に渡す"
+    },
+    "en": {
+      "home.startButton": "+ Start a new video",
+      "home.newProjectHeading": "New project",
+      "settings.stableOnly": "Stable only",
+      "settings.prereleaseToo": "Include prereleases",
+      "library.myStyles": "My styles",
+      "library.motionParts": "Motion parts",
+      "library.captionStyle": "Caption styles",
+      "library.captionStyleSingular": "Caption style",
+      "library.channelSettings": "Channel settings",
+      "annotation.handToAi": "Hand to AI"
+    }
+  },
+  "cli": {
+    "new": {
+      "usage": {
+        "ja": "使い方: akari new <target-dir> [--scaffold <path>] [--template <path>（--scaffold の別名）] [--lang <code>]",
+        "en": "Usage: akari new <target-dir> [--scaffold <path>] [--template <path> (alias for --scaffold)] [--lang <code>]"
+      },
+      "scaffold": "--scaffold",
+      "alias": "--template"
+    },
+    "template": {
+      "usage": {
+        "ja": "使い方: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]",
+        "en": "Usage: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]"
+      },
+      "export": "akari template export",
+      "list": "akari template list",
+      "alias": "akari playbook template"
+    }
+  },
+  "paths": {
+    "credentials": {
+      "primary": "~/.akari/credentials.env",
+      "legacy": "~/.config/akari-video/credentials.env"
+    }
+  },
+  "skills": {
+    "count": 28,
+    "names": [
+      "address-review",
+      "akari",
+      "analyze-footage",
+      "analyze-project",
+      "bake-3d",
+      "beat-sync-edit",
+      "compile-review-session",
+      "connect",
+      "create-project",
+      "critique-cut",
+      "declare-audio",
+      "design-world",
+      "edit-lint",
+      "edit-plan",
+      "export-nle",
+      "generate-media",
+      "generate-narration",
+      "harvest-asset",
+      "manage-connections",
+      "overlay-authoring",
+      "record-playbook",
+      "render-cut",
+      "research-plan",
+      "setup-audio-library",
+      "setup-chat-approval",
+      "setup-library",
+      "setup-remote",
+      "verify"
+    ],
+    "beta": [
+      "export-nle"
+    ]
+  },
+  "shipped": [
+    {
+      "lang": "ja",
+      "key": "library.myStyles",
+      "shipped": "マイスタイル",
+      "current": "自分のスタイル"
+    },
+    {
+      "lang": "ja",
+      "key": "library.motionParts",
+      "shipped": "オーバーレイ",
+      "current": "動く部品"
+    },
+    {
+      "lang": "ja",
+      "key": "library.captionStyleSingular",
+      "shipped": "テンプレ",
+      "current": "字幕スタイル"
+    },
+    {
+      "lang": "ja",
+      "key": "library.channelSettings",
+      "shipped": "ブランドキット",
+      "current": "チャンネルの設定"
+    },
+    {
+      "lang": "ja",
+      "key": "cli.new.usage",
+      "shipped": "使い方: akari new <target-dir> [--template <path>] [--lang <code>]",
+      "current": "使い方: akari new <target-dir> [--scaffold <path>] [--template <path>（--scaffold の別名）] [--lang <code>]"
+    },
+    {
+      "lang": "ja",
+      "key": "cli.template.usage",
+      "shipped": null,
+      "current": "使い方: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]"
+    },
+    {
+      "lang": "en",
+      "key": "library.myStyles",
+      "shipped": "My Styles",
+      "current": "My styles"
+    },
+    {
+      "lang": "en",
+      "key": "library.motionParts",
+      "shipped": "Overlay",
+      "current": "Motion parts"
+    },
+    {
+      "lang": "en",
+      "key": "library.captionStyleSingular",
+      "shipped": "Template",
+      "current": "Caption style"
+    },
+    {
+      "lang": "en",
+      "key": "library.channelSettings",
+      "shipped": "Brand kit",
+      "current": "Channel settings"
+    },
+    {
+      "lang": "en",
+      "key": "cli.new.usage",
+      "shipped": "Usage: akari new <target-dir> [--template <path>] [--lang <code>]",
+      "current": "Usage: akari new <target-dir> [--scaffold <path>] [--template <path> (alias for --scaffold)] [--lang <code>]"
+    },
+    {
+      "lang": "en",
+      "key": "cli.template.usage",
+      "shipped": null,
+      "current": "Usage: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]"
+    }
+  ]
+}

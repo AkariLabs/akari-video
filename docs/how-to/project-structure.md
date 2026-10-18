@@ -13,7 +13,7 @@ see [Reference](../README.md#reference)).
 |---|---|
 | `edit.json` | **The edit's save data (SSOT)**. Cuts, how assets are placed, motion parts, audio, beats, direction. v2 (an object tree) |
 | `captions.json` | Caption data. Holds each line's look and looks applied to ranges of characters (runs v1, caption styles) |
-| `review.json` | Sidecar for annotations (pen, pin, range, attachments). The data behind "Hand to AI" in the right panel |
+| `review.json` | Sidecar for annotations (pen, pin, range, attachments). The data behind "<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->" in the right panel |
 | `decision-log.md` | Append-only decision history shared by analyze-project and edit-plan |
 | `analysis-report.html` | The formal cross-asset analysis report produced by analyze-project |
 
@@ -124,7 +124,7 @@ entries only; recently updated candidates and symbolic links remain undecided.
 
 | Location | Role |
 |---|---|
-| `~/.akari/credentials.env` | Where API keys actually live (never put them in the project) |
+| <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> | Where API keys actually live (never put them in the project) |
 | `~/.akari-video/assets/` | The personal-scope asset library |
 | `~/.akari/playbooks/` | Your own shelf of playbooks and templates |
 
@@ -156,3 +156,7 @@ To reclaim the past as well, run `git filter-repo` (or similar) yourself. One ca
 tools **only rewrite commits**, so a ref that points straight at a tree — the checkpoints some
 AI coding tools create, for instance — keeps holding the old data, and the repository stops
 shrinking about halfway. Check `git for-each-ref` for refs you do not recognize before you gc.
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

@@ -122,12 +122,12 @@ caption kernel, so previews and exports read the same declared values.
 ## Caption looks — whole caption or selected characters
 
 A caption's look is applied as a "caption style". Applying one from the library's caption
-styles, from My styles, or from the inspector gives the same result, and applying a style never
+styles, from <!-- F ui.library.myStyles -->My styles<!-- /F -->, or from the inspector gives the same result, and applying a style never
 changes the caption's size. When you change the size, the outline, shadow, glow, and plate
 padding scale by the same ratio.
 
 - **Whole caption**: select a line and apply a style. In the script panel, choose it from the
-  line's "Caption style"
+  line's "<!-- F ui.library.captionStyleSingular -->Caption style<!-- /F -->"
 - **Selected characters only**: select words in the script panel and apply from "✦ Selected words".
   The output preview marks the selected characters with a dotted frame. To undo, use
   "Restore whole-caption appearance"
@@ -168,7 +168,7 @@ Caption and text looks can be built up in layers.
 - Also shadow, glow, plate (backing), letter spacing, and uppercase
 - Every color and width is a knob. Make a variant by changing a base style with the knobs
 
-Save a finished style to My styles to reuse it in other projects. Contract:
+Save a finished style to <!-- F ui.library.myStyles -->My styles<!-- /F --> to reuse it in other projects. Contract:
 [textstyle v1](../contract-2026-10-02-textstyle-v1-rich.md).
 
 ## Telop bases
@@ -278,3 +278,7 @@ that's the division of labor.
 - Inspect the result → [QA, review, and fix](./review-and-fix.md)
 - Reuse a good motion part next time → [Grow your asset library](./asset-library.md)
 - Bake 3D into video footage → [Bake a 3D scene](./bake-3d.md)
+
+<!-- BEGIN GENERATED facts:stamp -->
+This page describes AKARI Video v1.5.0 (released 2026-10-17).
+<!-- END GENERATED facts:stamp -->

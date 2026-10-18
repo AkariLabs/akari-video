@@ -13,7 +13,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 |---|---|
 | `edit.json` | **編集のセーブデータ（SSOT）**。カット・素材の置き方・動く部品・音声・ビート・演出。v2（オブジェクトの木） |
 | `captions.json` | 字幕データ。行ごとの見た目と、文字の範囲に当てる見た目（runs v1・字幕スタイル）を持つ |
-| `review.json` | 注釈（ペン・ピン・範囲・添付）のサイドカー。右パネルの「AI に渡す」の元データ |
+| `review.json` | 注釈（ペン・ピン・範囲・添付）のサイドカー。右パネルの「<!-- F ui.annotation.handToAi -->AI に渡す<!-- /F -->」の元データ |
 | `decision-log.md` | analyze-project と edit-plan が共有する追記専用の判断履歴 |
 | `analysis-report.html` | analyze-project が生成する素材横断の正式な分析レポート |
 
@@ -119,7 +119,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 
 | 場所 | 役割 |
 |---|---|
-| `~/.akari/credentials.env` | API キーの実体（プロジェクトに入れない） |
+| <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> | API キーの実体（プロジェクトに入れない） |
 | `~/.akari-video/assets/` | 個人スコープの素材ライブラリ |
 | `~/.akari/playbooks/` | 手元の作り方・テンプレートの棚 |
 
@@ -150,3 +150,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 あります。この種の道具は**コミットしか書き換えない**ため、tree を直接指す ref（一部の AI
 コーディングツールが作るチェックポイント等）が古いデータを掴んだままになり、期待の半分程度で
 縮小が止まります。`git for-each-ref` で心当たりのない ref が無いか確認してから gc してください。
+
+<!-- BEGIN GENERATED facts:stamp -->
+この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+<!-- END GENERATED facts:stamp -->
