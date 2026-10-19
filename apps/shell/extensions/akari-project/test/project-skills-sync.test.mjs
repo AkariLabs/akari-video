@@ -229,10 +229,12 @@ test('③ EPERM が 1 ファイルで起きても他は進み、失敗した項�
     // 失敗した 1 枚以外は書けている
     assert.equal(String(fs.files.get(`${PROJECT}/record-playbook/SKILL.md`)), 'record v1');
     assert.equal(String(fs.files.get(`${PROJECT}/render-cut/SKILL.md`)), 'render v2');
-    assert.equal(String(fs.files.get(`${PROJECT}/AKARI-SKILLS-VERSION`)), 'sig\n');
-    assert.equal(warnings.length, 1);
+    // 失敗があるときは署名を更新しない（次に開いたときに再試行される。司令塔の裁定 2026-10-19）
+    assert.equal(fs.files.has(`${PROJECT}/AKARI-SKILLS-VERSION`), false);
+    assert.equal(warnings.length, 2);
     assert.match(warnings[0][0], /could not write analyze-footage\/SKILL\.md/);
     assert.equal(warnings[0][1], 'EPERM');
+    assert.match(warnings[1][0], /left unchanged so the next open retries/);
 });
 
 // ── ④ 同じ root の並行呼び出しは 1 回に合流する ────────────────────────────────

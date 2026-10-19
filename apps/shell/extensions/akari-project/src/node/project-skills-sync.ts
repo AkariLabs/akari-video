@@ -187,7 +187,8 @@ function unique(values: string[]): string[] {
 /**
  * Copy the bundled skills over the project copy. Returns `synced: false` without writing anything
  * when the installed signature already matches and `force` is not set (so mtimes do not change).
- * Every failure is collected by name and reported; it never aborts the copy.
+ * Every failure is collected by name and reported; it never aborts the copy. When anything failed,
+ * `AKARI-SKILLS-VERSION` keeps its old value so the next open retries the sync.
  */
 export async function syncProjectSkillsTree(options: ProjectSkillsSyncOptions): Promise<ProjectSkillsSyncOutcome> {
     const { fs, source, destination, signature, force, schema } = options;
@@ -218,6 +219,12 @@ export async function syncProjectSkillsTree(options: ProjectSkillsSyncOptions): 
     }
     if (schema) {
         await writeSkillsSchema(fs, destination, schema, failures, warn);
+    }
+    if (failures.length > 0) {
+        // 司令塔の裁定（2026-10-19 合流時）: 1 つでも書けなかったら署名は更新しない。次に開いたとき
+        // にもう一度同期が走り、書けるようになっていれば揃う（部分失敗を「済み」にしない）。
+        warn(`${unique(failures).length} item(s) could not be written; ${SKILLS_VERSION_FILE} is left unchanged so the next open retries`);
+        return { synced: true, added: plan.added, updated: plan.updated, failed: unique(failures) };
     }
     try {
         await fs.writeFile(join(destination, SKILLS_VERSION_FILE), `${signature}\n`, 'utf8');
