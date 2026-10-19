@@ -4,11 +4,19 @@ import * as enSkills from '../../../../../../packages/i18n/locales/en/skills.jso
 
 export interface SkillEntry { name: string; description: string }
 
+/**
+ * スキル名 → 辞書のキーの中の名前（`record-playbook` → `recordPlaybook`、`bake-3d` → `bake3d`）。
+ * 2026-10-19: 数字の前の `-` を落としていなかったため `bake-3d` が辞書を引けず原文のまま出ていた。
+ */
+export function skillCatalogName(name: string): string {
+    return name.replace(/-([a-z0-9])/g, (_, letter: string) => letter.toUpperCase());
+}
+
 /** Keep frontmatter intact for consumers that need the source metadata. */
 export function skillDisplay(entry: SkillEntry): SkillEntry {
     const catalog: Record<string, string> = getLanguage() === 'ja' ? jaSkills : enSkills;
     const value = (role: 'title' | 'summary', fallback: string): string => {
-        const catalogName = entry.name.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+        const catalogName = skillCatalogName(entry.name);
         const key = `skills.catalog.${catalogName}.${role}`;
         const english: Record<string, string> = enSkills;
         return catalog[key] ?? english[key] ?? fallback;
