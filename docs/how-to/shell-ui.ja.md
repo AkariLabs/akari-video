@@ -140,5 +140,5 @@ AI パートナーが作ったものを見て、ドラッグや右クリック�
 - プレビュー挙動の正本 → [contract-2026-08-02-preview-parity.md](../contract-2026-08-02-preview-parity.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

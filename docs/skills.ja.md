@@ -145,5 +145,5 @@ CLI は checkout と npm tarball で動作する。CLI の無い copied Claude p
 - ルート [README](../README.ja.md) — ワークフロー全体図
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

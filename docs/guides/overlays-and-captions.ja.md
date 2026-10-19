@@ -262,5 +262,5 @@ Three.js で表せない映像（被写界深度・レイトレースなど）�
 - 3D を映像素材として焼き込む → [3D シーンをベイクする](./bake-3d.ja.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

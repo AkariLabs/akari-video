@@ -147,5 +147,5 @@ capability search as unsupported instead of inventing a second catalog.
 - Root [README](../README.md) — the workflow at a glance
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

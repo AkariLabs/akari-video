@@ -160,5 +160,5 @@ akari template list [--json] [--category <category>] [--tag <tag>] [--channel <c
 - 素材の宣言形式（meta.json）の仕様 → [Reference](../README.ja.md#reference)
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

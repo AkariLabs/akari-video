@@ -152,5 +152,5 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 縮小が止まります。`git for-each-ref` で心当たりのない ref が無いか確認してから gc してください。
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

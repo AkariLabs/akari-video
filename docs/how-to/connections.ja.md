@@ -159,5 +159,5 @@ akari recipe plan <id> [--project <dir>] [--json]
 - ナレーション生成の有償 / 無償 → [ナレーションを付ける](../guides/narration.ja.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

@@ -87,5 +87,5 @@ See [Plan your edit](./plan-your-edit.md) for details.
 - Build placeholder clips and move to editing → [Plan your edit](./plan-your-edit.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

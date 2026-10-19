@@ -69,8 +69,6 @@ AKARI Video was built to break that trade-off.
   (Meta), and others work too. Update partner CLIs from Settings
 
 <!-- BEGIN GENERATED facts:shipped-note -->
-> [!NOTE]
-> The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
 <!-- END GENERATED facts:shipped-note -->
 
 Details for each release are in [Releases](https://github.com/AkariLabs/akari-video/releases).
@@ -203,5 +201,5 @@ follow the license notice in each item's `meta.json`. Bundled third-party binari
 </div>
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": "1.5.0",
-    "releaseDate": "2026-10-17",
-    "shippedTag": "v1.5.0"
+    "version": "1.5.1",
+    "releaseDate": "2026-10-19",
+    "shippedTag": "v1.5.1"
   },
   "ui": {
     "ja": {
@@ -91,78 +91,5 @@
       "export-nle"
     ]
   },
-  "shipped": [
-    {
-      "lang": "ja",
-      "key": "library.myStyles",
-      "shipped": "マイスタイル",
-      "current": "自分のスタイル"
-    },
-    {
-      "lang": "ja",
-      "key": "library.motionParts",
-      "shipped": "オーバーレイ",
-      "current": "動く部品"
-    },
-    {
-      "lang": "ja",
-      "key": "library.captionStyleSingular",
-      "shipped": "テンプレ",
-      "current": "字幕スタイル"
-    },
-    {
-      "lang": "ja",
-      "key": "library.channelSettings",
-      "shipped": "ブランドキット",
-      "current": "チャンネルの設定"
-    },
-    {
-      "lang": "ja",
-      "key": "cli.new.usage",
-      "shipped": "使い方: akari new <target-dir> [--template <path>] [--lang <code>]",
-      "current": "使い方: akari new <target-dir> [--scaffold <path>] [--template <path>（--scaffold の別名）] [--lang <code>]"
-    },
-    {
-      "lang": "ja",
-      "key": "cli.template.usage",
-      "shipped": null,
-      "current": "使い方: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]"
-    },
-    {
-      "lang": "en",
-      "key": "library.myStyles",
-      "shipped": "My Styles",
-      "current": "My styles"
-    },
-    {
-      "lang": "en",
-      "key": "library.motionParts",
-      "shipped": "Overlay",
-      "current": "Motion parts"
-    },
-    {
-      "lang": "en",
-      "key": "library.captionStyleSingular",
-      "shipped": "Template",
-      "current": "Caption style"
-    },
-    {
-      "lang": "en",
-      "key": "library.channelSettings",
-      "shipped": "Brand kit",
-      "current": "Channel settings"
-    },
-    {
-      "lang": "en",
-      "key": "cli.new.usage",
-      "shipped": "Usage: akari new <target-dir> [--template <path>] [--lang <code>]",
-      "current": "Usage: akari new <target-dir> [--scaffold <path>] [--template <path> (alias for --scaffold)] [--lang <code>]"
-    },
-    {
-      "lang": "en",
-      "key": "cli.template.usage",
-      "shipped": null,
-      "current": "Usage: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]"
-    }
-  ]
+  "shipped": []
 }

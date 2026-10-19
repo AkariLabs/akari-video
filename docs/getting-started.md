@@ -4,7 +4,6 @@
 
 > **A note on screen terms**: this document uses the terms on the latest `main`.
 <!-- BEGIN GENERATED facts:shipped-note -->
-> The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
 <!-- END GENERATED facts:shipped-note -->
 
 AKARI Video is a system where **an AI agent does the video editing**.
@@ -641,5 +640,5 @@ You can choose Japanese or English under "Language" in the app settings (it star
 In the English UI, asset names and the first guide are in English too. Some error messages and documentation may still be in Japanese.
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

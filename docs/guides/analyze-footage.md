@@ -120,5 +120,5 @@ can also proceed from `analysis.json` alone without reading the report.
 - Set up cloud transcription → [Connections & API keys](../how-to/connections.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

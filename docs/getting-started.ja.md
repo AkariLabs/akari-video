@@ -4,7 +4,6 @@
 
 > **画面の語について**: この文書は最新の `main` の語で書いています。
 <!-- BEGIN GENERATED facts:shipped-note -->
-> 配布中の v1.5.0 では「マイスタイル」→「自分のスタイル」、「オーバーレイ」→「動く部品」、「テンプレ」→「字幕スタイル」、「ブランドキット」→「チャンネルの設定」と表示されます。次の版から右側の名前になります。配布中の v1.5.0 では `--template` を使い、次の版から `--scaffold` も使えます。配布中の v1.5.0 では `akari playbook template` を使い、次の版から `akari template export` と `akari template list` が使えます。旧名は別名として残ります。
 <!-- END GENERATED facts:shipped-note -->
 
 AKARI Video は **AI エージェントが動画編集を行う** システムです。
@@ -650,5 +649,5 @@ Lab の素材は無料と Pro の 2 階層です。
 英語の画面では、素材の名前やはじめてのガイドも英語で出ます。ただし一部のエラーメッセージやドキュメントは日本語のことがあります。
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

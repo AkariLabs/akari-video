@@ -37,7 +37,6 @@ Switch back to <!-- F ui.settings.stableOnly -->Stable only<!-- /F --> when you 
 
 **Q. The docs use screen names or commands that differ from my app**
 <!-- BEGIN GENERATED facts:shipped-note -->
-The shipped v1.5.0 build displays “My Styles” → “My styles”, “Overlay” → “Motion parts”, “Template” → “Caption style”, “Brand kit” → “Channel settings”. The next release uses the names on the right. Use `--template` in the shipped v1.5.0 build. `--scaffold` arrives in the next release. Use `akari playbook template` in the shipped v1.5.0 build. `akari template export` and `akari template list` arrive in the next release. The older CLI names remain aliases.
 <!-- END GENERATED facts:shipped-note -->
 
 | Docs (new) | v1.5.0 app (older name) |
@@ -171,5 +170,5 @@ reproduction steps, or ask in the Discord community (https://akari.video/discord
 root-causing.
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->

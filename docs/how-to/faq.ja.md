@@ -33,7 +33,6 @@ Windows 版のインストーラはまだコード署名されていないため
 
 **Q. ドキュメントの画面の語やコマンド名が、手元のアプリと違う**
 <!-- BEGIN GENERATED facts:shipped-note -->
-配布中の v1.5.0 では「マイスタイル」→「自分のスタイル」、「オーバーレイ」→「動く部品」、「テンプレ」→「字幕スタイル」、「ブランドキット」→「チャンネルの設定」と表示されます。次の版から右側の名前になります。配布中の v1.5.0 では `--template` を使い、次の版から `--scaffold` も使えます。配布中の v1.5.0 では `akari playbook template` を使い、次の版から `akari template export` と `akari template list` が使えます。旧名は別名として残ります。
 <!-- END GENERATED facts:shipped-note -->
 
 | ドキュメント（新） | v1.5.0 のアプリ（旧） |
@@ -157,5 +156,5 @@ v1.4.1 以降に更新してください。以前の版は保存のたびに全�
 `.akari/reports/` 配下のレポート HTML を添えてもらえると原因究明が早くなります。
 
 <!-- BEGIN GENERATED facts:stamp -->
-この文書は AKARI Video v1.5.0（2026-10-17 公開）時点の説明です。
+この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。
 <!-- END GENERATED facts:stamp -->

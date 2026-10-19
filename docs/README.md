@@ -212,5 +212,5 @@ For contribution entry points, see the repository root [README](../README.md) an
 README of each package.
 
 <!-- BEGIN GENERATED facts:stamp -->
-This page describes AKARI Video v1.5.0 (released 2026-10-17).
+This page describes AKARI Video v1.5.1 (released 2026-10-19).
 <!-- END GENERATED facts:stamp -->
