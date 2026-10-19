@@ -112,7 +112,7 @@ test('a tag whose parent is not on HEAD fails', () => {
   try {
     const parent = git(root, 'rev-parse', 'HEAD');
     const side1 = commitTree(root, parent, 'side1');
-    const side2 = execFileSync('git', ['-C', root, 'commit-tree', 'HEAD^{tree}', '-p', side1, '-m', 'side2'], { encoding: 'utf8' }).trim();
+    const side2 = commitTree(root, side1, 'side2');
     execFileSync('git', ['-C', root, 'tag', 'v1.1.0', side2]);
     const result = run(root, '--dry-run', '--tag', 'v1.1.0');
     assert.equal(result.status, 1);
