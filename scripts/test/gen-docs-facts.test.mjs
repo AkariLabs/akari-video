@@ -236,6 +236,43 @@ test('a release tag whose parent is reachable outranks the prerelease tag', () =
   } finally { cleanup(root); }
 });
 
+test('a higher prerelease tag at HEAD does not outrank the reachable stable tag', () => {
+  const { root } = fixture();
+  try {
+    const tree = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
+    const parent = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const releaseCommit = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', parent, '-m', 'release'], {
+      encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.com', GIT_AUTHOR_DATE: '2026-02-03T23:30:00-08:00', GIT_COMMITTER_DATE: '2026-02-03T23:30:00-08:00' },
+    }).trim();
+    execFileSync('git', ['-C', root, 'tag', 'v1.5.0', releaseCommit]);
+    execFileSync('git', ['-C', root, 'tag', 'v1.6.0-beta.1']);
+    const result = run(root, '--print');
+    assert.equal(result.status, 0);
+    const facts = JSON.parse(result.stdout);
+    assert.equal(facts.meta.version, '1.5.0');
+    assert.equal(facts.meta.shippedTag, 'v1.5.0');
+  } finally { cleanup(root); }
+});
+
+test('a repo with no stable tag selects the highest prerelease', () => {
+  const { root } = fixture();
+  try {
+    execFileSync('git', ['-C', root, 'tag', '-d', 'v1.2.3']);
+    execFileSync('git', ['-C', root, 'tag', 'v0.2.0-beta.1']);
+    const tree = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
+    const parent = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const releaseCommit = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', parent, '-m', 'release'], {
+      encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.com', GIT_AUTHOR_DATE: '2026-02-03T23:30:00-08:00', GIT_COMMITTER_DATE: '2026-02-03T23:30:00-08:00' },
+    }).trim();
+    execFileSync('git', ['-C', root, 'tag', 'v0.2.0-beta.2', releaseCommit]);
+    const result = run(root, '--print');
+    assert.equal(result.status, 0);
+    const facts = JSON.parse(result.stdout);
+    assert.equal(facts.meta.version, '0.2.0-beta.2');
+    assert.equal(facts.meta.shippedTag, 'v0.2.0-beta.2');
+  } finally { cleanup(root); }
+});
+
 test('a source archive without git tags uses the shell version and no date', () => {
   const { root } = fixture();
   try {

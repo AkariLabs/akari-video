@@ -45,15 +45,28 @@ const compareTags = (a, b) => {
   if (!bv[3]) return -1;
   return av[3].localeCompare(bv[3], 'en', { numeric: true });
 };
-let selectedTag = git('describe', '--tags', '--abbrev=0', '--match', 'v*');
+// 版の選び方: (a) HEAD から届くタグ（git describe）と (b) 親 commit が HEAD の祖先である
+// v* タグ（release ブランチ上の版上げ commit）を候補にする。候補のうち安定版（`-` を含まない）
+// があればその中で semver が最も高いものを、安定版が 1 つも無いときだけプレリリースの最高を採る。
+// 理由: main に v1.6.0-beta.1 を打った時点で docs の印が beta に変わると、配布中の安定版
+// v1.5.0 を使う人向けの説明とずれ、main の check-docs-facts も赤になる。docs が指すのは
+// 「いま安定版として配っている版」なので、プレリリースより安定版を優先する。
+const candidates = new Set();
+const described = git('describe', '--tags', '--abbrev=0', '--match', 'v*');
+if (described && semver(described)) candidates.add(described);
 const tagList = git('tag', '--list', 'v*');
 if (tagList) {
   for (const tag of tagList.split('\n').filter(semver)) {
     const parent = git('rev-parse', `${tag}^{commit}^`);
     if (!parent || git('merge-base', '--is-ancestor', parent, 'HEAD') === null) continue;
-    if (!selectedTag || compareTags(tag, selectedTag) > 0) selectedTag = tag;
+    candidates.add(tag);
   }
 }
+const pool = [...candidates];
+const stablePool = pool.filter((tag) => !tag.includes('-'));
+const chosen = stablePool.length ? stablePool : pool;
+let selectedTag = null;
+for (const tag of chosen) if (!selectedTag || compareTags(tag, selectedTag) > 0) selectedTag = tag;
 const shippedTag = shippedOverride ?? selectedTag;
 if (shippedOverride && !git('rev-parse', '--verify', `${shippedOverride}^{commit}`)) fail(`unknown shipped tag: ${shippedOverride}`);
 const fallbackVersion = JSON.parse(read('apps/shell/package.json')).version;
