@@ -20,7 +20,8 @@ const commit = (root, message) => {
   execFileSync('git', ['-C', root, 'add', '.']);
   execFileSync('git', ['-C', root, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', message], { env: { ...process.env, GIT_COMMITTER_DATE: '2026-03-04T05:06:07Z', GIT_AUTHOR_DATE: '2026-03-04T05:06:07Z' } });
 };
-const commitTree = (root, parent, message) => git(root, 'commit-tree', 'HEAD^{tree}', '-p', parent, '-m', message);
+// commit-tree も作者の識別情報を要る（CI の runner には無い）ので commit と同じく -c で渡す
+const commitTree = (root, parent, message) => git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit-tree', 'HEAD^{tree}', '-p', parent, '-m', message);
 
 const oldValues = {
   'home.startButton': ['＋ 新しい動画を始める', '+ Start a new video'],
