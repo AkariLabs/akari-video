@@ -14,7 +14,7 @@ const compiled = ts.transpileModule(`class Contribution { ${registerCommands} }`
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const names = ['LIST_MY_STYLES_COMMAND_ID', 'NEW_AKARI_PROJECT', 'SHOW_AKARI_CHANGES',
-    'TOGGLE_AKARI_DEVELOPER_MODE', 'DISCONNECT_AKARI_STORE_ACCOUNT',
+    'TOGGLE_AKARI_DEVELOPER_MODE', 'DISCONNECT_AKARI_STORE_ACCOUNT', 'UPDATE_BUNDLED_SKILLS',
     'AKARI_REVEAL_IN_FILE_MANAGER', 'AKARI_REVEAL_PROJECT_ROOT', 'AKARI_SHOW_ASSET_INFO'];
 const Contribution = new Function(...names, `${compiled}; return Contribution;`)(
     'akari.library.listMyStyles', ...names.slice(1).map(id => ({ id })));
