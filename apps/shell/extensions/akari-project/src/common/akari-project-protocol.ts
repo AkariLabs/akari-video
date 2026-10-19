@@ -51,6 +51,18 @@ export interface ActionHistoryResult { capable: boolean; entries: ActionHistoryE
 
 export type ProjectGitEligibility = 'own-root' | 'inside-parent-repository' | 'none';
 
+/**
+ * 同梱スキルの同期（開いたとき / コマンドパレットから）の結果。
+ * `synced: false` は署名が同じで何も書かなかった場合。`failed` は書けなかった項目の
+ * `.claude/skills` からの相対パス（読み取り専用・EPERM・EBUSY 等）。同期自体は続行する。
+ */
+export interface ProjectSkillsSyncOutcome {
+    synced: boolean;
+    added: string[];
+    updated: string[];
+    failed: string[];
+}
+
 /** 左パネルの素材タブが持つ「どこへドロップしても取り込める」ドロップゾーン向け。 */
 export interface DroppedAsset {
     name: string;
@@ -389,6 +401,11 @@ export interface AkariProjectService {
     buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult>;
     createProject(destinationUri: string): Promise<void>;
     watchProject(projectUri: string): Promise<void>;
+    /**
+     * 同梱スキルをプロジェクトの `.claude/skills` へ同期する（コマンドパレット「同梱スキルを更新」）。
+     * 開いたときの同期と同じ処理を force で呼ぶ（署名が同じでも上書き）。開く処理は止めない。
+     */
+    syncProjectSkills(projectUri: string, options?: { force?: boolean }): Promise<ProjectSkillsSyncOutcome>;
     recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<DroppedVideoImportResult[]>;
     recordDroppedAssets(projectUri: string, assets: DroppedAsset[]): Promise<DroppedAssetImportResult[]>;
     startVoiceRecording(projectUri: string): Promise<VoiceRecordingStartResult>;

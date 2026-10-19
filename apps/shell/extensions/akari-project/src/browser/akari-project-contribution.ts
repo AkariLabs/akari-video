@@ -67,6 +67,14 @@ export const DISCONNECT_AKARI_STORE_ACCOUNT: Command = {
     id: 'akari.project.disconnectStoreAccount',
     label: t('project.workspace.command.disconnectAKARIAccountAction')
 };
+/**
+ * 同梱スキルの同期を手で押す入口（task 2026-10-19-project-skills-sync-r2 指示4）。
+ * 開いたときの同期と同じ処理を force で呼ぶ（署名が同じでも上書き）。
+ */
+export const UPDATE_BUNDLED_SKILLS: Command = {
+    id: 'akari.project.updateBundledSkills',
+    label: t('project.workspace.command.updateBundledSkillsAction')
+};
 const PROJECT_CONSENT_MESSAGE =
     t('project.workspace.command.useFolderAsAKARIProjectQuestion') +
     t('project.workspace.command.createsFolderStructureStartsRecordingWorkLabel');
@@ -185,6 +193,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         commands.registerCommand(DISCONNECT_AKARI_STORE_ACCOUNT, {
             execute: () => this.disconnectStoreAccount()
         });
+        commands.registerCommand(UPDATE_BUNDLED_SKILLS, {
+            execute: () => this.updateBundledSkills()
+        });
         commands.registerCommand(AKARI_REVEAL_IN_FILE_MANAGER, {
             execute: (target: unknown) => this.revealInFileManager(this.toRevealUri(target))
         });
@@ -234,6 +245,12 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             commandId: AKARI_REVEAL_PROJECT_ROOT.id,
             label: AKARI_REVEAL_PROJECT_ROOT.label,
             order: 'z11'
+        });
+        // 既存の「プロジェクト」系コマンド（変更を見る z10 / プロジェクトの場所 z11）の隣。
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: UPDATE_BUNDLED_SKILLS.id,
+            label: UPDATE_BUNDLED_SKILLS.label,
+            order: 'z12'
         });
     }
 
@@ -599,6 +616,34 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
                 const diffUri = DiffUris.encode(new URI(pair.leftUri), new URI(pair.rightUri));
                 await open(this.openers, diffUri, { mode: 'activate' });
             }
+        } catch (error) {
+            this.messages.error(t('project.workspace.command.couldNotShowChangesError', { value1: this.errorMessage(error) }));
+        }
+    }
+
+    /**
+     * コマンドパレット「同梱スキルを更新」（task 2026-10-19-project-skills-sync-r2 指示4）。
+     * 開いたときの同期を force で 1 回走らせ、結果（追加 / 更新 / 失敗の件数）を通知 1 行で出す。
+     * 同期自体は node 側が失敗を握って続行するので、ここでは開いているプロジェクトの有無だけ見る。
+     */
+    protected async updateBundledSkills(): Promise<void> {
+        const root = (await this.workspace.roots)[0]?.resource;
+        if (!root) {
+            this.messages.warn(t('project.materials.pane.openProjectAction'));
+            return;
+        }
+        try {
+            const outcome = await this.projectService.syncProjectSkills(root.toString(), { force: true });
+            const counts = {
+                added: outcome.added.length,
+                updated: outcome.updated.length,
+                failed: outcome.failed.length
+            };
+            if (counts.failed) {
+                this.messages.warn(t('project.workspace.command.bundledSkillsSyncFailedMessage', counts));
+                return;
+            }
+            this.messages.info(t('project.workspace.command.bundledSkillsSyncResultMessage', counts));
         } catch (error) {
             this.messages.error(t('project.workspace.command.couldNotShowChangesError', { value1: this.errorMessage(error) }));
         }

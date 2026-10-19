@@ -23,6 +23,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { randomUUID } from 'crypto';
+import { syncProjectSkillsTree } from './project-skills-sync';
 import { addSceneFromLauncher, importCommonSceneAsset, unlinkedCommonAssetUris } from './scene-assets';
 import {
     AkariProjectService,
@@ -54,6 +55,7 @@ import {
     PresetShowcaseKind,
     ProjectCardThumbnailsOutcome,
     ProjectGitEligibility,
+    ProjectSkillsSyncOutcome,
     StoreConnectionStatus,
     StoreDevicePollOutcome,
     StoreDevicePollRequest,
@@ -106,6 +108,12 @@ import {
 } from 'akari-video/src/history-policy.mjs';
 
 export const VOICES_READ_DENY = ['Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)'] as const;
+
+/**
+ * `analyze-footage/references/analysis.schema.json` に付ける由来の 1 文。プロジェクト作成
+ * （`installProjectSkills`）と開いたときの同期（`syncProjectSkills`）で同じ文面を使う。
+ */
+export const SKILLS_SCHEMA_PROVENANCE = '（この analysis.schema.json は packages/schemas/analysis.schema.json からプロジェクト作成時に installProjectSkills() が機械コピーしたものです。手編集しないでください。再生成するにはプロジェクトを作り直すか、スキルの再インストールを行ってください。）';
 
 /** 生成物の標準の置き場。拒否ルールは許可より先に効くので、`assets/**` 全体を拒否すると生成が必ず止まる。 */
 export const GENERATED_EDIT_ALLOW = 'Edit(./assets/generated/**)';
@@ -344,6 +352,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected libraryThumbnailQueueTimer?: ReturnType<typeof setTimeout>;
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
     protected readonly materialRangeWrites = new Map<string, Promise<void>>();
+    /** 同じ root の同期を 1 回に合流させる（開く経路が短時間に何度も走るため）。 */
+    protected readonly projectSkillsSyncInFlight = new Map<string, Promise<ProjectSkillsSyncOutcome>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
     protected readonly materialMetaReader = new MaterialMetaReader({ ffprobePath: () => this.resolveFfprobePath() });
@@ -1415,6 +1425,10 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             return;
         }
         await this.ensureRuntimeDirectories(root);
+        // 開いたときの同梱スキル同期（task 2026-10-19-project-skills-sync-r2）。作成・変換を
+        // 経ていない古いプロジェクトでも、ここで .claude/skills が最新の同梱スキルへ揃う。
+        // 署名が同じなら何も書かない。失敗は warn に留め、プロジェクトは普通に開く。
+        await this.ensureProjectSkillsSynced(root);
         await this.ensureProjectAgentSettings(root);
         await this.ensureGitInitialized(root);
         await this.migrateHistoryPolicy(root);
@@ -3132,7 +3146,7 @@ process.stdout.write(JSON.stringify(found));
         const schema = JSON.parse(
             await fs.readFile(join(schemasSource, 'analysis.schema.json'), 'utf8')
         ) as { $comment?: unknown };
-        const provenance = '（この analysis.schema.json は packages/schemas/analysis.schema.json からプロジェクト作成時に installProjectSkills() が機械コピーしたものです。手編集しないでください。再生成するにはプロジェクトを作り直すか、スキルの再インストールを行ってください。）';
+        const provenance = SKILLS_SCHEMA_PROVENANCE;
         schema.$comment = typeof schema.$comment === 'string'
             ? `${schema.$comment} ${provenance}`
             : provenance;
@@ -3141,6 +3155,92 @@ process.stdout.write(JSON.stringify(found));
         await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
 
         await this.installSkillAdapters(root);
+    }
+
+    /**
+     * 開いたときの同梱スキル同期（task 2026-10-19-project-skills-sync-r2）。同じ root の
+     * 進行中 Promise に合流するので、開く経路が短時間に何度呼んでも実際の書き込みは 1 回。
+     * 同期の失敗は console.warn に留め、プロジェクトを開く処理は止めない。
+     */
+    protected async ensureProjectSkillsSynced(root: string, options: { force?: boolean } = {}): Promise<ProjectSkillsSyncOutcome> {
+        const key = resolve(root);
+        const running = this.projectSkillsSyncInFlight.get(key);
+        if (running) {
+            if (!options.force) {
+                return running;
+            }
+            // 強制（コマンドパレット）は進行中の同期と書き込みが重ならないよう、まず合流して待つ。
+            await running.catch(() => undefined);
+        }
+        const task = this.runProjectSkillsSync(key, options).catch(error => {
+            console.warn('[akari-project] bundled skill sync failed:', error);
+            return { synced: false, added: [], updated: [], failed: ['.claude/skills'] };
+        }).finally(() => {
+            if (this.projectSkillsSyncInFlight.get(key) === task) {
+                this.projectSkillsSyncInFlight.delete(key);
+            }
+        });
+        this.projectSkillsSyncInFlight.set(key, task);
+        return task;
+    }
+
+    async syncProjectSkills(projectUri: string, options: { force?: boolean } = {}): Promise<ProjectSkillsSyncOutcome> {
+        return this.ensureProjectSkillsSynced(this.fsPath(projectUri), options);
+    }
+
+    /**
+     * 同梱スキルをプロジェクトの `.claude/skills` へ上書きコピーする。同梱から消えたものは
+     * 消さない・利用者が足したスキルとファイルは残す（{@link syncProjectSkillsTree}）。
+     * `.claude/skills` が無い壊れたプロジェクトもここで全部入れに戻る。
+     */
+    protected async runProjectSkillsSync(root: string, options: { force?: boolean }): Promise<ProjectSkillsSyncOutcome> {
+        const source = await this.findBundledSkills();
+        if (!source) {
+            console.warn('[akari-project] could not find the bundled skills tree; skipping the project skill sync');
+            return { synced: false, added: [], updated: [], failed: ['.claude/skills'] };
+        }
+        const destination = join(root, '.claude', 'skills');
+        const signature = await this.skillsSignature(source);
+        const schemaSource = await this.findBundledSchemas();
+        const schema = schemaSource ? {
+            text: await fs.readFile(join(schemaSource, 'analysis.schema.json'), 'utf8'),
+            provenance: SKILLS_SCHEMA_PROVENANCE
+        } : undefined;
+        if (!schema) {
+            console.warn('[akari-project] could not find the bundled analysis schema; the project copy keeps its current file');
+        }
+        const outcome = await syncProjectSkillsTree({
+            fs: this.fsImpl,
+            source,
+            destination,
+            signature,
+            force: options.force,
+            schema,
+            warn: (message, error) => console.warn(`[akari-project] ${message}`, error ?? '')
+        });
+        if (!outcome.synced) {
+            return outcome;
+        }
+        try {
+            await this.installSkillAdapters(root);
+        } catch (error) {
+            console.warn('[akari-project] skill adapter update failed:', error);
+        }
+        // 変更履歴は「プロジェクト自身がルートの git」のときだけ積む（親リポジトリの索引を
+        // 黙って動かさない — migrateHistoryPolicy と同じ判断）。git を使わないプロジェクトでは
+        // commitIfChanged に到達しないので、開く処理も止まらない。ステージは同期が触った
+        // スキルの置き場だけに絞る（利用者の未コミットの作業を巻き込まない）。
+        if ((await this.gitEligibility(root)) === 'own-root') {
+            try {
+                const paths = ['.claude/skills', '.agents/skills', '.codex/skills', '.devin/skills']
+                    .filter(candidate => existsSync(join(root, candidate)));
+                await this.runGit(root, ['add', '-A', '--', ...paths]);
+                await this.commitIfChanged(root, t('project.workspace.service.syncSkillsAction'));
+            } catch (error) {
+                console.warn('[akari-project] skill sync commit skipped:', error);
+            }
+        }
+        return outcome;
     }
 
     /**
