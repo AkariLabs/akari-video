@@ -1,0 +1,77 @@
+name: Docs facts (release)
+
+# 何が起きるか: 安定版タグ vX.Y.Z の push（または手動 dispatch）で、main の docs の事実区間と
+# 版の印をそのタグに合わせて再生成し、変更があればブランチ docs-facts/<tag> と PR で提案する。
+# アップデート投稿の下書きも吐いて artifact に上げる。プレリリースタグでは何もしない。
+# release.yml は触らず独立して動く（本体のリリース成否を止めない）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '対象タグ（例 v1.5.0）。未指定なら ref のタグ名'
+        type: string
+        default: ''
+      base:
+        description: 'docs を揃える対象ブランチ。ワークフロー自体の試運転で別ブランチを使うときだけ変える'
+        type: string
+        default: 'main'
+      dry_run:
+        description: 'true なら diff の要約だけ出してブランチ・PR を作らない'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency: docs-facts-release
+
+jobs:
+  propose:
+    name: propose (docs facts を揃えて PR を提案)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 対象タグを解決する
+        id: resolve
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # gen-docs-facts --check は配布中の版（v* タグとその親）を git から読む。浅い clone だと
+      # タグが無く版がずれるため、履歴とタグを全部取る（ci.yml の skills-index と同じ）。
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base || 'main' }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      - name: Install root devDependencies
+        run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
+
+      - name: docs facts を揃えて提案する
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            node scripts/release/docs-facts-release.mjs --tag "${{ steps.resolve.outputs.tag }}" --dry-run --out-dir "$RUNNER_TEMP"
+          else
+            node scripts/release/docs-facts-release.mjs --tag "${{ steps.resolve.outputs.tag }}" --push --out-dir "$RUNNER_TEMP"
+          fi
+
+      - name: アップデート投稿の下書きを artifact に上げる
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-post-${{ steps.resolve.outputs.tag }}
+          path: ${{ runner.temp }}/update-post-${{ steps.resolve.outputs.tag }}.txt
+          if-no-files-found: warn
