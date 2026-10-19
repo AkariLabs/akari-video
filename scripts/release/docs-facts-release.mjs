@@ -164,7 +164,9 @@ function pushProposal({ tag, changed, updatePost }) {
     emit(`PR を作成しました（${branch}）`);
     flush(0);
   }
-  if (/pull requests? could not be created|Resource not accessible|403|may not have permission/i.test(`${created.stderr}`)) {
+  // 組織の設定「Allow GitHub Actions to create and approve pull requests」が無効なときの実際の文面は
+  // "GitHub Actions is not permitted to create or approve pull requests"（GraphQL createPullRequest）。
+  if (/not permitted to create or approve pull requests|pull requests? could not be created|Resource not accessible|403|may not have permission/i.test(`${created.stderr}`)) {
     emit(`PR は作れなかった（組織の設定で Actions の PR 作成が無効）。ブランチ \`${branch}\` を push 済み。比較: https://github.com/AkariLabs/akari-video/compare/main...${branch}?expand=1`);
     flush(0);
   }
