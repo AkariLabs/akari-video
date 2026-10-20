@@ -7,6 +7,7 @@ import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
+import { fragmentNeedsBoxSizingDefault } from "./fragment-box-sizing.mjs";
 import { setCaptionInkClipVariables } from "./caption-ink-clip.mjs";
 import { createRequire } from "node:module";
 const captionOutlineRuntime = createRequire(import.meta.url)("../../edit-store/lib/index.js").captionOutlineRuntime;
@@ -74,6 +75,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     ...overlay,
     html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
   } : overlay);
+  // 幅・高さと padding/border を併記する断片だけ、プレビューと同じ border-box を明示する。
+  // どちらも宣言しない断片は計算結果が変わらないため、既存シートのバイト列を動かさない。
+  const needsBoxSizingDefault = orderedOverlays.some((overlay) => fragmentNeedsBoxSizingDefault(overlay.html));
   // Preserve legacy sheet bytes when no axis override is used.
   const usesAxisScale = orderedOverlays.some(overlay =>
     overlay.transform?.scaleX !== undefined || overlay.transform?.scaleY !== undefined
@@ -227,7 +231,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   <meta name="viewport" content="width=${edit.output.width},height=${edit.output.height}">
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
-    #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
+${needsBoxSizingDefault ? "    * { box-sizing: border-box; }\n" : ""}    #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) ${overlayRotateScaleCss}; transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
   </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${itemMotionRuntimeScripts}${runtimeScripts}

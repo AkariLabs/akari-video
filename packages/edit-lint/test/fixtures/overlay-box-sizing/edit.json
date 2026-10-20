@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "visual",
+      "lane": "visual",
+      "items": [
+        { "id": "warn", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn.html" } },
+        { "id": "ok-explicit", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-explicit.html" } },
+        { "id": "ok-universal", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-universal.html" } },
+        { "id": "warn-unrelated", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn-unrelated.html" } },
+        { "id": "warn-content-box", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn-content-box.html" } },
+        { "id": "warn-split", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn-split.html" } },
+        { "id": "warn-height-border", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn-height-border.html" } },
+        { "id": "warn-root-only-descendants", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/warn-root-only-descendants.html" } },
+        { "id": "ok-inline-style", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-inline-style.html" } },
+        { "id": "ok-no-padding", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-no-padding.html" } },
+        { "id": "ok-max-content", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-max-content.html" } },
+        { "id": "ok-zero-space", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/ok-zero-space.html" } }
+      ]
+    }
+  ]
+}

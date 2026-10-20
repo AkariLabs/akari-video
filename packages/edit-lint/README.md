@@ -32,6 +32,9 @@ before re-checking the project and writing `.akari/lint.json`.
 - `overlays.root-data-attributes`: warns whenever a fragment root declares `data-start` or
   `data-duration`; `edit.json` is the source of truth, and animation delays inside a fragment use
   local seconds starting at clip time 0.
+- `overlays.box-sizing`: warns when a fragment element combines a fixed width or height with
+  padding or a border but has no effective `box-sizing: border-box`; padding and border are added
+  outside the declared size, so the element can overlap its neighbors in the export.
 - `overlays.keyframes-sparse`: warns when a multi-step keyframes rule omits an animated property
   from its 0% or 100% endpoint.
 - `overlays.base-hidden-state`: warns when a selector has a hidden base state but its animation

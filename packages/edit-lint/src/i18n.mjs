@@ -10,6 +10,10 @@ function catalog(language) {
 
 const catalogs = { ja: catalog('ja'), en: catalog('en') };
 
+export function lintLanguage() {
+  return normalizeLanguage(getLanguage());
+}
+
 export function lintText(key, params = {}, language = getLanguage()) {
   const selectedLanguage = normalizeLanguage(language);
   const chosen = catalogs[selectedLanguage];

@@ -1,0 +1,4 @@
+{
+  "ja": "断片の要素 {element} は width/height と padding/border を併記していますが、box-sizing: border-box が効いていません。指定した幅に padding と border が足されるため、隣の要素と重なります。`box-sizing: border-box` を明記してください。",
+  "en": "Overlay fragment element {element} combines width/height with padding/border but has no effective box-sizing: border-box; padding and border are added outside the declared size, so the box can overlap its neighbors. Add `box-sizing: border-box` を明記してください."
+}
