@@ -183,7 +183,7 @@ test("a stale (>24h old) leftover run directory is swept on the next real run; a
   }
 });
 
-test("a failed CLI run self-cleans unless kept, and the next run immediately sweeps a kept dead owner", async (t) => {
+test("a failed CLI run retains render-tmp by default, removes it on opt-out, and the next run sweeps the dead owner", async (t) => {
   const media = resolveMediaCommands(t);
   if (!media) return;
   const project = await makeMinimalProject(media.ffmpeg);
@@ -195,23 +195,28 @@ test("a failed CLI run self-cleans unless kept, and the next run immediately swe
     FFPROBE: media.ffprobe,
   };
   try {
-    const removed = await runAsync(project, ["--out", join(project, "failed-a.mp4")], failingEnvironment);
-    assert.equal(removed.status, 2, removed.stderr);
-    assert.deepEqual(await readdir(renderTmpRoot), []);
-
-    const kept = await runAsync(project, ["--out", join(project, "failed-b.mp4")], {
-      ...failingEnvironment,
-      AKARI_KEEP_FAILED_RENDER_TMP: "1",
-    });
-    assert.equal(kept.status, 2, kept.stderr);
-    const keptEntries = await readdir(renderTmpRoot);
-    assert.equal(keptEntries.length, 1);
-    const owner = JSON.parse(await readFile(join(renderTmpRoot, keptEntries[0], "owner.json"), "utf8"));
+    // 失敗時は診断用に保持する（skills/render-cut/SKILL.md）。
+    const first = await runAsync(project, ["--out", join(project, "failed-a.mp4")], failingEnvironment);
+    assert.equal(first.status, 2, first.stderr);
+    const firstEntries = await readdir(renderTmpRoot);
+    assert.equal(firstEntries.length, 1, firstEntries.join(","));
+    const owner = JSON.parse(await readFile(join(renderTmpRoot, firstEntries[0], "owner.json"), "utf8"));
     assert.equal(Number.isInteger(owner.pid), true);
     assert.match(owner.started, /^\d{4}-\d{2}-\d{2}T/u);
 
-    const retry = await runAsync(project, ["--out", join(project, "failed-c.mp4")], failingEnvironment);
+    // 次回起動は死んだ owner のディレクトリを回収し、その回の失敗分だけを残す。
+    const retry = await runAsync(project, ["--out", join(project, "failed-b.mp4")], failingEnvironment);
     assert.equal(retry.status, 2, retry.stderr);
+    const retryEntries = await readdir(renderTmpRoot);
+    assert.equal(retryEntries.length, 1, retryEntries.join(","));
+    assert.notEqual(retryEntries[0], firstEntries[0]);
+
+    // 明示的な opt-out では従来どおり削除する。
+    const removed = await runAsync(project, ["--out", join(project, "failed-c.mp4")], {
+      ...failingEnvironment,
+      AKARI_REMOVE_FAILED_RENDER_TMP: "1",
+    });
+    assert.equal(removed.status, 2, removed.stderr);
     assert.deepEqual(await readdir(renderTmpRoot), []);
   } finally {
     await rm(project, { recursive: true, force: true });

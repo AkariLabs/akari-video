@@ -566,7 +566,13 @@ export function buildAudioMixCommand({
       filters.push(`${finalLabel}afftdn=nr=${nr}:nf=-30[master_dn]`);
       finalLabel = "[master_dn]";
     }
-    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=${formatNumber(master.truePeakTarget)}:LRA=11:print_format=json[master_ln]`);
+    // loudnorm runs internally at 192kHz and emits variable frame sizes. In the reported 177s mix
+    // (~9,300 "Non-monotonic DTS" / "Queue input is backward in time" warnings) its 192kHz frame
+    // timing reached the 48kHz AAC encoder without a matching timebase. Rebuild the PTS from the
+    // output sample count after resampling to the delivery rate, so each frame's timestamp is
+    // exactly N/SR/TB and strictly monotonic. The report measured that `aresample=48000` alone does
+    // not help: it changes the sample rate but leaves the original timestamps in place.
+    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=${formatNumber(master.truePeakTarget)}:LRA=11:print_format=json,aresample=48000,asetpts=N/SR/TB[master_ln]`);
     finalLabel = "[master_ln]";
   }
 
