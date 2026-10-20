@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fixture_count": 117,
+  "fixture_count": 118,
   "fixtures": {
     "audio-sfx-track-invalid-value": {
       "exit_code": 0,
@@ -261,6 +261,52 @@
         }
       ],
       "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-font-unavailable-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "captions.font-unavailable",
+          "message": "font_family \"Yu Gothic\" is not available to the export renderer (GPU/OSR only embed bundled fonts and installed font library assets); use one of \"Noto Sans JP\", \"Noto Sans\", \"M PLUS Rounded 1c\"",
+          "path": "captions.json#[0].text_style"
+        },
+        {
+          "severity": "warning",
+          "check": "captions.font-unavailable",
+          "message": "font_family \"Hiragino Sans\" is not available to the export renderer (GPU/OSR only embed bundled fonts and installed font library assets); use one of \"Noto Sans JP\", \"Noto Sans\", \"M PLUS Rounded 1c\"",
+          "path": "captions.json#default_text_style"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
         {
           "check": "audio.music-grid",
           "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"

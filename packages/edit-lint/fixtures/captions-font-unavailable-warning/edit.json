@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "sample.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        { "id": "cut-1", "at": 0, "duration": 180, "source": { "kind": "media", "src": "main", "in": 0, "out": 6 } }
+      ]
+    },
+    {
+      "id": "v-captions",
+      "lane": "visual",
+      "items": [
+        { "id": "captions", "name": "字幕", "at": 0, "duration": 180, "source": { "kind": "captions", "path": "captions.json" }, "items": [] }
+      ]
+    }
+  ]
+}

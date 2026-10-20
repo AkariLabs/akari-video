@@ -5,6 +5,7 @@ import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mj
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
 import { resolveCaptionDisplay, validateCaptionsSemantics, validateCaptionLookV1Shape, CAPTION_RUN_FIELDS } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
+import { validateCaptionFontAvailability } from "./caption-fonts.mjs";
 import { captionLanguageDefaults, resolveContentLanguage } from "../../../content-language/src/index.mjs";
 import { readContentLanguageSync } from "../../../content-language/src/node.mjs";
 
@@ -90,6 +91,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     }
     captions = captions.captions;
   }
+  validateCaptionFontAvailability(captionsRoot, captions, findings, captionPath);
   const locale = typeof paths.projectRoot === 'string'
     ? readContentLanguageSync(paths.projectRoot, { cliLang: displayPolicy?.locale }).language
     : resolveContentLanguage({ cliLang: displayPolicy?.locale, analysis }).language;
