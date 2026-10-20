@@ -55,7 +55,7 @@ test("avatar-vrm vendor bridge: 実 three-vrm の VRM1/MToon/update API を使�
   vm.runInContext(readFileSync(new URL("../../overlay-runtime/src/vendor/three-bundle.js", import.meta.url), "utf8"), context);
   vm.runInContext(readFileSync(new URL("../../overlay-runtime/src/vendor/avatar-vrm-bundle.js", import.meta.url), "utf8"), context);
   const { THREE, VRMLoaderPlugin, VRMUtils } = context.AkariThree;
-  assert.equal(THREE.REVISION, "185");
+  assert.equal(THREE.REVISION, "186");
   assert.equal(typeof VRMLoaderPlugin, "function");
   assert.equal(typeof VRMUtils, "function");
 
@@ -149,7 +149,7 @@ test("avatar-vrm vendor bridge: 実 three-vrm が VRM1/MToon/expression を head
     assert.deepEqual(loaded.expressions, [...ALL_EXPRESSION_NAMES].sort());
     assert.equal(loaded.mtoonMaterialCount, 4);
     assert.equal(loaded.springboneJoints, 9);
-    assert.equal(loaded.threeRevision, "185");
+    assert.equal(loaded.threeRevision, "186");
 
     await page.evaluate(() => window.avatarVrmRenderer.renderExpressions({}));
     const neutral = Buffer.from(await page.screenshot({ omitBackground: true }));
