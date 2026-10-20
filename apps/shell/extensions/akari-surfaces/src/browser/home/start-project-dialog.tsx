@@ -22,6 +22,30 @@ export interface StartProjectDialogProps {
     onClose: () => void;
 }
 
+/**
+ * 名前欄。日本語 IME の変換中（未確定文字がある間）に親の `update()` で値を
+ * 書き戻すと、2 文字目以降の変換が壊れる。入力中の値はここで持ち、親へは
+ * 変換が確定してから渡す。親から来る値の反映も変換中は止める。
+ */
+function StartNameInput({ value, onChange }: { value: string; onChange: (value: string) => void }): React.ReactElement {
+    const [draft, setDraft] = React.useState(value);
+    const composing = React.useRef(false);
+    React.useEffect(() => { if (!composing.current) setDraft(value); }, [value]);
+    return <input className='theia-input' data-akari-start-name='true' value={draft}
+        onChange={event => {
+            const next = event.currentTarget.value;
+            setDraft(next);
+            if (!composing.current) onChange(next);
+        }}
+        onCompositionStart={() => { composing.current = true; }}
+        onCompositionEnd={event => {
+            composing.current = false;
+            const next = event.currentTarget.value;
+            setDraft(next);
+            onChange(next);
+        }} />;
+}
+
 function PlaybookCard({ entry, selected, onSelect }: { entry: AkariPlaybookListEntry; selected: boolean; onSelect: () => void }): React.ReactElement {
     const frames = playbookFrames(entry);
     const [hovered, setHovered] = React.useState(false);
@@ -77,7 +101,7 @@ export function StartProjectDialog(p: StartProjectDialogProps): React.ReactEleme
                 <button type='button' className='akari-start-button' onClick={p.onClose}>{t('surfaces.home.homeScrimClose.label')}</button></div>
         </div>
         {p.step === 'start' ? <div className='akari-start-fields'>
-            <label className='akari-start-field'><span>{t('surfaces.home.startName.label')}</span><input className='theia-input' data-akari-start-name='true' value={p.name} onChange={event => p.onName(event.currentTarget.value)} /></label>
+            <label className='akari-start-field'><span>{t('surfaces.home.startName.label')}</span><StartNameInput value={p.name} onChange={p.onName} /></label>
             <div className='akari-start-field'><span>{t('surfaces.home.startChannel.label')}</span><div className='akari-start-channel'><button type='button' className='akari-start-channel-toggle' aria-expanded={p.channelMenu} onClick={p.onChannelMenu}>{p.channel ?? t('surfaces.home.startStandalone.button')} ▾</button>
                     {p.channelMenu && <div className='akari-start-channel-menu'>{channelChoices(p.channels).map(choice => choice.kind === 'channel'
                         ? <button type='button' key={choice.name} data-akari-channel-choice='channel' onClick={() => p.onChannel(choice.name)}>{choice.name}</button>
