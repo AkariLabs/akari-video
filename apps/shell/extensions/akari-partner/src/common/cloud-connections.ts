@@ -4,7 +4,7 @@ import { t } from './partner-text';
  * 「接続済み（doctor.status = ok）」に倒すための純ロジック。
  *
  * ホーム v2 の接続ゲートが読む SSOT は、この doctor.status
- * （`skills/manage-connections/bin/doctor.mjs` が書く語彙をそのまま使う。
+ * （`skills/setup-connections/bin/doctor.mjs` が書く語彙をそのまま使う。
  * 新しい語彙は足さない）。ここは新しい判定基準を作らず、実際に PTY 接続が
  * 成立した瞬間に同じフィールドを実態へ追従させるだけ。
  *
@@ -53,7 +53,7 @@ function createCloudDoctor(nowIso: string): CloudDoctorEntry {
 }
 
 /**
- * 追加する `akari-cloud` エントリ。形は manage-connections 契約（内部リポ）§3 のスキーマ
+ * 追加する `akari-cloud` エントリ。形は setup-connections 契約（内部リポ）§3 のスキーマ
  * （実体は `packages/schemas/connections.schema.json`）に従い、
  * `templates/project-default/.akari/connections.json` の同 ID エントリと同一にする
  * （雛形と後付け修復で中身が食い違わないようにするため）。

@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **28 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **27 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -55,8 +55,8 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 2D の動く部品（HTML の素材。テロップ・字幕・表グラフ・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。3D は author-scene3d へ | CSS keyframes / WAAPI、宣言型のガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
 | [author-scene3d](../skills/author-scene3d/SKILL.md) | 3D の入口は 1 本。既定は Three.js + glTF のライブ 3D、宣言型ランタイムで出せない絵だけ Blender で焼く（`scene.py` → mp4）。振り分けはスキル内の判断表 | **Blender**（ヘッドレス・bpy）は焼く経路だけ |
 | [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ。ローカルのエンジンは無償、クラウド（自分の声のクローン含む）は費用承認のあとだけ | VOICEVOX / Irodori（ローカル・無償）、fal・Google AI Gemini TTS・Fish Audio（クラウド・承認制） |
-| [generate-image](../skills/generate-image/SKILL.md) | プロンプト → 静止画を素材・仮枠としてタイムラインへ。generate-video から参照される薄いスキルで、尺や動画の連鎖は持たない | manage-connections で許可された画像モデル（有償は費用承認） |
-| [generate-video](../skills/generate-video/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | manage-connections で許可された動画 provider（費用承認） |
+| [generate-image](../skills/generate-image/SKILL.md) | プロンプト → 静止画を素材・仮枠としてタイムラインへ。generate-video から参照される薄いスキルで、尺や動画の連鎖は持たない | setup-connections で許可された画像モデル（有償は費用承認） |
+| [generate-video](../skills/generate-video/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | setup-connections で許可された動画 provider（費用承認） |
 
 ### QA・レビュー
 
@@ -85,8 +85,7 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [manage-connections](../skills/manage-connections/SKILL.md) | 生成プロバイダ・SNS・memory 接続・API キー参照・モデル選択・コスト承認ポリシーの一元管理。**有償生成・外部公開の唯一の入口** | `.akari/connections.json` + 無償・読み取り専用の doctor |
-| [connect](../skills/connect/SKILL.md) | AKARI の道具と、素材生成・文字起こしで実際に使うサービスの状態を調べる | `akari connect list` / `akari connect exec` |
+| [setup-connections](../skills/setup-connections/SKILL.md) | 接続の設定と確認の唯一の入口。生成プロバイダ・SNS・memory 接続・API キー参照・許可モデル・コスト承認ポリシー・いま何が使えるか（道具・素材サービス・3D）を扱う。**有償生成・外部公開の唯一の入口**。許可された中からどのモデルを使うかは制作スキルが決める | `.akari/connections.json` + 無償・読み取り専用の doctor、`akari connect list` / `akari connect exec` |
 | [verify](../skills/verify/SKILL.md) | タスク契約の検証はしご（L0 / L1 / L2）の実行手順 | 現行 Theia スタックのビルド・テスト |
 
 ## 3D は 2 経路

@@ -58,7 +58,7 @@ If output says no message has arrived yet, send 1 message to the bot and rerun.
 
 ## 5. Register the connection
 
-Following `manage-connections` hard rule 7 (do not use unregistered connections),
+Following `setup-connections` hard rule 7 (do not use unregistered connections),
 add 1 entry to `providers` in the project's `.akari/connections.json`.
 **Do not include values** (`env` only references KEY names). Template:
 [`packages/schemas/examples/connections-v0-notify-valid/connections.json`](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/examples/connections-v0-notify-valid/connections.json).

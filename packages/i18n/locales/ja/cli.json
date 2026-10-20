@@ -653,7 +653,7 @@
   "cli.intake.target.duration_other": "目標尺 {seconds} 秒",
   "cli.narration.error.voicevoxStartupTimeout_one": "VOICEVOX エンジンの起動が {seconds} 秒でタイムアウトしました。",
   "cli.narration.error.voicevoxStartupTimeout_other": "VOICEVOX エンジンの起動が {seconds} 秒でタイムアウトしました。",
-  "cli.connections.general.usage": "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]",
+  "cli.connections.general.usage": "使い方: node skills/setup-connections/bin/doctor.mjs [プロジェクトルート|connections.json]",
   "cli.connections.general.keyLocation": "鍵の置き場: {location}",
   "cli.connections.general.permissions": "警告: credentials.env の権限は 600 ではありません（現在 {mode}）。chmod 600 {path} を実行してください。",
   "cli.connections.general.reportPath": "接続レポート: {path}",

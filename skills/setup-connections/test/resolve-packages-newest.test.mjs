@@ -10,7 +10,7 @@ const RELATIVE = "creator-root/src/index.mjs";
 async function fixture(run) {
   const scratch = await mkdtemp(path.join(os.tmpdir(), "akari-packages-newest-"));
   const homeDir = path.join(scratch, "home");
-  const from = path.join(scratch, "project", ".claude", "skills", "manage-connections", "bin", "entry.mjs");
+  const from = path.join(scratch, "project", ".claude", "skills", "setup-connections", "bin", "entry.mjs");
   await mkdir(path.dirname(from), { recursive: true });
   try {
     await run({ scratch, homeDir, from, env: {} });

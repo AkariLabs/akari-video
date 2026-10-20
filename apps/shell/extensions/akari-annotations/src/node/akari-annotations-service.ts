@@ -1189,7 +1189,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult> {
         if (!request?.projectRootUri) throw new Error(t('annotationscommon.akariAnnotationsService.error.projectrooturiRequired'));
-        const modulePath = await this.findGenerationAsset('skills/manage-connections/bin/resolve-connections.mjs');
+        const modulePath = await this.findGenerationAsset('skills/setup-connections/bin/resolve-connections.mjs');
         const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
         const resolver = await importEsm<{
             resolveConnections(options: { projectRoot: string; env: NodeJS.ProcessEnv }): Promise<{

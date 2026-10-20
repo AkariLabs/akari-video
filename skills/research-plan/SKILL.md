@@ -14,7 +14,7 @@ Read lang/<content-language>.md for language-specific rules (content language: -
 ## Hard rules
 
 1. **State expected costs before paid API calls, and execute only after approval through the state file** (`.decisions.json` or equivalent). Chat approval alone does not authorize a charge.
-2. **Use only [manage-connections](../manage-connections/SKILL.md) and registered `.akari/connections.json` entries.** Do not search `.env` files. Never hardcode API keys anywhere.
+2. **Use only [setup-connections](../setup-connections/SKILL.md) and registered `.akari/connections.json` entries.** Do not search `.env` files. Never hardcode API keys anywhere.
 3. **Limit outputs to JSON and HTML; never launch the GUI.** This headless process must complete without installing the app.
 4. **Do not copy code or prose from external skills or repositories.** Adapt only the process pattern (Hub/Hero/Help, parallel gap analysis, monetization ranking); only verified MIT or Apache sources are exceptions. Keep AKARI's schema.
 5. **Always investigate market-specific platform behavior.** The schema requires `target.japan_sns.notes` in `research-plan.json`. For the work's market, use the content-language pack; if free sources provide no evidence, record that fact and why. Empty or omitted notes fail validation by `validate-research-plan.mjs`.

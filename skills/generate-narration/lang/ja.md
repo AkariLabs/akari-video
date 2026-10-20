@@ -59,7 +59,7 @@ TTS（どのエンジンでも）に渡すのは表示原稿そのものでは�
 | 話し方の指示を本文と別に渡したい | `supports.style` が true の行 |
 | 既製の声を日本語で使いたい | `akari narration voices --engine <id> --json` に日本語の声がある行 |
 | 多言語展開（自分の声のまま他言語） | `languages` に展開先を含み、`supports.clone` が使える行 |
-| 公開声・参照音声からの声（本人同意つき） | `supports.clone` が `per-request` の行。声の権利と provider の規約を [manage-connections](../../manage-connections/SKILL.md) で確認する |
+| 公開声・参照音声からの声（本人同意つき） | `supports.clone` が `per-request` の行。声の権利と provider の規約を [setup-connections](../../setup-connections/SKILL.md) で確認する |
 
 どのエンジンでも読み方の指示は本文に混ぜない（上の節）。
 

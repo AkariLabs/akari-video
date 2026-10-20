@@ -17,7 +17,7 @@ These rules take precedence over detailed instructions.
 2. **Reserve the approval stamp for the single export; never use it for generation.** Call the paid-generation gate "cost approval."
 3. **Limit reference inputs to 20 MB per file.** Do not silently upload a larger file to external storage.
 4. **Store outputs in `assets/generated/` with adjacent state and provenance in `<file>.meta.json`.** Do not add generation-only fields to edit.json.
-5. **Use only connections resolved through the [manage-connections](../manage-connections/SKILL.md) registry and models on its allowed list.** Never search for keys or call an unregistered connection directly.
+5. **Use only connections resolved through the [setup-connections](../setup-connections/SKILL.md) registry and models on its allowed list.** Never search for keys or call an unregistered connection directly.
 6. **Never send inputs the capability catalog does not support; fail instead.** Send model-specific inputs only when their names appear in `extra_allowed[]` in the capability catalog.
 
 ## Execution order and contents
@@ -38,5 +38,5 @@ Read only the file for the current step; do not read later steps in advance.
 ## References
 
 - Generation contract: [contract-2026-09-13-generation-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-09-13-generation-v0.md)
-- Connection, model permission, and doctor: [manage-connections](../manage-connections/SKILL.md)
+- Connection, model permission, and doctor: [setup-connections](../setup-connections/SKILL.md)
 - Cost presentation format: [edit-plan approvals and generation](../edit-plan/approvals-and-generation.md)

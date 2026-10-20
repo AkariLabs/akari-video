@@ -380,14 +380,14 @@ akari
 - **Codex**: AKARI Video のプロジェクトフォルダで起動し、「新しい動画プロジェクトを作りたい」と発話。
   スキルは `.agents/skills/` と `.codex/skills/` から自動発見されます
 
-**Claude Code プラグインとして入れる**（28 本のスキルすべて + `/akari`、marketplace から）:
+**Claude Code プラグインとして入れる**（27 本のスキルすべて + `/akari`、marketplace から）:
 ```sh
 claude plugin marketplace add AkariLabs/akari-video
 claude plugin install akari@akari
 ```
 - marketplace はリポジトリ全体を clone します（約 1 GB）。更新は `claude plugin update akari@akari`。
 - プラグインが届けるのは**スキルと `/akari` だけ**です。`akari` CLI（`akari new` など）には §A と同じインストーラー（[前提条件](#前提条件--何を揃えるか)）が要ります — プラグインだけでは動画は作れません。
-- 入口スキル 1 本で足りる人は E、Claude Code の中で 28 本すべてを使いたい人は B。
+- 入口スキル 1 本で足りる人は E、Claude Code の中で 27 本すべてを使いたい人は B。
 
 ### C. Cursor Agent から
 
@@ -593,7 +593,7 @@ Pro の素材も、Lab で中身を確かめられます。
 ## 接続を設定する（必要になったときで OK）
 
 文字起こしのクラウド利用・ナレーション生成・素材生成など、
-**外部 API を使う段になったら** `manage-connections` スキルで設定します。
+**外部 API を使う段になったら** `setup-connections` スキルで設定します。
 
 ローカル完結の範囲（プロキシ生成・whisper.cpp 文字起こし・編集・書き出し）なら
 **接続なしで使えます**。

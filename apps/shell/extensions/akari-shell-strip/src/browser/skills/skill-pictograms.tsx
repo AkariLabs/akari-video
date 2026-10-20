@@ -159,7 +159,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(rr(9, 21, 46, 6, 2)), B('M12 27v9a2 2 0 0 0 2 2h36a2 2 0 0 0 2-2v-9'), A('M27 32h10')
     ],
     // 接続・設定: 歯車
-    'manage-connections': [
+    'setup-connections': [
         B(gear(32, 22, 14.5, 11.5, 8)), A(circ(32, 22, 4.5))
     ],
     // オーバーレイ: 重なる 2 枚 + 文字

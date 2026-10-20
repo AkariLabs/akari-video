@@ -17,7 +17,7 @@ const names = [
     'address-review', 'akari', 'analyze-footage', 'analyze-project', 'author-scene3d',
     'beat-sync-edit', 'compile-review-session', 'create-project', 'critique-cut',
     'declare-audio', 'design-world', 'edit-lint', 'edit-plan', 'export-nle',
-    'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'manage-connections',
+    'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'setup-connections',
     'overlay-authoring', 'render-cut', 'research-plan',
     'setup-chat-approval', 'setup-library', 'setup-remote', 'verify'
 ];

@@ -72,7 +72,7 @@ Register the canonical recording on the server with `akari voice copy --profile 
 
 fal hosts several narration engines behind one key and one approval path. Pick an `id` from `engines --json` whose `languages` and `supports` match the work; do not enumerate them from memory.
 
-- Read `FAL_KEY` only through [manage-connections](../manage-connections/SKILL.md) from `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is also readable). Never call the API key directly. If absent, report the key name and storage location and exit 1 (hard rule 5).
+- Read `FAL_KEY` only through [setup-connections](../setup-connections/SKILL.md) from `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is also readable). Never call the API key directly. If absent, report the key name and storage location and exit 1 (hard rule 5).
 - Before execution, show the estimate from the engine row on stderr. **Without an authorized `--yes`, send nothing and exit 2.** This enforces cost disclosure and explicit approval under hard rule 4.
 - A `--profile` requires the owner's consent, cloud-upload consent, and script verification of at least 0.7. Engines whose clone method is `per-request` send the canonical WAV as a `data:audio/wav;base64` reference on every request; `registered` engines need `akari voice copy` first.
 - Exit 2 before upload if the canonical recording exceeds 20 MB.

@@ -29,7 +29,7 @@ const expected = {
     'generate-narration': 'material',
     'generate-video': 'material',
     'harvest-asset': 'material',
-    'manage-connections': 'setup',
+    'setup-connections': 'setup',
     'overlay-authoring': 'other',
     'render-cut': 'edit',
     'research-plan': 'plan',

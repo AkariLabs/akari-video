@@ -653,7 +653,7 @@
   "cli.intake.target.duration_other": "target duration {seconds} seconds",
   "cli.narration.error.voicevoxStartupTimeout_one": "VOICEVOX engine startup timed out after {seconds} second.",
   "cli.narration.error.voicevoxStartupTimeout_other": "VOICEVOX engine startup timed out after {seconds} seconds.",
-  "cli.connections.general.usage": "Usage: node skills/manage-connections/bin/doctor.mjs [project-root|connections.json]",
+  "cli.connections.general.usage": "Usage: node skills/setup-connections/bin/doctor.mjs [project-root|connections.json]",
   "cli.connections.general.keyLocation": "Key location: {location}",
   "cli.connections.general.permissions": "Warning: credentials.env permissions are not 600 (currently {mode}). Run chmod 600 {path}.",
   "cli.connections.general.reportPath": "Connection report: {path}",

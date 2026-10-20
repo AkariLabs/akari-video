@@ -26,7 +26,7 @@
 `akari narration engines --json` で見られます。
 
 有償エンジンは、見積もりを出して明示的に承認してから実行されます（承認なしでは何も送らず止まります）。
-鍵（`FAL_KEY`・`GEMINI_API_KEY`・`FISH_AUDIO_API_KEY`）は `manage-connections` で扱い、
+鍵（`FAL_KEY`・`GEMINI_API_KEY`・`FISH_AUDIO_API_KEY`）は `setup-connections` で扱い、
 接続できていないエンジンは選べません。勝手に課金されることはありません。
 
 ## 頼み方

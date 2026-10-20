@@ -13,7 +13,7 @@ description: Take an approved edit.json and an edit-lint PASS through final MP4 
 2. **Rendering without a plan is forbidden** (never skip validate → plan → approval → render).
 3. **Rendering while edit-lint is FAIL is forbidden** (an override requires an approval gate and a render.json record).
 4. **Machine verification with ffprobe after rendering is required.** Do not call an output deliverable if verification failed.
-5. **Default to local ffmpeg only.** Paid cloud APIs (such as Rendi) are not adopted in v0 (future use may be considered only through opt-in and the manage-connections approval gate).
+5. **Default to local ffmpeg only.** Paid cloud APIs (such as Rendi) are not adopted in v0 (future use may be considered only through opt-in and the setup-connections approval gate).
 6. **Render from original sources** (never use proxies for the final render).
 7. **State belongs in render.json; HTML is for visualization only** (do not import a new surface mechanism).
 8. **Do not copy code from external candidates** (Kinocut / json-to-ffmpeg are structural references only).

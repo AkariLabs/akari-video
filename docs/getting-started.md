@@ -376,14 +376,14 @@ If you already use an AI agent CLI, this is the natural entrance.
 - **Codex**: start it in an AKARI Video project folder and say "I want to start a new video project".
   Skills are discovered from `.agents/skills/` and `.codex/skills/`
 
-**Install as a Claude Code plugin** (all 28 skills + `/akari`, from the marketplace):
+**Install as a Claude Code plugin** (all 27 skills + `/akari`, from the marketplace):
 ```sh
 claude plugin marketplace add AkariLabs/akari-video
 claude plugin install akari@akari
 ```
 - The marketplace clones the whole repository (about 1 GB). Update with `claude plugin update akari@akari`.
 - The plugin only delivers the skills and `/akari`. The `akari` CLI (`akari new` etc.) still needs the installer used by §A ([Prerequisites](#prerequisites--what-you-need)) — the plugin alone cannot make a video.
-- One entry skill is enough → use E. Want all 28 skills inside Claude Code → use B.
+- One entry skill is enough → use E. Want all 27 skills inside Claude Code → use B.
 
 ### C. From Cursor Agent
 
@@ -585,7 +585,7 @@ a Claude Code extension kit (that only appears for items that include skills).
 ## Set up connections (only when you need them)
 
 Once you reach the point of using external APIs — cloud transcription, narration
-generation, asset generation — configure them with the `manage-connections` skill.
+generation, asset generation — configure them with the `setup-connections` skill.
 
 **Everything local (proxy generation, whisper.cpp transcription, editing, export) works
 with no connections at all.**
