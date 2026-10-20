@@ -32,7 +32,7 @@ Prints `HELPER: http://localhost:<port>/` to stdout on launch. Present it unchan
 ## 3. After keeping a track (declarations)
 
 Mark a kept track's chorus, hit points, and beats so automatic BGM suggestions prioritize it and can **start at the chorus**.
-Use the sibling [declare-audio](../declare-audio/SKILL.md) skill (human listening and marking in a browser timeline).
+Use the sibling [analyze-music](../analyze-music/SKILL.md) skill (human listening and marking in a browser timeline).
 This skill covers intake and keep/drop only; delegate declarations there.
 
 ## 4. Handling keep / drop

@@ -2,7 +2,7 @@
 
 # ゼロから企画する
 
-素材がまだ無くても、企画・調査・構成づくりから始められます。スキルは `research-plan`。
+素材がまだ無くても、企画・調査・構成づくりから始められます。スキルは `plan-video`。
 撮影前の一周（ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト）を担当します。
 
 ## いつ使う
@@ -31,7 +31,7 @@
 - **記憶** — 人物と単語帳（`.akari/memory/word-book.json`）。台本パネルで直した語も単語帳に足される
 - **<!-- F ui.library.channelSettings -->チャンネルの設定<!-- /F -->** — ロゴ・フォント・色などの決まり
 
-`.akari/connections.json` に記憶の接続が宣言されていれば、`research-plan` は企画の最初にその入口
+`.akari/connections.json` に記憶の接続が宣言されていれば、`plan-video` は企画の最初にその入口
 （既定は `INDEX.md`）を読みます。読んだファイルは `research-plan.json` の `sources[]` に残ります。
 宣言が無くてもエラーにはなりません。
 

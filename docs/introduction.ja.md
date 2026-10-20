@@ -72,13 +72,13 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
 ```
 [開始]         akari new --from    作り方から、または白紙から
    ↓
-[企画]         research-plan       ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト
+[企画]         plan-video          ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト
    ↓
 [素材分析]     analyze-footage     1 本ごとにプロキシ・文字起こし・キーフレーム抽出
                analyze-project     複数素材を読み合わせて解釈レポート
    ↓
-[編集計画]     edit-plan           提案をタイムラインへ → プレビューで確認 → 書き出しの判子 1 回
-               overlay-authoring   2D の動く部品: テロップ・字幕・図表・サムネイル
+[編集計画]     plan-edit           提案をタイムラインへ → プレビューで確認 → 書き出しの判子 1 回
+               author-overlay     2D の動く部品: テロップ・字幕・図表・サムネイル
                author-scene3d      3D シーン（既定は Three.js / Blender で焼く経路も）
                generate-narration  ナレーション生成（ローカル無償 / 声クローン）
    ↓
@@ -88,7 +88,7 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
 [書き出し]     render-cut          計画 → 承認 → レンダリング → 検証
    ↓
 [素材化]       harvest-asset       成果物をライブラリへ入庫
-               record-playbook     この動画の作り方を「作り方」として残す
+               harvest-playbook    この動画の作り方を「作り方」として残す
 ```
 
 各ステージの節目は `.akari/events/` に 1 件ずつ記録され、次にセッションを開いたとき

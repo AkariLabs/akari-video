@@ -77,7 +77,7 @@ test('a diff and a new skill produce the full post', () => {
   const root = fixture();
   try {
     writeI18n(root, newValues);
-    write(root, 'skills/record-playbook/SKILL.md', '---\nname: record-playbook\ndescription: Record a playbook\n---\n\n# record-playbook\n');
+    write(root, 'skills/harvest-playbook/SKILL.md', '---\nname: harvest-playbook\ndescription: Record a playbook\n---\n\n# harvest-playbook\n');
     commit(root, 'rename and add skill');
     const result = run(root, '--tag', 'v2.0.0', '--previous', 'v1.0.0');
     assert.equal(result.status, 0);
@@ -91,7 +91,7 @@ test('a diff and a new skill produce the full post', () => {
       '・オーバーレイ → 動く部品',
       '',
       '🧩 新しいスキル',
-      '・record-playbook',
+      '・harvest-playbook',
       'スキルは全部で 2 本です',
       '',
       '📦 ダウンロード / 詳細',

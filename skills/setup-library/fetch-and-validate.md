@@ -124,4 +124,4 @@ category (such as font) whose directory does not yet exist under `assets/`.
 
 - Contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
 - Asset harvesting and meta.json v0 discipline: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
-- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- Authoring hard rules: [../author-overlay/SKILL.md](../author-overlay/SKILL.md)

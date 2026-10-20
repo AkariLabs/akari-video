@@ -1,6 +1,6 @@
 ---
 name: analyze-footage
-description: Analyze one footage file in pull-driven levels L0–L3 and record only observed evidence in analysis.json v0. By default, run L0 metadata and L1 audio (`akari media probe` → `waveform` → `transcribe` only when speech is likely); cloud transcription requires approval. Inspect keyframes, editing events, and hooks at L2, or person tracks at L3, only when requested. Use for new footage, pre-edit analysis of one file, or footage analysis needed before edit-plan.
+description: Analyze one footage file in pull-driven levels L0–L3 and record only observed evidence in analysis.json v0. By default, run L0 metadata and L1 audio (`akari media probe` → `waveform` → `transcribe` only when speech is likely); cloud transcription requires approval. Inspect keyframes, editing events, and hooks at L2, or person tracks at L3, only when requested. Use for new footage, pre-edit analysis of one file, or footage analysis needed before plan-edit.
 ---
 
 # Analyze one footage file

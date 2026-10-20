@@ -242,7 +242,7 @@ async function main() {
     assertTrue(percentStatus === "ready", "c-declared-percent: 3D シーンが ready になった");
     const percent = await inspectOf("c-declared-percent");
     assertTrue(percent.cameraViewOffset?.enabled === true, "% 宣言: camera.view が有効化される");
-    // camera.setViewOffset(W,H, -panX*W, -panY*H, W,H) — 公開リポ skills/overlay-authoring/3d.md
+    // camera.setViewOffset(W,H, -panX*W, -panY*H, W,H) — 公開リポ skills/author-overlay/3d.md
     const expectedWidth = percent.cameraViewOffset?.fullWidth;
     const expectedHeight = percent.cameraViewOffset?.fullHeight;
     assertClose(

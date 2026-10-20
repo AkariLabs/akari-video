@@ -220,7 +220,7 @@ AKARI Video のモノレポ、または動画プロジェクトフォルダを C
 3. エージェントが `AGENTS.md` と `.cursor/skills/` 配下の `SKILL.md` を読んで進める
 
 Cursor 専用の `/akari` スラッシュコマンドは現時点ではありません。自然言語の依頼や
-`skills/edit-plan/SKILL.md` などの明示パス指定で、他ハーネスと同様に使えます。
+`skills/plan-edit/SKILL.md` などの明示パス指定で、他ハーネスと同様に使えます。
 
 アプリの中では、このほかに GitHub Copilot・Antigravity（Google）・Grok Build（xAI）・Command Code・Pi・Devin・
 Muse Code（Meta）・DeepSeek Harness もパートナーとして選べます。
@@ -281,7 +281,7 @@ plugin/skills:       （同様）
 `docs/`・`templates/` など）は展開済みなのでそのまま作業を続けられます。これらのリンクは
 `skills/` を指しているだけで、スキルの実体は `skills/<名前>/SKILL.md` にあります。
 エージェントにはそのパスを直接指定すれば同じことができます
-（「`skills/edit-plan/SKILL.md` を読んでその手順で進めて」）。
+（「`skills/plan-edit/SKILL.md` を読んでその手順で進めて」）。
 
 ただし `tar` は exit 1 を返すため、展開を包むスクリプトからは「失敗」に見えます。
 終了コードではなく展開されたファイルの有無で判定してください
@@ -374,7 +374,7 @@ akari
 すでに AI エージェント CLI を使っているなら、入口はこちらが自然です。
 
 - **opencode**: 「新しい動画プロジェクトを作りたい」と発話すると
-  `create-project` スキルが発動
+  `setup-project` スキルが発動
 - **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
   または「新しい動画プロジェクトを作りたい」と発話
 - **Codex**: AKARI Video のプロジェクトフォルダで起動し、「新しい動画プロジェクトを作りたい」と発話。
@@ -396,7 +396,7 @@ claude plugin install akari@akari
 `akari new` が作るプロジェクトアダプタから自動発見されます。
 
 Agent チャットで **「新しい動画プロジェクトを作りたい」** と発話するか、
-`skills/edit-plan/SKILL.md` などスキルパスを明示してください。
+`skills/plan-edit/SKILL.md` などスキルパスを明示してください。
 
 プレビューは別ターミナルで `./akari.sh --preview` を実行し、
 http://localhost:4567 を開きます。

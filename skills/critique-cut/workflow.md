@@ -152,7 +152,7 @@ do not discuss overlaps, caption positions, clipping, or black frames.
 
 ## ⑥ 次の一手（3 つまで）
 
-1. `[edit-plan 行き | address-review 行き | 追加観察]` 提案と理由
+1. `[plan-edit 行き | address-review 行き | 追加観察]` 提案と理由
 
 ## 証跡
 

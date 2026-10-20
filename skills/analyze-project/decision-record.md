@@ -4,7 +4,7 @@
 
 Always preserve chat decisions and interview Q&A in markdown. This applies intake v2's invariant that file contracts
 are canonical and chat is an injection route; records feed style learning, past-project references, and future-session
-context. **Do not invent a format**: use [edit-plan's decision_log convention](../edit-plan/report-guide.md#decision_log).
+context. **Do not invent a format**: use [plan-edit's decision_log convention](../plan-edit/report-guide.md#decision_log).
 
 ## What to record
 
@@ -18,7 +18,7 @@ context. **Do not invent a format**: use [edit-plan's decision_log convention](.
 
 ## Location and format
 
-**Reuse unchanged** the `decision_log` convention in [edit-plan/report-guide.md](../edit-plan/report-guide.md#decision_log):
+**Reuse unchanged** the `decision_log` convention in [plan-edit/report-guide.md](../plan-edit/report-guide.md#decision_log):
 chronological append keyed by `(category, subject)`, ISO 8601 timestamp, category, subject, decision, rationale,
 decider, and related checkpoint. For analyze-project, use categories `analysis` (pass-2 decisions) /
 `interview` (interview Q&A).
@@ -29,17 +29,17 @@ Write the decision and reason cell contents in the user's language. For a new fi
 
 When appending to an existing file, keep its header language and append rows without changing its header or earlier rows.
 
-The assumption of embedding in one `editing-report.html` was removed from edit-plan in the 2026-07-22 revision
-(consolidation into an analysis-only report; see the opening revision note in [edit-plan/report-guide.md](../edit-plan/report-guide.md)).
-analyze-project and edit-plan therefore append project decisions to a **shared independent file**,
-`<project>/decision-log.md`. analyze-project may start it; later edit-plan stages continue appending.
+The assumption of embedding in one `editing-report.html` was removed from plan-edit in the 2026-07-22 revision
+(consolidation into an analysis-only report; see the opening revision note in [plan-edit/report-guide.md](../plan-edit/report-guide.md)).
+analyze-project and plan-edit therefore append project decisions to a **shared independent file**,
+`<project>/decision-log.md`. analyze-project may start it; later plan-edit stages continue appending.
 1 project = 1 log, a single SSOT. Create the file if absent; write the decision-row table header for the user's language once. Never change/delete existing rows; append new rows at the end.
 
-This location change (embedded HTML → standalone markdown) is a **minimal addition** following edit-plan's
+This location change (embedded HTML → standalone markdown) is a **minimal addition** following plan-edit's
 removal of fixed-report generation. Recording conventions and field structure remain completely unchanged.
 
 Render with the shared decision-record report (`packages/decision-log-report`). Optional after analyze-project
-appends, but mandatory at every edit-plan Checkpoint.
+appends, but mandatory at every plan-edit Checkpoint.
 
 ## Record example
 

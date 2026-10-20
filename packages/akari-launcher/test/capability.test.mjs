@@ -18,7 +18,7 @@ test("catalog source set is deterministic and nested beat-sync leaf text is sear
     second.sources.map(({ path, bytes, sha256 }) => ({ path, bytes, sha256 })),
   );
   const result = queryCapability(first, "beat-sync");
-  assert.ok(result.matches.some((match) => match.path === "skills/edit-plan/beat-sync.md"));
+  assert.ok(result.matches.some((match) => match.path === "skills/plan-edit/beat-sync.md"));
   assert.deepEqual(Object.keys(result.matches[0]), ["path", "heading", "score", "snippet"]);
 });
 

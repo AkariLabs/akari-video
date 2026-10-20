@@ -158,4 +158,4 @@ If script or schema is absent, do not treat it as success; retain this unchanged
 ## Sources
 
 - Admission criteria, schema, structure, harvesting: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md`
-- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- Authoring hard rules: [../author-overlay/SKILL.md](../author-overlay/SKILL.md)

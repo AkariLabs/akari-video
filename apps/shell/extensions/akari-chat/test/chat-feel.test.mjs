@@ -69,17 +69,17 @@ test('a real Enter after composition settles is not swallowed', () => {
 
 test('slash menu filters descriptions and keeps skills and commands selectable', () => {
     const commands = [
-        { name: 'edit-plan', description: '構成を考える', kind: 'skill' },
+        { name: 'plan-edit', description: '構成を考える', kind: 'skill' },
         { name: 'new', description: '新しい会話', kind: 'command' },
         { name: 'compact', description: '要約して続ける', kind: 'command' }
     ];
-    assert.deepEqual(commandMatches(commands, '構成').map(row => row.name), ['edit-plan']);
+    assert.deepEqual(commandMatches(commands, '構成').map(row => row.name), ['plan-edit']);
     assert.deepEqual(commandMatches(commands, 'co').map(row => row.name), ['compact']);
     let selected = 0;
     selected = (selected + 1) % commands.length;
     assert.equal(commands[selected].name, 'new');
     selected = (selected - 1 + commands.length) % commands.length;
-    assert.equal(commands[selected].name, 'edit-plan');
+    assert.equal(commands[selected].name, 'plan-edit');
     assert.deepEqual(commandGroups(commandMatches(commands, '構成')).map(group => group.label), ['スキル']);
     assert.deepEqual(commandGroups([{ name: 'new', label: '新しい会話', kind: 'command', local: true }])
         .map(group => group.label), ['会話操作']);

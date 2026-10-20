@@ -96,7 +96,7 @@ BGM の `ducking` を有効にすると、ナレーションや声の区間で B
 
 ## 次のステップ
 
-- BGM・SFX も入れる → [編集計画を立てて実行する](./plan-your-edit.ja.md)（audio 計画は edit-plan が担当）
+- BGM・SFX も入れる → [編集計画を立てて実行する](./plan-your-edit.ja.md)（audio 計画は plan-edit が担当）
 - 接続設定 → [接続と API キー](../how-to/connections.ja.md)
 
 <!-- BEGIN GENERATED facts:stamp -->

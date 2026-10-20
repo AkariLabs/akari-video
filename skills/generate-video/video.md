@@ -25,7 +25,7 @@ Derive duration from the target item's cuts. If the model requires rounding, sho
 
 ## Cost approval
 
-Estimate cost from the capability catalog's price and `as_of` date. When asking for approval, present the eight items specified by [approvals-and-generation.md](../edit-plan/approvals-and-generation.md):
+Estimate cost from the capability catalog's price and `as_of` date. When asking for approval, present the eight items specified by [approvals-and-generation.md](../plan-edit/approvals-and-generation.md):
 ```text
 対象:
 使う手:

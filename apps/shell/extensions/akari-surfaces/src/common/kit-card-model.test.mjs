@@ -8,7 +8,7 @@ const base = {
     installedKits: [],
     pluginEnabled: true
 };
-const installedKit = { id: 'world-kit', version: 2, skills: ['design-world'], assetCount: 3 };
+const installedKit = { id: 'world-kit', version: 2, skills: ['author-world'], assetCount: 3 };
 
 test('未接続は hidden', () => {
     assert.deepEqual(buildKitCardModel({ ...base, connected: false }), { kind: 'hidden' });

@@ -5,7 +5,7 @@
 映像に載せる表現は、AI が HTML/CSS/Three.js で描く「<!-- F ui.library.motionParts -->動く部品<!-- /F -->」（HTML の素材）と、
 データで持つ字幕・文字・図形でできています。見た目は言葉で頼んでも、ライブラリの
 スタイルを当てても、ツマミで直しても作れます。
-スキルは `overlay-authoring`（edit-plan の実行段階から呼ばれるほか、単独でも使えます）。
+スキルは `author-overlay`（plan-edit の実行段階から呼ばれるほか、単独でも使えます）。
 
 ## いつ使う
 

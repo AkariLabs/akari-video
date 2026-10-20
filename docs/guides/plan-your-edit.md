@@ -3,7 +3,7 @@
 # Plan your edit and execute it
 
 The central step: based on the analysis, the agent proposes an editing direction and writes it
-to `edit.json` (the editing save file) according to the selected mode. The skill is `edit-plan`.
+to `edit.json` (the editing save file) according to the selected mode. The skill is `plan-edit`.
 
 ## When to use it
 
@@ -22,7 +22,7 @@ If you prefer to assemble and trim the timeline yourself first, save `edit.json`
 this feel so far?” or “Take a look at this cut.” [critique-cut](../../skills/critique-cut/SKILL.md)
 will inspect only the source ranges used by the timeline plus one contact sheet of the composited
 result, then return observations without rewriting the edit. Route broad structural changes back
-through edit-plan; for a point fix, add an annotation and continue with
+through plan-edit; for a point fix, add an annotation and continue with
 [QA, review, and fix](./review-and-fix.md).
 
 ## Three modes (one stamp, at export)
@@ -33,7 +33,7 @@ through edit-plan; for a point fix, add an annotation and continue with
 | With suggestions (default) | `checkpoint` | Adds what you requested plus promising additions to the timeline. You review the preview, remove or adjust anything unwanted, and export | 1, at export only |
 | Create together | `collaborative` | Confirms three stages: direction → asset plan → execution | One per stage |
 
-The default is **With suggestions**. edit-plan adds what you requested plus promising additions
+The default is **With suggestions**. plan-edit adds what you requested plus promising additions
 to the timeline. It does not pause along the way. Review the preview and remove anything
 unwanted. The export button is the only stamp.
 

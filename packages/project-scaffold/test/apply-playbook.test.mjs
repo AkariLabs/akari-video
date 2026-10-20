@@ -103,7 +103,7 @@ test('記録 → 取り込み → 記録で設定値を保つ', async () => {
   try {
     const original = join(scratch, 'original');
     await cp(join(fixtures, 'finished-project-sample'), original, { recursive: true });
-    const recorder = join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs');
+    const recorder = join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs');
     const record = project => spawnSync(process.execPath, [recorder, project,
       '--name', '縦の解説', '--category', 'explainer'], { encoding: 'utf8' });
     assert.equal(record(original).status, 0);
@@ -124,11 +124,11 @@ test('記録 → 取り込み → 記録で設定値を保つ', async () => {
 });
 
 test('record helper groups two sources with the same role into one placeholder', async () => {
-  const scratch = await mkdtemp(join(tmpdir(), 'akari-record-playbook-'));
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-harvest-playbook-'));
   try {
     const project = join(scratch, 'finished');
     await cp(join(fixtures, 'finished-project-sample'), project, { recursive: true });
-    const recorded = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const recorded = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--name', '縦の解説', '--category', 'explainer'], { encoding: 'utf8' });
     assert.equal(recorded.status, 0, recorded.stderr);
     const result = await validatePlaybookFiles(join(project, 'planning', 'playbook.json'));
@@ -178,14 +178,14 @@ test('record helper creates a frame strip and installs a shelf copy', { skip: !f
     const generated = spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
       '-i', 'testsrc=size=640x360:rate=15', '-t', '6', '-c:v', 'mpeg4', '-q:v', '5', output], { encoding: 'utf8' });
     assert.equal(generated.status, 0, generated.stderr);
-    const recorded = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const recorded = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--name', '縦の解説', '--category', 'explainer'],
     { encoding: 'utf8', env: { ...process.env, AKARI_HOME: join(scratch, 'akari-home'), AKARI_FFMPEG: ffmpeg } });
     assert.equal(recorded.status, 0, recorded.stderr);
     const book = JSON.parse(await readFile(join(project, 'planning', 'playbook.json'), 'utf8'));
     assert.ok(book.preview.frames.length >= 3);
     assert.ok(book.preview.frames.every(frame => frame.startsWith('playbook-preview/frames/')));
-    const installedRun = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const installedRun = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--install'], { encoding: 'utf8', env: { ...process.env, AKARI_HOME: join(scratch, 'akari-home') } });
     assert.equal(installedRun.status, 0, installedRun.stderr);
     const shelf = join(scratch, 'akari-home', 'playbooks', book.id);
@@ -200,11 +200,11 @@ test('record helper creates a frame strip and installs a shelf copy', { skip: !f
     assert.equal(dimensions.stdout.trim(), '360,640');
     const frameDirectory = join(project, 'planning', 'playbook-preview', 'frames');
     await writeFile(join(frameDirectory, '05.png'), 'stale frame');
-    const rerecorded = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const rerecorded = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--name', '縦の解説', '--category', 'explainer'], { encoding: 'utf8' });
     assert.equal(rerecorded.status, 0, rerecorded.stderr);
     assert.ok(!(await readdir(frameDirectory)).includes('05.png'));
-    const failedPreview = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const failedPreview = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--name', '縦の解説', '--category', 'explainer'],
     { encoding: 'utf8', env: { ...process.env, AKARI_FFMPEG: join(scratch, 'missing-ffmpeg') } });
     assert.equal(failedPreview.status, 0, failedPreview.stderr);
@@ -213,7 +213,7 @@ test('record helper creates a frame strip and installs a shelf copy', { skip: !f
     assert.equal(withoutPreview.preview, undefined);
     assert.match(await readFile(join(project, 'planning', 'playbook.md'), 'utf8'), /見本のコマはまだ（書き出し後に記録し直す）/);
     assert.deepEqual((await readdir(frameDirectory)).filter(file => file.endsWith('.png')), []);
-    const failedProbe = spawnSync(process.execPath, [join(repo, 'skills', 'record-playbook', 'bin', 'record-playbook.mjs'),
+    const failedProbe = spawnSync(process.execPath, [join(repo, 'skills', 'harvest-playbook', 'bin', 'record-playbook.mjs'),
       project, '--name', '縦の解説', '--category', 'explainer'],
     { encoding: 'utf8', env: { ...process.env, AKARI_FFPROBE: join(scratch, 'missing-ffprobe') } });
     assert.equal(failedProbe.status, 0, failedProbe.stderr);

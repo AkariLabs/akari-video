@@ -50,11 +50,11 @@ test("opencode 対応: .opencode/skills/ にスキル定義ファイルが生成
 
     // スキル定義ファイルが存在することを確認
     const analyzeFootage = join(skillsDir, "analyze-footage.yml");
-    const editPlan = join(skillsDir, "edit-plan.yml");
-    const createProjectSkill = join(skillsDir, "create-project.yml");
+    const planEdit = join(skillsDir, "plan-edit.yml");
+    const createProjectSkill = join(skillsDir, "setup-project.yml");
 
     assert.ok((await stat(analyzeFootage)).isFile());
-    assert.ok((await stat(editPlan)).isFile());
+    assert.ok((await stat(planEdit)).isFile());
     assert.ok((await stat(createProjectSkill)).isFile());
   });
 });

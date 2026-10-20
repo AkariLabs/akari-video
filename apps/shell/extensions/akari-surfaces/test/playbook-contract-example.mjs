@@ -9,11 +9,11 @@ export const contractExample = {
     "category": "explainer",
     "tags": { "form": ["vertical"], "length": ["30-60s"], "technique": ["live-action"], "tools": ["voicevox"],
               "style": [], "industry": [], "materials": ["talking-head", "screen-capture"], "scale": ["solo"] },
-    "requires": { "cli": ">=1.4.0", "tools": ["voicevox"], "skills": ["edit-plan", "render-cut"] },
+    "requires": { "cli": ">=1.4.0", "tools": ["voicevox"], "skills": ["plan-edit", "render-cut"] },
     "steps": [
       { "id": "intake",   "title": "素材を置く",        "what": "画面収録と顔出しを assets/ に置き、analyze-footage を回す", "skill": "analyze-footage", "checkpoint": false },
-      { "id": "script",   "title": "台本を確定する",    "what": "planning/script.md を書き、冒頭 3 秒のつかみを決める",        "skill": "research-plan",   "checkpoint": true },
-      { "id": "cut",      "title": "カットを整える",    "what": "無音を詰め、字幕を当てる",                                 "skill": "edit-plan",       "checkpoint": false },
+      { "id": "script",   "title": "台本を確定する",    "what": "planning/script.md を書き、冒頭 3 秒のつかみを決める",        "skill": "plan-video",   "checkpoint": true },
+      { "id": "cut",      "title": "カットを整える",    "what": "無音を詰め、字幕を当てる",                                 "skill": "plan-edit",       "checkpoint": false },
       { "id": "export",   "title": "書き出す",          "what": "1080x1920 で exports/ に出す",                             "skill": "render-cut",      "checkpoint": false }
     ],
     "settings": {

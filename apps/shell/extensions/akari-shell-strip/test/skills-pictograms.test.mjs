@@ -15,10 +15,10 @@ const { SkillPictogram, skillPictogramFor, DEDICATED_PICTOGRAM_NAMES } =
 
 const names = [
     'address-review', 'akari', 'analyze-footage', 'analyze-project', 'author-scene3d',
-    'beat-sync-edit', 'compile-review-session', 'create-project', 'critique-cut',
-    'declare-audio', 'design-world', 'edit-lint', 'edit-plan', 'export-nle',
+    'beat-sync-edit', 'compile-review-session', 'setup-project', 'critique-cut',
+    'analyze-music', 'author-world', 'edit-lint', 'plan-edit', 'export-nle',
     'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'manage-connections',
-    'overlay-authoring', 'render-cut', 'research-plan',
+    'author-overlay', 'render-cut', 'plan-video',
     'setup-chat-approval', 'setup-library', 'setup-remote', 'verify'
 ];
 

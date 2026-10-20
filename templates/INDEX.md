@@ -16,18 +16,18 @@
 |---|---|---|
 | 何か | **土台（scaffold）** — 空のプロジェクトの初期構造 | **解説ショートの見本** — 完成した制作フロー一式。将来、アプリの「作例」（Showcase）として出す予定（アプリ側の作例はまだ未実装） |
 | 中身 | `assets/` `planning/` `exports/` + `CLAUDE.md` / `AGENTS.md` / `.akari/` / `.claude/` | 構成 HTML + ツール 5 本 + QA チェックリスト + サンプル台本 + プレースホルダ素材 |
-| 誰が使うか | **コードとスキル**（`create-project` スキル・`akari new` ・シェルの「新しいプロジェクト」・パッケージング時のコピー） | **人 / AI が読んで複製する**（自動参照はされない） |
-| 壊すとどうなるか | `create-project` が壊れる。`packages/project-scaffold` のテストが落ちる | 誰も気づかない（参照ゼロのため） |
+| 誰が使うか | **コードとスキル**（`setup-project` スキル・`akari new` ・シェルの「新しいプロジェクト」・パッケージング時のコピー） | **人 / AI が読んで複製する**（自動参照はされない） |
+| 壊すとどうなるか | `setup-project` が壊れる。`packages/project-scaffold` のテストが落ちる | 誰も気づかない（参照ゼロのため） |
 | 位置づけ | **製品の一部** | **ドキュメント寄りの見本** |
 
 この差が実務上いちばん効くのは 4 行目です。`project-default` は**触ると製品が壊れる**ので、
-変更時は `packages/project-scaffold/test/create-project.test.mjs` と
+変更時は `packages/project-scaffold/test/setup-project.test.mjs` と
 `packages/schemas/test/validate-connections.test.mjs`（`.akari/connections.json` を実物で検証）を
 必ず走らせてください。`kaisetsu-short` は自己完結しているので、壊しても影響範囲はその中だけです。
 
 ## project-default — 空のプロジェクトの土台
 
-新規プロジェクトの初期構造です。`create-project` スキルが再帰コピーし、土台のバージョンを記録します。
+新規プロジェクトの初期構造です。`setup-project` スキルが再帰コピーし、土台のバージョンを記録します。
 
 ```sh
 akari new <target-dir>

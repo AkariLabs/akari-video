@@ -14,7 +14,7 @@
 
 ## 仕組み
 
-1. 前提: 対象の曲に [declare-audio](./declare-audio.ja.md) で付けた宣言
+1. 前提: 対象の曲に [analyze-music](./analyze-music.ja.md) で付けた宣言
    （BPM・頭拍・キメ・区間）があること。宣言なしでは始まりません
 2. 生成器スクリプトが、宣言から計算した拍位置ですべてのカット・動く部品・
    SFX の時刻を決め、`edit.json` と動く部品（`overlay` の断片）一式を機械生成します —
@@ -26,7 +26,7 @@
 
 ## 次のステップ
 
-- まず曲に宣言を付ける → [音源に宣言を付ける](./declare-audio.ja.md)
+- まず曲に宣言を付ける → [音源に宣言を付ける](./analyze-music.ja.md)
 - 仕上がったら書き出す → [書き出す](./export.ja.md)
 - 手順の正本 → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)
 

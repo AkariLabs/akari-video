@@ -49,7 +49,7 @@ AKARI Video was built to break that trade-off.
 
 - **Start from a playbook** — "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" opens a single "<!-- F ui.home.newProjectHeading -->New project<!-- /F -->" popup: name, channel, then
   "Start blank" or "Start from a playbook". A playbook carries the steps, checkpoints, settings, and
-  placeholder slots for one video. Record one from a finished video with the `record-playbook`
+  placeholder slots for one video. Record one from a finished video with the `harvest-playbook`
   skill, or start from the CLI with `akari new <dir> --from <playbook>`
 - **Drop in a template, swap only the footage** — the Library has a "Templates" shelf. Drag a
   template onto the timeline as one unit, then drop your own footage into its open slots; the
@@ -96,13 +96,13 @@ The workflow is packaged as skills, one per stage:
 ```mermaid
 flowchart LR
     P["Playbook / Template<br/>akari new --from"] -.start.-> A
-    A["Plan<br/>research-plan"] --> B["Analyze footage<br/>analyze-footage"]
-    B --> C["Edit plan<br/>edit-plan"]
-    C --> D["Captions / 3D / Narration<br/>overlay-authoring<br/>author-scene3d<br/>generate-narration"]
+    A["Plan<br/>plan-video"] --> B["Analyze footage<br/>analyze-footage"]
+    B --> C["Edit plan<br/>plan-edit"]
+    C --> D["Captions / 3D / Narration<br/>author-overlay<br/>author-scene3d<br/>generate-narration"]
     D --> E["QA & Review<br/>edit-lint<br/>address-review"]
     E --> F["Export<br/>render-cut"]
     F --> G["Harvest assets<br/>harvest-asset"]
-    F --> H["Record the playbook<br/>record-playbook"]
+    F --> H["Record the playbook<br/>harvest-playbook"]
     G -.assets feed the next plan.-> A
     H -.playbooks feed the next video.-> P
     classDef stage fill:#1a1a1a,stroke:#ff8a00,color:#ffffff

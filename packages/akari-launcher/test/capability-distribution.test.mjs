@@ -20,7 +20,7 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     await cp(join(REAL_REPO_ROOT, "packages", "akari-launcher"), packageRoot, { recursive: true });
     await writeFixture(fakeRepo, "LICENSE", "fixture license\n");
     await writeFixture(fakeRepo, "skills/analyze-footage/SKILL.md", "# Analyze footage\n\nFixture.\n");
-    await writeFixture(fakeRepo, "skills/edit-plan/beat-sync.md", "# Beat sync nested leaf\n\nSynchronize an approved beat marker.\n");
+    await writeFixture(fakeRepo, "skills/plan-edit/beat-sync.md", "# Beat sync nested leaf\n\nSynchronize an approved beat marker.\n");
     await writeFixture(fakeRepo, "docs/contract-fixture.md", "# Fixture contract\n\nDistribution proof.\n");
     await cp(
       join(REAL_REPO_ROOT, "presets", "luts", "natural", "natural.cube"),
@@ -111,7 +111,7 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     const query = run(process.execPath, [cli, "capability", "beat-sync", "--json"], temporary);
     assert.equal(query.status, 0, query.stderr || query.stdout);
     const result = JSON.parse(query.stdout);
-    assert.ok(result.matches.some((match) => match.path === "skills/edit-plan/beat-sync.md"));
+    assert.ok(result.matches.some((match) => match.path === "skills/plan-edit/beat-sync.md"));
 
     const fullProject = join(temporary, "full-project");
     await mkdir(fullProject);

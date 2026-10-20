@@ -12,7 +12,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import standaloneCode from "ajv/dist/standalone/index.js";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const GENERATED_ROOT = join(REPOSITORY_ROOT, "skills", "edit-plan", "bin", "generated");
+const GENERATED_ROOT = join(REPOSITORY_ROOT, "skills", "plan-edit", "bin", "generated");
 const VALIDATOR_PATH = join(GENERATED_ROOT, "contract-validators.cjs");
 const SCHEMAS = [
   {

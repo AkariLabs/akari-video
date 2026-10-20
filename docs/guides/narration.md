@@ -102,7 +102,7 @@ export use the same rule.
 
 ## Next steps
 
-- Add BGM and SFX too → [Plan and run an edit](./plan-your-edit.md) (edit-plan handles the audio plan)
+- Add BGM and SFX too → [Plan and run an edit](./plan-your-edit.md) (plan-edit handles the audio plan)
 - Connection setup → [Connections and API keys](../how-to/connections.md)
 
 <!-- BEGIN GENERATED facts:stamp -->

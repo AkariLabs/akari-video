@@ -18,11 +18,11 @@ Write only the former.
 
 | Bad question | Why it is a decision question | Do instead |
 |---|---|---|
-| “Keep this trouble section in the main video, or cut it?” | Choice among valid alternatives | Record only facts (contents, self-resolution, main-story relevance) in `flags[]`; send inclusion decisions to edit-plan chat |
+| “Keep this trouble section in the main video, or cut it?” | Choice among valid alternatives | Record only facts (contents, self-resolution, main-story relevance) in `flags[]`; send inclusion decisions to plan-edit chat |
 | “Keep the chapter title or rephrase it?” | Preference | If the pass-1 title does not represent the whole chapter, pass 2 directly corrects it with evidence (factual correction, not preference, is allowed) |
-| “What mood should the video have?” | Direction itself | Handled by edit-plan dialogue; analyze-project only presents facts |
-| “Which thumbnail proposal is best?” | Choice among alternatives | analyze-project does not create that report; edit-plan presents thumbnail proposals in chat |
-| “Which BGM should we use?” | Choice among alternatives | Asset planning (edit-plan); analyze-project records only relevant facts such as existing audio tracks |
+| “What mood should the video have?” | Direction itself | Handled by plan-edit dialogue; analyze-project only presents facts |
+| “Which thumbnail proposal is best?” | Choice among alternatives | analyze-project does not create that report; plan-edit presents thumbnail proposals in chat |
+| “Which BGM should we use?” | Choice among alternatives | Asset planning (plan-edit); analyze-project records only relevant facts such as existing audio tracks |
 
 ## Ambiguous boundary cases
 

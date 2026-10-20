@@ -37,7 +37,7 @@ test('install is idempotent and copies only the entry skill into the two HOME lo
     assert.equal(lstatSync(target).isSymbolicLink(), false);
     assert.equal(readFileSync(join(target, ENTRY_VERSION_FILE), 'utf8'), `${version}\n`);
     assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), readFileSync(join(repo, 'skills/akari/SKILL.md'), 'utf8'));
-    assert.equal(existsSync(join(dirname(target), 'edit-plan')), false);
+    assert.equal(existsSync(join(dirname(target), 'plan-edit')), false);
     assert.equal(existsSync(join(target, 'test')), false);
   }
   for (const name of ['.codex', '.cursor', '.config']) assert.equal(existsSync(join(f.env.HOME, name)), false);
@@ -183,7 +183,7 @@ test('entry lint rejects every forbidden term, other skill names and overlong de
   const f = fixture(t);
   const file = join(f.scratch, 'SKILL.md');
   assert.ok(checkEntrySkill() <= 200);
-  for (const value of [...forbiddenTerms, 'create-project', 'あ'.repeat(201)]) {
+  for (const value of [...forbiddenTerms, 'setup-project', 'あ'.repeat(201)]) {
     writeFileSync(file, `---\nname: akari\ndescription: ${value}\n---\n`);
     assert.throws(() => checkEntrySkill(file));
   }

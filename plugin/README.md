@@ -6,7 +6,7 @@ Claude Code のプラグイン形式で、AKARI Video の編集スキル一式�
 
 | コンポーネント | 場所 | 役割 |
 |---|---|---|
-| スキルパック | `skills/`（`../skills` へのシンボリックリンク。正本を**コピーせず参照**する） | `akari`（入口）/ `analyze-footage` / `edit-plan` / `overlay-authoring` などの編集スキル 28 本 |
+| スキルパック | `skills/`（`../skills` へのシンボリックリンク。正本を**コピーせず参照**する） | `akari`（入口）/ `analyze-footage` / `plan-edit` / `author-overlay` などの編集スキル 28 本 |
 | status core | `runtime/status-core/`（generator output） | launcher 正本の byte-identical mirror。fast/full の工程・受理判定を共有する |
 | SessionStart hook | `hooks/hooks.json` + `hooks/scripts/session-start.mjs` | canonical fast status と次の一手をコンテキスト注入する。無ければ何もしない |
 | `/akari` スラッシュコマンド | `commands/akari.md` | canonical status を根拠に案内する。独自の工程表は持たない |

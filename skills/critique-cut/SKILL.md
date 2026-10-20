@@ -68,7 +68,7 @@ This skill does not write them. Other writing stages use relevant-line Edit or e
 6. Deepen only needed areas according to the human's reply. Propose L2 via
    `akari media grab <target> -t <source-time...>` for further visuals, or L3 for person-related staging.
    **Do not execute fixes in this skill.** Hand substantial structure/direction fixes to
-   [edit-plan](../edit-plan/SKILL.md), explaining that existing human direction allows Checkpoint 1 to pass by ratification.
+   [plan-edit](../plan-edit/SKILL.md), explaining that existing human direction allows Checkpoint 1 to pass by ratification.
    For pinpoint fixes, the human first locates them in `review.json` annotations, then hand off to
    [address-review](../address-review/SKILL.md). If no annotation exists, ask the human to mark the location;
    do not create tickets from this skill.
@@ -84,5 +84,5 @@ Keep sections in ①–⑥ order. Even optional sections retain headings; withou
 4. **④ Caption need and approach** — Reading based on speech facts and finished visuals.
    Do not justify captions solely from `speech_likely`.
 5. **⑤ Hook position** — Explain what is in the opening 3 seconds using timeline 0–3-second facts and finished visuals.
-6. **⑥ Up to 3 next actions** — Label each `edit-plan 行き` / `address-review 行き` / `追加観察`
-   (existing Japanese example labels: hand off to edit-plan / address-review / further observation).
+6. **⑥ Up to 3 next actions** — Label each `plan-edit 行き` / `address-review 行き` / `追加観察`
+   (existing Japanese example labels: hand off to plan-edit / address-review / further observation).

@@ -71,7 +71,7 @@ The scale comes from the [M5 analysis.json v0 contract](https://github.com/Akari
 
 ## Supply evidence for highlight extraction
 
-Later work in [edit-plan's beats.md](../edit-plan/beats.md) derives highlight markers in `edit.json` `beats[]` from the `hook`, `chapter`, and `highlight` events and hook scores recorded here; see the [data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md). Keep the extraction method above and meet these two additional quality conditions:
+Later work in [plan-edit's beats.md](../plan-edit/beats.md) derives highlight markers in `edit.json` `beats[]` from the `hook`, `chapter`, and `highlight` events and hook scores recorded here; see the [data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md). Keep the extraction method above and meet these two additional quality conditions:
 
 - **Do not emit an unscored highlight.** If `importance` is absent, later stages cannot determine its strength and will use a default. When a statement is important enough to guide an edit, assign an integer from 1 to 5; omit candidates too weak to assess.
 - **Use source seconds for event time.** The event's `t` and any interval `start` / `end` refer to the uncut source. Beat markers persist source-time anchors, so mixing in timeline seconds creates errors later stages cannot detect.

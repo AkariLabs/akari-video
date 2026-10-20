@@ -14,7 +14,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | `edit.json` | **編集のセーブデータ（SSOT）**。カット・素材の置き方・動く部品・音声・ビート・演出。v2（オブジェクトの木） |
 | `captions.json` | 字幕データ。行ごとの見た目と、文字の範囲に当てる見た目（runs v1・字幕スタイル）を持つ |
 | `review.json` | 注釈（ペン・ピン・範囲・添付）のサイドカー。右パネルの「<!-- F ui.annotation.handToAi -->AI に渡す<!-- /F -->」の元データ |
-| `decision-log.md` | analyze-project と edit-plan が共有する追記専用の判断履歴 |
+| `decision-log.md` | analyze-project と plan-edit が共有する追記専用の判断履歴 |
 | `analysis-report.html` | analyze-project が生成する素材横断の正式な分析レポート |
 
 ルート直下に置いてよい生成物はこの契約ファイルだけです。それ以外の生成物は
@@ -35,7 +35,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | ファイル | 役割 |
 |---|---|
 | `research-plan.json` / `plan.json` | 企画・承認済みの計画 |
-| `playbook.md` + `playbook.json` | **作り方**。1 本ぶんの手順・確認点・設定・仮枠・使った部品・要る道具。`record-playbook` スキルが終わったプロジェクトから書き出す。`akari new --from` で始めたプロジェクトには写しが入り、出どころが `provenance` に残る |
+| `playbook.md` + `playbook.json` | **作り方**。1 本ぶんの手順・確認点・設定・仮枠・使った部品・要る道具。`harvest-playbook` スキルが終わったプロジェクトから書き出す。`akari new --from` で始めたプロジェクトには写しが入り、出どころが `provenance` に残る |
 | `playbook-preview/frames/` | 作り方の重要な場面のコマ（任意） |
 | `script.json` | 台本パネルの**予定とメモ**の行（時刻つき）。字幕は `captions.json` が正本のまま。無ければ台本パネルは字幕だけで動く。作り方の内訳（`beats`）から予定の行が作られる |
 | `frames/<名前>.scene.json` | 仮枠の中身を書いたシーン JSON。仮枠の絵（png）と meta は `assets/generated/` |

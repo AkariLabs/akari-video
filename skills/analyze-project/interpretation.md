@@ -83,7 +83,7 @@ existing 3 values (requires a schema addition).
 
 The AI must not ask “What should we do?” It may ask only “What is this?” / “Why are you doing this?” for
 **primary information absent from both footage and the internet**. Interviewing collects facts; it does not seek
-permission or decide direction. Decisions belong to the chat dialogue phase (`edit-plan`).
+permission or decide direction. Decisions belong to the chat dialogue phase (`plan-edit`).
 
 ### Good examples (interview questions)
 
@@ -95,7 +95,7 @@ permission or decide direction. Decisions belong to the chat dialogue phase (`ed
 
 ### Bad examples (decision questions; do not write)
 
-- “Keep this trouble section in the main video, or cut it?” — Editing decision for `edit-plan` chat dialogue.
+- “Keep this trouble section in the main video, or cut it?” — Editing decision for `plan-edit` chat dialogue.
   analyze-project records only facts (what happened, whether self-resolved, relevance to the main story) in `flags[]`.
 - “Keep the chapter title or rephrase it?” — Structural preference.
 - “What mood should the video have?” — Direction itself, handled in dialogue.
@@ -109,7 +109,7 @@ Distinguish whether the answer **fills primary information outside the footage (
 The interview stop condition is not numeric: **can the arc form a coherent whole without fabricated facts?**
 End interviewing when every `arc[]` entry's `purpose`+`evidence` can be drawn directly from transcript/keyframe notes,
 without rewatching footage. Remaining questions (preference-sensitive choices or minor facts unimportant to report
-readers) go to post-edit refinement (`edit-plan` chat), not interview questions.
+readers) go to post-edit refinement (`plan-edit` chat), not interview questions.
 
 For self-contained footage (e.g., presenter explains all history/intent), finishing with 0 `open_questions` is normal
 (field-validated). 0 interview questions does not mean pass 2 was careless; it means scanning found no gaps.

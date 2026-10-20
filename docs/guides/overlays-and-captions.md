@@ -5,7 +5,7 @@
 What appears on top of the footage is made of two things: "motion parts" (HTML assets) that AI
 draws in HTML/CSS/Three.js, and captions, text, and shapes held as data. You can ask in words,
 apply a style from the library, or fine-tune with knobs.
-The skill is `overlay-authoring` (called from edit-plan's execution stage, and also usable on
+The skill is `author-overlay` (called from plan-edit's execution stage, and also usable on
 its own).
 
 ## When to use it

@@ -134,9 +134,9 @@ function nudgeFor(event) {
         ? `レポートを作成しました（${subject}）。内容を確認し、問題なければ承認してください。`
         : 'レポートを作成しました。内容を確認し、問題なければ承認してください。';
     case 'report-approved':
-      return 'レポートが承認されました。edit-plan スキルで編集を進めてください。';
+      return 'レポートが承認されました。plan-edit スキルで編集を進めてください。';
     case 'edit-completed':
-      return '編集が完了しました。プレビューで仕上がりを確認し、必要ならテロップ等を overlay-authoring スキルで調整してください。';
+      return '編集が完了しました。プレビューで仕上がりを確認し、必要ならテロップ等を author-overlay スキルで調整してください。';
     case 'export-completed':
       return subject
         ? `書き出しが完了しました（${subject}）。exports フォルダーで最終版を確認してください。`

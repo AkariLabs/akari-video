@@ -13,7 +13,7 @@ These rules always override detailed procedures.
 2. **Find keys only in environment variables and credentials.env (new location → old location), with env taking priority. Never search elsewhere or ask for keys in chat.** Explain the location and KEY name; the human places them.
 3. **Do not require keychain / external vault dependencies** (consider only as optional future backends).
 4. **Doctor is free and read-only; never test actual generation** (pending ruling 2026-07-17).
-5. **Do not perform paid operations before an estimate and cost approval** (same pattern as edit-plan's Decision
+5. **Do not perform paid operations before an estimate and cost approval** (same pattern as plan-edit's Decision
    Communication Contract). Stop before execution if the budget cap is expected to be exceeded.
 6. **Do not adopt real-time hook monitoring (PreToolUse, etc.).** State is JSON; communication is the net git diff.
 7. **Consumer skills must not use connections absent from connections.json**, meaning the resolved registry in
@@ -37,7 +37,7 @@ These rules always override detailed procedures.
    Honestly retain `unchecked` for providers lacking a safe doctor adapter.
 5. For model changes, establish `models.allowed` first, then choose `models.default` from it.
    Declare per-task overrides at the next approval gate.
-6. Before paid operations, follow the [approval gate](../edit-plan/approvals-and-generation.md) format:
+6. Before paid operations, follow the [approval gate](../plan-edit/approvals-and-generation.md) format:
    target, method, reason, alternatives, estimated cost, wait time, external transmission, provenance.
    Do not execute before cost approval; stop if the budget cap is unset or expected to be exceeded.
 
@@ -87,13 +87,13 @@ They are read-only, without credentials or billing; this skill centrally manages
   only existence of `root` and `root`+`entry`, free and read-only. This inherits hard rule 4's free/read-only principle.
   However, **schema design gives `memory` no `doctor` field**, since there is no persistent authentication state;
   v0 `doctor.mjs` does not implement this path check. v0 establishes data/skill contracts; implementation is next.
-- Inaccessible `root` must not stop the consuming skill when it attempts to read (research-plan / edit-plan opening,
+- Inaccessible `root` must not stop the consuming skill when it attempts to read (plan-video / plan-edit opening,
   analyze-project context integration). See memory-connection-v0 §5 for degraded behavior.
 
 ## Sources
 
 - Canonical connection/settings management contract (2026-07-17): private internal records (`akari-video-internal`).
 - First-run / no proxy acquisition discipline: [../setup-library/SKILL.md](../setup-library/SKILL.md)
-- Paid-operation approval gates: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
+- Paid-operation approval gates: [../plan-edit/approvals-and-generation.md](../plan-edit/approvals-and-generation.md)
 - Registry validation: `node packages/schemas/bin/validate-connections.mjs .akari/connections.json`
   (monorepo only; not bundled with distributed projects).

@@ -42,7 +42,7 @@ Use `hit_points` directly for flash or sweep timing: a person chose these points
 
 ## 3. Generate overlays
 
-Follow [overlay-authoring](../overlay-authoring/SKILL.md) for fragment authoring. In the generator:
+Follow [author-overlay](../author-overlay/SKILL.md) for fragment authoring. In the generator:
 
 - Use one function per fragment to calculate `animation-delay` from beat numbers.
 - When a window starts on a beat, compute the fragment's delay as `B(n) - start` so its motion stays aligned.
