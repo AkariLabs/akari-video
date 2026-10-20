@@ -3,7 +3,7 @@
 # Beat-synced edits (PVs and showcases)
 
 Make a video where the picture moves with the music: cuts, motion parts, and SFX all
-snapped to the declared beats of a track. The skill is `beat-sync-edit`.
+snapped to the declared beats of a track. The skill is `edit-to-beat`.
 
 ## When it fits
 
@@ -28,7 +28,7 @@ snapped to the declared beats of a track. The skill is `beat-sync-edit`.
 
 - Declare a track first → [Declare your audio](./declare-audio.md)
 - Export the finished edit → [Export](./export.md)
-- Canonical procedure → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)
+- Canonical procedure → [skills/edit-to-beat/SKILL.md](../../skills/edit-to-beat/SKILL.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
 This page describes AKARI Video v1.5.1 (released 2026-10-19).

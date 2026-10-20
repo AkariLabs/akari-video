@@ -15,7 +15,7 @@
 |---|---|---|
 | `create-project` | `akari new` | `packages/akari-launcher/src/new-command.mjs` |
 | `generate-narration` | `akari narration generate` | `packages/akari-launcher/src/narration-command.mjs` |
-| `beat-sync-edit` | `akari internal beat-sync-*` | `packages/akari-tools/bin/` の `beatmap.mjs`・`probe-frame.mjs`・`render-when-idle.sh` |
+| `edit-to-beat` | `akari internal beat-sync-*` | `packages/akari-tools/bin/` の `beatmap.mjs`・`probe-frame.mjs`・`render-when-idle.sh` |
 
 移設対象は 3 スキル分で、依存ゼロ側の launcher に 2 本、依存あり側の tools に 1 組
 （実行ファイルは 3 本）を置いた。各スキルから `bin/` は撤去し、手順書から上記 `akari`

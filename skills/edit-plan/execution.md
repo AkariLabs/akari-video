@@ -157,7 +157,7 @@ Add `--dry-run` to either command to inspect the JSON diff before writing. Prese
 
 ## 5. Validate and close the decision record
 
-- Run [edit-lint](../edit-lint/SKILL.md), fixing findings until v2 structure, unique track/item ids, source references, integer-frame timing, and HTML root all PASS.
+- Run [verify-edit](../verify-edit/SKILL.md), fixing findings until v2 structure, unique track/item ids, source references, integer-frame timing, and HTML root all PASS.
 - Check overlay CSS variables and prohibited CSS against overlay-authoring rules.
 - If an intermediate master was created, check boundaries with a per-source mapping table and actual frames.
 - Append execution results (generated-asset list, provenance, execution time) to `decision-log.md` and record that Checkpoint 3 was executed. Do not change earlier log rows.

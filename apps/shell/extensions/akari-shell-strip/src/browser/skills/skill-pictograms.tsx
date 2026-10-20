@@ -61,7 +61,7 @@ const catReviewDoc = doc(17, 6, 30, 32, 8);
 
 const SKILL_PARTS: Record<string, readonly Part[]> = {
     // レビューの指摘に応える: 書類 + 鉛筆
-    'address-review': [
+    'edit-from-review': [
         B(addressDoc[0]), L(addressDoc[1]), L('M14 21h13M14 26h13M14 31h7'),
         L('M-2.5-11h5v15l-2.5 5-2.5-5z', 'translate(46 23) rotate(45)'),
         A('M-2.5-7h5', 'translate(46 23) rotate(45)')
@@ -89,14 +89,14 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         A('M48 33.5c-2 0-3.2-1.4-3.2-3 0-1.8 1.4-2.6 2.2-4.6 2.6 1.4 4.2 3.2 4.2 5.2 0 1.4-1.2 2.4-3.2 2.4z')
     ],
     // 音のビートに編集を合わせる: 音符 + 拍
-    'beat-sync-edit': [
+    'edit-to-beat': [
         B(rr(6, 6, 28, 32, 4)),
         B(circ(13.5, 29, 2.8)), B(circ(25, 26, 2.8)), L('M16.3 29V17.5M27.8 26V14.5'),
         B('M16.3 13l11.5-3v4.5l-11.5 3z'),
         L('M41 15v14M53 15v14'), A('M47 10v24')
     ],
     // 録音 → 文字 → 命令: 波形 → 書類
-    'compile-review-session': [
+    'review-from-recording': [
         L('M9 18v8M15 14v16M21 17v10'), A('M26 22h5m-2.5-2.5L31 22l-2.5 2.5'),
         B(compileDoc[0]), L(compileDoc[1]), L('M40 21h10M40 26h10M40 31h6')
     ],
@@ -105,7 +105,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B('M8 8h14l4 5h30v24H8z'), A('M32 19.5v11M26.5 25h11')
     ],
     // カットの批評: はさみ
-    'critique-cut': [
+    'review-cut': [
         B(circ(16, 12, 4.5)), B(circ(16, 32, 4.5)),
         B('M18.8 15.3L52 29 20.4 12.1z'), B('M20.4 31.9L52 15 18.8 28.7z'), D(circ(37.2, 22, 1.8))
     ],
@@ -120,7 +120,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(circ(32, 22, 14.5)), L('M32 7.5c-6.5 4.5-6.5 24.5 0 29 6.5-4.5 6.5-24.5 0-29M17.5 22h29'), D(circ(41, 15, 1.7))
     ],
     // 編集の検査: チェックリスト
-    'edit-lint': [
+    'verify-edit': [
         B(rr(10, 6, 44, 32, 4)),
         L('M16 14l2.5 2.5 4.5-5M16 22l2.5 2.5 4.5-5M28 14h18M28 22h14M28 30h10'), A(circ(19.5, 30, 2.6))
     ],
@@ -192,7 +192,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(rr(13, 5, 22, 34, 4)), L('M21 9.5h6M21 34h6'), A('M40 17a8 8 0 0 1 0 10M46 12a14 14 0 0 1 0 20')
     ],
     // 検証: 盾 + チェック
-    verify: [
+    'verify-project': [
         B(circ(28, 18, 12)), L('M36.5 26.5L46 36'), A('M22 18.5l4.5 4.5 8-9')
     ]
 };
@@ -200,7 +200,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
 // 描画範囲の中心を枠の中心（32,22）へ寄せる平行移動（getBBox の実測から。0.5 刻み）
 const SKILL_SHIFT: Record<string, readonly [number, number]> = {
     akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'author-scene3d': [-1, 0],
-    'beat-sync-edit': [2.5, 0], 'create-project': [0, -0.5], verify: [1, 1],
+    'edit-to-beat': [2.5, 0], 'create-project': [0, -0.5], 'verify-project': [1, 1],
     'export-nle': [0.5, 0],
     'generate-image': [0.5, -1], 'generate-video': [0, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
     'overlay-authoring': [1, 1], 'render-cut': [0.5, -0.5], 'research-plan': [0, -0.5],

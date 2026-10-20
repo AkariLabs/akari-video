@@ -19,7 +19,7 @@ to `edit.json` (the editing save file) according to the selected mode. The skill
 "Cut for pacing"
 
 If you prefer to assemble and trim the timeline yourself first, save `edit.json` and ask “How does
-this feel so far?” or “Take a look at this cut.” [critique-cut](../../skills/critique-cut/SKILL.md)
+this feel so far?” or “Take a look at this cut.” [review-cut](../../skills/review-cut/SKILL.md)
 will inspect only the source ranges used by the timeline plus one contact sheet of the composited
 result, then return observations without rewriting the edit. Route broad structural changes back
 through edit-plan; for a point fix, add an annotation and continue with
@@ -119,7 +119,7 @@ contract under [Reference](../README.md#reference), but day to day, what matters
   Moving its last clip does not delete it; only the explicit “Delete track” action does.
 
 You're free to edit it by hand (git diff will track the changes). Just remember to run
-[edit-lint](./review-and-fix.md) afterward. To read it without loading the whole file, grep by id and
+[verify-edit](./review-and-fix.md) afterward. To read it without loading the whole file, grep by id and
 read only the matching lines; see [How to read edit.json](./edit-json-access.md).
 
 ## Script plans and memos

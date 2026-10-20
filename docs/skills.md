@@ -45,7 +45,7 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 | Skill | Owns | External tools / connections |
 |---|---|---|
 | [edit-plan](../skills/edit-plan/SKILL.md) | Reads the analysis report as primary evidence; direction, asset plan, and execution confirmed by explicit chat approval, landing in edit.json v2 and its motion parts. Also plans from no media through questions and a provisional plan | — |
-| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | Machine-generating a beat-snapped edit.json plus its motion parts from a "generator", using the declared beats / hits / sections of the audio as the only time source (PVs and showcases where the picture moves with the music) | ffmpeg / ffprobe (declarations are made by a human via declare-audio) |
+| [edit-to-beat](../skills/edit-to-beat/SKILL.md) | Machine-generating a beat-snapped edit.json plus its motion parts from a "generator", using the declared beats / hits / sections of the audio as the only time source (PVs and showcases where the picture moves with the music) | ffmpeg / ffprobe (declarations are made by a human via declare-audio) |
 | [design-world](../skills/design-world/SKILL.md) | Brief → scaffold → script → `world-map.json` → checked, built, measured flat-world video and overview | Bundled `akari world` CLI |
 
 ### Expression
@@ -62,10 +62,10 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [critique-cut](../skills/critique-cut/SKILL.md) | Reads a human-assembled edit.json, observes only the source ranges actually used, and returns a read-only critique of the current cut | `akari media` / `akari capture` |
-| [edit-lint](../skills/edit-lint/SKILL.md) | Deterministic checks of edit.json plus analysis.json / captions.json / media; frame inspection after PASS | Bundled deterministic CLI |
-| [compile-review-session](../skills/compile-review-session/SKILL.md) | Transcribing review recordings → resolving references → open comments in review.json | Three-layer STT (same as analyze-footage) |
-| [address-review](../skills/address-review/SKILL.md) | Executing open comments (the notes made in the app's annotation panel are in review.json too) by the book: fix → edit-lint → comment update (state machine) | Bundled `bin/respond.mjs` |
+| [review-cut](../skills/review-cut/SKILL.md) | Reads a human-assembled edit.json, observes only the source ranges actually used, and returns a read-only critique of the current cut | `akari media` / `akari capture` |
+| [verify-edit](../skills/verify-edit/SKILL.md) | Deterministic checks of edit.json plus analysis.json / captions.json / media; frame inspection after PASS | Bundled deterministic CLI |
+| [review-from-recording](../skills/review-from-recording/SKILL.md) | Transcribing review recordings → resolving references → open comments in review.json | Three-layer STT (same as analyze-footage) |
+| [edit-from-review](../skills/edit-from-review/SKILL.md) | Executing open comments (the notes made in the app's annotation panel are in review.json too) by the book: fix → verify-edit → comment update (state machine) | Bundled `bin/respond.mjs` |
 
 ### Export
 
@@ -85,8 +85,8 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
+| [verify-project](../skills/verify-project/SKILL.md) | The verification ladder (L0 / L1 / L2) required by task contracts | Build & tests of the current Theia stack |
 | [setup-connections](../skills/setup-connections/SKILL.md) | The single entrance for connection setup and inspection: generation providers, SNS, memory connections, API-key references, allowed models, cost-approval policy, and what is usable now (tools, media services, 3D). **The only gateway to paid generation and external publishing**; choosing a model from the allowed set belongs to the production skills | `.akari/connections.json` + a free, read-only doctor; `akari connect list` / `akari connect exec` |
-| [verify](../skills/verify/SKILL.md) | The verification ladder (L0 / L1 / L2) required by task contracts | Build & tests of the current Theia stack |
 
 ## 3D comes in two paths
 

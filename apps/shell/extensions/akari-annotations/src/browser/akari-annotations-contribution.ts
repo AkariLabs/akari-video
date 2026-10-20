@@ -1404,7 +1404,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /**
      * 「キャンバスを開く」（contract-2026-07-26-canvas-surface）: 出力アスペクトの白板を
      * ダイアログで開き、閉じたら review/canvas/c-NNNN/ に記録原本を書く（review.json への着地は
-     * 別途 skills/compile-review-session を実行する — §4）。
+     * 別途 skills/review-from-recording を実行する — §4）。
      */
     protected async openCanvas(): Promise<void> {
         const location = await this.locate();

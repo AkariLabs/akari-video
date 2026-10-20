@@ -77,7 +77,7 @@ const invalidCases = [
   ["kit-manifest-v1-invalid-skill-dir", /skills\[0\]\.dir が見つかりません/],
   ["kit-manifest-v1-invalid-skill-name", /SKILL\.md frontmatter の name が一致しません/],
   ["kit-manifest-v1-invalid-runtime", /未登録の runtime id があります: no-such-runtime/],
-  ["kit-manifest-v1-name-collision", /公開スキル名と重複しています: edit-lint/],
+  ["kit-manifest-v1-name-collision", /公開スキル名と重複しています: verify-edit/],
 ];
 
 for (const [fixture, message] of invalidCases) {

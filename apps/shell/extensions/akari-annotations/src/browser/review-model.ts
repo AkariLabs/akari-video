@@ -308,7 +308,7 @@ export class ReviewModel {
 
     /**
      * キャンバス面の記録原本の保存（contract-2026-07-26-canvas-surface §1/§2）。review.json への
-     * 着地は行わない — skills/compile-review-session が review/canvas/c-NNNN/ を検出して行う
+     * 着地は行わない — skills/review-from-recording が review/canvas/c-NNNN/ を検出して行う
      * （§4。review セッション s-NNNN と同じ Raw → コンパイルの 2 段構え）。
      */
     async saveCanvas(request: Omit<SaveCanvasRequest, 'projectRootUri'>): Promise<SaveCanvasResult> {

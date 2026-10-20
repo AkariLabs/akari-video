@@ -267,7 +267,7 @@ Windows でシンボリックリンクを作るには通常のアカウントに
 `tar` はリポジトリ内のシンボリックリンクすべてで失敗し、**exit 1** で終わります。
 
 ```
-.agents/skills/address-review: Can't create '\\?\C:\Users\<ユーザー名>\.akari\app\.agents\skills\address-review': Invalid argument
+.agents/skills/edit-from-review: Can't create '\\?\C:\Users\<ユーザー名>\.akari\app\.agents\skills\edit-from-review': Invalid argument
 .claude/skills/...   （同様）
 .codex/skills/...    （同様）
 .cursor/skills/...   （同様）

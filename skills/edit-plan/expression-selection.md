@@ -191,7 +191,7 @@ OFL-1.1 false
 
 Old ATF search results are unavailable after retirement. Check actual HTML-asset data after acquisition.
 
-With case 1 `sc-02` / `sc-03` overlay HTML in a temporary project's `edit.json` (`version: 0` plus one `source`), `validate-edit.mjs` returned `OK` and `edit-lint` returned `PASS (0 findings, 5 skipped)`. This measured that these selections pass existing validation. The authoritative check remains [edit-lint](../edit-lint/SKILL.md) from [execution.md](execution.md) §4; this leaf adds no validation procedure.
+With case 1 `sc-02` / `sc-03` overlay HTML in a temporary project's `edit.json` (`version: 0` plus one `source`), `validate-edit.mjs` returned `OK` and the lint CLI returned `PASS (0 findings, 5 skipped)`. This measured that these selections pass existing validation. The authoritative check remains [verify-edit](../verify-edit/SKILL.md) from [execution.md](execution.md) §4; this leaf adds no validation procedure.
 
 ## Common mistakes
 

@@ -47,7 +47,7 @@ DL・sha256 検証・適用まで実行。それ以外（npm グローバル / g
 `akari init`（作業場の作成・確認のみ）/
 `akari new <target-dir> [--template <path>]`（新規プロジェクト作成）/
 `akari narration generate ...`（VOICEVOX / fal-qwen3 ナレーション生成）/
-`akari internal beat-sync-<beatmap|probe-frame|render-when-idle> ...`（beat-sync-edit 内部実行物）/
+`akari internal beat-sync-<beatmap|probe-frame|render-when-idle> ...`（edit-to-beat 内部実行物）/
 `akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）/
 `akari store <connect|status|install|download|disconnect>`（AKARI Store 連携。マイページで発行した
 接続トークンを `~/.akari/store-credentials.json`（0600）に保存し、購入済み一覧の確認と

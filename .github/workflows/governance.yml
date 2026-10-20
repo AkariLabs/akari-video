@@ -239,7 +239,7 @@ jobs:
           if [ -n "$bad" ]; then
             echo "::error::evidence/ に記録物が新しく足されています（$(printf '%s' "$bad" | grep -c .) 件）"
             printf '%s' "$bad" | head -50 | sed 's/^/  /'
-            echo "  -> スクショ・動画・音声・ログ・計測 JSON などの検証記録はリポにコミットしない（skills/verify/SKILL.md の L1「観測・記録」）。"
+            echo "  -> スクショ・動画・音声・ログ・計測 JSON などの検証記録はリポにコミットしない（skills/verify-project/SKILL.md の L1「観測・記録」）。"
             echo "     evidence/ に足してよいのは再現スクリプト（.mjs / .cjs / .js / .sh）と README.md だけ。"
             exit 1
           fi

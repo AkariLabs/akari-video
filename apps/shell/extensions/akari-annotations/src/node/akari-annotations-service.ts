@@ -1982,7 +1982,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     /**
      * キャンバス面（contract-2026-07-26-canvas-surface §1/§2）の記録原本を
      * `project/review/canvas/c-NNNN/{canvas.json,strokes.json}` へ書く。review.json への着地は
-     * このメソッドの責務外（skills/compile-review-session が canvas ディレクトリを検出して行う —
+     * このメソッドの責務外（skills/review-from-recording が canvas ディレクトリを検出して行う —
      * §4 のコンパイル分離を review セッション（s-NNNN）と同じ構造で踏襲する）。
      */
     async saveCanvas(request: SaveCanvasRequest): Promise<SaveCanvasResult> {

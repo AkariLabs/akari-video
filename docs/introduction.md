@@ -86,8 +86,8 @@ Each stage of production is an independent skill, usable from wherever you need 
                author-scene3d      3D scenes (live Three.js by default / Blender bake)
                generate-narration  narration (free local / voice clone)
    ↓
-[QA & review]  edit-lint           deterministic CLI checks + frame inspection
-               compile-review-session / address-review   spoken review → tickets → fixes
+[QA & review]  verify-edit         deterministic CLI checks + frame inspection
+               review-from-recording / edit-from-review   spoken review → tickets → fixes
    ↓
 [Export]       render-cut          plan → approval → render → verify
    ↓

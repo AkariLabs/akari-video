@@ -107,7 +107,7 @@ the project does not qualify, and `--engine osr` always works.
 
 **Q. Can I edit edit.json by hand?**
 Sure. It's plain text, so direct edits and git tracking both work. After editing,
-run [edit-lint](../guides/review-and-fix.md).
+run [verify-edit](../guides/review-and-fix.md).
 
 **Q. If I reorder cuts, do captions and annotations drift out of sync?**
 No. Timestamps are always persisted as (asset, seconds within the source asset),

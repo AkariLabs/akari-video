@@ -176,9 +176,9 @@ test("unknown annotation status fails", () => {
   assert.match(executed.stderr, /open \/ addressed \/ resolved/);
 });
 
-test("rider r1 regression: skills/address-review dev-fixture (2 pre-existing input:\"session\" records) now passes", () => {
+test("rider r1 regression: skills/edit-from-review dev-fixture (2 pre-existing input:\"session\" records) now passes", () => {
   const fixturePath = join(
-    packageRoot, "..", "..", "skills", "address-review", "dev-fixtures", "fixture-project", "review.json",
+    packageRoot, "..", "..", "skills", "edit-from-review", "dev-fixtures", "fixture-project", "review.json",
   );
   const executed = spawnSync(process.execPath, [cliPath, fixturePath], { encoding: "utf8" });
   assert.equal(executed.status, 0, executed.stderr);

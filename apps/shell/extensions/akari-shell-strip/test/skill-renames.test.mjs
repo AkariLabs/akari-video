@@ -41,8 +41,8 @@ test('旧名で引いても、一覧の説明・カテゴリ・絵は新名の�
     assert.equal(pictogram.dedicated, true);
 });
 
-test('改名先が edit-lint ならカテゴリも新名から引く', () => {
-    const rename = [{ from: 'review-old', to: 'edit-lint' }];
-    assert.equal(skillCategory('review-old', '', rename), 'review');
+test('改名先が verify-edit ならカテゴリも新名から引く', () => {
+    const rename = [{ from: 'review-old', to: 'verify-edit' }];
+    assert.equal(skillCategory('review-old', '', rename), 'edit');
     assert.equal(skillPictogramFor('review-old', 'other', rename).dedicated, true);
 });

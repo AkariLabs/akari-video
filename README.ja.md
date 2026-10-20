@@ -91,7 +91,7 @@ flowchart LR
     A["企画<br/>research-plan"] --> B["素材分析<br/>analyze-footage"]
     B --> C["編集計画<br/>edit-plan"]
     C --> D["テロップ / 3D / ナレーション<br/>overlay-authoring<br/>author-scene3d<br/>generate-narration"]
-    D --> E["QA・レビュー<br/>edit-lint<br/>address-review"]
+    D --> E["QA・レビュー<br/>verify-edit<br/>edit-from-review"]
     E --> F["書き出し<br/>render-cut"]
     F --> G["素材化<br/>harvest-asset"]
     F --> H["作り方を残す<br/>record-playbook"]

@@ -6,7 +6,7 @@
   "version": 1,
   "requires": { "cli": ">=0.1.70" },
   "skills": [
-    { "dir": "skills/edit-lint", "name": "edit-lint" }
+    { "dir": "skills/verify-edit", "name": "verify-edit" }
   ],
   "license": "LicenseRef-AKARI-Assets-v0"
 }

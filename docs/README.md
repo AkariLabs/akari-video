@@ -29,12 +29,12 @@ Task-based guides, ordered by the flow of production.
 | [Plan your edit](./guides/plan-your-edit.md) | Three approval steps into edit.json (edit-plan) |
 | [Overlays and captions](./guides/overlays-and-captions.md) | AI-drawn expression and motion parts with knobs you can touch (overlay-authoring / author-scene3d) |
 | [Narration](./guides/narration.md) | Free local voices / voice cloning (generate-narration) |
-| [Review and fix](./guides/review-and-fix.md) | Machine checks, ticketing spoken reviews, fixes (edit-lint / compile-review-session / address-review) |
+| [Review and fix](./guides/review-and-fix.md) | Machine checks, ticketing spoken reviews, fixes (verify-edit / review-from-recording / edit-from-review) |
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
 | [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless 3D settings baked into video assets (author-scene3d) |
 | [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
-| [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (beat-sync-edit) |
+| [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (edit-to-beat) |
 | [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |
 | [Generation models (machine-generated)](./guides/generation-models.md) | Facts about price, duration, inputs, audio, and calibration |
 
@@ -116,7 +116,7 @@ All contracts follow the
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | Task contract v0 (Japanese) |
 | [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | Channel people records, local photo and voice files, speaker links, and design assets (Japanese) |
 | [contract-2026-10-11-speaker-split-v0.md](./contract-2026-10-11-speaker-split-v0.md) | Optional speaker diarization, local voice matching suggestions, and human speaker decisions (Japanese) |
-| [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`edit-lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
+| [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`akari lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |

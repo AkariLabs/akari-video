@@ -45,7 +45,7 @@ Resolve node in this order: `AKARI_NODE_BIN` → node on PATH (20 or later) → 
 
 Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). This skill does not write them. If another stage must write them, use Edit on the matching lines or the edit-store script API.
 
-1. Confirm that the target project's `edit.json` is approved and `.akari/lint.json` has `verdict` `pass`. Otherwise run `edit-lint` and fix it. Use `--force` only with explicit approval to override the lint result.
+1. Confirm that the target project's `edit.json` is approved and `.akari/lint.json` has `verdict` `pass`. Otherwise run `akari lint` and fix it. Use `--force` only with explicit approval to override the lint result.
 2. Generate only the plan.
 
    ```sh

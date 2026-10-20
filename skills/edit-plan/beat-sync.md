@@ -398,7 +398,7 @@ Those PASS results also confirm mapped `gain_db` values -6.8 / -4.8 lie within t
 
 ## Validation
 
-Validate written `audio.sfx[]` with the existing `edit.json` procedure, [edit-lint](../edit-lint/SKILL.md) in [execution.md](execution.md) §4. edit-lint checks:
+Validate written `audio.sfx[]` with the existing `edit.json` procedure, [verify-edit](../verify-edit/SKILL.md) in [execution.md](execution.md) §4. edit-lint checks:
 
 - Negative or nonfinite `audio.sfx[].t` is an error; beyond timeline length is a warning.
 - `audio.sfx[].gain_db` outside `[-60, 12]` is an error.

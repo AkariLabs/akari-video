@@ -48,7 +48,7 @@ export { readCredentials, resolveCredentialsPath } from './store-device-connect.
 /**
  * AKARI Store 連携（`akari store <connect|status|download|disconnect>`）。
  *
- * `connect` の既定は**デバイスコードフロー**（2026-08-03 オーナー要望「トークンの
+ * `akari store connect` の既定は**デバイスコードフロー**（2026-08-03 オーナー要望「トークンの
  * 使い方とかみんなよくわからん」への回答）: ブラウザが開き、ログイン → 承認ボタンで
  * 完了する。トークンはユーザーの目に触れない。`--token akst_...` は上級者・自動化向けの
  * 手動フォールバック。取得したトークンで本体から「何を購入済みか」（entitlements API）と

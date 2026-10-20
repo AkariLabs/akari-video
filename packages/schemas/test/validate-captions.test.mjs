@@ -178,7 +178,7 @@ for (const captionsPath of [
   "packages/edit-lint/fixtures/captions-words-valid/captions.json",
   "packages/edit-lint/fixtures/captions-reveal-valid/captions.json",
   "packages/edit-lint/fixtures/captions-display-text-valid/captions.json",
-  "skills/address-review/dev-fixtures/fixture-project/captions.json",
+  "skills/edit-from-review/dev-fixtures/fixture-project/captions.json",
   "apps/shell/extensions/akari-annotations/evidence/timeline-tracks/fixture/captions.json",
 ]) {
   test(`existing captions remain valid unchanged: ${captionsPath}`, () => {

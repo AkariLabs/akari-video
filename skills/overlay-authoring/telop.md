@@ -81,7 +81,7 @@ Use slots to share one HTML file across items while putting each item's text in 
 
 ## Fonts (`@font-face`)
 
-`edit-lint` finding `overlays.fragment-font-glyphs` warns when a character is absent from every font referenced by the fragment. It examines the union of font cmaps, so another referenced font can mask a missing glyph in one element's font. If runtime script creates characters, declare them on the fragment root as `data-akari-font-chars="使う可能性のある字"`. Without that declaration, an info finding notes incomplete static collection.
+The lint CLI reports `overlays.fragment-font-glyphs` when a character is absent from every font referenced by the fragment. It examines the union of font cmaps, so another referenced font can mask a missing glyph in one element's font. If runtime script creates characters, declare them on the fragment root as `data-akari-font-chars="使う可能性のある字"`. Without that declaration, an info finding notes incomplete static collection.
 
 Actual display and warnings can differ due to `src` fallbacks or fonts in another fragment. The check does not track `unicode-range`, `source.text` substitutions in component items, or combining-character composition.
 
