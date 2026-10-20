@@ -14,7 +14,7 @@ const { SkillPictogram, skillPictogramFor, DEDICATED_PICTOGRAM_NAMES } =
     require('../lib/browser/skills/skill-pictograms.js');
 
 const names = [
-    'address-review', 'akari', 'analyze-footage', 'analyze-project', 'bake-3d',
+    'address-review', 'akari', 'analyze-footage', 'analyze-project', 'author-scene3d',
     'beat-sync-edit', 'compile-review-session', 'create-project', 'critique-cut',
     'declare-audio', 'design-world', 'edit-lint', 'edit-plan', 'export-nle',
     'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'manage-connections',

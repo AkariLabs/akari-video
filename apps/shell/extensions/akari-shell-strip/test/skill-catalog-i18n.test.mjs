@@ -23,10 +23,10 @@ test('skill cards use the catalog and preserve frontmatter metadata', () => {
 // 同梱する skills/*/SKILL.md の全部に ja / en の title と summary があることを求める（新しいスキルを足したら辞書も足す）。
 test('skillCatalogName folds hyphens before letters and digits', () => {
     assert.equal(skillCatalogName('record-playbook'), 'recordPlaybook');
-    assert.equal(skillCatalogName('bake-3d'), 'bake3d');
+    assert.equal(skillCatalogName('author-scene3d'), 'authorScene3d');
     try {
         setLanguage('ja');
-        assert.equal(skillDisplay({ name: 'bake-3d', description: 'x' }).description, '3D シーンを Blender で映像素材に焼き、検証して配置');
+        assert.equal(skillDisplay({ name: 'author-scene3d', description: 'x' }).description, '3D の入口。既定は Three.js のライブ 3D、出せない絵だけ Blender で焼く');
         assert.equal(skillDisplay({ name: 'record-playbook', description: 'x' }).description, '終わったプロジェクトの作り方を playbook.md / playbook.json に記録（素材は役割ごとの仮枠）');
     } finally { setLanguage(undefined); }
 });

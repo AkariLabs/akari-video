@@ -28,12 +28,12 @@
 | [ゼロから企画する](./guides/plan-from-scratch.ja.md) | ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト（research-plan） |
 | [素材を分析する](./guides/analyze-footage.ja.md) | プロキシ・文字起こし・キーフレーム抽出と横断分析（analyze-footage / analyze-project） |
 | [編集計画を立てて実行する](./guides/plan-your-edit.ja.md) | 3 段階承認で edit.json へ（edit-plan） |
-| [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.ja.md) | AI が描く表現と、ツマミで触れる動く部品（overlay-authoring） |
+| [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.ja.md) | AI が描く表現と、ツマミで触れる動く部品（overlay-authoring / author-scene3d） |
 | [ナレーションを付ける](./guides/narration.ja.md) | ローカル無償 / 声クローン（generate-narration） |
 | [QA・レビューして直す](./guides/review-and-fix.ja.md) | 機械検査・口頭レビューのチケット化・対応（edit-lint / compile-review-session / address-review） |
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
 | [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / setup-audio-library / harvest-asset） |
-| [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（bake-3d） |
+| [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（author-scene3d） |
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
 | [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（beat-sync-edit） |
 | [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |

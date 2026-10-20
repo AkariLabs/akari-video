@@ -1,10 +1,11 @@
-**English** | [日本語](./bake-3d.ja.md)
+**English** | [日本語](bake-3d.ja.md)
 
 # Bake a 3D scene
 
-The default path for 3D is **live 3D** drawn with Three.js (motion parts; `overlay-authoring`).
-Baking is the **other path**, for images that path can't produce: it uses Blender to **bake a 3D
-scene into video footage**. The skill is `bake-3d`. The baked footage goes into `edit.json` as an
+The default path for 3D is **live 3D** drawn with Three.js (motion parts; see
+`author-scene3d/live.md`). Baking is the **other path**, for images live 3D can't produce: it uses
+Blender to **bake a 3D scene into video footage**. Both paths are part of the skill
+`author-scene3d`; this page covers the bake path (`bake.md`). The baked footage goes into `edit.json` as an
 ordinary clip.
 
 On screen, a bake recipe is called **3D settings** (an item in the asset filter, and "3D settings"
@@ -49,7 +50,7 @@ motion alone, bake the animation into a glb in Blender and play it through the T
 
 ## Three.js vs. baking
 
-| | Live 3D (overlay-authoring; the default) | Baked (bake-3d) |
+| | Live 3D (author-scene3d/live.md; the default) | Baked (author-scene3d/bake.md) |
 |---|---|---|
 | What it is | A motion part drawn with Three.js (loads a `.glb`) | An mp4 clip baked in Blender |
 | How touchable | Instantly adjustable via knobs (CSS variables), the Inspector's 3D section, and keyframes | Change parameters → re-bake |
@@ -60,7 +61,7 @@ Live 3D reads self-contained `.glb` files with no external buffers.
 
 ## Prerequisites
 
-- Blender installed locally (if not yet installed, bake-3d checks for it and walks you
+- Blender installed locally (if not yet installed, the bake path checks for it and walks you
   through setup; it never installs without your approval). Point to it with the `AKARI_BLENDER_BIN`
   environment variable if needed
 

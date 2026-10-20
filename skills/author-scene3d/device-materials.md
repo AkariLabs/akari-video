@@ -8,12 +8,12 @@ Treat the screen, key plastic, legends, chassis, and trackpad separately. Do not
 
 [scripts/device_materials.py](scripts/device_materials.py) applies explicitly specified material coefficients only to the JSON chunk of a GLB. It preserves the BIN chunk's images, geometry, cameras, and animations byte for byte. It also preserves `emissiveTexture`, `emissiveFactor`, emissive strength, unspecified coefficients, textures, and extensions. Do not add unsupported keys to runtime `materialOverrides`.
 
-Calling `export_glb(filepath, profiles, **export_options)` from a Blender recipe makes normal GLB export and material settings one generation step. Load the module from this skill's `scripts/` with `importlib.util.spec_from_file_location`. In a deployed project the helper is at `.claude/skills/overlay-authoring/scripts/device_materials.py`. If embedding it in a stand-alone recipe, bundle the helper with the recipe; never embed a user-specific absolute path.
+Calling `export_glb(filepath, profiles, **export_options)` from a Blender recipe makes normal GLB export and material settings one generation step. Load the module from this skill's `scripts/` with `importlib.util.spec_from_file_location`. In a deployed project the helper is at `.claude/skills/author-scene3d/scripts/device_materials.py`. If embedding it in a stand-alone recipe, bundle the helper with the recipe; never embed a user-specific absolute path.
 
 Run Python 3 to transform an existing model into a derived preview asset:
 
 ```sh
-python3 .claude/skills/overlay-authoring/scripts/device_materials.py \
+python3 .claude/skills/author-scene3d/scripts/device_materials.py \
   --input assets/models/original.glb --output assets/generated/device-matte.glb \
   --profiles .akari/work/keep/device-material-profiles.json \
   --report .akari/reports/device-materials.json

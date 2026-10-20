@@ -156,7 +156,7 @@ akari template list [--json] [--category <category>] [--tag <tag>] [--channel <c
 
 ## 次のステップ
 
-- 3D 素材を作る → [3D シーンをベイクする](./bake-3d.ja.md)
+- 3D 素材を作る → [3D シーンをベイクする](bake-3d.ja.md)
 - 素材の宣言形式（meta.json）の仕様 → [Reference](../README.ja.md#reference)
 
 <!-- BEGIN GENERATED facts:stamp -->

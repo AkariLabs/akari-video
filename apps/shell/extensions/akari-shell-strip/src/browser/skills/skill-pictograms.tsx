@@ -81,8 +81,8 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(circ(18, 16, 7.5)), L('M12.7 21.3L7 27'),
         L(rr(31, 24, 6, 13, 1)), A(rr(40, 8, 6, 29, 1)), L(rr(49, 17, 6, 20, 1))
     ],
-    // 3D を焼く: 立方体 + 炎
-    'bake-3d': [
+    // 3D を組む（既定）/焼く: 立方体 + 炎
+    'author-scene3d': [
         B('M22 7.5l12.5 7.25v14.5L22 36.5 9.5 29.25v-14.5z'),
         L('M9.5 14.75L22 22l12.5-7.25M22 22v14.5'),
         L('M48 36c-5.5 0-8.5-3.5-8.5-8 0-4 3-6 4.5-10 .8 2 2 3 3 3.5-.5-5 .5-9.5 3-14 4 3 6.5 8 6.5 15 0 8-3.5 13.5-8.5 13.5z'),
@@ -204,7 +204,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
 
 // 描画範囲の中心を枠の中心（32,22）へ寄せる平行移動（getBBox の実測から。0.5 刻み）
 const SKILL_SHIFT: Record<string, readonly [number, number]> = {
-    akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'bake-3d': [-1, 0],
+    akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'author-scene3d': [-1, 0],
     'beat-sync-edit': [2.5, 0], 'create-project': [0, -0.5], verify: [1, 1],
     'export-nle': [0.5, 0],
     'generate-image': [0.5, -1], 'generate-video': [0, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],

@@ -15,7 +15,7 @@ const expected = {
     akari: 'other',
     'analyze-footage': 'analysis',
     'analyze-project': 'analysis',
-    'bake-3d': 'other',
+    'author-scene3d': 'other',
     'beat-sync-edit': 'edit',
     'compile-review-session': 'review',
     'create-project': 'other',

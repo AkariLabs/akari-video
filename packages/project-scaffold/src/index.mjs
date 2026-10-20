@@ -50,7 +50,7 @@ const FALLBACK_AGENT_GUIDANCE = [
     '節目の記録は `.akari/events/` に 1 件ずつ追加し、すでにある記録は変更しない。',
     '',
     'スキルは `/analyze-footage`、`/edit-plan`、`/overlay-authoring`、`/setup-library`、',
-    '`/harvest-asset`、`/bake-3d` の素の名前で使う。手順を直接読む場合は',
+    '`/harvest-asset`、`/author-scene3d` の素の名前で使う。手順を直接読む場合は',
     '`.claude/skills/<スキル名>/SKILL.md` を開く。',
     'Codex / Cursor 等のハーネスでは `.agents/skills/` / `.cursor/skills/` / `.codex/skills/`（`.claude/skills/` への',
     'symlink）から同じスキルが自動発見される。',

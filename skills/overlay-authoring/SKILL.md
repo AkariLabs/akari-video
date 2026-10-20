@@ -1,6 +1,6 @@
 ---
 name: overlay-authoring
-description: Author and review AKARI Video overlay HTML, captions, tables and charts, Three.js 3D, motion graphics, thumbnails, and text-behind-person effects. Routes the work to the relevant authoring leaf.
+description: Author and review AKARI Video overlay HTML, captions, tables and charts, motion graphics, thumbnails, and text-behind-person effects. Routes the work to the relevant authoring leaf.
 ---
 
 # FORBIDDEN-level hard rules
@@ -19,7 +19,7 @@ Read lang/<content-language>.md for language-specific rules (content language: -
 2. **Never put timing on the fragment root.** `edit.json` is the SSOT for timeline start and duration; the runtime applies these to the outer container. Do not place `data-start` / `data-duration` on the fragment root. If the asset's natural duration is needed, record it in seconds as `data-akari-natural-duration`; write internal motion in local seconds starting at clip time 0.
 3. **Never animate layout every frame.** Animate mainly `transform` / `opacity`. `filter: blur()` and `backdrop-filter` are forbidden over 4K video.
 4. **Never determine an image from wall-clock time.** Do not depend on `Date.now()`, elapsed differences from `performance.now()`, `setTimeout`, `setInterval`, accumulated rAF deltas, or unseeded randomness. Use deterministic motion so setting WAAPI `currentTime` on seek reproduces the same frame.
-5. **Do not introduce another 3D approach.** Use Three.js + glTF; provide an editing proxy to `VideoTexture`. Never connect the original video directly as a preview texture.
+5. **3D work belongs to [author-scene3d](../author-scene3d/SKILL.md).** This skill covers 2D motion parts; do not author 3D here.
 6. **Do not create multiple top-level elements.** The HTML fragment must have exactly one root element so the AKARI outer container's translate / scale / rotate always applies.
 
 ## Pointer hit testing
@@ -49,7 +49,7 @@ Read only the decision area needed.
 
 - Subtitle and telop readability and placement: [telop.md](telop.md). Language-specific typesetting is in lang/<code>.md.
 - HTML/CSS structure and animation for tables and charts: [table.md](table.md)
-- Three.js + glTF, video textures, and 3D performance: [3d.md](3d.md). Also read [device-materials.md](device-materials.md) for device screens, keys, and reflection tuning.
+- 3D scenes (Three.js + glTF live scenes, 3D text, device screens, Blender bake): [author-scene3d](../author-scene3d/SKILL.md). Read it before any 3D fragment; this skill covers 2D only.
 - Glass refraction declarations, nesting, knobs, and still backdrops: [glass.md](glass.md)
 - Canvas 2D worlds, DOM-sheet synchronization, and bird's-eye views: [world.md](world.md)
 - Register new rendering types in the `packages/overlay-runtime/runtimes.mjs` manifest (procedure: `packages/overlay-runtime/README.md`).

@@ -62,7 +62,8 @@ All directories beneath `.claude/skills/` are available as-is. Main skills:
 - `/analyze-footage` … Analysis of individual assets
 - `/analyze-project` … Integrated analysis of multiple assets and project context
 - `/edit-plan` … Edit planning, reporting, approval, and generation
-- `/overlay-authoring` … Creation of captions, diagrams, 3D, and other visual elements
+- `/overlay-authoring` … Creation of captions, diagrams, glass, motion, thumbnails, and other 2D visual elements
+- `/author-scene3d` … 3D scenes (Three.js by default, Blender bake only when needed)
 - `/edit-lint` … Deterministic checking and QA of edits
 - `/render-cut` … Export and verification of approved edits
 - `/setup-library` … Asset library preparation

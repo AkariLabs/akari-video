@@ -16,7 +16,7 @@ This leaf specifies **candidate selection**, not a waiver of approval. Candidate
 
 | Scene meaning | First choice | Second choice | Do not use |
 |---|---|---|---|
-| Product or object explanation | 3D model (bake-3d catalog) | Live-action B-roll | Text-only explanation |
+| Product or object explanation | 3D model (author-scene3d; the 3D settings catalog) | Live-action B-roll | Text-only explanation |
 | Data, numbers, comparison | HTML chart/table | Text effect emphasizing a number | Decorative 3D |
 | Steps or operation | Screen recording or reference material | HTML diagram | Unrelated stock footage |
 | Place or atmosphere | Live-action B-roll | Stock footage | — |
@@ -33,7 +33,7 @@ This leaf specifies **candidate selection**, not a waiver of approval. Candidate
 
 | Means in the table | `allowed_means` value |
 |---|---|
-| 3D model (bake-3d catalog) / 3D only for spatial concepts / decorative 3D | `3D` |
+| 3D model (author-scene3d) / 3D only for spatial concepts / decorative 3D | `3D` |
 | Live-action B-roll | `実写 B ロール` |
 | Stock footage | `ストック素材` |
 | Screen recording or reference material | `スクリーン録画・資料` |

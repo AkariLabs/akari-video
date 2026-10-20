@@ -1,11 +1,9 @@
----
-name: bake-3d
-description: Bake a 3D recipe (scene.py) to MP4 with headless Blender, verify it, and place it in the asset library or project. **The default 3D path is a Three.js overlay (overlay-authoring/3d.md).** Use this skill only for images the declarative runtime cannot produce (depth of field, motion blur, ray-traced reflections, GI, particles), to pre-bake at least three simultaneous 3D scenes down to two or fewer, or to deliver a clip to the asset library.
----
 
-# FORBIDDEN-level hard rules
+# Bake a 3D recipe (scene.py) to MP4
 
-> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
+This leaf is the exception path. Choose it only under the conditions in [SKILL.md](SKILL.md).
+
+## Hard rules
 
 1. **Never report that a bake succeeded without running it.** Do not treat it as complete until you check the output MP4 with ffprobe, extract frames, and inspect them visually.
 2. **Do not introduce undeclared external inputs to scene.py.** Environment variables, wall-clock time, random numbers without an explicit seed, and network fetches are forbidden. Preserve: same recipe + same params + same Blender version → same video.
@@ -14,25 +12,13 @@ description: Bake a 3D recipe (scene.py) to MP4 with headless Blender, verify it
 5. **Do not install Blender without the user's approval** (same rule as [setup-library/tools-check.md](../setup-library/tools-check.md)).
 6. **Do not report library intake as verified without passing `node packages/schemas/bin/validate-asset.mjs`.**
 
-# Choose the path (must read before starting)
-
-**The default 3D path is A = Three.js overlay** (`../overlay-authoring/3d.md`). Choose this skill (path B) only when A cannot produce the required image. "I want a timeline clip, so use B" is **wrong**: choose by **required capability**, not destination.
-
-Choose B only when at least one condition applies:
-
-1. The declarative runtime cannot produce the image: depth of field, motion blur, ray-traced reflections, GI, or particles.
-2. Three or more 3D scenes must appear simultaneously, exceeding the export performance budget (bake some to reduce the count to two or fewer).
-3. Deliver a reusable clip to the asset library (make the recipe the SSOT asset).
-
-Otherwise return to A. B's output **always includes an opaque background**. The composite then needs continuous background-color matching, and rebaking takes on the order of 10 minutes (an actual production on 2026-08-04 used B where A sufficed and incurred rework). For custom opening, closing, or rotation motion, bake the clip **into a glb and play it through A**; this does not justify B.
-
-# Contract
+## Contract
 
 Canonical source: [`docs/contract-2026-07-14-3d-bake-recipe.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md).
 Recipe = SSOT (scene.py + parameters + asset references); baked output = reproducible cache.
 Treat the baked MP4 as an ordinary edit.json clip (no engine or viewer changes).
 
-# 1. Find Blender
+## 1. Find Blender
 
 ```sh
 BLENDER="${AKARI_BLENDER_BIN:-}"
@@ -43,7 +29,7 @@ test -x "$BLENDER" && "$BLENDER" --version | head -1
 
 If unavailable, suggest `brew install --cask blender` and stop; do not run it without approval.
 
-# 2. scene.py authoring contract
+## 2. scene.py authoring contract
 
 Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](https://github.com/AkariLabs/akari-video/blob/main/assets/scene3d/vintage-camera-turntable/scene.py)
 
@@ -55,7 +41,7 @@ Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](h
 - **Blender 5.x API caution** (measured on 5.1.2): engine ID is `BLENDER_EEVEE` (`_NEXT` is obsolete). For video, set `image_settings.media_type = "VIDEO"` before `file_format = "FFMPEG"` (4.x has no media_type; branch with hasattr).
 - Blender may append the frame range to the output name. After rendering, normalize it to the `--out` name (follow the reference implementation's `render()`).
 
-# 3. Run the bake
+## 3. Run the bake
 
 ```sh
 "$BLENDER" -b -P scene.py -- \
@@ -67,19 +53,19 @@ Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](h
 - Measured guide (M-series Mac / EEVEE / 720p / 16 samples): about 0.5–0.6 seconds per frame. A four-second draft takes about one minute.
 - Baked outputs go in `bakes/` (already gitignored: `*.mp4`) and may be deleted. Bake final only immediately before project export.
 
-# 4. Verification (required)
+## 4. Verification (required)
 
 1. Use `ffprobe` to confirm resolution, fps, and frame count match the requested values.
 2. Extract and visually inspect the first, middle, and last frames with `ffmpeg -ss <t> -frames:v 1` (composition, lighting, and animation direction).
 3. For library intake, make `preview.png` from a middle frame and pass `node packages/schemas/bin/validate-asset.mjs assets/scene3d/<id>`.
 
-# 5. Library intake / project use
+## 5. Library intake / project use
 
 - Use the asset-library intake standard: admit only recipes with high design cost in scene construction, lighting, or camera work.
 - Declare meta.json knobs as `param` and `requires: ["blender"]`. Record asset source, license, and packaging procedure in provenance.
 - Project use = copy the full recipe to `<project>/assets/scene3d/<id>/` → override params → bake → place the MP4 as a clip in edit.json. Record recipe ID, version, params, and Blender version in provenance.
 
-# Common mistakes
+## Common mistakes
 
 - Reporting that headless EEVEE can bake without testing it (GPU environment dependent; always execute it).
 - Writing animation that depends on wall-clock time or `random()`, as if using `THREE.Clock`.

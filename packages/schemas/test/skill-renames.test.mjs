@@ -40,6 +40,10 @@ test('実リポの skills/renames.json は schema と参照整合の両方を通
     assert.equal(table.version, 1);
     assert.ok(table.renames.length >= 1, '改名が入ったら表に 1 行以上ある');
     assert.ok(table.renames.every(row => row.from !== row.to));
+    assert.deepEqual(
+        table.renames.filter(row => row.from === 'bake-3d'),
+        [{ from: 'bake-3d', to: 'author-scene3d', since: '1.5.2' }]
+    );
     assert.equal(validate(table), true);
     assert.deepEqual(validateSkillRenames(table, { skillsRoot: join(repoRoot, 'skills') }), { ok: true, errors: [] });
 });
