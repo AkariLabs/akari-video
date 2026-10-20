@@ -34,6 +34,7 @@
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
 | [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / harvest-asset） |
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（author-scene3d） |
+| [地形の素材を作る](./guides/geo-terrain.ja.md) | 国土地理院の標高・写真タイル → 高さマップ・写真・terrain.json（`akari geo terrain`） |
 | [音源に宣言を付ける](./guides/analyze-music.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（analyze-music） |
 | [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（edit-to-beat） |
 | [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |

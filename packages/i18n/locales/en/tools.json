@@ -273,5 +273,7 @@
   "tools.whisper.cli.downloading": "Downloading the model",
   "tools.whisper.cli.statusReady": "ready: {path}",
   "tools.whisper.cli.statusMissing": "missing: no ggml model found. Run akari tools install whisper",
-  "tools.whisper.cli.usage": "Usage: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]"
+  "tools.whisper.cli.usage": "Usage: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]",
+  "tools.geo.error.allDemTilesMissing": "All elevation tiles for this bbox returned 404 (the area may be ocean or out of range). Specify a bbox that includes land: {bbox}",
+  "tools.geo.notice.missingTiles": "Missing tiles (404): elevation {dem}, photo {photo} (elevation interpolated as invalid; photo filled with a solid color)"
 }

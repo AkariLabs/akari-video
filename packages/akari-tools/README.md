@@ -10,6 +10,7 @@
 - `akari media transcribe-diff <target> [--engines a,b,c]` — 最新のエンジン別文字起こしを文字単位で比較し、`diff.json` と JSON 要約を返す。句読点だけの差は除外し、1 エンジンなら比較を省略する。
 - `akari media transcribe-cuts <target> [--basis b] [--silence-min 0.45] [--silence-break 3.0] [--silence-keep 0.15]` — フィラー・言い直し・無音・未認識を `cuts.json` に候補として保存し、JSON 要約を返す。既存の採否を引き継ぎ、手直しした字幕に重なる候補は既定 OFF にする。
 - `akari media audio-level <projectDir>` — `gain_db` 未指定の音声素材を測り、役割別の提案値を表にする。`--write` で `edit.json` へ数値を保存し、`--json` で JSON 配列を返す。
+- `akari geo terrain --bbox <西,南,東,北> --out <dir>` — 国土地理院の標高・写真タイルを結合し、`heightmap.png`・`texture.png`・`terrain.json` を作る。出典表示は [`docs/guides/geo-terrain.ja.md`](../../docs/guides/geo-terrain.ja.md) を参照。
 
 ## 音声素材の挿入レベル
 
