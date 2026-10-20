@@ -518,6 +518,15 @@ export async function attachGpuFailureContext(error, runPath, projectRoot) {
   error.reasonCode = run.reasonCode ?? gpuRuntimeFallbackReason(error);
   error.gpuFailureRunPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
   error.gpuFailureRun = run;
+  // 3D 初期化エラーの本文は run.json の追加フィールド threeError に残る。CLI の最終エラーにも
+  // 同じ本文を出し、run.json を開かなくても原因が読めるようにする。
+  if (run.threeError && typeof run.threeError === "object") {
+    error.threeError = run.threeError;
+    const detail = typeof run.threeError.message === "string" ? run.threeError.message : null;
+    if (detail && !String(error.message).includes(detail)) {
+      error.message = `${error.message}\n3D overlay ${run.threeError.overlayId ?? "unknown"} failed to initialize: ${detail}`;
+    }
+  }
   // ハードウェア H.264 エンコーダが使えなかったときだけ、message を「どの GPU に載ったか・なぜ切り替えなかったか・次に何をするか」の
   // 日本語 1 行に置き換える（元の message は originalMessage に保持）。render-cut はこれを stderr の最終行に出す。
   if (typeof run.error === "string" && run.error.includes(HARDWARE_ENCODER_UNSUPPORTED_MARKER)) {

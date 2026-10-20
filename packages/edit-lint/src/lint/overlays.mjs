@@ -107,20 +107,25 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
     );
     for (const finding of validateWorldSceneDeclaration(html, await readFile(join(paths.projectRoot, "planning/world-map.json"), "utf8").catch(error => error?.code === "ENOENT" ? null : Promise.reject(error)), isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`)) addFinding(findings, finding);
     validateThreeCanvas(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
-    if (!isHtmlFile) continue;
-
-    validateOverlayFragmentAssets(html, overlay, paths, findings);
-    runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings);
-    const fragment = inspectHtmlFragment(html);
-    if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
+    if (isHtmlFile) {
+      validateOverlayFragmentAssets(html, overlay, paths, findings);
+      runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings);
+    }
+    // 単一ルート違反は 3D の threeRuntime が初期化時に落ちるが、lint は書き出し前に
+    // 静的に検出する。file 参照だけでなく inline の html item（3D に限らない）も対象にする。
+    // ただし未取得の file 参照（パス文字列）を inline HTML と誤認しないよう、markup を含む
+    // 値だけを断片として検査する。
+    const fragment = isHtmlFile || /<[A-Za-z!/]/u.test(html) ? inspectHtmlFragment(html) : null;
+    if (fragment && (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced)) {
       addFinding(findings, {
         severity: "error",
         check: "overlays.html-root",
         message: "overlay HTML must contain exactly one balanced root element",
-        path: relativePath(paths.projectRoot, htmlPath),
+        path: isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`,
       });
       continue;
     }
+    if (!isHtmlFile) continue;
     // ランタイムは edit.json から作る外側コンテナの時刻だけを使う。
     // 旧ライブラリ断片をプロジェクトへ写した場合も、ルートの時刻は案内だけにする。
     const libraryFragment = htmlBinding.scope === "library";

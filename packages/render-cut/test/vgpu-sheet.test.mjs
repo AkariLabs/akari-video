@@ -26,10 +26,12 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
   assert.match(gpu, /pendingVgpuDraws\.push\(\[vgpuContainer, seconds - start\]\)/);
   for (const [html, hash] of [
     // a3ba7cc17 で採った静的入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
-    ['<div>static</div>', 'b884eade37b54b7a9ff541e19056493246bb6a6abb2f97b18c16ffe59ec1237a'],
+    // 9586f4bf8（captionOutlineRuntime の注入）で期待値の更新が漏れていたぶんを 2026-10-20 に再測した。
+    ['<div>static</div>', 'd9791c2b868df6343a90854f407478f76d2e8f49d85bc3990ff3c0c29dc9e181'],
     // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
     // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
-    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '134023bc9c2b8a698f7e6e6d3379a3304d756c292e6c3d31104a0025b4f39b5f'],
+    // 2026-10-20: OSR の 3D 初期化エラーを理由本文つきで fail closed にしたぶんを再測。
+    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', 'f4730070c71fad52f226908d42a0a910c1e314dbb78260d7d2291a9a95e6f267'],
   ]) {
     const actual = sheet(html);
     assert.doesNotMatch(actual, /vgpuRuntime|AkariVgpu|pendingVgpu/);

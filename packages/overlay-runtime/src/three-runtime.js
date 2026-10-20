@@ -4,6 +4,13 @@ window.akari = window.akari || {};
 window.akari.threeRuntime = (() => {
   const instances = new WeakMap();
   const failedContainers = new WeakSet();
+  // 初期化・読み込み失敗の理由本文。inspect() の error フィールドに載せ、capture / render-cut が
+  // 「status=error」だけでなく原因（例: 単一ルート違反）を出せるようにする。
+  const failureReasons = new WeakMap();
+  const describeFailure = (error) => ({
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+  });
   let hostConfiguration = { defaultFontUrl: null, previewDiagnostics: false };
   let previewAssetRevision = 0;
   function previewAssetUrl(url) {
@@ -2618,6 +2625,7 @@ window.akari.threeRuntime = (() => {
 
   function disposeNow(container) {
     failedContainers.delete(container);
+    failureReasons.delete(container);
     const instance = instances.get(container);
     // instance の有無にかかわらず集合を必ず縮める。premountTick() の上限破棄ループが
     // stale container を選び続けても、各反復が必ず前進することをここで保証する。
@@ -2966,6 +2974,7 @@ window.akari.threeRuntime = (() => {
       if (hasPhysics) runPhysicsPresim(library.Matter, instance, descriptor.physics);
       instance.contentReady = true;
       instance.status = "ready";
+      instance.error = null;
       setFallback(container, false);
       draw(instance, instance.lastTime);
     }).catch((error) => {
@@ -2993,6 +3002,7 @@ window.akari.threeRuntime = (() => {
       instance.physicsWindows = [];
       releaseVideoTextures(instance);
       instance.status = "error";
+      instance.error = describeFailure(error);
       console.error("[akari-three] 3D scene の読み込みに失敗しました", error);
       showLoadError(container, error);
     });
@@ -3009,6 +3019,7 @@ window.akari.threeRuntime = (() => {
         instance = createInstance(container);
       } catch (error) {
         failedContainers.add(container);
+        failureReasons.set(container, describeFailure(error));
         console.error("[akari-three] 3D scene の初期化に失敗しました", error);
         showLoadError(container, error);
         return Promise.resolve(false);
@@ -3113,6 +3124,7 @@ window.akari.threeRuntime = (() => {
         instance = createInstance(container);
       } catch (error) {
         failedContainers.add(container);
+        failureReasons.set(container, describeFailure(error));
         console.error("[akari-three] 3D scene の初期化に失敗しました", error);
         showLoadError(container, error);
         return;
@@ -3145,9 +3157,15 @@ window.akari.threeRuntime = (() => {
 
   function inspect(container) {
     const instance = instances.get(container);
-    if (!instance) return { status: failedContainers.has(container) ? "error" : "disposed" };
+    if (!instance) {
+      return {
+        status: failedContainers.has(container) ? "error" : "disposed",
+        ...(failureReasons.has(container) ? { error: failureReasons.get(container) } : {}),
+      };
+    }
     return {
       status: instance.status,
+      ...(instance.error ? { error: instance.error } : {}),
       memory: { ...instance.renderer.info.memory },
       render: { ...instance.renderer.info.render },
       pixelRatio: instance.renderer.getPixelRatio(),

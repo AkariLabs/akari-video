@@ -15,10 +15,12 @@ const sha = (text) => createHash('sha256').update(text).digest('hex');
 test('glass-free 2D and 3D sheets match pre-glass baseline bytes', () => {
   for (const [html, expected] of [
     // 885fc54d の入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
-    ['<div>Hello</div>', '4621809f07fcb9206030c8485239bb089d7791936d0bc050a55a4dbe3ce08461'],
+    // 9586f4bf8（captionOutlineRuntime の注入）で期待値の更新が漏れていたぶんを 2026-10-20 に再測した。
+    ['<div>Hello</div>', 'd9379f02b2261efc43a4700bc7783e194706e711e114423a6d89c05112ef890b'],
     // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
     // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
-    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '682e968cb3e52b0f7174c31619e5c3ee225eb433a95f95ea4965f70d66022f4a'],
+    // 2026-10-20: OSR の 3D 初期化エラーを理由本文つきで fail closed にしたぶんを再測。
+    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', 'c84aa3891c5547f21020e96ce68109a556319c6261d1391d40bbcb72576eeb66'],
   ]) assert.equal(sha(renderOverlaySheet(input(html))), expected);
 });
 
