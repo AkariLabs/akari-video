@@ -398,6 +398,11 @@ Preview while editing: run `./akari.sh --preview` in a terminal and open http://
 The desktop app can start the same server from its menu (Open → Browser preview); the URL is
 shown in the menu, and appending `?frameEngine=0` switches to the legacy view.
 
+The CLI bundled with the desktop app can start the same server without the installer:
+run `akari preview [dir]` in a project folder (it prints the URL), pass `--port <n>` to choose a
+port (the default is 3000), and pass `--open` to open the browser once the server is ready.
+`akari.sh --preview` keeps working as before.
+
 ### D. From the app
 
 Open the desktop app (the Theia-based shell, `apps/shell/`) and start from "<!-- F ui.home.startButton -->+ Start a new video<!-- /F -->" on Home.

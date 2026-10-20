@@ -35,6 +35,7 @@ import { runPlaybookCommand } from './playbook-command.mjs';
 import { runTemplateCommand } from './template-command.mjs';
 import { runRecipeCommand } from './recipe-command.mjs';
 import { runLintCommand } from './lint-command.mjs';
+import { runPreviewCommand } from './preview-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 import { cliText } from './i18n.mjs';
 
@@ -53,6 +54,7 @@ export const runSubcommands = {
   template: runTemplateCommand,
   recipe: runRecipeCommand,
   lint: runLintCommand,
+  preview: runPreviewCommand,
 };
 
 /**

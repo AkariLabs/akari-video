@@ -18,6 +18,7 @@ import { runGenerateCommand } from '../src/generate-command.mjs';
 import { runStoryboardCommand } from '../src/storyboard-command.mjs';
 import { runWorldCommand } from '../src/world-command.mjs';
 import { runLintCommand } from '../src/lint-command.mjs';
+import { runPreviewCommand } from '../src/preview-command.mjs';
 import { runSkillsCommand, refreshEntrySkillOnLaunch } from '../src/skills-command.mjs';
 import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
@@ -79,6 +80,7 @@ const commands = {
   storyboard: runStoryboardCommand,
   world: runWorldCommand,
   lint: runLintCommand,
+  preview: runPreviewCommand,
 };
 
 // トップレベルのフラグも、振り分けと候補判定に同じ表を使う。
