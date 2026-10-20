@@ -55,9 +55,10 @@ A fragment has one root, a transparent canvas, an optional static fallback, and 
 </div>
 ```
 
-Only these top-level keys are supported: `model` / `camera` / `environment` / `fog` / `background` / `lights` / `animationClip` / `materialOverrides` / `finishes` / `shadows` / `texts` / `physics`. When `texts[]` exists, `model` is optional (see the 3D text section). `physics` gives `texts[]` falling physics (see its section).
+Only these top-level keys are supported: `model` / `camera` / `environment` / `fog` / `background` / `lights` / `animationClip` / `materialOverrides` / `finishes` / `shadows` / `texts` / `physics` / `renderer`. When `texts[]` exists, `model` is optional (see the 3D text section). `physics` gives `texts[]` falling physics (see its section).
 
 - `model` is a `.glb` path relative to the directory containing edit.json. Never use a URL or CDN.
+- `renderer` is `"webgl"` (default) or `"webgpu"`; omit it for the existing look. This is a per-scene opt-in: only a scene that declares `"webgpu"` uses `WebGPURenderer`. The preview, `render-cut --engine gpu`, and `render-cut --engine osr` all honor it. On a machine without WebGPU, the renderer automatically falls back to its WebGL2 backend, so the declaration still works (check `inspect().renderer.backend` to see which backend actually ran). **Do not change the default for production scenes until you have compared both backends on real footage** (owner decision, 2026-10-21).
 - `camera` is perspective. `position` / `lookAt` are `[x, y, z]`; `fov` / `near` / `far` are numbers. Alternatively, `{ "fromModel": "<GLB camera node name>" }` (a GLB camera node name) uses a camera in the GLB (see "Moving the camera").
 - `environment` is an IBL knob. `intensity` controls environment-light strength on PBR materials such as metals; `exposure` controls ACES Filmic tone-mapping exposure. Both must be nonnegative. Defaults are intensity 0.5 and exposure 1.0. Check defaults first, then make small adjustments: `exposure` for clipping, `intensity` for reflection strength. IBL itself (default environment map and tone mapping) is always active in preview and export. The `environment` key is optional fine-tuning.
 - `background` is `{ "color": "#rrggbb" }`; omission preserves previous behavior and existing assets' appearance.
@@ -111,7 +112,7 @@ When generating, replacing, or converting a device mock screen to PBR, read [sha
 
 ## texts[] — 3D text (flat / extrude; introduced 2026-08-12; contract-2026-08-12-3d-text-rail.md)
 
-Adding `texts[]` to `data-akari-3d-scene` declaratively produces per-character 3D telops with troika-three-text (flat SDF text). **With `texts[]`, `model` is optional**: GLB objects and 3D text may coexist in one scene, while the one-fragment/one-declaration rule remains.
+Adding `texts[]` to `data-akari-3d-scene` declaratively produces per-character 3D telops with troika-three-text (flat SDF text; `renderer: "webgpu"` uses opentype outline meshes instead — see below). **With `texts[]`, `model` is optional**: GLB objects and 3D text may coexist in one scene, while the one-fragment/one-declaration rule remains.
 
 ```jsonc
 <script type="application/json" data-akari-3d-scene>
@@ -145,7 +146,7 @@ Adding `texts[]` to `data-akari-3d-scene` declaratively produces per-character 3
 - `texts[].id` is a string unique within the declaration. `text` is the displayed string, expanded into an independent troika `Text` per character. Every character, including spaces, expands; layout order follows string order.
 - Optional `window` is `{ "start": 0 以上, "duration": 正数 }` (nonnegative start, positive duration) in local seconds from clip start 0. Visibility uses the half-open interval `[start, start + duration)`; the text block is not drawn outside it. Omission displays throughout the clip. `anim.preset` time starts at window time 0, as does falling for `physics` targets.
 - Optional `font` follows `model` path resolution: a `.ttf` / `.otf` relative to edit.json, never a URL or CDN. If omitted, the host supplies Zen Kaku Gothic New Black (OFL, `packages/overlay-runtime/test-harness/fonts/`) through `window.akari.threeRuntime.configure({ defaultFontUrl })`. preview-server serves `/__akari/fonts/zen-kaku-gothic-new-black.ttf`; render-cut embeds the same file as a data URI. Without host configuration, omitting `font` produces an explicit error whose message is Japanese.
-- `mode` is `"flat"` (troika flat SDF, default) or `"extrude"` (opentype.js outlines extruded with `ExtrudeGeometry`; see the extrude section).
+- `mode` is `"flat"` (troika flat SDF by default; WebGPU scenes use outline meshes, see below) or `"extrude"` (opentype.js outlines extruded with `ExtrudeGeometry`; see the extrude section).
 - `size` corresponds to troika `fontSize`, or the opentype em size for extrude (both default `0.5`). `color` is a CSS color string (default `#ffffff`).
 - `material` may declare `metalness` / `roughness` / `doubleSide`. **Flat defaults to unlit `MeshBasicMaterial` + `DoubleSide`**, readable without lights. Explicit `metalness` or `roughness` switches to `MeshStandardMaterial`, shaded by scene `lights[]`. `doubleSide: false` enables back-face culling and removes letters on the far side of a cylinder. Extrude always uses `MeshStandardMaterial` and ignores `doubleSide`.
 - `layout.type` is `"line"` (default: a centered row with `spacing`) or `"cylinder"` (divide letters evenly around circumference `radius` and face outward). `position` / `rotation` place the whole text block (the parent group of all characters). Changing `rotation.y` gives trapezoidal perspective receding right; unlike corner-pin, perspective is correct for each letter. The **same `charBasePosition` code path** handles flat and extrude, so `layout` keeps its meaning across modes.
@@ -159,6 +160,16 @@ Adding `texts[]` to `data-akari-3d-scene` declaratively produces per-character 3
   | `tumble` | Each character tumbles on a different axis at a different speed |
 
   Adjust `speed` (time scale), `stagger` (phase offset by character index), and `amplitude` (motion amplitude). **`seed` is required whenever `preset` is not `"none"`** (next section).
+
+### renderer: "webgpu" (opt-in; introduced 2026-10-21)
+
+`"renderer": "webgpu"` draws the whole scene with `WebGPURenderer`. Everything else in the declaration keeps its meaning: model, lights, environment (including `environment.map`), fog, shadows, `materialOverrides`, `finishes`, animation clips, the standard knobs, `texts[]`, and `physics`.
+
+- **Flat text changes implementation, not declaration.** troika does not render on WebGPU (measured: a single square instead of glyphs, no error), so `texts[].mode: "flat"` is built from opentype glyph outlines as `ShapeGeometry` planes. `color`, `material`, `layout`, `window`, `billboard`, `screenSpace`, `anim`, and `physics` all keep the same meaning through the same shared code paths. The visible difference is the letterform itself: SDF rasterization vs. outline mesh (slightly different edge antialiasing and weight). Compare the two before choosing WebGPU for text-heavy scenes.
+- **Unsupported flat declarations fail loudly.** The outline path cannot substitute a missing glyph. Characters not present in `texts[].font` (including emoji sequences and combining marks that need shaping) produce a load error naming the character and `texts[].id`. Fonts that opentype.js cannot parse (for example `.woff2`) also produce a load error with the reason. `mode: "extrude"` is unchanged.
+- **Background matches WebGL.** WebGPU applies ACES tone mapping to `scene.background` too; the runtime compensates the clear color so `background.color` appears as declared. Do not hand-adjust `background.color` or `environment.exposure` to make the two backends match.
+- **Inspect the backend.** `inspect().renderer` returns `{ declared, backend, isWebGPURenderer, initialized }`. On a machine without WebGPU the renderer falls back to its WebGL2 backend automatically (`backend: "webgl2"`); the declaration still works.
+
 
 ### Extrude mode (actual thick letters; introduced 2026-08-12; T3)
 

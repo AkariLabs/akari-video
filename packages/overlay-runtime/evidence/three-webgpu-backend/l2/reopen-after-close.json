@@ -1,0 +1,66 @@
+{
+  "project": "/tmp/akari-l2-webgpu/project",
+  "shell": "apps/shell (rebuilt from source, no patch)",
+  "steps": [
+    {
+      "step": "before-close",
+      "inspect": {
+        "status": "ready",
+        "renderer": {
+          "declared": "webgpu",
+          "backend": "webgpu",
+          "isWebGPURenderer": true,
+          "initialized": true
+        },
+        "error": null,
+        "display": "block",
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
+      }
+    },
+    {
+      "step": "closed",
+      "frameCount": 1,
+      "frames": [
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?"
+      ],
+      "preview": "gone"
+    },
+    {
+      "step": "reopened",
+      "frameCount": 3,
+      "frames": [
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?",
+        "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:62242/webview/index.html?id=akari-output-preview-ycogub",
+        "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:62242/webview/fake.html?id=akari-output-preview-ycogub"
+      ]
+    },
+    {
+      "step": "reopened-inspect",
+      "inspect": {
+        "status": "ready",
+        "renderer": {
+          "declared": "webgpu",
+          "backend": "webgpu",
+          "isWebGPURenderer": true,
+          "initialized": true
+        },
+        "error": null,
+        "display": "block",
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
+      }
+    }
+  ],
+  "cardCount": 1,
+  "consoleErrors": [],
+  "pageErrors": []
+}

@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-10-20T19:52:53.740Z",
+  "purpose": "Direct record of the page-side inspect().renderer.backend during an actual gpu-export run (feedback-r1 item 3).",
+  "engine": "gpu",
+  "command": "node packages/render-cut/bin/render-cut.mjs /tmp/akari-l1/project-webgpu --engine gpu --out /tmp/akari-l1/project-webgpu/exports/probe-backend.mp4 --progress",
+  "project": "/tmp/akari-l1/project-webgpu (same 1080p30 5s scene as l1: public smartphone-mockup model, shadow, env map, screen.mp4 video texture, flat + extrude text, background #14171c)",
+  "shell": "Electron 39.8.7 (apps/shell electron-entry.js --akari-main packages/gpu-export/src/electron-main.mjs)",
+  "output": {
+    "file": "exports/probe-backend.mp4",
+    "bytes": 422509,
+    "sha256": "cedb268620f05b207c1cc34496878646f7ada5b0387b5323817435e71703e161"
+  },
+  "frames": {
+    "completed": 150,
+    "requested": 150,
+    "fps": 30,
+    "duration": 5,
+    "width": 1920,
+    "height": 1080
+  },
+  "threeRendererBackend": {
+    "overlayId": "scene",
+    "status": "ready",
+    "renderer": {
+      "declared": "webgpu",
+      "backend": "webgpu",
+      "isWebGPURenderer": true,
+      "initialized": true
+    }
+  },
+  "threeError": null,
+  "gpu": {
+    "renderer": {
+      "vendor": "Google Inc. (Apple)",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "encoder": "WebCodecsH264Encoder",
+    "uploadPath": "direct",
+    "readbackCounters": {
+      "webglReadbackCalls": 0,
+      "videoFrameCopyCalls": 0,
+      "canvasBlobCalls": 0,
+      "canvasDataUrlCalls": 0,
+      "canvasPixelReadCalls": 0,
+      "bitmapCreationCalls": 0
+    }
+  },
+  "eligibility": {
+    "eligible": true,
+    "entries": [
+      {
+        "kind": "overlay",
+        "id": "scene",
+        "classification": "three",
+        "reason": "three-scene-canvas-direct",
+        "conditions": [
+          "three-or-canvas-runtime"
+        ]
+      }
+    ],
+    "summary": {
+      "same": 0,
+      "three": 1,
+      "dom": 0,
+      "degraded": 0,
+      "unsupported": 0
+    }
+  },
+  "warnings": 37,
+  "note": "The page-runtime temporary probe is not committed. packages/gpu-export/src/page-runtime.js was restored byte-identically (sha256 2b3b3111e3a5746c874064613b77ac2669223ab282afb33a207f78a0d2f5a566) after the run; git diff for that file is empty."
+}

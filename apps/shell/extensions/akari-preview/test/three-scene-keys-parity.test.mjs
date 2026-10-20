@@ -21,7 +21,9 @@ const runtimeSource = readFileSync(
 function runtimeAllowedSceneKeys() {
     const match = runtimeSource.match(/const ALLOWED_SCENE_KEYS = new Set\(\[([\s\S]*?)\]\);/);
     assert.ok(match, 'three-runtime.js に ALLOWED_SCENE_KEYS が見つかりません');
-    return new Set([...match[1].matchAll(/"([A-Za-z]+)"/g)].map(([, key]) => key));
+    // 集合の要素は行頭の文字列リテラルだけ。行内コメント（例: 省略 = "webgl"）の
+    // 引用符を key として拾わないよう、行単位で切り出す。
+    return new Set([...match[1].matchAll(/^\s*"([A-Za-z]+)",?\s*$/gm)].map(([, key]) => key));
 }
 
 test('shell THREE_SCENE_KEYS matches three-runtime ALLOWED_SCENE_KEYS', () => {

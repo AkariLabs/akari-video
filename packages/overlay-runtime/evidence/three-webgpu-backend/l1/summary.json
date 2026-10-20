@@ -1,0 +1,241 @@
+{
+  "project": {
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5
+    },
+    "publicAssets": [
+      "assets/scene3d/smartphone-mockup/model.glb",
+      "assets/scene3d/smartphone-mockup/studio-2k.hdr (converted to a 1024x512 2:1 PNG for render-cut embedding)"
+    ],
+    "scene": {
+      "model": "assets/model.glb",
+      "shadows": true,
+      "environmentMap": "assets/env.png",
+      "videoTexture": "assets/screen.mp4",
+      "flatText": "あかり (opentype outline mesh on webgpu / troika SDF on webgl)",
+      "extrudeText": "3D",
+      "background": "#14171c"
+    }
+  },
+  "renders": {
+    "webgl-gpu": {
+      "engine": "gpu",
+      "status": "completed",
+      "framesRequested": 150,
+      "framesCompleted": 150,
+      "warnings": 0,
+      "threeErrors": 0,
+      "sha256": "77f2116a514e9e601de8cfb11bea3329ce464293f0e3f2568403cf279a7669f5",
+      "bytes": 416445,
+      "eligibility": {
+        "eligible": true,
+        "entries": [
+          {
+            "kind": "overlay",
+            "id": "scene",
+            "classification": "three",
+            "reason": "three-scene-canvas-direct",
+            "conditions": [
+              "three-or-canvas-runtime"
+            ]
+          }
+        ],
+        "summary": {
+          "same": 0,
+          "three": 1,
+          "dom": 0,
+          "degraded": 0,
+          "unsupported": 0
+        }
+      },
+      "three": {
+        "overlays": [],
+        "sampling": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "composite": null
+      }
+    },
+    "webgl-osr": {
+      "engine": "osr",
+      "status": "completed",
+      "framesRequested": 150,
+      "framesCompleted": 150,
+      "warnings": 0,
+      "threeErrors": 0,
+      "sha256": "457d870457447286af17aef8229117eee9dacdab6b3849270cd39d4df54ad0ec",
+      "bytes": 268580
+    },
+    "webgpu-gpu": {
+      "engine": "gpu",
+      "status": "completed",
+      "framesRequested": 150,
+      "framesCompleted": 150,
+      "warnings": 37,
+      "threeErrors": 0,
+      "sha256": "cedb268620f05b207c1cc34496878646f7ada5b0387b5323817435e71703e161",
+      "bytes": 422509,
+      "eligibility": {
+        "eligible": true,
+        "entries": [
+          {
+            "kind": "overlay",
+            "id": "scene",
+            "classification": "three",
+            "reason": "three-scene-canvas-direct",
+            "conditions": [
+              "three-or-canvas-runtime"
+            ]
+          }
+        ],
+        "summary": {
+          "same": 0,
+          "three": 1,
+          "dom": 0,
+          "degraded": 0,
+          "unsupported": 0
+        }
+      },
+      "three": {
+        "overlays": [],
+        "sampling": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "composite": null
+      }
+    },
+    "webgpu-osr": {
+      "engine": "osr",
+      "status": "completed",
+      "framesRequested": 150,
+      "framesCompleted": 150,
+      "warnings": 37,
+      "threeErrors": 0,
+      "sha256": "3a869bd114346656d1009450f70d4778733ba89ba6c487e372fafdd7ff4cf913",
+      "bytes": 273684
+    }
+  },
+  "mainPixelEquality": {
+    "note": "renderer omitted; branch (bf2d88145 + this branch) vs main (bf2d88145) rendered from identical projects with identical assets and settings",
+    "gpu": {
+      "branchSha256": "77f2116a514e9e601de8cfb11bea3329ce464293f0e3f2568403cf279a7669f5",
+      "mainSha256": "77f2116a514e9e601de8cfb11bea3329ce464293f0e3f2568403cf279a7669f5",
+      "mp4Identical": true
+    },
+    "osr": {
+      "branchSha256": "457d870457447286af17aef8229117eee9dacdab6b3849270cd39d4df54ad0ec",
+      "mainSha256": "457d870457447286af17aef8229117eee9dacdab6b3849270cd39d4df54ad0ec",
+      "mp4Identical": true
+    }
+  },
+  "webglVsWebgpu": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "mean_abs": 0.608011,
+      "max_abs": 206,
+      "over8_pixel_ratio": 0.01887346,
+      "over8_channel_ratio": 0.01131125,
+      "background_rgb": {
+        "webgl": [
+          20,
+          25,
+          28
+        ],
+        "webgpu": [
+          20,
+          25,
+          28
+        ]
+      }
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "mean_abs": 0.606384,
+      "max_abs": 206,
+      "over8_pixel_ratio": 0.01969088,
+      "over8_channel_ratio": 0.01140561,
+      "background_rgb": {
+        "webgl": [
+          19,
+          24,
+          27
+        ],
+        "webgpu": [
+          19,
+          24,
+          27
+        ]
+      }
+    },
+    {
+      "frame": 75,
+      "seconds": 2.5,
+      "mean_abs": 0.645541,
+      "max_abs": 206,
+      "over8_pixel_ratio": 0.02736979,
+      "over8_channel_ratio": 0.01534642,
+      "background_rgb": {
+        "webgl": [
+          19,
+          24,
+          27
+        ],
+        "webgpu": [
+          19,
+          24,
+          27
+        ]
+      }
+    },
+    {
+      "frame": 120,
+      "seconds": 4.0,
+      "mean_abs": 0.611056,
+      "max_abs": 206,
+      "over8_pixel_ratio": 0.01976804,
+      "over8_channel_ratio": 0.01186696,
+      "background_rgb": {
+        "webgl": [
+          20,
+          25,
+          28
+        ],
+        "webgpu": [
+          20,
+          25,
+          28
+        ]
+      }
+    },
+    {
+      "frame": 149,
+      "seconds": 4.967,
+      "mean_abs": 0.62201,
+      "max_abs": 206,
+      "over8_pixel_ratio": 0.02104263,
+      "over8_channel_ratio": 0.01182919,
+      "background_rgb": {
+        "webgl": [
+          19,
+          24,
+          27
+        ],
+        "webgpu": [
+          19,
+          24,
+          27
+        ]
+      }
+    }
+  ],
+  "webgpuBackendEvidence": "electron-webgpu-inspect.json (same runtime, Electron 39.8.7, WebGPU backend)"
+}
