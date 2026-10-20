@@ -12,7 +12,7 @@
   オンデマンド取得**（`akari assets fetch <category/id>`。2026-08-04 に
   初回起動の [Y/n] 一括取得を廃止 — 初期 400MB を落とさない）。一括で欲しい場合は
   `akari sounds`（実体: `node packages/audio-library-setup/bin/fetch-akari-sounds.mjs`。
-  手順: [`skills/setup-audio-library/first-party.md`](../../skills/setup-audio-library/first-party.md)）
+  手順: [`skills/setup-library/audio-first-party.md`](../../skills/setup-library/audio-first-party.md)）
 - **BGM の選曲は自動提案 CLI が起点**: `node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン>`
   （表現選定と同じ 8 語彙 × 系統対応表 × 体感 BPM の決定論ランキング。編集フローでの使い方:
   [`skills/edit-plan/report-guide.md`](../../skills/edit-plan/report-guide.md) §素材計画）
@@ -26,7 +26,7 @@
 
 ## 音源セットアップ（外部候補・半自動ドロップフォルダ方式）
 
-[`candidates.json`](./candidates.json)（**v2**）は、AKARI Sounds を `first_party` として宣言し、外部候補は 3 カテゴリ・13 カード（拍手 / 失敗音 / ヒット・ドンの和風・バトル系）を保持するデータ SSOT です。`akari assets audio candidates`（実体: `node packages/audio-library-setup/bin/generate-candidates-html.mjs`）で候補リスト HTML（ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を生成できます。手順は [`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md) を参照してください。
+[`candidates.json`](./candidates.json)（**v2**）は、AKARI Sounds を `first_party` として宣言し、外部候補は 3 カテゴリ・13 カード（拍手 / 失敗音 / ヒット・ドンの和風・バトル系）を保持するデータ SSOT です。`akari assets audio candidates`（実体: `node packages/audio-library-setup/bin/generate-candidates-html.mjs`）で候補リスト HTML（ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を生成できます。手順は [`skills/setup-library/`](../../skills/setup-library/SKILL.md) を参照してください。
 
 **レガシー**: v1 の全 68 カード（外部 BGM 27 カード・約 110 曲の選曲データ、mood/tempo 語彙、検証パス履歴を含む）は [`candidates-legacy.json`](./candidates-legacy.json) に原文のまま保存しています（不変・参照用。セットアップフローからは使いません）。
 

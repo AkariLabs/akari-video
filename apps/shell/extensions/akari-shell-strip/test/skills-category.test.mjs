@@ -32,15 +32,14 @@ const expected = {
     'overlay-authoring': 'other',
     'render-cut': 'edit',
     'research-plan': 'plan',
-    'setup-audio-library': 'material',
     'setup-chat-approval': 'setup',
     'setup-library': 'material',
     'setup-remote': 'setup',
     verify: 'other'
 };
 
-test('26 件のスキル名を名前の語と優先順で分類する', () => {
-    assert.equal(Object.keys(expected).length, 26);
+test('25 件のスキル名を名前の語と優先順で分類する', () => {
+    assert.equal(Object.keys(expected).length, 25);
     for (const [name, category] of Object.entries(expected)) {
         assert.equal(skillCategory(name, '説明に plan とあっても分類に使わない'), category, name);
     }

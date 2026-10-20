@@ -4,7 +4,7 @@ The library defaults to the workspace's `library/`. Without a workspace, use the
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
 Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-After the user actually downloads files via [candidate-list.md](candidate-list.md), use this leaf for per-file matching and registration.
+After the user actually downloads files via [audio-candidate-list.md](audio-candidate-list.md), use this leaf for per-file matching and registration.
 
 ## 1. Drop-folder location
 
@@ -32,9 +32,9 @@ akari assets audio drop \
 ```
 
 - **Matched files**: Move actual files to `<ライブラリの置き場>/audio/<candidate-id>/` (existing library-location
-  placeholder; user scope, same hierarchy as [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md)).
+  placeholder; user scope, same hierarchy as [fetch-and-validate.md](fetch-and-validate.md)).
   Write `meta.json` (actual files present, no `remote` key). Also create `<candidate-id>/meta.json` in the reference-record location
-  (`remote: true` reference SSOT) if absent. **Never overwrite an existing one** (hard rule 6).
+  (`remote: true` reference SSOT) if absent. **Never overwrite an existing one** (audio hard rule 6).
   With `ffmpeg`, generate waveform `preview.png`; otherwise log the reason without generating it.
   Do not make a mock differing from the actual asset.
 - **Unmatched files**: Move to drop-folder `_quarantine/` and record unknown source in `_quarantine/manifest.json`

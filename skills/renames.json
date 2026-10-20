@@ -1,4 +1,6 @@
 {
   "version": 1,
-  "renames": []
+  "renames": [
+    { "from": "setup-audio-library", "to": "setup-library", "since": "1.5.2" }
+  ]
 }

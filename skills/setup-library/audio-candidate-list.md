@@ -28,7 +28,7 @@ and ask them to open it in a browser.
 ## 3. What happens
 
 - A **default-source AKARI Sounds banner** appears at the top with track count, bulk-acquisition command,
-  and Release link. This is the BGM/jingle default ([first-party.md](first-party.md)).
+  and Release link. This is the BGM/jingle default ([audio-first-party.md](audio-first-party.md)).
 - Displays the 13 candidate cards from the candidate file at `audioCandidatesPath` (v2, owner ruling 2026-08-03),
   in 3 categories: applause / failure sounds / Japanese-style or battle hits and thuds, all missing from AKARI Sounds.
   v1's 68 cards (including 27 external BGM cards and overlapping SFX cards) are preserved unchanged in

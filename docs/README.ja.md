@@ -32,7 +32,7 @@
 | [ナレーションを付ける](./guides/narration.ja.md) | ローカル無償 / 声クローン（generate-narration） |
 | [QA・レビューして直す](./guides/review-and-fix.ja.md) | 機械検査・口頭レビューのチケット化・対応（edit-lint / compile-review-session / address-review） |
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
-| [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / setup-audio-library / harvest-asset） |
+| [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / harvest-asset） |
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（bake-3d） |
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
 | [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（beat-sync-edit） |
@@ -41,7 +41,7 @@
 
 ## Skills
 
-ワークフローは 28 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+ワークフローは 27 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
 その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
 アニメーションランタイム（3D の 2 経路含む）をまとめています。
 

@@ -16,8 +16,8 @@ const table = [
     { from: 'old-b', to: 'bake-3d' }
 ];
 
-test('改名表は連鎖を最後の新名に畳む（実リポの表は空）', () => {
-    assert.deepEqual(SKILL_RENAMES, []);
+test('改名表は連鎖を最後の新名に畳む（実リポは setup-audio-library → setup-library）', () => {
+    assert.deepEqual(SKILL_RENAMES, [{ from: 'setup-audio-library', to: 'setup-library', since: '1.5.2' }]);
     assert.equal(resolveSkillName('old-a', table), 'bake-3d');
     assert.equal(resolveSkillName('old-b', table), 'bake-3d');
     assert.equal(resolveSkillName('bake-3d', table), 'bake-3d');

@@ -4,6 +4,7 @@ setLanguage('ja');
 after(() => setLanguage(undefined));
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -43,9 +44,9 @@ async function makeBundle(root, name, body = `${name} v1`) {
 
 // ── 旧名参照の検査 ─────────────────────────────────────────────────────────────
 
-test('実リポは改名表が空なので旧名参照ゼロ', async () => {
+test('実リポは旧名参照ゼロ（改名した SKILL.md の description マーカーだけ許可）', async () => {
     const table = parseSkillRenameTable(await readFile(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8'));
-    assert.deepEqual(table.renames, []);
+    assert.deepEqual(table.renames, [{ from: 'setup-audio-library', to: 'setup-library', since: '1.5.2' }]);
     assert.deepEqual(collectOldNameReferences(REPO_ROOT, table.renames), []);
     // 改名が入ったら、新しい SKILL.md の description に旧名マーカーがちょうど 1 回あること。
     for (const row of table.renames) {
@@ -95,8 +96,11 @@ test('description の旧名は 1 回だけ書く（0 回も 2 回も不合格）
         skillDescription(frontmatter(` ${oldNameMarker('old-name')}`)),
         `New skill ${oldNameMarker('old-name')}`
     );
-    // 実リポ: 改名表が空なので対象ゼロ（改名が入ったらこの検査が SKILL.md を要求する）。
-    assert.deepEqual([], []);
+    // 実リポ: 改名表の各行の SKILL.md にマーカーがちょうど 1 回あること。
+    for (const row of parseSkillRenameTable(readFileSync(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8')).renames) {
+        const markdown = readFileSync(join(REPO_ROOT, 'skills', row.to, 'SKILL.md'), 'utf8');
+        assert.equal(oldNameMarkerCount(markdown, row.from), 1, `${row.to}/SKILL.md`);
+    }
 });
 
 // ── 旧名コピーの片付け（installProjectSkills） ────────────────────────────────

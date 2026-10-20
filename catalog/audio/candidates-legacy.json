@@ -1,5 +1,5 @@
 {
-  "$comment": "setup-audio-library 候補リストのデータ SSOT。skills/setup-audio-library と packages/audio-library-setup/bin/generate-candidates-html.mjs がこのファイルを読む。リンクは必ずダウンロードページ URL（音声ファイル直 URL は禁止 — 効果音ラボ/甘茶/H-MIX GALLERY 等の直リンク禁止規約対応）。",
+  "$comment": "setup-library の音の候補リストのデータ SSOT。skills/setup-library と packages/audio-library-setup/bin/generate-candidates-html.mjs がこのファイルを読む。リンクは必ずダウンロードページ URL（音声ファイル直 URL は禁止 — 効果音ラボ/甘茶/H-MIX GALLERY 等の直リンク禁止規約対応）。",
   "version": 1,
   "generated_at": "2026-07-22",
   "source_research": "internal: research/2026-07-22-free-sfx-bgm-sources.md",
@@ -7,7 +7,7 @@
     {
       "pass": 1,
       "date": "2026-07-22",
-      "by": "task/2026-07-22-setup-audio-library lane",
+      "by": "task/2026-07-22-setup-library audio lane",
       "method": "WebFetch で該当ページを直接取得し、研究時点で確度 ○/△（個別ファイル名まで特定・要再確認）と付されていた項目を再確認した。確度 ◎（カテゴリ/タグページ単位で URL 実在確認済み）の項目は本パスでは再取得していない（研究時点の直接確認を踏襲）。",
       "corrections": [
         "#27 拍手: 元URL https://soundeffect-lab.info/sound/various/ は「生活[1]」（徒歩/水/ドア等の日常音）で拍手なし。正しくは https://soundeffect-lab.info/sound/various/various3.html （生活[3]）。clapping-hands1.mp3 実在確認",
@@ -24,7 +24,7 @@
     {
       "pass": 2,
       "date": "2026-07-22",
-      "by": "task/2026-07-22-setup-audio-library lane（司令塔追加指示: BGM を15〜20曲へ厚くする + mood タグを intake tone 語彙に揃える）",
+      "by": "task/2026-07-22-setup-library audio lane（司令塔追加指示: BGM を15〜20曲へ厚くする + mood タグを intake tone 語彙に揃える）",
       "method": "追加8候補（rank #53-60）は全件 WebFetch で直接ページ取得し、実在の楽曲タイトルを個別に確認済み（confidence: confirmed_by_lane）。MusMus・魔王魂の credit_template は利用規約ページの文言をそのまま引用",
       "added": [
         "#53 amachamusic-serious（真面目）: image_serious.html 実在確認（雨の日のネオン/寂寞/闇に沈む光 等）",
@@ -41,7 +41,7 @@
     {
       "pass": 3,
       "date": "2026-07-22",
-      "by": "task/2026-07-22-setup-audio-library lane（オーナー直接指示・司令塔経由: BGMを約100曲へ拡張 + 構成比 落ち着き6割/盛り上げ3割/その他1割）",
+      "by": "task/2026-07-22-setup-library audio lane（オーナー直接指示・司令塔経由: BGMを約100曲へ拡張 + 構成比 落ち着き6割/盛り上げ3割/その他1割）",
       "method": "高頻度に楽曲タイトルを返す一覧・ランキングページ（DOVA-SYNDROME DLランキング・甘茶の音楽工房の各印象別ページ・MusMusの各イメージ別ページ・魔王魂の各カテゴリ/タグページ）を重点的にWebFetchし、1回のfetchで得られた複数曲をそれぞれ個別の候補として採用した。全曲の個別ページ確認はしていない（オーナー指示どおり）。候補データにsongs[]（曲ごとのtitle_ja/mood/tempo/expected_filenames）を新設し、親candidateの単位はサイト/カテゴリページ単位のまま維持（決定的ダウンロードページURL・ライセンス情報を曲ごとに複製しない設計）。",
       "category_restructure": "bgm-general（19件）をbgm-calm（11カード・63曲相当）/bgm-uplift（6カード・33曲相当）/bgm-other（10カード・14曲相当）へ分割。合計110曲相当（目標「100個くらい」に対し近似）。構成比は 57% / 30% / 13% で目安の6:3:1に近似",
       "filename_matching_limitation": "新規に追加した個別曲は、サイトの一覧ページがタイトル表示のみでダウンロード時の実ファイル名を確認できなかったため、全曲 expected_filenames は空のまま（捏造回避）。ドロップフォルダ照合は現状この曲群には効かず、目視でのマッチング（ユーザーがタイトルを見て自分でファイルを探す）に留まる。将来、個別ページを開いて実ファイル名を確認できた時点で埋める",

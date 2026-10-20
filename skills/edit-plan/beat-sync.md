@@ -200,7 +200,7 @@ Follow [report-guide.md](report-guide.md#asset-plan)'s full search order: projec
 | `catalog/audio/` (15 packs) | Only `meta.json`; all `"remote": true` | **Unfilled** (references only; no binaries by rule) |
 | User library `<ライブラリの置き場>/audio/` (10 packs, 340 files) | Actual audio files | **Filled** (paths below refer here) |
 
-Thus **the product repository has zero actual SFX, and its layer leaves all five kinds unfilled**. Table defaults are real files in the user library; without that layer the default table is empty. **Acquisition for missing kinds or environments belongs to [setup-audio-library](../setup-audio-library/SKILL.md); do not choose replacement audio on your own here.**
+Thus **the product repository has zero actual SFX, and its layer leaves all five kinds unfilled**. Table defaults are real files in the user library; without that layer the default table is empty. **Acquisition for missing kinds or environments belongs to [setup-library](../setup-library/SKILL.md); do not choose replacement audio on your own here.**
 
 ### Default table
 
@@ -431,7 +431,7 @@ Validate written `audio.sfx[]` with the existing `edit.json` procedure, [edit-li
 - Adopting a second or later default-table SFX without a one-line selection rationale. Unexplained deviation is forbidden; the first is default.
 - Borrowing sound from **another kind row** under cover of contextual selection, or using an unlisted or license-unchecked sound.
 - Using a `gain_db` outside the guidance table without recording why; conversely, the **mapped** three guidance values (-4 / -6 / -8 at default preset and `i=50`) need no individual rationale.
-- Assigning a "similar-sounding" SFX to a kind missing from the table. Leave it unfilled and refer acquisition to setup-audio-library.
+- Assigning a "similar-sounding" SFX to a kind missing from the table. Leave it unfilled and refer acquisition to setup-library's audio route.
 - Changing BGM gain or tracks on beats; v0 does not touch BGM.
 - Adding an uncontracted transition field to `edit.json` or creating a new highlight overlay component.
 - Adopting SFX with `attribution_required: true` without the required credit in the editing report.

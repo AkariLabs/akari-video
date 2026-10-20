@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **28 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **27 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -28,8 +28,7 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 |---|---|---|
 | [akari](../skills/akari/SKILL.md) | プロジェクトを作る・開く・続きから再開する入口。素材に合う作りを最大 3 つ薦めて選ばれたものを当てる。外の道具が要る作業は道具の手順（recipe）に回す | akari CLI（`init` / `new` / `status` / `playbook` / `recipe`） |
 | [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成。土台（空のプロジェクトの構造）をコピーし、版を記録して作成レポートを出す。`--from` で作り方から始める | akari CLI（`new`）、git（安全な場合のみ初期化） |
-| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証。つないだ Lab アカウントの無料素材と購入済みの Pro 素材の取得も扱う | ffmpeg / whisper-cli、`akari assets`・`akari store connect` |
-| [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の入庫。既定は AKARI 製の AKARI Sounds を GitHub Releases から取得し、足りない種類だけ半自動（候補リスト → 手動 DL 照合 → 試聴 keep/drop）で補う | GitHub Releases（AKARI Sounds）／フリー音源配布元（ダウンロードは人間） |
+| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証。つないだ Lab アカウントの無料素材と購入済みの Pro 素材の取得も扱い、音（BGM・効果音）のライブラリも受け持つ（AKARI Sounds の一括取得、候補リスト → 手動 DL 照合 → 試聴 keep/drop） | ffmpeg / whisper-cli、`akari assets`・`akari store connect`、GitHub Releases（AKARI Sounds）／フリー音源配布元（ダウンロードは人間） |
 | [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
 | [setup-chat-approval](../skills/setup-chat-approval/SKILL.md) | チャット承認セットアップ。doctor → BotFather でのトークン発行と credentials.env 登録（人間手番）→ chat ID 許可リスト → 通知 + ボタン → タップで `decisions.json` 更新。long polling のみで公開エンドポイントを作らず、自由文は指示として扱わない | Telegram Bot API（トークンの発行・登録は人間） |

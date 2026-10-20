@@ -3,7 +3,7 @@
 // user スコープ（<ライブラリの置き場>/audio/akari-sounds-<kind>/）へ登録する。
 //
 // 第三者配布元と違い AKARI Sounds は自社が配布主体のため、一括ダウンロードを許可する
-// （2026-08-03 オーナー裁定。規律の境界は skills/setup-audio-library/first-party.md）。
+// （2026-08-03 オーナー裁定。規律の境界は skills/setup-library/audio-first-party.md）。
 // 第三者サイト向けのルール（直リンク禁止・直列取得・ユーザー指示必須）はこのスクリプトの
 // 対象外だが、取得先は catalog/audio/candidates.json の first_party に宣言された
 // AkariLabs/akari-sounds の Release アセットだけに限る（他ホストへは一切アクセスしない）。

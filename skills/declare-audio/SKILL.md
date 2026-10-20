@@ -1,6 +1,6 @@
 ---
 name: declare-audio
-description: Mark a track's chorus, accent hits, beat, BPM, and first downbeat by listening in the browser timeline, then save declarations.json for BGM suggestions and beat-synced editing. Use when a user wants to mark a song's chorus, improve BGM suggestions, cut to the beat, or create declarations. Use setup-audio-library to add tracks.
+description: Mark a track's chorus, accent hits, beat, BPM, and first downbeat by listening in the browser timeline, then save declarations.json for BGM suggestions and beat-synced editing. Use when a user wants to mark a song's chorus, improve BGM suggestions, cut to the beat, or create declarations. Use setup-library to add tracks.
 ---
 
 # FORBIDDEN-level hard rules
@@ -32,7 +32,7 @@ Read the leaf for the current step only.
 | Situation | Use |
 |---|---|
 | Mark the chorus of a track so BGM suggestions can cue it | This skill |
-| Add tracks to the audio library, through a bulk download of the official library or external supplements | [setup-audio-library](../setup-audio-library/SKILL.md) |
+| Add tracks to the audio library, through a bulk download of the official library or external supplements | [setup-library](../setup-library/SKILL.md) |
 | Obtain an ear-verified AKARI Sounds declaration without marking it yourself | An AKARI Store declaration pack, purchased once per version of its ear-verified data; installation is only placing the zip's `declarations.json` under `<ライブラリの置き場>/audio/` |
 | Select BGM using existing declarations, rather than marking new ones | `packages/audio-library-setup/bin/suggest-bgm.mjs` or [edit-plan](../edit-plan/SKILL.md) |
 

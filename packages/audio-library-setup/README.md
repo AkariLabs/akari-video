@@ -7,7 +7,7 @@
 音源（BGM/SFX）初回セットアップの半自動ドロップフォルダ方式を実装する v0 ツール群。
 外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ、`packages/decision-cards` /
 `packages/intake-form` と同じ流儀）。詳細な運用手順は
-[`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md) を参照。
+[`skills/setup-library/`](../../skills/setup-library/SKILL.md) の音の経路（`audio-*.md`）を参照。
 
 ## 構成
 
