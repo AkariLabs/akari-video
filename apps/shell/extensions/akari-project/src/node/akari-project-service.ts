@@ -23,7 +23,13 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { randomUUID } from 'crypto';
-import { syncProjectSkillsTree } from './project-skills-sync';
+import {
+    bundledSkillNames,
+    cleanupRenamedSkillCopies,
+    readSkillRenames,
+    syncProjectSkillsTree,
+    writeSkillCopiesManifest
+} from './project-skills-sync';
 import { addSceneFromLauncher, importCommonSceneAsset, unlinkedCommonAssetUris } from './scene-assets';
 import {
     AkariProjectService,
@@ -3133,11 +3139,7 @@ process.stdout.write(JSON.stringify(found));
         }
         const destination = join(root, '.claude', 'skills');
         await this.copySkillsTree(source, destination);
-        await fs.writeFile(
-            join(destination, 'AKARI-SKILLS-VERSION'),
-            `${await this.skillsSignature(source)}\n`,
-            'utf8'
-        );
+        await fs.mkdir(destination, { recursive: true });
 
         const schemasSource = await this.findBundledSchemas();
         if (!schemasSource) {
@@ -3153,6 +3155,26 @@ process.stdout.write(JSON.stringify(found));
         const schemaDestination = join(destination, 'analyze-footage', 'references', 'analysis.schema.json');
         await fs.mkdir(dirname(schemaDestination), { recursive: true });
         await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
+
+        // Converting an existing folder can leave old-name copies behind. Remove only copies that
+        // still match the previous stamp; keep a user-edited copy and say so on one warning line.
+        const renames = await readSkillRenames(this.fsImpl, source, (message, error) =>
+            console.warn(`[akari-project] ${message}`, error ?? ''));
+        const cleanup = await cleanupRenamedSkillCopies({
+            fs: this.fsImpl,
+            destination,
+            renames,
+            warn: (message, error) => console.warn(`[akari-project] ${message}`, error ?? '')
+        });
+        for (const { from, to } of cleanup.kept) {
+            console.warn(`[akari-project] ${t('project.workspace.service.renamedSkillCopyKeptWarning', { name: from, to })}`);
+        }
+        await writeSkillCopiesManifest(this.fsImpl, destination, source, await bundledSkillNames(this.fsImpl, source));
+        await fs.writeFile(
+            join(destination, 'AKARI-SKILLS-VERSION'),
+            `${await this.skillsSignature(source)}\n`,
+            'utf8'
+        );
 
         await this.installSkillAdapters(root);
     }
@@ -3220,6 +3242,9 @@ process.stdout.write(JSON.stringify(found));
         });
         if (!outcome.synced) {
             return outcome;
+        }
+        for (const warning of outcome.warnings ?? []) {
+            console.warn(`[akari-project] ${warning}`);
         }
         try {
             await this.installSkillAdapters(root);
@@ -3323,7 +3348,7 @@ process.stdout.write(JSON.stringify(found));
     protected async copySkillsTree(source: string, destination: string): Promise<void> {
         await fs.mkdir(destination, { recursive: true });
         for (const entry of await fs.readdir(source, { withFileTypes: true })) {
-            if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+            if (entry.name === '.gitkeep' || entry.name === '.DS_Store' || entry.name === 'renames.json') {
                 continue;
             }
             const from = join(source, entry.name);

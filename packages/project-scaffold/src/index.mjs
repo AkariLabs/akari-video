@@ -15,6 +15,11 @@ import { t } from '../../i18n/index.mjs';
 import { PROJECT_GITIGNORE } from '../../akari-launcher/src/history-policy.mjs';
 import editStore from '../../edit-store/lib/index.js';
 import { validatePlaybookFiles } from '../../schemas/validate-playbook.mjs';
+import {
+    cleanupRenamedSkillCopies,
+    loadSkillRenames,
+    writeSkillCopiesManifest
+} from '../../schemas/skill-renames.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -276,7 +281,7 @@ export async function createSkillAdapterLink(target, linkPath, { fsImpl = fs, pl
 async function copySkillsTree(source, destination) {
     await fs.mkdir(destination, { recursive: true });
     for (const entry of await fs.readdir(source, { withFileTypes: true })) {
-        if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+        if (entry.name === '.gitkeep' || entry.name === '.DS_Store' || entry.name === 'renames.json') {
             continue;
         }
         // dev-fixtures/ はスキル開発用のサンプル素材（例: skills/address-review/dev-fixtures/
@@ -323,11 +328,21 @@ async function skillsSignature(source) {
 export async function installProjectSkills(destinationDir, skillsSourceDir, schemasSourceDir) {
     const destination = path.join(destinationDir, '.claude', 'skills');
     await copySkillsTree(skillsSourceDir, destination);
-    await fs.writeFile(
-        path.join(destination, 'AKARI-SKILLS-VERSION'),
-        `${await skillsSignature(skillsSourceDir)}\n`,
-        'utf8'
-    );
+
+    // Old-name copies left by a project made before a rename: only a copy that still matches the
+    // per-skill stamp from the previous install is removed. A user-edited copy stays and is
+    // reported on one warning line (the caller decides whether to show it). The new tree is
+    // written first, so an interrupted install never leaves neither name behind.
+    const renames = loadSkillRenames(skillsSourceDir).renames;
+    const cleanup = await cleanupRenamedSkillCopies({
+        fs,
+        destination,
+        renames,
+        warn: message => console.warn(`[project-scaffold] ${message}`)
+    });
+    const warnings = cleanup.kept.map(({ from, to }) =>
+        t('project.workspace.service.renamedSkillCopyKeptWarning', { name: from, to }));
+    for (const warning of warnings) console.warn(`[project-scaffold] ${warning}`);
 
     if (schemasSourceDir) {
         const schema = JSON.parse(
@@ -341,6 +356,17 @@ export async function installProjectSkills(destinationDir, skillsSourceDir, sche
         await fs.mkdir(path.dirname(schemaDestination), { recursive: true });
         await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
     }
+
+    const skillNames = (await fs.readdir(skillsSourceDir, { withFileTypes: true }))
+        .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
+        .map(entry => entry.name);
+    await writeSkillCopiesManifest(fs, destination, skillsSourceDir, skillNames);
+    await fs.writeFile(
+        path.join(destination, 'AKARI-SKILLS-VERSION'),
+        `${await skillsSignature(skillsSourceDir)}\n`,
+        'utf8'
+    );
+    return { removed: cleanup.removed, warnings };
 }
 
 export async function installSkillAdapters(destinationDir, options = {}) {

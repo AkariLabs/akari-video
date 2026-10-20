@@ -869,6 +869,7 @@
   "project.workspace.service.createProjectAction": "Create project",
   "project.workspace.service.createReportAction": "Create report",
   "project.workspace.service.syncSkillsAction": "Update bundled skills",
+  "project.workspace.service.renamedSkillCopyKeptWarning": "Kept the old skill {name} because it has local changes (new name: {to})",
   "project.workspace.service.editDataOutsideProjectCannotBeMessage": "Edit data outside the project cannot be selected.",
   "project.workspace.service.enterNameAction": "Enter a name.",
   "project.workspace.service.exportVideoAction": "Export video",

@@ -1,5 +1,6 @@
 import * as React from '@theia/core/shared/react';
 import { SkillCategory } from './skills-panel-model';
+import { resolveSkillName, SKILL_RENAMES, SkillRenameEntry } from './skill-renames';
 
 const accent = 'var(--akari-accent, #f97316)';
 const shade = 'var(--theia-descriptionForeground)';
@@ -247,9 +248,15 @@ const CATEGORY_ART: Record<SkillCategory, React.ReactNode> = Object.fromEntries(
     Object.entries(CATEGORY_PARTS).map(([category, parts]) => [category, renderParts(parts)])
 ) as Record<SkillCategory, React.ReactNode>;
 
-export function skillPictogramFor(name: string, category: SkillCategory): { dedicated: boolean; art: React.ReactNode } {
-    if (Object.prototype.hasOwnProperty.call(SKILL_ART, name)) {
-        return { dedicated: true, art: SKILL_ART[name] };
+export function skillPictogramFor(
+    name: string,
+    category: SkillCategory,
+    renames: readonly SkillRenameEntry[] = SKILL_RENAMES
+): { dedicated: boolean; art: React.ReactNode } {
+    // The artwork table only carries new names; an old project copy still gets the new picture.
+    const resolved = resolveSkillName(name, renames);
+    if (Object.prototype.hasOwnProperty.call(SKILL_ART, resolved)) {
+        return { dedicated: true, art: SKILL_ART[resolved] };
     }
     return { dedicated: false, art: CATEGORY_ART[category] };
 }

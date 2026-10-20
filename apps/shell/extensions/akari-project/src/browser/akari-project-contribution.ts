@@ -643,6 +643,11 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
                 this.messages.warn(t('project.workspace.command.bundledSkillsSyncFailedMessage', counts));
                 return;
             }
+            if (outcome.warnings?.length) {
+                // 旧名のコピーを利用者が変更していたため残した、という 1 行（文言は i18n）。
+                this.messages.warn(outcome.warnings.join(' '));
+                return;
+            }
             this.messages.info(t('project.workspace.command.bundledSkillsSyncResultMessage', counts));
         } catch (error) {
             this.messages.error(t('project.workspace.command.couldNotShowChangesError', { value1: this.errorMessage(error) }));

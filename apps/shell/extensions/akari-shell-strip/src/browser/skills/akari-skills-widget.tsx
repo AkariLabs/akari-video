@@ -12,6 +12,7 @@ import { AKARI_COMMANDS, RAIL_SKILLS_WIDGET_ID } from '../../common/rail-ids';
 import { AkariSkillCatalogService } from '../akari-skill-catalog-service';
 import { SKILLS_PANEL_TEXT, groupSkillsByCategory, skillAskOutcomeMessage, skillPromptText } from './skills-panel-model';
 import { SkillPictogram } from './skill-pictograms';
+import { resolvedSkillDescription } from './skill-renames';
 import { readProjectTitle } from './project-title';
 import { t } from '../../common/shell-text';
 
@@ -212,7 +213,9 @@ export class AkariSkillsWidget extends ReactWidget {
             this.catalog.loadSkills(root), root ? readProjectTitle(this.files, root) : Promise.resolve(undefined)
         ]);
         if (version !== this.loadVersion || this.isDisposed) return;
-        this.skills = skills;
+        // An old-name copy that the sync kept (because the user changed it) still shows the
+        // catalog summary of the new name; the actions keep using its real directory name.
+        this.skills = skills.map(skill => ({ ...skill, description: resolvedSkillDescription(skill) }));
         this.projectName = projectName;
         this.update();
     }
