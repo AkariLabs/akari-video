@@ -12,7 +12,7 @@ test('English launcher help, diagnosis, version, and delegated help contain no J
   for (const args of [
     ['--help'], ['--version'], ['doctor'], ['new', '--help'],
     ['narration', 'engines'], ['narration', '--help'], ['captions', '--help'], ['media', '--help'],
-    ['clean', '--help'], ['storyboard', '--help'],
+    ['clean', '--help'], ['storyboard', '--help'], ['preview', '--help'],
   ]) {
     const result = spawnSync(process.execPath, [entry, ...args], {
       encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'en' }, timeout: 30_000,

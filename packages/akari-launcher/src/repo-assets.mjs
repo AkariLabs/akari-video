@@ -48,6 +48,9 @@ export const GENERATE_CLI_RELATIVE = path.join('packages', 'generate', 'src', 'c
 export const STORYBOARD_CLI_RELATIVE = path.join('packages', 'decision-cards', 'render-storyboard-print.mjs');
 export const WORLD_CLI_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'world.mjs');
 export const WORLD_VALIDATOR_RELATIVE = path.join('packages', 'schemas', 'bin', 'validate-world-map.mjs');
+// ブラウザプレビューの実体。`akari preview` はこれを子プロセスで起動するだけで、
+// サーバーを再実装しない（アプリでは extraResources、モノレポでは checkout から解決）。
+export const PREVIEW_SERVER_SCRIPT_RELATIVE = path.join('packages', 'preview-server', 'src', 'server.mjs');
 
 // launcher が直接または起動した CLI の子プロセスとして解決する実行体の正本。
 // launcher-assets は resolveLauncherAssets() が資産フィールド単位で vendor を補完できる経路、
@@ -74,7 +77,8 @@ export const LAUNCHER_SUBCOMMAND_EXECUTABLES = [
   { command: 'akari generate', relative: GENERATE_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari storyboard', relative: STORYBOARD_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari world', relative: WORLD_CLI_RELATIVE, resolution: 'resources' },
-  { command: 'akari world check', relative: WORLD_VALIDATOR_RELATIVE, resolution: 'resources' }
+  { command: 'akari world check', relative: WORLD_VALIDATOR_RELATIVE, resolution: 'resources' },
+  { command: 'akari preview', relative: PREVIEW_SERVER_SCRIPT_RELATIVE, resolution: 'resources' }
 ];
 
 /**
@@ -101,6 +105,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const wordBookScript = path.join(repoRoot, WORD_BOOK_SCRIPT_RELATIVE);
   const generateScript = path.join(repoRoot, GENERATE_CLI_RELATIVE);
   const storyboardScript = path.join(repoRoot, STORYBOARD_CLI_RELATIVE);
+  const previewServerScript = path.join(repoRoot, PREVIEW_SERVER_SCRIPT_RELATIVE);
 
   return {
     repoRoot,
@@ -124,23 +129,34 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     ...(existsSync(decisionLogScript) ? { decisionLogScript } : {}),
     ...(existsSync(wordBookScript) ? { wordBookScript } : {}),
     ...(existsSync(generateScript) ? { generateScript } : {}),
-    ...(existsSync(storyboardScript) ? { storyboardScript } : {})
+    ...(existsSync(storyboardScript) ? { storyboardScript } : {}),
+    ...(existsSync(previewServerScript) ? { previewServerScript } : {})
   };
 }
 
 /**
  * ランチャー実行時の同梱物解決: 資産ごとにモノレポ checkout（開発時）→ vendor/
  * （npm 配布時）の順で探す。checkout が一部の資産しか持たないパッケージ構成でも、
- * 欠けたフィールドだけを vendor から補完する。
+ * 欠けたフィールドだけを vendor から補完する。preview-server だけは、asar 内の
+ * `lib/` 配置（checkout でも vendor でもない）からも見えるよう、Electron の
+ * resourcesPath を最後の探索先にする。
  */
 export function resolveLauncherAssets({
   candidateRoot = DEFAULT_REPO_ROOT_CANDIDATE,
-  vendorRoot = DEFAULT_VENDOR_ROOT
+  vendorRoot = DEFAULT_VENDOR_ROOT,
+  // asar 内の `lib/` 配置では checkout 側にも vendor 側にも preview-server が無い。
+  // アプリの extraResources（Electron の resourcesPath）を最後の探索先にする。
+  resourcesPath = process.resourcesPath
 } = {}) {
   const candidate = resolveRepoAssets(candidateRoot);
   const vendor = resolveRepoAssets(vendorRoot);
   const candidateHasAssets = Object.entries(candidate)
     .some(([key, value]) => key !== 'repoRoot' && value !== null);
+  const resourcesPreviewServer = resourcesPath
+    ? path.join(resourcesPath, PREVIEW_SERVER_SCRIPT_RELATIVE)
+    : null;
+  const previewServerScript = candidate.previewServerScript ?? vendor.previewServerScript
+    ?? (resourcesPreviewServer && existsSync(resourcesPreviewServer) ? resourcesPreviewServer : null);
 
   return {
     repoRoot: candidateHasAssets ? candidateRoot : vendorRoot,
@@ -171,6 +187,7 @@ export function resolveLauncherAssets({
     ...(candidate.decisionLogScript ?? vendor.decisionLogScript ? { decisionLogScript: candidate.decisionLogScript ?? vendor.decisionLogScript } : {}),
     ...(candidate.wordBookScript ?? vendor.wordBookScript
       ? { wordBookScript: candidate.wordBookScript ?? vendor.wordBookScript }
-      : {})
+      : {}),
+    ...(previewServerScript ? { previewServerScript } : {})
   };
 }
