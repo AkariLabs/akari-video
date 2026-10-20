@@ -812,5 +812,15 @@
   "cli.new.error.scaffoldAndTemplate": "--scaffold and --template cannot be used together.",
   "cli.new.notice.templateAlias": "--template is an alias for --scaffold.",
   "cli.template.help.usage": "Usage: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]",
-  "cli.playbook.template.aliasNotice": "akari playbook template is an alias for akari template export."
+  "cli.playbook.template.aliasNotice": "akari playbook template is an alias for akari template export.",
+  "cli.lint.help.usage": "Usage: akari lint [<project>] [--fix] [--media] [--json] [--engine gpu|osr|auto]",
+  "cli.lint.help.description": "Check edit.json with the deterministic CLI. By default nothing is rewritten and no lint record is written (use --fix or edit-lint itself to record).",
+  "cli.lint.help.project": "  <project>  Project to check (default: the current directory)",
+  "cli.lint.help.fix": "  --fix      Fix only mechanically fixable findings, printing changed files, the diff, and the backup path first",
+  "cli.lint.help.media": "  --media    Decode media and check audio too (optional)",
+  "cli.lint.help.json": "  --json     Print the result as JSON",
+  "cli.lint.help.engine": "  --engine gpu|osr|auto  Also check export-engine compatibility",
+  "cli.lint.help.help": "  --help     Show this help",
+  "cli.lint.error.scriptMissing": "edit-lint was not found. Run `akari doctor` to check where the parts are installed.",
+  "cli.help.commands.lint": "  lint [dir] [--fix]          Check edit.json (--fix repairs the findings it can)"
 }

@@ -10,6 +10,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
+import { applyFixes, describeChange, serializeFixedEdit, unifiedDiff } from "./fix.mjs";
 import { lintText } from './i18n.mjs';
 import { collectLicenseFindings } from "./license-findings.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
@@ -40,11 +41,14 @@ export { validateCaptionTrackDeclaration } from "./lint/v2-projection.mjs";
 
 const VERSION = 1;
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json] [--no-reports] [--engine gpu|osr|auto]
+const USAGE = `Usage: edit-lint <project-root|edit.json path> [--fix] [--media] [--json] [--no-reports] [--engine gpu|osr|auto]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
        [--declarations PATH] [--ffprobe PATH]
 
+Without --fix the check only reports; edit.json, captions.json and overlays are never rewritten.
+With --fix, mechanically fixable findings are applied, the changed files, unified diff and backup
+directory are printed first, and the result is re-checked.
 Relative paths in edit.json resolve from the nearest project .akari/ ancestor (excluding AKARI_HOME), or the edit file directory.
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
@@ -96,24 +100,118 @@ export async function runCli(argv, io = console) {
   }
 
   try {
+    if (options.fix) return await runFixMode(options, io);
     const result = await lintProject(options.input, options);
     if (options.json) {
       io.log(JSON.stringify(result, null, 2));
     } else {
-      io.log(
-        `${result.verdict.toUpperCase()}: ${options.input} (${result.findings.length} findings, ${result.skipped.length} skipped)`,
-      );
-      for (const finding of result.findings) {
-        io.log(
-          `- [${finding.severity}] ${finding.check}: ${finding.message}${finding.path ? ` (${finding.path})` : ""}`,
-        );
-      }
+      printResult(result, options, io);
+      for (const line of await describeFixable(options, result)) io.log(line);
     }
     return result.verdict === "pass" ? 0 : 1;
   } catch (error) {
     io.error(`edit-lint execution error: ${providerGuidedMessage(error)}`);
     return 2;
   }
+}
+
+function printResult(result, options, io) {
+  io.log(
+    `${result.verdict.toUpperCase()}: ${options.input} (${result.findings.length} findings, ${result.skipped.length} skipped)`,
+  );
+  for (const finding of result.findings) {
+    io.log(
+      `- [${finding.severity}] ${finding.check}: ${finding.message}${finding.path ? ` (${finding.path})` : ""}`,
+    );
+  }
+}
+
+/** 既定（--fix なし）でも「--fix で直せるもの」を件数と要点で知らせる。書き込みはしない。 */
+async function describeFixable(options, result) {
+  if (result.findings.length === 0) return [];
+  let edit;
+  try {
+    const paths = await resolveInput(options.input, options);
+    edit = JSON.parse(await readFile(paths.editPath, "utf8"));
+  } catch {
+    return [];
+  }
+  const { changes } = applyFixes(edit, result.findings);
+  if (changes.length === 0) return [];
+  const lines = [lintText("lint-messages.fix.status.available", { count: changes.length, n: changes.length })];
+  for (const change of changes.slice(0, 5)) lines.push(`  - ${describeChange(change)}`);
+  if (changes.length > 5) {
+    lines.push(`  - ${lintText("lint-messages.fix.status.more", { count: changes.length - 5, n: changes.length - 5 })}`);
+  }
+  return lines;
+}
+
+function formatFixHeader({ changes, backupRelative, diff }) {
+  const lines = [
+    lintText("lint-messages.fix.header.changed", { count: 1, n: 1 }),
+    lintText("lint-messages.fix.header.files"),
+    "  M edit.json",
+    lintText("lint-messages.fix.header.reasons"),
+    ...changes.map(change => `  - ${describeChange(change)}`),
+    lintText("lint-messages.fix.header.diff"),
+    ...diff.lines,
+  ];
+  if (diff.omitted > 0) {
+    lines.push(lintText("lint-messages.fix.diff.omitted", { count: diff.omitted, n: diff.omitted }));
+  }
+  lines.push(
+    lintText("lint-messages.fix.header.backup", { path: backupRelative }),
+    lintText("lint-messages.fix.header.after"),
+  );
+  return lines;
+}
+
+async function runFixMode(options, io) {
+  const paths = await resolveInput(options.input, options);
+  const preliminary = await lintProject(options.input, { ...options, fix: false, writeReports: false });
+  const beforeText = await readFile(paths.editPath, "utf8");
+  let edit;
+  try {
+    edit = JSON.parse(beforeText);
+  } catch (error) {
+    throw new ExecutionError(`edit.json is not valid JSON: ${messageOf(error)}`);
+  }
+  const { changes } = applyFixes(edit, preliminary.findings);
+  const afterText = changes.length === 0 ? beforeText : serializeFixedEdit(edit);
+  if (changes.length === 0 || afterText === beforeText) {
+    if (options.json) {
+      io.log(JSON.stringify(preliminary, null, 2));
+    } else {
+      printResult(preliminary, options, io);
+      io.log(lintText("lint-messages.fix.status.none"));
+    }
+    return preliminary.verdict === "pass" ? 0 : 1;
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
+  const backupRelative = `.akari/work/tmp/lint-fix-${stamp}`;
+  const backupDirectory = join(paths.projectRoot, ...backupRelative.split("/"));
+  await mkdir(backupDirectory, { recursive: true });
+  await writeFile(join(backupDirectory, "edit.json"), beforeText, "utf8");
+  await writeFile(paths.editPath, afterText, "utf8");
+
+  const diff = unifiedDiff(relativePath(paths.projectRoot, paths.editPath), beforeText, afterText);
+  const header = formatFixHeader({ changes, backupRelative, diff });
+  const emit = options.json ? line => io.error(line) : line => io.log(line);
+  for (const line of header) emit(line);
+
+  const result = await lintProject(options.input, {
+    ...options,
+    fix: false,
+    writeReports: options.writeReports !== false,
+  });
+  if (options.json) {
+    io.log(JSON.stringify(result, null, 2));
+  } else {
+    io.log("");
+    printResult(result, options, io);
+  }
+  return result.verdict === "pass" ? 0 : 1;
 }
 
 export async function lintProject(input, options = {}) {
@@ -419,6 +517,7 @@ async function writeResult(findings, skipped, inputs, paths, options) {
 export function parseArguments(argv) {
   let input = null;
   const options = {
+    fix: false,
     media: false,
     json: false,
     writeReports: true,
@@ -439,6 +538,10 @@ export function parseArguments(argv) {
     }
     if (argument === "--json") {
       options.json = true;
+      continue;
+    }
+    if (argument === "--fix") {
+      options.fix = true;
       continue;
     }
     if (argument === "--no-reports") {

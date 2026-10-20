@@ -5,11 +5,23 @@
 The nearest ancestor with a project `.akari/` is used; the application-wide `AKARI_HOME` is excluded.
 
 ```sh
-node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json> [--json]
+node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json> [--fix] [--json]
 ```
 
 Exit code `0` means PASS, `1` means lint findings include an error, and `2` means the lint command
 could not run.
+
+## Automatic fixes (`--fix`)
+
+Without `--fix` the check only reports; `edit.json`, `captions.json`, and overlay HTML are never
+rewritten. Findings that are mechanically fixable are listed as "fixable with `--fix`".
+
+With `--fix`, only those mechanical findings are applied to `edit.json`: moving an item whose
+`source.kind` does not fit its track lane to a compatible track, moving an item that overlaps on the
+same track to a free track of the same lane, sorting items by `at`, and removing empty tracks.
+Judgment fixes remain human/agent edits. The command prints the changed files, a unified diff
+(first 40 lines per file when long), and the backup directory (`.akari/work/tmp/lint-fix-<timestamp>/`)
+before re-checking the project and writing `.akari/lint.json`.
 
 ## Overlay fragment checks
 
