@@ -156,5 +156,19 @@
   "lint-messages.audio.bgm.example_other": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）",
   "lint-messages.cuts.transition.freeze": "後のクリップの頭 {seconds} 秒は、止め絵で埋めています。",
   "lint-messages.cuts.transition.freezeCheck": "トランジションの一部を止め絵で埋めています。",
-  "lint-messages.captions.ui.captionMostlyCutOffMessage": "字幕 {id} は映像のカットでほとんど見えません（半分未満しか残っていません）"
+  "lint-messages.captions.ui.captionMostlyCutOffMessage": "字幕 {id} は映像のカットでほとんど見えません（半分未満しか残っていません）",
+  "lint-messages.fix.status.available": "`--fix` で直せます: {count} 件",
+  "lint-messages.fix.status.more": "ほか {count} 件",
+  "lint-messages.fix.status.none": "自動修正できる指摘はありません。",
+  "lint-messages.fix.header.changed": "修正しました（--fix）: {count} ファイル",
+  "lint-messages.fix.header.files": "変更したファイル:",
+  "lint-messages.fix.header.reasons": "直した内容:",
+  "lint-messages.fix.header.diff": "差分:",
+  "lint-messages.fix.header.backup": "バックアップ: {path}",
+  "lint-messages.fix.header.after": "（以下、修正後の検査結果）",
+  "lint-messages.fix.diff.omitted": "… 長いため残り {count} 行は省略しました",
+  "lint-messages.fix.note.laneMove": "トラックを移動: {id} （{from} → {to}）",
+  "lint-messages.fix.note.overlapMove": "重なりを解消するため別トラックへ移動: {id} （{from} → {to}）",
+  "lint-messages.fix.note.sortItems": "at の順に並べ直し: {track}",
+  "lint-messages.fix.note.removeEmptyTrack": "空のトラックを削除: {track}"
 }

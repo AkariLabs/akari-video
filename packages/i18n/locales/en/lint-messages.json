@@ -156,5 +156,19 @@
   "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
   "lint-messages.cuts.transition.freeze": "The first {seconds} s of the later clip is filled with a held frame.",
   "lint-messages.cuts.transition.freezeCheck": "Part of this transition is filled with a held frame.",
-  "lint-messages.captions.ui.captionMostlyCutOffMessage": "Caption {id} is barely visible because a video cut leaves less than half of it on screen."
+  "lint-messages.captions.ui.captionMostlyCutOffMessage": "Caption {id} is barely visible because a video cut leaves less than half of it on screen.",
+  "lint-messages.fix.status.available": "Fixable with `--fix`: {count}",
+  "lint-messages.fix.status.more": "{count} more",
+  "lint-messages.fix.status.none": "No automatically fixable findings.",
+  "lint-messages.fix.header.changed": "Fixed with `--fix`: {count} file(s)",
+  "lint-messages.fix.header.files": "Changed files:",
+  "lint-messages.fix.header.reasons": "Changes:",
+  "lint-messages.fix.header.diff": "Diff:",
+  "lint-messages.fix.header.backup": "Backup: {path}",
+  "lint-messages.fix.header.after": "(Lint result after the fix)",
+  "lint-messages.fix.diff.omitted": "… {count} more lines omitted",
+  "lint-messages.fix.note.laneMove": "Moved to a compatible track: {id} ({from} -> {to})",
+  "lint-messages.fix.note.overlapMove": "Moved to another track to clear the overlap: {id} ({from} -> {to})",
+  "lint-messages.fix.note.sortItems": "Sorted items by at: {track}",
+  "lint-messages.fix.note.removeEmptyTrack": "Removed an empty track: {track}"
 }

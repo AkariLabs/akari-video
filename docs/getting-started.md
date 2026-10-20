@@ -612,6 +612,9 @@ If you have one piece of footage:
    → lint PASS → you approve → MP4 is saved in `exports/`
    → [Export](./guides/export.md)
 
+   To check lint yourself, run `akari lint .` (it rewrites nothing). Findings it can fix mechanically are
+   repaired by `akari lint . --fix`, which prints the changed files, diff, and backup path first.
+
 ### Without footage
 
 You can start from planning with just an idea.

@@ -812,5 +812,15 @@
   "cli.new.error.scaffoldAndTemplate": "--scaffold と --template は同時に指定できません。",
   "cli.new.notice.templateAlias": "--template は --scaffold の別名です。",
   "cli.template.help.usage": "使い方: akari template export <project> --item <group-item-id> --id <template-id> [--name <name>] [--out <dir>] [--license-own <license>] | akari template list [--json] [--category <category>] [--tag <tag>] [--channel <channel>]",
-  "cli.playbook.template.aliasNotice": "akari playbook template は akari template export の別名です。"
+  "cli.playbook.template.aliasNotice": "akari playbook template は akari template export の別名です。",
+  "cli.lint.help.usage": "使い方: akari lint [<project>] [--fix] [--media] [--json] [--engine gpu|osr|auto]",
+  "cli.lint.help.description": "edit.json を決定的な CLI で検査します。既定ではファイルを書き換えず、検査の記録も作りません（記録は --fix か edit-lint 本体で）。",
+  "cli.lint.help.project": "  <project>  検査するプロジェクト（既定: カレントディレクトリ）",
+  "cli.lint.help.fix": "  --fix      機械的に直せる指摘だけを修正し、変更したファイル・差分・バックアップ先を冒頭に表示する",
+  "cli.lint.help.media": "  --media    メディアを復号して音声も検査する（任意）",
+  "cli.lint.help.json": "  --json     検査結果を JSON で表示する",
+  "cli.lint.help.engine": "  --engine gpu|osr|auto  書き出しエンジンとの互換性も検査する",
+  "cli.lint.help.help": "  --help     このヘルプを表示",
+  "cli.lint.error.scriptMissing": "edit-lint が見つかりません。`akari doctor` で部品の配置を確認してください。",
+  "cli.help.commands.lint": "  lint [dir] [--fix]          edit.json を検査する（--fix で直せる指摘だけ修正）"
 }
