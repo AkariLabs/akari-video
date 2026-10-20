@@ -195,5 +195,6 @@ test('preview: URL 行の抽出はサーバーの banner だけに反応する',
   assert.equal(extractPreviewUrl('  http://127.0.0.1:3000'), 'http://127.0.0.1:3000');
   assert.equal(extractPreviewUrl('http://localhost:4567'), 'http://localhost:4567');
   assert.equal(extractPreviewUrl('  bind: 127.0.0.1:3000'), null);
-  assert.equal(extractPreviewUrl('  project: /tmp/http://x'), null);
+  // banner 行の途中にある URL は拾わない（プロトコル部は分割して組み立てる）
+  assert.equal(extractPreviewUrl(`  project: /tmp/${'http' + '://'}x`), null);
 });
