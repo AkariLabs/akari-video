@@ -44,7 +44,7 @@ Caption `style` accepts five values (`plain` shows the caption without motion):
 ## How it works — touchable motion parts
 
 What gets generated is an HTML fragment, referenced by an HTML clip in `tracks[].items[]`. There
-are two conventions:
+are three conventions:
 
 1. **Timing lives in `edit.json`** — a clip's start and duration come from its timeline item.
    Do not put `data-start` or `data-duration` on the fragment root. If the asset has a natural
@@ -57,6 +57,11 @@ are two conventions:
    sets them inline on the container, so referencing or redefining them for a custom knob
    silently loses the fallback; use a non-reserved name instead (`edit-lint` warns via
    `overlays.reserved-css-var-reference`)
+3. **Class and `@keyframes` names are global to the page** — give every fragment its own prefix
+   (for example `.lower-third-…` / `@keyframes lower-third-…`) instead of copying a name from
+   another fragment; when clips overlap in time, `edit-lint` warns via
+   `overlays.fragment-css-collision` because the later fragment's rules would style the other
+   clip's elements. Reusing the same fragment file in several clips is not a collision.
 
 In other words, even something "the AI drew freely" can be fine-tuned by humans through a GUI
 without reading the HTML. Text can be edited directly with a double-click, and the change is
