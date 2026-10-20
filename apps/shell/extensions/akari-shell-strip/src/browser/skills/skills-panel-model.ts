@@ -18,7 +18,7 @@ export const SKILL_CATEGORY_ORDER: readonly SkillCategory[] =
 const CATEGORY_WORDS: ReadonlyArray<readonly [SkillCategory, readonly string[]]> = [
     ['plan', ['research', 'plan', 'ideate']],
     ['analysis', ['analyze', 'analysis', 'interpret', 'transcri', 'inspect', 'diagnos']],
-    ['material', ['import', 'material', 'harvest', 'narration', 'media', 'library', 'audio']],
+    ['material', ['import', 'material', 'harvest', 'narration', 'media', 'image', 'video', 'library', 'audio']],
     ['edit', ['edit', 'cut', 'caption', 'telop', 'mix']],
     ['review', ['review', 'lint', 'report', 'check', 'address']],
     ['export', ['export', 'publish', 'upload']],

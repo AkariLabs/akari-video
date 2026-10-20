@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **28 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **29 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -56,7 +56,8 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for motion parts (HTML assets: captions, tables & charts, 3D, glass, motion graphics, thumbnails, text-behind-person). The skill keeps its original name | CSS keyframes / WAAPI; declarative Three.js + glTF, glass, WebGPU, and Canvas 2D world runtimes (see [Supported animation runtimes](#supported-animation-runtimes)) |
 | [bake-3d](../skills/bake-3d/SKILL.md) | Baking 3D scenes into footage (clips) for what the Three.js path cannot draw. Creating, tuning, and re-baking `scene.py` setups | **Blender** (headless, bpy) |
 | [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json. Local engines are free; cloud engines (including cloning your own voice) run only after cost approval | VOICEVOX / Irodori (local, free) / fal, Google AI Gemini TTS, Fish Audio (cloud, behind approval) |
-| [generate-media](../skills/generate-media/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Codex image generation (free) / allowed video providers from manage-connections (cost approval) |
+| [generate-image](../skills/generate-image/SKILL.md) | Prompt → still image on the timeline as an asset or placeholder. A thin skill that generate-video references; it does not own timing or the video chain | Allowed image models from manage-connections (cost approval when paid) |
+| [generate-video](../skills/generate-video/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Allowed video providers from manage-connections (cost approval) |
 
 ### QA & review
 

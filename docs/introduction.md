@@ -149,7 +149,7 @@ Approval for billing and external sends is independent of the mode. The `connect
 approval policy takes priority ([Connections and API keys](./how-to/connections.md)).
 
 Skills are discovered automatically from the Claude Code plugin, opencode, Cursor Agent,
-and Codex. See the [Skills Catalog](./skills.md) for all 28.
+and Codex. See the [Skills Catalog](./skills.md) for all 29.
 
 ## Read next
 

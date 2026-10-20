@@ -135,10 +135,17 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         L('M28 8H14a3 3 0 0 0-3 3v22a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3V24'),
         L('M21 16l11 6-11 6z'), A('M38 22L52 8M44 8h8v8')
     ],
-    // 生成素材: 画像 + きらめき
-    'generate-media': [
+    // 画像生成: 画像 + きらめき
+    'generate-image': [
         B(rr(6, 9, 34, 28, 3)), L(circ(15, 18, 3)), L('M8 31l8.5-8.5 6.5 6.5 5-5 10 10'),
         A('M51 9q.8 5.2 6 6-5.2.8-6 6-.8-5.2-6-6 5.2-.8 6-6z')
+    ],
+    // 動画生成: フィルム枠 + 再生 + きらめき
+    'generate-video': [
+        B(rr(5, 9, 44, 28, 3)),
+        L('M10 15h3M10 21h3M10 27h3M41 15h3M41 21h3M41 27h3'),
+        L('M23 16l10 6-10 6z'),
+        A('M53 9q.6 4 4.5 4.5-3.9.5-4.5 4.5-.6-4-4.5-4.5 3.9-.5 4.5-4.5z')
     ],
     // ナレーション: マイク + 声
     'generate-narration': [
@@ -200,7 +207,7 @@ const SKILL_SHIFT: Record<string, readonly [number, number]> = {
     akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'bake-3d': [-1, 0],
     'beat-sync-edit': [2.5, 0], 'create-project': [0, -0.5], verify: [1, 1],
     'export-nle': [0.5, 0],
-    'generate-media': [0.5, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
+    'generate-image': [0.5, -1], 'generate-video': [0, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
     'overlay-authoring': [1, 1], 'render-cut': [0.5, -0.5], 'research-plan': [0, -0.5],
     'setup-audio-library': [0, -0.5], 'setup-chat-approval': [0, -1], 'setup-library': [0, -1],
     'setup-remote': [0.5, 0]

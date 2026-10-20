@@ -43,9 +43,9 @@ async function makeBundle(root, name, body = `${name} v1`) {
 
 // ── 旧名参照の検査 ─────────────────────────────────────────────────────────────
 
-test('実リポは改名表が空なので旧名参照ゼロ', async () => {
+test('実リポは改名表の旧名参照がゼロで、新名の description に旧名マーカーが 1 回ある', async () => {
     const table = parseSkillRenameTable(await readFile(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8'));
-    assert.deepEqual(table.renames, []);
+    assert.ok(table.renames.length >= 1, '改名が入ったら表に 1 行以上ある');
     assert.deepEqual(collectOldNameReferences(REPO_ROOT, table.renames), []);
     // 改名が入ったら、新しい SKILL.md の description に旧名マーカーがちょうど 1 回あること。
     for (const row of table.renames) {
@@ -95,7 +95,7 @@ test('description の旧名は 1 回だけ書く（0 回も 2 回も不合格）
         skillDescription(frontmatter(` ${oldNameMarker('old-name')}`)),
         `New skill ${oldNameMarker('old-name')}`
     );
-    // 実リポ: 改名表が空なので対象ゼロ（改名が入ったらこの検査が SKILL.md を要求する）。
+    // 実リポの表に対する検査は上の実リポテストで行う。
     assert.deepEqual([], []);
 });
 

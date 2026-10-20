@@ -16,8 +16,12 @@ const table = [
     { from: 'old-b', to: 'bake-3d' }
 ];
 
-test('改名表は連鎖を最後の新名に畳む（実リポの表は空）', () => {
-    assert.deepEqual(SKILL_RENAMES, []);
+test('改名表は連鎖を最後の新名に畳む（実リポの行も解決する）', () => {
+    assert.ok(SKILL_RENAMES.length >= 1);
+    for (const row of SKILL_RENAMES) {
+        assert.equal(resolveSkillName(row.from), row.to);
+        assert.equal(resolvedSkillDisplay({ name: row.from, description: 'source description' }).name, row.to);
+    }
     assert.equal(resolveSkillName('old-a', table), 'bake-3d');
     assert.equal(resolveSkillName('old-b', table), 'bake-3d');
     assert.equal(resolveSkillName('bake-3d', table), 'bake-3d');

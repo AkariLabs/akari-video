@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **28 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **29 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -56,7 +56,8 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 動く部品（HTML の素材。テロップ・字幕・表グラフ・3D・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。スキル名は旧名のまま | CSS keyframes / WAAPI、宣言型の Three.js + glTF・ガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
 | [bake-3d](../skills/bake-3d/SKILL.md) | Three.js 経路で出せない 3D を映像素材（クリップ）に焼く。`scene.py` の設定の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
 | [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ。ローカルのエンジンは無償、クラウド（自分の声のクローン含む）は費用承認のあとだけ | VOICEVOX / Irodori（ローカル・無償）、fal・Google AI Gemini TTS・Fish Audio（クラウド・承認制） |
-| [generate-media](../skills/generate-media/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | Codex 画像生成（無償） / manage-connections で許可された動画 provider（費用承認） |
+| [generate-image](../skills/generate-image/SKILL.md) | プロンプト → 静止画を素材・仮枠としてタイムラインへ。generate-video から参照される薄いスキルで、尺や動画の連鎖は持たない | manage-connections で許可された画像モデル（有償は費用承認） |
+| [generate-video](../skills/generate-video/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | manage-connections で許可された動画 provider（費用承認） |
 
 ### QA・レビュー
 
