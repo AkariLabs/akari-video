@@ -647,7 +647,7 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
         <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:visible;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(vars)}">
-          <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
+          <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}*{box-sizing:border-box}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
     </svg>`;
@@ -2676,6 +2676,11 @@
       }
       const stage = document.getElementById("akari-dom-stage");
       if (!stage) throw new Error("GPU DOM layer stage is missing");
+      // プレビュー（preview-server）と同じ border-box 既定。断片が width/height と
+      // padding/border を併記しても content-box で外へ広がらないよう、DOM ステージに限定する。
+      const boxSizingStyle = document.createElement("style");
+      boxSizingStyle.textContent = "#akari-dom-stage, #akari-dom-stage * { box-sizing: border-box; }";
+      stage.appendChild(boxSizingStyle);
       if (this.runs.some((run) => run.entries.some((entry) => entry.html.includes("/caption-font.ttf")))) {
         const fontStyle = document.createElement("style");
         fontStyle.textContent = "@font-face{font-family:'Noto Sans JP';src:url('/caption-font.ttf') format('truetype');font-display:block}";

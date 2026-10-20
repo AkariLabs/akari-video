@@ -11,6 +11,7 @@ import { resolveLibraryFallback } from "../library-reference.mjs";
 import { inspectHtmlFragment, parseHtmlAttributes } from "./html-fragment.mjs";
 import { parseOverlayStyles, splitCssTopLevel, missingProperties, normalizeMotionSelector, referencedKeyframeNames, baseHiddenState, endpointClearsHiddenState } from "./overlay-css.mjs";
 import { validateFragmentCssCollisions } from "./fragment-css-collision.mjs";
+import { validateFragmentBoxSizing } from "./fragment-box-sizing.mjs";
 import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, isRegularFile, isRegularFileSync, readRequiredText, relativePath, resolveReferenceBinding } from "./shared.mjs";
 import { findTrackOverlaps } from "./cuts-tracks.mjs";
 
@@ -18,6 +19,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
   if (!Array.isArray(overlays)) return;
   const ids = new Set();
   const cssUsages = [];
+  const boxSizingChecked = new Set();
   for (const [index, overlay] of overlays.entries()) {
     const itemPath = `edit.json#overlays[${index}]`;
     if (!isRecord(overlay)) {
@@ -105,6 +107,12 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       start: overlay.start,
       duration: overlay.duration,
     });
+    const fragmentLabel = isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`;
+    const fragmentIdentity = isHtmlFile ? realpathSync(htmlPath) : `inline:${html}`;
+    if (!boxSizingChecked.has(fragmentIdentity)) {
+      boxSizingChecked.add(fragmentIdentity);
+      validateFragmentBoxSizing(html, fragmentLabel, findings);
+    }
     validateOverlayReservedCssVarReferences(
       html,
       isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`,
