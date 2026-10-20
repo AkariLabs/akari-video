@@ -6,6 +6,12 @@ The agent-side workflow of AKARI Video is split into **28 skills** (one per prod
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
+## Renaming a skill
+
+- Add one row to `skills/renames.json` (`from` / `to` / `since`); the app and the project sync resolve old names to the new one.
+- Append `（旧名: <from>）` once to the end of the renamed SKILL.md's description.
+- Leave no old-name references under `skills/`, `docs/`, `AGENTS.md`, `README*`, `plugin/`, or `templates/` (tests check this; CHANGELOG and release notes are excluded).
+
 ## Skills in production-flow order
 
 The order follows a video from idea to delivery: plan → prepare → analyze → edit plan → expression → QA & review → export → turn the result into assets or a playbook.

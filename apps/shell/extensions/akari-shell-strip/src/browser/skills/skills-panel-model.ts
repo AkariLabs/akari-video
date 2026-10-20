@@ -1,4 +1,5 @@
 import { t } from '../../common/shell-text';
+import { resolveSkillName, SKILL_RENAMES, SkillRenameEntry } from './skill-renames';
 
 export const SKILLS_PANEL_TEXT = {
     get heading() { return t('shell.skills.panel.skillsLabel'); },
@@ -24,8 +25,13 @@ const CATEGORY_WORDS: ReadonlyArray<readonly [SkillCategory, readonly string[]]>
     ['setup', ['setup', 'connect', 'install', 'manage']]
 ];
 
-export function skillCategory(name: string, _description: string): SkillCategory {
-    const words = new Set(name.toLowerCase().split('-'));
+export function skillCategory(
+    name: string,
+    _description: string,
+    renames: readonly SkillRenameEntry[] = SKILL_RENAMES
+): SkillCategory {
+    const resolved = resolveSkillName(name, renames);
+    const words = new Set(resolved.toLowerCase().split('-'));
     if (words.has('lint')) return 'review';
     for (const [category, candidates] of CATEGORY_WORDS) {
         if (candidates.some(word => category === 'analysis'
@@ -39,11 +45,14 @@ export function skillCategoryLabel(category: SkillCategory): string {
     return t(`shell.skills.category.${category}Label`);
 }
 
-export function groupSkillsByCategory<T extends { name: string; description: string }>(skills: readonly T[]): Array<{ category: SkillCategory; label: string; skills: T[] }> {
+export function groupSkillsByCategory<T extends { name: string; description: string }>(
+    skills: readonly T[],
+    renames: readonly SkillRenameEntry[] = SKILL_RENAMES
+): Array<{ category: SkillCategory; label: string; skills: T[] }> {
     return SKILL_CATEGORY_ORDER.map(category => ({
         category,
         label: skillCategoryLabel(category),
-        skills: skills.filter(skill => skillCategory(skill.name, skill.description) === category)
+        skills: skills.filter(skill => skillCategory(skill.name, skill.description, renames) === category)
     })).filter(group => group.skills.length > 0);
 }
 

@@ -6,6 +6,12 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
+## スキルの改名
+
+- `skills/renames.json` に 1 行足す（`from` / `to` / `since`）。アプリとプロジェクトの同期は旧名を新名へ解決する。
+- 改名した SKILL.md の description の末尾に「（旧名: <from>）」を 1 回だけ書く。
+- `skills/`・`docs/`・`AGENTS.md`・`README*`・`plugin/`・`templates/` に旧名の参照を残さない（検査あり。CHANGELOG とリリースノートは除外）。
+
 ## 制作フロー順の一覧
 
 動画 1 本の流れに沿った並び: 企画 → 準備 → 分析 → 編集計画 → 表現 → QA・レビュー → 書き出し → 素材化・作り方の記録。

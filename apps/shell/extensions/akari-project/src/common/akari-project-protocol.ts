@@ -61,6 +61,11 @@ export interface ProjectSkillsSyncOutcome {
     added: string[];
     updated: string[];
     failed: string[];
+    /**
+     * Old-name copies left in place because the user changed them (i18n text, one line each).
+     * Absent when there is nothing to report so older consumers keep their exact shape.
+     */
+    warnings?: string[];
 }
 
 /** 左パネルの素材タブが持つ「どこへドロップしても取り込める」ドロップゾーン向け。 */

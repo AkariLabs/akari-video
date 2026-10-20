@@ -869,6 +869,7 @@
   "project.workspace.service.createProjectAction": "プロジェクトを作成",
   "project.workspace.service.createReportAction": "レポートを作成",
   "project.workspace.service.syncSkillsAction": "同梱スキルを更新",
+  "project.workspace.service.renamedSkillCopyKeptWarning": "旧名のスキル {name} は利用者が変更しているため残しました（新しい名前: {to}）",
   "project.workspace.service.editDataOutsideProjectCannotBeMessage": "プロジェクト外の編集データは指定できません。",
   "project.workspace.service.enterNameAction": "名前を入力してください。",
   "project.workspace.service.exportVideoAction": "動画を書き出し",
