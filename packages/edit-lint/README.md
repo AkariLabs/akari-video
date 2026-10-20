@@ -26,6 +26,9 @@ could not run.
   ends visible; keep the final resting state in the base rule and put the hidden state at 0%.
 - `overlays.preserve-3d-opacity-animation`: warns when one selector combines `preserve-3d` with an
   opacity animation; move opacity to a parent so Blink does not flatten the 3D element.
+- `overlays.fragment-css-collision`: warns when two clips that can be on screen at the same time
+  reference different fragments that define the same class selector or `@keyframes` name; prefix
+  the name in one fragment. Reusing one fragment file across clips is not a collision.
 
 ## Media checks (`--media`)
 

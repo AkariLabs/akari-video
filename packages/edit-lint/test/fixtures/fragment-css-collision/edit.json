@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [{ "id": "main", "path": "sample.mp4" }],
+  "tracks": [
+    {
+      "id": "main",
+      "lane": "visual",
+      "items": [
+        { "id": "cut", "at": 0, "duration": 600, "source": { "kind": "media", "src": "main", "in": 0, "out": 20 } }
+      ]
+    },
+    {
+      "id": "overlay-a",
+      "lane": "visual",
+      "items": [
+        { "id": "a", "at": 0, "duration": 150, "source": { "kind": "html", "path": "overlays/a.html" } }
+      ]
+    },
+    {
+      "id": "overlay-b",
+      "lane": "visual",
+      "items": [
+        { "id": "b", "at": 30, "duration": 150, "source": { "kind": "html", "path": "overlays/b.html" } }
+      ]
+    },
+    {
+      "id": "overlay-seq",
+      "lane": "visual",
+      "items": [
+        { "id": "seq", "at": 180, "duration": 60, "source": { "kind": "html", "path": "overlays/seq.html" } }
+      ]
+    },
+    {
+      "id": "overlay-reuse-a",
+      "lane": "visual",
+      "items": [
+        { "id": "reuse-a", "at": 0, "duration": 90, "source": { "kind": "html", "path": "overlays/a.html" } }
+      ]
+    },
+    {
+      "id": "overlay-plain",
+      "lane": "visual",
+      "items": [
+        { "id": "plain", "at": 300, "duration": 30, "source": { "kind": "html", "path": "overlays/plain.html" } }
+      ]
+    }
+  ]
+}
