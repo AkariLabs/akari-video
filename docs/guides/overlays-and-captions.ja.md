@@ -231,6 +231,23 @@ akari captions migrate-look <project-dir>             # 固定して保存
   カメラの視線方向の奥行きで拡大し、基準には書き出しバッファではなく canvas の CSS 高さを使うため、
   宣言した px は距離にもプレビューの解像度にも左右されません
 
+3D の断片の中の HTML 要素に `data-akari-3d-anchor="x,y,z"` を付けると、その 3D 座標を毎フレーム
+画面へ投影した位置に置かれます。地名ラベル・ピン・注記をカメラに追従させられます。
+
+```html
+<div data-akari-3d-anchor="0,1.2,0" data-akari-3d-anchor-origin="center"
+     style="position:absolute;left:0;top:0">相模原</div>
+```
+
+- 要素は `position:absolute; left:0; top:0` に置きます。`transform` はランタイムが占有するため、
+  動かしたいときは `opacity` など別のプロパティを使ってください
+- `data-akari-3d-anchor-origin` は要素のどの点を 3D 座標に合わせるかです。既定は `center` で、
+  `top-left` / `top` / `top-right` / `left` / `right` / `bottom-left` / `bottom` / `bottom-right` も使えます
+- カメラの後ろ・画面外の要素は自動で `visibility: hidden` になります。
+  `data-akari-3d-anchor-occlude="true"` を付けると、地形やモデルの陰に入ったときも隠れます
+- プレビュー・`akari capture`・書き出し（GPU / OSR）は同じ投影を使います。3D の断片の外で
+  使うと lint が警告します
+
 カメラの移動は、GLB もアニメーションクリップも使わず、キーフレームで宣言できます。
 
 ```json

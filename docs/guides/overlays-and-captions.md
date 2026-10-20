@@ -248,6 +248,24 @@ executed (model, camera, lights, environment).
   scales the text by the camera's view depth and uses the canvas CSS height (not the export buffer),
   so the declared pixel size stays the same at any distance and at any preview resolution
 
+An HTML element inside a 3D fragment with `data-akari-3d-anchor="x,y,z"` is placed every frame at
+the screen position of that 3D point. Place names, pins, and notes can follow the camera.
+
+```html
+<div data-akari-3d-anchor="0,1.2,0" data-akari-3d-anchor-origin="center"
+     style="position:absolute;left:0;top:0">Sagamihara</div>
+```
+
+- Position the element with `position:absolute; left:0; top:0`. The runtime owns its `transform`;
+  animate another property such as `opacity` instead
+- `data-akari-3d-anchor-origin` chooses which point of the element meets the 3D coordinate.
+  It defaults to `center`; `top-left`, `top`, `top-right`, `left`, `right`, `bottom-left`, `bottom`,
+  and `bottom-right` are also available
+- Elements behind the camera or outside the frame become `visibility: hidden` automatically.
+  Add `data-akari-3d-anchor-occlude="true"` to hide them when terrain or a model covers the point
+- Preview, `akari capture`, and export (GPU / OSR) use the same projection. Using an anchor outside
+  a 3D fragment makes lint warn
+
 Camera moves can be declared as keyframes, with no GLB or animation clip:
 
 ```json

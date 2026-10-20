@@ -2570,6 +2570,29 @@
     }
   }
 
+  // composite は overlay sheet の canvas を DOM 層の複製へ中継する。data-akari-3d-anchor の
+  // HTML は threeRuntime が overlay sheet 側だけを更新するため、同じ文書順の要素へ
+  // transform / visibility を写す（位置計算は変えず、投影結果をそのまま使う）。
+  function syncAnchorElementStyles(sourceContainer, targetContainer) {
+    if (!sourceContainer || !targetContainer) return 0;
+    const sources = sourceContainer.querySelectorAll("[data-akari-3d-anchor]");
+    const targets = targetContainer.querySelectorAll("[data-akari-3d-anchor]");
+    const count = Math.min(sources.length, targets.length);
+    for (let index = 0; index < count; index += 1) {
+      const source = sources[index];
+      const target = targets[index];
+      if (target.style.transform !== source.style.transform) {
+        target.style.transform = source.style.transform;
+      }
+      const visibility = source.style.visibility;
+      if (target.style.visibility !== visibility) {
+        if (visibility) target.style.visibility = visibility;
+        else target.style.removeProperty("visibility");
+      }
+    }
+    return count;
+  }
+
   class ThreeCompositeRuntime {
     constructor(domRuntime) {
       this.domRuntime = domRuntime;
@@ -2598,10 +2621,13 @@
           fallback.hidden = true;
           fallback.style.setProperty("display", "none", "important");
         }
+        const threeRecord = threeRecords.get(entry.id);
         this.records.set(entry.id, {
           source,
           target,
           context,
+          sourceContainer: threeRecord?.container ?? null,
+          targetContainer: container,
           domElements: container.querySelectorAll("*").length,
         });
       }
@@ -2616,6 +2642,7 @@
       record.context.setTransform(1, 0, 0, 1, 0, 0);
       record.context.clearRect(0, 0, record.target.width, record.target.height);
       record.context.drawImage(record.source, 0, 0);
+      syncAnchorElementStyles(record.sourceContainer, record.targetContainer);
       this.copyMs.push(performance.now() - started);
     }
 
@@ -2997,7 +3024,7 @@
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
     sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
     detectPreserve3dOrderConflicts, vgpuDrawState, threeCanvasDrawState,
-    threeCanvasStateFromStyles, threeCanvasPlacement,
+    threeCanvasStateFromStyles, threeCanvasPlacement, syncAnchorElementStyles,
   };
 
   // ブレンドがあるフレームだけ使う WebGL パス。SpriteCompositor の通常描画を区切り、

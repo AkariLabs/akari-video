@@ -242,6 +242,48 @@ function validateThreeCameraKeys(source, path, findings) {
   }
 }
 
+// data-akari-3d-anchor は "x,y,z" の数値 3 個。値の誤りは error、3D の断片
+// （data-akari-3d-scene を持つ断片）の外での使用は warning。ランタイムの
+// parseAnchorPoint / anchorOriginOffset と同じ規則を先に検査する。
+const THREE_ANCHOR_COMPONENT = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/u;
+const THREE_ANCHOR_ORIGINS = new Set([
+  "center", "top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right",
+]);
+
+function validateThreeAnchorAttributes(entries, scene, path, findings) {
+  for (const attributes of entries) {
+    const value = attributes["data-akari-3d-anchor"];
+    if (value !== undefined) {
+      const parts = String(value).split(",");
+      const valid = parts.length === 3
+        && parts.every((part) => THREE_ANCHOR_COMPONENT.test(part.trim()));
+      if (!valid) addFinding(findings, {
+        severity: "error", check: "overlays.three-anchor",
+        message: 'data-akari-3d-anchor must be three comma-separated numbers "x,y,z".', path,
+      });
+      if (!scene) addFinding(findings, {
+        severity: "warning", check: "overlays.three-anchor",
+        message: "data-akari-3d-anchor is ignored outside a 3D fragment (data-akari-3d-scene).", path,
+      });
+    }
+    const origin = attributes["data-akari-3d-anchor-origin"];
+    if (origin !== undefined && !THREE_ANCHOR_ORIGINS.has(String(origin).trim())) {
+      addFinding(findings, {
+        severity: "error", check: "overlays.three-anchor",
+        message: "data-akari-3d-anchor-origin must be one of "
+          + [...THREE_ANCHOR_ORIGINS].join(", ") + ".", path,
+      });
+    }
+    const occlude = attributes["data-akari-3d-anchor-occlude"];
+    if (occlude !== undefined && !["true", "false"].includes(String(occlude).trim().toLowerCase())) {
+      addFinding(findings, {
+        severity: "error", check: "overlays.three-anchor",
+        message: 'data-akari-3d-anchor-occlude must be "true" or "false".', path,
+      });
+    }
+  }
+}
+
 function validateThreeCanvas(html, path, findings) {
   const source = stripHtmlComments(html);
   const raw = [
@@ -253,6 +295,7 @@ function validateThreeCanvas(html, path, findings) {
   let marked = 0;
   let invalidMarked = false;
   let canvases = 0;
+  const anchorTags = [];
   for (const tag of htmlTags(source)) {
     while (rawIndex < raw.length && tag.start >= raw[rawIndex].end) rawIndex += 1;
     const block = raw[rawIndex];
@@ -268,7 +311,13 @@ function validateThreeCanvas(html, path, findings) {
       marked += 1;
       if (name !== "canvas") invalidMarked = true;
     }
+    if (Object.hasOwn(attributes, "data-akari-3d-anchor")
+      || Object.hasOwn(attributes, "data-akari-3d-anchor-origin")
+      || Object.hasOwn(attributes, "data-akari-3d-anchor-occlude")) {
+      anchorTags.push(attributes);
+    }
   }
+  validateThreeAnchorAttributes(anchorTags, scene, path, findings);
   if (!scene) return;
   validateThreeCameraKeys(source, path, findings);
   validateThreeRenderer(source, path, findings);
