@@ -32,7 +32,7 @@ test('frame-engine・overlay vendor・メディアのライセンスを通知に
   for (const name of ['@webav/av-cliper', '@webav/internal-utils', 'opfs-tools', 'wave-resampler', '@webav/mp4box.js', 'three', 'BudouX', 'FFmpeg', 'whisper.cpp']) {
     assert.ok(notices.includes(`%% ${name}@`), name);
   }
-  assert.match(notices, /^%% three@0\.185\.1 — MIT$/mu);
+  assert.match(notices, /^%% three@0\.186\.1 — MIT$/mu);
   assert.match(notices, /^%% BudouX@0\.9\.0 — Apache-2\.0$/mu);
   assert.match(notices, /^%% FFmpeg@8\.1\.2 — GPL-3\.0-or-later$/mu);
   assert.match(notices, /^%% @webav\/av-cliper@1\.2\.8 — MIT$/mu);
