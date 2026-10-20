@@ -248,6 +248,26 @@ executed (model, camera, lights, environment).
   scales the text by the camera's view depth and uses the canvas CSS height (not the export buffer),
   so the declared pixel size stays the same at any distance and at any preview resolution
 
+Camera moves can be declared as keyframes, with no GLB or animation clip:
+
+```json
+{ "camera": { "keys": [
+  { "t": 0, "position": [0, 2, 8], "lookAt": [0, 0, 0], "ease": "easeInOut" },
+  { "t": 3, "position": [6, 1, 4], "lookAt": [0, 0.5, 0] }
+] } }
+```
+
+- `t` is seconds from the start of the placed item. Every key has `position` and `lookAt`
+  (`[x, y, z]`); `ease` is `linear` (default) or `easeInOut` and shapes the segment arriving at
+  that key
+- Before the first key and after the last key the camera holds that pose; a single key is a fixed
+  camera. Keys must be in ascending `t` order — they are not sorted automatically, and lint reports
+  the offending pair
+- If `camera.keys` and `camera.fromModel` are both declared, keys win and a one-line warning is
+  printed
+- The preview, `akari capture`, and export share the same interpolation, so the same `t` gives the
+  same camera
+
 For images the declarative runtime cannot express (depth of field, ray tracing, and the like), or
 for a clip you will reuse, bake it into video with [Bake a 3D scene](./bake-3d.md).
 
