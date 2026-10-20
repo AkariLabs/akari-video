@@ -297,7 +297,7 @@ try {
   // 版は README の npm tarball 記録、BudouX の同梱 LICENSE、VRM バンドル先頭の
   // バージョン表示から確定する。確定できない liquid-glass-js は vendored のままにする。
   const overlayLicenses = {
-    'three': { spdx: 'MIT', version: '0.185.1', npmName: 'three', evidence: 'three@0.185.1' },
+    'three': { spdx: 'MIT', version: '0.186.1', npmName: 'three', evidence: 'three@0.186.1' },
     'vgpu': { spdx: 'MIT', version: '0.4.0', npmName: 'vgpu', evidence: 'vgpu@0.4.0' },
     'troika-three-text': { spdx: 'MIT', version: '0.52.4', npmName: 'troika-three-text', evidence: 'troika-three-text@0.52.4' },
     'opentype.js': { spdx: 'MIT', version: '1.3.4', npmName: 'opentype.js', evidence: 'opentype.js@1.3.4' },

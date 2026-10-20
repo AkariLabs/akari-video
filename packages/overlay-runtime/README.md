@@ -376,7 +376,7 @@ test-harness/
   index.html    最小テストハーネス（#overlay-stage / #preview-pane / #minimap 系 DOM）
   stub-host.js  window.akari.state / engine.overlayWrite / stageScale のスタブ
   run-tests.js  mount / tick / interaction.selftest / minimap.update の動作確認
-  smoke-3d-text.html   three@0.185.1 × troika-three-text 互換 smoke ページ
+  smoke-3d-text.html   three@0.186.1 × troika-three-text 互換 smoke ページ
   fonts/ZenKakuGothicNew-Black.ttf, OFL.txt   smoke 専用フォント（Google Fonts 由来・OFL）
 evidence/
   3d-vendor-bundle-smoke/   互換 smoke のスクリーンショット証跡
@@ -386,13 +386,13 @@ out/
 
 ## Three.js vendor の固定と再生成
 
-`src/vendor/three-bundle.js` は npm package `three@0.185.1` の core と
+`src/vendor/three-bundle.js` は npm package `three@0.186.1` の core と
 `three/addons/loaders/GLTFLoader.js`、`three/addons/environments/RoomEnvironment.js` だけを
 entry point にし、`esbuild@0.24.2` で
 事前生成したブラウザ向け単一 IIFE である。実行時に npm、CDN、外部 origin を参照しない。
 生成時の npm tarball integrity は次のとおり。
 
-- `three@0.185.1`: `sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==`
+- `three@0.186.1`: `sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==`
 - `esbuild@0.24.2`: `sha512-+9egpBW8I3CD5XPe0n6BfT5fxLzxrlDzqydF3aviG+9ni1lDC/OvMHcxqEFV0+LANZG5R1bFMWfUrjVsdwxJvA==`
 - `@esbuild/darwin-arm64@0.24.2`: `sha512-kj3AnYWc+CekmZnS5IPu9D+HWtUI49hbnyqk0FLEJDbzCIQt7hg7ucF1SQAilhtYpIujfaHr6O0UHlzzSPdOeA==`
 
@@ -410,11 +410,11 @@ window.AkariThree = Object.freeze({ THREE, GLTFLoader, RoomEnvironment });
 以下は生成に使った macOS arm64 の例）:
 
 ```sh
-npm pack three@0.185.1 --ignore-scripts
+npm pack three@0.186.1 --ignore-scripts
 npm pack esbuild@0.24.2 --ignore-scripts
 npm pack @esbuild/darwin-arm64@0.24.2 --ignore-scripts
 mkdir -p node_modules/three node_modules/esbuild node_modules/@esbuild/darwin-arm64
-tar -xzf three-0.185.1.tgz -C node_modules/three --strip-components=1
+tar -xzf three-0.186.1.tgz -C node_modules/three --strip-components=1
 tar -xzf esbuild-0.24.2.tgz -C node_modules/esbuild --strip-components=1
 tar -xzf esbuild-darwin-arm64-0.24.2.tgz \
   -C node_modules/@esbuild/darwin-arm64 --strip-components=1
@@ -426,7 +426,7 @@ node node_modules/esbuild/bin/esbuild akari-three-entry.js \
 外部ネットワークを使う取得操作は上記 `npm pack` だけとし、tarball integrity を照合してから
 展開する。生成後は本節に記録した bundle の byte 数と SHA-256 も照合する。
 
-- `three-bundle.js`: `776523` bytes / SHA-256 `ab202898af18d5a4b5e74dc763911bbbe33a4dbf7ea8278828b11cc9404fcf9a`
+- `three-bundle.js`: `789929` bytes / SHA-256 `363ffc672054daf9551ff61064886ed4a36f1dd620177ff9495d739b7258228a`
 
 Three.js は MIT License（Copyright © 2010-2026 three.js authors）。完全な許諾文は
 `src/vendor/three-LICENSE.txt` に保持し、esbuild の `--legal-comments=inline` により
@@ -570,7 +570,7 @@ troika-three-text / opentype.js / matter-js / poly-decomp はいずれも MIT Li
 （推移的依存の bidi-js 等は troika-three-text 本体のライセンス表記に準ずる MIT で、esbuild の
 `--legal-comments=inline` により該当する `@license` コメントがあれば bundle 内に保持される）。
 
-### 互換 smoke（three@0.185.1 × troika-three-text@0.52.4）
+### 互換 smoke（three@0.186.1 × troika-three-text@0.52.4）
 
 `test-harness/smoke-3d-text.html`（+ `test-harness/fonts/ZenKakuGothicNew-Black.ttf`,
 Google Fonts 由来・OFL、同ディレクトリに `OFL.txt` 同梱）は `three-bundle.js` →
@@ -585,7 +585,7 @@ python3 -m http.server 8947
 
 `document.body.dataset.smokeStatus` が `"synced"` になれば `sync()` 完走。ページ左上の
 ステータス行に `sameThreeInstance=true`（`text.position instanceof THREE.Vector3` の実測）
-も表示する。証跡: `evidence/3d-vendor-bundle-smoke/troika-three185-japanese-sdf.png`
+も表示する。証跡（r185 時点）: `evidence/3d-vendor-bundle-smoke/troika-three185-japanese-sdf.png`
 （日本語グリフが SDF 描画されているスクリーンショット、キャンバス内の非背景色ピクセル比率
 約 2.9% で実測確認済み）。
 
