@@ -4,8 +4,17 @@ import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { toolsText } from "../i18n.mjs";
 import { encodeRgbPng } from "./png.mjs";
-import { composeTiles, cropRgb, decodeTile, fillInvalidDem } from "./raster.mjs";
+import {
+  INVALID_DEM,
+  MISSING_PHOTO_RGB,
+  composeTiles,
+  createSolidTile,
+  cropRgb,
+  decodeTile,
+  fillInvalidDem,
+} from "./raster.mjs";
 import {
   cropRect,
   googleTileUrl,
@@ -53,11 +62,16 @@ async function fetchWithRetry(url, { fetchImpl, attempts = 3 }) {
         headers: { "User-Agent": "akari-video-geo/1.0 (+https://github.com/AkariLabs/akari-video)" },
         signal: AbortSignal.timeout(30000),
       });
-      if (response.ok === false || (typeof response.status === "number" && response.status >= 400)) {
-        const error = new Error(`HTTP ${response.status ?? "error"}: ${url}`);
-        error.status = response.status;
-        // 4xx は再試行しても変わらない（タイル不在など）。
-        if (response.status && response.status < 500) throw error;
+      const status = typeof response.status === "number"
+        ? response.status
+        : (response.ok === false ? 400 : 200);
+      // 地理院タイルは海や範囲外のタイルが 404 になる。呼び出し側で「無効なタイル」として扱う。
+      if (status === 404) return null;
+      if (response.ok === false || status >= 400) {
+        const error = new Error(`HTTP ${status}: ${url}`);
+        error.status = status;
+        // 404 以外の 4xx は再試行しても変わらない。
+        if (status < 500) throw error;
         lastError = error;
       } else {
         const bytes = Buffer.from(await response.arrayBuffer());
@@ -73,6 +87,7 @@ async function fetchWithRetry(url, { fetchImpl, attempts = 3 }) {
   throw new Error(`タイルを取得できませんでした: ${url}（${lastError instanceof Error ? lastError.message : String(lastError)}）`);
 }
 
+/** タイル 1 枚を読む。404 は null（そのタイルは無い）。 */
 async function loadTile({ layer, zoom, x, y, cacheDir, fetchImpl, stats }) {
   const file = path.join(cacheDir, layer.folder, String(zoom), String(x), `${y}.${layer.extension}`);
   const cached = await readIfPresent(file);
@@ -82,6 +97,7 @@ async function loadTile({ layer, zoom, x, y, cacheDir, fetchImpl, stats }) {
   }
   const url = googleTileUrl(layer.id, zoom, x, y);
   const bytes = await fetchWithRetry(url, { fetchImpl });
+  if (bytes === null) return null;
   await writeAtomic(file, bytes);
   stats.fetched += 1;
   return bytes;
@@ -111,6 +127,7 @@ export async function buildTerrain(options) {
   if (!outDir) throw new Error("--out <dir> で出力先を指定してください");
   if (typeof fetchImpl !== "function") throw new Error("fetch を利用できません（Node.js 20 以上が必要です）");
   const bbox = parseBbox(options.bbox);
+  const bboxText = Array.isArray(options.bbox) ? options.bbox.join(",") : String(options.bbox ?? "");
   const zoom = parseZoom(options.zoom);
   const limit = Number(maxTiles);
   if (!Number.isInteger(limit) || limit < 1) throw new Error("--max-tiles は 1 以上の整数で指定してください");
@@ -120,6 +137,7 @@ export async function buildTerrain(options) {
   if (range.count > limit) throw new Error(limitMessage({ range, zoom, maxTiles: limit, bbox }));
   const rect = cropRect(bbox, zoom);
   const stats = { count: range.count, fetched: 0, cached: 0 };
+  const missing = { dem: 0, photo: 0 };
 
   const composed = {};
   for (const layer of LAYERS) {
@@ -127,8 +145,17 @@ export async function buildTerrain(options) {
     for (let y = range.yMin; y <= range.yMax; y += 1) {
       for (let x = range.xMin; x <= range.xMax; x += 1) {
         const bytes = await loadTile({ layer, zoom, x, y, cacheDir, fetchImpl, stats });
-        tiles.set(`${x},${y}`, decodeTile(bytes, layer.id));
+        if (bytes === null) {
+          // 標高の 404 は「そのタイル全体が無効値」。写真の 404 は単色（海の色）で埋める。
+          missing[layer.id] += 1;
+          tiles.set(`${x},${y}`, createSolidTile(layer.id === "dem" ? INVALID_DEM : MISSING_PHOTO_RGB));
+        } else {
+          tiles.set(`${x},${y}`, decodeTile(bytes, layer.id));
+        }
       }
+    }
+    if (layer.id === "dem" && missing.dem === range.count) {
+      throw new Error(toolsText("tools.geo.error.allDemTilesMissing", { bbox: bboxText }));
     }
     const image = composeTiles({ range, tiles });
     composed[layer.id] = cropRgb(image, rect, {
@@ -145,6 +172,7 @@ export async function buildTerrain(options) {
     size_m: size,
     elevation_m: [round2(demStats.elevation[0]), round2(demStats.elevation[1])],
     encoding: "gsi-dem",
+    missing_tiles: { dem: missing.dem, photo: missing.photo },
     attribution: ATTRIBUTION,
   };
 
@@ -162,6 +190,9 @@ export async function buildTerrain(options) {
   log(`heightmap.png ${composed.dem.width}x${composed.dem.height}`);
   log(`texture.png ${composed.photo.width}x${composed.photo.height}`);
   log(`タイル ${stats.count} 枚（取得 ${stats.fetched} / キャッシュ ${stats.cached}）`);
+  if (missing.dem || missing.photo) {
+    log(toolsText("tools.geo.notice.missingTiles", { dem: missing.dem, photo: missing.photo }));
+  }
   if (demStats.filledCount) log(`無効値を ${demStats.filledCount} 画素補間しました`);
   log(ATTRIBUTION);
 
@@ -171,6 +202,7 @@ export async function buildTerrain(options) {
     terrain,
     size: [composed.dem.width, composed.dem.height],
     tiles: stats,
+    missing,
     filled: demStats.filledCount,
   };
 }

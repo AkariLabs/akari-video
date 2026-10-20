@@ -8,6 +8,21 @@ import { TILE_SIZE } from "./tiles.mjs";
 /** 地理院タイルの標高 PNG の無効値。 */
 export const INVALID_DEM = Object.freeze([128, 0, 0]);
 
+/** 写真タイルが 404 のときの埋め色（海の色）。 */
+export const MISSING_PHOTO_RGB = Object.freeze([0x2a, 0x4d, 0x69]);
+
+/** 単色のタイル画像を作る。404 の埋め草に使う。 */
+export function createSolidTile(rgbColor, tileSize = TILE_SIZE) {
+  const [red, green, blue] = rgbColor;
+  const rgb = Buffer.alloc(tileSize * tileSize * 3);
+  for (let index = 0; index < tileSize * tileSize; index += 1) {
+    rgb[index * 3] = red;
+    rgb[index * 3 + 1] = green;
+    rgb[index * 3 + 2] = blue;
+  }
+  return { width: tileSize, height: tileSize, rgb };
+}
+
 export function isPng(bytes) {
   return bytes.length >= 8 && bytes.readUInt32BE(0) === 0x89504e47 && bytes.readUInt32BE(4) === 0x0d0a1a0a;
 }

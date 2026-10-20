@@ -273,5 +273,7 @@
   "tools.whisper.cli.downloading": "認識モデルを取得中",
   "tools.whisper.cli.statusReady": "ready: {path}",
   "tools.whisper.cli.statusMissing": "missing: ggml モデルが見つかりません。akari tools install whisper で取得できます",
-  "tools.whisper.cli.usage": "使い方: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]"
+  "tools.whisper.cli.usage": "使い方: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]",
+  "tools.geo.error.allDemTilesMissing": "bbox の標高タイルがすべて 404 でした（海や範囲外の可能性があります）。陸地を含む bbox を指定してください: {bbox}",
+  "tools.geo.notice.missingTiles": "404 のタイル: 標高 {dem} 枚 / 写真 {photo} 枚（標高は無効値として補間し、写真は単色で埋めました）"
 }

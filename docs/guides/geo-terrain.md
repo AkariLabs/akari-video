@@ -34,9 +34,9 @@ tells you which lower zoom fits. It never lowers the zoom silently.
 
 | File | Contents |
 |---|---|
-| `heightmap.png` | Elevation tiles stitched as-is in the `gsi-dem` encoding (8-bit RGB: `R*65536 + G*256 + B`, in 1/100 m). Invalid `(128,0,0)` pixels are filled from the nearest valid pixel |
-| `texture.png` | Photo tiles stitched and cropped to the same rectangle |
-| `terrain.json` | Bounds, zoom, real-world size, elevation range, encoding, and attribution |
+| `heightmap.png` | Elevation tiles stitched as-is in the `gsi-dem` encoding (8-bit RGB: `R*65536 + G*256 + B`, in 1/100 m). Invalid `(128,0,0)` pixels are filled from the nearest valid pixel. A missing (`404`) elevation tile is treated as all-invalid and filled the same way |
+| `texture.png` | Photo tiles stitched and cropped to the same rectangle. A missing (`404`) photo tile is filled with a solid sea color (`#2a4d69`) |
+| `terrain.json` | Bounds, zoom, real-world size, elevation range, encoding, missing tile counts, and attribution |
 
 ```json
 {
@@ -45,6 +45,7 @@ tells you which lower zoom fits. It never lowers the zoom silently.
   "size_m": [1002.2, 1009.9],
   "elevation_m": [124.19, 170.33],
   "encoding": "gsi-dem",
+  "missing_tiles": { "dem": 0, "photo": 0 },
   "attribution": "出典: 国土地理院（地理院タイル）"
 }
 ```
@@ -53,6 +54,12 @@ tells you which lower zoom fits. It never lowers the zoom silently.
 the bbox center latitude, so it matches the image rather than the unrounded bbox. `elevation_m` is
 `[minimum, maximum]` over the valid elevation pixels inside the crop (filled pixels do not change
 the range).
+
+`missing_tiles` counts the tiles that returned `404`. GSI returns `404` for tiles that are ocean or
+out of range. A bbox that includes water still succeeds: the elevation is interpolated and the photo
+is filled with the sea color. When **every** elevation tile in the bbox is missing, the command
+stops before writing outputs and asks for a bbox that includes land. `404` is the only status handled
+this way; other `4xx` errors fail immediately and `5xx` errors are retried.
 
 ## Attribution rules
 
@@ -69,9 +76,11 @@ Downloaded tiles are cached under `~/.akari/cache/geo/` (`AKARI_GEO_CACHE_DIR` o
 are never fetched again. A second run with the same bbox and zoom works offline. Tiles are
 requested one at a time from `cyberjapandata.gsi.go.jp`; only tile numbers are sent.
 
-Tests never touch the network. They replace the fetch function and use small generated tile
-fixtures to check tile numbering, stitching and cropping, invalid-pixel filling, the terrain.json
-values, the tile limit, and cache reuse.
+Tests never touch the network. They replace the fetch function and use small tile fixtures to check
+tile numbering, stitching and cropping, invalid-pixel filling, `404` handling (partial and
+all-missing), the terrain.json values, the tile limit, and cache reuse. A small committed JPEG
+fixture checks ffmpeg-based photo decoding; that test is skipped (with a message) when ffmpeg is not
+available.
 
 ## Related
 

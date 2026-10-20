@@ -85,6 +85,7 @@ export async function runGeoCommand(args, options = {}) {
         terrain: result.terrain,
         size: result.size,
         tiles: result.tiles,
+        missing: result.missing,
         filled: result.filled,
       }));
     } else {

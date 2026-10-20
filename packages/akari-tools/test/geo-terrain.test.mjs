@@ -6,9 +6,10 @@ import test from "node:test";
 
 import { runGeoCommand } from "../bin/geo.mjs";
 import { encodeRgbPng, decodeRgbPng } from "../src/geo/png.mjs";
-import { decodeElevation, fillInvalidDem, isInvalidDem } from "../src/geo/raster.mjs";
+import { MISSING_PHOTO_RGB, decodeElevation, fillInvalidDem, isInvalidDem } from "../src/geo/raster.mjs";
 import { ATTRIBUTION, buildTerrain } from "../src/geo/terrain.mjs";
 import { cropRect, sizeMeters } from "../src/geo/tiles.mjs";
+import { toolsText } from "../src/i18n.mjs";
 
 const BBOX = "139.7680,35.6750,139.7681,35.6753";
 const SAGAMIHARA = "139.3445,35.5960,139.3555,35.6050";
@@ -61,6 +62,25 @@ function fakeFetch() {
   return { calls, fetchImpl };
 }
 
+/** 指定したタイルだけ 404 を返す fetch（海・範囲外の再現）。 */
+function fetchWithMissing({ demMissing = [], photoMissing = [] } = {}) {
+  const dem = new Set(demMissing);
+  const photo = new Set(photoMissing);
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    const match = /\/xyz\/(dem_png|seamlessphoto)\/(\d+)\/(\d+)\/(\d+)\.(png|jpg)$/u.exec(url);
+    assert.ok(match, `想定外の URL: ${url}`);
+    const [, layer, zoom, x, y] = match;
+    assert.equal(Number(zoom), ZOOM);
+    const missing = layer === "dem_png" ? dem.has(`${x},${y}`) : photo.has(`${x},${y}`);
+    if (missing) return { ok: false, status: 404, arrayBuffer: async () => Buffer.alloc(0) };
+    const bytes = layer === "dem_png" ? demTile(Number(x), Number(y)) : photoTile(Number(x), Number(y));
+    return { ok: true, status: 200, arrayBuffer: async () => bytes };
+  };
+  return { calls, fetchImpl };
+}
+
 async function workspace(t) {
   const root = await mkdtemp(path.join(tmpdir(), "akari-geo-terrain-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -83,6 +103,7 @@ test("geo terrain: 2x2 タイルを結合・切り出しし 3 ファイルを書
 
   assert.equal(calls.length, 8);
   assert.deepEqual(result.tiles, { count: 4, fetched: 8, cached: 0 });
+  assert.deepEqual(result.missing, { dem: 0, photo: 0 });
   assert.equal(result.filled, 2);
   assert.deepEqual(result.size, [2, 6]);
   assert.deepEqual(result.terrain, {
@@ -91,6 +112,7 @@ test("geo terrain: 2x2 タイルを結合・切り出しし 3 ファイルを書
     size_m: sizeMeters({ bbox: { west: 139.768, south: 35.675, east: 139.7681, north: 35.6753 }, zoom: 14 }),
     elevation_m: [100, 111],
     encoding: "gsi-dem",
+    missing_tiles: { dem: 0, photo: 0 },
     attribution: "出典: 国土地理院（地理院タイル）",
   });
   assert.equal(result.terrain.attribution, ATTRIBUTION);
@@ -137,6 +159,127 @@ test("geo terrain: 2 回目はキャッシュを再利用し取得しない", as
   const cached = await readdir(path.join(cacheDir, "dem_png", "14", "14552"));
   assert.ok(cached.includes("6451.png"));
   assert.ok((await stat(path.join(cacheDir, "seamlessphoto", "14", "14553", "6452.jpg"))).isFile());
+});
+
+test("geo terrain: 一部の標高タイルが 404 でも成功し、その範囲を無効値として補間する", async (t) => {
+  const root = await workspace(t);
+  const out = path.join(root, "out");
+  const { fetchImpl } = fetchWithMissing({ demMissing: ["14553,6452"] });
+  const lines = [];
+  const result = await buildTerrain({
+    bbox: BBOX,
+    zoom: ZOOM,
+    outDir: out,
+    cacheDir: path.join(root, "cache"),
+    fetchImpl,
+    log: (line) => lines.push(line),
+  });
+
+  assert.deepEqual(result.missing, { dem: 1, photo: 0 });
+  assert.deepEqual(result.terrain.missing_tiles, { dem: 1, photo: 0 });
+  // 404 のタイルが覆う切り出し内の 3 画素が補間される。
+  assert.equal(result.filled, 3);
+  // 404 のタイルが持っていた標高 111m は範囲に数えない。
+  assert.deepEqual(result.terrain.elevation_m, [100, 110]);
+
+  const heightmap = decodeRgbPng(await readFile(result.files.heightmap));
+  assert.equal(heightmap.width, 2);
+  assert.equal(heightmap.height, 6);
+  for (let index = 0; index < heightmap.width * heightmap.height; index += 1) {
+    assert.equal(isInvalidDem(heightmap.rgb, index), false, `画素 ${index} が無効値のまま`);
+  }
+  assert.ok(lines.includes(toolsText("tools.geo.notice.missingTiles", { dem: 1, photo: 0 })));
+});
+
+test("geo terrain: 標高タイルがすべて 404 なら i18n の文言で止まる", async (t) => {
+  const root = await workspace(t);
+  const { calls, fetchImpl } = fetchWithMissing({ demMissing: ["14552,6451", "14553,6451", "14552,6452", "14553,6452"] });
+  const expected = toolsText("tools.geo.error.allDemTilesMissing", { bbox: BBOX });
+  assert.notEqual(expected, "tools.geo.error.allDemTilesMissing");
+  assert.match(expected, /404/u);
+
+  await assert.rejects(
+    () => buildTerrain({
+      bbox: BBOX,
+      zoom: ZOOM,
+      outDir: path.join(root, "out"),
+      cacheDir: path.join(root, "cache"),
+      fetchImpl,
+    }),
+    (error) => {
+      assert.equal(error.message, expected);
+      return true;
+    },
+  );
+  // 標高で止まるので写真タイルは取りに行かない。
+  assert.equal(calls.length, 4);
+  assert.ok(calls.every((url) => url.includes("/dem_png/")));
+});
+
+test("geo terrain: 写真タイルが 404 なら単色で埋め missing_tiles に記録する", async (t) => {
+  const root = await workspace(t);
+  const lines = [];
+  const { fetchImpl } = fetchWithMissing({
+    photoMissing: ["14552,6451", "14553,6451", "14552,6452", "14553,6452"],
+  });
+  const result = await buildTerrain({
+    bbox: BBOX,
+    zoom: ZOOM,
+    outDir: path.join(root, "out"),
+    cacheDir: path.join(root, "cache"),
+    fetchImpl,
+    log: (line) => lines.push(line),
+  });
+
+  assert.deepEqual(result.missing, { dem: 0, photo: 4 });
+  assert.deepEqual(result.terrain.missing_tiles, { dem: 0, photo: 4 });
+  const texture = decodeRgbPng(await readFile(result.files.texture));
+  assert.equal(texture.width, 2);
+  assert.equal(texture.height, 6);
+  for (let index = 0; index < texture.width * texture.height; index += 1) {
+    assert.deepEqual(
+      [...texture.rgb.subarray(index * 3, index * 3 + 3)],
+      [...MISSING_PHOTO_RGB],
+      `画素 ${index} が単色で埋まっていない`,
+    );
+  }
+  assert.ok(lines.includes(toolsText("tools.geo.notice.missingTiles", { dem: 0, photo: 4 })));
+});
+
+test("geo terrain: 404 以外の 4xx は再試行せず、5xx は再試行して成功する", async (t) => {
+  const root = await workspace(t);
+  const forbiddenCalls = [];
+  await assert.rejects(
+    () => buildTerrain({
+      bbox: BBOX,
+      zoom: ZOOM,
+      outDir: path.join(root, "forbidden"),
+      cacheDir: path.join(root, "cache-forbidden"),
+      fetchImpl: async (url) => {
+        forbiddenCalls.push(url);
+        return { ok: false, status: 403, arrayBuffer: async () => Buffer.alloc(0) };
+      },
+    }),
+    /HTTP 403/u,
+  );
+  assert.equal(forbiddenCalls.length, 1);
+
+  const base = fakeFetch();
+  let attempts = 0;
+  const flaky = async (url) => {
+    attempts += 1;
+    if (attempts <= 2) return { ok: false, status: 500, arrayBuffer: async () => Buffer.alloc(0) };
+    return base.fetchImpl(url);
+  };
+  const result = await buildTerrain({
+    bbox: BBOX,
+    zoom: ZOOM,
+    outDir: path.join(root, "retried"),
+    cacheDir: path.join(root, "cache-retried"),
+    fetchImpl: flaky,
+  });
+  assert.equal(attempts, 10, "最初の 1 枚は 2 回失敗して 3 回目に成功し、残り 7 枚は 1 回で成功する");
+  assert.deepEqual(result.tiles, { count: 4, fetched: 8, cached: 0 });
 });
 
 test("geo terrain: 上限タイル数を超えたら zoom を下げる案内で止まる", async (t) => {
