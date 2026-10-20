@@ -54,7 +54,11 @@ window.akari.threeRuntime = (() => {
     "shadows",
     "texts",
     "physics",
+    // 描画バックエンドの opt-in（2026-10-21-three-webgpu-backend）。省略 = "webgl"。
+    // 宣言したシーンだけ WebGPURenderer を使い、既存シーンの経路は 1 バイトも変えない。
+    "renderer",
   ]);
+  const SCENE_RENDERERS = new Set(["webgl", "webgpu"]);
   const TEXT_ANIM_PRESETS = new Set(["none", "carousel", "char-chaos", "flip-wave", "tumble"]);
   // screenSpace の奥行き下限。カメラとテキストが重なった縮退時でも 0 除算にしない
   const SCREEN_SPACE_MIN_DEPTH = 1e-6;
@@ -685,6 +689,10 @@ window.akari.threeRuntime = (() => {
         throw new TypeError(`data-akari-3d-scene の未対応キーです: ${key}`);
       }
     }
+    // renderer は "webgl" | "webgpu" のみ。未知の値は他の不正値と同じく初期化エラーで拒む
+    if (descriptor.renderer !== undefined && !SCENE_RENDERERS.has(descriptor.renderer)) {
+      throw new TypeError('data-akari-3d-scene.renderer は "webgl" または "webgpu" である必要があります');
+    }
     if (descriptor.finishes !== undefined) validateFinishes(descriptor.finishes);
     // texts[] があれば model は任意化される（両方あれば併存。§3.1）
     const hasTexts = descriptor.texts !== undefined;
@@ -865,7 +873,12 @@ window.akari.threeRuntime = (() => {
     texture.generateMipmaps = true;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = Math.min(16, instance.renderer.capabilities.getMaxAnisotropy());
+    // WebGPURenderer は capabilities を持たず、renderer.getMaxAnisotropy() が 16 を返す
+    // （r186）。WebGL は従来どおり capabilities 経由の値をそのまま使う（描画結果を変えない）
+    const maxAnisotropy = typeof instance.renderer.getMaxAnisotropy === "function"
+      ? instance.renderer.getMaxAnisotropy()
+      : instance.renderer.capabilities.getMaxAnisotropy();
+    texture.anisotropy = Math.min(16, maxAnisotropy);
     instance.videoTextures.add(texture);
     // 提示フレームが変わったときだけ GPU へ上げ直す（tick ごとの無条件転送をやめる）
     if (typeof video.requestVideoFrameCallback === "function" && !video.__akariFrameWatch) {
@@ -1506,7 +1519,105 @@ window.akari.threeRuntime = (() => {
     }
   }
 
-  function configureEnvironment(THREE, RoomEnvironment, scene, renderer, descriptor) {
+  // WebGPU の出力パスは「シーン全体」に ACES トーンマッピングと色空間変換を掛けるため、
+  // scene.background（= clear 色）も WebGL と違いトーンマッピングされる（内部スパイク実測:
+  // 0x14171c -> 5,6,10。WebGL は 20,23,28 の素通し）。背景だけ素通しに見せるため、
+  // 宣言色を「出力後に宣言色になる」逆変換した値を clear 色に使う。ライト・露出・マテリアルの
+  // 値には触れない（契約 指示 4）。内部ターゲットは HalfFloat なので 1 を超える clear 値も
+  // 保持され、白（ACES の漸近点）まで到達できる。
+  const ACES_INPUT_MATRIX = [
+    0.59719, 0.35458, 0.04823,
+    0.07600, 0.90834, 0.01566,
+    0.02840, 0.13383, 0.83777,
+  ];
+  const ACES_OUTPUT_MATRIX = [
+    1.60475, -0.53108, -0.07367,
+    -0.10208, 1.10813, -0.00605,
+    -0.00327, -0.07276, 1.07602,
+  ];
+  function invert3x3(m) {
+    const [a, b, c, d, e, f, g, h, i] = m;
+    const A = e * i - f * h;
+    const B = -(d * i - f * g);
+    const C = d * h - e * g;
+    const det = a * A + b * B + c * C;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+    return [
+      A / det, -(b * i - c * h) / det, (b * f - c * e) / det,
+      B / det, (a * i - c * g) / det, -(a * f - c * d) / det,
+      C / det, -(a * h - b * g) / det, (a * e - b * d) / det,
+    ];
+  }
+  const ACES_INPUT_INVERSE = invert3x3(ACES_INPUT_MATRIX);
+  const ACES_OUTPUT_INVERSE = invert3x3(ACES_OUTPUT_MATRIX);
+  function multiply3x3(m, v) {
+    return [
+      m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+      m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+      m[6] * v[0] + m[7] * v[1] + m[8] * v[2],
+    ];
+  }
+  // RRTAndODTFit(y) = (y² + 0.0245786y − 0.000090537) /
+  //                   (0.983729y² + 0.983729·0.4329510y + 0.238081)
+  // を target について解く（y >= 0 の根）。
+  function inverseRrtAndOdtFit(target) {
+    const A = 1 - target * 0.983729;
+    const B = 0.0245786 - target * 0.983729 * 0.4329510;
+    const C = -0.000090537 - target * 0.238081;
+    if (Math.abs(A) < 1e-12) return Number.isFinite(-C / B) ? Math.max(0, -C / B) : 0;
+    const discriminant = B * B - 4 * A * C;
+    if (!(discriminant >= 0)) return 0;
+    const root = Math.sqrt(discriminant);
+    const candidates = [(-B + root) / (2 * A), (-B - root) / (2 * A)];
+    const positive = candidates.filter((value) => Number.isFinite(value) && value >= 0);
+    if (positive.length === 0) return 0;
+    return Math.min(...positive);
+  }
+  // 宣言色（sRGB hex）を、ACES 出力後に同じ sRGB 値になる clear 色（working color space）へ。
+  function webgpuBackgroundClearColor(THREE, hex, exposure) {
+    const declared = new THREE.Color(hex);
+    const target = [declared.r, declared.g, declared.b];
+    if (!(exposure > 0) || !ACES_INPUT_INVERSE || !ACES_OUTPUT_INVERSE) {
+      return new THREE.Color(0, 0, 0);
+    }
+    const afterOutput = multiply3x3(ACES_OUTPUT_INVERSE, target)
+      .map((value) => Math.min(Math.max(value, 0), 1.0165));
+    const fitted = afterOutput.map(inverseRrtAndOdtFit);
+    const preExposure = multiply3x3(ACES_INPUT_INVERSE, fitted)
+      .map((value) => (value * 0.6) / exposure);
+    if (!preExposure.every(Number.isFinite)) return new THREE.Color(0, 0, 0);
+    return new THREE.Color(preExposure[0], preExposure[1], preExposure[2]);
+  }
+
+  function applyDeclaredFog(THREE, instance) {
+    const descriptor = instance.descriptor;
+    if (descriptor.fog === undefined) return;
+    instance.scene.fog = descriptor.fog.density !== undefined
+      ? new THREE.FogExp2(descriptor.fog.color, descriptor.fog.density)
+      : new THREE.Fog(descriptor.fog.color, descriptor.fog.near, descriptor.fog.far);
+  }
+
+  // renderer ごとの背景の書き方。WebGL は従来どおり scene.background（clear へ素通し）。
+  // WebGPU は scene.background を持たせず、逆トーンマッピングした clear 色で背景だけ
+  // 「トーンマッピングされていない」見え方にする（契約 指示 4）。
+  function applyDeclaredBackground(THREE, instance) {
+    const descriptor = instance.descriptor;
+    if (descriptor.background === undefined) return;
+    if (instance.rendererKind === "webgpu") {
+      const clear = webgpuBackgroundClearColor(
+        THREE,
+        descriptor.background.color,
+        instance.renderer.toneMappingExposure
+      );
+      instance.renderer.setClearColor(clear, 1);
+      instance.backgroundClear = [clear.r, clear.g, clear.b];
+      return;
+    }
+    instance.scene.background = new THREE.Color(descriptor.background.color);
+    instance.backgroundClear = null;
+  }
+
+  function configureEnvironment(THREE, RoomEnvironment, scene, renderer, descriptor, PMREMGenerator) {
     const environmentDescriptor = descriptor.environment ?? {};
     scene.environmentIntensity = Math.max(
       0,
@@ -1519,7 +1630,7 @@ window.akari.threeRuntime = (() => {
       finiteNumber(environmentDescriptor.exposure, 1)
     );
 
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const pmremGenerator = new PMREMGenerator(renderer);
     const roomEnvironment = new RoomEnvironment();
     try {
       return pmremGenerator.fromScene(roomEnvironment);
@@ -1547,7 +1658,7 @@ window.akari.threeRuntime = (() => {
     }
     texture.mapping = THREE.EquirectangularReflectionMapping;
     texture.colorSpace = THREE.SRGBColorSpace;
-    const pmremGenerator = new THREE.PMREMGenerator(instance.renderer);
+    const pmremGenerator = new instance.PMREMGenerator(instance.renderer);
     try {
       const target = pmremGenerator.fromEquirectangular(texture);
       instance.scene.environment = target.texture;
@@ -2180,11 +2291,133 @@ window.akari.threeRuntime = (() => {
     });
   }
 
+  // WebGPU の flat テキスト（契約 指示 5）。troika は WebGPU で文字にならず四角 1 個になる
+  // （内部スパイク実測）ため、extrude と同じ opentype.js のグリフ輪郭から平面メッシュ
+  // （ShapeGeometry）を組む。layout / anim / billboard / screenSpace / window / physics は
+  // flat と共通の charBasePosition・applyTextAnimation・updateTextBillboards をそのまま通す。
+  const FLAT_SHAPE_CURVE_SEGMENTS = 8;
+  const WHITESPACE_PATTERN = /^\s$/u;
+
+  function buildFlatGlyphGeometry(THREE, shapes) {
+    if (shapes.length === 0) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
+      return geometry;
+    }
+    const geometry = new THREE.ShapeGeometry(shapes, FLAT_SHAPE_CURVE_SEGMENTS);
+    geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    // troika の anchorX / anchorY = "center" / "middle" と同じくグリフ bbox の中心を原点にする
+    geometry.translate(
+      -(bounds.min.x + bounds.max.x) / 2,
+      -(bounds.min.y + bounds.max.y) / 2,
+      0
+    );
+    geometry.computeBoundingBox();
+    return geometry;
+  }
+
+  function flatGlyphGeometryFor(instance, THREE, font, fontKey, ch, size) {
+    const key = `${fontKey} ${ch} ${size}`;
+    let geometry = instance.flatTextGeometryCache.get(key);
+    if (!geometry) {
+      const shapes = glyphShapesFor(THREE, font, fontKey, ch, size);
+      geometry = buildFlatGlyphGeometry(THREE, shapes);
+      instance.flatTextGeometryCache.set(key, geometry);
+    }
+    return geometry;
+  }
+
+  // 輪郭メッシュ経路で再現できない宣言は黙って空にせず、理由付きの読み込みエラーにする
+  // （契約 指示 5）。troika はフォント未収録文字を tofu / フォールバックで描くが、輪郭経路は
+  // グリフが無ければ何も描けないため、ここで止める。
+  function assertFlatGlyphReproducible(font, textDescriptor, ch) {
+    if (WHITESPACE_PATTERN.test(ch)) return;
+    let glyphIndex = 0;
+    try {
+      glyphIndex = font.charToGlyphIndex(ch);
+    } catch {
+      glyphIndex = 0;
+    }
+    if (!glyphIndex) {
+      throw new Error(
+        `texts[${textDescriptor.id}] の文字 ${JSON.stringify(ch)} はフォントに収録されていません`
+        + "（renderer: \"webgpu\" の flat テキストはグリフ輪郭メッシュで描くため代替字形を持ちません）"
+      );
+    }
+  }
+
+  async function loadFlatTextEntryWebGPU(THREE, opentype, instance, textDescriptor) {
+    let font;
+    try {
+      font = await loadOpentypeFont(opentype, textDescriptor.font);
+    } catch (error) {
+      throw new Error(
+        `texts[${textDescriptor.id}].font を解析できません（renderer: "webgpu" の flat テキストは`
+        + ` opentype.js が読める TTF / OTF / WOFF のみ）: ${String(textDescriptor.font).slice(0, 96)}`
+        + (error instanceof Error ? ` (${error.message})` : "")
+      );
+    }
+    if (instances.get(instance.container) !== instance || !instance.active) return;
+    const group = new THREE.Group();
+    const layout = resolveTextLayout(textDescriptor.layout);
+    const anim = resolveTextAnim(textDescriptor.anim);
+    const visibilityWindow = resolveTextWindow(textDescriptor.window);
+    const billboard = resolveTextBillboard(textDescriptor);
+    const size = finiteNumber(textDescriptor.size, 0.5);
+    const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
+    const chars = [...textDescriptor.text];
+    const charEntries = [];
+    chars.forEach((ch, index) => {
+      assertFlatGlyphReproducible(font, textDescriptor, ch);
+      const geometry = flatGlyphGeometryFor(
+        instance, THREE, font, textDescriptor.font, ch, size
+      );
+      const material = buildTextMaterial(THREE, textDescriptor.material);
+      material.color = new THREE.Color(color);
+      const mesh = new THREE.Mesh(geometry, material);
+      // physics（runPhysicsPresim）は troika Text の geometry.boundingBox / fontSize を読む。
+      // Mesh では geometry から bbox が取れるので、fallback の fontSize も同じ名前で持たせる
+      mesh.fontSize = size;
+      attachFillOpacitySupport(mesh, [material]);
+      const base = charBasePosition(layout, index, chars.length);
+      mesh.position.set(base.x, base.y, base.z);
+      mesh.rotation.y = base.rotationY;
+      group.add(mesh);
+      charEntries.push({
+        node: mesh,
+        index,
+        base,
+        seedTable: buildCharSeedTable(anim.seed, index),
+      });
+    });
+    instance.textsGroup.add(group);
+    instance.textNodes.push(...charEntries.map((entry) => entry.node));
+    instance.textAnimEntries.push({
+      id: textDescriptor.id,
+      group,
+      layout,
+      anim,
+      window: visibilityWindow,
+      chars: charEntries,
+      ...billboard,
+    });
+  }
+
   // texts[] を mode ごとに展開する（flat: per-char troika Text / extrude: opentype 押し出し
   // メッシュ。loadExtrudeTextEntry）。どちらも完了（troika は sync()、extrude はフォント解析 +
   // ジオメトリ生成）を待ってから resolve することで、「読み込み中フレーム」が createInstance() の
-  // ready 判定をすり抜けないようにする（契約の指示 2）
+  // ready 判定をすり抜けないようにする（契約の指示 2）。
+  // renderer: "webgpu" のシーンは troika を使わず、flat も輪郭メッシュで組む（指示 5）。
   async function loadTexts(THREE, TroikaText, opentype, instance, textDescriptors) {
+    if (instance.rendererKind === "webgpu") {
+      await Promise.all(textDescriptors.map((textDescriptor) => (
+        textDescriptor.mode === "extrude"
+          ? loadExtrudeTextEntry(THREE, opentype, instance, textDescriptor)
+          : loadFlatTextEntryWebGPU(THREE, opentype, instance, textDescriptor)
+      )));
+      return;
+    }
     disableTroikaUnicodeFontFallback();
     const syncPromises = [];
     for (const textDescriptor of textDescriptors) {
@@ -2738,6 +2971,15 @@ window.akari.threeRuntime = (() => {
     return { x: rect.left + rect.width * box.left, y: rect.top + rect.height * box.top };
   }
 
+  function reportRenderFailure(instance, error) {
+    if (!instance.active) return;
+    instance.contentReady = false;
+    instance.status = "error";
+    instance.error = describeFailure(error);
+    console.error("[akari-three] 3D scene の描画に失敗しました", error);
+    showLoadError(instance.container, error);
+  }
+
   function draw(instance, localSeconds) {
     // texts[] のみ（model 無し）のシーンでも描く必要があるため、readiness は instance.model の
     // 有無ではなく contentReady（model 読み込み + 全 texts sync() 完了）で判定する
@@ -2774,17 +3016,35 @@ window.akari.threeRuntime = (() => {
     const poseCameraSynced = syncPoseCamera(instance);
     // texts の姿勢・倍率はカメラ確定後（pose 補正後）に決める。宣言が無ければ何もしない
     if (instance.textAnimEntries.length > 0) updateTextBillboards(instance, poseCameraSynced);
+    // WebGPU の render() は r186 では同期（GPU への投入まで）だが、実装が Promise を返す
+    // 場合も握り潰さず既存の失敗表示へ流す（契約 指示 3）。WebGL は従来どおり素通し。
+    const renderOnce = () => {
+      if (instance.rendererKind !== "webgpu") {
+        instance.renderer.render(instance.scene, instance.camera);
+        return;
+      }
+      let result;
+      try {
+        result = instance.renderer.render(instance.scene, instance.camera);
+      } catch (error) {
+        reportRenderFailure(instance, error);
+        return;
+      }
+      if (result && typeof result.then === "function") {
+        result.catch((error) => reportRenderFailure(instance, error));
+      }
+    };
     if (poseCameraSynced) {
       // 行列は syncPoseCamera が更新済み。renderer の自動更新で補正が消えないよう止めて描く
       const autoUpdate = instance.scene.matrixWorldAutoUpdate;
       instance.scene.matrixWorldAutoUpdate = false;
       try {
-        instance.renderer.render(instance.scene, instance.camera);
+        renderOnce();
       } finally {
         instance.scene.matrixWorldAutoUpdate = autoUpdate;
       }
     } else {
-      instance.renderer.render(instance.scene, instance.camera);
+      renderOnce();
     }
     canvasContentBoxes.set(instance.canvas,
       projectContentBounds(instance.scene, instance.camera, { matricesReady: poseCameraSynced }));
@@ -2860,7 +3120,14 @@ window.akari.threeRuntime = (() => {
     instance.environmentTarget?.dispose();
     instance.environmentTarget = null;
     instance.renderer.renderLists?.dispose();
-    instance.renderer.dispose();
+    // WebGPU の dispose() は Promise（r186）。WebGL は undefined。どちらも後始末は投げ捨てず
+    // 失敗だけ記録する（dispose は同期 API のまま。契約 指示 3）
+    const disposal = instance.renderer.dispose();
+    if (disposal && typeof disposal.catch === "function") {
+      disposal.catch((error) => {
+        console.error("[akari-three] 3D renderer の破棄に失敗しました", error);
+      });
+    }
     setFallback(instance.container, true);
   }
 
@@ -3033,13 +3300,18 @@ window.akari.threeRuntime = (() => {
       throw new Error("AkariThree bundle が読み込まれていません");
     }
     const descriptor = readDescriptor(container);
+    const rendererKind = descriptor.renderer === "webgpu" ? "webgpu" : "webgl";
     const cameraKeysWarning = cameraKeysConflictWarning(descriptor.camera);
     // 1 行だけ。片方に揃えるのは作者の判断なので、止めずに keys を採る
     if (cameraKeysWarning) console.warn(`[akari-three] ${cameraKeysWarning}`);
     const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
     const hasExtrudeTexts = hasTexts && descriptor.texts.some((entry) => entry.mode === "extrude");
-    if (hasTexts && typeof library.TroikaText !== "function") {
+    // WebGPU の flat テキストは troika を使わず opentype の輪郭メッシュで描く（指示 5）
+    if (hasTexts && rendererKind === "webgl" && typeof library.TroikaText !== "function") {
       throw new Error("AkariThree bundle に TroikaText がありません（vendor-3d-text-bundle.js 未読み込み）");
+    }
+    if (hasTexts && rendererKind === "webgpu" && typeof library.opentype?.parse !== "function") {
+      throw new Error("AkariThree bundle に opentype がありません（vendor-3d-text-bundle.js 未読み込み）");
     }
     if (hasExtrudeTexts && typeof library.opentype?.parse !== "function") {
       throw new Error("AkariThree bundle に opentype がありません（vendor-3d-text-bundle.js 未読み込み）");
@@ -3051,6 +3323,23 @@ window.akari.threeRuntime = (() => {
     const canvas = resolveSceneCanvas(container);
 
     const { THREE, GLTFLoader, RoomEnvironment, TroikaText, opentype } = library;
+    let WebGPURenderer = null;
+    let PMREMGenerator = THREE.PMREMGenerator;
+    if (rendererKind === "webgpu") {
+      WebGPURenderer = library.WebGPU?.WebGPURenderer;
+      if (typeof WebGPURenderer !== "function" || typeof library.WebGPU?.PMREMGenerator !== "function") {
+        throw new Error(
+          "AkariThree bundle に WebGPU 経路がありません（three-bundle.js が WebGPU 対応版ではありません）"
+        );
+      }
+      if (library.WebGPU.sharedCore !== true) {
+        throw new Error(
+          "AkariThree bundle の three と three/webgpu が別実体です"
+          + "（instanceof が壊れるため renderer: \"webgpu\" を使えません）"
+        );
+      }
+      PMREMGenerator = library.WebGPU.PMREMGenerator;
+    }
     const scene = new THREE.Scene();
     const camera = createCamera(THREE, descriptor);
     addLights(THREE, scene, descriptor.lights);
@@ -3064,7 +3353,9 @@ window.akari.threeRuntime = (() => {
         { type: "directional", intensity: 2.0, position: [3, 5, 4], lookAt: [0, 0, 0] },
       ]);
     }
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = rendererKind === "webgpu"
+      ? new WebGPURenderer({ canvas, alpha: true, antialias: true })
+      : new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
     const shadows = shadowSettings(descriptor.shadows);
@@ -3076,26 +3367,30 @@ window.akari.threeRuntime = (() => {
       renderer.shadowMap.type = THREE.PCFShadowMap;
     }
     let environmentTarget;
-    try {
-      environmentTarget = configureEnvironment(
-        THREE,
-        RoomEnvironment,
-        scene,
-        renderer,
-        descriptor
-      );
-      scene.environment = environmentTarget.texture;
-      if (descriptor.background !== undefined) {
-        scene.background = new THREE.Color(descriptor.background.color);
+    if (rendererKind === "webgl") {
+      // WebGL は従来の初期化順・従来のコード経路のまま（1 画素も変えない）
+      try {
+        environmentTarget = configureEnvironment(
+          THREE,
+          RoomEnvironment,
+          scene,
+          renderer,
+          descriptor,
+          PMREMGenerator
+        );
+        scene.environment = environmentTarget.texture;
+        if (descriptor.background !== undefined) {
+          scene.background = new THREE.Color(descriptor.background.color);
+        }
+        if (descriptor.fog !== undefined) {
+          scene.fog = descriptor.fog.density !== undefined
+            ? new THREE.FogExp2(descriptor.fog.color, descriptor.fog.density)
+            : new THREE.Fog(descriptor.fog.color, descriptor.fog.near, descriptor.fog.far);
+        }
+      } catch (error) {
+        renderer.dispose();
+        throw error;
       }
-      if (descriptor.fog !== undefined) {
-        scene.fog = descriptor.fog.density !== undefined
-          ? new THREE.FogExp2(descriptor.fog.color, descriptor.fog.density)
-          : new THREE.Fog(descriptor.fog.color, descriptor.fog.near, descriptor.fog.far);
-      }
-    } catch (error) {
-      renderer.dispose();
-      throw error;
     }
 
     const instance = {
@@ -3125,6 +3420,16 @@ window.akari.threeRuntime = (() => {
       // instance スコープ（disposeInstance が textsGroup 経由で一括 dispose するため、instance を
       // またいで共有すると二重 dispose 事故になる。§extrudeGeometryFor）
       extrudeGeometryCache: new Map(),
+      // WebGPU の flat テキスト用 ShapeGeometry キャッシュ（同じ理由で instance スコープ）
+      flatTextGeometryCache: new Map(),
+      // 使用したバックエンド。宣言値（"webgl"/"webgpu"）と、WebGPU が実際に掴んだ backend は
+      // inspect() から別々に読めるようにする（受け入れ条件 L1 の実測用）
+      rendererKind,
+      PMREMGenerator,
+      // WebGPU の renderer.init() + environment/背景の初期化が終わったか
+      rendererInitialized: rendererKind === "webgl",
+      // WebGPU 背景の逆トーンマッピング clear 値（inspect() 用）
+      backgroundClear: null,
       // physics presim の結果（契約 §3.3）。runPhysicsPresim 完了まで null
       // = draw() の updatePhysicsChars 呼び出しは物理対象なし相当で素通りする
       physicsBuffer: null,
@@ -3214,11 +3519,31 @@ window.akari.threeRuntime = (() => {
       if (instance.shadows.enabled && instance.model) wireShadows(THREE, instance, instance.shadows);
     }
 
-    instance.loading = Promise.all([
-      hasModel ? loadModel() : Promise.resolve(),
-      hasTexts ? loadTexts(THREE, TroikaText, opentype, instance, descriptor.texts) : Promise.resolve(),
-    ]).then(() => {
-      if (instances.get(container) !== instance || !instance.active) return;
+    const loadScene = async () => {
+      if (rendererKind === "webgpu") {
+        // PMREMGenerator / renderer.render は init 前だと例外を投げる（three r186）。シーンの
+        // 読み込みと同じ async の流れの中で 1 度だけ待つ
+        await renderer.init();
+        if (instances.get(container) !== instance || !instance.active) return false;
+        environmentTarget = configureEnvironment(
+          THREE,
+          RoomEnvironment,
+          scene,
+          renderer,
+          descriptor,
+          PMREMGenerator
+        );
+        instance.environmentTarget = environmentTarget;
+        scene.environment = environmentTarget.texture;
+        applyDeclaredBackground(THREE, instance);
+        applyDeclaredFog(THREE, instance);
+        instance.rendererInitialized = true;
+      }
+      await Promise.all([
+        hasModel ? loadModel() : Promise.resolve(),
+        hasTexts ? loadTexts(THREE, TroikaText, opentype, instance, descriptor.texts) : Promise.resolve(),
+      ]);
+      if (instances.get(container) !== instance || !instance.active) return false;
       // physics は全 texts sync() 完了後（char の bbox が確定してから）にだけ presim できる。
       // ここで例外が出れば .catch 側の後始末（textsGroup 破棄・fallback 表示）へ合流する
       if (hasPhysics) runPhysicsPresim(library.Matter, instance, descriptor.physics);
@@ -3227,7 +3552,9 @@ window.akari.threeRuntime = (() => {
       instance.error = null;
       setFallback(container, false);
       draw(instance, instance.lastTime);
-    }).catch((error) => {
+      return true;
+    };
+    instance.loading = loadScene().catch((error) => {
       if (instances.get(container) !== instance || !instance.active) return;
       if (instance.model) {
         instance.model.removeFromParent();
@@ -3423,6 +3750,20 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // 宣言した renderer と、実際に掴んだ backend（L1/L2 の実測用）。
+      // WebGPU が無い環境では WebGPURenderer が自動で WebGL2 backend へ落ちるため、
+      // declared と backend は別々に持つ
+      renderer: {
+        declared: instance.rendererKind,
+        backend: instance.rendererKind === "webgpu"
+          ? instance.renderer.backend?.isWebGPUBackend === true
+            ? "webgpu"
+            : instance.renderer.backend?.isWebGLBackend === true ? "webgl2" : "unknown"
+          : "webgl",
+        isWebGPURenderer: instance.renderer.isWebGPURenderer === true,
+        initialized: instance.rendererInitialized === true,
+      },
+      backgroundClear: instance.backgroundClear ? [...instance.backgroundClear] : null,
       // 標準ツマミ --akari-3d-rot-x/y/z・--akari-3d-clip の直近の適用値（検証・証跡用。契約 §2.1）
       pose: { rotX: instance.pose.rotX, rotY: instance.pose.rotY, rotZ: instance.pose.rotZ,
         clip: instance.pose.clip, clipKnob: instance.pose.clipRaw, cameraInTree: instance.pose.cameraInTree,

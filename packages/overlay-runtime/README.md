@@ -8,6 +8,12 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 
 `three-runtime` の `fog` / `background` は additive（無指定時は従来どおり、2026-09-13）。
 
+`three-runtime` の `renderer` は additive な opt-in（`"webgl"` | `"webgpu"`、省略 =
+`"webgl"`。2026-10-21）。`"webgpu"` を宣言したシーンだけ `WebGPURenderer` で描き、
+`window.AkariThree.WebGPU` が無い bundle では初期化エラーになる。`"webgpu"` の flat テキストは
+troika ではなく opentype.js のグリフ輪郭（`ShapeGeometry`）で描く。`inspect().renderer` に
+宣言値と実際の backend（`webgpu` / `webgl2`）が出る。
+
 **出自**: legacy `akari-video-tauri/ui/` から選別インポート（Wave I-3、
 2026-07-15）。当初の JS 3 本（`overlay-runtime.js` / `interaction.js` / `minimap.js`）は
 機能的に無改変で移送。詳しい挙動仕様は `docs/notes-2026-07-14-viewer-ui-round.md`
@@ -350,7 +356,7 @@ Web UI（preview-server）は `slot-params.js` を `/slot-params.js` で配り�
 
 ```
 src/
-  vendor/three-bundle.js  Three.js core + GLTFLoader + RoomEnvironment の単一 IIFE
+  vendor/three-bundle.js  Three.js core + GLTFLoader + RoomEnvironment + three/webgpu の単一 IIFE
   vendor/three-LICENSE.txt  Three.js の MIT License
   vendor/vgpu-bundle.js  vgpu 0.4.0 browser entry の単一 IIFE
   vendor/vgpu-LICENSE.txt  vgpu の MIT License
@@ -387,9 +393,12 @@ out/
 ## Three.js vendor の固定と再生成
 
 `src/vendor/three-bundle.js` は npm package `three@0.186.1` の core と
-`three/addons/loaders/GLTFLoader.js`、`three/addons/environments/RoomEnvironment.js` だけを
+`three/addons/loaders/GLTFLoader.js`、`three/addons/environments/RoomEnvironment.js`、
+`three/webgpu`（`WebGPURenderer` / `PMREMGenerator`）を
 entry point にし、`esbuild@0.24.2` で
 事前生成したブラウザ向け単一 IIFE である。実行時に npm、CDN、外部 origin を参照しない。
+`three` と `three/webgpu` は同じ `three.core.js` を共有する（`window.AkariThree.WebGPU.sharedCore`
+が実行時に `true` であることを検査している）。
 生成時の npm tarball integrity は次のとおり。
 
 - `three@0.186.1`: `sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==`
@@ -402,8 +411,26 @@ entry file は次の内容に固定する。
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import {
+  WebGPURenderer,
+  PMREMGenerator,
+  Renderer as RendererBase,
+  Object3D as WebGPUObject3D,
+} from "three/webgpu";
 
-window.AkariThree = Object.freeze({ THREE, GLTFLoader, RoomEnvironment });
+window.AkariThree = Object.freeze({
+  THREE,
+  GLTFLoader,
+  RoomEnvironment,
+  WebGPU: {
+    WebGPURenderer,
+    PMREMGenerator,
+    RendererBase,
+    // three と three/webgpu が同一の three.core.js を共有していることの実行時証跡。
+    // WebGPU 経路はこの値が true のときだけ有効にする（別実体なら instanceof が壊れる）。
+    sharedCore: WebGPUObject3D === THREE.Object3D,
+  },
+});
 ```
 
 再生成コマンド（上記 entry を `akari-three-entry.js` とする空の一時ディレクトリで実行。
@@ -426,7 +453,7 @@ node node_modules/esbuild/bin/esbuild akari-three-entry.js \
 外部ネットワークを使う取得操作は上記 `npm pack` だけとし、tarball integrity を照合してから
 展開する。生成後は本節に記録した bundle の byte 数と SHA-256 も照合する。
 
-- `three-bundle.js`: `789929` bytes / SHA-256 `363ffc672054daf9551ff61064886ed4a36f1dd620177ff9495d739b7258228a`
+- `three-bundle.js`: `1374612` bytes / SHA-256 `4ade80a1dcf18f55c1a800abf7b6d1fbb3defe278dd9df777e7473e312e18751`
 
 Three.js は MIT License（Copyright © 2010-2026 three.js authors）。完全な許諾文は
 `src/vendor/three-LICENSE.txt` に保持し、esbuild の `--legal-comments=inline` により
@@ -459,11 +486,13 @@ troika-three-text（および troika-three-utils）は `import ... from "three"`
   読み込み時点で `window.AkariThree.THREE` が存在している前提）
 - 出力側は「既存 `window.AkariThree` の freeze オブジェクトへの追加エクスポート」を
   entry 自身が担う（`window.AkariThree = Object.freeze({ ...window.AkariThree, TroikaText,
-  opentype, Matter })`）。`three-bundle.js` は無改変のまま byte 数・SHA-256 とも既存節の
-  記載値から変化しない。`poly-decomp` 自体は `window.AkariThree` へ再エクスポートしない
+  opentype, Matter })`）。troika / opentype / Matter のバンドルは無改変で、byte 数・SHA-256 とも
+  本節の記載値から変化しない（2026-10-21 の WebGPU 対応で `three-bundle.js` 自体は
+  WebGPU entry として別途再生成したが、本バンドルの生成時に three は再バンドルしない）。
+  `poly-decomp` 自体は `window.AkariThree` へ再エクスポートしない
   （`Matter.Common.setDecomp(polyDecomp)` を entry 内で 1 回呼ぶだけの内部使用）
-- 一体化案（three + troika 等を 1 本の entry に混ぜて再生成する）も検討したが、
-  既存 `three-bundle.js` の照合値を変更すると本 README 外の参照箇所に影響し得るため見送った
+- 一体化案（three + troika 等を 1 本の entry に混ぜて再生成する）は採らない。
+  `three-bundle.js` の照合値は前述の WebGPU entry 節だけが持ち、本節は three を再生成しない
 
 ### npm tarball integrity
 

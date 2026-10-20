@@ -1,0 +1,102 @@
+[
+  {
+    "frame": 0,
+    "seconds": 0.0,
+    "mean_abs": 0.608011,
+    "max_abs": 206,
+    "over8_pixel_ratio": 0.01887346,
+    "over8_channel_ratio": 0.01131125,
+    "background_rgb": {
+      "webgl": [
+        20,
+        25,
+        28
+      ],
+      "webgpu": [
+        20,
+        25,
+        28
+      ]
+    }
+  },
+  {
+    "frame": 30,
+    "seconds": 1.0,
+    "mean_abs": 0.606384,
+    "max_abs": 206,
+    "over8_pixel_ratio": 0.01969088,
+    "over8_channel_ratio": 0.01140561,
+    "background_rgb": {
+      "webgl": [
+        19,
+        24,
+        27
+      ],
+      "webgpu": [
+        19,
+        24,
+        27
+      ]
+    }
+  },
+  {
+    "frame": 75,
+    "seconds": 2.5,
+    "mean_abs": 0.645541,
+    "max_abs": 206,
+    "over8_pixel_ratio": 0.02736979,
+    "over8_channel_ratio": 0.01534642,
+    "background_rgb": {
+      "webgl": [
+        19,
+        24,
+        27
+      ],
+      "webgpu": [
+        19,
+        24,
+        27
+      ]
+    }
+  },
+  {
+    "frame": 120,
+    "seconds": 4.0,
+    "mean_abs": 0.611056,
+    "max_abs": 206,
+    "over8_pixel_ratio": 0.01976804,
+    "over8_channel_ratio": 0.01186696,
+    "background_rgb": {
+      "webgl": [
+        20,
+        25,
+        28
+      ],
+      "webgpu": [
+        20,
+        25,
+        28
+      ]
+    }
+  },
+  {
+    "frame": 149,
+    "seconds": 4.967,
+    "mean_abs": 0.62201,
+    "max_abs": 206,
+    "over8_pixel_ratio": 0.02104263,
+    "over8_channel_ratio": 0.01182919,
+    "background_rgb": {
+      "webgl": [
+        19,
+        24,
+        27
+      ],
+      "webgpu": [
+        19,
+        24,
+        27
+      ]
+    }
+  }
+]

@@ -271,6 +271,7 @@ function validateThreeCanvas(html, path, findings) {
   }
   if (!scene) return;
   validateThreeCameraKeys(source, path, findings);
+  validateThreeRenderer(source, path, findings);
   if (marked > 1) addFinding(findings, {
     severity: "error", check: "overlays.three-canvas",
     message: `data-akari-3d-canvas must appear on at most one element (found ${marked}).`, path,
@@ -312,6 +313,30 @@ function validateThreeTextFlags(html, path, findings) {
         });
       }
     }
+  }
+}
+
+// data-akari-3d-scene.renderer は "webgl" | "webgpu" のみ（省略 = "webgl"）。
+// 未知の値は three-runtime.js が初期化エラーにするため、同じ規則を lint でも前倒しする。
+const THREE_SCENE_RENDERERS = new Set(["webgl", "webgpu"]);
+function validateThreeRenderer(html, path, findings) {
+  const source = stripHtmlComments(html);
+  for (const block of rawTextElements(source, "script")) {
+    const attributes = parseHtmlAttributes(source.slice(block.start, block.bodyStart));
+    if (!Object.hasOwn(attributes, "data-akari-3d-scene")
+      || attributes.type?.toLowerCase() !== "application/json") continue;
+    let descriptor;
+    try {
+      descriptor = JSON.parse(source.slice(block.bodyStart, block.bodyEnd));
+    } catch {
+      continue;
+    }
+    if (!isRecord(descriptor) || descriptor.renderer === undefined) continue;
+    if (typeof descriptor.renderer === "string" && THREE_SCENE_RENDERERS.has(descriptor.renderer)) continue;
+    addFinding(findings, {
+      severity: "error", check: "overlays.three-renderer",
+      message: 'data-akari-3d-scene.renderer must be "webgl" or "webgpu".', path,
+    });
   }
 }
 

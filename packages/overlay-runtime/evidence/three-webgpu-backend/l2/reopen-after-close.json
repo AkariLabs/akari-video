@@ -1,0 +1,51 @@
+{
+  "steps": [
+    {
+      "step": "before-close",
+      "inspect": {
+        "status": "ready",
+        "renderer": {
+          "declared": "webgpu",
+          "backend": "webgpu",
+          "isWebGPURenderer": true,
+          "initialized": true
+        },
+        "error": null,
+        "display": "block"
+      }
+    },
+    {
+      "step": "closed",
+      "frameCount": 1,
+      "frames": [
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?"
+      ]
+    },
+    {
+      "step": "reopened",
+      "frameCount": 3,
+      "frames": [
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?",
+        "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:60278/webview/index.html?id=akari-output-preview-ycogub",
+        "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:60278/webview/fake.html?id=akari-output-preview-ycogub"
+      ]
+    },
+    {
+      "step": "reopened-inspect",
+      "inspect": {
+        "status": "ready",
+        "renderer": {
+          "declared": "webgpu",
+          "backend": "webgpu",
+          "isWebGPURenderer": true,
+          "initialized": true
+        },
+        "error": null,
+        "display": "block"
+      }
+    }
+  ],
+  "cardCount": 1,
+  "consoleErrors": [],
+  "pageErrors": []
+}

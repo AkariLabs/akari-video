@@ -1,0 +1,47 @@
+{
+  "revision": "186",
+  "sharedCore": true,
+  "navigatorGpu": true,
+  "adapterFeatures": [
+    "depth32float-stencil8",
+    "rg11b10ufloat-renderable",
+    "bgra8unorm-storage",
+    "texture-formats-tier1",
+    "texture-compression-bc",
+    "dual-source-blending",
+    "core-features-and-limits",
+    "float32-filterable",
+    "indirect-first-instance",
+    "texture-compression-astc-sliced-3d",
+    "float32-blendable",
+    "texture-compression-astc",
+    "texture-compression-etc2",
+    "depth-clip-control",
+    "texture-compression-bc-sliced-3d",
+    "texture-formats-tier2",
+    "timestamp-query",
+    "shader-f16",
+    "clip-distances",
+    "primitive-index",
+    "subgroups"
+  ],
+  "status": "ready",
+  "renderer": {
+    "declared": "webgpu",
+    "backend": "webgpu",
+    "isWebGPURenderer": true,
+    "initialized": true
+  },
+  "backgroundClear": [
+    0.019325962873590185,
+    0.022224040947910407,
+    0.02744097491181508
+  ],
+  "videoTextures": 1,
+  "textBlocks": 2,
+  "textNodes": 5,
+  "shadows": true,
+  "error": null,
+  "electron": "39.8.7",
+  "chrome": "142.0.7444.265"
+}

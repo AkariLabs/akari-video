@@ -1,0 +1,10 @@
+{
+  "frame": 75,
+  "seconds": 2.5,
+  "crop": "360x160 at x=560,y=70 (2x nearest-neighbour in the side-by-side image)",
+  "mean_abs": 2.609560185185185,
+  "max_abs": 206,
+  "over8_pixel_ratio": 0.10175347222222222,
+  "over8_channel_ratio": 0.05681712962962963,
+  "note": "The crop is mostly flat text and near-background, so edge coverage (SDF vs outline mesh) dominates the >8/255 ratio. The 320x180 headless WebGL2-backend browser test reports meanAbs 1.634 / over8 channel 0.0089 for its own bbox crop."
+}
