@@ -17,12 +17,15 @@ function differs(existing, next) {
   return existing?.text !== next?.text || existing?.start !== next?.start || existing?.end !== next?.end;
 }
 
-export function mergeCaptionsForApply(existing, next, { force = false, src } = {}) {
+export function mergeCaptionsForApply(existing, next, { force = false, src, target } = {}) {
   const existingRows = keyedRows(Array.isArray(existing) ? existing : []);
   const nextRows = keyedRows(Array.isArray(next) ? next : []);
   const targetSrc = src ?? nextRows.find(entry => typeof entry.row?.src === "string")?.row.src;
-  const targets = existingRows.filter(entry => !targetSrc || entry.row?.src === targetSrc || entry.row?.src == null);
-  const untouched = existingRows.filter(entry => targetSrc && entry.row?.src != null && entry.row.src !== targetSrc);
+  const isTarget = typeof target === "function"
+    ? (entry) => target(entry.row)
+    : (entry) => !targetSrc || entry.row?.src === targetSrc || entry.row?.src == null;
+  const targets = existingRows.filter(isTarget);
+  const untouched = existingRows.filter(entry => !isTarget(entry));
   const existingByKey = new Map();
   for (const entry of targets) if (!existingByKey.has(entry.key)) existingByKey.set(entry.key, entry);
 

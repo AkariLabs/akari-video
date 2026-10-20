@@ -93,6 +93,24 @@ akari captions <project-dir>
 - Cap at source duration: when probe duration is available, cap each end and drop captions shorter than 0.2 seconds with a warning.
 - Apply the word book: use resolved entries by default (`--word-book <path>` adds a book; `--no-word-book` disables application).
 
+### Build from narration
+
+A project without `sources[]` can still get captions from the canonical `script` of each
+`audio.narration[]` item.
+
+```sh
+akari captions <project-dir> --narration
+```
+
+Transcribe each narration audio first with `akari media transcribe <path>`. The command reuses the
+word timings already recorded under `.akari/sidecars/` or `.akari/cache/transcribe/` and does not run
+a new transcription. Captions keep the `script` spelling, split at the word timings, and are written
+to `captions.json` on the output timeline (`time_domain: "output"`) by adding each narration's `t`.
+Reading, punctuation, and spacing differences are aligned as a diff; characters without a
+counterpart borrow time from their neighbors, and the count is reported as `interpolated` by `--json`.
+Items without audio or word timings are skipped with their item name and make the command exit with
+code 1. `--source` and `--narration` cannot be combined.
+
 Make corrections in the script panel or edit `captions.json` directly.
 
 During transcription, words stretched into detected silence are snapped to the actual speech regions by
