@@ -13,8 +13,9 @@ import { runNarrationCommand } from '../src/narration-command.mjs';
 import { listProfiles } from '../src/voice-command.mjs';
 
 const fish = DIRECT_TTS_ENGINES[0];
-const gemini = DIRECT_TTS_ENGINES[1];
-const collect = () => { const lines = []; return { lines, log: line => lines.push(line), logError: () => {} }; };
+const drama = DIRECT_TTS_ENGINES.find(engine => engine.id === 'fish-drama-3');
+const gemini = DIRECT_TTS_ENGINES.find(engine => engine.id === 'gemini-3.8-flash-tts');
+const collect = () => { const lines = []; const errors = []; return { lines, errors, log: line => lines.push(line), logError: line => errors.push(line) }; };
 
 test('話し方の指示は Gemini の注釈だけに入り、Fish ではタグだけを前置きする', async t => {
   const T = 'きょうは、あたらしい機能を紹介します。';
@@ -83,6 +84,60 @@ test('Fish と Gemini の URL・認証・入力・見積・WAV 変換', () => {
     data: pcm.toString('base64'), mime_type: 'audio/l16' }] }] }), wav);
   assert.deepEqual(parseGeminiAudio({ steps: [{ type: 'model_output', content: [{ type: 'audio',
     data: wav.toString('base64'), mime_type: 'audio/wav' }] }] }), wav);
+});
+
+test('Fish の 2 行は同じ本文で model ヘッダーだけが違う', () => {
+  const payload = { text: 'こんにちは', reference_id: fish.default_voice, format: 'mp3' };
+  assert.equal(fish.request(payload, 'key').options.headers.model, 's2.1-pro');
+  const request = drama.request(payload, 'key');
+  assert.equal(request.url, 'https://api.fish.audio/v1/tts');
+  assert.equal(request.options.headers.model, 'drama-3');
+  assert.deepEqual(JSON.parse(request.options.body), payload);
+  assert.equal(drama.candidate, true);
+  assert.equal(fish.candidate, undefined);
+  assert.equal(estimateTtsCost(drama, 'あ'.repeat(1000)), 0.05);
+});
+
+test('Fish Drama 3 は名指ししたときだけ動き、実行前に候補だと伝える', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-fish-drama-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const prior = { HOME: process.env.HOME, AKARI_HOME: process.env.AKARI_HOME, FISH_AUDIO_API_KEY: process.env.FISH_AUDIO_API_KEY };
+  const oldFetch = globalThis.fetch;
+  t.after(() => {
+    for (const [name, value] of Object.entries(prior)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+    globalThis.fetch = oldFetch;
+  });
+  process.env.HOME = root; process.env.AKARI_HOME = path.join(root, 'home'); process.env.FISH_AUDIO_API_KEY = 'dummy-fish-key';
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url: String(url), options });
+    return { ok: true, arrayBuffer: async () => Buffer.from('dummy mp3') };
+  };
+  const listed = collect();
+  assert.equal((await runNarrationCommand(['engines', '--json'], { ...listed,
+    engineRuntime: { env: process.env, fetchImpl: async () => ({ ok: false }), fsImpl: { existsSync: () => false } } })).exitCode, 0);
+  const engines = JSON.parse(listed.lines[0]).engines;
+  assert.equal(engines.find(row => row.id === 'fish-drama-3').candidate, true);
+  assert.equal(engines.find(row => row.id === 'fish-s2.1-pro').candidate, undefined);
+  const byDefault = collect();
+  assert.equal((await runNarrationCommand(['generate', '--project', root, '--text', 'こんにちは', '--dry-run', '--json'], byDefault)).exitCode, 0);
+  assert.equal(JSON.parse(byDefault.lines.at(-1)).engine, 'voicevox');
+  assert.equal(byDefault.errors.some(line => line.includes('候補')), false);
+  assert.equal(requests.length, 0);
+  const dry = collect();
+  assert.equal((await runNarrationCommand(['generate', '--project', root, '--engine', drama.id,
+    '--text', 'こんにちは', '--dry-run', '--json'], dry)).exitCode, 0);
+  assert.match(dry.errors.join('\n'), /試聴前の候補/);
+  assert.equal(JSON.parse(dry.lines.at(-1)).request.headers.model, 'drama-3');
+  assert.equal(requests.length, 0);
+  const generated = collect();
+  assert.equal((await runNarrationCommand(['generate', '--project', root, '--engine', drama.id,
+    '--text', 'こんにちは', '--yes', '--json'], generated)).exitCode, 0);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].options.headers.model, 'drama-3');
+  assert.equal(JSON.parse(generated.lines.at(-1)).provenance.model, 'drama-3');
 });
 
 test('直接 API は鍵なしで unconfigured、--yes なしで HTTP 0 回', async t => {

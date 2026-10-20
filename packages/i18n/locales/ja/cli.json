@@ -597,6 +597,7 @@
   "cli.narration.label.spokenScript": "読み原稿",
   "cli.narration.label.displayScript": "表示原稿",
   "cli.narration.warning.speedIgnored": "{engine} は --speed に対応していないため無視しました",
+  "cli.narration.warning.candidateEngine": "{engine} は試聴前の候補です。利用者が明示的に指名したときだけ使います",
   "cli.narration.cost.unavailable": "{engine} 見積不可（{characters} 文字）",
   "cli.narration.cost.estimated": "{engine} 推定費用: 約 ${cost}（{characters} 文字）",
   "cli.narration.cost.unavailableShort": "見積不可",

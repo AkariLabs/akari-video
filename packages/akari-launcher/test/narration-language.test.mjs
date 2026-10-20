@@ -34,12 +34,13 @@ test('Japanese request JSON stays byte for byte identical for every cloud engine
     chatterbox: { text: phrase, voice: 'https://example.invalid/reference.wav', custom_audio_language: 'japanese' },
     'index-tts-2': { prompt: phrase, audio_url: 'https://example.invalid/reference.wav' },
     'fish-s2.1-pro': { text: phrase, reference_id: ttsEngine('fish-s2.1-pro').default_voice, format: 'mp3' },
+    'fish-drama-3': { text: phrase, reference_id: ttsEngine('fish-drama-3').default_voice, format: 'mp3' },
     'gemini-3.8-flash-tts': { model: 'gemini-3.8-flash-tts', input: [{ type: 'user_input', content: [{ type: 'text', text: phrase }] }],
       response_format: { type: 'audio', mime_type: 'audio/l16', sample_rate: 24000 },
       generation_config: { speech_config: [{ voice: 'Leda' }] } },
   };
   for (const engine of [...FAL_TTS_ENGINES, ...DIRECT_TTS_ENGINES]) {
-    const extra = engine.id === 'fish-s2.1-pro' ? { audioUrl: undefined } : {};
+    const extra = engine.provider === 'fish-audio' ? { audioUrl: undefined } : {};
     assert.equal(JSON.stringify(payload(engine.id, 'ja', extra)), JSON.stringify(expected[engine.id]), engine.id);
     assert.equal(JSON.stringify(payload(engine.id, undefined, extra)), JSON.stringify(expected[engine.id]), `${engine.id}: implicit ja`);
     assert.equal(engine.request(expected[engine.id], 'test-key').options.body,
@@ -55,7 +56,7 @@ test('English request language uses fixture values and APIs without a language f
   assert.equal(payload('minimax-2.6-hd', 'en').language_boost, 'English');
   assert.equal(payload('chatterbox', 'en').custom_audio_language, 'english');
   assert.equal(payload('chatterbox', 'en', { audioUrl: undefined }).voice, 'english');
-  for (const id of ['index-tts-2', 'fish-s2.1-pro', 'gemini-3.8-flash-tts']) {
+  for (const id of ['index-tts-2', 'fish-s2.1-pro', 'fish-drama-3', 'gemini-3.8-flash-tts']) {
     assert.equal(Object.keys(payload(id, 'en')).some(key => /language/.test(key)), false, id);
   }
   for (const id of ['gemini-tts', 'fal-qwen3', 'gemini-3.1-flash-tts', 'elevenlabs-v3', 'minimax-2.6-hd']) {
@@ -120,7 +121,8 @@ test('engines list declares supported content languages', async () => {
   assert.deepEqual(rows.find(row => row.id === 'voicevox').languages, ['ja']);
   assert.deepEqual(rows.find(row => row.id === 'irodori').languages, ['ja']);
   assert.deepEqual(rows.find(row => row.id === 'fish-s2.1-pro').languages, ['ja']);
-  for (const row of rows.filter(row => !['voicevox', 'irodori', 'fish-s2.1-pro'].includes(row.id))) {
+  assert.deepEqual(rows.find(row => row.id === 'fish-drama-3').languages, ['ja']);
+  for (const row of rows.filter(row => !['voicevox', 'irodori', 'fish-s2.1-pro', 'fish-drama-3'].includes(row.id))) {
     assert.ok(row.languages.includes('en'), row.id);
   }
 });

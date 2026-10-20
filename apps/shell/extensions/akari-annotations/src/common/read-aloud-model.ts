@@ -66,11 +66,17 @@ export function readAloudAutoVerify(engineId: string, verificationAvailable: boo
     return engineId === 'chatterbox' && verificationAvailable;
 }
 
+/** A candidate is explicit-only; it must not enter a default choice or a picker. */
+function candidateEngine(engine: NarrationEngine): boolean {
+    return (engine as NarrationEngine & { candidate?: boolean }).candidate === true;
+}
+
 export function readAloudEngineGroups(engines: readonly NarrationEngine[], previous?: string): {
     local: NarrationEngine[]; cloud: NarrationEngine[]; visible: NarrationEngine[]; hidden: NarrationEngine[]
 } {
-    const local = READ_ALOUD_LOCAL_IDS.flatMap(id => engines.filter(engine => engine.id === id));
-    const cloud = READ_ALOUD_CLOUD_IDS.flatMap(id => engines.filter(engine => engine.id === id))
+    const usable = engines.filter(engine => !candidateEngine(engine));
+    const local = READ_ALOUD_LOCAL_IDS.flatMap(id => usable.filter(engine => engine.id === id));
+    const cloud = READ_ALOUD_CLOUD_IDS.flatMap(id => usable.filter(engine => engine.id === id))
         .sort((a, b) => Number(readAloudKeyMissing(a)) - Number(readAloudKeyMissing(b)));
     const visible = cloud.filter((engine, index) => index < 3 || engine.id === previous);
     return { local, cloud, visible, hidden: cloud.filter(engine => !visible.includes(engine)) };
@@ -90,7 +96,7 @@ export function readAloudCopyEngines(profile: VoiceProfileSummary, engines: read
     options: Array<{ engine: NarrationEngine; usable: boolean; stale: boolean; reason?: string }>; selected?: string
 } {
     const usable = new Set(profile.usable_engines ?? profile.engines);
-    const options = READ_ALOUD_COPY_IDS.flatMap(id => engines.filter(engine => engine.id === id)).map(engine => {
+    const options = READ_ALOUD_COPY_IDS.flatMap(id => engines.filter(engine => engine.id === id && !candidateEngine(engine))).map(engine => {
         const stale = profile.copies?.[engine.id]?.stale === true;
         const reason = engine.id === 'irodori' && engine.availability.state !== 'available' ? t('annotationscommon.readAloudModel.error.unavailable')
             : engine.availability.state === 'unconfigured' ? t('annotationscommon.readAloudModel.label.noApiKey')
@@ -114,8 +120,8 @@ export function readAloudCopyNote(row: { engine: NarrationEngine; stale: boolean
 }
 
 export function selectReadAloudEngine(engines: readonly NarrationEngine[], preferred?: string): NarrationEngine | undefined {
-    const available = engines.filter(engine => engine.availability.state === 'available'
-        || (engine.id === 'voicevox' && engine.availability.state === 'needs'));
+    const available = engines.filter(engine => !candidateEngine(engine) && (engine.availability.state === 'available'
+        || (engine.id === 'voicevox' && engine.availability.state === 'needs')));
     return available.find(engine => engine.id === preferred)
         ?? available.find(engine => engine.id === 'voicevox') ?? available[0];
 }

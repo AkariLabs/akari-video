@@ -17,8 +17,26 @@ test('AI model supplements satisfy schema and keep source values in their source
   assert.equal(catalog.models.some(row => row.id.includes('qwen-image-2.1')), false);
 });
 
-test('maker badges cover every model maker', async () => {
-  const [catalog, makers] = await Promise.all([read('ai-models.json'), read('ai-makers.json')]);
+test('Fish Drama 3 is a non-callable candidate outside the recommended sets', async () => {
+  const [schema, catalog, sets] = await Promise.all([read('ai-models.schema.json'), read('ai-models.json'), read('ai-model-sets.json')]);
+  const validate = new Ajv2020({ allErrors: true }).compile(schema);
+  const row = catalog.models.find(model => model.id === 'tts:fish-drama-3');
+  assert.equal(row.kind, 'voice');
+  assert.equal(row.maker, 'fish');
+  assert.equal(row.released, '2026-10-13');
+  assert.equal(row.verified, 'documented');
+  assert.equal(row.measured_ref, null);
+  assert.equal(row.callable, false);
+  assert.equal(row.status, 'candidate');
+  assert.match(row.name, /試聴前の候補/);
+  assert.equal(validate(catalog), true, JSON.stringify(validate.errors));
+  assert.equal(JSON.stringify(sets).includes('fish-drama-3'), false);
+  const invalid = structuredClone(catalog);
+  invalid.models.find(model => model.id === 'tts:fish-drama-3').status = 'preview';
+  assert.equal(validate(invalid), false);
+});
+
+test('maker badges cover every model maker', async () => {  const [catalog, makers] = await Promise.all([read('ai-models.json'), read('ai-makers.json')]);
   assert.deepEqual([...new Set(catalog.models.map(row => row.maker))].filter(key => !makers[key]), []);
   for (const maker of Object.values(makers)) {
     assert.match(maker.initials, /^.{1,2}$/u);

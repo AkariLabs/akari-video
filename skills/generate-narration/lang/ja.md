@@ -43,23 +43,29 @@ TTS（どのエンジンでも）に渡すのは表示原稿そのものでは�
 読みやすい正本として、`reading` は生成の実態を追跡する記録として）の両方に必要なため、
 どちらか一方だけを保存して済ませない。
 
-## 日本語の声の選び方（元: engines.md「エンジン選択基準・二段運用」）
+## 日本語の声の選び方
 
+モデル名・価格・声の一覧を記憶で選ばない。まず `akari narration engines --json` を読み、次の要件で行を選ぶ。
 
-| 状況 | 選ぶエンジン |
+- `languages` に `ja` がある
+- `availability.state` が `available`（`needs` は起動手順がある場合だけ）
+- `price` が null でない。null なら見積不可として承認ゲートを維持する
+- `candidate: true` の行は試聴前の候補。利用者が名指ししたときだけ使い、既定やおすすめには選ばない
+
+| 要件 | 選び方 |
 |---|---|
-| 尺やテンポを素早く確定したい（仮ナレ・アニマティクス） | voicevox（無償・数秒・承認ゲート不要） |
-| ずんだもん文化圏コンテンツ・キャラ解説・下書き試聴 | voicevox |
-| 本人ナレーションの本番（CM・ブランドコンテンツ） | fal-qwen3（`--profile owner-ja` 等） |
-| 多言語展開（自分の声のまま他言語） | fal-qwen3（クロスリンガルクローン） |
-| 既製の声で日本語の本番ナレーション・話し方を別に指定したい | `gemini-3.8-flash-tts`（`GEMINI_API_KEY`・Google AI 直接）、または `gemini-tts` / `gemini-3.1-flash-tts`（`FAL_KEY`・fal 経由） |
-| 日本語の公開声・参照音声からの声（本人同意つき） | `fish-s2.1-pro`（`FISH_AUDIO_API_KEY`） |
+| 尺やテンポを素早く確定したい（仮ナレ・アニマティクス） | `place` が local または network で、`price` が 0、承認ゲート不要の行 |
+| 自分の声で本番ナレーションを録りたい | `supports.clone` が `registered` または `per-request` で、本人同意済みの声プロファイルがある行 |
+| 話し方の指示を本文と別に渡したい | `supports.style` が true の行 |
+| 既製の声を日本語で使いたい | `akari narration voices --engine <id> --json` に日本語の声がある行 |
+| 多言語展開（自分の声のまま他言語） | `languages` に展開先を含み、`supports.clone` が使える行 |
+| 公開声・参照音声からの声（本人同意つき） | `supports.clone` が `per-request` の行。声の権利と provider の規約を [manage-connections](../../manage-connections/SKILL.md) で確認する |
 
 どのエンジンでも読み方の指示は本文に混ぜない（上の節）。
 
-**二段運用（推奨フロー）**: まず `--engine voicevox` で仮ナレを生成し `--apply` して尺とテンポを
-確定する。方針が固まったら、同じ `--reading-file`（必要なら微調整）・同じ `--t` で
-`--engine fal-qwen3 --profile <name> --yes --apply` を実行し、同じ `id` は使わずに新しい narration
+**二段運用（推奨フロー）**: まず無償のローカル行（`--engine <id>`）で仮ナレを生成し `--apply` して尺とテンポを
+確定する。方針が固まったら、同じ `--reading-file`（必要なら微調整）・同じ `--t` で、要件を満たす本番行を
+`--engine <id> --profile <name> --yes --apply` として実行し、同じ `id` は使わずに新しい narration
 エントリとして本番音声へ差し替える（古い仮ナレのエントリは編集者が削除する）。仮ナレの段階では
 費用が発生しないため、テンポ調整の反復を何度でも無償で行える。
 

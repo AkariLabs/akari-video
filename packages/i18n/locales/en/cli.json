@@ -597,6 +597,7 @@
   "cli.narration.label.spokenScript": "spoken script",
   "cli.narration.label.displayScript": "display script",
   "cli.narration.warning.speedIgnored": "{engine} does not support --speed; the option was ignored",
+  "cli.narration.warning.candidateEngine": "{engine} is an unauditioned candidate. Use it only when the user names it explicitly",
   "cli.narration.cost.unavailable": "{engine} cost unavailable ({characters} characters)",
   "cli.narration.cost.estimated": "{engine} estimated cost: about ${cost} ({characters} characters)",
   "cli.narration.cost.unavailableShort": "cost unavailable",

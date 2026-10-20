@@ -2,15 +2,17 @@
 
 ## Choose an available English voice
 
-Do not use `VOICEVOX` or its speaker 3 default for English narration; those are Japanese voice choices. First confirm that the selected engine path accepts English in its current implementation. Of the engines currently defined in the repository, the direct `gemini-3.8-flash-tts` request has real listed voices and does not force a Japanese language field, so audition it first for an English draft. Other current paths explicitly hard-code Japanese through `language_code`, `language`, `language_boost`, or the Chatterbox voice. Wait for the locale interface and verify its output before treating any of those paths as an English production default. Do not invent voice IDs or locale flags.
+Do not choose an engine or voice from memory. Run `akari narration engines --json` and select a row whose `languages` includes English and whose `availability.state` is usable. Then run `akari narration voices --engine <id> --json` and audition only the voices it actually returns. Do not invent voice IDs or locale flags.
 
-Start auditions with actual voices listed in the engine definitions:
+A row marked `candidate: true` is unauditioned. Use it only when the user names it; never make it the default or a recommendation. Some rows may reject English through a fixed locale field or provider limit. Verify the rendered output before treating any row as an English production default; if no row produces acceptable English in the current environment, report the limitation and keep the narration at the script or draft stage rather than silently falling back to a Japanese-only path.
 
-- **Calm explanation:** Try `Charon` (Informative) or `Schedar` (Even). Choose by listening for clarity and a tone that suits the audience.
-- **Bright announcement:** Try `Zephyr` (Bright) or `Autonoe` (Bright). Check that excitement does not reduce intelligibility.
-- **Slower explanation:** Try `Achernar` (Soft) or `Vindemiatrix` (Gentle), with a concise pacing instruction through the supported `--style` field if needed. These are voice candidates, not guaranteed slow-speed settings; verify the rendered pace by ear.
+Audition by requirement, not by remembered voice names:
 
-`Leda` is also a real listed voice and the current Gemini default, but that software default is not proof that it is the best English voice. Audition against the use-case choices above. If the direct path cannot produce acceptable English in the current environment, report the limitation and keep the narration at the script or draft stage rather than silently falling back to a Japanese-only path.
+- **Calm explanation:** choose voices whose listed description suggests a calm or even tone, then confirm clarity by ear.
+- **Bright announcement:** choose voices described as bright or upbeat, then check that excitement does not reduce intelligibility.
+- **Slower explanation:** choose a voice whose description suggests a gentle or soft delivery, and use a concise pacing instruction through the supported `--style` field if the row declares `supports.style`. Verify the rendered pace by ear; a description is not a speed guarantee.
+
+The engine row's `default_voice` is the software default, not proof that it is the best English voice. Audition against the use case before accepting it.
 
 ## Plan pace and pronunciation
 

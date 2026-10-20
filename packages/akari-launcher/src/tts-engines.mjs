@@ -98,6 +98,31 @@ const fishStyle = style => {
   return /^(?:\[[^\[\]]+\])+$/.test(value) ? value : `[${value}]`;
 };
 
+const FISH_TTS_ENDPOINT = 'https://api.fish.audio/v1/tts';
+
+// Fish のモデルは同じ API・本文で `model` ヘッダーだけが違う。行ごとに
+// 表示用 price と、実際の課金単位に合わせた billing（見積の計算元）を持つ。
+function fishEngine({ id, model, label, price: listedPrice, billing = null, candidate = false }) {
+  return {
+    id, label, provider: 'fish-audio', place: 'cloud', endpoint: FISH_TTS_ENDPOINT,
+    openapi_fixture: 'direct/fish-audio.md', model,
+    ...(candidate ? { candidate: true } : {}),
+    price: listedPrice, ...(billing ? { billing } : {}), voices: fishVoices,
+    default_voice: fishVoices[0].id, default_voices: { ja: fishVoices[0].id }, languages: ['ja'],
+    supports: { speed: false, style: true, clone: 'per-request' },
+    buildPayload: (({ text, voice, style, referenceAudio, referenceText }) => ({
+      text: style?.trim() ? `${fishStyle(style)} ${text}` : text,
+      ...(referenceAudio ? { references: [{ audio: referenceAudio, text: referenceText }] } : { reference_id: voice }),
+      format: 'mp3',
+    })),
+    request: (payload, key) => ({ url: FISH_TTS_ENDPOINT, options: {
+      method: 'POST', headers: { Authorization: `Bearer ${key}`, model,
+        'Content-Type': payload.references ? 'application/msgpack' : 'application/json' },
+      body: payload.references ? msgpack(payload) : JSON.stringify(payload),
+    } }),
+  };
+}
+
 // Fish の TTSRequest.references はバイナリ音声を含み、公式 OpenAPI は MessagePack 必須とする。
 // 保存済み model ID を作らず正本録音を毎回送るため、声の更新と撤回がローカルの正本に従う。
 function msgpack(value) {
@@ -135,22 +160,18 @@ export function parseGeminiAudio(result) {
 }
 
 export const DIRECT_TTS_ENGINES = Object.freeze([
-  {
-    id: 'fish-s2.1-pro', label: 'Fish Audio S2.1-Pro', provider: 'fish-audio', place: 'cloud',
-    endpoint: 'https://api.fish.audio/v1/tts', openapi_fixture: 'direct/fish-audio.md',
-    price: price('usd_per_1000_chars', 0.045, true), voices: fishVoices,
-    default_voice: fishVoices[0].id, default_voices: { ja: fishVoices[0].id }, languages: ['ja'], supports: { speed: false, style: true, clone: 'per-request' },
-    buildPayload: ({ text, voice, style, referenceAudio, referenceText }) => ({
-      text: style?.trim() ? `${fishStyle(style)} ${text}` : text,
-      ...(referenceAudio ? { references: [{ audio: referenceAudio, text: referenceText }] } : { reference_id: voice }),
-      format: 'mp3',
-    }),
-    request: (payload, key) => ({ url: 'https://api.fish.audio/v1/tts', options: {
-      method: 'POST', headers: { Authorization: `Bearer ${key}`, model: 's2.1-pro',
-        'Content-Type': payload.references ? 'application/msgpack' : 'application/json' },
-      body: payload.references ? msgpack(payload) : JSON.stringify(payload),
-    } }),
-  },
+  fishEngine({
+    id: 'fish-s2.1-pro', model: 's2.1-pro', label: 'Fish Audio S2.1-Pro',
+    // 公開価格は 1000 字あたりの目安。請求は UTF-8 バイト単位なので見積は billing で行う。
+    price: price('usd_per_1000_chars', 0.045, true),
+    billing: price('usd_per_1000_bytes', 0.015, true),
+  }),
+  // 試聴前の候補。既定・おすすめ・アプリの選択肢には出さず、--engine で
+  // 名指しされたときだけ使う（candidate は CLI の engines 一覧と実行前警告に使う）。
+  fishEngine({
+    id: 'fish-drama-3', model: 'drama-3', label: 'Fish Audio Drama 3',
+    price: price('usd_per_1000_chars', 0.05, true, '2026-10-21'), candidate: true,
+  }),
   {
     id: 'gemini-3.8-flash-tts', label: 'Gemini 3.8 Flash TTS', provider: 'google-ai', place: 'cloud',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/interactions', openapi_fixture: 'direct/gemini-tts.md',
@@ -179,9 +200,9 @@ export function referenceDataUri(bytes) {
 }
 
 export function estimateTtsCost(engine, text) {
-  if (engine.id === 'fish-s2.1-pro') return Number((Buffer.byteLength(text, 'utf8') * 15 / 1_000_000).toFixed(6));
-  const { unit, value } = engine.price;
+  const { unit, value } = engine.billing ?? engine.price;
   if (value == null) return null;
+  if (unit === 'usd_per_1000_bytes') return Number((Buffer.byteLength(text, 'utf8') * value / 1000).toFixed(6));
   if (unit === 'usd_per_1000_chars') return Number((text.length * value / 1000).toFixed(6));
   if (unit === 'usd_per_second') return Number((text.length / 5 * value).toFixed(6)); // 日本語約 5 字/秒の概算
   if (unit === 'usd_per_request') return value;

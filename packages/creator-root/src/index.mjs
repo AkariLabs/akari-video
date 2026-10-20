@@ -113,7 +113,7 @@ export const DEFAULT_CONNECTIONS_REGISTRY = {
         },
         {
             id: 'fish-audio', kind: 'tts', auth: 'env-key', env: '${FISH_AUDIO_API_KEY}',
-            models: { default: 's2.1-pro', allowed: ['s2.1-pro'] },
+            models: { default: 's2.1-pro', allowed: ['s2.1-pro', 'drama-3'] },
             notes: { description: 'Fish Audio の日本語読み上げと本人同意済みの声の参照。', workflows: ['42 読み上げ'],
                 billing: 'UTF-8 バイトごとの従量課金。商用利用は上位プランの条件を確認する。',
                 quota: '残高は Fish Audio の画面で確認する。', scopes: ['読み上げ'],

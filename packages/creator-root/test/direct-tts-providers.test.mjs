@@ -16,4 +16,7 @@ test('Fish と Google AI の既定 provider に鍵の席とモデルを持つ', 
     assert.ok(provider.models.allowed.includes(model));
     assert.match(provider.notes.setup_url, /^https:\/\//);
   }
+  // 候補の drama-3 は許可するが、既定は従来どおり s2.1-pro のまま。
+  const fish = providers.find(row => row.id === 'fish-audio');
+  assert.deepEqual(fish.models, { default: 's2.1-pro', allowed: ['s2.1-pro', 'drama-3'] });
 });

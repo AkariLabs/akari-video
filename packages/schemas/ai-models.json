@@ -519,6 +519,25 @@
       "ref": "tts:fish-s2.1-pro"
     },
     {
+      "id": "tts:fish-drama-3",
+      "name": "Fish Audio Drama 3（試聴前の候補）",
+      "kind": "voice",
+      "maker": "fish",
+      "group": "fish-s2.1-pro",
+      "main": false,
+      "released": "2026-10-13",
+      "license": {
+        "badge": "conditional",
+        "note": "オープンウェイトの Community License。研究・非商用は無料、年商 50 万ドル未満は商用も無料。それを超える商用利用は別途許諾が必要。API のクレジット消費は S2.1 Pro と同じ。",
+        "source_url": "https://fish.audio/terms/"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "status": "candidate",
+      "ref": "tts:fish-drama-3"
+    },
+    {
       "id": "tts:gemini-3.8-flash-tts",
       "kind": "voice",
       "maker": "google",

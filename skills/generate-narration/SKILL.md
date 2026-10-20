@@ -1,6 +1,6 @@
 ---
 name: generate-narration
-description: Generate narration from a script with VOICEVOX, Gemini TTS, Fish Audio, or fal Qwen3-TTS and add it to edit.json audio.narration[]. Use for a draft voiceover, final narration, a new voice profile, or replacing an existing voice or engine.
+description: Generate narration from a script and add it to edit.json audio.narration[]. Read `akari narration engines --json` to choose an engine and voice; use a candidate row only when the user names it. Use for a draft voiceover, final narration, a new voice profile, or replacing an existing voice or engine.
 ---
 
 # Generate narration audio
@@ -19,10 +19,10 @@ These rules take precedence over detailed instructions.
 2. **Verify reference audio locally before external upload.** Run the local Whisper script-matching guard. Skip it only on the owner's explicit instruction and record that exception.
 3. **Generate from prepared reading text.** Store both the display script and the exact reading text in edit.json through Edit or the edit-store script API. Follow the content-language pack for language-specific pronunciation.
 4. **Declare the cost, then run paid lanes only after explicit approval.** This applies to fal, direct Google AI Gemini, and Fish Audio. Even when a price cannot be estimated, the CLI must stop at exit 2 unless `--yes` was authorized.
-5. **Never call an API key directly; use only [manage-connections](../manage-connections/SKILL.md).** fal (Qwen3-TTS, Gemini via fal, and other fal engines) uses `FAL_KEY`, direct Google AI Gemini (`gemini-3.8-flash-tts`) uses `GEMINI_API_KEY`, and Fish Audio uses `FISH_AUDIO_API_KEY`. [manage-connections](../manage-connections/SKILL.md) is authoritative for names, sources, and doctor status. Keys live in <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> (the legacy <!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F --> is readable). Do not offer a lane whose doctor status is not `ok`.
+5. **Never call an API key directly; use only [manage-connections](../manage-connections/SKILL.md).** fal (including Gemini via fal) uses `FAL_KEY`, direct Google AI Gemini uses `GEMINI_API_KEY`, and Fish Audio uses `FISH_AUDIO_API_KEY`. [manage-connections](../manage-connections/SKILL.md) is authoritative for names, sources, and doctor status. Keys live in <!-- F paths.credentials -->`~/.akari/credentials.env`<!-- /F --> (the legacy <!-- F paths.credentials.legacy -->`~/.config/akari-video/credentials.env`<!-- /F --> is readable). Do not offer a lane whose doctor status is not `ok`.
 6. **Record provenance.provider.** For example, `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`. Use `"provider": "fal"` for fal and `"provider": "human"` for recorded speech. VOICEVOX voices also require character credit.
 7. **Send the canonical WAV as a data URI for fal reference audio.** Stop before upload if that file exceeds 20 MB.
-8. **Never mix pronunciation or delivery instructions into spoken text.** Put only words to be spoken in `--text`, `--reading-file`, or `--script-file`; do not prefix them with an instruction such as “Read this cheerfully:”. Gemini 3.8 has read an instruction prefix aloud. Create intonation through the script's punctuation, word order, and reading-text conversion; send delivery guidance only through `--style` on engines that support a separate API field. See [engines.md](engines.md).
+8. **Never mix pronunciation or delivery instructions into spoken text.** Put only words to be spoken in `--text`, `--reading-file`, or `--script-file`; do not prefix them with an instruction such as “Read this cheerfully:”. A direct Gemini engine has read an instruction prefix aloud. Create intonation through the script's punctuation, word order, and reading-text conversion; send delivery guidance only through `--style` on engines that support a separate API field. See [engines.md](engines.md).
 
 ## Execution order and leaf files
 

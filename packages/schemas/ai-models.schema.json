@@ -33,6 +33,7 @@
         "verified": { "enum": ["measured", "documented"] },
         "measured_ref": { "type": ["string", "null"], "pattern": "^[^/\\\\]+$" },
         "callable": { "type": "boolean" },
+        "status": { "enum": ["available", "candidate"], "default": "available" },
         "via": { "enum": ["subscription", "api", "local"] },
         "provider": { "type": "string" },
         "inputs": { "type": "object" },

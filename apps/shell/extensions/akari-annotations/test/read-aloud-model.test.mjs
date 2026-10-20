@@ -18,6 +18,17 @@ test('クラウドは鍵ありを先にし、初期 3 行と前回選択を表�
     assert.deepEqual(group.hidden.map(row => row.id), ['fish-s2.1-pro']);
 });
 
+test('試聴前の候補は既定選択にも読み上げの選択肢にも出さない', () => {
+    const candidate = { id: 'fish-drama-3', place: 'cloud', candidate: true, availability: { state: 'available' } };
+    assert.equal(selectReadAloudEngine([candidate]), undefined);
+    assert.equal(selectReadAloudEngine([candidate], 'fish-drama-3'), undefined);
+    const group = readAloudEngineGroups([candidate], 'fish-drama-3');
+    assert.deepEqual(group.local, []);
+    assert.deepEqual(group.cloud, []);
+    assert.deepEqual(group.visible, []);
+    assert.deepEqual(group.hidden, []);
+});
+
 test('価格の単位と見積不可を表示し、見積不可の承認は従量と伝える', () => {
     const cloud = { id: 'gemini-3.1-flash-tts', place: 'cloud', provider: 'fal', price: { unit: null, value: null, verified: false } };
     assert.equal(readAloudPrice(cloud), '見積不可');
