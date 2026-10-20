@@ -25,7 +25,7 @@ import { validateReview } from "./lint/review.mjs";
 import { validateEngineCapabilities } from "./lint/engine-capabilities.mjs";
 import { validateCaptions } from "./lint/captions.mjs";
 import { validateAudioDuckKeys, validateBgmSfx, validateLegacyNarrationTrim, validateMusicGrid, validateNarration, validateReferences } from "./lint/audio.mjs";
-import { collectInternalAudioTrackRefs, computeCutTrackSegments, validateCutTrackFields, validateCutTransformFields, validateCuts, validateDurationMaximum, validateLayerTracks, validateOutputAxisDurationMax, validateSfxTracks, validateStillImageCuts, validateTimelineTracks, validateTrackTransitionOutCompatibility } from "./lint/cuts-tracks.mjs";
+import { collectInternalAudioTrackRefs, computeCutTrackSegments, validateCutDeclaredPlacement, validateCutTrackFields, validateCutTransformFields, validateCuts, validateDurationMaximum, validateLayerTracks, validateOutputAxisDurationMax, validateSfxTracks, validateStillImageCuts, validateTimelineTracks, validateTrackTransitionOutCompatibility } from "./lint/cuts-tracks.mjs";
 import { validateOverlayBackgroundRole, validateOverlays } from "./lint/overlays.mjs";
 import { validateAudioMaster, validateEditStructure, validateEditV2, validateOutputEncoding, validateV2ItemAnchors, validateV2ObjectTreeFiles } from "./lint/edit-v2.mjs";
 import { collectAudioOnlySourceIds, projectAudioForLint, validateCaptionTrackDeclaration, validateGeometryFitCompat, validateTransitionAdjacency, validateTransitionLayerEvacuations } from "./lint/v2-projection.mjs";
@@ -69,6 +69,26 @@ function providerGuidedMessage(error) {
   const message = messageOf(error);
   return /\.provenance\.provider\)/u.test(message) && !message.includes(providerGuidance())
     ? `${message}${lintText('lint-messages.provenance.provider.separator')}${providerGuidance()}` : message;
+}
+
+/**
+ * legacy cuts（projectLegacyEdit の cuts[] と同じ宣言順）の各位置に対応する物理 visual
+ * トラックの id。cuts の連結キーが別々の物理トラックへ衝突していないかを lint が判定する
+ * ために使う（報告 2026-10-20 §1）。
+ */
+function physicalCutTrackIds(internalEdit) {
+  const ids = [];
+  const visit = (item, trackId) => {
+    if (item?.source?.kind === "media" && item.legacy?.collection === "cuts"
+      && Number.isInteger(item.legacy?.index)) {
+      ids[item.legacy.index] = trackId;
+    }
+    for (const child of item?.children ?? []) visit(child, trackId);
+  };
+  for (const track of internalEdit?.tracks ?? []) {
+    for (const item of track.items ?? []) visit(item, track.id);
+  }
+  return ids;
 }
 
 function readEditWithProviderGuidance(edit, options) {
@@ -310,13 +330,13 @@ export async function lintProject(input, options = {}) {
   }
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
+  // 宣言 at と cuts 連結後の実配置のずれ（報告 2026-10-20 §1）。legacy 投影の cuts は
+  // 物理 visual トラックごとに一意な連結キーを持つ（internal-model.ts の cutRef）ため、
+  // ここで連結配置を再現しても別トラックの同時表示を誤って拒否しない。
+  validateCutDeclaredPlacement(edit.cuts, findings, physicalCutTrackIds(internalEdit));
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   validateTransitionAdjacency(edit.cuts, cutTrackSegments, edit.sources, edit.fps, findings);
-  // v2.track-no-overlap above checks the actual track IDs before legacy projection.
-  // A mixed telop/media track may project its media into cuts with the same numeric
-  // ref as another physical track. Those per-kind aliases are not v2 track identity;
-  // checking projected cuts again would reject valid cross-track composition.
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   validateOutputAxisDurationMax(edit.outputs, cutTrackSegments, findings);
   await validateOverlays(edit.overlays, timeline, findings, paths);
@@ -337,7 +357,7 @@ export async function lintProject(input, options = {}) {
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
   validateLayerTracks(edit.layers, findings);
-  validateTimelineTracks(edit, findings, collectInternalAudioTrackRefs(internalEdit));
+  validateTimelineTracks(edit, findings, collectInternalAudioTrackRefs(internalEdit), internalEdit);
   validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {

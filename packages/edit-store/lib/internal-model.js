@@ -201,10 +201,23 @@ function readV2Internal(raw) {
         // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
         const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
         const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
+        // 旧 cuts の `track` は cuts 連結チェーンのキー（packages/edit-store/src/edit-store.ts の
+        // computeCutTrackSegments）だが、これまでは「種別ごとの ref」をそのまま使っていた。
+        // ref は cuts / layers / overlays で別々に 0 から振られるため、html や telop を先頭に
+        // 持つトラック（例: 3D 地形 + 背景の静止画）の media は overlays / layers の ref を持ち、
+        // 純粋な cuts トラックの ref と同じ番号に衝突する。衝突すると別々の物理トラックの cuts が
+        // 1 本の連結チェーンに混ざり、2 本目以降のアイテムが自分の `at` を捨てて直前の終端へ
+        // 前詰めされる（実機報告 2026-10-20 §1: 166.8 秒から前詰め・totalDuration 206.2 秒）。
+        // cut に落ちる media を含むトラックには cuts 名前空間の ref を別に発行し、cuts の連結
+        // キーを物理トラックごとに一意にする（純粋な cuts トラックの採番は従来どおり）。
+        const cutRef = kind === 'cuts'
+            ? ref
+            : trackHasCutItems(track, chromaKeyOf, overlappingItemIds)
+                ? nextRef(refCounters, 'cuts') : undefined;
         const items = [];
         if ('items' in track) {
             track.items.forEach(item => {
-                const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width, overlappingItemIds.has(item.id));
+                const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width, overlappingItemIds.has(item.id), 0, undefined, cutRef);
                 if (built.warning) {
                     warnings.push(built.warning);
                 }
@@ -390,6 +403,24 @@ function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
             || needsLayersEngine(first, chromaKeyOf, overlappingItemIds.has(first.id))
             ? 'layers' : 'cuts';
     }
+}
+/**
+ * このトラックの media アイテムのうち、cuts 経路（連結チェーン）へ投影されるものが
+ * 1 つ以上あるか。buildV2Item と同じ判定（needsLayersEngine + 時間重なり）を使う。
+ * group の子も projectLegacyEdit の flattenGroupDescendants で cuts に載るため辿る
+ * （子は buildV2Item と同じく重なり判定を渡さない）。
+ */
+function trackHasCutItems(track, chromaKeyOf, overlappingItemIds) {
+    if (!('items' in track) || track.lane !== 'visual')
+        return false;
+    const visit = (item, topLevel) => {
+        if (item.source.kind === 'media') {
+            return !needsLayersEngine(item, chromaKeyOf, topLevel && overlappingItemIds.has(item.id));
+        }
+        return 'items' in item && Array.isArray(item.items)
+            && item.items.some(child => visit(child, false));
+    };
+    return track.items.some(item => visit(item, true));
 }
 // P0 2026-08-21 render-path-unification: cuts 経路（packages/render-cut/src/cut-transform.mjs）へ
 // まだ移していない機能を宣言する media アイテム、または computeOverlappingItemIds が
@@ -583,12 +614,12 @@ function nextLegacyIndex(counters, collection) {
     counters.set(collection, index + 1);
     return index;
 }
-function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId, cutRef) {
     const built = lane === 'audio'
         ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters)
-        : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId, outputWidth);
+        : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId, outputWidth, cutRef);
     const children = lane === 'visual' && 'items' in item && Array.isArray(item.items)
-        ? item.items.map(child => buildV2Item(child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false, built.item.atFrames, built.item.id).item)
+        ? item.items.map(child => buildV2Item(child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false, built.item.atFrames, built.item.id, cutRef).item)
         : [];
     if (children.length > 0 || ('items' in item && Array.isArray(item.items))) {
         built.item.children = children;
@@ -633,7 +664,7 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
         built.item.parentId = parentId;
     return built;
 }
-function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920) {
+function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920, cutRef) {
     const atFrames = parentAtFrames + item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
@@ -791,12 +822,15 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                     }
                 });
             }
+            // cuts 連結チェーンのキー。物理トラックごとに一意な cutRef（別種別トラックの
+            // media も含む）を優先し、cuts 種別トラックでは従来どおり ref を使う。
+            const cutTrack = cutRef ?? ref;
             const value = {
                 in: item.source.in,
                 out: cutOut,
                 src: item.source.src,
                 at,
-                track: ref,
+                track: cutTrack,
                 ...(speed !== undefined ? { speed } : {}),
                 ...(item.transform !== undefined ? { transform: item.transform } : {}),
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
@@ -807,7 +841,7 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                 item: {
                     id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
-                        id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
+                        id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: cutTrack,
                         ...common, ...copyMediaSourceFields(item.source, captionSwitch),
                         ...('audio' in item && item.audio === false ? { audio: false } : {}), ...(speed !== undefined ? { speed } : {})
                     },

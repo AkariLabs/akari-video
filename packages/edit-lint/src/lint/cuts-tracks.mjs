@@ -365,7 +365,29 @@ export function validateSfxTracks(sfx, findings) {
   }
 }
 
-export function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
+/**
+ * 宣言済み v2 visual トラックの items が legacy cuts へ投影したときの track ref を集める。
+ * 物理トラックが html と media を併せ持つ場合、media の cuts は種別 ref とは別の
+ * cuts ref を持つ（internal-model.ts の cutRef）。legacy の (kind, ref) だけを見る宣言照合では
+ * その ref が「宣言なし」に見えるため、実データ側の物理トラック宣言で補う。
+ */
+function collectDeclaredCutRefs(internalEdit) {
+  const refs = new Set();
+  const visit = (item) => {
+    if (item?.source?.kind === 'media' && item.legacy?.collection === 'cuts') {
+      const track = item.declaration?.track;
+      if (Number.isInteger(track) && track >= 0) refs.add(track);
+    }
+    for (const child of item?.children ?? []) visit(child);
+  };
+  for (const track of internalEdit?.tracks ?? []) {
+    if (track.origin !== 'declared' || track.lane !== 'visual') continue;
+    for (const item of track.items ?? []) visit(item);
+  }
+  return refs;
+}
+
+export function validateTimelineTracks(edit, findings, projectedAudioTracks = null, internalEdit = null) {
   const timeline = edit?.timeline;
   if (timeline === undefined || timeline === null) return;
   if (!isRecord(timeline)) {
@@ -495,6 +517,9 @@ export function validateTimelineTracks(edit, findings, projectedAudioTracks = nu
     if (ref === undefined) continue;
     declarations.add(`${item.kind}:${ref}`);
   }
+  // v2 の物理トラック宣言から、その cuts 投影が実際に使う ref を補う（collectDeclaredCutRefs）。
+  // 種別 ref の別名ではない cuts ref（mixed track）を「宣言なし」と誤判定しない。
+  for (const ref of collectDeclaredCutRefs(internalEdit)) declarations.add(`cuts:${ref}`);
   // ここには以前 `timeline.tracks.ref-missing`（宣言された段の ref が実データのどこにも
   // 現れなければ警告）があったが、2026-08-20 に撤去した。v2 では timeline.tracks[] の各段が
   // internal-model.ts の projectLegacyEdit を通じてそのまま legacy 射影され、ref は宣言順に
@@ -655,5 +680,55 @@ export function validateDurationMaximum(outputs, timeline, findings) {
         range: { start: 0, end: timeline },
       });
     }
+  }
+}
+
+// 宣言 at と cuts 連結後の実配置のずれ（実機報告 2026-10-20 §1）。
+// プレビュー / capture / 書き出しの normalizedCuts（packages/preview-server/src/frame-engine-client.ts、
+// packages/gpu-export/src/page-runtime.js、packages/osr-export/src/page-runtime.js）は、
+// 直前の終端より前の at を「freeze / トランジションの導出配置」として捨てる。捨てた結果が
+// 宣言 at とずれる編集は、PASS のまま別の時刻に出る（報告では 166.8 秒から前詰め）。
+// 連結チェーン上の実配置をここで再現し、宣言 at と 1 推定フレームを超えてずれる cut をエラーにする。
+// トランジションの重なり（declared duration と実 overlap の差）は隣接検証の担当なので対象外。
+export function validateCutDeclaredPlacement(cuts, findings, physicalTrackIds = []) {
+  if (!Array.isArray(cuts)) return;
+  const cursorByTrack = new Map();
+  const previousByTrack = new Map();
+  for (const [index, cut] of cuts.entries()) {
+    if (!isRecord(cut) || !isFiniteNumber(cut.in) || !isFiniteNumber(cut.out) || cut.out <= cut.in) continue;
+    const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
+    const cursor = cursorByTrack.get(track) ?? 0;
+    const duration = segmentDuration(cut);
+    const previous = previousByTrack.get(track);
+    const transitionDuration = isPositiveNumber(previous?.transition_out?.duration)
+      ? previous.transition_out.duration : 0;
+    const hasAt = Object.hasOwn(cut, "at") && isFiniteNumber(cut.at) && cut.at >= 0;
+    const hold = cutHoldHeadSeconds(cut);
+    // normalizedCuts と同じ規則: 実ギャップ（または手前出し）だけ at を残し、それ以外は
+    // 直前の終端（トランジションがあれば重なり分だけ手前）から連結する。
+    let placed;
+    if (hasAt && (cut.at > cursor + EPSILON || hold > 0)) placed = cut.at;
+    else if (transitionDuration > 0) placed = cursor - transitionDuration;
+    else placed = cursor;
+    // 同じ物理トラック内の宣言順の逆転は既存の timeline.items.order（warning）が担当する。
+    // ここでエラーにするのは、別々の物理トラックの cuts が同じ連結キーへ混ざった結果
+    // （報告 2026-10-20 §1 の前詰め）だけ。物理トラック id が分かる v2 投影でのみ判定する。
+    const physicalTrackId = physicalTrackIds[index];
+    const mergedAcrossTracks = physicalTrackId !== undefined
+      && previous?.physicalTrackId !== undefined
+      && previous.physicalTrackId !== physicalTrackId;
+    if (hasAt && hold === 0 && transitionDuration === 0 && mergedAcrossTracks
+        && Math.abs(placed - cut.at) > EPSILON) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.declared-at",
+        message: `cut at ${formatNumber(cut.at)}s is concatenated at ${formatNumber(placed)}s; `
+          + "cuts from different visual tracks must not share one concat chain",
+        path: `edit.json#cuts[${index}]`,
+        range: { start: placed, end: placed + duration },
+      });
+    }
+    cursorByTrack.set(track, placed + duration);
+    previousByTrack.set(track, { ...cut, physicalTrackId });
   }
 }
