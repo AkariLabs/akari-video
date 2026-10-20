@@ -278,7 +278,7 @@ test("version 3 keeps the too-new finding and adds engine.capabilities to skippe
   }
 });
 
-test("all 113 existing fixtures keep the default execution classification under --engine auto", async () => {
+test("all 114 existing fixtures keep the default execution classification under --engine auto", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-engine-fixtures-"));
   const fixtures = join(root, "fixtures");
   try {
@@ -287,7 +287,7 @@ test("all 113 existing fixtures keep the default execution classification under 
     const names = (await readdir(fixtures, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-    assert.equal(names.length, 113);
+    assert.equal(names.length, 114);
     const failures = [];
     for (const name of names) {
       const fixture = join(fixtures, name);

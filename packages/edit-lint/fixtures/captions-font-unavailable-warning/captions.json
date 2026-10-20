@@ -1,0 +1,6 @@
+{
+  "default_text_style": { "font_family": "Hiragino Sans", "color": "#FFFFFF" },
+  "captions": [
+    { "id": "c-0001", "start": 1, "end": 2, "text": "字幕", "speaker": null, "sourceRef": null, "edited": false, "text_style": { "font_family": "Yu Gothic" } }
+  ]
+}
