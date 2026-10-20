@@ -248,6 +248,46 @@ window.akari.threeRuntime = (() => {
     });
   }
 
+  // three の KeyframeTrack 名は position / quaternion / scale。宣言側と同じ
+  // translation / rotation / scale で警告に出す（glTF の channel.path と同じ語）
+  const ANIMATION_TRACK_PROPERTIES = {
+    position: "translation",
+    quaternion: "rotation",
+    scale: "scale",
+    morphTargetInfluences: "weights",
+  };
+
+  // animationClip: "*" は glb の全クリップを同時に再生する（selectAnimationClips）。
+  // 同じノードの同じプロパティを 2 つ以上のクリップが動かすと、動きが混ざって
+  // 別ショットのカメラワークなどが再現されない。クリップ名を指定すれば 1 本だけが
+  // 掛かるので、その直し方まで警告に含める（報告 2026-10-20 §10）
+  function warnAnimationClipCollisions(instance, clips, selector) {
+    if (selector !== "*" || clips.length < 2) return;
+    const targets = new Map();
+    for (const clip of clips) {
+      for (const track of Array.isArray(clip.tracks) ? clip.tracks : []) {
+        const separator = typeof track.name === "string" ? track.name.lastIndexOf(".") : -1;
+        if (separator <= 0) continue;
+        const node = track.name.slice(0, separator);
+        const property = track.name.slice(separator + 1);
+        const key = `${node}\u0000${property}`;
+        const entry = targets.get(key) ?? { node, property, clips: [] };
+        if (!entry.clips.includes(clip)) entry.clips.push(clip);
+        targets.set(key, entry);
+      }
+    }
+    for (const { node, property, clips: conflicting } of targets.values()) {
+      if (conflicting.length < 2) continue;
+      const names = [...new Set(conflicting.map((clip) => clip.name || "(無名)"))];
+      const label = ANIMATION_TRACK_PROPERTIES[property] ?? property;
+      warnPoseOnce(
+        instance,
+        `animationClip:${node}.${property}`,
+        `animationClip "*" は glb の全クリップを同時に再生します。クリップ ${names.map((name) => `"${name}"`).join("・")} が同じノード "${node}" の ${label} を動かすため、動きが混ざります。animationClip にクリップ名を指定してください`
+      );
+    }
+  }
+
   function shadowSettings(descriptor) {
     if (descriptor === undefined || descriptor === false) return { enabled: false };
     const settings = descriptor === true ? {} : descriptor;
@@ -2228,6 +2268,7 @@ window.akari.threeRuntime = (() => {
     pose.clip = selector === undefined ? null : selector;
     if (selector === undefined) return;
     const clips = selectAnimationClips(instance.animations, selector);
+    warnAnimationClipCollisions(instance, clips, selector);
     instance.mixer = new THREE.AnimationMixer(instance.model);
     for (const clip of clips) instance.mixer.clipAction(clip).play();
     instance.animationClips = clips.length;
@@ -2948,6 +2989,7 @@ window.akari.threeRuntime = (() => {
       capturePoseRest(THREE, instance);
       if (descriptor.animationClip !== undefined) {
         const clips = selectAnimationClips(gltf.animations, descriptor.animationClip);
+        warnAnimationClipCollisions(instance, clips, descriptor.animationClip);
         instance.mixer = new THREE.AnimationMixer(gltf.scene);
         for (const clip of clips) instance.mixer.clipAction(clip).play();
         instance.animationClips = clips.length;
