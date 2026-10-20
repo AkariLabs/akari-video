@@ -110,7 +110,7 @@ BLENDER="${AKARI_BLENDER_BIN:-}"
 test -x "$BLENDER" && "$BLENDER" --version | head -1
 ```
 
-Purpose: Headless rendering of 3d bake recipes (assets whose actual file is `scene.py`). Contract: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md`; procedure: [bake-3d/SKILL.md](../bake-3d/SKILL.md).
+Purpose: Headless rendering of 3d bake recipes (assets whose actual file is `scene.py`). Contract: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md`; procedure: [author-scene3d/bake.md](../author-scene3d/bake.md).
 
 If missing: Before approval, only present the installation command (`brew install --cask blender`). With approval, install via brew and recheck. Do not stop stages unrelated to 3d baking or affect the check results for the 3 regular tools.
 

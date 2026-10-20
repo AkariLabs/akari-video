@@ -98,7 +98,7 @@ flowchart LR
     P["Playbook / Template<br/>akari new --from"] -.start.-> A
     A["Plan<br/>research-plan"] --> B["Analyze footage<br/>analyze-footage"]
     B --> C["Edit plan<br/>edit-plan"]
-    C --> D["Captions / Narration<br/>overlay-authoring<br/>generate-narration"]
+    C --> D["Captions / 3D / Narration<br/>overlay-authoring<br/>author-scene3d<br/>generate-narration"]
     D --> E["QA & Review<br/>edit-lint<br/>address-review"]
     E --> F["Export<br/>render-cut"]
     F --> G["Harvest assets<br/>harvest-asset"]

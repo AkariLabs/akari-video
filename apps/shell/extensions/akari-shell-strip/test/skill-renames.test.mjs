@@ -13,24 +13,27 @@ const { skillPictogramFor } = require('../lib/browser/skills/skill-pictograms.js
 
 const table = [
     { from: 'old-a', to: 'old-b' },
-    { from: 'old-b', to: 'bake-3d' }
+    { from: 'old-b', to: 'author-scene3d' }
 ];
 
-test('改名表は連鎖を最後の新名に畳む（実リポの表は空）', () => {
-    assert.deepEqual(SKILL_RENAMES, []);
-    assert.equal(resolveSkillName('old-a', table), 'bake-3d');
-    assert.equal(resolveSkillName('old-b', table), 'bake-3d');
-    assert.equal(resolveSkillName('bake-3d', table), 'bake-3d');
+test('改名表は連鎖を最後の新名に畳む（実リポは bake-3d → author-scene3d）', () => {
+    assert.deepEqual(
+        SKILL_RENAMES.filter(row => row.from === 'bake-3d'),
+        [{ from: 'bake-3d', to: 'author-scene3d', since: '1.5.2' }]
+    );
+    assert.equal(resolveSkillName('old-a', table), 'author-scene3d');
+    assert.equal(resolveSkillName('old-b', table), 'author-scene3d');
+    assert.equal(resolveSkillName('author-scene3d', table), 'author-scene3d');
     assert.equal(resolveSkillName('made-up', table), 'made-up');
 });
 
 test('旧名で引いても、一覧の説明・カテゴリ・絵は新名の項目になる', () => {
     const display = resolvedSkillDisplay({ name: 'old-a', description: 'source description' }, table);
-    assert.equal(display.name, 'bake-3d');
-    assert.equal(display.description, '3D シーンを Blender で映像素材に焼き、検証して配置');
+    assert.equal(display.name, 'author-scene3d');
+    assert.equal(display.description, '3D の入口。既定は Three.js のライブ 3D、出せない絵だけ Blender で焼く');
 
-    // カテゴリは新名から決まる（bake-3d は material ではなく other / 専用絵あり）。
-    assert.equal(skillCategory('old-a', '', table), skillCategory('bake-3d', '', table));
+    // カテゴリは新名から決まる（author-scene3d は material ではなく other / 専用絵あり）。
+    assert.equal(skillCategory('old-a', '', table), skillCategory('author-scene3d', '', table));
     const pictogram = skillPictogramFor('old-a', 'other', table);
     assert.equal(pictogram.dedicated, true);
 });

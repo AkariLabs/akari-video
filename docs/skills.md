@@ -53,8 +53,8 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for motion parts (HTML assets: captions, tables & charts, 3D, glass, motion graphics, thumbnails, text-behind-person). The skill keeps its original name | CSS keyframes / WAAPI; declarative Three.js + glTF, glass, WebGPU, and Canvas 2D world runtimes (see [Supported animation runtimes](#supported-animation-runtimes)) |
-| [bake-3d](../skills/bake-3d/SKILL.md) | Baking 3D scenes into footage (clips) for what the Three.js path cannot draw. Creating, tuning, and re-baking `scene.py` setups | **Blender** (headless, bpy) |
+| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for 2D motion parts (HTML assets: captions, tables & charts, glass, motion graphics, thumbnails, text-behind-person). 3D is routed to author-scene3d | CSS keyframes / WAAPI; declarative glass, WebGPU, and Canvas 2D world runtimes (see [Supported animation runtimes](#supported-animation-runtimes)) |
+| [author-scene3d](../skills/author-scene3d/SKILL.md) | One entrance for 3D: live Three.js + glTF scenes by default, and a Blender bake (`scene.py` → mp4) only for looks the declarative runtime cannot produce. The decision table lives in the skill | **Blender** (headless, bpy) only for the bake path |
 | [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json. Local engines are free; cloud engines (including cloning your own voice) run only after cost approval | VOICEVOX / Irodori (local, free) / fal, Google AI Gemini TTS, Fish Audio (cloud, behind approval) |
 | [generate-media](../skills/generate-media/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Codex image generation (free) / allowed video providers from manage-connections (cost approval) |
 
@@ -91,22 +91,14 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 
 ## 3D comes in two paths
 
-"3D" is not one skill — it splits into two paths by purpose. The canonical routing rule lives in the [3D bake recipe contract](./contract-2026-07-14-3d-bake-recipe.md) (Japanese).
+`author-scene3d` is one skill with two paths. The decision table — which path, and the conditions that justify a bake — is written once in [author-scene3d/SKILL.md](../skills/author-scene3d/SKILL.md). The [3D bake recipe contract](./contract-2026-07-14-3d-bake-recipe.md) (Japanese) remains the canonical spec for the bake path.
 
-| Path | Purpose | Runtime | Entry point |
+| Path | Purpose | Runtime | Leaf |
 |---|---|---|---|
-| A: Three.js motion part (**default**) | 3D in general — composites transparently, can play video on a screen, animates via clips baked into the glb | Transparent canvas + declarative JSON + bundled Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
-| B: Blender bake | Looks A cannot produce, cutting the simultaneous scene count, delivering a reusable library clip | None (the baked mp4 is ordinary footage) | [bake-3d](../skills/bake-3d/SKILL.md) |
+| Live 3D (**default**) | 3D in general — composites transparently, can play video on a screen, animates via clips baked into the glb | Transparent canvas + declarative JSON + bundled Three.js | [live.md](../skills/author-scene3d/live.md) |
+| Blender bake (exception) | Looks live 3D cannot produce, cutting the simultaneous scene count, delivering a reusable library clip | None (the baked mp4 is ordinary footage) | [bake.md](../skills/author-scene3d/bake.md) |
 
-Routing rule: **A is the default. Choose by the capability you need, not by where the result sits**
-("I want it on the timeline as a clip" is not a reason for B). Pick B only when (1) you need a look the
-declarative runtime cannot produce (depth of field, motion blur, ray-traced reflections, GI, particles),
-(2) you must drop below ~2 simultaneous 3D scenes to stay inside the export's performance budget, or
-(3) you are delivering a reusable clip to the asset library. A baked clip always carries an opaque
-background and costs ~10 minutes to re-bake, so when in doubt start with A and fall back only once
-you are stuck (confirmed in production on 2026-08-04).
-
-Why path B uses Blender (from the contract):
+Why the bake path uses Blender (from the contract):
 
 1. The baked mp4 passes through preview / export as ordinary footage with zero engine changes. The video itself is the truth, so WYSIWYG holds structurally
 2. No 3D authoring feature inside the editor (no home-grown mini-DCC). Authoring lives in bpy scripts, which agents write
@@ -129,7 +121,7 @@ Only runtimes that pass both gates are on board.
 | Glass refraction | ✅ declarative only | `data-akari-glass-scene` declaration + bundled runtime. The backdrop is a still image; it does not capture the video below ([glass.md](../skills/overlay-authoring/glass.md)) |
 | WebGPU layer (vgpu) | ✅ declarative only | `data-akari-vgpu-scene` full-screen fragment passes, drawn at the injected time ([vgpu layer contract](./contract-2026-09-06-vgpu-layer-v0.md), Japanese) |
 | Canvas 2D world | ✅ declarative only | `data-akari-world-scene` flat worlds with a pure `camera(t)`; used by [design-world](../skills/design-world/SKILL.md) ([world.md](../skills/overlay-authoring/world.md)) |
-| Blender | ✅ (bake, not a runtime) | Baked into mp4 and brought in as ordinary footage (path B) |
+| Blender | ✅ (bake, not a runtime) | Baked into mp4 and brought in as ordinary footage (author-scene3d bake path) |
 | Lottie / Anime.js / GSAP / TypeGPU / others | ❌ not supported | No generic JS seek hook yet. Any addition is expected to follow the "declarative + trusted runtime" shape (same as the Three.js motion part; procedure in the overlay-runtime package README) |
 
 Note: among the unsupported group, Lottie fits the shape best (assets carry their own timeline and expose an externally controllable playhead). No adoption timeline is set.

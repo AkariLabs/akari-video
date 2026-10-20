@@ -15,7 +15,7 @@ Source: beat-driven promo production on August 3–4, 2026 (six versions and thr
 
 ## 3D
 
-See [overlay-authoring/3d.md](../overlay-authoring/3d.md) for details. In brief:
+See [author-scene3d/live.md](../author-scene3d/live.md) for details. In brief:
 
 - **A window longer than its clip loops and breaks** because the default is LoopRepeat. Recreate the clip at the window's duration.
 - **The default pose may not be neutral.** In one case, 0° meant "flat at 180°" rather than "closed." Inspect three points in the production render before interpreting an angle.

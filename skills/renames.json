@@ -1,4 +1,6 @@
 {
   "version": 1,
-  "renames": []
+  "renames": [
+    { "from": "bake-3d", "to": "author-scene3d", "since": "1.5.2" }
+  ]
 }

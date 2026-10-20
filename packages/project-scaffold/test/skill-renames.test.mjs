@@ -43,10 +43,13 @@ async function makeBundle(root, name, body = `${name} v1`) {
 
 // ── 旧名参照の検査 ─────────────────────────────────────────────────────────────
 
-test('実リポは改名表が空なので旧名参照ゼロ', async () => {
+test('実リポの旧名参照は改名表と読み取り専用の契約文書だけ', async () => {
     const table = parseSkillRenameTable(await readFile(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8'));
-    assert.deepEqual(table.renames, []);
-    assert.deepEqual(collectOldNameReferences(REPO_ROOT, table.renames), []);
+    assert.ok(table.renames.some(row => row.from === 'bake-3d' && row.to === 'author-scene3d'));
+    // docs/contract-* は仕様の履歴で読み取り専用。改名の作業対象ではないので検査から除く。
+    const hits = collectOldNameReferences(REPO_ROOT, table.renames)
+        .filter(hit => !hit.file.startsWith(join('docs', 'contract-')));
+    assert.deepEqual(hits, []);
     // 改名が入ったら、新しい SKILL.md の description に旧名マーカーがちょうど 1 回あること。
     for (const row of table.renames) {
         const markdown = await readFile(join(REPO_ROOT, 'skills', row.to, 'SKILL.md'), 'utf8');

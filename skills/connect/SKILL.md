@@ -16,7 +16,7 @@ description: "AKARI の道具と、実際に呼び出せる素材サービスの
 
 - fal の画像・動画生成は [generate-media](../generate-media/SKILL.md) の `akari generate still` / `akari generate video` を使う。fal の読み上げ、Fish Audio と Google AI の読み上げは [generate-narration](../generate-narration/SKILL.md) のエンジン選択と `akari narration generate` を使う。
 - ElevenLabs（Scribe）と Groq の文字起こしは [analyze-footage](../analyze-footage/SKILL.md) の文字起こし経路を使う。ElevenLabs のカードを読み上げの案内に使わない。
-- 3D の設定は [bake-3d](../bake-3d/SKILL.md) と `assets/scene3d/*/scene.py` を使う。Blender が必要。インストール済みなら「使える」と表示する。
+- 3D は [author-scene3d](../author-scene3d/SKILL.md)（既定は Three.js、焼くときは `assets/scene3d/*/scene.py` と Blender）を使う。Blender がインストール済みなら「使える」と表示する。
 - 生成した素材の記録と再利用は各制作スキルと [harvest-asset](../harvest-asset/SKILL.md) に従う。出所を捏造しない。
 
 ## 鍵の扱い

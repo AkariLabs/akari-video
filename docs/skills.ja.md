@@ -53,8 +53,8 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 動く部品（HTML の素材。テロップ・字幕・表グラフ・3D・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。スキル名は旧名のまま | CSS keyframes / WAAPI、宣言型の Three.js + glTF・ガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
-| [bake-3d](../skills/bake-3d/SKILL.md) | Three.js 経路で出せない 3D を映像素材（クリップ）に焼く。`scene.py` の設定の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
+| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 2D の動く部品（HTML の素材。テロップ・字幕・表グラフ・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。3D は author-scene3d へ | CSS keyframes / WAAPI、宣言型のガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
+| [author-scene3d](../skills/author-scene3d/SKILL.md) | 3D の入口は 1 本。既定は Three.js + glTF のライブ 3D、宣言型ランタイムで出せない絵だけ Blender で焼く（`scene.py` → mp4）。振り分けはスキル内の判断表 | **Blender**（ヘッドレス・bpy）は焼く経路だけ |
 | [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ。ローカルのエンジンは無償、クラウド（自分の声のクローン含む）は費用承認のあとだけ | VOICEVOX / Irodori（ローカル・無償）、fal・Google AI Gemini TTS・Fish Audio（クラウド・承認制） |
 | [generate-media](../skills/generate-media/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | Codex 画像生成（無償） / manage-connections で許可された動画 provider（費用承認） |
 
@@ -91,20 +91,14 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 ## 3D は 2 経路
 
-「3D」は 1 つのスキルではなく、用途で 2 経路に分かれる。振り分けの正本は [3D ベイクレシピ契約](./contract-2026-07-14-3d-bake-recipe.md)。
+`author-scene3d` は 1 つのスキルで、中に 2 経路を持つ。どちらを選ぶか（焼くのはどんなときか）の判断表は [author-scene3d/SKILL.md](../skills/author-scene3d/SKILL.md) に 1 回だけ書いてある。焼く経路の仕様の正本は [3D ベイクレシピ契約](./contract-2026-07-14-3d-bake-recipe.md)。
 
-| 経路 | 用途 | ランタイム | 入口 |
+| 経路 | 用途 | ランタイム | 葉 |
 |---|---|---|---|
-| A: Three.js の動く部品（**既定**） | 3D 全般。透過で合成され、画面に動画も差せ、glb 内蔵クリップで動く | 透明 canvas + 宣言型 JSON + 同梱 Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
-| B: Blender ベイク | A で出せない絵・同時枚数の削減・素材ライブラリ納品 | なし（焼いた mp4 は通常素材） | [bake-3d](../skills/bake-3d/SKILL.md) |
+| ライブ 3D（**既定**） | 3D 全般。透過で合成され、画面に動画も差せ、glb 内蔵クリップで動く | 透明 canvas + 宣言型 JSON + 同梱 Three.js | [live.md](../skills/author-scene3d/live.md) |
+| Blender ベイク（例外） | ライブ 3D で出せない絵・同時枚数の削減・素材ライブラリ納品 | なし（焼いた mp4 は通常素材） | [bake.md](../skills/author-scene3d/bake.md) |
 
-判定基準: **既定は A。置き場所ではなく必要な能力で選ぶ**（「クリップとして置きたいから B」は誤り）。
-B を選ぶのは (1) 宣言型ランタイムで表現できない絵（被写界深度・モーションブラー・レイトレース反射・
-GI・パーティクル）(2) 同時 3D シーンを 2 枚以下へ減らすための事前焼き (3) 素材ライブラリへの納品、
-のいずれかに当てはまるときだけ。B の出力は不透明背景を連れてくる上に焼き直しが 10 分級なので、
-迷ったら A で試して行き詰まってから落とす方が速い（2026-08-04 の実制作で確認）。
-
-経路 B が Blender である理由（契約より）:
+焼く経路が Blender である理由（契約より）:
 
 1. 焼いた mp4 は通常素材としてエンジン無改修で preview / export を通る。映像そのものが真実なので WYSIWYG が構造的に成立する
 2. エディタ内に 3D オーサリング機能（小さな DCC の自作）は作らない。オーサリングは bpy スクリプト（エージェントが書く）に寄せる
@@ -127,7 +121,7 @@ GI・パーティクル）(2) 同時 3D シーンを 2 枚以下へ減らすた�
 | ガラスの屈折 | ✅ 宣言型のみ | `data-akari-glass-scene` 宣言 + 同梱ランタイム。背景は静止画で、下の映像は取り込まない（[glass.md](../skills/overlay-authoring/glass.md)） |
 | WebGPU レイヤー（vgpu） | ✅ 宣言型のみ | `data-akari-vgpu-scene` のフルスクリーン fragment パスを、外から渡された時刻で描く（[vgpu レイヤー契約](./contract-2026-09-06-vgpu-layer-v0.md)） |
 | Canvas 2D ワールド | ✅ 宣言型のみ | `data-akari-world-scene` の flat ワールドを純粋な `camera(t)` で動かす。[design-world](../skills/design-world/SKILL.md) が使う（[world.md](../skills/overlay-authoring/world.md)） |
-| Blender | ✅（ランタイムではなくベイク） | mp4 に焼いて通常素材として搬入（経路 B） |
+| Blender | ✅（ランタイムではなくベイク） | mp4 に焼いて通常素材として搬入（author-scene3d の焼く経路） |
 | Lottie / Anime.js / GSAP / TypeGPU ほか | ❌ 未対応 | 汎用 JS seek hook は未実装。追加する場合は「宣言型 + 信頼済みランタイム」の型（Three.js の動く部品と同型。手順は overlay-runtime パッケージの README）に載せるのが前提 |
 
 補足: 未対応群の中では Lottie が最も型に馴染む候補（アセットが自前のタイムラインを持ち、再生ヘッドを外部制御できるため）。採用時期は未定。

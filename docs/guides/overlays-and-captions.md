@@ -269,7 +269,7 @@ Camera moves can be declared as keyframes, with no GLB or animation clip:
   same camera
 
 For images the declarative runtime cannot express (depth of field, ray tracing, and the like), or
-for a clip you will reuse, bake it into video with [Bake a 3D scene](./bake-3d.md).
+for a clip you will reuse, bake it into video with [Bake a 3D scene](bake-3d.md).
 
 ## Thumbnails
 
@@ -325,7 +325,7 @@ that's the division of labor.
 
 - Inspect the result → [QA, review, and fix](./review-and-fix.md)
 - Reuse a good motion part next time → [Grow your asset library](./asset-library.md)
-- Bake 3D into video footage → [Bake a 3D scene](./bake-3d.md)
+- Bake 3D into video footage → [Bake a 3D scene](bake-3d.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
 This page describes AKARI Video v1.5.1 (released 2026-10-19).

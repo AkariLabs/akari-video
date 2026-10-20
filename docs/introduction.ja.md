@@ -78,7 +78,8 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
                analyze-project     複数素材を読み合わせて解釈レポート
    ↓
 [編集計画]     edit-plan           提案をタイムラインへ → プレビューで確認 → 書き出しの判子 1 回
-               overlay-authoring   テロップ・字幕・図表・3D・サムネイル
+               overlay-authoring   2D の動く部品: テロップ・字幕・図表・サムネイル
+               author-scene3d      3D シーン（既定は Three.js / Blender で焼く経路も）
                generate-narration  ナレーション生成（ローカル無償 / 声クローン）
    ↓
 [QA・レビュー] edit-lint           決定的 CLI 検査 + フレーム視認
@@ -86,7 +87,7 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
    ↓
 [書き出し]     render-cut          計画 → 承認 → レンダリング → 検証
    ↓
-[素材化]       harvest-asset / bake-3d   成果物をライブラリへ入庫・3D ベイク
+[素材化]       harvest-asset       成果物をライブラリへ入庫
                record-playbook     この動画の作り方を「作り方」として残す
 ```
 

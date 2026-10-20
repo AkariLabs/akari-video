@@ -38,7 +38,10 @@ test('schema の $id は他の schema と同じ urn 形式', () => {
 test('実リポの skills/renames.json は schema と参照整合の両方を通る', async () => {
     const table = loadSkillRenames(join(repoRoot, 'skills'));
     assert.equal(table.version, 1);
-    assert.deepEqual(table.renames, []);
+    assert.deepEqual(
+        table.renames.filter(row => row.from === 'bake-3d'),
+        [{ from: 'bake-3d', to: 'author-scene3d', since: '1.5.2' }]
+    );
     assert.equal(validate(table), true);
     assert.deepEqual(validateSkillRenames(table, { skillsRoot: join(repoRoot, 'skills') }), { ok: true, errors: [] });
 });

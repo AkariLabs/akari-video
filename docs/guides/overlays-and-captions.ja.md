@@ -249,7 +249,7 @@ akari captions migrate-look <project-dir>             # 固定して保存
 - プレビュー・`akari capture`・書き出しは同じ補間を使うため、同じ `t` は同じカメラになります
 
 Three.js で表せない映像（被写界深度・レイトレースなど）や、使い回すクリップは
-[3D シーンをベイクする](./bake-3d.ja.md)で映像に焼きます。
+[3D シーンをベイクする](bake-3d.ja.md)で映像に焼きます。
 
 ## サムネイル
 
@@ -301,7 +301,7 @@ Three.js で表せない映像（被写界深度・レイトレースなど）�
 
 - 仕上がり検査 → [QA・レビューして直す](./review-and-fix.ja.md)
 - よくできた動く部品を次回も使う → [素材ライブラリを育てる](./asset-library.ja.md)
-- 3D を映像素材として焼き込む → [3D シーンをベイクする](./bake-3d.ja.md)
+- 3D を映像素材として焼き込む → [3D シーンをベイクする](bake-3d.ja.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
 この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。

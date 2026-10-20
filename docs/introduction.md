@@ -82,7 +82,8 @@ Each stage of production is an independent skill, usable from wherever you need 
    ↓
 [Edit plan]    edit-plan           proposals into the timeline → review in preview
                                    → one stamp at export
-               overlay-authoring   titles, captions, figures, 3D, thumbnails
+               overlay-authoring   2D motion parts: titles, captions, figures, thumbnails
+               author-scene3d      3D scenes (live Three.js by default / Blender bake)
                generate-narration  narration (free local / voice clone)
    ↓
 [QA & review]  edit-lint           deterministic CLI checks + frame inspection
@@ -90,7 +91,7 @@ Each stage of production is an independent skill, usable from wherever you need 
    ↓
 [Export]       render-cut          plan → approval → render → verify
    ↓
-[Harvest]      harvest-asset / bake-3d   store deliverables in the library, bake 3D
+[Harvest]      harvest-asset       store deliverables in the library
                record-playbook     keep how this video was made as a playbook
 ```
 

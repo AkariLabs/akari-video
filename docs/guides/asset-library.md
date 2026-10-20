@@ -164,7 +164,7 @@ The first line of `akari assets list` shows the actual location.
 
 ## Next steps
 
-- Create 3D assets → [Bake a 3D scene](./bake-3d.md)
+- Create 3D assets → [Bake a 3D scene](bake-3d.md)
 - Spec for the asset declaration format (meta.json) → [Reference](../README.md#reference)
 
 <!-- BEGIN GENERATED facts:stamp -->

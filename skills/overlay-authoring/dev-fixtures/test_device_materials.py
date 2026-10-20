@@ -7,7 +7,7 @@ import sys
 sys.dont_write_bytecode = True
 import unittest
 
-spec = importlib.util.spec_from_file_location('device_materials', Path(__file__).parents[1] / 'scripts/device_materials.py')
+spec = importlib.util.spec_from_file_location('device_materials', Path(__file__).parents[2] / 'author-scene3d/scripts/device_materials.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
