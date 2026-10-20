@@ -31,7 +31,7 @@ Default to live. Choose the bake **only** when at least one condition applies:
 - Three.js + glTF live scenes (declarative schema, 3D text, physics, camera, video textures, performance): [live.md](live.md)
 - Device screens, key legends, and PBR material tuning during generation: [device-materials.md](device-materials.md)
 - Bake a recipe (`scene.py`) to MP4, verify it, and place it: [bake.md](bake.md)
-- A 3D fragment is still an overlay fragment: follow the hard rules for CSS variables, timing, and determinism in [overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md).
+- A 3D fragment is still an overlay fragment: follow the hard rules for CSS variables, timing, and determinism in [author-overlay/SKILL.md](../author-overlay/SKILL.md).
 
 Camera-keyframe moves (`camera.keys`) and billboard 3D text (`texts[].billboard` / `screenSpace`) are documented with examples in the user guide: [Motion parts and captions — 3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.md#3d) (Japanese: [テロップ・字幕・図表・3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.ja.md#3d)).
 

@@ -5,12 +5,12 @@ import test from "node:test";
 import Ajv2020 from "ajv/dist/2020.js";
 import { createRequire } from "node:module";
 
-import { validateSemanticKeepPlanSemantics } from "../../../skills/edit-plan/bin/contract-semantics.mjs";
+import { validateSemanticKeepPlanSemantics } from "../../../skills/plan-edit/bin/contract-semantics.mjs";
 
 const schema = JSON.parse(await readFile(new URL("../semantic-keep-plan.schema.json", import.meta.url), "utf8"));
 const validateCanonical = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 const require = createRequire(import.meta.url);
-const generated = require(path.resolve(import.meta.dirname, "../../../skills/edit-plan/bin/generated/contract-validators.cjs"));
+const generated = require(path.resolve(import.meta.dirname, "../../../skills/plan-edit/bin/generated/contract-validators.cjs"));
 
 function validPlan() {
   return {

@@ -51,7 +51,7 @@ const STUB_SUMMARY = {
       ].join("\n"),
     },
     // ㉑ の再現フィクスチャ: 断片ルート自身が inset:0 の全画面ラッパー + flex 配置
-    // （overlay-authoring 規約・text-behind-person.md 等の「常套パターン」）。
+    // （author-overlay 規約・text-behind-person.md 等の「常套パターン」）。
     // 実際に見える内容（.plate）はステージ左上隅の小さな矩形のみ。
     {
       id: "cap-full-wrapper",

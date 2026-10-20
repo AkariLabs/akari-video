@@ -41,7 +41,7 @@ const valid = {
   'akari.catalog.open': { tab: 'library', category: 'video', query: 'q', assetId: 'a-1', pulse: true },
   'akari.catalog.importAsset': { assetId: 'x' },
   'akari.catalog.listCategories': undefined,
-  'akari.menu.focus': { section: 'skills', pulse: true, skill: 'edit-plan' },
+  'akari.menu.focus': { section: 'skills', pulse: true, skill: 'plan-edit' },
   'akari.menu.listSkills': {},
   'akari.menu.listOpenTargets': undefined,
   'akari.review.open': {},
@@ -104,8 +104,8 @@ test('型違い・未知のキー・不完全な union を拒む', () => {
   assert.equal(validateCommandArgs('akari.preview.setLoopRange', { editUri: 'x', clear: true, startSeconds: 0 }).ok, false);
   assert.equal(validateCommandArgs('akari.preview.setLoopRange', { editUri: 'x', startSeconds: 2, endSeconds: 1 }).ok, true);
   assert.equal(validateCommandArgs('akari.daihon.open', { wordRange: { from: 2, to: 1 } }).ok, false);
-  assert.equal(validateCommandArgs('akari.menu.focus', { skill: 'edit-plan' }).ok, true);
-  assert.equal(validateCommandArgs('akari.menu.focus', { section: 'open', skill: 'edit-plan' }).ok, true);
+  assert.equal(validateCommandArgs('akari.menu.focus', { skill: 'plan-edit' }).ok, true);
+  assert.equal(validateCommandArgs('akari.menu.focus', { section: 'open', skill: 'plan-edit' }).ok, true);
   assert.equal(validateCommandArgs('akari.catalog.listCategories', { extra: true }).ok, false);
 });
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 /**
  * カレントプロジェクトが AKARI Video プロジェクトとしてセットアップ済みかを判定する。
  * `.akari/connections.json` の有無を「セットアップ済み」の判定基準にする
- * （`create-project` / `project-scaffold` が必ずこのファイルを雛形から生成するため）。
+ * （`setup-project` / `project-scaffold` が必ずこのファイルを雛形から生成するため）。
  *
  * 例外: `.akari/root.json`（作業場マニフェスト）を持つディレクトリは作業場ルートであって
  * プロジェクトではない。作業場層 `.akari/connections.json`（`packages/creator-root` の

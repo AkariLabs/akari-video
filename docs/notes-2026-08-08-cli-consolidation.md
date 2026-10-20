@@ -13,7 +13,7 @@
 
 | 元のスキル | 公開入口 | 実装の移設先 |
 |---|---|---|
-| `create-project` | `akari new` | `packages/akari-launcher/src/new-command.mjs` |
+| `setup-project` | `akari new` | `packages/akari-launcher/src/new-command.mjs` |
 | `generate-narration` | `akari narration generate` | `packages/akari-launcher/src/narration-command.mjs` |
 | `edit-to-beat` | `akari internal beat-sync-*` | `packages/akari-tools/bin/` の `beatmap.mjs`・`probe-frame.mjs`・`render-when-idle.sh` |
 

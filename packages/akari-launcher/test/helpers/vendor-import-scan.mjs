@@ -11,9 +11,9 @@ export const ALLOWED_MISSING = new Map([
   // This skill test reuses a launcher test file; launcher tests are not vendored.
   ['skills/akari/test/skills-command.test.mjs: ../../../packages/akari-launcher/test/skills-command.test.mjs', 'test-only launcher entry'],
   // These three strings are written into scratch JS files by the test.
-  ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./helper.mjs', 'scratch module fixture'],
-  ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./nested/value.mjs', 'scratch nested module fixture'],
-  ['skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./unregistered.mjs', 'intentional missing scratch module fixture'],
+  ['skills/plan-edit/bin/test/propose-cut-candidates.test.mjs: ./helper.mjs', 'scratch module fixture'],
+  ['skills/plan-edit/bin/test/propose-cut-candidates.test.mjs: ./nested/value.mjs', 'scratch nested module fixture'],
+  ['skills/plan-edit/bin/test/propose-cut-candidates.test.mjs: ./unregistered.mjs', 'intentional missing scratch module fixture'],
   // The template schema test reads a fixture owned by project-scaffold; package tests are not run from the vendor.
   ['packages/schemas/test/validate-template.test.mjs: ../../project-scaffold/test/fixtures/playbook-sample/playbook.json', 'test-only cross-package fixture'],
 ]);

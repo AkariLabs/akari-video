@@ -1,6 +1,6 @@
 ---
 name: analyze-project
-description: Read project assets (analysis.json) together with surrounding context (intake.json, edit.json, planning/, README, and past projects), create the interpretation layer interpretation.json, and render a read-only analysis report limited to facts and readings of the material. Use to understand a multi-asset project across sources, integrate completed analyze-footage results, or identify missing primary information for interviews before choosing a direction. edit-plan reads this output before deciding direction.
+description: Read project assets (analysis.json) together with surrounding context (intake.json, edit.json, planning/, README, and past projects), create the interpretation layer interpretation.json, and render a read-only analysis report limited to facts and readings of the material. Use to understand a multi-asset project across sources, integrate completed analyze-footage results, or identify missing primary information for interviews before choosing a direction. plan-edit reads this output before deciding direction.
 ---
 
 # Analyze a project
@@ -48,14 +48,14 @@ in the analysis workflow.
   absent from both footage and the internet. See [interpretation.md](interpretation.md) and
   [references/open-questions-examples.md](references/open-questions-examples.md).
 - **Stop condition (80-point line): can the proposed arc form a coherent whole without fabricated facts?**
-  If so, end interviewing. Send later questions to post-edit refinement (`edit-plan`).
+  If so, end interviewing. Send later questions to post-edit refinement (`plan-edit`).
 - **Do not display arc in the report.** Keep it as schema data in `interpretation.json` (source of interview
   questions and seeds for AI proposals during dialogue). Removal from display was settled in the 2026-07-22 revision.
 - Do not add helper fields absent from [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
   Finalize only JSON that passes `validate-interpretation.mjs`.
 - **No decision UI in reports** (choices, knobs, or finalize buttons). Decide direction in chat.
   The AI proposes with evidence instead of asking “What should we do?”
-- **Connect decision records to existing decision_log conventions (edit-plan).** Do not invent a format.
+- **Connect decision records to existing decision_log conventions (plan-edit).** Do not invent a format.
   See [decision-record.md](decision-record.md).
 - Use OpenMontage only as structural inspiration; do not copy AGPL text or code.
 

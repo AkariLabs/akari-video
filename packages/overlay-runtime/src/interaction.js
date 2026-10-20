@@ -818,7 +818,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     return { boundsFor: element => contentBounds(element, root?.parentElement) };
   }
 
-  // 断片ルートは「inset:0 全画面ラッパー + flex/絶対配置」パターン（overlay-authoring
+  // 断片ルートは「inset:0 全画面ラッパー + flex/絶対配置」パターン（author-overlay
   // 規約・text-behind-person.md 等）を許容するため、ルート自身の矩形がコンテナ（断片の
   // 親 = [data-overlay-id] 要素。overlay-runtime.js の mount() が inset:0 で全画面付与）
   // をほぼ覆う場合は「ルート＝見た目上の透明な位置決めラッパー」とみなし、可視子孫の
@@ -5134,7 +5134,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     );
   }
 
-  // 多層積み断片（overlay-authoring telop.md「多層テキスト断片と data-mirror 規約」）:
+  // 多層積み断片（author-overlay telop.md「多層テキスト断片と data-mirror 規約」）:
   // 縁取り・影・裏打ち等でテキストを複製した層は data-mirror="text" を持つ。
   // これらは直接テキストを持っていても編集候補から除外し、断片ごとに残る唯一の
   // 直接テキスト層（最前面の fill 層）だけが編集対象になるようにする。

@@ -14,7 +14,7 @@ Write prompts as visual descriptions (subject, composition, light, aspect ratio,
 ```sh
 akari generate still <projectDir> --spec <beats.json> --dry-run --json
 ```
-Check the planned ids, order, frame positions, output paths, and the route the CLI will use. Confirm that route against the ledger row: capabilities, price, and `as_of` come from [generate-video's engines.md](../generate-video/engines.md), never from memory. The still route may be free; if the selected row is paid, present the cost in the [edit-plan approvals and generation](../edit-plan/approvals-and-generation.md) format and wait for explicit approval.
+Check the planned ids, order, frame positions, output paths, and the route the CLI will use. Confirm that route against the ledger row: capabilities, price, and `as_of` come from [generate-video's engines.md](../generate-video/engines.md), never from memory. The still route may be free; if the selected row is paid, present the cost in the [plan-edit approvals and generation](../plan-edit/approvals-and-generation.md) format and wait for explicit approval.
 
 ## 3. Generate
 

@@ -20,12 +20,12 @@ test('台帳あり: kit 行を正規化する', async () => {
     await writeJson(path.join(akariHome, 'kits', 'installed.json'), {
         schema: 'akari-installed-kits/v0',
         kits: [
-            { id: 'world-kit', version: 2, skills: ['design-world', 42], assets: [{}, {}] },
+            { id: 'world-kit', version: 2, skills: ['author-world', 42], assets: [{}, {}] },
             { id: 42, version: 1, skills: [], assets: [] }
         ]
     });
     const result = await readInstalledKits({ env: { AKARI_HOME: akariHome }, homeDir });
-    assert.deepEqual(result.kits, [{ id: 'world-kit', version: 2, skills: ['design-world'], assetCount: 2 }]);
+    assert.deepEqual(result.kits, [{ id: 'world-kit', version: 2, skills: ['author-world'], assetCount: 2 }]);
 });
 
 test('台帳なし: kits は空配列', async () => {

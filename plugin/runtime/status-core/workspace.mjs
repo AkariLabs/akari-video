@@ -113,7 +113,7 @@ function resolveNextAction(projects, inboxNewCount) {
     };
   }
   if (projects.length === 0) {
-    return { kind: "human", action: "create-project", reason: "workspace has no projects yet" };
+    return { kind: "human", action: "setup-project", reason: "workspace has no projects yet" };
   }
   return null;
 }

@@ -14,7 +14,7 @@ see [Reference](../README.md#reference)).
 | `edit.json` | **The edit's save data (SSOT)**. Cuts, how assets are placed, motion parts, audio, beats, direction. v2 (an object tree) |
 | `captions.json` | Caption data. Holds each line's look and looks applied to ranges of characters (runs v1, caption styles) |
 | `review.json` | Sidecar for annotations (pen, pin, range, attachments). The data behind "<!-- F ui.annotation.handToAi -->Hand to AI<!-- /F -->" in the right panel |
-| `decision-log.md` | Append-only decision history shared by analyze-project and edit-plan |
+| `decision-log.md` | Append-only decision history shared by analyze-project and plan-edit |
 | `analysis-report.html` | The formal cross-asset analysis report produced by analyze-project |
 
 These contract files are the only generated output allowed directly at the root.
@@ -35,7 +35,7 @@ Everything else has its own designated place (a no-clutter convention).
 | File | Role |
 |---|---|
 | `research-plan.json` / `plan.json` | The plan and the approved plan |
-| `playbook.md` + `playbook.json` | **The playbook**: steps, checkpoints, settings, placeholders, parts used, and tools needed for one video. The `record-playbook` skill writes it from a finished project. A project started with `akari new --from` gets a copy, and its source is kept in `provenance` |
+| `playbook.md` + `playbook.json` | **The playbook**: steps, checkpoints, settings, placeholders, parts used, and tools needed for one video. The `harvest-playbook` skill writes it from a finished project. A project started with `akari new --from` gets a copy, and its source is kept in `provenance` |
 | `playbook-preview/frames/` | Frames from key moments of the playbook (optional) |
 | `script.json` | The **plans and memos** shown in the Script panel (timed lines). Captions stay canonical in `captions.json`. Without it, the Script panel works on captions alone. Plan lines are generated from the playbook's breakdown (`beats`) |
 | `frames/<name>.scene.json` | Scene JSON describing the contents of a placeholder. The placeholder's picture (png) and meta stay in `assets/generated/` |

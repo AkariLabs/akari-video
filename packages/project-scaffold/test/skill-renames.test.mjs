@@ -138,6 +138,25 @@ test('旧名参照は赤くなり、新名へ直すと緑になる（旧名マ�
     });
 });
 
+test('旧名参照の検査はアプリ・パッケージの src / bin と plugin/runtime も走査する', async () => {
+    await withScratch(async root => {
+        const surfaces = [
+            ['apps', 'shell', 'extensions', 'demo-app', 'src', 'guidance.ts'],
+            ['packages', 'demo', 'src', 'guidance.mjs'],
+            ['packages', 'demo', 'bin', 'guidance.mjs'],
+            ['plugin', 'runtime', 'guidance.mjs']
+        ];
+        for (const segments of surfaces) {
+            await write(join(root, ...segments), 'Read `old-name` before you start.\n');
+        }
+        const hits = collectOldNameReferences(root, RENAMES);
+        assert.deepEqual(
+            hits.map(hit => hit.file).sort(),
+            surfaces.map(segments => join(...segments)).sort()
+        );
+    });
+});
+
 test('改名表・CHANGELOG・リリースノートは検査から除外する', async () => {
     await withScratch(async root => {
         await write(join(root, 'skills', 'new-name', 'SKILL.md'), '---\nname: new-name\ndescription: new\n---\n');

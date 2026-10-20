@@ -24,16 +24,16 @@ Task-based guides, ordered by the flow of production.
 
 | Page | Contents |
 |---|---|
-| [Plan from scratch](./guides/plan-from-scratch.md) | Ideas → research → brief → storyboard → shot list (research-plan) |
+| [Plan from scratch](./guides/plan-from-scratch.md) | Ideas → research → brief → storyboard → shot list (plan-video) |
 | [Analyze footage](./guides/analyze-footage.md) | Proxies, transcription, keyframe extraction, and cross-clip analysis (analyze-footage / analyze-project) |
-| [Plan your edit](./guides/plan-your-edit.md) | Three approval steps into edit.json (edit-plan) |
-| [Overlays and captions](./guides/overlays-and-captions.md) | AI-drawn expression and motion parts with knobs you can touch (overlay-authoring / author-scene3d) |
+| [Plan your edit](./guides/plan-your-edit.md) | Three approval steps into edit.json (plan-edit) |
+| [Overlays and captions](./guides/overlays-and-captions.md) | AI-drawn expression and motion parts with knobs you can touch (author-overlay / author-scene3d) |
 | [Narration](./guides/narration.md) | Free local voices / voice cloning (generate-narration) |
 | [Review and fix](./guides/review-and-fix.md) | Machine checks, ticketing spoken reviews, fixes (verify-edit / review-from-recording / edit-from-review) |
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
 | [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless 3D settings baked into video assets (author-scene3d) |
-| [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
+| [Declare your audio](./guides/analyze-music.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (analyze-music) |
 | [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (edit-to-beat) |
 | [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |
 | [Generation models (machine-generated)](./guides/generation-models.md) | Facts about price, duration, inputs, audio, and calibration |

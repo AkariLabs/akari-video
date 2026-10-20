@@ -15,7 +15,7 @@ snapped to the declared beats of a track. The skill is `edit-to-beat`.
 ## How it works
 
 1. Prerequisite: the track has declarations (BPM, first beat, hits, sections) made
-   with [declare-audio](./declare-audio.md). The skill refuses to start without them
+   with [analyze-music](./analyze-music.md). The skill refuses to start without them
 2. A generator script computes every cut, motion-part, and SFX time from the declared
    beat positions and machine-generates `edit.json` plus the set of motion parts (overlay fragments) — no
    hand-typed seconds anywhere
@@ -26,7 +26,7 @@ snapped to the declared beats of a track. The skill is `edit-to-beat`.
 
 ## Next steps
 
-- Declare a track first → [Declare your audio](./declare-audio.md)
+- Declare a track first → [Declare your audio](./analyze-music.md)
 - Export the finished edit → [Export](./export.md)
 - Canonical procedure → [skills/edit-to-beat/SKILL.md](../../skills/edit-to-beat/SKILL.md)
 

@@ -2,7 +2,7 @@
 
 # Resolve an avatar's voice to a narration TTS lane (S2)
 
-When [edit-plan/avatar-resolution.md](../edit-plan/avatar-resolution.md) has resolved the script's speaker to an avatar, read that avatar's `voice/voice.json` (L2) and pass its `lane`, `ref`, and `credit` to one of the three existing lanes in [engines.md](engines.md). Read this file only for the selected avatar; do not inspect other avatars' `voice/` directories. **Do not invent avatar-specific engines or fields.** This is only a resolver from registered avatar values to the existing voice-TTS contract.
+When [plan-edit/avatar-resolution.md](../plan-edit/avatar-resolution.md) has resolved the script's speaker to an avatar, read that avatar's `voice/voice.json` (L2) and pass its `lane`, `ref`, and `credit` to one of the three existing lanes in [engines.md](engines.md). Read this file only for the selected avatar; do not inspect other avatars' `voice/` directories. **Do not invent avatar-specific engines or fields.** This is only a resolver from registered avatar values to the existing voice-TTS contract.
 
 ## Resolution steps
 
@@ -35,4 +35,4 @@ Transfer a non-null `voice.credit` to the narration's `provenance.credit`.
 
 ## Check the output
 
-Without `--apply`, inspect `voice` and `credit` in the stdout `entry` JSON, including `provenance`, against the avatar's registered values. When using `--apply`, follow the checkpoint procedure in [approvals-and-generation.md](../edit-plan/approvals-and-generation.md).
+Without `--apply`, inspect `voice` and `credit` in the stdout `entry` JSON, including `provenance`, against the avatar's registered values. When using `--apply`, follow the checkpoint procedure in [approvals-and-generation.md](../plan-edit/approvals-and-generation.md).

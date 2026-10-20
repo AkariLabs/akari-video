@@ -20,16 +20,16 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [research-plan](../skills/research-plan/SKILL.md) | ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト。ネタ選定と構成は decision-cards 型の承認ゲート | Web 調査 |
+| [plan-video](../skills/plan-video/SKILL.md) | ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト。ネタ選定と構成は decision-cards 型の承認ゲート | Web 調査 |
 
 ### 準備
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [akari](../skills/akari/SKILL.md) | プロジェクトを作る・開く・続きから再開する入口。素材に合う作りを最大 3 つ薦めて選ばれたものを当てる。外の道具が要る作業は道具の手順（recipe）に回す | akari CLI（`init` / `new` / `status` / `playbook` / `recipe`） |
-| [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成。土台（空のプロジェクトの構造）をコピーし、版を記録して作成レポートを出す。`--from` で作り方から始める | akari CLI（`new`）、git（安全な場合のみ初期化） |
+| [setup-project](../skills/setup-project/SKILL.md) | 新規プロジェクトの headless 作成。土台（空のプロジェクトの構造）をコピーし、版を記録して作成レポートを出す。`--from` で作り方から始める | akari CLI（`new`）、git（安全な場合のみ初期化） |
 | [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証。つないだ Lab アカウントの無料素材と購入済みの Pro 素材の取得も扱い、音（BGM・効果音）のライブラリも受け持つ（AKARI Sounds の一括取得、候補リスト → 手動 DL 照合 → 試聴 keep/drop） | ffmpeg / whisper-cli、`akari assets`・`akari store connect`、GitHub Releases（AKARI Sounds）／フリー音源配布元（ダウンロードは人間） |
-| [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
+| [analyze-music](../skills/analyze-music/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
 | [setup-chat-approval](../skills/setup-chat-approval/SKILL.md) | チャット承認セットアップ。doctor → BotFather でのトークン発行と credentials.env 登録（人間手番）→ chat ID 許可リスト → 通知 + ボタン → タップで `decisions.json` 更新。long polling のみで公開エンドポイントを作らず、自由文は指示として扱わない | Telegram Bot API（トークンの発行・登録は人間） |
 
@@ -44,15 +44,15 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [edit-plan](../skills/edit-plan/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行をチャットの明示承認で確定し edit.json v2 と動く部品へ。素材なしからの質問 → 仮の編集計画も扱う | — |
-| [edit-to-beat](../skills/edit-to-beat/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json と動く部品一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
-| [design-world](../skills/design-world/SKILL.md) | ブリーフ → 土台 → 台本 → `world-map.json` → flat ワールド映像の検査・組み立て・実測・俯瞰 | 同梱 `akari world` CLI |
+| [plan-edit](../skills/plan-edit/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行をチャットの明示承認で確定し edit.json v2 と動く部品へ。素材なしからの質問 → 仮の編集計画も扱う | — |
+| [edit-to-beat](../skills/edit-to-beat/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json と動く部品一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は analyze-music で人間が付ける） |
+| [author-world](../skills/author-world/SKILL.md) | ブリーフ → 土台 → 台本 → `world-map.json` → flat ワールド映像の検査・組み立て・実測・俯瞰 | 同梱 `akari world` CLI |
 
 ### 表現
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [overlay-authoring](../skills/overlay-authoring/SKILL.md) | 2D の動く部品（HTML の素材。テロップ・字幕・表グラフ・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。3D は author-scene3d へ | CSS keyframes / WAAPI、宣言型のガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
+| [author-overlay](../skills/author-overlay/SKILL.md) | 2D の動く部品（HTML の素材。テロップ・字幕・表グラフ・ガラス・モーション・サムネ・人物の後ろに文字）の authoring ルーター。3D は author-scene3d へ | CSS keyframes / WAAPI、宣言型のガラス・WebGPU・Canvas 2D ワールド（→ [対応ランタイム](#対応アニメーションランタイム)） |
 | [author-scene3d](../skills/author-scene3d/SKILL.md) | 3D の入口は 1 本。既定は Three.js + glTF のライブ 3D、宣言型ランタイムで出せない絵だけ Blender で焼く（`scene.py` → mp4）。振り分けはスキル内の判断表 | **Blender**（ヘッドレス・bpy）は焼く経路だけ |
 | [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ。ローカルのエンジンは無償、クラウド（自分の声のクローン含む）は費用承認のあとだけ | VOICEVOX / Irodori（ローカル・無償）、fal・Google AI Gemini TTS・Fish Audio（クラウド・承認制） |
 | [generate-image](../skills/generate-image/SKILL.md) | プロンプト → 静止画を素材・仮枠としてタイムラインへ。generate-video から参照される薄いスキルで、尺や動画の連鎖は持たない | setup-connections で許可された画像モデル（有償は費用承認） |
@@ -79,7 +79,7 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫。入庫の見極め・ツマミ付き `meta.json`・プレビュー・INDEX・検証 | — |
-| [record-playbook](../skills/record-playbook/SKILL.md) | 完成プロジェクトの工程・設定値・役割別仮枠・部品・要る道具を作り方（`planning/playbook.md` + `playbook.json`）として記録し、重要な場面のコマを添えて手元の棚へ写す | 同梱の決定論的補助と作り方検査器、ffmpeg / ffprobe（プレビューのコマ） |
+| [harvest-playbook](../skills/harvest-playbook/SKILL.md) | 完成プロジェクトの工程・設定値・役割別仮枠・部品・要る道具を作り方（`planning/playbook.md` + `playbook.json`）として記録し、重要な場面のコマを添えて手元の棚へ写す | 同梱の決定論的補助と作り方検査器、ffmpeg / ffprobe（プレビューのコマ） |
 
 ### 横断
 
@@ -117,9 +117,9 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 | CSS keyframes | ✅ 主経路 | ランタイムが animation を pause し `currentTime = localTime * 1000` を設定 |
 | Web Animations API (WAAPI) | ✅ 主経路 | 同上（`getAnimations()` 経由で時刻注入） |
 | Three.js + glTF | ✅ 宣言型のみ | 非実行の `<script type="application/json">` 宣言 + 同梱 pinned ランタイム。fragment 内の任意 JS は実行しない |
-| ガラスの屈折 | ✅ 宣言型のみ | `data-akari-glass-scene` 宣言 + 同梱ランタイム。背景は静止画で、下の映像は取り込まない（[glass.md](../skills/overlay-authoring/glass.md)） |
+| ガラスの屈折 | ✅ 宣言型のみ | `data-akari-glass-scene` 宣言 + 同梱ランタイム。背景は静止画で、下の映像は取り込まない（[glass.md](../skills/author-overlay/glass.md)） |
 | WebGPU レイヤー（vgpu） | ✅ 宣言型のみ | `data-akari-vgpu-scene` のフルスクリーン fragment パスを、外から渡された時刻で描く（[vgpu レイヤー契約](./contract-2026-09-06-vgpu-layer-v0.md)） |
-| Canvas 2D ワールド | ✅ 宣言型のみ | `data-akari-world-scene` の flat ワールドを純粋な `camera(t)` で動かす。[design-world](../skills/design-world/SKILL.md) が使う（[world.md](../skills/overlay-authoring/world.md)） |
+| Canvas 2D ワールド | ✅ 宣言型のみ | `data-akari-world-scene` の flat ワールドを純粋な `camera(t)` で動かす。[author-world](../skills/author-world/SKILL.md) が使う（[world.md](../skills/author-overlay/world.md)） |
 | Blender | ✅（ランタイムではなくベイク） | mp4 に焼いて通常素材として搬入（author-scene3d の焼く経路） |
 | Lottie / Anime.js / GSAP / TypeGPU ほか | ❌ 未対応 | 汎用 JS seek hook は未実装。追加する場合は「宣言型 + 信頼済みランタイム」の型（Three.js の動く部品と同型。手順は overlay-runtime パッケージの README）に載せるのが前提 |
 
@@ -129,7 +129,7 @@ AKARI Video のエージェント側ワークフローは **27 のスキル**に
 
 実際に追跡されている skill の leaf、契約、package README / manifest、manifest が宣言する
 公開 CLI entry は `akari capability <query> --json` で検索できる。frontmatter だけでなく nested
-Markdown も対象なので、`beat-sync` は `skills/edit-plan/beat-sync.md` まで到達する。
+Markdown も対象なので、`beat-sync` は `skills/plan-edit/beat-sync.md` まで到達する。
 
 text match が 0 件のときに限り、`--record-miss` で調べた source set の hash を現在の
 project の `.akari/reports/absence/` に記録できる。固定 verdict は review 必須を表し、

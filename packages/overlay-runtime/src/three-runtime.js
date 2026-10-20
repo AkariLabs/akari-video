@@ -222,7 +222,7 @@ window.akari.threeRuntime = (() => {
 
   // 標準ツマミ 3 種（--akari-3d-pan-x / --akari-3d-pan-y / --akari-3d-zoom）の生値を
   // フレーム比の小数へ変換する。「% 付きなら /100、無単位ならそのまま割合」の両対応
-  // （skills/overlay-authoring/3d.md）。宣言が無ければ null を返し、呼び出し側が
+  // （skills/author-scene3d/live.md）。宣言が無ければ null を返し、呼び出し側が
   // 「未宣言（後方互換の対象）」と区別できるようにする。
   function readProjectionRatio(computedStyle, propertyName) {
     const raw = computedStyle.getPropertyValue(propertyName).trim();
@@ -2557,7 +2557,7 @@ window.akari.threeRuntime = (() => {
   }
 
   // 標準ツマミ 3 種をカメラの投影へ反映する（canvas の CSS 変形ではなく
-  // camera.setViewOffset / fov のズームレンズ相当への差し替え。skills/overlay-authoring/3d.md）。
+  // camera.setViewOffset / fov のズームレンズ相当への差し替え。skills/author-scene3d/live.md）。
   // カメラ位置・モデル姿勢・ライトには一切触れない（焼き込み済みアニメーションクリップと
   // 干渉させないため。task 2026-08-06-live-knob-camera-v2）。
   //
@@ -3345,7 +3345,7 @@ window.akari.threeRuntime = (() => {
     addLights(THREE, scene, descriptor.lights);
     // extrude テキストは MeshStandardMaterial 固定（flat と違い unlit フォールバックが無い）ため、
     // lights[] も environment も未宣言だと無灯で真っ黒になりうる。extrude テキストがあり、かつ
-    // どちらのキーも宣言されていないときだけ弱いデフォルトライトを足す（skills/overlay-authoring/3d.md。
+    // どちらのキーも宣言されていないときだけ弱いデフォルトライトを足す（skills/author-scene3d/live.md。
     // 値は lab/telop-3d-poc の B1 シーンで実測済みのものをそのまま採用）
     if (hasExtrudeTexts && descriptor.lights === undefined && descriptor.environment === undefined) {
       addLights(THREE, scene, [

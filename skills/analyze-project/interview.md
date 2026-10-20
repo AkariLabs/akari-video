@@ -23,7 +23,7 @@ Avoid (decision delegation; do not write):
 > “Keep this trouble section in the main video? Cut it? What should we do?”
 
 The latter is outside analyze-project's remit. Record facts (trouble contents, whether self-resolved, relevance to the
-main story) in `flags[]`; send inclusion decisions to `edit-plan`'s chat dialogue phase.
+main story) in `flags[]`; send inclusion decisions to `plan-edit`'s chat dialogue phase.
 
 ## 2. Incorporate answers
 

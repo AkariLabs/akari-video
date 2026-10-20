@@ -101,7 +101,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(compileDoc[0]), L(compileDoc[1]), L('M40 21h10M40 26h10M40 31h6')
     ],
     // 新規プロジェクト: フォルダ + プラス
-    'create-project': [
+    'setup-project': [
         B('M8 8h14l4 5h30v24H8z'), A('M32 19.5v11M26.5 25h11')
     ],
     // カットの批評: はさみ
@@ -110,13 +110,13 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B('M18.8 15.3L52 29 20.4 12.1z'), B('M20.4 31.9L52 15 18.8 28.7z'), D(circ(37.2, 22, 1.8))
     ],
     // 音に宣言をつける: 波形 + 区間のかっこ
-    'declare-audio': [
+    'analyze-music': [
         B(rr(6, 6, 52, 32, 4)),
         L(bars([11, 18, 25, 32, 39, 46, 53], 19, [3, 7, 5, 10, 7, 4, 3])),
         A('M25 29.5v4h14v-4')
     ],
     // 世界を作る: 地球
-    'design-world': [
+    'author-world': [
         B(circ(32, 22, 14.5)), L('M32 7.5c-6.5 4.5-6.5 24.5 0 29 6.5-4.5 6.5-24.5 0-29M17.5 22h29'), D(circ(41, 15, 1.7))
     ],
     // 編集の検査: チェックリスト
@@ -125,7 +125,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         L('M16 14l2.5 2.5 4.5-5M16 22l2.5 2.5 4.5-5M28 14h18M28 22h14M28 30h10'), A(circ(19.5, 30, 2.6))
     ],
     // 企画と段取り: 企画書 + 工程
-    'edit-plan': [
+    'plan-edit': [
         B(planDoc[0]), L(planDoc[1]), L('M13 20h12M13 26h12M13 32h7'),
         A(rr(35, 9, 12, 7, 1.5)), L(rr(49, 9, 7, 7, 1.5)),
         L(rr(35, 20, 7, 7, 1.5)), L(rr(44, 20, 12, 7, 1.5)), L(rr(35, 31, 16, 7, 1.5))
@@ -163,7 +163,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B(gear(32, 22, 14.5, 11.5, 8)), A(circ(32, 22, 4.5))
     ],
     // オーバーレイ: 重なる 2 枚 + 文字
-    'overlay-authoring': [
+    'author-overlay': [
         L('M42 14V9a3 3 0 0 0-3-3H11a3 3 0 0 0-3 3v19a3 3 0 0 0 3 3h9'),
         B(rr(20, 14, 34, 22, 3)), A('M31 21h12M37 21v10')
     ],
@@ -173,7 +173,7 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         L('M19 15l-3 6M29 15l-3 6M39 15l-3 6M49 15l-3 6', 'rotate(-8 9 21)'), A('M28 25l9 4.5-9 4.5z')
     ],
     // 企画・調査: 地図 + ピン
-    'research-plan': [
+    'plan-video': [
         B('M8 11l14-4 20 5 14-4v26l-14 4-20-5-14 4z'), L('M22 7v26M42 12v26'),
         A('M32 31c-5-5-6-8-6-11a6 6 0 0 1 12 0c0 3-1 6-6 11zM32 18a2 2 0 1 0 0 4a2 2 0 1 0 0-4z')
     ],
@@ -200,10 +200,10 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
 // 描画範囲の中心を枠の中心（32,22）へ寄せる平行移動（getBBox の実測から。0.5 刻み）
 const SKILL_SHIFT: Record<string, readonly [number, number]> = {
     akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'author-scene3d': [-1, 0],
-    'edit-to-beat': [2.5, 0], 'create-project': [0, -0.5], 'verify-project': [1, 1],
+    'edit-to-beat': [2.5, 0], 'setup-project': [0, -0.5], 'verify-project': [1, 1],
     'export-nle': [0.5, 0],
     'generate-image': [0.5, -1], 'generate-video': [0, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
-    'overlay-authoring': [1, 1], 'render-cut': [0.5, -0.5], 'research-plan': [0, -0.5],
+    'author-overlay': [1, 1], 'render-cut': [0.5, -0.5], 'plan-video': [0, -0.5],
     'setup-chat-approval': [0, -1], 'setup-library': [0, -1],
     'setup-remote': [0.5, 0]
 };

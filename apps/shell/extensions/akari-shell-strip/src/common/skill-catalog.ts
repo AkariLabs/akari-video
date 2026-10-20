@@ -5,7 +5,7 @@ import * as enSkills from '../../../../../../packages/i18n/locales/en/skills.jso
 export interface SkillEntry { name: string; description: string }
 
 /**
- * スキル名 → 辞書のキーの中の名前（`record-playbook` → `recordPlaybook`、`author-scene3d` → `authorScene3d`）。
+ * スキル名 → 辞書のキーの中の名前（`harvest-playbook` → `harvestPlaybook`、`author-scene3d` → `authorScene3d`）。
  * 2026-10-19: 数字の前の `-` を落としていなかったため、数字を含むスキル名が辞書を引けず原文のまま出ていた。
  */
 export function skillCatalogName(name: string): string {

@@ -10,7 +10,7 @@ import { installProjectSkills, installSkillAdapters } from "../../project-scaffo
 import { commandAvailable } from "./helpers/command-availability.mjs";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
-const CHECKOUT_SKILL = path.join(REPO_ROOT, "skills", "edit-plan");
+const CHECKOUT_SKILL = path.join(REPO_ROOT, "skills", "plan-edit");
 const REQUIRED_SKILL_FILES = [
   "SKILL.md",
   "workflow.md",
@@ -91,7 +91,7 @@ async function generateAt(root) {
   await symlink(path.join(REPO_ROOT, "node_modules"), path.join(root, "node_modules"), "dir");
   const generated = run(process.execPath, ["--preserve-symlinks", "scripts/gen-cut-candidate-validators.mjs"], root);
   assert.equal(generated.status, 0, generated.stderr || generated.stdout);
-  const generatedRoot = path.join(root, "skills", "edit-plan", "bin", "generated");
+  const generatedRoot = path.join(root, "skills", "plan-edit", "bin", "generated");
   const files = await listTree(generatedRoot);
   return Promise.all(files.map(async (relative) => [relative, await sha(path.join(generatedRoot, relative))]));
 }
@@ -107,11 +107,11 @@ test("cut candidate bridge has byte-identical checkout, npm, scaffold, and copie
     const scaffold = path.join(temporary, "scaffold");
     await mkdir(scaffold);
     await installProjectSkills(scaffold, path.join(REPO_ROOT, "skills"), path.join(REPO_ROOT, "packages", "schemas"));
-    await assertSkillParity(path.join(scaffold, ".claude", "skills", "edit-plan"), expected);
+    await assertSkillParity(path.join(scaffold, ".claude", "skills", "plan-edit"), expected);
     const adapters = await installSkillAdapters(scaffold);
     assert.equal(adapters.degraded.length, 0);
     for (const adapter of [".agents", ".codex", ".cursor", ".opencode"]) {
-      await assertSkillParity(path.join(scaffold, adapter, "skills", "edit-plan"), expected);
+      await assertSkillParity(path.join(scaffold, adapter, "skills", "plan-edit"), expected);
     }
 
     const copiedPlugin = path.join(temporary, "copied-plugin");
@@ -119,7 +119,7 @@ test("cut candidate bridge has byte-identical checkout, npm, scaffold, and copie
     await cp(path.join(REPO_ROOT, "plugin"), copiedPlugin, { recursive: true, dereference: false });
     await rm(path.join(copiedPlugin, "skills"), { force: true });
     await cp(path.join(REPO_ROOT, "skills"), path.join(copiedPlugin, "skills"), { recursive: true });
-    await assertSkillParity(path.join(copiedPlugin, "skills", "edit-plan"), expected);
+    await assertSkillParity(path.join(copiedPlugin, "skills", "plan-edit"), expected);
 
     const fakeRepo = path.join(temporary, "repo");
     await mkdir(path.join(fakeRepo, "packages"), { recursive: true });
@@ -137,7 +137,7 @@ test("cut candidate bridge has byte-identical checkout, npm, scaffold, and copie
     await mkdir(unpacked);
     const extracted = run("tar", ["-xzf", archive, "-C", unpacked], temporary);
     assert.equal(extracted.status, 0, extracted.stderr);
-    await assertSkillParity(path.join(unpacked, "package", "vendor", "skills", "edit-plan"), expected);
+    await assertSkillParity(path.join(unpacked, "package", "vendor", "skills", "plan-edit"), expected);
     for (const schema of ["analysis.schema.json", "semantic-keep-plan.schema.json", "cut-candidates.schema.json"]) {
       assert.equal(
         await sha(path.join(unpacked, "package", "vendor", "packages", "schemas", schema)),
@@ -171,12 +171,12 @@ test("cut application documentation carries the explicit post-cut human gate", a
   ];
   for (const relative of [
     "docs/contract-2026-08-03-cut-candidate-bridge-v1.md",
-    "skills/edit-plan/execution.md",
+    "skills/plan-edit/execution.md",
   ]) {
     const contents = await readFile(path.join(REPO_ROOT, relative), "utf8");
     for (const token of tokens) assert.ok(contents.includes(token), `${relative} is missing ${token}`);
   }
-  for (const relative of ["skills/edit-plan/SKILL.md", "skills/edit-plan/workflow.md"]) {
+  for (const relative of ["skills/plan-edit/SKILL.md", "skills/plan-edit/workflow.md"]) {
     assert.ok((await readFile(path.join(REPO_ROOT, relative), "utf8")).includes("HUMAN_APPLY_GATE"));
   }
 });

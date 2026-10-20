@@ -49,7 +49,7 @@ const FALLBACK_AGENT_GUIDANCE = [
     '`assets/` の原本を保ち、成果物は `planning/` と `exports/`、分析結果と節目の記録は `.akari/` に置く。',
     '節目の記録は `.akari/events/` に 1 件ずつ追加し、すでにある記録は変更しない。',
     '',
-    'スキルは `/analyze-footage`、`/edit-plan`、`/overlay-authoring`、`/setup-library`、',
+    'スキルは `/analyze-footage`、`/plan-edit`、`/author-overlay`、`/setup-library`、',
     '`/harvest-asset`、`/author-scene3d` の素の名前で使う。手順を直接読む場合は',
     '`.claude/skills/<スキル名>/SKILL.md` を開く。',
     'Codex / Cursor 等のハーネスでは `.agents/skills/` / `.cursor/skills/` / `.codex/skills/`（`.claude/skills/` への',

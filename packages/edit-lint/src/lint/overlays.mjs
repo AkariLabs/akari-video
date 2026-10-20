@@ -161,7 +161,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       });
     }
     // テキスト分割断片の CSS animation は [data-akari-active] ゲートの中で宣言する
-    // （skills/overlay-authoring/telop.md「テキスト分割と stagger 規約」）。
+    // （skills/author-overlay/telop.md「テキスト分割と stagger 規約」）。
     // getAnimations() のコストはドキュメント全体の animation 総数に比例するため、
     // ゲート無しの断片が 1 つでも混ざると全体の tick が落ちる。分割はその危険を
     // 分割数ぶんに増幅する（実測: 1,200 断片 × 8 分割 = 9,600 本で 221ms/tick。

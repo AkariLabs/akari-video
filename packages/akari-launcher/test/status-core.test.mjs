@@ -149,7 +149,7 @@ test("non-project and zero-material projects route without inventing analysis", 
     await scaffold(root);
     status = resolveProjectStatus(root);
     assert.equal(status.workflow_stage, "planning_pending");
-    assert.equal(status.next_skill, "edit-plan");
+    assert.equal(status.next_skill, "plan-edit");
 
     await addPlan(root);
     status = resolveProjectStatus(root);
@@ -266,7 +266,7 @@ test("conclusive status summary remains a single unchanged line", async () => {
   await withProject(async (root) => {
     await scaffold(root);
     const summary = formatStatusOutput(resolveProjectStatus(root));
-    assert.equal(summary, "AKARI status: planning_pending (valid). Next skill: edit-plan. Waiting on agent: edit-plan.");
+    assert.equal(summary, "AKARI status: planning_pending (valid). Next skill: plan-edit. Waiting on agent: plan-edit.");
     assert.equal(summary.includes("\n"), false);
   });
 });

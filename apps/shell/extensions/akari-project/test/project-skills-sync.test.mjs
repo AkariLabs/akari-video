@@ -107,13 +107,13 @@ class FakeFs {
 const BUNDLED = {
     '/bundle/analyze-footage/SKILL.md': 'analyze v2',
     '/bundle/analyze-footage/references/vision-tracks.schema.json': '{}',
-    '/bundle/record-playbook/SKILL.md': 'record v1',
+    '/bundle/harvest-playbook/SKILL.md': 'record v1',
     '/bundle/render-cut/SKILL.md': 'render v2',
     '/bundle/.gitkeep': '',
     '/bundle/.DS_Store': 'x'
 };
 const BUNDLED_DIRS = ['/bundle', '/bundle/analyze-footage', '/bundle/analyze-footage/references',
-    '/bundle/record-playbook', '/bundle/render-cut'];
+    '/bundle/harvest-playbook', '/bundle/render-cut'];
 
 function bundledFs() {
     return new FakeFs(BUNDLED, BUNDLED_DIRS);
@@ -163,7 +163,7 @@ test('① 署名が無い / 違うときだけ同期する', () => {
 
 test('② 署名が違えば新しいスキルを足し、同梱ファイルを更新し、利用者のものは残す', async () => {
     const fs = bundledFs();
-    // 古いプロジェクト: record-playbook が無く、analyze-footage は古い本文。
+    // 古いプロジェクト: harvest-playbook が無く、analyze-footage は古い本文。
     fs.files.set(`${PROJECT}/analyze-footage/SKILL.md`, Buffer.from('analyze v1'));
     fs.files.set(`${PROJECT}/render-cut/SKILL.md`, Buffer.from('render v1'));
     fs.files.set(`${PROJECT}/my-skill/SKILL.md`, Buffer.from('my own skill'));
@@ -175,12 +175,12 @@ test('② 署名が違えば新しいスキルを足し、同梱ファイルを�
     });
 
     assert.equal(outcome.synced, true);
-    assert.deepEqual(outcome.added, ['record-playbook']);
+    assert.deepEqual(outcome.added, ['harvest-playbook']);
     assert.deepEqual(outcome.updated, ['analyze-footage', 'render-cut']);
     assert.deepEqual(outcome.failed, []);
 
     // 新しいスキルが現れる
-    assert.equal(String(fs.files.get(`${PROJECT}/record-playbook/SKILL.md`)), 'record v1');
+    assert.equal(String(fs.files.get(`${PROJECT}/harvest-playbook/SKILL.md`)), 'record v1');
     // 既存の同梱ファイルは更新される
     assert.equal(String(fs.files.get(`${PROJECT}/analyze-footage/SKILL.md`)), 'analyze v2');
     assert.equal(String(fs.files.get(`${PROJECT}/render-cut/SKILL.md`)), 'render v2');
@@ -203,13 +203,13 @@ test('② 署名が違えば新しいスキルを足し、同梱ファイルを�
 test('② `.claude/skills` が無いプロジェクトは全部入れで戻る', async () => {
     const fs = bundledFs();
     const plan = await planProjectSkillsSync(fs, '/bundle', PROJECT);
-    assert.deepEqual(plan, { added: ['analyze-footage', 'record-playbook', 'render-cut'], updated: [] });
+    assert.deepEqual(plan, { added: ['analyze-footage', 'harvest-playbook', 'render-cut'], updated: [] });
     const outcome = await syncProjectSkillsTree({
         fs, source: '/bundle', destination: PROJECT, signature: 'sig', schema: SCHEMA
     });
     assert.equal(outcome.synced, true);
-    assert.deepEqual(outcome.added, ['analyze-footage', 'record-playbook', 'render-cut']);
-    assert.equal(String(fs.files.get(`${PROJECT}/record-playbook/SKILL.md`)), 'record v1');
+    assert.deepEqual(outcome.added, ['analyze-footage', 'harvest-playbook', 'render-cut']);
+    assert.equal(String(fs.files.get(`${PROJECT}/harvest-playbook/SKILL.md`)), 'record v1');
     assert.equal(String(fs.files.get(`${PROJECT}/AKARI-SKILLS-VERSION`)), 'sig\n');
 });
 
@@ -227,7 +227,7 @@ test('③ EPERM が 1 ファイルで起きても他は進み、失敗した項�
     assert.equal(outcome.synced, true);
     assert.deepEqual(outcome.failed, ['analyze-footage/SKILL.md']);
     // 失敗した 1 枚以外は書けている
-    assert.equal(String(fs.files.get(`${PROJECT}/record-playbook/SKILL.md`)), 'record v1');
+    assert.equal(String(fs.files.get(`${PROJECT}/harvest-playbook/SKILL.md`)), 'record v1');
     assert.equal(String(fs.files.get(`${PROJECT}/render-cut/SKILL.md`)), 'render v2');
     // 失敗があるときは署名を更新しない（次に開いたときに再試行される。司令塔の裁定 2026-10-19）
     assert.equal(fs.files.has(`${PROJECT}/AKARI-SKILLS-VERSION`), false);
@@ -289,7 +289,7 @@ test('④ 同じ root の並行呼び出しは 1 回の同期に合流する', a
     assert.equal(service.adapterCalls, 1);
     for (const result of results) assert.equal(result.synced, true);
     // 書き込みも 1 回ぶんだけ（3 回ぶん重なっていない）
-    assert.equal(fs.writesUnder(PROJECT).filter(path => path.endsWith('record-playbook/SKILL.md')).length, 1);
+    assert.equal(fs.writesUnder(PROJECT).filter(path => path.endsWith('harvest-playbook/SKILL.md')).length, 1);
 
     // 終わったあとの呼び直しは新しい同期（署名が同じなので何も書かない）。
     const again = await service.syncProjectSkills('/project');
@@ -341,10 +341,10 @@ test('Windows: symlink も junction も EPERM なら copy へ落ちる（platfor
     const originalWarn = console.warn;
     console.warn = (...args) => warnings.push(args.join(' '));
     try {
-        await mkdir(join(root, '.claude', 'skills', 'record-playbook'), { recursive: true });
-        await writeFile(join(root, '.claude', 'skills', 'record-playbook', 'SKILL.md'), 'record v1\n');
+        await mkdir(join(root, '.claude', 'skills', 'harvest-playbook'), { recursive: true });
+        await writeFile(join(root, '.claude', 'skills', 'harvest-playbook', 'SKILL.md'), 'record v1\n');
         await service.installSkillAdapters(root);
-        assert.equal(await readFile(join(root, '.agents', 'skills', 'record-playbook', 'SKILL.md'), 'utf8'), 'record v1\n');
+        assert.equal(await readFile(join(root, '.agents', 'skills', 'harvest-playbook', 'SKILL.md'), 'utf8'), 'record v1\n');
         assert.ok(warnings.some(line => /copied the skill directory instead/.test(line)));
     } finally {
         console.warn = originalWarn;
@@ -369,7 +369,7 @@ test('Windows: symlink が EPERM なら junction で張る（platform 差し替�
         }
     };
     try {
-        await mkdir(join(root, '.claude', 'skills', 'record-playbook'), { recursive: true });
+        await mkdir(join(root, '.claude', 'skills', 'harvest-playbook'), { recursive: true });
         await service.installSkillAdapters(root);
         assert.deepEqual(calls, ['dir', 'junction', 'dir', 'junction', 'dir', 'junction']);
     } finally {
@@ -379,7 +379,7 @@ test('Windows: symlink が EPERM なら junction で張る（platform 差し替�
 
 // ── 実 fs で開いたときの同期（L1 の前段） ──────────────────────────────────────
 
-test('実 fs: 古いプロジェクトを開くと record-playbook が現れ、利用者のスキルは残る', async () => {
+test('実 fs: 古いプロジェクトを開くと harvest-playbook が現れ、利用者のスキルは残る', async () => {
     const root = await mkdtemp(join(tmpdir(), 'akari-skills-sync-'));
     const repo = resolve(process.cwd(), '..', '..', '..', '..');
     const service = new class extends AkariProjectServiceImpl {
@@ -395,12 +395,12 @@ test('実 fs: 古いプロジェクトを開くと record-playbook が現れ、�
 
         const outcome = await service.syncProjectSkills(root);
         assert.equal(outcome.synced, true);
-        assert.ok(outcome.added.includes('record-playbook'), `added: ${outcome.added.join(', ')}`);
+        assert.ok(outcome.added.includes('harvest-playbook'), `added: ${outcome.added.join(', ')}`);
         assert.deepEqual(outcome.failed, []);
 
         const names = (await readdir(join(root, '.claude', 'skills'), { withFileTypes: true }))
             .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
-        assert.ok(names.includes('record-playbook'));
+        assert.ok(names.includes('harvest-playbook'));
         assert.ok(names.includes('my-skill'));
         assert.equal(await readFile(join(root, '.claude', 'skills', 'my-skill', 'SKILL.md'), 'utf8'), 'my own skill\n');
         const version = await readFile(join(root, '.claude', 'skills', 'AKARI-SKILLS-VERSION'), 'utf8');

@@ -66,7 +66,7 @@ ATF の 36 種に相当する文字演出は、**HTML 素材版（動く部品�
 本リポ（公開リポ）は参照配布のみで実体を持たない方針なので、`presets/telop/` のような
 参照表は復活させない。素材のライセンスは取得した素材の `meta.json` で、レンダリングに使う
 書体のライセンスは `catalog/font/<id>/meta.json` で別途確認する
-（[skills/edit-plan/expression-selection.md](../skills/edit-plan/expression-selection.md)）。
+（[skills/plan-edit/expression-selection.md](../skills/plan-edit/expression-selection.md)）。
 
 ## 5. 対象外
 

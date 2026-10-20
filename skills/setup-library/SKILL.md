@@ -117,14 +117,14 @@ Try this first for requests such as “Set up my purchased assets” or “Use t
 ## Where the library fits
 
 The library is one way to get assets, not the default answer. Whether a project generates everything, uses library
-assets as-is, or generates while referencing the library is decided in planning ([edit-plan](../edit-plan/SKILL.md)).
+assets as-is, or generates while referencing the library is decided in planning ([plan-edit](../plan-edit/SKILL.md)).
 Do not read this skill as “always search the library first”.
 
 ## Sources
 
 - Contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
 - Asset harvesting and meta.json v0 discipline: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
-- Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)
+- Authoring hard rules: [../author-overlay/SKILL.md](../author-overlay/SKILL.md)
 - Audio research: `research/2026-07-22-free-sfx-bgm-sources.md` (internal repository; per-source terms,
   automation suitability, and primary information for 52 candidates).
 - Audio candidate-list implementation patterns: [`packages/decision-cards/`](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/README.md),

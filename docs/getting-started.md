@@ -221,7 +221,7 @@ Open the AKARI Video monorepo, or a video project folder, in Cursor and
 3. The agent reads `AGENTS.md` and the `SKILL.md` files under `.cursor/skills/` and proceeds
 
 There is no Cursor-specific `/akari` slash command at the moment. Use natural language or an
-explicit path such as `skills/edit-plan/SKILL.md`, just as with the other harnesses.
+explicit path such as `skills/plan-edit/SKILL.md`, just as with the other harnesses.
 
 Inside the app you can also choose GitHub Copilot, Antigravity (Google), Grok Build (xAI), Command Code, Pi,
 Devin, Muse Code (Meta), and DeepSeek Harness as partners.
@@ -279,7 +279,7 @@ plugin/skills:       (same)
 `plugin/skills`). The real files (`packages/`, `skills/`, `docs/`, `templates/`, and so on)
 are extracted, so you can keep working. These links merely point at `skills/`; the actual
 skills live in `skills/<name>/SKILL.md`. Point your agent at that path directly to get the
-same result ("Read `skills/edit-plan/SKILL.md` and follow it").
+same result ("Read `skills/plan-edit/SKILL.md` and follow it").
 
 Because `tar` returns exit 1, a script wrapping the extraction will see a "failure".
 Decide by whether the extracted files exist rather than by the exit code
@@ -370,7 +370,7 @@ If you work straight from a repository checkout, `./akari.sh` (or `./akari.sh --
 
 If you already use an AI agent CLI, this is the natural entrance.
 
-- **opencode**: Say "I want to start a new video project" and the `create-project` skill triggers
+- **opencode**: Say "I want to start a new video project" and the `setup-project` skill triggers
 - **Claude Code**: **`/akari`** — a slash command that diagnoses the current state and suggests
   the next step. Or just say "I want to start a new video project"
 - **Codex**: start it in an AKARI Video project folder and say "I want to start a new video project".
@@ -392,7 +392,7 @@ Skills are discovered from `.cursor/skills/` (symlinks to `skills/` in the monor
 project adapters created by `akari new`.
 
 Say **"I want to start a new video project"** in Agent chat, or point the agent at a specific
-skill (for example `skills/edit-plan/SKILL.md`).
+skill (for example `skills/plan-edit/SKILL.md`).
 
 Preview while editing: run `./akari.sh --preview` in a terminal and open http://localhost:4567.
 The desktop app can start the same server from its menu (Open → Browser preview); the URL is

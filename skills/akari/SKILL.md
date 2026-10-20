@@ -7,7 +7,7 @@ description: Create, open, or resume AKARI Video projects. Use when asked to mak
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-For project editing, read [edit-plan autonomy and gates](../edit-plan/autonomy.md) before proceeding.
+For project editing, read [plan-edit autonomy and gates](../plan-edit/autonomy.md) before proceeding.
 
 The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
@@ -86,8 +86,8 @@ The machine-matched cue `利用者の同意なしに作成しない` means that 
    Main skills remain physical copies; `AKARI-SKILLS-VERSION` records their version at creation.
    Resolve in order: explicit --lang → intake.json language → analysis.json transcript.language → ja.
    Use the primary language subtag for pack selection (en-US → en); preserve ja and use en for a missing pack.
-5. Explain the creation report path printed to stdout and that `edit-plan` is next,
-   then **read directly by path**: `<target>/.claude/skills/edit-plan/SKILL.md`.
+5. Explain the creation report path printed to stdout and that `plan-edit` is next,
+   then **read directly by path**: `<target>/.claude/skills/plan-edit/SKILL.md`.
    Skills created during a session may not appear in discovery. They will appear when the agent is started
    in that project next time, so read them directly in this session.
 

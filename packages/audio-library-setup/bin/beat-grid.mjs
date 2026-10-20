@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 音楽グリッド CLI — 宣言済み BGM の拍・キメ・構成が **timeline のどこに来るか**を出し、
-// 指定した発火時刻をグリッドへ寄せる（スナップ）。edit-plan の beat-sync が使う。
+// 指定した発火時刻をグリッドへ寄せる（スナップ）。plan-edit の beat-sync が使う。
 //
 // ネットワークには触れない。BGM の長さは ffprobe（media-bin 経由）で測るか --track-duration で渡す。
 //
@@ -74,7 +74,7 @@ async function loadDeclarations(options) {
     if (!existsSync(candidate)) {
         throw new Error(
             `宣言データが見つかりません: ${candidate}\n` +
-            '自分で付けるなら declare-audio（node bin/declare-helper.mjs）、' +
+            '自分で付けるなら analyze-music（node bin/declare-helper.mjs）、' +
             '購入済みなら akari store install sounds-declaration-pack で入ります。',
         );
     }
@@ -167,7 +167,7 @@ async function main() {
     const { declarations, source } = await loadDeclarations(options);
     const declaration = declarations[trackId];
     if (!declaration) {
-        throw new Error(`宣言がありません: ${trackId}（declare-audio で付けるか、宣言パックを導入してください）`);
+        throw new Error(`宣言がありません: ${trackId}（analyze-music で付けるか、宣言パックを導入してください）`);
     }
 
     if (!Number.isFinite(trackDuration)) {

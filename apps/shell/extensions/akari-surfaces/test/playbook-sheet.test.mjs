@@ -18,7 +18,7 @@ test('契約の例から 9 行を描き、道具不足と own の見本なしを
         assert.deepEqual(rows.find(row => row.key === 'settings').settingPairs[0], ['aspect', '9:16']);
         const required = rows.find(row => row.key === 'tools').items.join(' ');
         assert.match(required, /CLI >=1\.4\.0/);
-        assert.match(required, /edit-plan/);
+        assert.match(required, /plan-edit/);
         assert.match(required, /render-cut/);
         assert.match(required, /voicevox · 無い/);
         const slots = rows.find(row => row.key === 'placeholders').items;

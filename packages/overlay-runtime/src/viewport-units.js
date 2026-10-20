@@ -14,7 +14,7 @@
 //        calc(<数値> * var(--akari-vw, 1vw))
 //      へ書き換える（applyAll）。断片の要素はステージから継承で受け取るので、
 //      ステージの論理サイズ = 出力サイズ基準で解決される
-//   断片に <script> は書けない規約（skills/overlay-authoring/SKILL.md）のため、
+//   断片に <script> は書けない規約（skills/author-overlay/SKILL.md）のため、
 //   data-mirror / data-akari-split と同じくランタイムが担う。
 //
 // 書き換えないもの:

@@ -5,8 +5,8 @@
 // `<ライブラリ>/akari-sounds-bgm/.origin-catalog.json`。ネットワークには一切触れない
 // （未導入なら `akari sounds` を案内して exit 1）。
 //
-// これは**候補の提示まで**。採用の決定は edit-plan の Checkpoint 2（素材計画）の
-// 承認ゲートで人間が行う（skills/edit-plan/report-guide.md §素材計画）。
+// これは**候補の提示まで**。採用の決定は plan-edit の Checkpoint 2（素材計画）の
+// 承認ゲートで人間が行う（skills/plan-edit/report-guide.md §素材計画）。
 //
 // Usage: node bin/suggest-bgm.mjs (--from-decision-log <path> | --tone <値>) [options]
 //   --from-decision-log <path> decision-log.md の最新の (direction, tone) 行から tone / tempo を読む

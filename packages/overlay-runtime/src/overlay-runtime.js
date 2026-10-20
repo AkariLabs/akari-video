@@ -466,7 +466,7 @@ function createOverlayRuntime(options = {}) {
       // 多層テキスト断片のミラー層（縁取り・影・裏打ち等でテキストを複製した層。
       // interaction.js のテキスト編集同期対象）を支援技術・検索から隠す。断片は
       // script を持たない前提のため、mount 時にランタイムが一括付与する
-      // （skills/overlay-authoring/telop.md「多層テキスト断片と data-mirror 規約」・
+      // （skills/author-overlay/telop.md「多層テキスト断片と data-mirror 規約」・
       // P0-R 契約 §2）。
       for (const mirror of container.querySelectorAll('[data-mirror="text"]')) {
         mirror.setAttribute("aria-hidden", "true");

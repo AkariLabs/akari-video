@@ -3,7 +3,7 @@
 # Plan from scratch
 
 Even without footage yet, you can start from planning — ideation, research, and structuring.
-The skill is `research-plan`. It handles the full pre-shoot pass (ideation → research → brief
+The skill is `plan-video`. It handles the full pre-shoot pass (ideation → research → brief
 → storyboard → shot list).
 
 ## When to use it
@@ -36,7 +36,7 @@ When you create a project inside a channel, the channel's belongings are availab
   panel are added to the word book too
 - **<!-- F ui.library.channelSettings -->Channel settings<!-- /F -->** — the channel's rules for logo, fonts, and colors
 
-If `.akari/connections.json` declares a memory connection, `research-plan` reads its entry point
+If `.akari/connections.json` declares a memory connection, `plan-video` reads its entry point
 (`INDEX.md` by default) at the start of planning. The files it read are kept in `sources[]` of
 `research-plan.json`. Without a declaration, nothing is wrong and the pass continues.
 

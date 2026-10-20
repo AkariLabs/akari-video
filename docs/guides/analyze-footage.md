@@ -8,7 +8,7 @@ for editing planning.
 ## Analyzing one clip at a time — `analyze-footage`
 
 **When to use it**: whenever you bring in new footage. As preprocessing for editing planning
-(edit-plan).
+(plan-edit).
 
 **How to ask**: "Analyze this video" / "Ingest the footage I put in `assets/`"
 
@@ -110,7 +110,7 @@ discipline against fabricating editorial judgment when primary information is mi
 ## Reading the analysis report
 
 The report is read-only; it has no choices or buttons to decide with. The editing direction is worked out
-in chat, using this report as the primary evidence. In "Create together", the editing plan (edit-plan) moves
+in chat, using this report as the primary evidence. In "Create together", the editing plan (plan-edit) moves
 to execution only after you explicitly approve the direction. In "With suggestions" and "Fully automatic", it
 can also proceed from `analysis.json` alone without reading the report.
 

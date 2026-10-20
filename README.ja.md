@@ -44,7 +44,7 @@ AKARI Video はその二択を壊すために作りました。
 
 - **作り方から始める** — 「<!-- F ui.home.startButton -->＋ 新しい動画を始める<!-- /F -->」で開く「<!-- F ui.home.newProjectHeading -->新しいプロジェクト<!-- /F -->」は 1 枚のポップアップ。名前とチャンネルを決めて、
   「白紙から」か「作り方から」を選びます。作り方は、1 本ぶんの手順・確認点・設定・仮枠のまとまりです。
-  終わった動画からはスキル `record-playbook` で書き出せます。コマンドからは
+  終わった動画からはスキル `harvest-playbook` で書き出せます。コマンドからは
   `akari new <フォルダ> --from <作り方>` で始められます
 - **テンプレートを置いて、映像だけ差し替える** — ライブラリに「テンプレート」の棚があります。
   タイムラインへまとまり 1 つとしてドラッグし、空いている枠に自分の映像を落とすと、枠の尺のまま
@@ -88,13 +88,13 @@ AKARI Video はその二択を壊すために作りました。
 ```mermaid
 flowchart LR
     P["作り方 / テンプレート<br/>akari new --from"] -.始める.-> A
-    A["企画<br/>research-plan"] --> B["素材分析<br/>analyze-footage"]
-    B --> C["編集計画<br/>edit-plan"]
-    C --> D["テロップ / 3D / ナレーション<br/>overlay-authoring<br/>author-scene3d<br/>generate-narration"]
+    A["企画<br/>plan-video"] --> B["素材分析<br/>analyze-footage"]
+    B --> C["編集計画<br/>plan-edit"]
+    C --> D["テロップ / 3D / ナレーション<br/>author-overlay<br/>author-scene3d<br/>generate-narration"]
     D --> E["QA・レビュー<br/>verify-edit<br/>edit-from-review"]
     E --> F["書き出し<br/>render-cut"]
     F --> G["素材化<br/>harvest-asset"]
-    F --> H["作り方を残す<br/>record-playbook"]
+    F --> H["作り方を残す<br/>harvest-playbook"]
     G -.素材は次の企画へ.-> A
     H -.作り方は次の動画へ.-> P
     classDef stage fill:#1a1a1a,stroke:#ff8a00,color:#ffffff

@@ -9,7 +9,7 @@
  *   .foo{ --anim-easing: var(--ease-overshoot); }   // 質感の差し替えは 1 行
  *
  * 値を変えるときはこのファイル 1 箇所を変える（参照している全断片が追随する）。
- * 語彙の意図と使い分けは skills/overlay-authoring/motion.md「イージング語彙」。
+ * 語彙の意図と使い分けは skills/author-overlay/motion.md「イージング語彙」。
  * 数値は小数第 2 位までで管理する（それ以下の桁に意味を持たせない）。
  *
  * ホストは interaction.css と同時に本ファイルを読み込む（overlay-runtime/README.md 手順 5）。

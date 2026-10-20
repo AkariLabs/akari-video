@@ -75,14 +75,14 @@ Each stage of production is an independent skill, usable from wherever you need 
 ```
 [Start]        akari new --from    a playbook, or a blank project
    ↓
-[Plan]         research-plan       ideas → research → brief → storyboard → shot list
+[Plan]         plan-video          ideas → research → brief → storyboard → shot list
    ↓
 [Analyze]      analyze-footage     per-clip proxies, transcription, keyframe extraction
                analyze-project     cross-reads multiple clips into an interpretation report
    ↓
-[Edit plan]    edit-plan           proposals into the timeline → review in preview
+[Edit plan]    plan-edit           proposals into the timeline → review in preview
                                    → one stamp at export
-               overlay-authoring   2D motion parts: titles, captions, figures, thumbnails
+               author-overlay     2D motion parts: titles, captions, figures, thumbnails
                author-scene3d      3D scenes (live Three.js by default / Blender bake)
                generate-narration  narration (free local / voice clone)
    ↓
@@ -92,7 +92,7 @@ Each stage of production is an independent skill, usable from wherever you need 
 [Export]       render-cut          plan → approval → render → verify
    ↓
 [Harvest]      harvest-asset       store deliverables in the library
-               record-playbook     keep how this video was made as a playbook
+               harvest-playbook    keep how this video was made as a playbook
 ```
 
 Each stage milestone is recorded in `.akari/events/`, one entry at a time, and the next
