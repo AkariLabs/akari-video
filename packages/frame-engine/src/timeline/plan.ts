@@ -374,9 +374,11 @@ export function buildResolvedTimelinePlan(
       maskSources.set(layer.src, null);
     }
   }
-  // 総尺は cuts の終端と layers の終端の大きい方（edit-store の visualContentEndSeconds と同じ定義）。
-  // cuts が空で layers だけの時間軸（同一トラック内の重なりで全 media アイテムが layers へ退避した
-  // 場合など）で総尺 0 になると、書き出しランタイムは全コマを t=0 に丸めて layers を評価できない。
+  // 総尺は visual レーンの全アイテム（cuts / layers / DOM overlays）の最大終端
+  // （edit-store の visualLaneEndSeconds と同じ定義）。html オーバーレイも visual の
+  // 出力内容なので、media の終端では打ち切らない。cuts が空で layers だけの時間軸
+  // （同一トラック内の重なりで全 media アイテムが layers へ退避した場合など）で総尺 0 に
+  // なると、書き出しランタイムは全コマを t=0 に丸めて layers を評価できない。
   const layersEnd = visibleLayers.reduce((maximum, layer) =>
     Math.max(maximum, finite(layer.t, 0) + Math.max(0, finite(layer.duration, 0))), 0);
   const overlaysEnd = overlays.reduce((end, overlay) =>

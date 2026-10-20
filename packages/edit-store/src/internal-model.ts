@@ -259,12 +259,22 @@ export function readInternalSources(source: string | unknown): InternalSource[] 
 }
 
 /**
- * 総尺の正本定義: 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の
- * 全 visual トラックのアイテムの最大終端（出力秒）。「本編（cuts）かどうか」の旧種別は見ない
- * ため、段（トラック）を移動しても値が変わらない。edit-lint と render-cut の両方がこの 1 関数を
- * 共有し、定義がずれないようにする（P0 2026-08-20 track-identity-and-duration 指示 2）。
- * html（overlays）は含めない: overlays / captions / audio はこの尺に収まっているかを
- * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
+ * アイテムの出力終端（秒）。正本は整数フレームなので、秒の足し算ではなく
+ * (atFrames + durationFrames) / fps で 1 回だけ割り、177.20000000000002 のような
+ * 浮動小数の足し残しを作らない。
+ */
+function internalItemEndSeconds(item: InternalItem, internal: InternalEdit): number {
+    const fps = internal.output.fps;
+    return Number.isFinite(fps) && fps > 0
+        ? (item.atFrames + item.durationFrames) / fps
+        : item.at + item.duration;
+}
+
+/**
+ * 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の最大終端（出力秒）。
+ * 「本編（cuts）かどうか」の旧種別は見ないため、段（トラック）を移動しても値が変わらない。
+ * html / group / captions は含めない（それらは visual レーンの全アイテムを見る
+ * visualLaneEndSeconds が担う）。総尺そのものは timelineDurationSeconds を参照すること。
  */
 export function visualContentEndSeconds(internal: InternalEdit): number {
     let maxEnd = 0;
@@ -272,29 +282,47 @@ export function visualContentEndSeconds(internal: InternalEdit): number {
         if (track.lane !== 'visual') continue;
         for (const item of track.items) {
             if (['html', 'group', 'captions', 'caption'].includes(item.source.kind)) continue;
-            maxEnd = Math.max(maxEnd, item.at + item.duration);
+            maxEnd = Math.max(maxEnd, internalItemEndSeconds(item, internal));
         }
     }
     return maxEnd;
 }
 
 /**
- * 出力タイムラインの総尺は全素材の最大終端。映像の後ろの HTML・字幕・音声も出力対象。
- * 実尺未解決（duration=0）の音源はここでは延長せず、再生・書き出し時のプローブで補完する。
+ * visual レーンの全アイテム（media / telop / filter / html / group / captions）の最大終端。
+ * html オーバーレイ・3D シーン・テロップも visual の出力内容なので総尺に含める。
+ * 入れ子の group もたどり、トラックの並びや本編 / 追加映像の振り分けに依存しない。
+ */
+export function visualLaneEndSeconds(internal: InternalEdit): number {
+    let maxEnd = 0;
+    const walk = (item: InternalItem): void => {
+        maxEnd = Math.max(maxEnd, internalItemEndSeconds(item, internal));
+        for (const child of item.children) walk(child);
+    };
+    for (const track of internal.tracks) {
+        if (track.lane !== 'visual') continue;
+        for (const item of track.items) walk(item);
+    }
+    return maxEnd;
+}
+
+/**
+ * 出力タイムラインの総尺。visual レーンの全アイテム（html を含む）の最大終端と、
+ * 音声の終端の大きい方。映像の後ろの HTML・字幕・音声も出力対象なので、media の
+ * 最終終端では打ち切らない。実尺未解決（duration=0）の音源はここでは延長せず、
+ * 再生・書き出し時のプローブで補完する。
+ * basis は従来どおり、映像本体（media）が総尺を決めているときだけ 'visual'。
  */
 export function timelineDurationSeconds(internal: InternalEdit): {
     seconds: number;
     basis: 'visual' | 'overlays-audio' | 'empty';
 } {
-    const visualEnd = visualContentEndSeconds(internal);
-    let fallbackEnd = 0;
+    const mediaEnd = visualContentEndSeconds(internal);
+    const visualEnd = visualLaneEndSeconds(internal);
+    let audioEnd = 0;
     const walk = (item: InternalItem, lane: InternalLane): void => {
-        const isFallbackVisual = lane === 'visual'
-            && ['html', 'group', 'captions', 'caption'].includes(item.source.kind);
-        const isFallbackAudio = lane === 'audio'
-            && item.duration > 0;
-        if (isFallbackVisual || isFallbackAudio) {
-            fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+        if (lane === 'audio' && item.duration > 0) {
+            audioEnd = Math.max(audioEnd, internalItemEndSeconds(item, internal));
         }
         for (const child of item.children) walk(child, lane);
     };
@@ -303,9 +331,12 @@ export function timelineDurationSeconds(internal: InternalEdit): {
         for (const item of track.items) walk(item, track.lane);
     }
 
-    if (visualEnd >= fallbackEnd && visualEnd > 0) return { seconds: visualEnd, basis: 'visual' };
-    return fallbackEnd > 0
-        ? { seconds: fallbackEnd, basis: 'overlays-audio' }
+    if (mediaEnd > 0 && mediaEnd >= visualEnd && mediaEnd >= audioEnd) {
+        return { seconds: mediaEnd, basis: 'visual' };
+    }
+    const seconds = Math.max(visualEnd, audioEnd);
+    return seconds > 0
+        ? { seconds, basis: 'overlays-audio' }
         : { seconds: 0, basis: 'empty' };
 }
 
