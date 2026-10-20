@@ -56,6 +56,8 @@ window.akari.threeRuntime = (() => {
     "physics",
   ]);
   const TEXT_ANIM_PRESETS = new Set(["none", "carousel", "char-chaos", "flip-wave", "tumble"]);
+  // screenSpace の奥行き下限。カメラとテキストが重なった縮退時でも 0 除算にしない
+  const SCREEN_SPACE_MIN_DEPTH = 1e-6;
   const PHYSICS_COLLIDER_TYPES = new Set(["floor", "wall", "circle", "polygon"]);
   // physics.start（任意・既定 "spawn"。task 2026-08-14-3d-physics-hold）: 物理対象文字の presim
   // 初期配置の決め方。"spawn" は従来どおり（spawn 矩形 or 5 レーングリッドから seed 由来の
@@ -410,6 +412,14 @@ window.akari.threeRuntime = (() => {
       }
       if (entry.size !== undefined && !Number.isFinite(Number(entry.size))) {
         throw new TypeError(`texts[${entry.id}].size は数値である必要があります`);
+      }
+      // billboard / screenSpace は「宣言したか」ではなく真偽値だけを採る（既定 false は
+      // resolveTextBillboard が担う。両方とも省略した既存の宣言は従来と同じ経路・同じ絵）
+      if (entry.billboard !== undefined && typeof entry.billboard !== "boolean") {
+        throw new TypeError(`texts[${entry.id}].billboard は真偽値である必要があります`);
+      }
+      if (entry.screenSpace !== undefined && typeof entry.screenSpace !== "boolean") {
+        throw new TypeError(`texts[${entry.id}].screenSpace は真偽値である必要があります`);
       }
       if (entry.color !== undefined && typeof entry.color !== "string") {
         throw new TypeError(`texts[${entry.id}].color は文字列である必要があります`);
@@ -1708,6 +1718,38 @@ window.akari.threeRuntime = (() => {
     return { start: descriptor.start, duration: descriptor.duration };
   }
 
+  // billboard / screenSpace（任意・既定 false）。false は「何もしない」と同じなので、
+  // どちらも省略した既存の texts[] はこの機能の追加前と同じ描画経路をそのまま通る
+  function resolveTextBillboard(descriptor) {
+    return {
+      billboard: descriptor?.billboard === true,
+      screenSpace: descriptor?.screenSpace === true,
+    };
+  }
+
+  // billboard: テキスト平面の法線 +Z をカメラへ向けるワールド回転。
+  // Matrix4.lookAt(eye=camera, target=text, up=+Y) は「+Z = eye - target」の正規直交基底を
+  // 作るため、ロール無し（画面の上 = ワールド +Y を平面へ射影した向き）のまま法線がカメラを向く
+  function billboardWorldQuaternion(THREE, out, textPosition, cameraPosition) {
+    const matrix = new THREE.Matrix4().lookAt(
+      cameraPosition, textPosition, new THREE.Vector3(0, 1, 0)
+    );
+    return out.setFromRotationMatrix(matrix);
+  }
+
+  // screenSpace: 視線方向の奥行き d にある 1 ワールド単位が画面上で何 px かにする倍率。
+  // 透視投影の ndc.y = P[5] * y / d、画面 px = ndc.y * cssHeight / 2 なので、宣言 size
+  // （=ワールド単位の em 高さ）を size px にする倍率は 2d / (P[5] * cssHeight)。
+  // 基準を描画バッファではなく CSS 高さにするのは、プレビューが maxRenderSize で
+  // バッファを縮めても画面に出る px を変えないため（バッファ基準だとプレビューだけ小さくなる）
+  function screenSpaceScale(camera, cssHeight, textWorldPosition) {
+    const view = textWorldPosition.clone().applyMatrix4(camera.matrixWorldInverse);
+    const depth = Math.max(SCREEN_SPACE_MIN_DEPTH, -view.z);
+    const projectionY = camera.projectionMatrix.elements[5];
+    const scale = (2 * depth) / (projectionY * Math.max(1e-6, cssHeight));
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+
   // extrude 押し出しパラメータの既定値（contract-2026-08-12-3d-text-rail.md §3.1 の例値をそのまま採用）
   function resolveTextExtrude(descriptor) {
     const extrude = descriptor ?? {};
@@ -1837,6 +1879,45 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  // billboard / screenSpace は group 全体の姿勢・倍率だけを書き換える（per-char の
+  // position/rotation と physics には触れない = texts の既存描画コードパスを増やさない）。
+  // draw() が「アニメ適用 → カメラ確定（syncPoseCamera）」の後に一度だけ呼ぶ。
+  function updateTextBillboards(instance, cameraSynced) {
+    const entries = instance.textAnimEntries;
+    if (!entries.some((entry) => entry.billboard || entry.screenSpace)) return;
+    const camera = instance.camera;
+    const { THREE } = window.AkariThree;
+    if (!cameraSynced) {
+      // renderer.render がやるのと同じ行列更新を先に済ませ、このフレームのカメラで
+      // matrixWorldInverse を読む（pose 補正済みなら syncPoseCamera の結果を壊さない）
+      camera.updateWorldMatrix(true, false);
+      camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    }
+    const cameraPosition = camera.getWorldPosition(new THREE.Vector3());
+    const cssHeight = instance.viewport?.cssHeight ?? 1;
+    for (const entry of entries) {
+      if (!entry.billboard && !entry.screenSpace) continue;
+      const group = entry.group;
+      group.updateWorldMatrix(true, false);
+      const worldPosition = group.getWorldPosition(new THREE.Vector3());
+      if (entry.billboard) {
+        const worldQuaternion = billboardWorldQuaternion(
+          THREE, new THREE.Quaternion(), worldPosition, cameraPosition
+        );
+        const parentQuaternion = group.parent
+          ? group.parent.getWorldQuaternion(new THREE.Quaternion()).invert()
+          : new THREE.Quaternion();
+        group.quaternion.copy(parentQuaternion.multiply(worldQuaternion));
+      }
+      if (entry.screenSpace) {
+        group.scale.setScalar(screenSpaceScale(camera, cssHeight, worldPosition));
+      }
+      // 変更後の group 行列を子まで反映する。syncPoseCamera は matrixWorldAutoUpdate を
+      // 止めて描くため、ここで更新しないと pose カメラ時だけ子が古い向きのまま残る
+      group.updateWorldMatrix(false, true);
+    }
+  }
+
   function updateTextVisibility(instance, localSeconds) {
     for (const entry of instance.textAnimEntries) {
       const { start, duration } = entry.window;
@@ -1952,6 +2033,7 @@ window.akari.threeRuntime = (() => {
     const layout = resolveTextLayout(textDescriptor.layout);
     const anim = resolveTextAnim(textDescriptor.anim);
     const visibilityWindow = resolveTextWindow(textDescriptor.window);
+    const billboard = resolveTextBillboard(textDescriptor);
     const size = finiteNumber(textDescriptor.size, 0.5);
     const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
     const extrudeParams = resolveTextExtrude(textDescriptor.extrude);
@@ -1984,6 +2066,7 @@ window.akari.threeRuntime = (() => {
       anim,
       window: visibilityWindow,
       chars: charEntries,
+      ...billboard,
     });
   }
 
@@ -2003,6 +2086,7 @@ window.akari.threeRuntime = (() => {
       const layout = resolveTextLayout(textDescriptor.layout);
       const anim = resolveTextAnim(textDescriptor.anim);
       const visibilityWindow = resolveTextWindow(textDescriptor.window);
+      const billboard = resolveTextBillboard(textDescriptor);
       const size = finiteNumber(textDescriptor.size, 0.5);
       const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
       const chars = [...textDescriptor.text];
@@ -2037,6 +2121,7 @@ window.akari.threeRuntime = (() => {
         anim,
         window: visibilityWindow,
         chars: charEntries,
+        ...billboard,
       });
     }
     await Promise.all(syncPromises);
@@ -2124,6 +2209,8 @@ window.akari.threeRuntime = (() => {
       instance.camera.aspect = aspect;
       instance.camera.updateProjectionMatrix();
     }
+    // screenSpace の「画面上の px」の基準。バッファ (width/height) ではなく CSS 寸法を持つ
+    instance.viewport = { cssWidth, cssHeight, width, height };
   }
 
   // 標準ツマミ 3 種をカメラの投影へ反映する（canvas の CSS 変形ではなく
@@ -2574,6 +2661,8 @@ window.akari.threeRuntime = (() => {
       }
     }
     const poseCameraSynced = syncPoseCamera(instance);
+    // texts の姿勢・倍率はカメラ確定後（pose 補正後）に決める。宣言が無ければ何もしない
+    if (instance.textAnimEntries.length > 0) updateTextBillboards(instance, poseCameraSynced);
     if (poseCameraSynced) {
       // 行列は syncPoseCamera が更新済み。renderer の自動更新で補正が消えないよう止めて描く
       const autoUpdate = instance.scene.matrixWorldAutoUpdate;
@@ -2957,6 +3046,8 @@ window.akari.threeRuntime = (() => {
       status: "loading",
       videoElements: new Set(),
       videoTextures: new Set(),
+      // screenSpace の px 基準（rendererSize が毎 draw 更新）。未描画時は canvas が 1px 扱い
+      viewport: null,
     };
     instances.set(container, instance);
     liveInstanceContainers.add(container);
@@ -3250,6 +3341,22 @@ window.akari.threeRuntime = (() => {
       // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）
       textNodes: instance.textNodes.length,
       textBlocks: instance.textAnimEntries.length,
+      // billboard / screenSpace の直近 draw 適用値（検証・証跡用）。worldQuaternion は
+      // layout.rotation を billboard が上書きした後の姿勢、normal はその +Z（= 文字の法線）
+      texts: instance.textAnimEntries.map((entry) => {
+        const quaternion = new (instance.camera.quaternion.constructor)();
+        entry.group.getWorldQuaternion(quaternion);
+        const normal = new (instance.camera.position.constructor)(0, 0, 1)
+          .applyQuaternion(quaternion);
+        return {
+          id: entry.id,
+          billboard: entry.billboard === true,
+          screenSpace: entry.screenSpace === true,
+          scale: entry.group.scale.toArray(),
+          worldQuaternion: quaternion.toArray(),
+          normal: normal.toArray(),
+        };
+      }),
       // physics presim の実測値（検証・証跡用。task 2026-08-12-3d-text-physics）。
       // physicsBuffer が null なら「physics 宣言なし、または presim 未完了」
       physics: instance.physicsBuffer
