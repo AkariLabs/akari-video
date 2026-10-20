@@ -39,8 +39,10 @@ export function computeContentDurationSeconds({
     layersEnd = Math.max(layersEnd, t + duration);
   }
 
-  // edit-store と同じ総尺定義を共有する。cutsEndSeconds / layersEnd は既存の呼び出し
-  // （internalEdit を渡さない単体テスト含む）との後方互換のため Math.max の項として残す。
+  // visual レーンの総尺は edit-store の 1 関数だけを正本にする。html オーバーレイも
+  // 同じ visual レーンのアイテムなので、media の終端では打ち切らない。
+  // cutsEndSeconds / layersEnd は互換ビュー側の下限値（internalEdit を渡さない
+  // 単体テストを含む）で、正本の値を縮めないよう Math.max の項として残す。
   const visualEnd = internalEdit ? timelineDurationSeconds(internalEdit).seconds : 0;
 
   let captionsEnd = 0;

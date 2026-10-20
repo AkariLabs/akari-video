@@ -459,17 +459,17 @@ export async function lintProject(input, options = {}) {
   validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {
-    const cutsEndSeconds = cutTrackSegments.reduce(
-      (maximum, segment) => Math.max(maximum, segment.end),
-      0,
-    );
+    // 字幕のクランプ判定も、overlays.timeline / audio.* / 書き出し尺と同じ総尺を使う。
+    // cuts の終端だけで判定すると、media より後ろまで続く html オーバーレイの終端を無視する。
+    const captionTimelineEndSeconds = timelineDuration?.seconds
+      ?? cutTrackSegments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
     validateCaptions(
       captionsState.value,
       edit,
       analysisState.value,
       findings,
       paths,
-      cutsEndSeconds,
+      captionTimelineEndSeconds,
       loadTextstylePresetIds(options.textstyleRepositoryRoot ?? REPOSITORY_ROOT),
     );
   }

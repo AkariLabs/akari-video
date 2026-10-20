@@ -207,17 +207,24 @@ export declare function readInternalEdit(source: string | unknown, options?: Int
  */
 export declare function readInternalSources(source: string | unknown): InternalSource[];
 /**
- * 総尺の正本定義: 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の
- * 全 visual トラックのアイテムの最大終端（出力秒）。「本編（cuts）かどうか」の旧種別は見ない
- * ため、段（トラック）を移動しても値が変わらない。edit-lint と render-cut の両方がこの 1 関数を
- * 共有し、定義がずれないようにする（P0 2026-08-20 track-identity-and-duration 指示 2）。
- * html（overlays）は含めない: overlays / captions / audio はこの尺に収まっているかを
- * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
+ * 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の最大終端（出力秒）。
+ * 「本編（cuts）かどうか」の旧種別は見ないため、段（トラック）を移動しても値が変わらない。
+ * html / group / captions は含めない（それらは visual レーンの全アイテムを見る
+ * visualLaneEndSeconds が担う）。総尺そのものは timelineDurationSeconds を参照すること。
  */
 export declare function visualContentEndSeconds(internal: InternalEdit): number;
 /**
- * 出力タイムラインの総尺は全素材の最大終端。映像の後ろの HTML・字幕・音声も出力対象。
- * 実尺未解決（duration=0）の音源はここでは延長せず、再生・書き出し時のプローブで補完する。
+ * visual レーンの全アイテム（media / telop / filter / html / group / captions）の最大終端。
+ * html オーバーレイ・3D シーン・テロップも visual の出力内容なので総尺に含める。
+ * 入れ子の group もたどり、トラックの並びや本編 / 追加映像の振り分けに依存しない。
+ */
+export declare function visualLaneEndSeconds(internal: InternalEdit): number;
+/**
+ * 出力タイムラインの総尺。visual レーンの全アイテム（html を含む）の最大終端と、
+ * 音声の終端の大きい方。映像の後ろの HTML・字幕・音声も出力対象なので、media の
+ * 最終終端では打ち切らない。実尺未解決（duration=0）の音源はここでは延長せず、
+ * 再生・書き出し時のプローブで補完する。
+ * basis は従来どおり、映像本体（media）が総尺を決めているときだけ 'visual'。
  */
 export declare function timelineDurationSeconds(internal: InternalEdit): {
     seconds: number;

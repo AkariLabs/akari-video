@@ -19,7 +19,7 @@ export function validateCaptionRunRanges(caption) {
       ? [{ index, count, from: run.from, to: run.to }] : []);
 }
 
-export function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
+export function validateCaptions(captions, edit, analysis, findings, paths, timelineEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
   // The caller supplies the v2 cut projection; never interpret raw tracks as cuts.
@@ -351,11 +351,11 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           range: { start: caption.start, end: caption.end },
         });
       }
-      if (caption.time_domain === "output" && caption.end > cutsEndSeconds + EPSILON) {
+      if (caption.time_domain === "output" && caption.end > timelineEndSeconds + EPSILON) {
         addFinding(findings, {
           severity: "warning",
           check: "captions.output-domain-exceeds-duration",
-          message: lintText('lint-messages.captions.duration.exceeds', { index, seconds: cutsEndSeconds.toFixed(1) }),
+          message: lintText('lint-messages.captions.duration.exceeds', { index, seconds: timelineEndSeconds.toFixed(1) }),
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });
