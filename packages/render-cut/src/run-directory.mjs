@@ -24,12 +24,17 @@ export function isProcessAlive(pid, kill = process.kill.bind(process)) {
   }
 }
 
+// A failed run's render-tmp is diagnostic evidence: the render-cut contract says to delete it only
+// on success and retain it on failure. Keep the directory by default; the stale sweep below still
+// reclaims it on the next run once this process's pid is gone.
 export async function cleanupFailedRunTemporaryDirectory(
   temporaryDirectory,
   env = process.env,
   removeDirectory = rm,
 ) {
-  if (!temporaryDirectory || env?.AKARI_KEEP_FAILED_RENDER_TMP === "1") return false;
+  if (!temporaryDirectory) return false;
+  // Explicit opt-out for callers that must not leave anything behind (CI sandboxes, fixtures).
+  if (env?.AKARI_REMOVE_FAILED_RENDER_TMP !== "1") return false;
   try {
     await removeDirectory(temporaryDirectory, { recursive: true, force: true });
     return true;
@@ -63,7 +68,7 @@ export async function createRunTemporaryDirectory(renderTmpRoot, {
       "utf8",
     );
   } catch (error) {
-    await cleanupFailedRunTemporaryDirectory(temporaryDirectory, {});
+    await cleanupFailedRunTemporaryDirectory(temporaryDirectory, { AKARI_REMOVE_FAILED_RENDER_TMP: "1" });
     throw error;
   }
   return temporaryDirectory;

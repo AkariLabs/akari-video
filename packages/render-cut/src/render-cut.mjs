@@ -1,7 +1,6 @@
 import { settleDecisionLog } from "../../akari-tools/src/decision-log/settle.mjs";
 import { renderText } from './i18n.mjs';
 import { randomBytes } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import { constants as fsConstants, existsSync } from "node:fs";
 import {
   access,
@@ -37,7 +36,8 @@ import {
   resolveDeclaredProjectInput,
 } from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
-import { buildAudioQc, measurementErrorAudioQc, probeToolVersion, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
+import { buildAudioQc, measurementErrorAudioQc, probeToolVersion } from "./audio-qc.mjs";
+import { runSyncCapturingStderrTail } from "./audio-capture.mjs";
 import { countAudioItems, prepareAudioMixExecution } from "./audio-command.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
@@ -58,6 +58,7 @@ import { ExecutionError, RefusalError, messageOf, parseJson } from "./errors.mjs
 import { RETIRED_ENGINE, applyOutputScaleToPlan, assertCodecEngine, assertGpuEligibility, assertHevcPresetSupported, assertOsrLauncherAvailable, formatGpuEligibilityFailures, parseArguments, readForceGpu, resolveEngineChoice } from "./cli-arguments.mjs";
 import { cleanupFailedRunTemporaryDirectory, createRunTemporaryDirectory } from "./run-directory.mjs";
 import { parseRate, probeMedia, verifyArtifact } from "./verify-artifact.mjs";
+import { AUDIO_LEVEL_THRESHOLD_DB } from "./verify-declared.mjs";
 import { addWarning, additionalBgmInputs, isNonEmptyString, relativeOrAbsolute, sha256, sha256File } from "./render-support.mjs";
 import { buildInitialRenderState, runCutAudioStage, runVerifyStage, runContactSheetStage, runReceiptStage } from "./render-stages.mjs";
 export { ExecutionError, RefusalError } from "./errors.mjs";
@@ -219,6 +220,14 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
       ffmpegCommand: capabilities.ffmpegCommand,
       verifyBlank: options.verifyBlank,
     });
+    // A failed mix can leave an artifact whose audio track is missing or digital silence. Say so
+    // explicitly (sibling memo + failure message) instead of presenting it as a normal deliverable.
+    const failedArtifactAudio = describeFailedArtifactAudio(failedVerification);
+    let silenceNote = "";
+    if (failedArtifactAudio.silent) {
+      const memoPath = await writeFailedArtifactSilenceMemo(failedArtifactPath, failedArtifactAudio);
+      silenceNote = `; failed artifact audio is silent (${failedArtifactAudio.reason}); see ${relativeOrAbsolute(projectRoot, memoPath)}`;
+    }
     state.artifacts = [{
       path: relativeOrAbsolute(projectRoot, failedArtifactPath),
       sha256: await sha256File(failedArtifactPath),
@@ -245,7 +254,7 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
       });
       state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
     }
-    throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
+    throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}${silenceNote}`);
   }
 
   if (codec === "png") {
@@ -967,12 +976,14 @@ export async function executeAudioPlan(audioPlan, ffmpegVersion, { projectRoot, 
     throw new RefusalError(error.message);
   }
   if (prepared.filterGraph !== null) await writeFile(graphPath, prepared.filterGraph, 'utf8');
+  // Keep only the stderr tail. A noisy (but successful) loudnorm mix must not be turned into a
+  // CAPTURE_LIMIT failure by maxBuffer, and the loudnorm JSON report is printed last anyway.
+  const stderrPath = join(temporaryDirectory, `audio-mix-stderr-${process.pid}.log`);
   let result;
   try {
-    result = spawnSync(audioPlan.command, prepared.args, {
+    result = runSyncCapturingStderrTail(audioPlan.command, prepared.args, {
       cwd: projectRoot,
-      encoding: "utf8",
-      maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES,
+      stderrPath,
     });
   } finally {
     if (prepared.filterGraph !== null) await rm(graphPath, { force: true });
@@ -1009,6 +1020,39 @@ async function persistFailedRenderArtifact(projectRoot, sourcePath) {
     }
   }
   return join(resolve(projectRoot), relative(root, target));
+}
+
+/**
+ * 失敗アーティファクトの音声が「無い」「デジタル無音」のどちらかを、既に走らせた
+ * verifyArtifact の測定値から判定する（追加の ffmpeg パスは張らない）。測定自体が失敗した
+ * 場合は silent:false（断定しない）。閾値は verify-declared の音声検査と同じ -80dB。
+ */
+export function describeFailedArtifactAudio(verification) {
+  if (!verification?.measured?.audio_codec) {
+    return { silent: true, max_db: null, reason: "no audio stream" };
+  }
+  const maxDb = verification.declared?.audio_level?.max_db;
+  if (typeof maxDb !== "number" || Number.isNaN(maxDb)) {
+    return { silent: false, max_db: null, reason: "audio level was not measurable" };
+  }
+  return {
+    silent: maxDb < AUDIO_LEVEL_THRESHOLD_DB,
+    max_db: Number.isFinite(maxDb) ? maxDb : null,
+    reason: `max_volume ${maxDb === Number.NEGATIVE_INFINITY ? "-inf" : maxDb}dB below ${AUDIO_LEVEL_THRESHOLD_DB}dB`,
+  };
+}
+
+async function writeFailedArtifactSilenceMemo(artifactPath, audio) {
+  const memoPath = `${artifactPath}.silence.json`;
+  await writeFile(memoPath, `${JSON.stringify({
+    schema: "akari-failed-render-artifact-audio-v1",
+    artifact: basename(artifactPath),
+    silent: true,
+    max_db: audio.max_db,
+    threshold_db: AUDIO_LEVEL_THRESHOLD_DB,
+    reason: audio.reason,
+  }, null, 2)}\n`, "utf8");
+  return memoPath;
 }
 
 async function writeState(state, statePath, reportPath, projectRoot) {

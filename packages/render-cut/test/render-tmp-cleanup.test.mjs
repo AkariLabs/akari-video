@@ -122,30 +122,31 @@ test("ownerless and corrupt-owner directories retain the 24h fallback", async ()
   }
 });
 
-test("run directory records its owner and failed-run cleanup honors the escape hatch", async () => {
+test("run directory records its owner and failed-run cleanup retains the diagnostic directory by default", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-tmp-owner-create-"));
   const started = "2026-09-02T12:34:56.789Z";
   try {
-    const removed = await createRunTemporaryDirectory(root, {
+    const kept = await createRunTemporaryDirectory(root, {
       pid: 4321,
       now: () => Date.parse(started),
     });
-    assert.deepEqual(JSON.parse(await readFile(join(removed, "owner.json"), "utf8")), {
+    assert.deepEqual(JSON.parse(await readFile(join(kept, "owner.json"), "utf8")), {
       pid: 4321,
       started,
     });
-    assert.equal(await cleanupFailedRunTemporaryDirectory(removed, {}), true);
-    assert.equal(await pathExists(removed), false);
+    // 文書どおり、失敗時は診断用に残す。
+    assert.equal(await cleanupFailedRunTemporaryDirectory(kept, {}), false);
+    assert.equal(await pathExists(kept), true);
 
-    const kept = await createRunTemporaryDirectory(root, {
+    const removed = await createRunTemporaryDirectory(root, {
       pid: 4322,
       now: () => Date.parse(started) + 1,
     });
     assert.equal(
-      await cleanupFailedRunTemporaryDirectory(kept, { AKARI_KEEP_FAILED_RENDER_TMP: "1" }),
-      false,
+      await cleanupFailedRunTemporaryDirectory(removed, { AKARI_REMOVE_FAILED_RENDER_TMP: "1" }),
+      true,
     );
-    assert.equal(await pathExists(kept), true);
+    assert.equal(await pathExists(removed), false);
     assert.equal(await cleanupFailedRunTemporaryDirectory(undefined, {}), false);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -159,9 +160,13 @@ test("failed-run cleanup never replaces the render error when removal fails", as
       try {
         throw renderError;
       } catch (error) {
-        await cleanupFailedRunTemporaryDirectory("ignored", {}, async () => {
-          throw new Error("handle still open");
-        });
+        await cleanupFailedRunTemporaryDirectory(
+          "ignored",
+          { AKARI_REMOVE_FAILED_RENDER_TMP: "1" },
+          async () => {
+            throw new Error("handle still open");
+          },
+        );
         throw error;
       }
     },

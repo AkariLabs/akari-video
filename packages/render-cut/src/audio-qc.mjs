@@ -1,6 +1,11 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-export const AUDIO_QC_CAPTURE_LIMIT_BYTES = 1024 * 1024;
+import { AUDIO_QC_CAPTURE_LIMIT_BYTES, runSyncCapturingStderrTail } from "./audio-capture.mjs";
+
+export { AUDIO_QC_CAPTURE_LIMIT_BYTES };
 // akari-audio-qc-decimal-v1: exact finite base-10 text only. Keep this grammar in parity with
 // status-core/integrity.mjs because receipts must be interpreted exactly as they were generated.
 const STRICT_FINITE_DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
@@ -91,17 +96,28 @@ export function buildAudioQc({
     return measurementFailure({ phase: "filter_report", code: error.code, message: error.message });
   }
   const configured = configuredAudioQc(master);
-  const result = spawnSyncImpl(ffmpegCommand, [
-    "-hide_banner",
-    "-nostats",
-    "-i",
-    outputPath,
-    "-af",
-    `loudnorm=I=${configured.integrated_lufs}:TP=${configured.true_peak_dbtp}:LRA=11:print_format=json`,
-    "-f",
-    "null",
-    "-",
-  ], { encoding: "utf8", maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES });
+  // stderr is spooled to a file and only its tail is read back (audio-capture.mjs): a long mix can
+  // print far more warning text than AUDIO_QC_CAPTURE_LIMIT_BYTES without invalidating the report.
+  const captureDirectory = mkdtempSync(join(tmpdir(), "akari-audio-qc-"));
+  let result;
+  try {
+    result = runSyncCapturingStderrTail(ffmpegCommand, [
+      "-hide_banner",
+      "-nostats",
+      "-i",
+      outputPath,
+      "-af",
+      `loudnorm=I=${configured.integrated_lufs}:TP=${configured.true_peak_dbtp}:LRA=11:print_format=json`,
+      "-f",
+      "null",
+      "-",
+    ], {
+      stderrPath: join(captureDirectory, "decoded.stderr.log"),
+      spawnSyncImpl,
+    });
+  } finally {
+    rmSync(captureDirectory, { recursive: true, force: true });
+  }
   if (result.error) {
     return measurementFailure({
       phase: "decoded_measurement",

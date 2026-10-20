@@ -45,26 +45,30 @@ function measureIntegratedLoudness(filePath) {
 
 // Builds a render-cut project fixture whose source video carries a loud (well above -14 LUFS),
 // audibly noisy dialogue track, so loudnorm/denoise both have real work to do.
-async function makeProject({ duration = 4, master } = {}) {
+async function makeProject({ duration = 4, master, sourceAudio = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), "render-cut-master-test-"));
   ffmpeg([
     "-f",
     "lavfi",
     "-i",
     `testsrc2=size=320x180:rate=10:duration=${duration}`,
-    "-f",
-    "lavfi",
-    "-i",
-    `sine=frequency=440:sample_rate=48000:duration=${duration}`,
-    "-af",
-    "volume=6dB",
+    ...(sourceAudio
+      ? [
+          "-f",
+          "lavfi",
+          "-i",
+          `sine=frequency=440:sample_rate=48000:duration=${duration}`,
+          "-af",
+          "volume=6dB",
+          "-c:a",
+          "aac",
+          "-shortest",
+        ]
+      : []),
     "-c:v",
     "libx264",
     "-pix_fmt",
     "yuv420p",
-    "-c:a",
-    "aac",
-    "-shortest",
     join(root, "source.mp4"),
   ]);
 
@@ -110,6 +114,9 @@ test("audio master target and preset audio codec follow the output codec", () =>
       });
       const graph = command.args[command.args.indexOf("-filter_complex") + 1];
       assert.ok(graph.includes(`loudnorm=I=-15:TP=${expectedTp}:LRA=11`), `${codec}: ${graph}`);
+      // loudnorm's 192kHz/variable-frame output has to be resampled to the delivery rate and its
+      // PTS rebuilt from the sample count before AAC sees it (task 2026-10-20-loudnorm-export-timestamps).
+      assert.match(graph, /loudnorm=I=-15:TP=[^,\]]+:LRA=11:print_format=json,aresample=48000,asetpts=N\/SR\/TB\[master_ln\]/u);
       if (expectedTp === -1.5) assert.ok(!graph.includes("TP=-3"), `${codec}: ${graph}`);
     }
   }
@@ -438,7 +445,51 @@ process.exit(result.status ?? 2);
     const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
     assert.deepEqual(receipt.audio_qc, state.audio_qc);
     assert.equal(receipt.output.path, state.artifacts[0].path);
-    assert.deepEqual(await readdir(join(project, ".akari", "render-tmp")), []);
+    // 失敗時は render-tmp を保持する（skills/render-cut/SKILL.md。診断用の stderr も残る）。
+    const retainedRuns = await readdir(join(project, ".akari", "render-tmp"));
+    assert.equal(retainedRuns.length, 1, retainedRuns.join(","));
+    const retainedFiles = await readdir(join(project, ".akari", "render-tmp", retainedRuns[0]));
+    assert.ok(retainedFiles.includes("owner.json"), retainedFiles.join(","));
+    assert.ok(
+      retainedFiles.some((name) => /^audio-mix-stderr-\d+\.log$/u.test(name)),
+      retainedFiles.join(","),
+    );
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("a failed artifact whose audio is missing or silent is explicitly marked", async (t) => {
+  const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
+  if (!ffmpegPath) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ duration: 1, master: { denoise: "off", loudnorm: -14 }, sourceAudio: false });
+  try {
+    const wrapper = join(project, "ffmpeg-filter-failure-silent.mjs");
+    await writeFile(wrapper, `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+const args = process.argv.slice(2);
+const graphIndex = args.findIndex(value => value === "-/filter_complex" || value === "-filter_complex_script");
+const graph = graphIndex >= 0 ? readFileSync(args[graphIndex + 1], "utf8") : "";
+if ((graph.includes("loudnorm=") || args.some(value => value.includes("loudnorm="))) && args.at(-1)?.endsWith("final.mp4")) {
+  process.stderr.write("fixture audio filter failure\\n");
+  process.exit(1);
+}
+const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
+process.exit(result.status ?? 2);
+`, "utf8");
+    await chmod(wrapper, 0o755);
+    const executed = run(project, [], { ...process.env, FFMPEG: wrapper });
+    assert.equal(executed.status, 1, executed.stderr);
+    assert.match(executed.stderr, /failed artifact audio is silent/u);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.phase, "error");
+    assert.match(state.verify.findings[0].message, /failed artifact audio is silent/u);
+    const artifactPath = state.artifacts[0].path;
+    const memo = JSON.parse(await readFile(join(project, `${artifactPath}.silence.json`), "utf8"));
+    assert.equal(memo.schema, "akari-failed-render-artifact-audio-v1");
+    assert.equal(memo.silent, true);
+    assert.match(memo.reason, /no audio stream|max_volume/u);
   } finally {
     await rm(project, { recursive: true, force: true });
   }
