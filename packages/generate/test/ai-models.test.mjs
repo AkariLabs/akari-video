@@ -55,8 +55,10 @@ async function withCatalog(edit, check) {
 test('normalized inventory resolves source references and has expected kind counts', async () => {
   const rows = await loadAiModels();
   assert.deepEqual(Object.fromEntries(['image', 'video', 'voice', 'transcribe'].map(kind =>
-    [kind, rows.filter(row => row.kind === kind).length])), { image: 11, video: 15, voice: 13, transcribe: 4 });
+    [kind, rows.filter(row => row.kind === kind).length])), { image: 11, video: 15, voice: 14, transcribe: 4 });
   assert.equal(rows.length, new Set(rows.map(row => row.id)).size);
+  assert.equal(rows.find(row => row.id === 'tts:fish-drama-3').callable, false);
+  assert.equal(rows.find(row => row.id === 'tts:fish-drama-3').status, 'candidate');
   assert.ok(rows.every(row => row.maker && row.license.badge && row.verified && typeof row.callable === 'boolean'));
   assert.deepEqual(rows.find(row => row.id === 'fal:seedance-2.5-i2v').price.by_resolution,
     { '480p': 0.2205, '720p': 0.473 });

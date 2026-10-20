@@ -59,7 +59,7 @@ async function projectLanguage(projectRoot, cliLang) {
 const usage = (language) => [
   cliText('cli.narration.help.usage', {}, language),
   "  akari narration generate \\",
-  "    --project <projectDir> [--engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts>] \\",
+  "    --project <projectDir> [--engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|fish-drama-3|gemini-3.8-flash-tts>] \\",
   cliText('cli.narration.help.reading', {}, language),
   cliText('cli.narration.help.timeline', {}, language),
   "    [--lang <code>] [--speaker 3] [--voice Leda] [--style <text>] [--speed 1] \\",
@@ -322,10 +322,10 @@ async function parseArguments(argv) {
     irodoriTimeout();
   } else {
     const engine = ttsEngine(options.engine);
-    options.voice ??= engine ? (engine.id === 'fish-s2.1-pro' && options.language !== 'ja' ? null
+    options.voice ??= engine ? (engine.provider === 'fish-audio' && options.language !== 'ja' ? null
       : engine.default_voices && Object.hasOwn(engine.default_voices, options.language)
       ? engine.default_voices[options.language] : engine.default_voice) : 'Leda';
-    if (options.engine === 'fish-s2.1-pro' && !options.voice && !options.profile) {
+    if (engine?.provider === 'fish-audio' && !options.voice && !options.profile) {
       throw new PublicError(cliText('cli.narration.error.fishDefaultVoiceMissing'), 2);
     }
   }
@@ -873,7 +873,7 @@ async function listEngines(runtime = {}) {
       id: engine.id, label: engine.label, languages: engine.languages, place: engine.place, provider: engine.provider,
       group: 'cloud', endpoint: engine.endpoint, price: engine.price,
       availability: directAvailability[engine.provider], default_voice: engine.default_voice,
-      credit_required: false, supports: engine.supports,
+      credit_required: false, supports: engine.supports, ...(engine.candidate ? { candidate: true } : {}),
     })),
   ] };
 }
@@ -956,7 +956,7 @@ async function runDryRun(options, readingText, io) {
     emit({ dry_run: true, engine: engine.id, output_path: outputPath,
       estimated_cost_usd: estimateTtsCost(engine, readingText),
       request: { endpoint: engine.endpoint, headers: engine.provider === 'fish-audio'
-        ? { Authorization: `Bearer ${maskKey(readProviderKey('FISH_AUDIO_API_KEY'))}`, model: 's2.1-pro',
+        ? { Authorization: `Bearer ${maskKey(readProviderKey('FISH_AUDIO_API_KEY'))}`, model: engine.model,
           'Content-Type': record ? 'application/msgpack' : 'application/json' }
         : { 'x-goog-api-key': maskKey(readProviderKey('GEMINI_API_KEY')), 'Content-Type': 'application/json' }, body } }, io.log);
     return;
@@ -1041,6 +1041,10 @@ async function runGenerate(options, io) {
   if (options.engine === 'chatterbox' && readingText.length > 300) {
     throw new PublicError(cliText('cli.narration.error.chatterboxLength'), 2);
   }
+  // 候補は既定で選ばれない。名指しされた場合も、送信前に試聴前であることを 1 行で伝える。
+  if (ttsEngine(options.engine)?.candidate) {
+    io.logError(cliText('cli.narration.warning.candidateEngine', { engine: options.engine }));
+  }
 
   if (options.dryRun) {
     await runDryRun(options, readingText, io);
@@ -1118,7 +1122,7 @@ async function runGenerate(options, io) {
         referenceAudio, referenceText: record?.meta.reference_text });
       audioBuffer = await synthesizeDirect(engine, payload, key);
       provenance = { provider: engine.provider, engine: engine.id,
-        model: engine.provider === 'fish-audio' ? 's2.1-pro' : 'gemini-3.8-flash-tts',
+        model: engine.model ?? engine.id,
         voice: record ? `profile:${options.profile}` : options.voice,
         generated_at: new Date().toISOString(), price_verified: engine.price.verified };
     } else if (options.engine === "gemini-tts") {

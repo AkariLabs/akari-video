@@ -22,7 +22,7 @@ akari voice profiles --json
 - `rename` changes only the display name in the new storage layout; the voice ID and directory name stay fixed. Run `migrate-legacy` for an old voice first.
 - `extend` checks an `extended-v1` recording, joins it to the canonical recording, and verifies the full script again. It keeps one previous generation as `ref-recording.prev.wav`. Existing copies become `stale: true`; follow the JSON warning and recreate them with `voice copy`. The `copies` field in `voice profiles --json` reports each copy's `stale` flag; a recreated copy becomes `stale: false`. Recreating a cloud copy requires fresh cost approval.
 - For Irodori `copy`, resolve the server URL from `--irodori-url`, then `AKARI_IRODORI_URL`, then `http://127.0.0.1:8088`. Send the recording as multipart and register it as `akari-<id>`. Local server registration is free.
-- For fal, run `akari voice copy --profile <id> --engine fal-qwen3 --yes --json`. It uploads the recording and costs about $0.01. Without `--yes`, it returns an estimate only; fal generation through `try` also requires `--yes`.
+- For fal, run `akari voice copy --profile <id> --engine fal-qwen3 --yes --json`. It uploads the recording and makes a small paid call; show the estimate from the command before asking for approval. Without `--yes`, it returns an estimate only; fal generation through `try` also requires `--yes`.
 - `akari narration generate --engine irodori|fal-qwen3 --profile <id>` prefers the new location but can also read the legacy `~/.config/akari-video/voice-profiles/<id>/`. Register an Irodori copy with `voice copy` before using an own-voice profile there.
 - `akari voice delete --profile <id> --json` deletes the canonical recording and Irodori server copy; the fal-side voice remains. With `--keep-server`, the Irodori registration also remains.
 - `akari voice migrate-legacy --profile owner-ja --avatar <人> --json` copies an old profile without deleting its directory or changing the recording format.
@@ -76,4 +76,4 @@ Save the following under the legacy profile path `~/.config/akari-video/voice-pr
 
 ### 7. Audition and accept
 
-Generate one short sentence of a few dozen characters with the fal-qwen3 adapter, costing less than $0.01. Play it with `afplay` or an equivalent tool and ask the owner to listen. Accept the profile if they approve. If similarity is weak, first record another 30–60 seconds of narration in a quiet room and recreate the profile; judge whether it fails only after that retry.
+Generate one short sentence of a few dozen characters with the fal-qwen3 adapter; show the estimate from the command and get approval for the small paid call. Play it with `afplay` or an equivalent tool and ask the owner to listen. Accept the profile if they approve. If similarity is weak, first record another 30–60 seconds of narration in a quiet room and recreate the profile; judge whether it fails only after that retry.

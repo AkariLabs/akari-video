@@ -76,7 +76,9 @@ test('engines --json は既存 4 件の順序を保ち、新規 5 件を cloud �
   assert.equal(result.exitCode, 0);
   const rows = JSON.parse(io.lines[0]).engines;
   assert.deepEqual(rows.slice(0, 4).map(row => row.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
-  assert.deepEqual(rows.slice(4).map(row => row.id), [...added.map(row => row.id), 'fish-s2.1-pro', 'gemini-3.8-flash-tts']);
+  assert.deepEqual(rows.slice(4).map(row => row.id), [...added.map(row => row.id), 'fish-s2.1-pro', 'fish-drama-3', 'gemini-3.8-flash-tts']);
+  assert.equal(rows.find(row => row.id === 'fish-drama-3').candidate, true);
+  assert.equal(rows.find(row => row.id === 'fish-s2.1-pro').candidate, undefined);
   for (const row of rows.slice(4)) {
     assert.equal(row.group, 'cloud');
     assert.equal(row.availability.state, 'unconfigured');
