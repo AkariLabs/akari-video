@@ -47,6 +47,7 @@ export const WORD_BOOK_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'b
 export const GENERATE_CLI_RELATIVE = path.join('packages', 'generate', 'src', 'cli', 'index.mjs');
 export const STORYBOARD_CLI_RELATIVE = path.join('packages', 'decision-cards', 'render-storyboard-print.mjs');
 export const WORLD_CLI_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'world.mjs');
+export const GEO_CLI_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'geo.mjs');
 export const WORLD_VALIDATOR_RELATIVE = path.join('packages', 'schemas', 'bin', 'validate-world-map.mjs');
 // ブラウザプレビューの実体。`akari preview` はこれを子プロセスで起動するだけで、
 // サーバーを再実装しない（アプリでは extraResources、モノレポでは checkout から解決）。
@@ -77,6 +78,7 @@ export const LAUNCHER_SUBCOMMAND_EXECUTABLES = [
   { command: 'akari generate', relative: GENERATE_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari storyboard', relative: STORYBOARD_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari world', relative: WORLD_CLI_RELATIVE, resolution: 'resources' },
+  { command: 'akari geo', relative: GEO_CLI_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari world check', relative: WORLD_VALIDATOR_RELATIVE, resolution: 'resources' },
   { command: 'akari preview', relative: PREVIEW_SERVER_SCRIPT_RELATIVE, resolution: 'resources' }
 ];

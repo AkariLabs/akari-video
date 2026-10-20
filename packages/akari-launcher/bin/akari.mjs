@@ -17,6 +17,7 @@ import { runDoctorCommand } from '../src/doctor-command.mjs';
 import { runGenerateCommand } from '../src/generate-command.mjs';
 import { runStoryboardCommand } from '../src/storyboard-command.mjs';
 import { runWorldCommand } from '../src/world-command.mjs';
+import { runGeoCommand } from '../src/geo-command.mjs';
 import { runLintCommand } from '../src/lint-command.mjs';
 import { runPreviewCommand } from '../src/preview-command.mjs';
 import { runSkillsCommand, refreshEntrySkillOnLaunch } from '../src/skills-command.mjs';
@@ -79,6 +80,7 @@ const commands = {
   generate: runGenerateCommand,
   storyboard: runStoryboardCommand,
   world: runWorldCommand,
+  geo: runGeoCommand,
   lint: runLintCommand,
   preview: runPreviewCommand,
 };

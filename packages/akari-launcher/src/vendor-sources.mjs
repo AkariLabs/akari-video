@@ -84,6 +84,10 @@ export const VENDOR_SOURCES = [
   'packages/akari-tools/src/media/whisper-model-candidates.mjs',
   'packages/akari-tools/src/i18n.mjs',
   'packages/akari-tools/package.json',
+  // `akari geo terrain` は launcher-assets（npm 配布の vendor）から解決する。
+  // 実行に必要な CLI と src/geo だけを追加し、test/ は配布しない。
+  'packages/akari-tools/bin/geo.mjs',
+  'packages/akari-tools/src/geo',
   'packages/akari-voice/src',
   'packages/akari-voice/package.json',
   // テストは実行時に不要で、分析レポートのテスト専用モジュールを参照するため除外する。

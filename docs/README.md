@@ -33,6 +33,7 @@ Task-based guides, ordered by the flow of production.
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
 | [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless 3D settings baked into video assets (author-scene3d) |
+| [Make terrain assets](./guides/geo-terrain.md) | GSI elevation and photo tiles → heightmap, texture, and terrain.json (`akari geo terrain`) |
 | [Declare your audio](./guides/analyze-music.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (analyze-music) |
 | [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (edit-to-beat) |
 | [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |

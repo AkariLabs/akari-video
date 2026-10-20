@@ -58,6 +58,7 @@
   "cli.preview.error.spawnFailed": "The preview server could not start: {message}",
   "cli.preview.label.unknown": "unknown",
   "cli.help.commands.world": "  world                    Inspect, build, preview, and navigate a world map",
+  "cli.help.commands.geo": "  geo terrain              Build 3D terrain assets from GSI elevation and photo tiles",
   "cli.help.commands.skills": "  skills                   Install, remove, or inspect entry skills (install/remove --entry, status --json)",
   "cli.version.installed.cli": "CLI version: v{version}",
   "cli.version.installed.invalid": "Cannot determine the app version (`{path}` is damaged).",
