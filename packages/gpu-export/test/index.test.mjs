@@ -483,3 +483,41 @@ test("GPU export leaves other failure messages untouched", async () => {
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("GPU export surfaces a failed run's threeError in the error and gpu-run-failed.json", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-index-three-error-"));
+  const renderDirectory = join(projectRoot, "render");
+  const out = join(renderDirectory, "composite.mp4");
+  const threeError = {
+    overlayId: "t1",
+    name: "Error",
+    message: "3D overlay fragment は単一ルートである必要があります",
+  };
+  await mkdir(renderDirectory, { recursive: true });
+  try {
+    let caught;
+    try {
+      await exportWithGpu({
+        projectRoot, out, fps: 30, width: 16, height: 16, duration: 1, frames: 30,
+        eligibility: { eligible: true, entries: [] },
+        launcher: { tier: 2, executable: "/electron" },
+        launcherRunner: async () => {
+          await writeFile(join(renderDirectory, "run.json"), JSON.stringify({
+            status: "failed",
+            error: "Error: 3D overlay t1 failed to initialize: threeRuntime status=error: 3D overlay fragment は単一ルートである必要があります",
+            threeError,
+          }));
+          throw new Error("GPU Electron が終了しました（終了コード: 1）");
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+    assert.deepEqual(caught.threeError, threeError);
+    assert.match(caught.message, /単一ルートである必要があります/u);
+    const persisted = JSON.parse(await readFile(join(projectRoot, caught.gpuFailureRunPath), "utf8"));
+    assert.deepEqual(persisted.threeError, threeError);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

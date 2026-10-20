@@ -27,6 +27,22 @@ async function lintCase(id) {
   }
 }
 
+async function lintInlineCase(html) {
+  const project = await mkdtemp(join(tmpdir(), "edit-lint-fragment-inline-"));
+  try {
+    await cp(fixture, project, { recursive: true });
+    await mkdir(join(project, ".akari"), { recursive: true });
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.overlays = [{ id: "inline", html, start: 0, duration: 1 }];
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    await migrateFixtureTree(project);
+    return await lintProject(project, { writeReports: false });
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+}
+
 function findingsFor(result, check) {
   return result.findings.filter((finding) => finding.check === check);
 }
@@ -69,4 +85,25 @@ test("root data-start always warns without a timing mismatch error", async (t) =
     assert.equal(warnings[0].severity, "warning");
     assert.deepEqual(findingsFor(result, "overlays.data-attributes"), []);
   });
+});
+
+test("an inline 3D fragment with two roots reports overlays.html-root", async () => {
+  const html = '<style>.scene{color:#fff}</style>\n'
+    + '<div class="scene"><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>';
+  const result = await lintInlineCase(html);
+  const findings = findingsFor(result, "overlays.html-root");
+  assert.equal(findings.length, 1, JSON.stringify(result.findings, null, 2));
+  assert.equal(findings[0].severity, "error");
+  assert.match(findings[0].path, /\.html$/u);
+});
+
+test("an inline fragment with one root produces no overlays.html-root finding", async () => {
+  const html = '<div class="scene"><style>.scene{color:#fff}</style><span>ok</span></div>';
+  const result = await lintInlineCase(html);
+  assert.deepEqual(findingsFor(result, "overlays.html-root"), []);
+});
+
+test("a path-like inline value is not treated as an HTML fragment", async () => {
+  const result = await lintInlineCase("overlays/missing.html");
+  assert.deepEqual(findingsFor(result, "overlays.html-root"), []);
 });

@@ -27,6 +27,7 @@ installParentPipeGuard(app, { label: "GPU Electron" });
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
 const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
+const THREE_ERROR_MARKER = "AKARI_THREE_ERROR:";
 const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
 const PREVIEW_BASE_PIXELS = 1920 * 1080;
 export const PREVIEW_WIDTH = 320;
@@ -418,19 +419,25 @@ export async function runGpuExport(options) {
     gpuDevices = await gpuDevicesPromise.catch(() => null);
     const reasonCode = gpuFailureReasonCode(error);
     const captionMeasureDiffs = extractCaptionMeasureDiffs(error);
+    // page-runtime の waitForThreeReady が添えた 3D 初期化エラー本文を、失敗の run.json の
+    // 追加フィールド threeError に残し、記録と再 throw する error からは marker を外す。
+    const threeError = extractThreeError(error);
     // page-runtime の unsupported throw が添えた renderer / encoder_support（プロパティ、または message 末尾の marker）を
     // 失敗の run.json に残し、記録と再 throw する error からは marker を外す。
     const gpuDiagnostics = extractGpuDiagnostics(error);
     if (error instanceof Error) {
-      error.message = stripGpuDiagnosticsMarker(error.message);
-      if (typeof error.stack === "string") error.stack = stripGpuDiagnosticsMarker(error.stack);
+      error.message = stripThreeErrorMarker(stripGpuDiagnosticsMarker(error.message));
+      if (typeof error.stack === "string") {
+        error.stack = stripThreeErrorMarker(stripGpuDiagnosticsMarker(error.stack));
+      }
     }
     const failed = {
       version: 1,
       status: "failed",
-      error: stripGpuDiagnosticsMarker(describeError(error)),
+      error: stripThreeErrorMarker(stripGpuDiagnosticsMarker(describeError(error))),
       codec,
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
+      ...(threeError ? { threeError } : {}),
       decoder: lastDecoder ?? { stallMs: runtimeConfig.decoder.stallMs, recoveryAttempts: runtimeConfig.decoder.recoveryAttempts, tickTimeoutMs: runtimeConfig.decoder.tickTimeoutMs, recoveries: 0, recoveryFailures: 0 },
       framesRequested: frames,
       gpu: {
@@ -503,6 +510,32 @@ export function extractCaptionMeasureDiffs(error) {
   const encoded = message.slice(start + CAPTION_MEASURE_DIFF_MARKER.length).split(/\s/u, 1)[0];
   try { return JSON.parse(decodeURIComponent(encoded)); }
   catch { return null; }
+}
+
+// page-runtime の THREE_ERROR_MARKER 行から 3D 初期化エラー（overlayId / name / message）を復元する。
+export function extractThreeError(error) {
+  if (error?.threeError && typeof error.threeError === "object") return error.threeError;
+  const message = describeError(error);
+  const start = message.indexOf(THREE_ERROR_MARKER);
+  if (start < 0) return null;
+  const encoded = message.slice(start + THREE_ERROR_MARKER.length).split(/\s/u, 1)[0];
+  try {
+    const parsed = JSON.parse(decodeURIComponent(encoded));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch { return null; }
+}
+
+// 失敗の run.json / 再 throw する error から内部 marker を落とす（本文は threeError に残る）。
+export function stripThreeErrorMarker(text) {
+  const source = String(text);
+  const start = source.indexOf(THREE_ERROR_MARKER);
+  if (start < 0) return text;
+  const lineStart = start > 0 && source[start - 1] === "\n" ? start - 1 : start;
+  const lineEnd = source.indexOf("\n", start);
+  const before = source.slice(0, lineStart);
+  if (lineEnd < 0) return before;
+  const after = source.slice(lineEnd + 1);
+  return before && after ? `${before}\n${after}` : `${before}${after}`;
 }
 
 /**

@@ -21,6 +21,7 @@
   const CAPTION_MEASURE_DIFF_LIMIT = 20;
   const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
   const GPU_DIAGNOSTICS_MARKER = "AKARI_GPU_DIAGNOSTICS:";
+  const THREE_ERROR_MARKER = "AKARI_THREE_ERROR:";
   const CAPTION_RECT_KEYS = ["x", "y", "width", "height", "right", "bottom"];
   const CAPTION_BATCH_MAX_UNITS = 8;
   const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
@@ -1954,7 +1955,12 @@
       const inspected = threeRuntime.inspect(container);
       if (inspected?.status === "ready") return;
       if (inspected?.status === "error") {
-        throw new Error(`3D overlay ${id} failed to initialize: threeRuntime status=error`);
+        const reason = inspected?.error?.message ? `: ${inspected.error.message}` : "";
+        const failure = new Error(`3D overlay ${id} failed to initialize: threeRuntime status=error${reason}`);
+        // page 境界を越えると独自プロパティは失われるため、呼び出し側の catch が
+        // message の marker から run.json の追加フィールドへ復元する。
+        if (inspected?.error) failure.threeError = { overlayId: id, ...inspected.error };
+        throw failure;
       }
       if (inspected?.status !== "loading") {
         throw new Error(`3D overlay ${id} failed to initialize: unexpected threeRuntime status=${inspected?.status ?? "missing"}`);
@@ -3845,7 +3851,10 @@
     }
     } catch (error) {
       const recent = warnings.slice(-10);
-      const message = `${describeRunError(error)}${recent.length ? `\nrecent warnings:\n- ${recent.join("\n- ")}` : ""}`;
+      const threeError = error?.threeError
+        ? `\n${THREE_ERROR_MARKER}${encodeURIComponent(JSON.stringify(error.threeError))}`
+        : "";
+      const message = `${describeRunError(error)}${threeError}${recent.length ? `\nrecent warnings:\n- ${recent.join("\n- ")}` : ""}`;
       try {
         await bridge?.checkpoint?.({
           status: "failed",

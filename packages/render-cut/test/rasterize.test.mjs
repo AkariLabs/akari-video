@@ -238,3 +238,48 @@ test("start > 0 のクリップでも [data-akari-active] ゲート内の CSS �
   assert.equal(containers[0].attributes.has("data-akari-active"), false);
   assert.equal(containers[1].attributes.has("data-akari-active"), true);
 });
+
+function extractBraceBlock(source, signature) {
+  const start = source.indexOf(signature);
+  assert.ok(start >= 0, `${signature} must exist in the generated sheet`);
+  let depth = 0;
+  const opening = source.indexOf("{", start);
+  assert.ok(opening >= 0, `${signature} has no opening brace`);
+  for (let index = opening; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  assert.fail(`${signature} has no closing brace`);
+}
+
+test("OSR sheet fails closed with the threeRuntime failure reason", async () => {
+  const sheet = renderOverlaySheet({
+    overlays: [{
+      id: "three",
+      start: 0,
+      duration: 1,
+      html: '<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>',
+    }],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/tmp/project",
+    duration: 1,
+  });
+  const functionSource = extractBraceBlock(sheet, "async function waitForThreeContainer(container)");
+  const reason = "3D overlay fragment は単一ルートである必要があります";
+  const threeRuntime = { inspect: () => ({ status: "error", error: { name: "Error", message: reason } }) };
+  const factory = vm.runInNewContext(
+    `(function (window, console, setTimeout) { ${functionSource}; return waitForThreeContainer; })`,
+    {},
+  );
+  const wait = factory({ akari: { threeRuntime } }, { error() {} }, setTimeout);
+  await assert.rejects(wait({}), (error) => {
+    assert.match(error.message, /3D overlay unknown failed to initialize: threeRuntime status=error/u);
+    assert.match(error.message, new RegExp(reason, "u"));
+    assert.equal(error.threeError.overlayId, null);
+    assert.equal(error.threeError.message, reason);
+    return true;
+  });
+});
