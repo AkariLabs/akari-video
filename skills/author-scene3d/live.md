@@ -409,6 +409,25 @@ Previously the live path fixed camera literal values and approximated motion by 
 
 `camera.keys` (keyframe camera moves without a GLB clip) and `texts[].billboard` / `screenSpace` (text that always faces the camera at a constant on-screen size) are documented with examples in the user guide: [Motion parts and captions — 3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.md#3d) (Japanese: [テロップ・字幕・図表・3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.ja.md#3d)). Preview, `akari capture`, and export share the same interpolation, so the same `t` gives the same camera.
 
+## 3D-anchored HTML labels
+
+An element inside the 3D fragment with `data-akari-3d-anchor="x,y,z"` is projected through the same camera on every draw and moved with `transform: translate(...)`. Use it for place-name labels, pins, callouts, and badges that should stay on a world point while the camera moves.
+
+```html
+<div class="map-label" data-akari-3d-anchor="0,1.2,0" data-akari-3d-anchor-origin="center">相模原</div>
+```
+
+```css
+.map-label { position: absolute; left: 0; top: 0; }
+```
+
+- **The runtime owns the element's `transform`.** Animate `opacity`, `color`, or a child element instead of `transform`; a CSS transform on the anchored element itself is overwritten every frame.
+- `data-akari-3d-anchor-origin` defaults to `center`; `top-left` / `top` / `top-right` / `left` / `right` / `bottom-left` / `bottom` / `bottom-right` place a different point of the element on the coordinate.
+- Elements behind the camera, outside the frame, or beyond `near` / `far` get `visibility: hidden`.
+- `data-akari-3d-anchor-occlude="true"` raycasts against the loaded model and hides the label when terrain or geometry is in front. Leave it off for labels that should draw through the model (cheaper, and no self-occlusion surprises).
+- An anchor outside a fragment with `data-akari-3d-scene` does nothing; lint warns. The value must be three comma-separated finite numbers; lint errors otherwise.
+- GPU export routes anchored 3D fragments through the composite path because the labels live in the DOM layer, not in the canvas texture. Preview, `akari capture`, OSR, and GPU therefore share the projected positions.
+
 ## When export fails with `seeking frame N timeout`
 
 Export runs a GPU / OSR WebGL renderer. It draws a 1920×1080 scene on the CPU every frame, so **more simultaneous 3D scenes make each frame heavier** and can hit a 60-second watchdog, failing the entire export. Measured on an M-series Mac, 2026-08-04:

@@ -327,6 +327,9 @@ export function evaluateGpuEligibility({
       ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
       : null;
     const threeScene = readDeclarations(source, THREE_RUNTIME).length > 0;
+    // data-akari-3d-anchor の HTML は Three.js の canvas とは別に DOM へ置かれる。直描き
+    // （canvas テクスチャ 1 枚）では消えるため composite（断片全体の転写）へ回す。
+    const hasAnchor = /data-akari-3d-anchor(?=[\s=/>])/iu.test(source);
     if (!threeScene && names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
     } else if (names.includes("vgpu-runtime")) {
@@ -342,6 +345,12 @@ export function evaluateGpuEligibility({
       const withinSampledConditions = visualNames.every((name) => SAMPLED_CONDITIONS.has(name));
       if (names.includes("css-3d-backface-hidden")) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
+      } else if (hasAnchor && visualNames.every((name) => COMPOSITE_CONDITIONS.has(name))) {
+        // アンカー付きの HTML は composite でしか転写できない（sampled / curve は canvas だけ）。
+        const composite = scanThreeComposite(html);
+        entries.push(composite.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
       } else if (animated && entrance.ok && withinSampledConditions) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
       } else if (animated && withinSampledConditions) {
@@ -785,6 +794,8 @@ function threeOnlyHtmlSpace(html, start, end) {
 // 断片内 CSS の変形や不透明度は出ない。canvas とレイアウトだけを残し、他は既存の composite へ回す。
 // 生 HTML を静的に読み、ブラウザと対応を確定できない断片は偽にする（fail-closed）。
 function isThreeOnlyOverlay(html, conditions, overlay) {
+  // アンカー付き HTML は canvas の外に描かれる。直描きでは転写できないため composite へ。
+  if (/data-akari-3d-anchor(?=[\s=/>])/iu.test(html)) return false;
   const visualConditions = conditions.filter((condition) => condition !== "item-keyframes");
   if (visualConditions.length !== 1 || visualConditions[0] !== "three-or-canvas-runtime") return false;
   const hasValidKeys = (points) => Array.isArray(points) && points.length >= 2

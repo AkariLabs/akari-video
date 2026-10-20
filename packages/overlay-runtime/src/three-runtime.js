@@ -1420,6 +1420,96 @@ window.akari.threeRuntime = (() => {
     instance.cameraKeyTime = seconds;
   }
 
+  // --- 3D 座標に追従する HTML 要素（data-akari-3d-anchor）。task 2026-10-21-scene3d-html-anchor ---
+  // 投影は THREE に依存しない純関数に閉じる。Node の単体テストで既知の view / projection 行列から
+  // 画素を固定できるようにするため、draw() もこの関数を通す（プレビュー・capture・書き出しで同じ計算）。
+  const ANCHOR_POINT_COMPONENT = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/u;
+  // data-akari-3d-anchor-origin の基準点。0 = 左/上、1 = 右/下。
+  const ANCHOR_ORIGIN_FACTORS = {
+    "top-left": [0, 0],
+    top: [0.5, 0],
+    "top-right": [1, 0],
+    left: [0, 0.5],
+    center: [0.5, 0.5],
+    right: [1, 0.5],
+    "bottom-left": [0, 1],
+    bottom: [0.5, 1],
+    "bottom-right": [1, 1],
+  };
+  const ANCHOR_ORIGINS = new Set(Object.keys(ANCHOR_ORIGIN_FACTORS));
+
+  function parseAnchorPoint(value) {
+    const text = String(value ?? "");
+    const parts = text.split(",");
+    if (parts.length !== 3 || parts.some((part) => !ANCHOR_POINT_COMPONENT.test(part.trim()))) {
+      throw new TypeError(
+        `data-akari-3d-anchor は "x,y,z" の数値 3 個である必要があります（${JSON.stringify(text)}）`
+      );
+    }
+    return parts.map((part) => Number(part.trim()));
+  }
+
+  function anchorOriginOffset(origin, width, height) {
+    const key = origin ?? "center";
+    const factors = ANCHOR_ORIGIN_FACTORS[key];
+    if (!factors) {
+      throw new TypeError(
+        `data-akari-3d-anchor-origin の未対応値です: ${JSON.stringify(String(origin))}`
+        + `（${[...ANCHOR_ORIGINS].join(" / ")}）`
+      );
+    }
+    const w = Number.isFinite(width) ? width : 0;
+    const h = Number.isFinite(height) ? height : 0;
+    return { x: w * factors[0], y: h * factors[1] };
+  }
+
+  // view / projection は THREE.Matrix4.elements（列優先）。クリップ座標を返し、w <= 0 は
+  // カメラの後ろ（透視投影の手前側）として扱う。Vector3.project() は除算で符号を失うため使わない。
+  function anchorClipPosition(point, viewElements, projectionElements) {
+    const [x, y, z] = point;
+    const view = viewElements;
+    const viewX = view[0] * x + view[4] * y + view[8] * z + view[12];
+    const viewY = view[1] * x + view[5] * y + view[9] * z + view[13];
+    const viewZ = view[2] * x + view[6] * y + view[10] * z + view[14];
+    const viewW = view[3] * x + view[7] * y + view[11] * z + view[15];
+    const projection = projectionElements;
+    return {
+      x: projection[0] * viewX + projection[4] * viewY + projection[8] * viewZ + projection[12] * viewW,
+      y: projection[1] * viewX + projection[5] * viewY + projection[9] * viewZ + projection[13] * viewW,
+      z: projection[2] * viewX + projection[6] * viewY + projection[10] * viewZ + projection[14] * viewW,
+      w: projection[3] * viewX + projection[7] * viewY + projection[11] * viewZ + projection[15] * viewW,
+    };
+  }
+
+  // 画面上の CSS px（canvas の左上基準）。カメラの後ろ・near/far の外・画面外は visible: false。
+  function projectAnchorPoint(point, viewElements, projectionElements, viewport) {
+    const clip = anchorClipPosition(point, viewElements, projectionElements);
+    const width = Math.max(0, Number(viewport?.cssWidth ?? 0));
+    const height = Math.max(0, Number(viewport?.cssHeight ?? 0));
+    if (![clip.x, clip.y, clip.z, clip.w].every(Number.isFinite) || clip.w <= 0) {
+      return { visible: false, x: 0, y: 0, depth: clip.w };
+    }
+    const ndcX = clip.x / clip.w;
+    const ndcY = clip.y / clip.w;
+    const ndcZ = clip.z / clip.w;
+    const visible = Number.isFinite(ndcX) && Number.isFinite(ndcY) && Number.isFinite(ndcZ)
+      && ndcZ >= -1 && ndcZ <= 1
+      && ndcX >= -1 && ndcX <= 1 && ndcY >= -1 && ndcY <= 1;
+    return {
+      visible,
+      x: ((ndcX + 1) / 2) * width,
+      y: ((1 - ndcY) / 2) * height,
+      depth: clip.w,
+    };
+  }
+
+  // 遮蔽（任意）。カメラからアンカー点までの間にモデルの面があれば隠す。far より手前の
+  // 交差だけを数える（アンカー点そのものの面で自己遮蔽しないよう、far は距離より少し短い）。
+  function anchorOccluded(hits, far) {
+    return Array.isArray(hits) && hits.some((hit) => Number.isFinite(hit?.distance)
+      && hit.distance > 0 && hit.distance < far);
+  }
+
   function createCamera(THREE, descriptor) {
     const cameraDescriptor = descriptor.camera ?? {};
     const camera = new THREE.PerspectiveCamera(
@@ -3046,6 +3136,9 @@ window.akari.threeRuntime = (() => {
     } else {
       renderOnce();
     }
+    // renderer が更新したカメラ行列でアンカーを置く（プレビュー・capture・書き出しで同じ経路）。
+    // 画面外・カメラの後ろは visibility: hidden。
+    updateAnchorElements(instance);
     canvasContentBoxes.set(instance.canvas,
       projectContentBounds(instance.scene, instance.camera, { matricesReady: poseCameraSynced }));
     // 内容枠申告に伴う描画直後通知。interaction 不在の書き出しではコピーしない。
@@ -3098,6 +3191,7 @@ window.akari.threeRuntime = (() => {
   function disposeInstance(instance) {
     canvasContentBoxes.delete(instance.canvas);
     instance.active = false;
+    resetAnchorElements(instance);
     instance.mixer?.stopAllAction();
     disposeObject(instance.model);
     disposeObject(instance.textsGroup);
@@ -3291,6 +3385,131 @@ window.akari.threeRuntime = (() => {
     return canvases[0];
   }
 
+  // data-akari-3d-anchor を持つ要素を断片内から集める。宣言の誤りは初期化エラーにする
+  // （lint も同じ規則で先に止める）。描画前は隠しておき、ready 後の draw で位置を決める。
+  function readAnchorEntries(container) {
+    const entries = [];
+    for (const element of container.querySelectorAll("[data-akari-3d-anchor]")) {
+      if (element.closest("[data-akari-3d-preview-generated]")) continue;
+      const point = parseAnchorPoint(element.getAttribute("data-akari-3d-anchor"));
+      const originAttribute = element.getAttribute("data-akari-3d-anchor-origin");
+      const origin = originAttribute === null ? "center" : originAttribute.trim();
+      anchorOriginOffset(origin, 0, 0);
+      entries.push({
+        element,
+        point,
+        origin,
+        occlude: (element.getAttribute("data-akari-3d-anchor-occlude") ?? "").trim().toLowerCase() === "true",
+        baseVisibility: element.style.visibility,
+        lastTransform: null,
+        lastVisible: undefined,
+        lastX: null,
+        lastY: null,
+        lastTranslateX: null,
+        lastTranslateY: null,
+      });
+    }
+    return entries;
+  }
+
+  // レイアウト上の左上位置を container 基準で返す。transform の影響を受けない offsetLeft /
+  // offsetTop を使うため、アンカーが自前の CSS で left / top を持っていても基準を補正できる。
+  function offsetWithin(element, container) {
+    let x = 0;
+    let y = 0;
+    let node = element;
+    while (node && node !== container) {
+      x += node.offsetLeft || 0;
+      y += node.offsetTop || 0;
+      node = node.offsetParent;
+    }
+    return node === container ? { x, y } : null;
+  }
+
+  function setAnchorVisible(entry, visible) {
+    if (entry.lastVisible === visible) return;
+    entry.lastVisible = visible;
+    if (visible) {
+      if (entry.baseVisibility) entry.element.style.visibility = entry.baseVisibility;
+      else entry.element.style.removeProperty("visibility");
+    } else {
+      entry.element.style.visibility = "hidden";
+    }
+  }
+
+  function updateAnchorElements(instance) {
+    if (instance.anchorEntries.length === 0 || !instance.contentReady) return;
+    const width = instance.viewport?.cssWidth
+      ?? Math.max(1, instance.canvas.offsetWidth || instance.canvas.clientWidth || 1);
+    const height = instance.viewport?.cssHeight
+      ?? Math.max(1, instance.canvas.offsetHeight || instance.canvas.clientHeight || 1);
+    const view = instance.camera.matrixWorldInverse.elements;
+    const projection = instance.camera.projectionMatrix.elements;
+    const canvasOffset = offsetWithin(instance.canvas, instance.container) ?? { x: 0, y: 0 };
+    const needsOcclusion = instance.anchorEntries.some((entry) => entry.occlude);
+    const { THREE } = window.AkariThree;
+    let cameraPosition = null;
+    let raycaster = null;
+    if (needsOcclusion && instance.model) {
+      cameraPosition = new THREE.Vector3();
+      instance.camera.getWorldPosition(cameraPosition);
+      raycaster = instance.anchorRaycaster ?? (instance.anchorRaycaster = new THREE.Raycaster());
+    }
+    for (const entry of instance.anchorEntries) {
+      const projected = projectAnchorPoint(entry.point, view, projection, {
+        cssWidth: width,
+        cssHeight: height,
+      });
+      let visible = projected.visible;
+      if (visible && entry.occlude && raycaster) {
+        const target = new THREE.Vector3().fromArray(entry.point);
+        const distance = cameraPosition.distanceTo(target);
+        if (distance > 0) {
+          raycaster.set(cameraPosition, target.clone().sub(cameraPosition).normalize());
+          raycaster.near = instance.camera.near;
+          raycaster.far = Math.max(instance.camera.near, distance - Math.max(distance * 1e-3, 1e-4));
+          visible = !anchorOccluded(raycaster.intersectObject(instance.model, true), raycaster.far);
+        }
+      }
+      if (!visible) {
+        entry.lastX = null;
+        entry.lastY = null;
+        entry.lastTranslateX = null;
+        entry.lastTranslateY = null;
+        setAnchorVisible(entry, false);
+        continue;
+      }
+      const elementOffset = offsetWithin(entry.element, instance.container) ?? { x: 0, y: 0 };
+      const origin = anchorOriginOffset(entry.origin, entry.element.offsetWidth, entry.element.offsetHeight);
+      const x = canvasOffset.x + projected.x - elementOffset.x - origin.x;
+      const y = canvasOffset.y + projected.y - elementOffset.y - origin.y;
+      const transform = `translate(${Math.round(x * 1000) / 1000}px, ${Math.round(y * 1000) / 1000}px)`;
+      if (entry.lastTransform !== transform) {
+        entry.element.style.transform = transform;
+        entry.lastTransform = transform;
+      }
+      entry.lastX = projected.x;
+      entry.lastY = projected.y;
+      entry.lastTranslateX = x;
+      entry.lastTranslateY = y;
+      setAnchorVisible(entry, true);
+    }
+  }
+
+  function resetAnchorElements(instance) {
+    for (const entry of instance.anchorEntries) {
+      entry.element.style.removeProperty("transform");
+      if (entry.baseVisibility) entry.element.style.visibility = entry.baseVisibility;
+      else entry.element.style.removeProperty("visibility");
+      entry.lastTransform = null;
+      entry.lastVisible = undefined;
+      entry.lastX = null;
+      entry.lastY = null;
+      entry.lastTranslateX = null;
+      entry.lastTranslateY = null;
+    }
+  }
+
   function createInstance(container) {
     removePreviewLoadError(container);
     const library = window.AkariThree;
@@ -3300,6 +3519,8 @@ window.akari.threeRuntime = (() => {
       throw new Error("AkariThree bundle が読み込まれていません");
     }
     const descriptor = readDescriptor(container);
+    // 宣言の検証は renderer を作る前に済ませる（不正なら GL リソースを残さず落とす）
+    const anchorEntries = readAnchorEntries(container);
     const rendererKind = descriptor.renderer === "webgpu" ? "webgpu" : "webgl";
     const cameraKeysWarning = cameraKeysConflictWarning(descriptor.camera);
     // 1 行だけ。片方に揃えるのは作者の判断なので、止めずに keys を採る
@@ -3396,6 +3617,9 @@ window.akari.threeRuntime = (() => {
     const instance = {
       active: true,
       animationClips: 0,
+      // data-akari-3d-anchor の要素（ready 後の draw ごとに投影位置へ置く）
+      anchorEntries,
+      anchorRaycaster: null,
       // 標準ツマミの zoom（fov 詰め直し）が基準にする「宣言どおりの fov」。以後
       // instance.camera.fov は zoom 倍率で書き換わるため、生成時の値を別に保持する
       baseFov: camera.fov,
@@ -3475,6 +3699,8 @@ window.akari.threeRuntime = (() => {
     liveInstanceContainers.add(container);
     premountStats.created += 1;
     instance.scene.add(instance.textsGroup);
+    // ready 前のアンカーは authored 位置に残さず隠す（最初の draw で投影位置へ置く）
+    for (const entry of instance.anchorEntries) setAnchorVisible(entry, false);
     setFallback(container, true);
 
     const hasModel = typeof descriptor.model === "string" && descriptor.model.length > 0;
@@ -3799,6 +4025,18 @@ window.akari.threeRuntime = (() => {
       // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）
       textNodes: instance.textNodes.length,
       textBlocks: instance.textAnimEntries.length,
+      // data-akari-3d-anchor の直近 draw 適用値（検証・証跡用）。x / y は canvas 左上基準の CSS px。
+      // 画面外・カメラの後ろ・遮蔽中は visible: false で x / y は null
+      anchors: instance.anchorEntries.map((entry) => ({
+        point: entry.point.slice(),
+        origin: entry.origin,
+        occlude: entry.occlude,
+        visible: entry.lastVisible === true,
+        x: entry.lastX,
+        y: entry.lastY,
+        translateX: entry.lastTranslateX,
+        translateY: entry.lastTranslateY,
+      })),
       // billboard / screenSpace の直近 draw 適用値（検証・証跡用）。worldQuaternion は
       // layout.rotation を billboard が上書きした後の姿勢、normal はその +Z（= 文字の法線）
       texts: instance.textAnimEntries.map((entry) => {
@@ -3938,6 +4176,10 @@ window.akari.threeRuntime = (() => {
     validateCameraKeys,
     cameraKeysAt: sampleCameraKeys,
     cameraKeysConflictWarning,
+    parseAnchorPoint,
+    anchorOriginOffset,
+    projectAnchorPoint,
+    anchorOccluded,
   };
 })();
 
