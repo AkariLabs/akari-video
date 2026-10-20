@@ -664,6 +664,13 @@ window.akari.threeRuntime = (() => {
         && (typeof descriptor.camera.fromModel !== "string" || descriptor.camera.fromModel.length === 0)) {
         throw new TypeError("camera.fromModel は true または glb 内カメラノード名である必要があります");
       }
+      // camera.keys（宣言的カメラキーフレーム）。並べ替えはせず、昇順でなければ宣言の誤りとして止める
+      if (descriptor.camera.keys !== undefined) {
+        descriptor.camera = {
+          ...descriptor.camera,
+          keys: validateCameraKeys(descriptor.camera.keys),
+        };
+      }
     }
     if (descriptor.environment !== undefined) {
       if (!descriptor.environment
@@ -1245,6 +1252,104 @@ window.akari.threeRuntime = (() => {
     state.applied = applied;
   }
 
+  // --- 宣言的カメラキーフレーム（camera.keys）。task 2026-10-20-scene3d-camera-keys ---
+  // t はシーン内の秒（アイテム開始からの相対）。position / lookAt は [x, y, z]。
+  // ease は「そのキーへ入る区間」に効く 2 語彙だけに閉じる（開始キーの ease は使わない）。
+  const CAMERA_KEY_EASES = new Set(["linear", "easeInOut"]);
+  const CAMERA_KEY_FIELDS = new Set(["t", "position", "lookAt", "ease"]);
+
+  function cameraVector(value, field) {
+    if (!Array.isArray(value) || value.length !== 3
+      || !value.every((component) => typeof component === "number" && Number.isFinite(component))) {
+      throw new TypeError(`${field} は [x, y, z] の数値配列である必要があります`);
+    }
+    return [value[0], value[1], value[2]];
+  }
+
+  // 再生時の暗黙ソートはしない。宣言の順序が絵を変えるより、誤りとして読めるほうがよい。
+  // 戻り値は正規化したキー（検証結果をそのまま描画に使う）。
+  function validateCameraKeys(value) {
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new TypeError("camera.keys は 1 個以上のキー配列である必要があります");
+    }
+    let previous = null;
+    return value.map((entry, index) => {
+      const field = `camera.keys[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError(`${field} は object である必要があります`);
+      }
+      for (const name of Object.keys(entry)) {
+        if (!CAMERA_KEY_FIELDS.has(name)) {
+          throw new TypeError(`${field} の未対応キーです: ${name}`);
+        }
+      }
+      if (typeof entry.t !== "number" || !Number.isFinite(entry.t)) {
+        throw new TypeError(`${field}.t は有限数である必要があります`);
+      }
+      const position = cameraVector(entry.position, `${field}.position`);
+      const lookAt = cameraVector(entry.lookAt, `${field}.lookAt`);
+      const ease = entry.ease ?? "linear";
+      if (!CAMERA_KEY_EASES.has(ease)) {
+        throw new TypeError(`${field}.ease は linear または easeInOut である必要があります`);
+      }
+      if (previous !== null && entry.t <= previous.t) {
+        throw new TypeError(
+          `camera.keys は t の昇順である必要があります（${field}.t=${entry.t} は`
+          + ` ${previous.field}.t=${previous.t} 以下。自動では並べ替えません）`
+        );
+      }
+      previous = { t: entry.t, field };
+      return { t: entry.t, position, lookAt, ease };
+    });
+  }
+
+  function cameraEase(name, u) {
+    const clamped = Math.min(1, Math.max(0, u));
+    if (clamped === 0 || clamped === 1) return clamped;
+    // 既存の easing 語彙（item-motion.js の ease-in-out）と同じ 3 次曲線
+    return name === "easeInOut"
+      ? (clamped < 0.5 ? 4 * clamped ** 3 : 1 - (-2 * clamped + 2) ** 3 / 2)
+      : clamped;
+  }
+
+  function cameraKeyPose(key) {
+    return { position: key.position.slice(), lookAt: key.lookAt.slice() };
+  }
+
+  // キー間は position / lookAt を成分ごとに補間。前後は端のキーで保持。時刻だけの純関数。
+  function sampleCameraKeys(keys, seconds) {
+    const first = keys[0];
+    if (seconds <= first.t) return cameraKeyPose(first);
+    const last = keys[keys.length - 1];
+    if (seconds >= last.t) return cameraKeyPose(last);
+    for (let index = 1; index < keys.length; index += 1) {
+      const end = keys[index];
+      if (seconds > end.t) continue;
+      const start = keys[index - 1];
+      const span = end.t - start.t;
+      const u = span > 0 ? cameraEase(end.ease, (seconds - start.t) / span) : 1;
+      return {
+        position: start.position.map((value, axis) => value + (end.position[axis] - value) * u),
+        lookAt: start.lookAt.map((value, axis) => value + (end.lookAt[axis] - value) * u),
+      };
+    }
+    return cameraKeyPose(last);
+  }
+
+  // keys が宣言されていれば glb 内カメラ（fromModel）より優先する。警告文は 1 行だけ返す。
+  function cameraKeysConflictWarning(camera) {
+    if (!camera || !Array.isArray(camera.keys) || camera.fromModel === undefined) return null;
+    return "camera.keys と camera.fromModel が同時に宣言されています。camera.keys を優先し、fromModel は無視します";
+  }
+
+  function applyCameraKeys(instance, localSeconds) {
+    const seconds = Math.max(0, finiteNumber(localSeconds, 0));
+    const pose = sampleCameraKeys(instance.cameraKeys, seconds);
+    instance.camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+    instance.camera.lookAt(pose.lookAt[0], pose.lookAt[1], pose.lookAt[2]);
+    instance.cameraKeyTime = seconds;
+  }
+
   function createCamera(THREE, descriptor) {
     const cameraDescriptor = descriptor.camera ?? {};
     const camera = new THREE.PerspectiveCamera(
@@ -1253,8 +1358,10 @@ window.akari.threeRuntime = (() => {
       finiteNumber(cameraDescriptor.near, 0.1),
       finiteNumber(cameraDescriptor.far, 2000)
     );
-    camera.position.fromArray(vector3(cameraDescriptor.position, [0, 1.2, 3]));
-    camera.lookAt(...vector3(cameraDescriptor.lookAt, [0, 0.5, 0]));
+    // keys があるときの初期姿勢も最初のキー。最初の draw までに撮られても同じ絵になる
+    const firstKey = Array.isArray(cameraDescriptor.keys) ? cameraDescriptor.keys[0] : null;
+    camera.position.fromArray(firstKey ? firstKey.position : vector3(cameraDescriptor.position, [0, 1.2, 3]));
+    camera.lookAt(...(firstKey ? firstKey.lookAt : vector3(cameraDescriptor.lookAt, [0, 0.5, 0])));
     return camera;
   }
 
@@ -1290,6 +1397,9 @@ window.akari.threeRuntime = (() => {
   }
 
   function adoptModelCamera(instance, gltf) {
+    // camera.keys が宣言されていれば、キーで動く宣言カメラのままにする。GLB 内カメラへ
+    // 差し替えるとキーが上書きされ、指定したカメラワークが効かなくなる
+    if (Array.isArray(instance.descriptor.camera?.keys)) return;
     const selector = instance.descriptor.camera?.fromModel;
     if (selector === undefined) return;
     const camera = resolveModelCamera(gltf, selector);
@@ -2503,6 +2613,7 @@ window.akari.threeRuntime = (() => {
     const poseStyle = instance.poseGroup ? getComputedStyle(instance.canvas) : null;
     if (poseStyle) applyClipKnob(instance, poseStyle);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
+    if (instance.cameraKeys) applyCameraKeys(instance, localSeconds);
     if (poseStyle) applyPoseKnobs(instance, poseStyle);
     if (instance.textAnimEntries.length > 0) updateTextVisibility(instance, localSeconds);
     if (instance.textAnimEntries.length > 0) updateTextAnimations(instance, localSeconds);
@@ -2784,6 +2895,9 @@ window.akari.threeRuntime = (() => {
       throw new Error("AkariThree bundle が読み込まれていません");
     }
     const descriptor = readDescriptor(container);
+    const cameraKeysWarning = cameraKeysConflictWarning(descriptor.camera);
+    // 1 行だけ。片方に揃えるのは作者の判断なので、止めずに keys を採る
+    if (cameraKeysWarning) console.warn(`[akari-three] ${cameraKeysWarning}`);
     const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
     const hasExtrudeTexts = hasTexts && descriptor.texts.some((entry) => entry.mode === "extrude");
     if (hasTexts && typeof library.TroikaText !== "function") {
@@ -2853,12 +2967,15 @@ window.akari.threeRuntime = (() => {
       // instance.camera.fov は zoom 倍率で書き換わるため、生成時の値を別に保持する
       baseFov: camera.fov,
       camera,
+      // camera.keys の正規化済みキー（宣言なしは null）
+      cameraKeys: Array.isArray(descriptor.camera?.keys) ? descriptor.camera.keys : null,
+      cameraKeyTime: 0,
       canvas,
       container,
       descriptor,
       environmentTarget,
-      // camera.fromModel でモデル内カメラへ差し替わると "model" になる（検証・証跡用）
-      cameraSource: "descriptor",
+      // camera.fromModel でモデル内カメラへ差し替わると "model"、camera.keys で動かすと "keys"
+      cameraSource: Array.isArray(descriptor.camera?.keys) ? "keys" : "descriptor",
       lastTime: 0,
       mixer: null,
       model: null,
@@ -3218,6 +3335,8 @@ window.akari.threeRuntime = (() => {
       // camera.fromModel の配線確認（"model" = glb 内カメラで描画している）と、
       // クリップ評価後のカメラ実位置（ベイク済みカメラワークが動いている直接証拠）
       cameraSource: instance.cameraSource,
+      // camera.keys が効いている時刻（キー宣言なしは null）。同じ t の再描画で値が変わらないことの実測用
+      cameraKeyTime: instance.cameraKeys ? instance.cameraKeyTime : null,
       cameraWorldPosition: (() => {
         const position = new (instance.camera.position.constructor)();
         instance.camera.getWorldPosition(position);
@@ -3307,6 +3426,10 @@ window.akari.threeRuntime = (() => {
     premountTick,
     premountState,
     attachHostPremountDriver,
+    // 純関数（ホストの診断・単体テスト用）
+    validateCameraKeys,
+    cameraKeysAt: sampleCameraKeys,
+    cameraKeysConflictWarning,
   };
 })();
 

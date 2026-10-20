@@ -158,6 +158,65 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
   }
 }
 
+// camera.keys（宣言的カメラキーフレーム）の宣言検査。three-runtime.js の validateCameraKeys と
+// 同じ規則を、ランタイムを起動せずに lint でも読めるようにしたもの。並べ替えはしない。
+const THREE_CAMERA_KEY_EASES = new Set(["linear", "easeInOut"]);
+const THREE_CAMERA_KEY_FIELDS = new Set(["t", "position", "lookAt", "ease"]);
+
+function threeCameraVectorProblem(value, field) {
+  if (!Array.isArray(value) || value.length !== 3 || !value.every(isFiniteNumber)) {
+    return `${field} must be an array of 3 finite numbers.`;
+  }
+  return null;
+}
+
+function threeCameraKeysProblem(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) {
+    return "data-akari-3d-scene.camera.keys must be a non-empty array.";
+  }
+  for (const [index, entry] of keys.entries()) {
+    const field = `data-akari-3d-scene.camera.keys[${index}]`;
+    if (!isRecord(entry)) return `${field} must be an object.`;
+    const unknown = Object.keys(entry).find(name => !THREE_CAMERA_KEY_FIELDS.has(name));
+    if (unknown) return `${field} has an unknown field: ${unknown}.`;
+    if (!isFiniteNumber(entry.t)) return `${field}.t must be a finite number.`;
+    const positionProblem = threeCameraVectorProblem(entry.position, `${field}.position`);
+    if (positionProblem) return positionProblem;
+    const lookAtProblem = threeCameraVectorProblem(entry.lookAt, `${field}.lookAt`);
+    if (lookAtProblem) return lookAtProblem;
+    if (entry.ease !== undefined && !THREE_CAMERA_KEY_EASES.has(entry.ease)) {
+      return `${field}.ease must be "linear" or "easeInOut".`;
+    }
+    if (index > 0 && entry.t <= keys[index - 1].t) {
+      return `data-akari-3d-scene.camera.keys must be ordered by ascending t:`
+        + ` keys[${index}].t=${entry.t} is not greater than keys[${index - 1}].t=${keys[index - 1].t}`
+        + " (keys are not sorted automatically; reorder them or fix t).";
+    }
+  }
+  return null;
+}
+
+function validateThreeCameraKeys(source, path, findings) {
+  for (const block of rawTextElements(source, "script")) {
+    const attributes = parseHtmlAttributes(source.slice(block.start, block.bodyStart));
+    if (attributes.type?.toLowerCase() !== "application/json"
+      || !Object.hasOwn(attributes, "data-akari-3d-scene")) continue;
+    let descriptor;
+    try {
+      descriptor = JSON.parse(source.slice(block.bodyStart, block.bodyEnd));
+    } catch {
+      // 壊れた JSON 自体は別の検査の担当。ここでは camera.keys だけを見る
+      continue;
+    }
+    const camera = descriptor?.camera;
+    if (!isRecord(camera) || camera.keys === undefined) continue;
+    const problem = threeCameraKeysProblem(camera.keys);
+    if (problem) addFinding(findings, {
+      severity: "error", check: "overlays.three-camera-keys", message: problem, path,
+    });
+  }
+}
+
 function validateThreeCanvas(html, path, findings) {
   const source = stripHtmlComments(html);
   const raw = [
@@ -186,6 +245,7 @@ function validateThreeCanvas(html, path, findings) {
     }
   }
   if (!scene) return;
+  validateThreeCameraKeys(source, path, findings);
   if (marked > 1) addFinding(findings, {
     severity: "error", check: "overlays.three-canvas",
     message: `data-akari-3d-canvas must appear on at most one element (found ${marked}).`, path,
