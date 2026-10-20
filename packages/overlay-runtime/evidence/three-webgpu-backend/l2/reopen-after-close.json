@@ -26,7 +26,7 @@
       "step": "closed",
       "frameCount": 1,
       "frames": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?"
+        "file://<WORKTREE>/apps/shell/lib/frontend/index.html?"
       ],
       "preview": "gone"
     },
@@ -34,7 +34,7 @@
       "step": "reopened",
       "frameCount": 3,
       "frames": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/2026-10-21-three-webgpu-backend/apps/shell/lib/frontend/index.html?",
+        "file://<WORKTREE>/apps/shell/lib/frontend/index.html?",
         "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:62242/webview/index.html?id=akari-output-preview-ycogub",
         "http://4cd9f6df-9bbb-5e7f-97d5-df7c2a23829c.webview.localhost:62242/webview/fake.html?id=akari-output-preview-ycogub"
       ]
