@@ -31,7 +31,7 @@ Task-based guides, ordered by the flow of production.
 | [Narration](./guides/narration.md) | Free local voices / voice cloning (generate-narration) |
 | [Review and fix](./guides/review-and-fix.md) | Machine checks, ticketing spoken reviews, fixes (edit-lint / compile-review-session / address-review) |
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
-| [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / setup-audio-library / harvest-asset) |
+| [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables into assets, styles, and templates (setup-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless 3D settings baked into video assets (author-scene3d) |
 | [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
 | [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and promo reels machine-generated from declared audio (beat-sync-edit) |
@@ -40,7 +40,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 29 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 28 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 

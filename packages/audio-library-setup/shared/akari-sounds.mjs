@@ -4,7 +4,7 @@
 // GitHub Release なので**一括ダウンロードを許可する**（2026-08-03 オーナー裁定:
 // 「初回セットアップで無料音源を一括ダウンロードできるようにする」。
 // SKILL.md の一括取得禁止ルールは第三者サイト保護の規律であり、自社 Release には適用しない。
-// 詳細は skills/setup-audio-library/first-party.md）。
+// 詳細は skills/setup-library/audio-first-party.md）。
 //
 // このモジュールはネットワーク・ファイルシステムに触れない純粋ロジックのみ
 // （URL 構築・catalog.json → 登録プランのマッピング・meta.json 組み立て）。

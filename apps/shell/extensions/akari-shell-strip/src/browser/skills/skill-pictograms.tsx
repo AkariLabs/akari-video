@@ -177,11 +177,6 @@ const SKILL_PARTS: Record<string, readonly Part[]> = {
         B('M8 11l14-4 20 5 14-4v26l-14 4-20-5-14 4z'), L('M22 7v26M42 12v26'),
         A('M32 31c-5-5-6-8-6-11a6 6 0 0 1 12 0c0 3-1 6-6 11zM32 18a2 2 0 1 0 0 4a2 2 0 1 0 0-4z')
     ],
-    // 音源ライブラリを揃える: ヘッドホン + ダウンロード
-    'setup-audio-library': [
-        L('M12 28v-2a20 20 0 0 1 40 0v2'), B(rr(8, 28, 8, 11, 3)), B(rr(48, 28, 8, 11, 3)),
-        A('M32 17v14m-5-5l5 5 5-5'), L('M26 36h12')
-    ],
     // チャットで承認: 吹き出し + チェック
     'setup-chat-approval': [
         B('M10 8h44a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H31l-9 7v-7H10a3 3 0 0 1-3-3V11a3 3 0 0 1 3-3z'),
@@ -209,7 +204,7 @@ const SKILL_SHIFT: Record<string, readonly [number, number]> = {
     'export-nle': [0.5, 0],
     'generate-image': [0.5, -1], 'generate-video': [0, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
     'overlay-authoring': [1, 1], 'render-cut': [0.5, -0.5], 'research-plan': [0, -0.5],
-    'setup-audio-library': [0, -0.5], 'setup-chat-approval': [0, -1], 'setup-library': [0, -1],
+    'setup-chat-approval': [0, -1], 'setup-library': [0, -1],
     'setup-remote': [0.5, 0]
 };
 

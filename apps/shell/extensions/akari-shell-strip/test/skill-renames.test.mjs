@@ -22,6 +22,7 @@ test('改名表は連鎖を最後の新名に畳む（実リポの行も解決�
         assert.equal(resolveSkillName(row.from), row.to);
         assert.equal(resolvedSkillDisplay({ name: row.from, description: 'source description' }).name, row.to);
     }
+    assert.ok(SKILL_RENAMES.some(row => row.from === 'setup-audio-library' && row.to === 'setup-library'));
     assert.ok(SKILL_RENAMES.some(row => row.from === 'bake-3d' && row.to === 'author-scene3d'));
     assert.equal(resolveSkillName('old-a', table), 'author-scene3d');
     assert.equal(resolveSkillName('old-b', table), 'author-scene3d');

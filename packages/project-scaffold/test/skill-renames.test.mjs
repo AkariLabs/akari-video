@@ -4,6 +4,7 @@ setLanguage('ja');
 after(() => setLanguage(undefined));
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -98,8 +99,11 @@ test('description の旧名は 1 回だけ書く（0 回も 2 回も不合格）
         skillDescription(frontmatter(` ${oldNameMarker('old-name')}`)),
         `New skill ${oldNameMarker('old-name')}`
     );
-    // 実リポの表に対する検査は上の実リポテストで行う。
-    assert.deepEqual([], []);
+    // 実リポ: 改名表の各行の SKILL.md にマーカーがちょうど 1 回あること。
+    for (const row of parseSkillRenameTable(readFileSync(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8')).renames) {
+        const markdown = readFileSync(join(REPO_ROOT, 'skills', row.to, 'SKILL.md'), 'utf8');
+        assert.equal(oldNameMarkerCount(markdown, row.from), 1, `${row.to}/SKILL.md`);
+    }
 });
 
 // ── 旧名コピーの片付け（installProjectSkills） ────────────────────────────────

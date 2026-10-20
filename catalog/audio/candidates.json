@@ -7,7 +7,7 @@
     "id": "akari-sounds",
     "label": "AKARI Sounds",
     "role": "default_source",
-    "note": "自社（first-party）音源ライブラリ。全トラック AI 生成（Suno 有料プラン）・生成記録公開・商用可・クレジット不要。BGM とジングルの既定はここ。効果音もまずここを見て、無い系統だけ下の外部候補を使う。first-party のため第三者サイト向けの一括取得禁止ルールは適用されない（skills/setup-audio-library/first-party.md 参照）",
+    "note": "自社（first-party）音源ライブラリ。全トラック AI 生成（Suno 有料プラン）・生成記録公開・商用可・クレジット不要。BGM とジングルの既定はここ。効果音もまずここを見て、無い系統だけ下の外部候補を使う。first-party のため第三者サイト向けの一括取得禁止ルールは適用されない（skills/setup-library/audio-first-party.md 参照）",
     "repo": "AkariLabs/akari-sounds",
     "catalog_url": "https://raw.githubusercontent.com/AkariLabs/akari-sounds/main/catalog.json",
     "release_tag": "v0",
@@ -85,7 +85,7 @@
     {
       "pass": 1,
       "date": "2026-07-22",
-      "by": "task/2026-07-22-setup-audio-library lane",
+      "by": "task/2026-07-22-setup-library audio lane",
       "method": "WebFetch で該当ページを直接取得し、研究時点で確度 ○/△（個別ファイル名まで特定・要再確認）と付されていた項目を再確認した。確度 ◎（カテゴリ/タグページ単位で URL 実在確認済み）の項目は本パスでは再取得していない（研究時点の直接確認を踏襲）。",
       "corrections": [
         "#27 拍手: 元URL https://soundeffect-lab.info/sound/various/ は「生活[1]」（徒歩/水/ドア等の日常音）で拍手なし。正しくは https://soundeffect-lab.info/sound/various/various3.html （生活[3]）。clapping-hands1.mp3 実在確認",

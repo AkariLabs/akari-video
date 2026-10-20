@@ -22,7 +22,7 @@ Below, `<ライブラリの置き場>` is the existing library-location placehol
    and what could actually be verified.
 5. Report unsuccessful sources with facts (403, access restriction, unresolved URL, etc.); link the download page
    and switch to manual acquisition.
-6. After all targets finish, join [gallery.md](gallery.md)'s listening flow and discard everything except keep selections.
+6. After all targets finish, join [audio-gallery.md](audio-gallery.md)'s listening flow and discard everything except keep selections.
 
 ## 3. Report format
 
@@ -36,4 +36,4 @@ Below, `<ライブラリの置き場>` is the existing library-location placehol
 - Recording judgments such as “prohibited site” for failed sources in documents/catalogs.
   Report only execution-time facts; do not make a static feasibility list.
 - Treating `_staging/` as a permanent library. Register keep selections in `<ライブラリの置き場>/audio/<id>/`
-  (existing library-location placeholder) + catalog metadata; join drop-folder.md's registration procedure.
+  (existing library-location placeholder) + catalog metadata; join audio-drop-folder.md's registration procedure.

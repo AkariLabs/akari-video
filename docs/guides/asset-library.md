@@ -4,8 +4,8 @@
 
 Assets, styles, and templates are managed as a library that's reusable across projects.
 The Library in the app's left panel is a single shelf for everything you drop onto the
-timeline. Three skills are involved: `setup-library` (initial setup),
-`setup-audio-library` (audio), and `harvest-asset` (adding new assets).
+timeline. Two skills are involved: `setup-library` (initial setup, including the audio library)
+and `harvest-asset` (adding new assets).
 
 ## The Library shelves
 
@@ -29,12 +29,17 @@ timeline. Three skills are involved: `setup-library` (initial setup),
 **When to use**: The first time you use AKARI Video. When you don't have enough usable
 assets.
 
-**How to ask**: "set up the asset library" / "I don't have enough usable assets"
+**How to ask**: "set up the asset library" / "I don't have enough usable assets" /
+"I want more BGM" / "add sound effects to the library"
 
 1. Checks required tools (ffmpeg, whisper-cli, headless Chrome, etc.)
 2. Suggests a starter pack from `catalog/` (the curated catalog: 3D, audio,
    B-roll, fonts)
 3. Approve → fetch, place, and verify
+
+The audio library (BGM / SFX) is part of the same skill: its audio route handles the bulk
+download of AKARI Sounds, candidate lists, drop folders, and the listening gallery
+(see [Add more audio](#add-more-audio--setup-library)).
 
 Nothing is fetched, purchased, or logged into without your approval, and assets whose
 license can't be confirmed are not placed.
@@ -99,9 +104,11 @@ Bundled assets carry an English name, description, use case, and knob names unde
 `meta.json`. The English UI shows these (the Japanese UI shows the base fields).
 You can add `i18n.en` to assets you bring in yourself; any field you leave out falls back to the base Japanese field.
 
-## Add more audio — `setup-audio-library`
+## Add more audio — `setup-library`
 
 **How to ask**: "I want more BGM / sound effects"
+
+The audio route of `setup-library`.
 
 The default is to bulk-download the official **AKARI Sounds** (BGM, jingles, and sound effects; free).
 

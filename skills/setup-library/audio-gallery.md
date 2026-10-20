@@ -4,7 +4,7 @@ The library defaults to the workspace's `library/`. Without a workspace, use the
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
 Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
-A local gallery for listening to audio registered through [drop-folder.md](drop-folder.md) and deciding keep/drop.
+A local gallery for listening to audio registered through [audio-drop-folder.md](audio-drop-folder.md) and deciding keep/drop.
 Same pattern as decision-cards / intake-form: `127.0.0.1` only, zero external npm dependencies, atomic state writes to JSON sidecars.
 
 ## 1. Start

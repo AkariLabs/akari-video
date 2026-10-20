@@ -2,6 +2,7 @@
   "version": 1,
   "renames": [
     { "from": "generate-media", "to": "generate-video", "since": "1.5.2" },
-    { "from": "bake-3d", "to": "author-scene3d", "since": "1.5.2" }
+    { "from": "bake-3d", "to": "author-scene3d", "since": "1.5.2" },
+    { "from": "setup-audio-library", "to": "setup-library", "since": "1.5.2" }
   ]
 }

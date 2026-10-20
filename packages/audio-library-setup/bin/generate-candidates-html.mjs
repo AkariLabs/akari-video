@@ -2,7 +2,7 @@
 // catalog/audio/candidates.json + 現在の catalog/audio/*/meta.json から、
 // カテゴリ別・「ダウンロードページを開く」ボタン付きの静的 HTML を生成する。
 //
-// ハードルール（skills/setup-audio-library/SKILL.md と同一）:
+// ハードルール（skills/setup-library/SKILL.md と同一）:
 // - このスクリプトは一切のダウンロードを実行しない。リンクはダウンロードページ URL を
 //   新規タブで開くだけで、音声ファイルへの直リンクは張らない。
 // - 出力は完全に自己完結した静的 HTML（外部 CDN 依存ゼロ）。file:// 直開きでも動作する。

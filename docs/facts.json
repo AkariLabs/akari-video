@@ -56,7 +56,7 @@
     }
   },
   "skills": {
-    "count": 29,
+    "count": 28,
     "names": [
       "address-review",
       "akari",
@@ -82,7 +82,6 @@
       "record-playbook",
       "render-cut",
       "research-plan",
-      "setup-audio-library",
       "setup-chat-approval",
       "setup-library",
       "setup-remote",

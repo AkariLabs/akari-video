@@ -18,12 +18,12 @@ const names = [
     'beat-sync-edit', 'compile-review-session', 'create-project', 'critique-cut',
     'declare-audio', 'design-world', 'edit-lint', 'edit-plan', 'export-nle',
     'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'manage-connections',
-    'overlay-authoring', 'render-cut', 'research-plan', 'setup-audio-library',
+    'overlay-authoring', 'render-cut', 'research-plan',
     'setup-chat-approval', 'setup-library', 'setup-remote', 'verify'
 ];
 
-test('27 件すべてに専用の絵があり、パスが二枚の間で重複しない', () => {
-    assert.equal(names.length, 27);
+test('26 件すべてに専用の絵があり、パスが二枚の間で重複しない', () => {
+    assert.equal(names.length, 26);
     assert.deepEqual([...DEDICATED_PICTOGRAM_NAMES].sort(), [...names].sort());
     const pathOwners = new Map();
     for (const name of names) {
