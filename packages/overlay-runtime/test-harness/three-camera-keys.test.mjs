@@ -12,16 +12,20 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(resolve(HERE, "../src/three-runtime.js"), "utf8");
-const runtime = new Function(
-  "window",
-  "console",
-  `${SOURCE}\nreturn window.akari.threeRuntime;`,
-)({ akari: {} }, console);
+const context = { window: {} };
+runInNewContext(SOURCE, context, { filename: "three-runtime.js" });
+const runtime = context.window.akari.threeRuntime;
 
 const keys = (...entries) => runtime.validateCameraKeys(entries);
+// vm の別レルムで作られた配列を、このレルムの素の配列へ写して比較する。
+const cameraKeysAt = (camera, seconds) => {
+  const pose = runtime.cameraKeysAt(camera, seconds);
+  return { position: Array.from(pose.position), lookAt: Array.from(pose.lookAt) };
+};
 const close = (actual, expected, epsilon = 1e-9) => Array.isArray(expected)
   && Array.isArray(actual)
   && expected.length === actual.length
@@ -39,11 +43,11 @@ test("camera.keys: 最初のキーより前は最初のキーで保持", () => {
     key(1, [1, 2, 3], [4, 5, 6]),
     key(3, [7, 8, 9], [10, 11, 12]),
   );
-  assert.deepEqual(runtime.cameraKeysAt(camera, 0), {
+  assert.deepEqual(cameraKeysAt(camera, 0), {
     position: [1, 2, 3],
     lookAt: [4, 5, 6],
   });
-  assert.deepEqual(runtime.cameraKeysAt(camera, -5), {
+  assert.deepEqual(cameraKeysAt(camera, -5), {
     position: [1, 2, 3],
     lookAt: [4, 5, 6],
   });
@@ -54,11 +58,11 @@ test("camera.keys: キー間は position / lookAt を成分ごとに linear 補�
     key(0, [0, 0, 0], [0, 0, 0]),
     key(2, [2, 4, 6], [10, 0, -2]),
   );
-  assert.deepEqual(runtime.cameraKeysAt(camera, 0.5), {
+  assert.deepEqual(cameraKeysAt(camera, 0.5), {
     position: [0.5, 1, 1.5],
     lookAt: [2.5, 0, -0.5],
   });
-  assert.deepEqual(runtime.cameraKeysAt(camera, 1), {
+  assert.deepEqual(cameraKeysAt(camera, 1), {
     position: [1, 2, 3],
     lookAt: [5, 0, -1],
   });
@@ -69,7 +73,7 @@ test("camera.keys: 最後のキーより後は最後のキーで保持", () => {
     key(0, [0, 0, 0], [0, 0, 0]),
     key(2, [2, 4, 6], [10, 0, -2]),
   );
-  assert.deepEqual(runtime.cameraKeysAt(camera, 99), {
+  assert.deepEqual(cameraKeysAt(camera, 99), {
     position: [2, 4, 6],
     lookAt: [10, 0, -2],
   });
@@ -78,7 +82,7 @@ test("camera.keys: 最後のキーより後は最後のキーで保持", () => {
 test("camera.keys: キー 1 個はその固定値", () => {
   const camera = keys(key(5, [1, 2, 3], [4, 5, 6]));
   for (const seconds of [0, 5, 100]) {
-    assert.deepEqual(runtime.cameraKeysAt(camera, seconds), {
+    assert.deepEqual(cameraKeysAt(camera, seconds), {
       position: [1, 2, 3],
       lookAt: [4, 5, 6],
     });
@@ -95,10 +99,10 @@ test("camera.keys: easeInOut は linear と違い、両端で 0/1 に張り付�
     key(2, [8, 0, 0], [8, 0, 0]),
   );
   // u = 0.2 → easeInOut = 4 * 0.2^3 = 0.032
-  assert.equal(close(runtime.cameraKeysAt(eased, 0.4).position, [0.256, 0, 0]), true);
-  assert.equal(close(runtime.cameraKeysAt(linear, 0.4).position, [1.6, 0, 0]), true);
-  assert.deepEqual(runtime.cameraKeysAt(eased, 2).position, [8, 0, 0]);
-  assert.deepEqual(runtime.cameraKeysAt(eased, 0).position, [0, 0, 0]);
+  assert.equal(close(cameraKeysAt(eased, 0.4).position, [0.256, 0, 0]), true);
+  assert.equal(close(cameraKeysAt(linear, 0.4).position, [1.6, 0, 0]), true);
+  assert.deepEqual(cameraKeysAt(eased, 2).position, [8, 0, 0]);
+  assert.deepEqual(cameraKeysAt(eased, 0).position, [0, 0, 0]);
 });
 
 test("camera.keys: ease は「そのキーへ入る区間」に効く（開始キーの ease は使わない）", () => {
@@ -106,7 +110,7 @@ test("camera.keys: ease は「そのキーへ入る区間」に効く（開始�
     key(0, [0, 0, 0], [0, 0, 0], "easeInOut"),
     key(2, [8, 0, 0], [8, 0, 0]),
   );
-  assert.deepEqual(runtime.cameraKeysAt(camera, 0.4).position, [1.6, 0, 0]);
+  assert.deepEqual(cameraKeysAt(camera, 0.4).position, [1.6, 0, 0]);
 });
 
 test("camera.keys: t が昇順でない宣言はソートせずエラー（両方の t を理由に出す）", () => {
@@ -141,7 +145,7 @@ test("camera.keys: 同じ t は常に同じ姿勢（決定論）", () => {
     key(3, [-2, 0, 4], [0, 1, 0], "easeInOut"),
   );
   for (const seconds of [0.1, 0.7, 1.5, 2.2, 2.9]) {
-    assert.deepEqual(runtime.cameraKeysAt(camera, seconds), runtime.cameraKeysAt(camera, seconds));
+    assert.deepEqual(cameraKeysAt(camera, seconds), cameraKeysAt(camera, seconds));
   }
 });
 
