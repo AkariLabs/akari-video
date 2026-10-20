@@ -266,7 +266,7 @@ Creating symbolic links on Windows needs a privilege that regular accounts don't
 `tar` fails on every symlink in the repository and finishes with **exit 1**.
 
 ```
-.agents/skills/address-review: Can't create '\\?\C:\Users\<username>\.akari\app\.agents\skills\address-review': Invalid argument
+.agents/skills/edit-from-review: Can't create '\\?\C:\Users\<username>\.akari\app\.agents\skills\edit-from-review': Invalid argument
 .claude/skills/...   (same)
 .codex/skills/...    (same)
 .cursor/skills/...   (same)

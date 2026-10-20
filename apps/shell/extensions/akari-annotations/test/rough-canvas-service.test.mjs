@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 
-import { validateCanvasManifest, validateCanvasStroke } from '../../../../../skills/compile-review-session/bin/core/canvas-compiler.mjs';
+import { validateCanvasManifest, validateCanvasStroke } from '../../../../../skills/review-from-recording/bin/core/canvas-compiler.mjs';
 import { setLanguage } from '@akari-video/i18n';
 import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');

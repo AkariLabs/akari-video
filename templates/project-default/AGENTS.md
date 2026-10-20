@@ -30,7 +30,7 @@ Below, `<library-location>` is the existing library-location placeholder; audio 
 Use the existing preview functionality. Do not implement dedicated playback HTML, playback UI, or audio synchronization
 just to provide a preview (unless the user explicitly requests a standalone playback page).
 Open this project's output preview in the app. Launch the browser version from Menu → Browser Preview.
-See [Launch and check the existing preview](.claude/skills/edit-lint/preview.md).
+See [Launch and check the existing preview](.claude/skills/verify-edit/preview.md).
 If launch fails, record the cause and reproduction conditions. To report it as checked, verify playback, seeking,
 and audio (if present) in the existing screen, and specify whether you used the app or existing browser preview.
 Checking only rendering components or a separate page does not count as checking the existing preview.
@@ -64,10 +64,10 @@ All directories beneath `.claude/skills/` are available as-is. Main skills:
 - `/edit-plan` … Edit planning, reporting, approval, and generation
 - `/overlay-authoring` … Creation of captions, diagrams, glass, motion, thumbnails, and other 2D visual elements
 - `/author-scene3d` … 3D scenes (Three.js by default, Blender bake only when needed)
-- `/edit-lint` … Deterministic checking and QA of edits
+- `/verify-edit` … Deterministic checking and QA of edits
 - `/render-cut` … Export and verification of approved edits
 - `/setup-library` … Asset library preparation
-- `/address-review` … Handling open review feedback
+- `/edit-from-review` … Handling open review feedback
 
 Harnesses such as Codex / Cursor discover the same skills through `.agents/skills/` / `.cursor/skills/` / `.codex/skills/`
 (symlinks to `.claude/skills/`).

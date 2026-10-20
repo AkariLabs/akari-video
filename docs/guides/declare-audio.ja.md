@@ -14,7 +14,7 @@ AKARI Video に教えます。スキルは `declare-audio`。結果はライブ�
 
 - 「BGM の提案が雑」— 宣言済みの曲は実測 BPM とサビ頭出し（`audio.bgm.in`）付きで
   提案されるようになる
-- ビート同期編集の前 — [beat-sync-edit](./beat-sync.ja.md) は宣言なしでは始まらない
+- ビート同期編集の前 — [edit-to-beat](./beat-sync.ja.md) は宣言なしでは始まらない
 - 「この曲のサビを教えたい」「拍に合わせて切りたい」
 
 ## 仕組み

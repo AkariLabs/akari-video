@@ -45,7 +45,7 @@ CLI の実行時 import ではない、が線引き）。
 | 層 | `baked` 無し（未焼成） | `baked` 有り |
 |---|---|---|
 | schema | 通る（構造は不変） | 通る |
-| `edit-lint` | **error `telop.retired`** | 通る |
+| `akari lint` | **error `telop.retired`** | 通る |
 | `render-cut` | `--force` で lint を迂回されても `renderItemDeclaration` が明示 throw（`telop.retired: <id>: …`）。黙って空描画にしない | 従来どおり `kind:"baked"` レイヤーへ写る |
 | プレビュー（shell） | 既存のプレースホルダ機構で退役カードを表示（`retiredTelop: true` / `data-akari-deferred-state="retired"`）。ラスタ要求は送らない | 従来どおり `.preview.webm` サイドカーで再生 |
 | タイムライン / インスペクタ | 表示・選択できたまま（認識は未変更） | 同左 |
@@ -70,7 +70,7 @@ ATF の 36 種に相当する文字演出は、**HTML 素材版（動く部品�
 
 ## 5. 対象外
 
-- **開発者ツールの `puppeteer-core`**: `packages/akari-tools`・analyze-footage / critique-cut の
+- **開発者ツールの `puppeteer-core`**: `packages/akari-tools`・analyze-footage / review-cut の
   補助・`kaisetsu-short` 作例・overlay-runtime の test-harness は退役の対象外。これらは出荷物
   （extraResources / パッケージ版）ではなく開発者の手元で動く道具であり、ブラウザ同梱の
   問題が発生しない

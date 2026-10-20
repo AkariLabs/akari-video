@@ -48,7 +48,7 @@ cost approval comes before the preview.
   script (`script`), the reading text used for speech (`reading`), and the provenance
   (`provenance`; VOICEVOX voices also carry the character credit)
 
-After generation, [edit-lint](./review-and-fix.md) checks duration, overlaps, and broken references.
+After generation, [verify-edit](./review-and-fix.md) checks duration, overlaps, and broken references.
 How the reading text is prepared and how a voice is chosen depend on the work's language
 (Japanese, English, and so on).
 

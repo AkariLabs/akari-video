@@ -3,11 +3,11 @@
 # QA・レビューして直す
 
 「開いたらほぼ終わっている」を成立させるのは検査とレビューのループです。
-3 つのスキルが連携します: `edit-lint`（機械検査）→ `compile-review-session`
-（録音レビューのチケット化）→ `address-review`（チケット対応）。
+3 つのスキルが連携します: `verify-edit`（機械検査）→ `review-from-recording`
+（録音レビューのチケット化）→ `edit-from-review`（チケット対応）。
 プレビューに直接付けた印は、録音なしでそのまま注釈（チケット）になります。
 
-## セルフチェック — `edit-lint`
+## セルフチェック — `verify-edit`
 
 **いつ使う**: `edit.json` を作成・変更した直後。書き出しの前。レビュー対応後の再確認。
 
@@ -55,7 +55,7 @@ render-cut は lint PASS を前提条件にしているので、このゲート�
 [review.json v1 注釈モデル](../contract-2026-07-20-review-json-v1-annotation-model.md) と
 [注釈ストローク永続表示](../contract-2026-08-23-stroke-persistence.md)。
 
-## 喋りながらレビューする — `compile-review-session`
+## 喋りながらレビューする — `review-from-recording`
 
 **いつ使う**: プレビューを見ながら口頭で気になった点を挙げていきたいとき。
 
@@ -74,7 +74,7 @@ render-cut は lint PASS を前提条件にしているので、このゲート�
 線・文字起こしを同じ時計で見直せ、録音時点から `edit.json` がどう変わったかの差分も出ます
 （[見返しビューア](../contract-2026-09-12-review-session-viewer.md)）。
 
-## チケットに対応する — `address-review`
+## チケットに対応する — `edit-from-review`
 
 **いつ使う**: `review.json` に open チケットが溜まっているとき。
 

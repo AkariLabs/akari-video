@@ -30,12 +30,12 @@
 | [編集計画を立てて実行する](./guides/plan-your-edit.ja.md) | 3 段階承認で edit.json へ（edit-plan） |
 | [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.ja.md) | AI が描く表現と、ツマミで触れる動く部品（overlay-authoring / author-scene3d） |
 | [ナレーションを付ける](./guides/narration.ja.md) | ローカル無償 / 声クローン（generate-narration） |
-| [QA・レビューして直す](./guides/review-and-fix.ja.md) | 機械検査・口頭レビューのチケット化・対応（edit-lint / compile-review-session / address-review） |
+| [QA・レビューして直す](./guides/review-and-fix.ja.md) | 機械検査・口頭レビューのチケット化・対応（verify-edit / review-from-recording / edit-from-review） |
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
 | [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物を素材・スタイル・テンプレートとして入庫（setup-library / harvest-asset） |
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスで 3D の設定を映像素材に（author-scene3d） |
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
-| [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（beat-sync-edit） |
+| [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・紹介動画を機械生成（edit-to-beat） |
 | [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |
 | [生成モデル一覧（機械生成）](./guides/generation-models.ja.md) | 価格・尺・入力・音声・較正の事実一覧 |
 
@@ -112,7 +112,7 @@
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | タスク契約 v0 |
 | [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | チャンネルの人物記録・ローカルの写真と声・話者のつながり・デザイン素材のデータ契約 |
 | [contract-2026-10-11-speaker-split-v0.md](./contract-2026-10-11-speaker-split-v0.md) | 選択制の話者分離・ローカルの声の照合提案・人による話者の確定 |
-| [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | 断片の `@font-face` 書体の字形検査（`edit-lint` `overlays.fragment-font-glyphs`）は実装済み。書き出し時の自動部分化とキャッシュの掃除は予定。 |
+| [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | 断片の `@font-face` 書体の字形検査（`akari lint` `overlays.fragment-font-glyphs`）は実装済み。書き出し時の自動部分化とキャッシュの掃除は予定。 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |

@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { appendAnnotationsAtomic } from '../../../../../skills/compile-review-session/bin/core/review-store.mjs';
+import { appendAnnotationsAtomic } from '../../../../../skills/review-from-recording/bin/core/review-store.mjs';
 import { setLanguage } from '@akari-video/i18n';
 import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
@@ -176,7 +176,7 @@ test('古い空ロックを回復してアプリで追加する', async () => fi
 }));
 
 test('別プロセスの CLI 追記とアプリ追加が競合しても全件・一意 ID を保つ', async () => fixture(async ({ review, service, reviewUri, projectRootUri }) => {
-    const cliModule = fileURLToPath(new URL('../../../../../skills/compile-review-session/bin/core/review-store.mjs', import.meta.url));
+    const cliModule = fileURLToPath(new URL('../../../../../skills/review-from-recording/bin/core/review-store.mjs', import.meta.url));
     const cliScript = 'const {appendAnnotationsAtomic}=await import(process.argv[1]); await appendAnnotationsAtomic(process.argv[2],[{text:process.argv[3]}]);';
     const writes = Array.from({ length: 6 }, (_, index) => [
         execFileAsync(process.execPath, ['--input-type=module', '-e', cliScript, pathToFileURL(cliModule).toString(), review, `CLI ${index}`]),

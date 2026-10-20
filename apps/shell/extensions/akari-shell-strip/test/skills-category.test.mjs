@@ -11,18 +11,18 @@ const { skillCategory, skillCategoryLabel, groupSkillsByCategory } =
     require('../lib/browser/skills/skills-panel-model.js');
 
 const expected = {
-    'address-review': 'review',
+    'edit-from-review': 'edit',
     akari: 'other',
     'analyze-footage': 'analysis',
     'analyze-project': 'analysis',
     'author-scene3d': 'other',
-    'beat-sync-edit': 'edit',
-    'compile-review-session': 'review',
+    'edit-to-beat': 'edit',
+    'review-from-recording': 'review',
     'create-project': 'other',
-    'critique-cut': 'edit',
+    'review-cut': 'edit',
     'declare-audio': 'material',
     'design-world': 'other',
-    'edit-lint': 'review',
+    'verify-edit': 'edit',
     'edit-plan': 'plan',
     'export-nle': 'export',
     'generate-image': 'material',
@@ -36,7 +36,7 @@ const expected = {
     'setup-chat-approval': 'setup',
     'setup-library': 'material',
     'setup-remote': 'setup',
-    verify: 'other'
+    'verify-project': 'other'
 };
 
 test('26 件のスキル名を名前の語と優先順で分類する', () => {

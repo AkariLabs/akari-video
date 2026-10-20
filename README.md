@@ -99,7 +99,7 @@ flowchart LR
     A["Plan<br/>research-plan"] --> B["Analyze footage<br/>analyze-footage"]
     B --> C["Edit plan<br/>edit-plan"]
     C --> D["Captions / 3D / Narration<br/>overlay-authoring<br/>author-scene3d<br/>generate-narration"]
-    D --> E["QA & Review<br/>edit-lint<br/>address-review"]
+    D --> E["QA & Review<br/>verify-edit<br/>edit-from-review"]
     E --> F["Export<br/>render-cut"]
     F --> G["Harvest assets<br/>harvest-asset"]
     F --> H["Record the playbook<br/>record-playbook"]

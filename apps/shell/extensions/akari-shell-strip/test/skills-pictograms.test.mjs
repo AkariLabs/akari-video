@@ -14,12 +14,12 @@ const { SkillPictogram, skillPictogramFor, DEDICATED_PICTOGRAM_NAMES } =
     require('../lib/browser/skills/skill-pictograms.js');
 
 const names = [
-    'address-review', 'akari', 'analyze-footage', 'analyze-project', 'author-scene3d',
-    'beat-sync-edit', 'compile-review-session', 'create-project', 'critique-cut',
-    'declare-audio', 'design-world', 'edit-lint', 'edit-plan', 'export-nle',
+    'edit-from-review', 'akari', 'analyze-footage', 'analyze-project', 'author-scene3d',
+    'edit-to-beat', 'review-from-recording', 'create-project', 'review-cut',
+    'declare-audio', 'design-world', 'verify-edit', 'edit-plan', 'export-nle',
     'generate-image', 'generate-narration', 'generate-video', 'harvest-asset', 'manage-connections',
     'overlay-authoring', 'render-cut', 'research-plan',
-    'setup-chat-approval', 'setup-library', 'setup-remote', 'verify'
+    'setup-chat-approval', 'setup-library', 'setup-remote', 'verify-project'
 ];
 
 test('26 件すべてに専用の絵があり、パスが二枚の間で重複しない', () => {

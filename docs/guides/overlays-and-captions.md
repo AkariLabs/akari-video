@@ -55,11 +55,11 @@ are three conventions:
    auto-generates sliders / color pickers. `--x` / `--y` / `--scale` / `--rotate` are
    runtime-reserved on every motion part (not just `role: "background"` ones) — the runtime always
    sets them inline on the container, so referencing or redefining them for a custom knob
-   silently loses the fallback; use a non-reserved name instead (`edit-lint` warns via
+   silently loses the fallback; use a non-reserved name instead (`akari lint` warns via
    `overlays.reserved-css-var-reference`)
 3. **Class and `@keyframes` names are global to the page** — give every fragment its own prefix
    (for example `.lower-third-…` / `@keyframes lower-third-…`) instead of copying a name from
-   another fragment; when clips overlap in time, `edit-lint` warns via
+   another fragment; when clips overlap in time, `akari lint` warns via
    `overlays.fragment-css-collision` because the later fragment's rules would style the other
    clip's elements. Reusing the same fragment file in several clips is not a collision.
 
@@ -81,7 +81,7 @@ pins the fragment to the output frame — and a background cannot carry a `trans
 Use it for solid colors, gradients, and patterned boards behind captions and figures.
 Motion parts without `role` behave exactly as before. What the schema cannot express
 (locked-knob overrides via `vars`, overlapping background intervals) is checked by
-`edit-lint`.
+`akari lint`.
 
 ## Create captions (akari captions)
 
@@ -294,7 +294,7 @@ appears in the import list).
 - Typefaces you do not have carry a "Available", "Download", or "Download required" mark. A free typeface starts downloading as soon as you press it.
   For one that cannot be obtained, the app shows where to get it and "Apply with a substitute font"
 - When a character used by a motion-part fragment is missing from every font it references,
-  `edit-lint` reports `overlays.fragment-font-glyphs`. When the fragment's script creates
+  `akari lint` reports `overlays.fragment-font-glyphs`. When the fragment's script creates
   characters, declare them on the fragment root with `data-akari-font-chars`
 
 ## Content language and asset translation

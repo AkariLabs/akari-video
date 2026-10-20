@@ -7,7 +7,7 @@
 ## 前提
 
 - `edit.json` が確定していること
-- [edit-lint](./review-and-fix.ja.md) が PASS していること（`.akari/lint.json` の
+- [verify-edit](./review-and-fix.ja.md) が PASS していること（`.akari/lint.json` の
   `verdict: pass` を render-cut が確認します）
 
 ## 頼み方

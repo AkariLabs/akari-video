@@ -3,6 +3,12 @@
   "renames": [
     { "from": "generate-media", "to": "generate-video", "since": "1.5.2" },
     { "from": "bake-3d", "to": "author-scene3d", "since": "1.5.2" },
-    { "from": "setup-audio-library", "to": "setup-library", "since": "1.5.2" }
+    { "from": "setup-audio-library", "to": "setup-library", "since": "1.5.2" },
+    { "from": "address-review", "to": "edit-from-review", "since": "1.5.2" },
+    { "from": "beat-sync-edit", "to": "edit-to-beat", "since": "1.5.2" },
+    { "from": "critique-cut", "to": "review-cut", "since": "1.5.2" },
+    { "from": "compile-review-session", "to": "review-from-recording", "since": "1.5.2" },
+    { "from": "edit-lint", "to": "verify-edit", "since": "1.5.2" },
+    { "from": "verify", "to": "verify-project", "since": "1.5.2" }
   ]
 }

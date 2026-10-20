@@ -22,7 +22,7 @@ test("compile -> address -> lint -> human resolve -> full acceptance uses the re
   try {
     const sourceSession = join(
       REPO_ROOT,
-      "skills/compile-review-session/dev-fixtures/fixture-project/review/sessions/s-0008",
+      "skills/review-from-recording/dev-fixtures/fixture-project/review/sessions/s-0008",
     );
     const sessionDirectory = join(root, "review", "sessions", "s-0008");
     await mkdir(join(root, "review", "sessions"), { recursive: true });
@@ -48,7 +48,7 @@ test("compile -> address -> lint -> human resolve -> full acceptance uses the re
     });
 
     const compiled = runNode([
-      "skills/compile-review-session/bin/compile-review-session.mjs",
+      "skills/review-from-recording/bin/compile-review-session.mjs",
       root,
       "--session",
       "s-0008",
@@ -60,14 +60,14 @@ test("compile -> address -> lint -> human resolve -> full acceptance uses the re
     const lintBefore = runNode(["packages/edit-lint/bin/edit-lint.mjs", root, "--json"]);
     assert.equal(lintBefore.status, 0, lintBefore.stderr || lintBefore.stdout);
 
-    const listed = runNode(["skills/address-review/bin/list.mjs", root, "--all-open", "--json"]);
+    const listed = runNode(["skills/edit-from-review/bin/list.mjs", root, "--all-open", "--json"]);
     assert.equal(listed.status, 0, listed.stderr);
     const listedPayload = JSON.parse(listed.stdout);
     const ids = [...listedPayload.targets, ...listedPayload.skipped].map((annotation) => annotation.id);
     assert.equal(ids.length, 1);
     for (const id of ids) {
       const addressed = runNode([
-        "skills/address-review/bin/respond.mjs",
+        "skills/edit-from-review/bin/respond.mjs",
         root,
         "--id",
         id,

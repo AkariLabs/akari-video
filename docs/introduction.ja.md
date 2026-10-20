@@ -82,8 +82,8 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
                author-scene3d      3D シーン（既定は Three.js / Blender で焼く経路も）
                generate-narration  ナレーション生成（ローカル無償 / 声クローン）
    ↓
-[QA・レビュー] edit-lint           決定的 CLI 検査 + フレーム視認
-               compile-review-session / address-review   口頭レビュー → チケット → 対応
+[QA・レビュー] verify-edit         決定的 CLI 検査 + フレーム視認
+               review-from-recording / edit-from-review   口頭レビュー → チケット → 対応
    ↓
 [書き出し]     render-cut          計画 → 承認 → レンダリング → 検証
    ↓

@@ -58,20 +58,17 @@
   "skills": {
     "count": 28,
     "names": [
-      "address-review",
       "akari",
       "analyze-footage",
       "analyze-project",
       "author-scene3d",
-      "beat-sync-edit",
-      "compile-review-session",
       "connect",
       "create-project",
-      "critique-cut",
       "declare-audio",
       "design-world",
-      "edit-lint",
+      "edit-from-review",
       "edit-plan",
+      "edit-to-beat",
       "export-nle",
       "generate-image",
       "generate-narration",
@@ -82,10 +79,13 @@
       "record-playbook",
       "render-cut",
       "research-plan",
+      "review-cut",
+      "review-from-recording",
       "setup-chat-approval",
       "setup-library",
       "setup-remote",
-      "verify"
+      "verify-edit",
+      "verify-project"
     ],
     "beta": [
       "export-nle"

@@ -16,7 +16,7 @@ For report, decision-record, and approval-prompt writing, read the section in th
 
 ## Output rules for every mode
 
-- Before showing the result, read [launching and checking the existing preview](../edit-lint/preview.md). Use the existing feature; do not build project-specific playback HTML, a playback UI, or audio synchronization (unless the user explicitly requests a standalone page). State the preview entry point you checked in the report.
+- Before showing the result, read [launching and checking the existing preview](../verify-edit/preview.md). Use the existing feature; do not build project-specific playback HTML, a playback UI, or audio synchronization (unless the user explicitly requests a standalone page). State the preview entry point you checked in the report.
 
 - Base decisions on validated `analysis.json`; do not invent transcripts, frames, assets, or approvals without evidence.
 - Record decisions in `decision-log.md`. For a new file, use the exact table header for the user's language; when appending to an existing file, keep its header language. Write decision and reason cells in the user's language (see [report-guide §decision_log](report-guide.md#decision_log)). Never change or delete existing rows; always append. The read-only HTML decision-record report derived from `decision-log.md` is a copy of the record without a decision UI and is no exception.

@@ -100,7 +100,7 @@ OSR になったときは書き出しの画面に理由が出ます。`--engine 
 
 **Q. edit.json を手で編集していい？**
 構いません。テキストなので直接編集も git 管理もできます。編集後は
-[edit-lint](../guides/review-and-fix.ja.md) をかけてください。
+[verify-edit](../guides/review-and-fix.ja.md) をかけてください。
 
 **Q. カットを並び替えたら字幕や注釈がズレない？**
 ズレません。時刻は常に (素材, 素材の原本秒) で永続化する規約で、

@@ -35,7 +35,7 @@ unpurchased assets display `locked` and their price. Library files live in `<lib
 Use the existing preview functionality. Do not implement dedicated playback HTML, playback UI, or audio synchronization
 just to provide a preview (unless the user explicitly requests a standalone playback page).
 Open this project's output preview in the app. Launch the browser version from Menu → Browser Preview.
-See [Launch and check the existing preview](.claude/skills/edit-lint/preview.md).
+See [Launch and check the existing preview](.claude/skills/verify-edit/preview.md).
 If launch fails, record the cause and reproduction conditions. To report it as checked, verify playback, seeking,
 and audio (if present) in the existing screen, and specify whether you used the app or existing browser preview.
 Checking only rendering components or a separate page does not count as checking the existing preview.
@@ -60,10 +60,10 @@ All directories beneath `.claude/skills/` are available as-is. Main skills:
 - `/edit-plan` … Make an edit plan and apply it after reporting and approval.
 - `/overlay-authoring` … Create captions, diagrams, glass, motion, thumbnails, and other 2D visual elements.
 - `/author-scene3d` … Author 3D scenes (Three.js by default, Blender bake only when needed).
-- `/edit-lint` … Check edits mechanically and support final quality checks.
+- `/verify-edit` … Check edits mechanically and support final quality checks.
 - `/render-cut` … Export approved edits and verify the finished file.
 - `/setup-library` … Prepare available assets.
-- `/address-review` … Apply open review feedback to the edit.
+- `/edit-from-review` … Apply open review feedback to the edit.
 
 Entry points for other AI agents such as Codex and Cursor are in `.agents/skills/`, `.cursor/skills/`, and `.codex/skills/`
 (links to `.claude/skills/`). See `AGENTS.md` for the workflow and paths for reading skill documents directly.

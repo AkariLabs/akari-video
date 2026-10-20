@@ -7,7 +7,7 @@ Renders the final MP4 from an approved `edit.json`. The skill is `render-cut`.
 ## Prerequisites
 
 - `edit.json` is finalized
-- [edit-lint](./review-and-fix.md) has passed (render-cut checks `.akari/lint.json` for
+- [verify-edit](./review-and-fix.md) has passed (render-cut checks `.akari/lint.json` for
   `verdict: pass`)
 
 ## How to ask

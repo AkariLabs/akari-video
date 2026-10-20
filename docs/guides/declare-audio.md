@@ -12,7 +12,7 @@ to the audio file in your library (default `<library>/audio/`).
 
 - "The BGM suggestions feel off" — declared tracks are suggested with a measured BPM
   and a chorus cue-in (`audio.bgm.in`)
-- Before a beat-synced edit — [beat-sync-edit](./beat-sync.md) refuses to start
+- Before a beat-synced edit — [edit-to-beat](./beat-sync.md) refuses to start
   without declarations
 - "I want to tell it where the chorus is" / "I want to cut on the beat"
 

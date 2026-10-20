@@ -184,13 +184,13 @@ test("installProjectSkills 経由の createProject(): dev-fixtures/ ディレク
     const destination = join(root, "project");
     await mkdir(templateDir, { recursive: true });
 
-    // 実スキル同梱の開発用フィクスチャ（例: skills/address-review/dev-fixtures/fixture-project/
+    // 実スキル同梱の開発用フィクスチャ（例: skills/edit-from-review/dev-fixtures/fixture-project/
     // edit.json）を模した合成 skillsSourceDir。SKILL.md 等の本体ファイルは従来どおりコピーされ、
     // dev-fixtures/ ディレクトリだけが除外されることを確認する。
     const skillsSourceDir = join(root, "skills-source");
-    const skillDir = join(skillsSourceDir, "address-review");
+    const skillDir = join(skillsSourceDir, "edit-from-review");
     await mkdir(skillDir, { recursive: true });
-    await writeFile(join(skillDir, "SKILL.md"), "# address-review\n", "utf8");
+    await writeFile(join(skillDir, "SKILL.md"), "# edit-from-review\n", "utf8");
     const fixtureDir = join(skillDir, "dev-fixtures", "fixture-project");
     await mkdir(fixtureDir, { recursive: true });
     await writeFile(join(fixtureDir, "edit.json"), "{}\n", "utf8");
@@ -198,7 +198,7 @@ test("installProjectSkills 経由の createProject(): dev-fixtures/ ディレク
 
     await createProject(destination, templateDir, { skillsSourceDir });
 
-    const installedSkillDir = join(destination, ".claude", "skills", "address-review");
+    const installedSkillDir = join(destination, ".claude", "skills", "edit-from-review");
     assert.ok((await stat(join(installedSkillDir, "SKILL.md"))).isFile());
 
     await assert.rejects(

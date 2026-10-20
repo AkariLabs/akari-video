@@ -3,7 +3,7 @@
 # ビート同期で作る（PV・ショーケース）
 
 カット・動く部品・SFX のすべてを曲の拍にスナップさせ、音に合わせて画面が
-動く動画を作ります。スキルは `beat-sync-edit`。
+動く動画を作ります。スキルは `edit-to-beat`。
 
 ## 向き・不向き
 
@@ -28,7 +28,7 @@
 
 - まず曲に宣言を付ける → [音源に宣言を付ける](./declare-audio.ja.md)
 - 仕上がったら書き出す → [書き出す](./export.ja.md)
-- 手順の正本 → [skills/beat-sync-edit/SKILL.md](../../skills/beat-sync-edit/SKILL.md)
+- 手順の正本 → [skills/edit-to-beat/SKILL.md](../../skills/edit-to-beat/SKILL.md)
 
 <!-- BEGIN GENERATED facts:stamp -->
 この文書は AKARI Video v1.5.1（2026-10-19 公開）時点の説明です。

@@ -45,7 +45,7 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [edit-plan](../skills/edit-plan/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行をチャットの明示承認で確定し edit.json v2 と動く部品へ。素材なしからの質問 → 仮の編集計画も扱う | — |
-| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json と動く部品一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
+| [edit-to-beat](../skills/edit-to-beat/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json と動く部品一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
 | [design-world](../skills/design-world/SKILL.md) | ブリーフ → 土台 → 台本 → `world-map.json` → flat ワールド映像の検査・組み立て・実測・俯瞰 | 同梱 `akari world` CLI |
 
 ### 表現
@@ -62,10 +62,10 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [critique-cut](../skills/critique-cut/SKILL.md) | 人間が先に組んだ edit.json を読み、使われている素材区間だけを観察して、現在のカットへ読み取り専用の所見を返す | `akari media` / `akari capture` |
-| [edit-lint](../skills/edit-lint/SKILL.md) | edit.json + analysis.json / captions.json / メディアの決定的検査。PASS 後のフレーム視認まで | 同梱の決定的 CLI |
-| [compile-review-session](../skills/compile-review-session/SKILL.md) | レビューの録音を文字起こし → 参照解決 → review.json の open コメントにまとめる | STT 3 層（analyze-footage と同じ） |
-| [address-review](../skills/address-review/SKILL.md) | open コメント（アプリの注釈パネルで付けた注釈も review.json に入る）への実対応 → edit-lint → コメント更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
+| [review-cut](../skills/review-cut/SKILL.md) | 人間が先に組んだ edit.json を読み、使われている素材区間だけを観察して、現在のカットへ読み取り専用の所見を返す | `akari media` / `akari capture` |
+| [verify-edit](../skills/verify-edit/SKILL.md) | edit.json + analysis.json / captions.json / メディアの決定的検査。PASS 後のフレーム視認まで | 同梱の決定的 CLI |
+| [review-from-recording](../skills/review-from-recording/SKILL.md) | レビューの録音を文字起こし → 参照解決 → review.json の open コメントにまとめる | STT 3 層（analyze-footage と同じ） |
+| [edit-from-review](../skills/edit-from-review/SKILL.md) | open コメント（アプリの注釈パネルで付けた注釈も review.json に入る）への実対応 → verify-edit → コメント更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
 
 ### 書き出し
 
@@ -87,7 +87,7 @@ AKARI Video のエージェント側ワークフローは **28 のスキル**に
 |---|---|---|
 | [manage-connections](../skills/manage-connections/SKILL.md) | 生成プロバイダ・SNS・memory 接続・API キー参照・モデル選択・コスト承認ポリシーの一元管理。**有償生成・外部公開の唯一の入口** | `.akari/connections.json` + 無償・読み取り専用の doctor |
 | [connect](../skills/connect/SKILL.md) | AKARI の道具と、素材生成・文字起こしで実際に使うサービスの状態を調べる | `akari connect list` / `akari connect exec` |
-| [verify](../skills/verify/SKILL.md) | タスク契約の検証はしご（L0 / L1 / L2）の実行手順 | 現行 Theia スタックのビルド・テスト |
+| [verify-project](../skills/verify-project/SKILL.md) | タスク契約の検証はしご（L0 / L1 / L2）の実行手順 | 現行 Theia スタックのビルド・テスト |
 
 ## 3D は 2 経路
 

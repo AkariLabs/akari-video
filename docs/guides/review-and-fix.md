@@ -3,11 +3,11 @@
 # QA, review, and fix
 
 The loop of checking and review is what makes "nearly finished when you open it" work.
-Three skills work together: `edit-lint` (mechanical checks) → `compile-review-session`
-(turns recorded review into tickets) → `address-review` (resolves tickets).
+Three skills work together: `verify-edit` (mechanical checks) → `review-from-recording`
+(turns recorded review into tickets) → `edit-from-review` (resolves tickets).
 Marks you draw directly on the preview become annotations (tickets) without any recording.
 
-## Self-check — `edit-lint`
+## Self-check — `verify-edit`
 
 **When to use**: Right after creating or changing `edit.json`. Before export. To re-check
 after addressing review tickets.
@@ -60,7 +60,7 @@ Annotations are stored in `review.json`. Contracts:
 [review.json v1 annotation model](../contract-2026-07-20-review-json-v1-annotation-model.md) and
 [annotation stroke persistence](../contract-2026-08-23-stroke-persistence.md) (both in Japanese).
 
-## Review while talking through it — `compile-review-session`
+## Review while talking through it — `review-from-recording`
 
 **When to use**: When you want to call out issues out loud while watching the preview.
 
@@ -82,7 +82,7 @@ recording" replays audio, output preview, lines, and transcript on one clock, an
 `edit.json` has changed since the recording
 ([session viewer contract](../contract-2026-09-12-review-session-viewer.md), in Japanese).
 
-## Address tickets — `address-review`
+## Address tickets — `edit-from-review`
 
 **When to use**: When `review.json` has open tickets piling up.
 
