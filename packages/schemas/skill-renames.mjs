@@ -179,7 +179,9 @@ export function findOldNameReferences(text, renames, options = {}) {
         const from = escapeRegExp(row.from);
         const patterns = [
             new RegExp(`(?:^|[^A-Za-z0-9_-])skills/${from}(?![A-Za-z0-9_-])`, 'm'),
-            new RegExp(`(?:^|[^A-Za-z0-9_/-])/${from}(?![A-Za-z0-9_-])`, 'm'),
+            // `.` is excluded before the slash so a relative path such as `../schema.json`
+            // is not read as a slash command.
+            new RegExp(`(?:^|[^A-Za-z0-9_/.-])/${from}(?![A-Za-z0-9_-])`, 'm'),
             new RegExp('`' + from + '`', 'm')
         ];
         if (patterns.some(pattern => pattern.test(source))) hits.push({ from: row.from, to: row.to });
@@ -187,7 +189,20 @@ export function findOldNameReferences(text, renames, options = {}) {
     return hits;
 }
 
-const REFERENCE_ROOTS = ['skills', 'docs', 'plugin', 'templates'];
+/**
+ * Repository surfaces a skill name can leak into. `*` expands to the directories at that
+ * level, so the runtime guidance in status-core, package sources and package bins is covered
+ * as well as the skill and documentation trees.
+ */
+const REFERENCE_ROOTS = [
+    'skills',
+    'docs',
+    'plugin',
+    'templates',
+    'apps/shell/extensions/*/src',
+    'packages/*/src',
+    'packages/*/bin'
+];
 const REFERENCE_FILES = ['AGENTS.md', 'README.md', 'README.ja.md'];
 const REFERENCE_EXTENSIONS = new Set(['.md', '.json', '.mjs', '.js', '.ts', '.tsx', '.yml', '.yaml', '.txt']);
 const REFERENCE_SKIP_DIRECTORIES = new Set(['node_modules', '.git', 'lib', 'dist', 'fixtures', 'dev-fixtures', 'evidence']);
@@ -204,6 +219,35 @@ export function isExcludedReferenceFile(relative) {
 
 function textFile(absolute) {
     return REFERENCE_EXTENSIONS.has(path.extname(absolute).toLowerCase());
+}
+
+/** Expand the `*` segments in `REFERENCE_ROOTS` into concrete absolute directories. */
+function expandReferenceRoots(root) {
+    const expanded = [];
+    for (const relative of REFERENCE_ROOTS) {
+        let bases = [root];
+        for (const segment of relative.split('/')) {
+            const next = [];
+            for (const base of bases) {
+                if (segment !== '*') {
+                    next.push(path.join(base, segment));
+                    continue;
+                }
+                let entries;
+                try {
+                    entries = readdirSync(base, { withFileTypes: true });
+                } catch {
+                    continue;
+                }
+                for (const entry of entries) {
+                    if (entry.isDirectory()) next.push(path.join(base, entry.name));
+                }
+            }
+            bases = next;
+        }
+        expanded.push(...bases);
+    }
+    return expanded;
 }
 
 /**
@@ -240,10 +284,9 @@ export function collectOldNameReferences(root, renames) {
             else if (entry.isFile() && textFile(absolute)) visit(absolute);
         }
     };
-    for (const directory of REFERENCE_ROOTS) {
-        const absolute = path.join(root, directory);
+    for (const directory of expandReferenceRoots(root)) {
         try {
-            if (statSync(absolute).isDirectory()) walk(absolute);
+            if (statSync(directory).isDirectory()) walk(directory);
         } catch {
             // Surface does not exist in this checkout.
         }

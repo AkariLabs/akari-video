@@ -418,12 +418,12 @@ function sha256Text(value) {
 function routeForStage(stage, review, materials) {
   const routes = {
     state_inconclusive: [null, null],
-    not_scaffolded: [{ kind: "human", action: "create-project", reason: "project is not scaffolded" }, "create-project"],
+    not_scaffolded: [{ kind: "human", action: "setup-project", reason: "project is not scaffolded" }, "setup-project"],
     intake_pending: [{ kind: "human", action: "complete-intake", reason: "project intake is not submitted" }, null],
     analysis_pending: [{ kind: "agent", action: "analyze-footage", reason: `analysis coverage ${materials.covered.size}/${materials.sources.length}` }, "analyze-footage"],
     interpretation_pending: [{ kind: "agent", action: "analyze-project", reason: "multiple materials require project interpretation" }, "analyze-project"],
-    planning_pending: [{ kind: "agent", action: "edit-plan", reason: materials.sources.length === 0 ? "zero-material planning has not started" : "plan.json is absent" }, "edit-plan"],
-    edit_pending: [{ kind: "agent", action: "edit-plan", reason: "edit.json is absent" }, "edit-plan"],
+    planning_pending: [{ kind: "agent", action: "plan-edit", reason: materials.sources.length === 0 ? "zero-material planning has not started" : "plan.json is absent" }, "plan-edit"],
+    edit_pending: [{ kind: "agent", action: "plan-edit", reason: "edit.json is absent" }, "plan-edit"],
     review_pending: [{ kind: "agent", action: "address-review", reason: `open review tickets: ${review.open}` }, "address-review"],
     human_review_pending: [{ kind: "human", action: "resolve-review", reason: `addressed review tickets: ${review.addressed}` }, null],
     lint_pending: [{ kind: "agent", action: "edit-lint", reason: "current edit/review has no fresh PASS lint" }, "edit-lint"],

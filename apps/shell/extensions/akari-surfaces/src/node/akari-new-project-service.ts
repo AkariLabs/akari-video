@@ -151,7 +151,7 @@ function isPlaybook(value: unknown): value is AkariPlaybook {
  * 経緯は common/akari-new-project-protocol.ts 参照）。
  *
  * ロジックは持たず `packages/project-scaffold` の `createProject()` を呼ぶだけ
- * （`skills/create-project/bin/create-project.mjs` と同じ呼び方）。
+ * （`packages/akari-launcher/src/new-command.mjs` と同じ呼び方）。
  *
  * テンプレ/スキル/スキーマ/project-scaffold 自体の場所は、`__dirname`（このファイルの
  * 実行時の場所）と `process.cwd()` の両方を起点に**上方探索**で見つける

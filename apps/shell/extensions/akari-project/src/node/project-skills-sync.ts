@@ -7,7 +7,7 @@ import { t } from '../common/project-text';
  * Project-side copy of the bundled skills tree.
  *
  * `installProjectSkills()` runs only when a project is created or converted, so a project made
- * before a skill was bundled never receives it (record-playbook and older projects, reported
+ * before a skill was bundled never receives it (harvest-playbook and older projects, reported
  * 2026-10-19). This module owns the decision part of the open-time sync: whether anything has to
  * be written, and which bundled skill directories are new versus already present. The file system
  * is injected the same way `AkariProjectServiceImpl.fsImpl` is, so the decision and the copy can

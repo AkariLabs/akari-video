@@ -148,7 +148,7 @@ test("resolveWorkspaceStatus: display_name resolves title ?? folder name (task 2
   });
 });
 
-test("resolveWorkspaceStatus: next_action recommends create-project once inbox is empty and no projects exist", async () => {
+test("resolveWorkspaceStatus: next_action recommends setup-project once inbox is empty and no projects exist", async () => {
   await withTempDir(async (root) => {
     await writeRootManifest(root);
     const status = resolveWorkspaceStatus(root);
@@ -156,7 +156,7 @@ test("resolveWorkspaceStatus: next_action recommends create-project once inbox i
     assert.equal(status.inbox.new_count, 0);
     assert.deepEqual(status.next_action, {
       kind: "human",
-      action: "create-project",
+      action: "setup-project",
       reason: "workspace has no projects yet",
     });
   });

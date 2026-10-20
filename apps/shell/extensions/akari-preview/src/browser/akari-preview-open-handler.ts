@@ -7230,7 +7230,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // task/2026-08-10-preview-bug-sweep (B3): binary glTF (.glb) header/JSON-chunk sniff for
     // extensions the pinned Three.js runtime (packages/overlay-runtime/src/three-runtime.js) has
     // no loader for (no DRACOLoader/KTX2Loader wired — confirmed via
-    // skills/overlay-authoring/3d.md "Draco/KTX2 は未対応" and by reproduction: a
+    // skills/author-scene3d/live.md "Draco/KTX2 is unsupported" and by reproduction: a
     // KHR_draco_mesh_compression model settles into status "error" while an otherwise-identical
     // uncompressed model reaches "ready"). Detection only — this can't make the runtime decode
     // Draco/KTX2 (that needs a vendored decoder in packages/overlay-runtime, out of this task's
