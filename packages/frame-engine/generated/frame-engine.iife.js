@@ -16971,10 +16971,11 @@ ${indent}`);
         const tracks = edit.tracks.map((track) => {
           const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
           const ref = kind === "captions" ? void 0 : nextRef(refCounters, kind);
+          const cutRef = kind === "cuts" ? ref : trackHasCutItems(track, chromaKeyOf, overlappingItemIds) ? nextRef(refCounters, "cuts") : void 0;
           const items = [];
           if ("items" in track) {
             track.items.forEach((item) => {
-              const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width, overlappingItemIds.has(item.id));
+              const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width, overlappingItemIds.has(item.id), 0, void 0, cutRef);
               if (built.warning) {
                 warnings2.push(built.warning);
               }
@@ -17143,6 +17144,17 @@ ${indent}`);
             return first === void 0 || track.items.some((item) => overlappingItemIds.has(item.id)) || needsLayersEngine(first, chromaKeyOf, overlappingItemIds.has(first.id)) ? "layers" : "cuts";
         }
       }
+      function trackHasCutItems(track, chromaKeyOf, overlappingItemIds) {
+        if (!("items" in track) || track.lane !== "visual")
+          return false;
+        const visit = (item, topLevel) => {
+          if (item.source.kind === "media") {
+            return !needsLayersEngine(item, chromaKeyOf, topLevel && overlappingItemIds.has(item.id));
+          }
+          return "items" in item && Array.isArray(item.items) && item.items.some((child) => visit(child, false));
+        };
+        return track.items.some((item) => visit(item, true));
+      }
       function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
         if (item.source.kind !== "media")
           return false;
@@ -17265,9 +17277,9 @@ ${indent}`);
         counters.set(collection, index + 1);
         return index;
       }
-      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
-        const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId, outputWidth);
-        const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false, built.item.atFrames, built.item.id).item) : [];
+      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId, cutRef) {
+        const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId, outputWidth, cutRef);
+        const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false, built.item.atFrames, built.item.id, cutRef).item) : [];
         if (children.length > 0 || "items" in item && Array.isArray(item.items)) {
           built.item.children = children;
         } else {
@@ -17309,7 +17321,7 @@ ${indent}`);
           built.item.parentId = parentId;
         return built;
       }
-      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920) {
+      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920, cutRef) {
         const atFrames = parentAtFrames + item.at;
         const durationFrames = item.duration;
         const at2 = atFrames / fps;
@@ -17410,12 +17422,13 @@ ${indent}`);
                 }
               });
             }
+            const cutTrack = cutRef ?? ref;
             const value = {
               in: item.source.in,
               out: cutOut,
               src: item.source.src,
               at: at2,
-              track: ref,
+              track: cutTrack,
               ...speed !== void 0 ? { speed } : {},
               ...item.transform !== void 0 ? { transform: item.transform } : {},
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
@@ -17437,7 +17450,7 @@ ${indent}`);
                   in: item.source.in,
                   out: cutOut,
                   at: at2,
-                  track: ref,
+                  track: cutTrack,
                   ...common,
                   ...copyMediaSourceFields(item.source, captionSwitch),
                   ..."audio" in item && item.audio === false ? { audio: false } : {},
