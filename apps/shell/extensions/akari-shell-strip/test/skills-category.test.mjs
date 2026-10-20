@@ -25,8 +25,9 @@ const expected = {
     'edit-lint': 'review',
     'edit-plan': 'plan',
     'export-nle': 'export',
-    'generate-media': 'material',
+    'generate-image': 'material',
     'generate-narration': 'material',
+    'generate-video': 'material',
     'harvest-asset': 'material',
     'manage-connections': 'setup',
     'overlay-authoring': 'other',
@@ -39,8 +40,8 @@ const expected = {
     verify: 'other'
 };
 
-test('26 件のスキル名を名前の語と優先順で分類する', () => {
-    assert.equal(Object.keys(expected).length, 26);
+test('27 件のスキル名を名前の語と優先順で分類する', () => {
+    assert.equal(Object.keys(expected).length, 27);
     for (const [name, category] of Object.entries(expected)) {
         assert.equal(skillCategory(name, '説明に plan とあっても分類に使わない'), category, name);
     }
@@ -56,7 +57,7 @@ test('小見出しは定めた順序で空の種を省く', () => {
         { name: 'setup-remote', description: '' },
         { name: 'edit-plan', description: '' },
         { name: 'analyze-footage', description: '' },
-        { name: 'generate-media', description: '' }
+        { name: 'generate-video', description: '' }
     ]);
     assert.deepEqual(groups.map(group => group.label), ['企画', '分析', '素材', 'セットアップ']);
     assert.equal(skillCategoryLabel('review'), '確認');

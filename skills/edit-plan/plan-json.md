@@ -27,4 +27,4 @@ Read this leaf only from the "No media" branch of [workflow.md](workflow.md) §2
 
 ## 4. Connect provisional clips
 
-For zero media, do not use plan.json's provisional-slot role. Proceed to [generate-media's still.md](../generate-media/still.md) and put text cards or Codex stills on the timeline as edit.json v2 media items. A placeholder consists of a still clip on the timeline plus `<path>.meta.json` beside the asset; cuts hold its duration. A still may be the finished result. Proceed to generate-media's video.md only for clips that will become video.
+For zero media, do not use plan.json's provisional-slot role. Proceed to [generate-video's still.md](../generate-video/still.md) and put text cards or stills on the timeline as edit.json v2 media items; when the still itself should be AI-generated, use [generate-image](../generate-image/SKILL.md) first. A placeholder consists of a still clip on the timeline plus `<path>.meta.json` beside the asset; cuts hold its duration. A still may be the finished result. Proceed to [generate-video's video.md](../generate-video/video.md) only for clips that will become video.

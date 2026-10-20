@@ -1,9 +1,9 @@
 ---
-name: generate-media
-description: Build a timeline placeholder from still images or text cards, generate video from it, and recover or refetch generated clips. Use when asked to plan with stills, turn a placeholder into video, recover a failed generation, or establish duration with text cards.
+name: generate-video
+description: "Build a timeline placeholder from still images or text cards, generate video from it, and recover or refetch generated clips. Use when asked to plan with stills, turn a placeholder into video, recover a failed generation, or establish duration with text cards.（旧名: generate-media）"
 ---
 
-# Connect generated media to the timeline
+# Connect generated video to the timeline
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
@@ -20,10 +20,12 @@ These rules take precedence over detailed instructions.
 
 ## Execution order and contents
 
-1. Read [still.md](still.md) to create a still-image or text-card placeholder.
+1. Read [still.md](still.md) to create a still-image or text-card placeholder with a duration.
 2. Read [video.md](video.md) when replacing a placeholder with generated video.
 3. Read [chain.md](chain.md) for the still → video → resume sequence, failed or stale jobs, and export behavior.
 4. Read [engines.md](engines.md) only when checking model capabilities, defaults, price, or accepted inputs.
+
+When the picture itself should be made by an AI image model, use the thin [generate-image](../generate-image/SKILL.md) skill first and come back here to give it a duration and, later, motion.
 
 Read only the file for the current step; do not read later steps in advance.
 

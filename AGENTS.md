@@ -21,7 +21,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 28
+スキル数: 29
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -40,8 +40,9 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 | `edit-lint` | Check edit.json and optional analysis.json / captions.json / media with a deterministic CLI, then finish QA with frame inspection and reporting after PASS. Use immediately after writing or modifying edit.json, before export, and after applying review feedback. | `skills/edit-lint/SKILL.md` |
 | `edit-plan` | Read the analyze-project analysis report (interpretation.json and analysis-report.html) as primary evidence, obtain explicit chat approval for direction, asset planning, and execution, then produce edit.json and overlay HTML. Use for multi-asset edit planning, planning from no media through question dialogue and a provisional plan.json timeline, or choosing cuts, BGM, SFX, and B-roll from analysis. | `skills/edit-plan/SKILL.md` |
 | `export-nle` | BETA (not yet tested in actual NLEs): Export edit.json to Final Cut Pro / DaVinci Resolve (FCPXML), Premiere Pro (FCP7 XML), and SRT captions. Use for requests to open in Premiere or Final Cut, export for Resolve, or get an SRT. Always report fields that cannot transfer in dropped[]. | `skills/export-nle/SKILL.md` |
-| `generate-media` | Build a timeline placeholder from still images or text cards, generate video from it, and recover or refetch generated clips. Use when asked to plan with stills, turn a placeholder into video, recover a failed generation, or establish duration with text cards. | `skills/generate-media/SKILL.md` |
+| `generate-image` | Generate still images with an AI model and place them on the timeline as assets or placeholders. Use when asked to create or generate an image, make a still, or fill a slot with a generated picture. | `skills/generate-image/SKILL.md` |
 | `generate-narration` | Generate narration from a script and add it to edit.json audio.narration[]. Read `akari narration engines --json` to choose an engine and voice; use a candidate row only when the user names it. Use for a draft voiceover, final narration, a new voice profile, or replacing an existing voice or engine. | `skills/generate-narration/SKILL.md` |
+| `generate-video` | Build a timeline placeholder from still images or text cards, generate video from it, and recover or refetch generated clips. Use when asked to plan with stills, turn a placeholder into video, recover a failed generation, or establish duration with text cards.（旧名: generate-media） | `skills/generate-video/SKILL.md` |
 | `harvest-asset` | Use to turn costly, reusable project overlays, 3D, motion, captions, thumbnail layouts, audio, and B-roll into AKARI Video library assets. Assess admission, draft meta.json, create previews, update INDEX, and validate. | `skills/harvest-asset/SKILL.md` |
 | `manage-connections` | Centrally manage AKARI Video generation providers, social connections, API-key references, model selection, and cost-approval policies. Use for initial setup, connection checks, adding providers/models, and gates before paid generation or external publication. Works with `.akari/connections.json` and a free, read-only doctor. | `skills/manage-connections/SKILL.md` |
 | `overlay-authoring` | Author and review AKARI Video overlay HTML, captions, tables and charts, Three.js 3D, motion graphics, thumbnails, and text-behind-person effects. Routes the work to the relevant authoring leaf. | `skills/overlay-authoring/SKILL.md` |

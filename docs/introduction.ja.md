@@ -136,7 +136,7 @@ AKARI Video は、**AI エージェントが編集の主体になる**動画編�
 （[接続と API キー](./how-to/connections.ja.md)）。
 
 スキルは Claude Code プラグイン・opencode・Cursor Agent・Codex から自動で見つかります。
-全 28 本は[スキルカタログ](./skills.ja.md)を参照してください。
+全 29 本は[スキルカタログ](./skills.ja.md)を参照してください。
 
 ## 次に読む
 

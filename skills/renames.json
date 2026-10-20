@@ -1,4 +1,6 @@
 {
   "version": 1,
-  "renames": []
+  "renames": [
+    { "from": "generate-media", "to": "generate-video", "since": "1.5.2" }
+  ]
 }

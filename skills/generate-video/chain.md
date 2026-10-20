@@ -4,7 +4,7 @@
 
 ## End-to-end sequence
 
-1. Create still-image placeholders with `akari generate still <projectDir> --spec <beats.json>`. Use `--placeholder` when the visual is undecided.
+1. Create still-image placeholders with `akari generate still <projectDir> --spec <beats.json>`. Use `--placeholder` when the visual is undecided. When the picture itself should be AI-generated, follow [generate-image](../generate-image/SKILL.md); the rest of this chain is the same.
 2. Review timing, order, and whether the stills already work as finished images on the timeline.
 3. Choose one clip to animate. Run `akari generate video <projectDir> --item <itemId> --dry-run --json` to inspect the outgoing request, duration rounding, estimate, and external transfer.
 4. Add `--yes` to the same command only after cost approval.
