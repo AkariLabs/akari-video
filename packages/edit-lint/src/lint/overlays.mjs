@@ -107,6 +107,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
     );
     for (const finding of validateWorldSceneDeclaration(html, await readFile(join(paths.projectRoot, "planning/world-map.json"), "utf8").catch(error => error?.code === "ENOENT" ? null : Promise.reject(error)), isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`)) addFinding(findings, finding);
     validateThreeCanvas(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
+    validateThreeTextFlags(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
     if (!isHtmlFile) continue;
 
     validateOverlayFragmentAssets(html, overlay, paths, findings);
@@ -198,6 +199,36 @@ function validateThreeCanvas(html, path, findings) {
     severity: "warning", check: "overlays.three-canvas",
     message: "3D renders to the first canvas in document order; add data-akari-3d-canvas to the intended canvas.", path,
   });
+}
+
+// texts[].billboard / screenSpace は真偽値のみ（省略時は false）。型違いはランタイムが
+// 宣言ごと初期化エラーにするため、同じ規則を lint でも前倒しして場所を名指しする。
+// JSON が壊れている場合はここでは触らない（ランタイムのエラーが本文を持つ）
+function validateThreeTextFlags(html, path, findings) {
+  const source = stripHtmlComments(html);
+  for (const block of rawTextElements(source, "script")) {
+    const attributes = parseHtmlAttributes(source.slice(block.start, block.bodyStart));
+    if (!Object.hasOwn(attributes, "data-akari-3d-scene")
+      || attributes.type?.toLowerCase() !== "application/json") continue;
+    let descriptor;
+    try {
+      descriptor = JSON.parse(source.slice(block.bodyStart, block.bodyEnd));
+    } catch {
+      continue;
+    }
+    if (!isRecord(descriptor) || !Array.isArray(descriptor.texts)) continue;
+    for (const [index, entry] of descriptor.texts.entries()) {
+      if (!isRecord(entry)) continue;
+      const label = isNonEmptyString(entry.id) ? entry.id : String(index);
+      for (const field of ["billboard", "screenSpace"]) {
+        if (entry[field] === undefined || typeof entry[field] === "boolean") continue;
+        addFinding(findings, {
+          severity: "error", check: "overlays.three-text-flags",
+          message: `texts[${label}].${field} must be a boolean.`, path,
+        });
+      }
+    }
+  }
 }
 
 function validateOverlayFragmentAssets(html, overlay, paths, findings) {

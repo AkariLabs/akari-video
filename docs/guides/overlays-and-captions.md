@@ -219,6 +219,11 @@ executed (model, camera, lights, environment).
   warning appears)
 - A 3D scene that declares color sets lets you switch material colors with one knob
 - 3D animated with keyframes also renders in the fast GPU export
+- 3D text (`texts[]`) can face the camera with `billboard: true` and keep a constant on-screen size
+  with `screenSpace: true`; both default to `false`, so existing declarations look the same
+- With `screenSpace`, `size` is the em height in CSS pixels of the rendered canvas. The runtime
+  scales the text by the camera's view depth and uses the canvas CSS height (not the export buffer),
+  so the declared pixel size stays the same at any distance and at any preview resolution
 
 For images the declarative runtime cannot express (depth of field, ray tracing, and the like), or
 for a clip you will reuse, bake it into video with [Bake a 3D scene](./bake-3d.md).
