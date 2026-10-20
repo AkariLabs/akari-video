@@ -13,9 +13,15 @@ import {
 } from '../lib/node/project-skills-sync.js';
 
 // Some harnesses export GIT_CONFIG_COUNT without its GIT_CONFIG_KEY_* pair, which makes every
-// `git` invocation fail before it starts. The fixture repositories only need the defaults.
-for (const key of Object.keys(process.env)) {
-    if (key.startsWith('GIT_CONFIG_')) delete process.env[key];
+// `git` invocation fail before it starts. The fixture repositories only need the defaults, so
+// drop exactly the slots the count announces (no environment enumeration).
+const gitConfigCount = Number.parseInt(process.env.GIT_CONFIG_COUNT ?? '', 10);
+if (Number.isInteger(gitConfigCount) && gitConfigCount > 0) {
+    for (let index = 0; index < gitConfigCount; index += 1) {
+        delete process.env[`GIT_CONFIG_KEY_${index}`];
+        delete process.env[`GIT_CONFIG_VALUE_${index}`];
+    }
+    delete process.env.GIT_CONFIG_COUNT;
 }
 
 async function withScratch(callback) {

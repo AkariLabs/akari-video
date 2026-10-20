@@ -31,6 +31,10 @@ async function withSkills(callback, names) {
     }
 }
 
+test('schema の $id は他の schema と同じ urn 形式', () => {
+    assert.equal(schema.$id, 'urn:akari-video:schema:skill-renames:v1');
+});
+
 test('実リポの skills/renames.json は schema と参照整合の両方を通る', async () => {
     const table = loadSkillRenames(join(repoRoot, 'skills'));
     assert.equal(table.version, 1);
