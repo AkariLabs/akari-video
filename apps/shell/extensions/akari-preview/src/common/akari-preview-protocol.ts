@@ -277,7 +277,7 @@ export interface ReadReviewSessionBundleRequest {
     sessionId: string;
 }
 
-/** transcript.json の発話（recT 秒）。compile-review-session が書く形の寛容な読み取り結果。 */
+/** transcript.json の発話（recT 秒）。review-from-recording が書く形の寛容な読み取り結果。 */
 export interface ReviewSessionTranscriptSegment {
     start: number;
     end: number;

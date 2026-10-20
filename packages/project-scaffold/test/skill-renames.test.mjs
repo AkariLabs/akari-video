@@ -4,10 +4,10 @@ setLanguage('ja');
 after(() => setLanguage(undefined));
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -40,6 +40,67 @@ async function write(path, text) {
 async function makeBundle(root, name, body = `${name} v1`) {
     await write(join(root, name, 'SKILL.md'),
         `---\nname: ${name}\ndescription: ${body}\n---\n\n# ${name}\n\nRun /${name}.\n`);
+}
+
+// ── コード面（src）の旧名参照の検査 ───────────────────────────────────────────
+
+const CODE_SCAN_SUFFIXES = new Set(['.ts', '.tsx', '.mjs', '.js', '.json', '.md', '.txt']);
+const CODE_SCAN_SKIP = new Set(['node_modules', 'lib', 'dist', 'evidence', 'fixtures', 'dev-fixtures']);
+// `edit-lint` は CLI / パッケージ名、`verify` は一般動詞でもあるので、素の語では拾わない。
+// スキル名としての参照（skills/<name>・`<name>`・/<name>）だけを拾う。
+const AMBIGUOUS_IN_PROSE = new Set(['edit-lint', 'verify']);
+
+function codeSurfaceRoots(root) {
+    const roots = [];
+    const add = candidate => { if (existsSync(candidate)) roots.push(candidate); };
+    const extensions = join(root, 'apps', 'shell', 'extensions');
+    if (existsSync(extensions)) {
+        for (const entry of readdirSync(extensions, { withFileTypes: true })) {
+            if (entry.isDirectory()) add(join(extensions, entry.name, 'src'));
+        }
+    }
+    const packages = join(root, 'packages');
+    if (existsSync(packages)) {
+        for (const entry of readdirSync(packages, { withFileTypes: true })) {
+            if (entry.isDirectory()) add(join(packages, entry.name, 'src'));
+        }
+    }
+    // status-core のミラーは plugin/runtime 配下にあり、src ではない。
+    add(join(root, 'plugin', 'runtime'));
+    return roots;
+}
+
+function codeSurfaceOldNameHits(root, renames) {
+    const hits = [];
+    const visit = absolute => {
+        const text = readFileSync(absolute, 'utf8');
+        for (const row of renames) {
+            const from = row.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const patterns = [
+                new RegExp(`skills/${from}(?![A-Za-z0-9_-])`, 'm'),
+                new RegExp('`' + from + '`', 'm'),
+                // スラッシュコマンド。パス（../edit-lint 等）は前が `.` `/` なので当たらない。
+                new RegExp(`(?:^|[ \\t(（「"'\`])/${from}(?![A-Za-z0-9_-])`, 'm')
+            ];
+            if (!AMBIGUOUS_IN_PROSE.has(row.from)) {
+                // 素の語。ただしスクリプト名・パス（compile-review-session.mjs 等）は除く。
+                patterns.push(new RegExp(`(?:^|[^A-Za-z0-9_/-])${from}(?![A-Za-z0-9_./-])`, 'm'));
+            }
+            if (patterns.some(pattern => pattern.test(text))) {
+                hits.push({ file: relative(root, absolute), from: row.from, to: row.to });
+            }
+        }
+    };
+    const walk = directory => {
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+            if (entry.name.startsWith('.') || CODE_SCAN_SKIP.has(entry.name)) continue;
+            const absolute = join(directory, entry.name);
+            if (entry.isDirectory()) walk(absolute);
+            else if (entry.isFile() && CODE_SCAN_SUFFIXES.has(entry.name.slice(entry.name.lastIndexOf('.')))) visit(absolute);
+        }
+    };
+    for (const directory of codeSurfaceRoots(root)) walk(directory);
+    return hits;
 }
 
 // ── 旧名参照の検査 ─────────────────────────────────────────────────────────────
@@ -84,6 +145,36 @@ test('改名表・CHANGELOG・リリースノートは検査から除外する',
         await write(join(root, 'CHANGELOG.md'), '## v1.6.0\n- renamed `old-name` to `new-name`\n');
         await write(join(root, 'docs', 'release-notes-1.6.md'), '- renamed /old-name to /new-name\n');
         assert.deepEqual(collectOldNameReferences(root, RENAMES), []);
+    });
+});
+
+test('実リポのコード面（extensions/packages の src と status-core ミラー）にも旧名のスキル参照が残らない', async () => {
+    const table = parseSkillRenameTable(await readFile(join(REPO_ROOT, 'skills', 'renames.json'), 'utf8'));
+    assert.deepEqual(codeSurfaceOldNameHits(REPO_ROOT, table.renames), []);
+});
+
+test('コード面の検査は旧名のスキル参照を拾い、パッケージ名・スクリプト名は通す', async () => {
+    await withScratch(async root => {
+        const codeRenames = [
+            { from: 'address-review', to: 'edit-from-review' },
+            { from: 'compile-review-session', to: 'review-from-recording' },
+            { from: 'edit-lint', to: 'verify-edit' }
+        ];
+        const extension = join(root, 'apps', 'shell', 'extensions', 'sample', 'src');
+        const packageSource = join(root, 'packages', 'sample', 'src');
+        await write(join(extension, 'instruction.ts'), '// 各 id を address-review スキルで記録する\n');
+        await write(join(packageSource, 'comment.mjs'), '// 着地は skills/compile-review-session が行う\n');
+        // パッケージ名のパスとスクリプト名は旧名のスキル参照ではない。
+        await write(join(packageSource, 'paths.ts'),
+            "const bin = resolve(directory, '../edit-lint/bin/edit-lint.mjs');\n// compile-review-session.mjs の写し\n");
+        assert.deepEqual(codeSurfaceOldNameHits(root, codeRenames), [
+            { file: join('apps', 'shell', 'extensions', 'sample', 'src', 'instruction.ts'), from: 'address-review', to: 'edit-from-review' },
+            { file: join('packages', 'sample', 'src', 'comment.mjs'), from: 'compile-review-session', to: 'review-from-recording' }
+        ]);
+
+        await write(join(extension, 'instruction.ts'), '// 各 id を edit-from-review スキルで記録する\n');
+        await write(join(packageSource, 'comment.mjs'), '// 着地は skills/review-from-recording が行う\n');
+        assert.deepEqual(codeSurfaceOldNameHits(root, codeRenames), []);
     });
 });
 

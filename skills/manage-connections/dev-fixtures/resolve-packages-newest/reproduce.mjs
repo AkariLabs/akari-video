@@ -81,7 +81,7 @@ try {
         const output = checked(process.execPath, [
           "--input-type=module", "-e", childSource,
           resolverFile,
-          path.join(repo, "skills", "compile-review-session", "bin", "core", "install-root.mjs"),
+          path.join(repo, "skills", "review-from-recording", "bin", "core", "install-root.mjs"),
           from, relative,
         ], {
           env: { ...process.env, HOME: homeDir, AKARI_MONOREPO: "", AKARI_INSTALL_DIR: "" },

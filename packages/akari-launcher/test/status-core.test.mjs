@@ -190,6 +190,8 @@ test("material projects do not require plan.json, while zero-material projects s
     await addEdit(root, ["assets/a.mp4"]);
     status = resolveProjectStatus(root);
     assert.equal(status.workflow_stage, "lint_pending");
+    assert.equal(status.next_skill, "verify-edit");
+    assert.equal(status.waiting_on.action, "verify-edit");
   });
 });
 
@@ -206,6 +208,22 @@ test("edit.json fixes the used source set and addressed review stays non-resolve
         id: "a-0001",
         createdAt: "2026-08-03T00:00:00.000Z",
         sourceT: 0,
+        text: "still open",
+        input: "session",
+        status: "open",
+      }],
+    });
+    let status = resolveProjectStatus(root);
+    assert.equal(status.workflow_stage, "review_pending");
+    assert.equal(status.next_skill, "edit-from-review");
+    assert.equal(status.waiting_on.action, "edit-from-review");
+
+    await writeJson(join(root, "review.json"), {
+      version: 0,
+      annotations: [{
+        id: "a-0001",
+        createdAt: "2026-08-03T00:00:00.000Z",
+        sourceT: 0,
         text: "handled, awaiting human check",
         input: "session",
         status: "addressed",
@@ -213,7 +231,7 @@ test("edit.json fixes the used source set and addressed review stays non-resolve
       }],
     });
 
-    const status = resolveProjectStatus(root);
+    status = resolveProjectStatus(root);
     assert.equal(status.workflow_stage, "human_review_pending");
     assert.deepEqual(status.review, { open: 0, addressed: 1, resolved: 0, non_resolved: 1 });
     assert.equal(status.next_skill, null);

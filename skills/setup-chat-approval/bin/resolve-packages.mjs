@@ -1,4 +1,4 @@
-// 同じ規則が compile-review-session/bin/core/install-root.mjs にもある。
+// 同じ規則が review-from-recording/bin/core/install-root.mjs にもある。
 // 変えるときは setup-chat-approval/bin/resolve-packages.mjs を含む全部を同時に直す。
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import os from "node:os";

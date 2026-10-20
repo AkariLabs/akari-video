@@ -15,7 +15,7 @@ try {
   let modulePath = path.join(root, 'skills/review-from-recording/bin/core/review-store.mjs');
   if (revision === 'before') {
     modulePath = path.join(scratch, 'review-store-before.mjs');
-    const source = execFileSync('git', ['show', '92a0dd48:skills/review-from-recording/bin/core/review-store.mjs'], { cwd: root });
+    const source = execFileSync('git', ['show', '92a0dd48:skills/compile-review-session/bin/core/review-store.mjs'], { cwd: root });
     await fs.writeFile(modulePath, source);
   } else assert.equal(revision, 'after', 'before / after / race-before / race-after を指定してください');
   const { appendAnnotationsAtomic } = await import(pathToFileURL(modulePath));

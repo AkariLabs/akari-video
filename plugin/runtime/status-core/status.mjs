@@ -424,9 +424,9 @@ function routeForStage(stage, review, materials) {
     interpretation_pending: [{ kind: "agent", action: "analyze-project", reason: "multiple materials require project interpretation" }, "analyze-project"],
     planning_pending: [{ kind: "agent", action: "edit-plan", reason: materials.sources.length === 0 ? "zero-material planning has not started" : "plan.json is absent" }, "edit-plan"],
     edit_pending: [{ kind: "agent", action: "edit-plan", reason: "edit.json is absent" }, "edit-plan"],
-    review_pending: [{ kind: "agent", action: "address-review", reason: `open review tickets: ${review.open}` }, "address-review"],
+    review_pending: [{ kind: "agent", action: "edit-from-review", reason: `open review tickets: ${review.open}` }, "edit-from-review"],
     human_review_pending: [{ kind: "human", action: "resolve-review", reason: `addressed review tickets: ${review.addressed}` }, null],
-    lint_pending: [{ kind: "agent", action: "edit-lint", reason: "current edit/review has no fresh PASS lint" }, "edit-lint"],
+    lint_pending: [{ kind: "agent", action: "verify-edit", reason: "current edit/review has no fresh PASS lint" }, "verify-edit"],
     render_pending: [{ kind: "human", action: "render-cut", reason: "current render is not verified PASS" }, "render-cut"],
     acceptance_pending: [{ kind: "human", action: "akari-accept", reason: "verified render needs final human acceptance" }, null],
   };
