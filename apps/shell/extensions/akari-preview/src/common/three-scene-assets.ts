@@ -29,7 +29,10 @@ export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
     'finishes',
     'shadows',
     'texts',
-    'physics'
+    'physics',
+    // 描画バックエンドの opt-in（2026-10-21-three-webgpu-backend）。ランタイムと同じく
+    // 省略 = "webgl" で、値の検証は three-runtime.js が行う。
+    'renderer'
 ]);
 
 /**

@@ -1,5 +1,6 @@
 {
   "project": "/tmp/akari-l2-webgpu/project",
+  "shell": "apps/shell (rebuilt from source, no patch)",
   "steps": [
     {
       "step": "initial-0s",
@@ -14,7 +15,12 @@
         "error": null,
         "hidden": false,
         "display": "block",
-        "visibility": "visible"
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:00 / 0:05",
@@ -54,8 +60,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
@@ -74,7 +80,12 @@
         "error": null,
         "hidden": false,
         "display": "block",
-        "visibility": "visible"
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:01 / 0:05",
@@ -97,7 +108,7 @@
             "duration": null
           },
           {
-            "t": 1.325825,
+            "t": 1.526191,
             "paused": false,
             "duration": 5
           }
@@ -114,8 +125,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
@@ -134,7 +145,12 @@
         "error": null,
         "hidden": false,
         "display": "block",
-        "visibility": "hidden"
+        "visibility": "hidden",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:02 / 0:05",
@@ -157,7 +173,7 @@
             "duration": null
           },
           {
-            "t": 1.451883,
+            "t": 1.633333,
             "paused": true,
             "duration": 5
           }
@@ -174,8 +190,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
@@ -194,7 +210,12 @@
         "error": null,
         "hidden": false,
         "display": "block",
-        "visibility": "visible"
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:00 / 0:05",
@@ -234,8 +255,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
@@ -254,7 +275,12 @@
         "error": null,
         "hidden": false,
         "display": "none",
-        "visibility": "visible"
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:00 / 0:05",
@@ -294,8 +320,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
@@ -314,7 +340,12 @@
         "error": null,
         "hidden": false,
         "display": "block",
-        "visibility": "visible"
+        "visibility": "visible",
+        "canvas": {
+          "w": 720,
+          "h": 405,
+          "engine": "three.js r186 webgpu"
+        }
       },
       "snap": {
         "time": "0:00 / 0:05",
@@ -354,8 +385,8 @@
             "engine": "three.js r186 webgpu"
           },
           {
-            "w": 782,
-            "h": 440,
+            "w": 682,
+            "h": 384,
             "engine": null
           }
         ]
