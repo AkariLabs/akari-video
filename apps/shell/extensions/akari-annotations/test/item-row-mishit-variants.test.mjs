@@ -1,6 +1,6 @@
 // 前タスクの残課題「誤ヒット変種の回帰 fixture」への蓋。
-// 混在トラックの cuts が (kind, ref) だけでホーミングすると、kind:'cuts' の行が複数ある場合に
-// 別トラックの行へ間借り表示される。合わせて html 専用パック多数の実プロジェクト級構成でも、
+// 混在トラックの cuts が (kind, ref) だけでホーミングすると、更新後の ref が対応行を指さず、
+// 一部のアイテムで行が見つからない。合わせて html 専用パック多数の実プロジェクト級構成でも、
 // 全アイテムが自分の行に 1 つずつ出ることを固定する。
 
 import assert from 'node:assert/strict';
@@ -71,7 +71,7 @@ function legacyItemIds(internal, collection) {
   return ids;
 }
 
-test("誤ヒット変種の前提: kind:'cuts' 行が 2 本あり、混在トラックの cuts が別トラックの ref を名乗る", () => {
+test("混在トラックの cuts は物理 visual トラックごとに一意な ref を持つ", () => {
   const { view } = projectFixture(mixedCutsFixture);
 
   assert.deepStrictEqual(view.timeline?.tracks.map(track => ({
@@ -81,7 +81,7 @@ test("誤ヒット変種の前提: kind:'cuts' 行が 2 本あり、混在トラ
   })), [
     { id: 'v0', kind: 'cuts', ref: 0 },
     { id: 'v1', kind: 'overlays', ref: 0 },
-    { id: 'v2', kind: 'cuts', ref: 1 },
+    { id: 'v2', kind: 'cuts', ref: 2 },
     { id: 'v3', kind: 'overlays', ref: 1 }
   ]);
   assert.equal(view.timeline?.tracks.filter(track => track.kind === 'cuts').length, 2);
@@ -90,7 +90,7 @@ test("誤ヒット変種の前提: kind:'cuts' 行が 2 本あり、混在トラ
   assert.equal(view.layers.length, 0);
 });
 
-test('(kind, ref) だけのホーミングは混在トラックの cuts を別トラック行へ間借りさせる', () => {
+test('(kind, ref) だけのホーミングでは更新後の ref に対応する行が見つからない', () => {
   const { internal, view, layouts } = projectFixture(mixedCutsFixture);
   const cutItemIds = legacyItemIds(internal, 'cuts');
   const resolved = Object.fromEntries(view.cuts.map((cut, index) => [
@@ -101,10 +101,10 @@ test('(kind, ref) だけのホーミングは混在トラックの cuts を別�
   assert.deepStrictEqual(resolved, {
     'intro-01': 'v0',
     'intro-02': 'v0',
-    'clip-01': 'v0',
-    'clip-02': 'v0',
+    'clip-01': undefined,
+    'clip-02': undefined,
     'bstroll-01': 'v2',
-    'inset-01': 'v2'
+    'inset-01': undefined
   });
 });
 

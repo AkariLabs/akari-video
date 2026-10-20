@@ -37,6 +37,26 @@ test("renderOverlaySheet embeds declared overlays deterministically", () => {
   assert.match(renderOverlaySheet(input), /data-overlay-id="o1"/);
 });
 
+test("generated captions do not add the fragment box-sizing default", () => {
+  const html = '<style>.caption { width: 100px; padding: 8px; }</style><div class="caption">字幕</div>';
+  const input = {
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/tmp/project",
+    duration: 1,
+  };
+  const captionSheet = renderOverlaySheet({
+    ...input,
+    overlays: [{ id: "caption", start: 0, duration: 1, generatedFrom: "c-0001", html }],
+  });
+  const userFragmentSheet = renderOverlaySheet({
+    ...input,
+    overlays: [{ id: "fragment", start: 0, duration: 1, html }],
+  });
+
+  assert.doesNotMatch(captionSheet, /\* \{ box-sizing: border-box; \}/u);
+  assert.match(userFragmentSheet, /\* \{ box-sizing: border-box; \}/u);
+});
+
 test("static overlay opacity is applied without keyframes", () => {
   const sheet = renderOverlaySheet({
     overlays: [{ id: 'half', start: 0, duration: 1, html: '<div>half</div>', opacity: 0.5 }],

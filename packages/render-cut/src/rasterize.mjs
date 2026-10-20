@@ -75,9 +75,10 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     ...overlay,
     html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
   } : overlay);
-  // 幅・高さと padding/border を併記する断片だけ、プレビューと同じ border-box を明示する。
-  // どちらも宣言しない断片は計算結果が変わらないため、既存シートのバイト列を動かさない。
-  const needsBoxSizingDefault = orderedOverlays.some((overlay) => fragmentNeedsBoxSizingDefault(overlay.html));
+  // 利用者の断片で幅・高さと padding/border を併記するときだけ、プレビューと同じ border-box を明示する。
+  // 字幕生成 HTML は内部 CSS が該当しても対象外にし、既存シートのバイト列を保つ。
+  const needsBoxSizingDefault = orderedOverlays.some((overlay) =>
+    !overlay.generatedFrom && fragmentNeedsBoxSizingDefault(overlay.html));
   // Preserve legacy sheet bytes when no axis override is used.
   const usesAxisScale = orderedOverlays.some(overlay =>
     overlay.transform?.scaleX !== undefined || overlay.transform?.scaleY !== undefined

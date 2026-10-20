@@ -16851,6 +16851,7 @@ ${indent}`);
       exports.readInternalEdit = readInternalEdit;
       exports.readInternalSources = readInternalSources;
       exports.visualContentEndSeconds = visualContentEndSeconds;
+      exports.visualLaneEndSeconds = visualLaneEndSeconds;
       exports.timelineDurationSeconds = timelineDurationSeconds;
       exports.walkItems = walkItems;
       exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
@@ -16892,6 +16893,10 @@ ${indent}`);
         }
         return readV2Internal(raw).sources;
       }
+      function internalItemEndSeconds(item, internal) {
+        const fps = internal.output.fps;
+        return Number.isFinite(fps) && fps > 0 ? (item.atFrames + item.durationFrames) / fps : item.at + item.duration;
+      }
       function visualContentEndSeconds(internal) {
         let maxEnd = 0;
         for (const track of internal.tracks) {
@@ -16900,19 +16905,33 @@ ${indent}`);
           for (const item of track.items) {
             if (["html", "group", "captions", "caption"].includes(item.source.kind))
               continue;
-            maxEnd = Math.max(maxEnd, item.at + item.duration);
+            maxEnd = Math.max(maxEnd, internalItemEndSeconds(item, internal));
           }
         }
         return maxEnd;
       }
+      function visualLaneEndSeconds(internal) {
+        let maxEnd = 0;
+        const walk = (item) => {
+          maxEnd = Math.max(maxEnd, internalItemEndSeconds(item, internal));
+          for (const child of item.children)
+            walk(child);
+        };
+        for (const track of internal.tracks) {
+          if (track.lane !== "visual")
+            continue;
+          for (const item of track.items)
+            walk(item);
+        }
+        return maxEnd;
+      }
       function timelineDurationSeconds(internal) {
-        const visualEnd = visualContentEndSeconds(internal);
-        let fallbackEnd = 0;
+        const mediaEnd = visualContentEndSeconds(internal);
+        const visualEnd = visualLaneEndSeconds(internal);
+        let audioEnd = 0;
         const walk = (item, lane) => {
-          const isFallbackVisual = lane === "visual" && ["html", "group", "captions", "caption"].includes(item.source.kind);
-          const isFallbackAudio = lane === "audio" && item.duration > 0;
-          if (isFallbackVisual || isFallbackAudio) {
-            fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+          if (lane === "audio" && item.duration > 0) {
+            audioEnd = Math.max(audioEnd, internalItemEndSeconds(item, internal));
           }
           for (const child of item.children)
             walk(child, lane);
@@ -16921,9 +16940,11 @@ ${indent}`);
           for (const item of track.items)
             walk(item, track.lane);
         }
-        if (visualEnd >= fallbackEnd && visualEnd > 0)
-          return { seconds: visualEnd, basis: "visual" };
-        return fallbackEnd > 0 ? { seconds: fallbackEnd, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
+        if (mediaEnd > 0 && mediaEnd >= visualEnd && mediaEnd >= audioEnd) {
+          return { seconds: mediaEnd, basis: "visual" };
+        }
+        const seconds = Math.max(visualEnd, audioEnd);
+        return seconds > 0 ? { seconds, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
       }
       function* walkItems(internal) {
         function* walk(item) {
