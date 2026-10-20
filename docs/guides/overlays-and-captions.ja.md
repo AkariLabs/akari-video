@@ -88,6 +88,22 @@ akari captions <project-dir>
 - 素材尺で丸める: probe の素材尺があれば end を丸め、残りが 0.2 秒未満の字幕は warning とともに落とします。
 - 単語帳を当てる: 解決できる単語帳を既定で適用します（`--word-book <path>` で追加、`--no-word-book` で抑止）。
 
+### ナレーションから作る
+
+`sources[]` が無い動画でも、`audio.narration[]` の `script` を正本にして字幕を作れます。
+
+```sh
+akari captions <project-dir> --narration
+```
+
+先に各ナレーション音声を `akari media transcribe <path>` で文字起こししておきます。解析済みの
+`.akari/sidecars/` または `.akari/cache/transcribe/` にある文字時刻を使い、新しい文字起こしは
+実行しません。字幕は `script` の表記のまま文字時刻で区切り、各ナレーションの `t` を足した
+出力時間軸（`time_domain: "output"`）で `captions.json` に書きます。読み仮名・句読点・空白の
+違いは差分で対応づけ、対応が取れない文字は前後の時刻で補間します（補間数は `--json` の
+`interpolated`）。音声や文字時刻が無い項目は項目名を出してスキップし、終了コード 1 で失敗を
+伝えます。`--source` とは同時に指定できません。
+
 手直しは台本パネルか `captions.json` を直接編集します。
 
 文字起こし時は、検出した無音へはみ出した語を既定で実際の発話区間へ吸着します。既存の
