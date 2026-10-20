@@ -150,7 +150,7 @@ At an avatar-insertion stage, if the L0 scan (§1) finds **zero registered avata
 
 ### Prerequisite
 
-Propose these **only when VOICEVOX doctor reports `ok`** (the `voicevox` check in `skills/manage-connections/bin/doctor.mjs`, following the narration-tts contract and [engines.md](../generate-narration/engines.md); do not offer an unusable lane). If doctor is not `ok`, omit this proposal while continuing other insertion decisions normally.
+Propose these **only when VOICEVOX doctor reports `ok`** (the `voicevox` check in `skills/setup-connections/bin/doctor.mjs`, following the narration-tts contract and [engines.md](../generate-narration/engines.md); do not offer an unusable lane). If doctor is not `ok`, omit this proposal while continuing other insertion decisions normally.
 
 ### Proposal card (exactly two characters)
 

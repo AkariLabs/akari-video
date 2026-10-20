@@ -199,7 +199,7 @@ test('非リテラルの変数・テンプレート・連結は参考情報に�
 
 for (const [packageName, expectedResolver, expectedSource] of [
   ['chat-bridge', 'importPackage', 'skills/setup-chat-approval/bin/doctor.mjs'],
-  ['creator-root', 'importPackage', 'skills/manage-connections/bin/doctor.mjs'],
+  ['creator-root', 'importPackage', 'skills/setup-connections/bin/doctor.mjs'],
   ['media-bin', 'importPackage', 'skills/analyze-footage/bin/person-matte/person-matte.mjs'],
   ['edit-store', 'resolvePackageFile', 'skills/analyze-footage/bin/person-matte/person-cutout.mjs'],
   ['schemas', 'resolvePackageFile', 'skills/analyze-footage/bin/person-matte/person-cutout.mjs'],

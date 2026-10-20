@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **28 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **27 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -55,8 +55,8 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for 2D motion parts (HTML assets: captions, tables & charts, glass, motion graphics, thumbnails, text-behind-person). 3D is routed to author-scene3d | CSS keyframes / WAAPI; declarative glass, WebGPU, and Canvas 2D world runtimes (see [Supported animation runtimes](#supported-animation-runtimes)) |
 | [author-scene3d](../skills/author-scene3d/SKILL.md) | One entrance for 3D: live Three.js + glTF scenes by default, and a Blender bake (`scene.py` → mp4) only for looks the declarative runtime cannot produce. The decision table lives in the skill | **Blender** (headless, bpy) only for the bake path |
 | [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json. Local engines are free; cloud engines (including cloning your own voice) run only after cost approval | VOICEVOX / Irodori (local, free) / fal, Google AI Gemini TTS, Fish Audio (cloud, behind approval) |
-| [generate-image](../skills/generate-image/SKILL.md) | Prompt → still image on the timeline as an asset or placeholder. A thin skill that generate-video references; it does not own timing or the video chain | Allowed image models from manage-connections (cost approval when paid) |
-| [generate-video](../skills/generate-video/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Allowed video providers from manage-connections (cost approval) |
+| [generate-image](../skills/generate-image/SKILL.md) | Prompt → still image on the timeline as an asset or placeholder. A thin skill that generate-video references; it does not own timing or the video chain | Allowed image models from setup-connections (cost approval when paid) |
+| [generate-video](../skills/generate-video/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Allowed video providers from setup-connections (cost approval) |
 
 ### QA & review
 
@@ -85,8 +85,7 @@ The order follows a video from idea to delivery: plan → prepare → analyze �
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [manage-connections](../skills/manage-connections/SKILL.md) | Single registry for generation providers, SNS, memory connections, API-key references, model selection, and cost-approval policy. **The only gateway to paid generation and external publishing** | `.akari/connections.json` + a free, read-only doctor |
-| [connect](../skills/connect/SKILL.md) | Check AKARI tools and the services AKARI currently uses for media creation and transcription | `akari connect list` / `akari connect exec` |
+| [setup-connections](../skills/setup-connections/SKILL.md) | The single entrance for connection setup and inspection: generation providers, SNS, memory connections, API-key references, allowed models, cost-approval policy, and what is usable now (tools, media services, 3D). **The only gateway to paid generation and external publishing**; choosing a model from the allowed set belongs to the production skills | `.akari/connections.json` + a free, read-only doctor; `akari connect list` / `akari connect exec` |
 | [verify](../skills/verify/SKILL.md) | The verification ladder (L0 / L1 / L2) required by task contracts | Build & tests of the current Theia stack |
 
 ## 3D comes in two paths

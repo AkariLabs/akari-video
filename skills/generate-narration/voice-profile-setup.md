@@ -56,7 +56,7 @@ Before uploading to fal, transcribe the selected recording locally with Whisper.
 
 ### 5. Clone with fal `clone-voice/1.7b`
 
-Read `FAL_KEY` only through manage-connections from `~/.akari/credentials.env`; the legacy `~/.config/akari-video/credentials.env` is also readable (hard rule 5). Encode the reference audio as a data URI and pass the exact §1 script as `reference_text` to `fal-ai/qwen-3-tts/clone-voice/1.7b`. Save the returned `speaker_embedding.url` as the profile asset `embedding_source_url`. **This is paid and uploads audio.** Before sending, explain the target, method, reason, alternatives, cost, wait time, external transfer, and provenance, then obtain explicit approval under the Decision Communication Contract in [../manage-connections/SKILL.md](../manage-connections/SKILL.md). Cloning is normally a small, one-time cost per voice, but the declaration remains mandatory.
+Read `FAL_KEY` only through setup-connections from `~/.akari/credentials.env`; the legacy `~/.config/akari-video/credentials.env` is also readable (hard rule 5). Encode the reference audio as a data URI and pass the exact §1 script as `reference_text` to `fal-ai/qwen-3-tts/clone-voice/1.7b`. Save the returned `speaker_embedding.url` as the profile asset `embedding_source_url`. **This is paid and uploads audio.** Before sending, explain the target, method, reason, alternatives, cost, wait time, external transfer, and provenance, then obtain explicit approval under the Decision Communication Contract in [../setup-connections/SKILL.md](../setup-connections/SKILL.md). Cloning is normally a small, one-time cost per voice, but the declaration remains mandatory.
 
 ### 6. Save
 

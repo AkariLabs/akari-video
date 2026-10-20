@@ -11,7 +11,7 @@ import {
 } from '../../lib/common/credentials-file.js';
 
 const SECRET = ['sk_TESTSECRET', '0123456789'].join('_');
-const doctorUrl = new URL('../../../../../../skills/manage-connections/bin/doctor.mjs', import.meta.url);
+const doctorUrl = new URL('../../../../../../skills/setup-connections/bin/doctor.mjs', import.meta.url);
 const provider = (id, name = `${id.toUpperCase()}_KEY`, auth = 'env-key') => ({
     id, auth, env: '${' + name + '}', notes: { description: `${id} description`, setup_url: `https://example.com/${id}` }
 });
@@ -209,7 +209,7 @@ test('service sanitizes adapter output and keeps saved credential when check thr
     const service = new AkariConnectionsServiceImpl();
     const original = service.loadModule.bind(service);
     let fail = false;
-    service.loadModule = async relative => relative === 'skills/manage-connections/bin/doctor.mjs'
+    service.loadModule = async relative => relative === 'skills/setup-connections/bin/doctor.mjs'
         ? { adapters: { groq: async () => {
             if (fail) throw new Error(SECRET);
             return { status: 'invented', detail: SECRET, last_checked: SECRET, extra: SECRET };

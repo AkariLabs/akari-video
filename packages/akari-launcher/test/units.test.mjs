@@ -263,7 +263,7 @@ test('resolveRepoAssets: creator-root モジュールのパスも解決する', 
 async function writeRepoMarkers(root) {
   const markers = [
     ['skills', 'analyze-footage', 'SKILL.md'],
-    ['skills', 'manage-connections', 'bin', 'doctor.mjs'],
+    ['skills', 'setup-connections', 'bin', 'doctor.mjs'],
     ['templates', 'project-default', 'CLAUDE.md'],
     ['packages', 'schemas', 'analysis.schema.json'],
     ['packages', 'project-scaffold', 'src', 'index.mjs'],

@@ -43,7 +43,7 @@ Only full status can return `release.accepted: true`. Do not interpret fast stat
   Explain the next action in 1–2 sentences.
 - `state_health: inconclusive`: Briefly show `problems`; do not proceed based on guesses.
 
-If `.akari/connections.json` exists, you may additionally run the `manage-connections` skill's doctor.
+If `.akari/connections.json` exists, you may additionally run the `setup-connections` skill's doctor.
 Do not display key values or HTTP response bodies. Doctor diagnoses connections; it does not override workflow-stage determination.
 
 ## capability

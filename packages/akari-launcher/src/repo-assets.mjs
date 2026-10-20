@@ -19,7 +19,7 @@ const SKILLS_MARKER = path.join('skills', 'analyze-footage', 'SKILL.md');
 // 雛形側の .gitignore 実体は project-scaffold の writeFallbackTemplate が補完する。
 const TEMPLATE_MARKER = path.join('templates', 'project-default', 'CLAUDE.md');
 const SCHEMAS_MARKER = path.join('packages', 'schemas', 'analysis.schema.json');
-export const DOCTOR_SCRIPT_RELATIVE = path.join('skills', 'manage-connections', 'bin', 'doctor.mjs');
+export const DOCTOR_SCRIPT_RELATIVE = path.join('skills', 'setup-connections', 'bin', 'doctor.mjs');
 export const SCAFFOLD_MODULE_RELATIVE = path.join('packages', 'project-scaffold', 'src', 'index.mjs');
 // 作業場（creator-root）モジュール。① Wave（packages/creator-root）の成果物で、本パッケージ
 // からは読み取り専用（動的 import のみ）。scaffoldModulePath と同型の解決方式。
@@ -57,7 +57,7 @@ export const PREVIEW_SERVER_SCRIPT_RELATIVE = path.join('packages', 'preview-ser
 // resources は assets.repoRoot または実行中 CLI の位置から自己解決し、vendor を見ない経路。
 // relative は上の解決定数だけから組み立て、配布検査と実行時解決の文字列を乖離させない。
 export const LAUNCHER_SUBCOMMAND_EXECUTABLES = [
-  { command: '接続 doctor（manage-connections）', relative: DOCTOR_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: '接続 doctor（setup-connections）', relative: DOCTOR_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari new', relative: SCAFFOLD_MODULE_RELATIVE, resolution: 'launcher-assets' },
   { command: '初回動線（first-run）の作業場モジュール', relative: CREATOR_ROOT_MODULE_RELATIVE, resolution: 'launcher-assets' },
   { command: 'akari sounds', relative: AUDIO_FETCH_SCRIPT_RELATIVE, resolution: 'launcher-assets' },

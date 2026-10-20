@@ -1137,7 +1137,7 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * connections.json の doctor 判定を読むだけで、判定ロジック自体は
-     * 再実装しない（skills/manage-connections/bin/doctor.mjs が唯一の書き手）。
+     * 再実装しない（skills/setup-connections/bin/doctor.mjs が唯一の書き手）。
      * ファイルが無い/壊れている/対象 provider が無ければ未接続扱い
      * （フェイルセーフ側に倒す）。
      */

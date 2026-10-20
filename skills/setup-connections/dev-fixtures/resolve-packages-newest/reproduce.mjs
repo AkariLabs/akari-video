@@ -62,7 +62,7 @@ try {
   writeFileSync(shim, `exec node "${path.join(resources, "packages", "akari-launcher", "bin", "akari.mjs")}" "$@"\n`);
 
   const skills = [
-    ["manage-connections", "bin/resolve-packages.mjs"],
+    ["setup-connections", "bin/resolve-packages.mjs"],
     ["analyze-footage", "bin/person-matte/resolve-packages.mjs"],
   ];
   for (const [name, file] of skills) {

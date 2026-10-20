@@ -40,7 +40,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 28 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 27 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 
@@ -48,7 +48,7 @@ animation runtimes it connects to — including the two 3D paths.
 
 | Page | Contents |
 |---|---|
-| [Connections & API keys](./how-to/connections.md) | Connection registry, doctor diagnostics, cost-approval policy (manage-connections) |
+| [Connections & API keys](./how-to/connections.md) | Connection registry, doctor diagnostics, cost-approval policy (setup-connections) |
 | [Shell UI: assets & timeline](./how-to/shell-ui.md) | The library (assets, styles, templates), project panel, preview annotations, timeline and script panel, right-click menus, drag & drop |
 | [Project structure](./how-to/project-structure.md) | What each file under `.akari/` does (manifest, playbook, review, captions) and what is safe to delete |
 | [Resume a session](./how-to/resume-session.md) | How `.akari/events/` and the SessionStart hook work |

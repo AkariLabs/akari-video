@@ -41,7 +41,7 @@
 
 ## Skills
 
-ワークフローは 28 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+ワークフローは 27 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
 その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
 アニメーションランタイム（3D の 2 経路含む）をまとめています。
 
@@ -49,7 +49,7 @@
 
 | ページ | 内容 |
 |---|---|
-| [接続と API キー](./how-to/connections.ja.md) | 接続レジストリ・doctor 診断・コスト承認ポリシー（manage-connections） |
+| [接続と API キー](./how-to/connections.ja.md) | 接続レジストリ・doctor 診断・コスト承認ポリシー（setup-connections） |
 | [シェル UI: 素材とタイムライン](./how-to/shell-ui.ja.md) | ライブラリ（素材・スタイル・テンプレート）・プロジェクトパネル・プレビューの注釈・タイムラインと台本パネル・右クリックメニュー・D&D |
 | [プロジェクト構成](./how-to/project-structure.ja.md) | `.akari/` 配下のファイルの役割（目録・作り方・注釈・字幕）と削除してよいもの |
 | [続きから再開する](./how-to/resume-session.ja.md) | `.akari/events/` と SessionStart hook の仕組み |

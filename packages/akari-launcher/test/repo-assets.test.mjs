@@ -9,7 +9,7 @@ const ASSET_MARKERS = {
   skillsSourceDir: ['skills', 'analyze-footage', 'SKILL.md'],
   templateDir: ['templates', 'project-default', 'CLAUDE.md'],
   schemasSourceDir: ['packages', 'schemas', 'analysis.schema.json'],
-  doctorScript: ['skills', 'manage-connections', 'bin', 'doctor.mjs'],
+  doctorScript: ['skills', 'setup-connections', 'bin', 'doctor.mjs'],
   scaffoldModulePath: ['packages', 'project-scaffold', 'src', 'index.mjs'],
   creatorRootModulePath: ['packages', 'creator-root', 'src', 'index.mjs'],
   audioFetchScriptPath: ['packages', 'audio-library-setup', 'bin', 'fetch-akari-sounds.mjs'],

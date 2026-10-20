@@ -773,7 +773,7 @@ function applyToEditJson(projectDir, entry, io) {
 // --- dry-run ---
 
 function maskKey(secret) {
-  // 実際のキー文字は 1 文字も出力しない（manage-connections ハードルール「表示は常にマスク」）。
+  // 実際のキー文字は 1 文字も出力しない（setup-connections ハードルール「表示は常にマスク」）。
   return secret ? "***configured***" : "***unconfigured***";
 }
 

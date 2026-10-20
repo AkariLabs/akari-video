@@ -19,7 +19,7 @@ Find about three to five competitors in the target genre using free public evide
 - `notes`: Observable facts such as posting frequency, video length, and presentation style.
 - `gap`: Findings from the four-axis comparison below.
 
-Record each external source in `sources[]` with its URL, retrieval time, and `cost` (`free` or `paid`). Before using a paid research tool or API, pass the approval gate in [manage-connections](../manage-connections/SKILL.md).
+Record each external source in `sources[]` with its URL, retrieval time, and `cost` (`free` or `paid`). Before using a paid research tool or API, pass the approval gate in [setup-connections](../setup-connections/SKILL.md).
 
 ## 3. Compare four gap axes
 
@@ -34,7 +34,7 @@ For an axis with no meaningful gap, write "no difference" rather than leaving it
 
 ## 4. Market-specific platform context (required research axis)
 
-See lang/<content-language>.md. Populate the required `target.japan_sns` field with `platforms` and `notes`; if free sources yield no evidence, explain why in `notes`. Empty or omitted notes fail validate-research-plan.mjs. Paid tools remain subject to [manage-connections](../manage-connections/SKILL.md).
+See lang/<content-language>.md. Populate the required `target.japan_sns` field with `platforms` and `notes`; if free sources yield no evidence, explain why in `notes`. Empty or omitted notes fail validate-research-plan.mjs. Paid tools remain subject to [setup-connections](../setup-connections/SKILL.md).
 
 ## Common mistakes
 

@@ -28,7 +28,7 @@ which engines are usable and their connection status with `akari narration engin
 
 A paid engine shows an estimate and runs only after you approve it explicitly (without
 approval nothing is sent and it stops). Keys (`FAL_KEY`, `GEMINI_API_KEY`, `FISH_AUDIO_API_KEY`)
-are handled through `manage-connections`, and an engine that is not connected cannot be chosen.
+are handled through `setup-connections`, and an engine that is not connected cannot be chosen.
 You won't be charged without your say-so.
 
 ## How to ask

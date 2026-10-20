@@ -21,7 +21,7 @@ akari
   │     （.akari/intake.json は status: "draft" で生成される）
   │
   ├─ 3. 接続状態を確認する:
-  │     skills/manage-connections/bin/doctor.mjs を再利用して
+  │     skills/setup-connections/bin/doctor.mjs を再利用して
   │     .akari/connections.json の doctor ブロックを更新・表示する
   │     （キーの値は一切表示しない）
   │

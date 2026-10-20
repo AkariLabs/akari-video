@@ -291,7 +291,7 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
                 resolveCreatorRoot(options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<{ rootDir: string; manifest?: unknown } | null>;
             }>('packages/creator-root/src/index.mjs'),
             this.loadModule<{ mergeGenerationDefaults(base: unknown, overlay: unknown): { generate: { still: string | null; video: string | null } } }>(
-                'skills/manage-connections/bin/resolve-connections.mjs')
+                'skills/setup-connections/bin/resolve-connections.mjs')
         ]);
         const readLayer = async (filePath: string): Promise<ConnectionsDocument | null> => {
             try {
@@ -382,7 +382,7 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
             this.registryPromise = (async () => {
                 const [creatorRoot, resolver] = await Promise.all([
                     this.loadModule<{ DEFAULT_CONNECTIONS_REGISTRY: Registry }>('packages/creator-root/src/index.mjs'),
-                    this.loadModule<ResolverModule>('skills/manage-connections/bin/resolve-connections.mjs')
+                    this.loadModule<ResolverModule>('skills/setup-connections/bin/resolve-connections.mjs')
                 ]);
                 // The resolver has no machine-only option. A nonexistent, isolated context
                 // suppresses project/workspace and machine-pointer overlays without writing any files.
@@ -520,7 +520,7 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
     protected async inspect(provider: ConnectionProvider): Promise<ConnectionDoctor> {
         let doctor: ConnectionDoctor;
         try {
-            const module = await this.loadModule<{ adapters: Record<string, DoctorAdapter> }>('skills/manage-connections/bin/doctor.mjs');
+            const module = await this.loadModule<{ adapters: Record<string, DoctorAdapter> }>('skills/setup-connections/bin/doctor.mjs');
             const secret = (await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs')).readCredentials().values.get(credentialEnvName(provider));
             const checkedAt = new Date().toISOString();
             doctor = secret ? safeDoctor(await module.adapters[provider.id](secret, checkedAt), secret, checkedAt)

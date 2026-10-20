@@ -473,8 +473,8 @@
         ]
       },
       {
-        "from": "../../skills/manage-connections/bin",
-        "to": "skills/manage-connections/bin",
+        "from": "../../skills/setup-connections/bin",
+        "to": "skills/setup-connections/bin",
         "filter": [
           "*.mjs"
         ]

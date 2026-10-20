@@ -3,7 +3,7 @@
 # Connections and API keys
 
 Connections to external services (cloud transcription, TTS, generation APIs, SNS
-integrations) are centrally managed by the `manage-connections` skill.
+integrations) are centrally managed by the `setup-connections` skill.
 
 ## Principles
 
@@ -50,11 +50,12 @@ The key never needs to go into chat. From a terminal, `akari connect list [--jso
 shows the same status, and `akari connect exec <id> -- <command>` runs a command with
 that service's key passed to the child process only.
 
-## Choose a model or provider
+## Set allowed models and defaults
 
-For things with multiple backends — transcription, TTS, and so on — you can set the
-default in `connections.json`'s model selection. You can change it conversationally
-too, e.g. "make local whisper the default for transcription."
+For things with multiple backends — transcription, TTS, and so on — `connections.json` holds
+which models are allowed and which one is the default. Choosing which allowed model a job uses
+belongs to the production skill (it reads the model ledger and your preferences). You can still
+change the default conversationally, e.g. "make local whisper the default for transcription."
 
 ## Partner agents (the app's connect button)
 

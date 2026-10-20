@@ -30,7 +30,7 @@ async function loadDependencies() {
   getLanguage = i18n.getLanguage;
 }
 
-const usage = "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
+const usage = "使い方: node skills/setup-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
 const t = (key, params) => translate?.(key, params) ?? key;
 export const timeoutMs = 5_000;
 

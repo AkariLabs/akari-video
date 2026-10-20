@@ -4,7 +4,7 @@
 // <project>/.claude/skills/compile-review-session/）。したがって「自分の位置からの相対パス」は
 // モノレポ checkout でしか成立せず、プロジェクト内のコピーからは packages/edit-store（v2 snapshot の
 // 互換射影）も同梱 whisper-cli も見つからない（issue #70 / #72 の実体）。ここでは
-// skills/manage-connections/bin/resolve-packages.mjs と同じ探索順に、デスクトップ版の Resources
+// skills/setup-connections/bin/resolve-packages.mjs と同じ探索順に、デスクトップ版の Resources
 // （`~/.akari/cli/bin` の shim が指す akari.mjs から逆算）を加えて候補ルートを列挙する。
 //
 // 探索順:

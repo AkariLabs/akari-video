@@ -14,7 +14,7 @@ A full planning pass must remain possible without paid tools. If paid trend APIs
 
 ## 2. Opt in to paid methods
 
-Before using a paid trend source, pass the approval gate in [manage-connections](../manage-connections/SKILL.md): explain the target, method, reason, alternatives, estimated cost, wait time, and external data transfer, then obtain explicit approval. Never make a paid call before approval. If used, record `paid` in the `cost` field of `sources[]`.
+Before using a paid trend source, pass the approval gate in [setup-connections](../setup-connections/SKILL.md): explain the target, method, reason, alternatives, estimated cost, wait time, and external data transfer, then obtain explicit approval. Never make a paid call before approval. If used, record `paid` in the `cost` field of `sources[]`.
 
 ## 3. Record sources
 
