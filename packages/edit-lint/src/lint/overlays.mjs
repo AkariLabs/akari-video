@@ -1,7 +1,7 @@
-import { realpathSync, statSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { lintText } from '../i18n.mjs';
 import { readFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../../render-cut/src/fragment-assets.mjs";
 import { readFontCodepoints } from "../../../render-cut/src/font-cmap.mjs";
 import { collectFragmentCodepoints, fragmentFontFaces } from "../../../render-cut/src/fragment-text.mjs";
@@ -124,7 +124,15 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       findings,
     );
     for (const finding of validateWorldSceneDeclaration(html, await readFile(join(paths.projectRoot, "planning/world-map.json"), "utf8").catch(error => error?.code === "ENOENT" ? null : Promise.reject(error)), isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`)) addFinding(findings, finding);
-    validateThreeCanvas(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
+    validateThreeCanvas(
+      html,
+      isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`,
+      findings,
+      {
+        projectRoot: paths.projectRoot,
+        fragmentPath: isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : null,
+      },
+    );
     validateThreeTextFlags(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
     if (isHtmlFile) {
       validateOverlayFragmentAssets(html, overlay, paths, findings);
@@ -242,7 +250,7 @@ function validateThreeCameraKeys(source, path, findings) {
   }
 }
 
-function validateThreeCanvas(html, path, findings) {
+function validateThreeCanvas(html, path, findings, context = {}) {
   const source = stripHtmlComments(html);
   const raw = [
     ...rawTextElements(source, "script"),
@@ -272,6 +280,8 @@ function validateThreeCanvas(html, path, findings) {
   if (!scene) return;
   validateThreeCameraKeys(source, path, findings);
   validateThreeRenderer(source, path, findings);
+  validateThreeTerrain(source, path, findings, context);
+  validateThreeLines(source, path, findings);
   if (marked > 1) addFinding(findings, {
     severity: "error", check: "overlays.three-canvas",
     message: `data-akari-3d-canvas must appear on at most one element (found ${marked}).`, path,
@@ -338,6 +348,255 @@ function validateThreeRenderer(html, path, findings) {
       message: 'data-akari-3d-scene.renderer must be "webgl" or "webgpu".', path,
     });
   }
+}
+
+// terrain / lines（task 2026-10-21-scene3d-terrain-lines）の宣言検査。
+// three-runtime.js の validateTerrain / validateLines と同じ規則を、書き出し前に読める形にする。
+const THREE_TERRAIN_ENCODINGS = new Set(["grayscale", "gsi-dem"]);
+const THREE_TERRAIN_FIELDS = new Set([
+  "heightmap", "texture", "encoding", "exaggeration", "size", "segments",
+]);
+const THREE_TERRAIN_MIN_EXAGGERATION = 0.01;
+const THREE_TERRAIN_MAX_EXAGGERATION = 100;
+const THREE_TERRAIN_MAX_SEGMENTS = 512;
+const THREE_LINE_FIELDS = new Set(["points", "color", "width", "progress", "keys"]);
+const THREE_LINE_KEY_FIELDS = new Set(["t", "progress", "ease"]);
+const THREE_LINE_MAX_WIDTH = 64;
+const THREE_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/u;
+const THREE_TEXTURE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".bmp"]);
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+function forEachThreeDescriptor(source, visit) {
+  for (const block of rawTextElements(source, "script")) {
+    const attributes = parseHtmlAttributes(source.slice(block.start, block.bodyStart));
+    if (!Object.hasOwn(attributes, "data-akari-3d-scene")
+      || attributes.type?.toLowerCase() !== "application/json") continue;
+    let descriptor;
+    try {
+      descriptor = JSON.parse(source.slice(block.bodyStart, block.bodyEnd));
+    } catch {
+      continue;
+    }
+    if (isRecord(descriptor)) visit(descriptor);
+  }
+}
+
+function threeReferenceProblem(value, field) {
+  if (typeof value !== "string" || value.length === 0) {
+    return `${field} must be a non-empty relative path.`;
+  }
+  if (/^data:/iu.test(value)) return null;
+  if (isAbsolute(value) || /^[a-z][a-z\d+.-]*:/iu.test(value) || value.includes("\\")) {
+    return `${field} must be a relative path inside the project.`;
+  }
+  return null;
+}
+
+function threeReferenceFile(value, context) {
+  const root = realpathSync(context.projectRoot);
+  const candidates = [];
+  if (context.fragmentPath) {
+    candidates.push(resolve(root, dirname(context.fragmentPath), value));
+  }
+  candidates.push(resolve(root, value));
+  for (const candidate of candidates) {
+    const local = relative(root, candidate).replaceAll("\\", "/");
+    if (local === ".." || local.startsWith("../") || isAbsolute(local)) continue;
+    if (isRegularFileSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function threeHeightmapProblem(value, context) {
+  const referenceProblem = threeReferenceProblem(value, "data-akari-3d-scene.terrain.heightmap");
+  if (referenceProblem) return referenceProblem;
+  if (/^data:/iu.test(value)) {
+    return /^data:image\/png[;,]/iu.test(value)
+      ? null
+      : "data-akari-3d-scene.terrain.heightmap must be a PNG image.";
+  }
+  if (extname(value).toLowerCase() !== ".png") {
+    return "data-akari-3d-scene.terrain.heightmap must be a .png file.";
+  }
+  const file = threeReferenceFile(value, context);
+  if (!file) {
+    return `data-akari-3d-scene.terrain.heightmap does not exist: ${value}.`;
+  }
+  let header;
+  try {
+    const contents = readFileSync(file);
+    header = contents.subarray(0, 24);
+    if (contents.length < 24) return `data-akari-3d-scene.terrain.heightmap is not a readable PNG: ${value}.`;
+  } catch {
+    return `data-akari-3d-scene.terrain.heightmap cannot be read: ${value}.`;
+  }
+  if (!header.subarray(0, 8).equals(PNG_SIGNATURE) || header.toString("ascii", 12, 16) !== "IHDR") {
+    return `data-akari-3d-scene.terrain.heightmap is not a PNG file: ${value}.`;
+  }
+  const width = header.readUInt32BE(16);
+  const height = header.readUInt32BE(20);
+  if (!(width > 0) || !(height > 0)) {
+    return `data-akari-3d-scene.terrain.heightmap has no image dimensions: ${value}.`;
+  }
+  return null;
+}
+
+function threeTextureProblem(value, context) {
+  const referenceProblem = threeReferenceProblem(value, "data-akari-3d-scene.terrain.texture");
+  if (referenceProblem) return referenceProblem;
+  if (/^data:/iu.test(value)) {
+    return /^data:image\//iu.test(value)
+      ? null
+      : "data-akari-3d-scene.terrain.texture must be an image.";
+  }
+  if (!THREE_TEXTURE_EXTENSIONS.has(extname(value).toLowerCase())) {
+    return "data-akari-3d-scene.terrain.texture must be a .png, .jpg, .jpeg, .webp, .gif, .avif, or .bmp file.";
+  }
+  if (!threeReferenceFile(value, context)) {
+    return `data-akari-3d-scene.terrain.texture does not exist: ${value}.`;
+  }
+  return null;
+}
+
+function threeTerrainProblems(terrain, context) {
+  if (!isRecord(terrain)) return ["data-akari-3d-scene.terrain must be an object."];
+  const problems = [];
+  for (const key of Object.keys(terrain)) {
+    if (!THREE_TERRAIN_FIELDS.has(key)) {
+      problems.push(`data-akari-3d-scene.terrain has an unknown field: ${key}.`);
+    }
+  }
+  const heightmapProblem = threeHeightmapProblem(terrain.heightmap, context);
+  if (heightmapProblem) problems.push(heightmapProblem);
+  if (terrain.encoding !== undefined && !THREE_TERRAIN_ENCODINGS.has(terrain.encoding)) {
+    problems.push('data-akari-3d-scene.terrain.encoding must be "grayscale" or "gsi-dem".');
+  }
+  if (terrain.texture !== undefined) {
+    const textureProblem = threeTextureProblem(terrain.texture, context);
+    if (textureProblem) problems.push(textureProblem);
+  }
+  if (terrain.exaggeration !== undefined) {
+    if (!isFiniteNumber(terrain.exaggeration)
+      || terrain.exaggeration < THREE_TERRAIN_MIN_EXAGGERATION
+      || terrain.exaggeration > THREE_TERRAIN_MAX_EXAGGERATION) {
+      problems.push(
+        `data-akari-3d-scene.terrain.exaggeration must be a number from`
+        + ` ${THREE_TERRAIN_MIN_EXAGGERATION} to ${THREE_TERRAIN_MAX_EXAGGERATION}.`
+      );
+    }
+  }
+  if (terrain.size !== undefined) {
+    if (!Array.isArray(terrain.size)
+      || terrain.size.length !== 2
+      || !terrain.size.every(value => isFiniteNumber(value) && value > 0)) {
+      problems.push(
+        "data-akari-3d-scene.terrain.size must be an array of 2 positive finite numbers [width, depth]."
+      );
+    }
+  }
+  if (terrain.segments !== undefined) {
+    if (!Number.isInteger(terrain.segments)
+      || terrain.segments < 1
+      || terrain.segments > THREE_TERRAIN_MAX_SEGMENTS) {
+      problems.push(
+        `data-akari-3d-scene.terrain.segments must be an integer from 1 to ${THREE_TERRAIN_MAX_SEGMENTS}.`
+      );
+    }
+  }
+  return problems;
+}
+
+function threeLineKeysProblems(keys, field) {
+  if (!Array.isArray(keys) || keys.length === 0) {
+    return [`${field} must be a non-empty array.`];
+  }
+  const problems = [];
+  for (const [index, entry] of keys.entries()) {
+    const label = `${field}[${index}]`;
+    if (!isRecord(entry)) {
+      problems.push(`${label} must be an object.`);
+      continue;
+    }
+    const unknown = Object.keys(entry).find(name => !THREE_LINE_KEY_FIELDS.has(name));
+    if (unknown) problems.push(`${label} has an unknown field: ${unknown}.`);
+    if (!isFiniteNumber(entry.t)) problems.push(`${label}.t must be a finite number.`);
+    if (!isFiniteNumber(entry.progress) || entry.progress < 0 || entry.progress > 1) {
+      problems.push(`${label}.progress must be a number from 0 to 1.`);
+    }
+    if (entry.ease !== undefined && entry.ease !== "linear" && entry.ease !== "easeInOut") {
+      problems.push(`${label}.ease must be "linear" or "easeInOut".`);
+    }
+    if (index > 0 && isFiniteNumber(entry.t) && isFiniteNumber(keys[index - 1]?.t)
+      && entry.t <= keys[index - 1].t) {
+      problems.push(
+        `${field} must be ordered by ascending t:`
+        + ` keys[${index}].t=${entry.t} is not greater than keys[${index - 1}].t=${keys[index - 1].t}`
+        + " (keys are not sorted automatically; reorder them or fix t)."
+      );
+    }
+  }
+  return problems;
+}
+
+function threeLinesProblems(lines) {
+  if (!Array.isArray(lines)) return ["data-akari-3d-scene.lines must be an array."];
+  const problems = [];
+  for (const [index, entry] of lines.entries()) {
+    const field = `data-akari-3d-scene.lines[${index}]`;
+    if (!isRecord(entry)) {
+      problems.push(`${field} must be an object.`);
+      continue;
+    }
+    const unknown = Object.keys(entry).find(name => !THREE_LINE_FIELDS.has(name));
+    if (unknown) problems.push(`${field} has an unknown field: ${unknown}.`);
+    if (!Array.isArray(entry.points) || entry.points.length < 2) {
+      problems.push(`${field}.points must be an array of at least 2 points.`);
+    } else {
+      for (const [pointIndex, point] of entry.points.entries()) {
+        if (!Array.isArray(point) || point.length !== 3 || !point.every(isFiniteNumber)) {
+          problems.push(`${field}.points[${pointIndex}] must be an array of 3 finite numbers [x, y, z].`);
+        }
+      }
+    }
+    if (entry.color !== undefined
+      && (typeof entry.color !== "string" || !THREE_COLOR_PATTERN.test(entry.color))) {
+      problems.push(`${field}.color must be a 6-digit hex color.`);
+    }
+    if (entry.width !== undefined
+      && (!isFiniteNumber(entry.width) || entry.width <= 0 || entry.width > THREE_LINE_MAX_WIDTH)) {
+      problems.push(`${field}.width must be a number greater than 0 and at most ${THREE_LINE_MAX_WIDTH}.`);
+    }
+    if (entry.progress !== undefined
+      && (!isFiniteNumber(entry.progress) || entry.progress < 0 || entry.progress > 1)) {
+      problems.push(`${field}.progress must be a number from 0 to 1.`);
+    }
+    if (entry.keys !== undefined) {
+      problems.push(...threeLineKeysProblems(entry.keys, `${field}.keys`));
+    }
+  }
+  return problems;
+}
+
+function validateThreeTerrain(source, path, findings, context) {
+  forEachThreeDescriptor(source, descriptor => {
+    if (descriptor.terrain === undefined) return;
+    for (const problem of threeTerrainProblems(descriptor.terrain, context)) {
+      addFinding(findings, {
+        severity: "error", check: "overlays.three-terrain", message: problem, path,
+      });
+    }
+  });
+}
+
+function validateThreeLines(source, path, findings) {
+  forEachThreeDescriptor(source, descriptor => {
+    if (descriptor.lines === undefined) return;
+    for (const problem of threeLinesProblems(descriptor.lines)) {
+      addFinding(findings, {
+        severity: "error", check: "overlays.three-lines", message: problem, path,
+      });
+    }
+  });
 }
 
 function validateOverlayFragmentAssets(html, overlay, paths, findings) {

@@ -55,7 +55,7 @@ A fragment has one root, a transparent canvas, an optional static fallback, and 
 </div>
 ```
 
-Only these top-level keys are supported: `model` / `camera` / `environment` / `fog` / `background` / `lights` / `animationClip` / `materialOverrides` / `finishes` / `shadows` / `texts` / `physics` / `renderer`. When `texts[]` exists, `model` is optional (see the 3D text section). `physics` gives `texts[]` falling physics (see its section).
+Only these top-level keys are supported: `model` / `camera` / `environment` / `fog` / `background` / `lights` / `animationClip` / `materialOverrides` / `finishes` / `shadows` / `texts` / `physics` / `terrain` / `lines` / `renderer`. When `texts[]`, `terrain`, or `lines[]` exists, `model` is optional (see their sections). `physics` gives `texts[]` falling physics (see its section).
 
 - `model` is a `.glb` path relative to the directory containing edit.json. Never use a URL or CDN.
 - `renderer` is `"webgl"` (default) or `"webgpu"`; omit it for the existing look. This is a per-scene opt-in: only a scene that declares `"webgpu"` uses `WebGPURenderer`. The preview, `render-cut --engine gpu`, and `render-cut --engine osr` all honor it. On a machine without WebGPU, the renderer automatically falls back to its WebGL2 backend, so the declaration still works (check `inspect().renderer.backend` to see which backend actually ran). **Do not change the default for production scenes until you have compared both backends on real footage** (owner decision, 2026-10-21).
@@ -408,6 +408,47 @@ Previously the live path fixed camera literal values and approximated motion by 
 ## Declarative camera keys and billboard text
 
 `camera.keys` (keyframe camera moves without a GLB clip) and `texts[].billboard` / `screenSpace` (text that always faces the camera at a constant on-screen size) are documented with examples in the user guide: [Motion parts and captions — 3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.md#3d) (Japanese: [テロップ・字幕・図表・3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.ja.md#3d)). Preview, `akari capture`, and export share the same interpolation, so the same `t` gives the same camera.
+
+## terrain and lines (height-map terrain and growing 3D polylines; introduced 2026-10-21)
+
+`terrain` builds a mesh from a PNG height map and `lines[]` draws screen-width polylines. Neither needs a GLB or a Blender bake. The user guide carries the full prose and the same examples: [Motion parts and captions — 3D](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/overlays-and-captions.md#3d).
+
+```json
+{
+  "terrain": {
+    "heightmap": "overlays/3d/height.png",
+    "texture": "overlays/3d/photo.jpg",
+    "encoding": "grayscale",
+    "exaggeration": 1.5,
+    "size": [12, 8],
+    "segments": 256
+  }
+}
+```
+
+- `heightmap` is a PNG path. Declare it from the project root (for example `overlays/3d/height.png`) so preview and export resolve the same file; lint also accepts a path next to the fragment. `encoding` is `"grayscale"` (default; luminance = height) or `"gsi-dem"` (GSI elevation tiles: RGB encodes elevation, `-10000 + raw * 0.01` metres; the `0x800000` no-data pixel becomes 0).
+- `size` is `[width, depth]` in world units (default `[10, 10]`). `exaggeration` (default 1, 0.01–100) multiplies the sampled height. `segments` (1–512) sets the grid; omitted, it follows the image resolution capped at 512.
+- `texture` pastes a still photo. Without it the terrain is a single color shaded by height. The runtime waits for both images before `status: "ready"`, so capture and export never see a partially loaded terrain. Check `inspect().terrain` (image size, `segments`, `minHeight`, `maxHeight`).
+- Keep the height map inside the project. A `data:` PNG is also accepted when the file must travel with the declaration.
+
+```json
+{
+  "lines": [{
+    "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
+    "color": "#ff3366",
+    "width": 4,
+    "keys": [
+      { "t": 0, "progress": 0 },
+      { "t": 2, "progress": 1, "ease": "easeInOut" }
+    ]
+  }]
+}
+```
+
+- `points` needs 2 or more `[x, y, z]` finite numbers. `width` is in screen pixels and stays constant with distance (the runtime expands each segment in screen space; no `LineMaterial` dependency).
+- `progress` (0–1) draws from the first point. `keys` (`t` in seconds from the item start, `progress`, optional `ease: "linear" | "easeInOut"`) animates growth; before the first and after the last key the value holds. Keys must be ascending and are not sorted automatically. `keys` wins when both are declared.
+- The geometry is rebuilt inside `draw(localSeconds)` from the final camera, so preview, `akari capture`, and export share the same picture. Check `inspect().lines[]` (`progress`, `vertexCount`) without pixel comparison.
+- `akari lint` (`overlays.three-terrain` / `overlays.three-lines`) checks the image exists and is a PNG, the ranges, point count, colors, widths, progress, and key order before export.
 
 ## When export fails with `seeking frame N timeout`
 

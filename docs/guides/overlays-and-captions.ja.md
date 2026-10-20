@@ -248,6 +248,50 @@ akari captions migrate-look <project-dir>             # 固定して保存
 - `camera.keys` と `camera.fromModel` を両方宣言したときは keys を優先し、1 行の警告を出します
 - プレビュー・`akari capture`・書き出しは同じ補間を使うため、同じ `t` は同じカメラになります
 
+高さマップの PNG から地形を作り、3D のポリラインを時間で伸ばせます。GLB も Blender の
+ベイクも要りません。
+
+```json
+{
+  "terrain": {
+    "heightmap": "overlays/3d/height.png",
+    "texture": "overlays/3d/photo.jpg",
+    "encoding": "grayscale",
+    "exaggeration": 1.5,
+    "size": [12, 8],
+    "segments": 256
+  },
+  "lines": [
+    {
+      "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
+      "color": "#ff3366",
+      "width": 4,
+      "keys": [
+        { "t": 0, "progress": 0 },
+        { "t": 2, "progress": 1, "ease": "easeInOut" }
+      ]
+    }
+  ]
+}
+```
+
+- `heightmap` は PNG のパスです。プレビューと書き出しが同じファイルを読むよう、プロジェクト基準のパス（例: `overlays/3d/height.png`）を推奨します。断片の隣に置いたパスも使えます。既定はグレースケールで、`"encoding": "gsi-dem"`
+  にすると国土地理院の標高タイル（RGB に標高を符号化）を読みます。読めない画像や PNG でない
+  ファイルは lint が error にします
+- `size` は `[幅, 奥行]`（ワールド単位・既定 `[10, 10]`）。`exaggeration`（既定 1）は読み取った
+  高さの倍率、`segments`（1〜512）は格子の解像度です。省略時の segments は画像の解像度に
+  合わせ、上限 512 で頭打ちにします
+- `texture` を指定すると写真を地形に貼ります。無いときは高さで陰影のついた単色になります。
+  高さマップとテクスチャの読み込みが終わるまで「準備完了」にしないため、`akari capture` や
+  書き出しに地形が欠けた絵は入りません
+- `lines[]` は 2 点以上の `[x, y, z]` を通るポリラインです。`width` は画面上の px で、距離に
+  よらず一定です。`progress`（0〜1）は始点からどこまで描くか、`keys`
+  （`[{ t, progress, ease }]`・置いたアイテムの開始からの秒）は時間に沿った伸び方です。
+  最初のキーより前と最後のキーより後はその値で止まり、キーは `t` の昇順で並べる必要が
+  あります（自動では並べ替えません）。`ease` は `linear`（既定）か `easeInOut` です。
+  `progress` と `keys` を両方書いたときは `keys` を使います
+- 画像の欠け・範囲外の値・点の数・キーの順序は、書き出し前に lint が知らせます
+
 Three.js で表せない映像（被写界深度・レイトレースなど）や、使い回すクリップは
 [3D シーンをベイクする](bake-3d.ja.md)で映像に焼きます。
 
