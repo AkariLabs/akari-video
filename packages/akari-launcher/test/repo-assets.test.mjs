@@ -22,7 +22,8 @@ const ASSET_MARKERS = {
   captionsScript: ['packages', 'akari-tools', 'bin', 'captions.mjs'],
   mediaScript: ['packages', 'akari-tools', 'bin', 'media.mjs'],
   speakersScript: ['packages', 'akari-tools', 'bin', 'speakers.mjs'],
-  toolsScript: ['packages', 'akari-tools', 'bin', 'tools.mjs']
+  toolsScript: ['packages', 'akari-tools', 'bin', 'tools.mjs'],
+  geoScript: ['packages', 'akari-tools', 'bin', 'geo.mjs']
 };
 
 async function withRoots(run) {
@@ -60,6 +61,31 @@ test('resolveLauncherAssets: candidate の schemas と vendor の template/scaff
     assert.equal(assets.schemasSourceDir, path.join(candidateRoot, 'packages', 'schemas'));
     assert.equal(assets.templateDir, path.join(vendorRoot, 'templates', 'project-default'));
     assert.equal(assets.scaffoldModulePath, path.join(vendorRoot, ...ASSET_MARKERS.scaffoldModulePath));
+  });
+});
+
+test('resolveLauncherAssets: candidate が akari-tools/bin の一部だけを持ち geo.mjs は vendor だけにある場合、geoScript は vendor を指す', async () => {
+  await withRoots(async ({ candidateRoot, vendorRoot }) => {
+    // アプリの Resources/ と同じ配置: candidate 側には beatmap.mjs はあるが geo.mjs は無い。
+    await writeMarker(candidateRoot, ASSET_MARKERS.beatmapScript);
+    await writeMarker(vendorRoot, ASSET_MARKERS.geoScript);
+
+    const assets = resolveLauncherAssets({ candidateRoot, vendorRoot });
+
+    assert.equal(assets.repoRoot, candidateRoot);
+    assert.equal(assets.beatmapScript, path.join(candidateRoot, ...ASSET_MARKERS.beatmapScript));
+    assert.equal(assets.geoScript, path.join(vendorRoot, ...ASSET_MARKERS.geoScript));
+  });
+});
+
+test('resolveLauncherAssets: candidate 側に geo.mjs があれば geoScript は candidate を指す', async () => {
+  await withRoots(async ({ candidateRoot, vendorRoot }) => {
+    await writeMarker(candidateRoot, ASSET_MARKERS.geoScript);
+    await writeMarker(vendorRoot, ASSET_MARKERS.geoScript);
+
+    const assets = resolveLauncherAssets({ candidateRoot, vendorRoot });
+
+    assert.equal(assets.geoScript, path.join(candidateRoot, ...ASSET_MARKERS.geoScript));
   });
 });
 

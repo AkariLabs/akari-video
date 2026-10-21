@@ -107,6 +107,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const wordBookScript = path.join(repoRoot, WORD_BOOK_SCRIPT_RELATIVE);
   const generateScript = path.join(repoRoot, GENERATE_CLI_RELATIVE);
   const storyboardScript = path.join(repoRoot, STORYBOARD_CLI_RELATIVE);
+  const geoScript = path.join(repoRoot, GEO_CLI_RELATIVE);
   const previewServerScript = path.join(repoRoot, PREVIEW_SERVER_SCRIPT_RELATIVE);
 
   return {
@@ -132,6 +133,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     ...(existsSync(wordBookScript) ? { wordBookScript } : {}),
     ...(existsSync(generateScript) ? { generateScript } : {}),
     ...(existsSync(storyboardScript) ? { storyboardScript } : {}),
+    ...(existsSync(geoScript) ? { geoScript } : {}),
     ...(existsSync(previewServerScript) ? { previewServerScript } : {})
   };
 }
@@ -185,6 +187,9 @@ export function resolveLauncherAssets({
       : {}),
     ...(candidate.storyboardScript ?? vendor.storyboardScript
       ? { storyboardScript: candidate.storyboardScript ?? vendor.storyboardScript }
+      : {}),
+    ...(candidate.geoScript ?? vendor.geoScript
+      ? { geoScript: candidate.geoScript ?? vendor.geoScript }
       : {}),
     ...(candidate.decisionLogScript ?? vendor.decisionLogScript ? { decisionLogScript: candidate.decisionLogScript ?? vendor.decisionLogScript } : {}),
     ...(candidate.wordBookScript ?? vendor.wordBookScript

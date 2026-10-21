@@ -21,7 +21,7 @@ test('akari geo: akari-tools geo.mjs へ引数と終了値を転送する', asyn
   await writeFile(script, '');
   const calls = [];
   const result = await runGeoCommand(['terrain', '--bbox', '139,35,140,36', '--out', 'out'], {
-    assets: { repoRoot },
+    assets: { geoScript: script },
     spawn: (...args) => { calls.push(args); return { status: 5 }; },
   });
   assert.equal(result.exitCode, 5);
@@ -34,7 +34,7 @@ test('akari geo: akari-tools geo.mjs へ引数と終了値を転送する', asyn
 
 test('akari geo: スクリプト不在は既存 internal-command と同じ案内', async () => {
   const errors = [];
-  const result = await runGeoCommand([], { assets: { repoRoot: '/not/a/repository' }, logError: (line) => errors.push(line) });
+  const result = await runGeoCommand([], { assets: {}, logError: (line) => errors.push(line) });
   assert.equal(result.exitCode, 1);
   assert.match(errors.join('\n'), /完全な checkout または配布物/);
 });
