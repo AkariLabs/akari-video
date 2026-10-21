@@ -45,5 +45,5 @@ test('akari --help: geo が一覧に出る', async () => {
     env: { ...process.env, AKARI_LANG: 'ja' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /geo terrain\s+国土地理院の標高・写真タイル/);
+  assert.match(result.stdout, /geo terrain \/ point\s+国土地理院のタイルから 3D 地形を作り/);
 });
