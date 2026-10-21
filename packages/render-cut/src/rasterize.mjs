@@ -6,6 +6,7 @@ import { renderText } from './i18n.mjs';
 import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
+import { scopeFragmentCss } from "../../overlay-runtime/src/fragment-css-scope.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
 import { fragmentNeedsBoxSizingDefault } from "./fragment-box-sizing.mjs";
 import { setCaptionInkClipVariables } from "./caption-ink-clip.mjs";
@@ -70,8 +71,23 @@ function buildRuntimeBlocks(entry, edit) {
   };
 }
 
-export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const orderedOverlays = orderOverlaysByTrack(overlays).map((overlay) => overlay.htmlPath ? {
+export function renderOverlaySheet({ overlays, edit, projectRoot, duration, scopeCss = true }) {
+  // 同一ページに載る断片の衝突名を、edit.json の順（z 並べ替え前）で後の断片だけ退避する。
+  // preview-server の mount と同じ純関数（overlay-runtime/src/fragment-css-scope.mjs）を使う。
+  const scopedFragments = scopeCss
+    ? scopeFragmentCss(overlays.map((overlay, index) => ({
+      id: String(overlay.id ?? index),
+      html: typeof overlay.html === "string" ? overlay.html : "",
+    })))
+    : null;
+  const scopedOverlays = scopedFragments
+    ? overlays.map((overlay, index) => {
+      const next = scopedFragments[index].html;
+      return typeof overlay.html === "string" && next !== overlay.html
+        ? { ...overlay, html: next } : overlay;
+    })
+    : overlays;
+  const orderedOverlays = orderOverlaysByTrack(scopedOverlays).map((overlay) => overlay.htmlPath ? {
     ...overlay,
     html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
   } : overlay);

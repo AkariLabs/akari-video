@@ -49,7 +49,11 @@ test('slot-params: ルートで配信し、index.html が app.js より先に読
   assert.match(helper, /window\.akari\?\.slotParams\?\.renderTextSlots\?\.\(template\.content, params\)/u);
   assert.match(helper, /\[data-mirror="text"\]/u);
   assert.match(helper, /setAttribute\('aria-hidden', 'true'\)/u);
-  assert.equal((app.match(/setOverlayFragmentHtml\(c, /g) ?? []).length, 2, 'fetch 経路とインライン経路の両方');
+  // 断片の実体は先に全部そろえ（ファイル参照は fetch、インラインはそのまま）、
+  // スコープ後に 1 か所の注入経路へ通す。fetch / インラインの両方が同じ経路に合流する。
+  assert.equal((app.match(/setOverlayFragmentHtml\(c, /g) ?? []).length, 1, '注入は 1 か所に集約');
+  assert.match(app, /spec\.needsFetch\s*\n?\s*\? fetch\(resolveMediaUrl\(spec\.rawHtml\)\)/u);
+  assert.match(app, /: Promise\.resolve\(spec\.rawHtml\)\)/u);
   assert.doesNotMatch(app.slice(app.indexOf('function mount(s)'), app.indexOf('function syncHitRegion(')), /c\.innerHTML = (html \|\| ''|rawHtml);/u);
 });
 

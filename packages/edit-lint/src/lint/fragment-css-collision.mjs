@@ -29,7 +29,7 @@ export function validateFragmentCssCollisions(usages, findings) {
         addFinding(findings, {
           severity: "warning",
           check: "overlays.fragment-css-collision",
-          message: `overlay:${a.clipId} (${a.label}) and overlay:${b.clipId} (${b.label}) both define class ".${name}" in <style>; prefix the class in one fragment (for example ".${prefixFor(a.clipId)}-${name}") so its rules cannot style the other clip`,
+          message: `overlay:${a.clipId} (${a.label}) and overlay:${b.clipId} (${b.label}) both define class ".${name}" in <style>; prefix the class in one fragment (for example ".${prefixFor(a.clipId)}-${name}") so its rules cannot style the other clip; at runtime the later fragment's class names are renamed with a suffix, so this collision is resolved automatically`,
           path: b.label,
         });
       }
@@ -40,7 +40,7 @@ export function validateFragmentCssCollisions(usages, findings) {
         addFinding(findings, {
           severity: "warning",
           check: "overlays.fragment-css-collision",
-          message: `overlay:${a.clipId} (${a.label}) and overlay:${b.clipId} (${b.label}) both define @keyframes "${name}"; prefix the keyframes name in one fragment (for example "${prefixFor(a.clipId)}-${name}") in both the @keyframes rule and its animation references`,
+          message: `overlay:${a.clipId} (${a.label}) and overlay:${b.clipId} (${b.label}) both define @keyframes "${name}"; prefix the keyframes name in one fragment (for example "${prefixFor(a.clipId)}-${name}") in both the @keyframes rule and its animation references; at runtime the later fragment's keyframes names are renamed with a suffix, so this collision is resolved automatically`,
           path: b.label,
         });
       }
