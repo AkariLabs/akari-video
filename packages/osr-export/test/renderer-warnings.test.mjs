@@ -23,3 +23,14 @@ test("seek warnings are deduplicated in first-seen order and attached to every O
   assert.match(source, /const seekResult = await windowRef\.webContents\.executeJavaScript/u);
   assert.match(source, /collectRendererWarnings\(rendererWarnings, seekResult\)/u);
 });
+
+test("page runtime forwards [akari-three] warnings into seek warnings once", () => {
+  const source = readFileSync(new URL("../src/page-runtime.js", import.meta.url), "utf8");
+  // シートの threeRuntime が溜めた [akari-three] 警告を取り出し、first-seen で warnings へ足す。
+  assert.match(source, /const threeWarningMessages = new Set\(\);/u);
+  assert.match(source, /drainWarnings\?\.\(\)/u);
+  assert.match(source, /threeWarningMessages\.has\(message\)/u);
+  // ready（最初の描画）の後と、毎シークの後にも回収する。
+  assert.equal(source.match(/collectThreeWarnings\(\);/gu)?.length, 2);
+  assert.match(source, /warnings: warnings\.concat\(/u);
+});

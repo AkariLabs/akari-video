@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -369,4 +369,35 @@ test("geo terrain CLI: --bbox と --out を必須にし、--json に出典を含
   const output = JSON.parse(messages.at(-1));
   assert.equal(output.terrain.attribution, ATTRIBUTION);
   assert.equal(output.tiles.count, 4);
+});
+
+test("geo terrain: プロジェクト内の --out は declaration をプロジェクト基準のパスで書く", async (t) => {
+  const root = await workspace(t);
+  const project = path.join(root, "project");
+  await mkdir(project, { recursive: true });
+  await writeFile(path.join(project, "edit.json"), "{}\n");
+  const { fetchImpl } = fakeFetch();
+  const result = await buildTerrain({
+    bbox: BBOX,
+    zoom: ZOOM,
+    outDir: path.join(project, "overlays", "terrain"),
+    cacheDir: path.join(root, "cache"),
+    fetchImpl,
+  });
+  assert.equal(result.terrain.declaration.heightmap, "overlays/terrain/heightmap.png");
+  assert.equal(result.terrain.declaration.texture, "overlays/terrain/texture.png");
+  // 書き出した terrain.json も同じパス。
+  const written = JSON.parse(await readFile(result.files.terrain, "utf8"));
+  assert.equal(written.declaration.heightmap, "overlays/terrain/heightmap.png");
+
+  // プロジェクトの外では従来どおりファイル名だけ。
+  const outside = await buildTerrain({
+    bbox: BBOX,
+    zoom: ZOOM,
+    outDir: path.join(root, "outside", "terrain"),
+    cacheDir: path.join(root, "cache"),
+    fetchImpl,
+  });
+  assert.equal(outside.terrain.declaration.heightmap, "heightmap.png");
+  assert.equal(outside.terrain.declaration.texture, "texture.png");
 });

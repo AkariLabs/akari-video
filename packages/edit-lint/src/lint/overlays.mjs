@@ -411,7 +411,7 @@ const THREE_TERRAIN_INVALID_DEM = [128, 0, 0];
 const THREE_TERRAIN_MIN_EXAGGERATION = 0.01;
 const THREE_TERRAIN_MAX_EXAGGERATION = 100;
 const THREE_TERRAIN_MAX_SEGMENTS = 512;
-const THREE_LINE_FIELDS = new Set(["points", "color", "width", "progress", "keys"]);
+const THREE_LINE_FIELDS = new Set(["points", "color", "width", "progress", "keys", "drape", "lift"]);
 const THREE_LINE_KEY_FIELDS = new Set(["t", "progress", "ease"]);
 const THREE_LINE_MAX_WIDTH = 64;
 const THREE_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/u;
@@ -634,6 +634,12 @@ function threeLinesProblems(lines) {
       && (!isFiniteNumber(entry.progress) || entry.progress < 0 || entry.progress > 1)) {
       problems.push(`${field}.progress must be a number from 0 to 1.`);
     }
+    if (entry.drape !== undefined && typeof entry.drape !== "boolean") {
+      problems.push(`${field}.drape must be a boolean.`);
+    }
+    if (entry.lift !== undefined && (!isFiniteNumber(entry.lift) || entry.lift < 0)) {
+      problems.push(`${field}.lift must be a non-negative finite number.`);
+    }
     if (entry.keys !== undefined) {
       problems.push(...threeLineKeysProblems(entry.keys, `${field}.keys`));
     }
@@ -708,6 +714,19 @@ function validateThreeLines(source, path, findings) {
       addFinding(findings, {
         severity: "error", check: "overlays.three-lines", message: problem, path,
       });
+    }
+    // drape は地形の表面に載せる宣言。terrain が無いと従来どおり宣言の y で描かれ、
+    // 線が山に埋もれる / 宙に浮く原因が見えないままになるので、書き出し前に知らせる。
+    if (descriptor.terrain === undefined && Array.isArray(descriptor.lines)) {
+      for (const [index, entry] of descriptor.lines.entries()) {
+        if (!isRecord(entry) || entry.drape !== true) continue;
+        addFinding(findings, {
+          severity: "warning", check: "overlays.three-lines",
+          message: `data-akari-3d-scene.lines[${index}].drape is true but the scene has no`
+            + " terrain; the runtime draws the declared y (add terrain or set drape: false).",
+          path,
+        });
+      }
     }
   });
 }

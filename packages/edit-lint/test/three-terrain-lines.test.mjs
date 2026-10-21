@@ -61,6 +61,8 @@ test("terrain / lines lint accepts a valid declaration and resolves the fragment
       color: "#12abef",
       width: 3,
       progress: 0.5,
+      drape: true,
+      lift: 0.02,
       keys: [
         { t: 0, progress: 0 },
         { t: 2, progress: 1, ease: "easeInOut" },
@@ -135,6 +137,9 @@ test("lines lint rejects bad points, color, width, progress, and key order", asy
     { lines: [{ points: [[0, 0, 0], [1, 1, 1]], width: 65 }], message: /width must be a number greater than 0/u },
     { lines: [{ points: [[0, 0, 0], [1, 1, 1]], progress: 1.5 }], message: /progress must be a number from 0 to 1/u },
     { lines: [{ points: [[0, 0, 0], [1, 1, 1]], label: "a" }], message: /unknown field: label/u },
+    { lines: [{ points: [[0, 0, 0], [1, 1, 1]], drape: 1 }], message: /drape must be a boolean/u },
+    { lines: [{ points: [[0, 0, 0], [1, 1, 1]], drape: false, lift: -0.1 }], message: /lift must be a non-negative/u },
+    { lines: [{ points: [[0, 0, 0], [1, 1, 1]], lift: "1" }], message: /lift must be a non-negative/u },
     {
       lines: [{ points: [[0, 0, 0], [1, 1, 1]], keys: [{ t: 2, progress: 0 }, { t: 1, progress: 1 }] }],
       message: /ascending t.*keys\[1\]\.t=1/u,
@@ -200,4 +205,28 @@ test("terrain lint leaves fragments without a terrain / lines declaration alone"
   const findings = await lintCase(t, "<div><canvas></canvas><p>no scene</p></div>");
   assert.deepEqual(findings.terrain, []);
   assert.deepEqual(findings.lines, []);
+});
+
+test("lines lint warns when drape is true without terrain and accepts drape with terrain", async t => {
+  const lines = [{
+    points: [[0, 0, 0], [1, 1, 1]],
+    drape: true,
+    keys: [{ t: 0, progress: 0 }, { t: 2, progress: 1 }],
+  }];
+  const warning = await lintCase(t, `<div><canvas></canvas>${scene({ lines })}</div>`, { files: TERRAIN_FILES });
+  assert.equal(warning.lines.length, 1);
+  assert.equal(warning.lines[0].severity, "warning");
+  assert.match(warning.lines[0].message, /lines\[0\]\.drape is true but the scene has no terrain/u);
+
+  const withTerrain = await lintCase(t, `<div><canvas></canvas>${scene({
+    terrain: { heightmap: "terrain-4x4.png", size: [4, 6] },
+    lines,
+  })}</div>`, { files: TERRAIN_FILES });
+  assert.deepEqual(withTerrain.lines, []);
+
+  // drape: false は terrain が無くても警告しない（従来の線）。
+  const plain = await lintCase(t, `<div><canvas></canvas>${scene({
+    lines: [{ points: [[0, 0, 0], [1, 1, 1]], drape: false }],
+  })}</div>`, { files: TERRAIN_FILES });
+  assert.deepEqual(plain.lines, []);
 });

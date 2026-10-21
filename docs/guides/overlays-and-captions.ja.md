@@ -283,6 +283,7 @@ akari captions migrate-look <project-dir>             # 固定して保存
       "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
       "color": "#ff3366",
       "width": 4,
+      "drape": true,
       "keys": [
         { "t": 0, "progress": 0 },
         { "t": 2, "progress": 1, "ease": "easeInOut" }
@@ -302,17 +303,27 @@ akari captions migrate-look <project-dir>             # 固定して保存
   `meters` / `baseline` を使いません。`exaggeration`（既定 1）はその縮尺のあとに掛かる倍率、
   `segments`（1〜512）は格子の解像度です。省略時の segments は画像の解像度に合わせ、上限 512
   で頭打ちにします。`akari geo terrain` はそのまま貼れる `declaration` を書き、
-  `akari geo point` は経緯度を同じ縮尺の `[x, y, z]` に直します
+  `akari geo point` は経緯度を同じ縮尺の `[x, y, z]` に直します。シーンで `exaggeration` を
+  変えたときは `akari geo point --exaggeration` に同じ値を渡すとラベルが地表と一致します
+  （drape の線は不要です。下記）
 - `texture` を指定すると写真を地形に貼ります。無いときは高さで陰影のついた単色になります。
   高さマップとテクスチャの読み込みが終わるまで「準備完了」にしないため、`akari capture` や
-  書き出しに地形が欠けた絵は入りません
+  書き出しに地形が欠けた絵は入りません。高さマップが読めない・標高がすべて無効値・地形が
+  カメラの視野に入らない、の警告は `akari capture` の stderr と `capture.json` の `warnings`、
+  書き出しの run.json の `warnings` に 1 回ずつ入ります
 - `lines[]` は 2 点以上の `[x, y, z]` を通るポリラインです。`width` は画面上の px で、距離に
   よらず一定です。`progress`（0〜1）は始点からどこまで描くか、`keys`
   （`[{ t, progress, ease }]`・置いたアイテムの開始からの秒）は時間に沿った伸び方です。
   最初のキーより前と最後のキーより後はその値で止まり、キーは `t` の昇順で並べる必要が
   あります（自動では並べ替えません）。`ease` は `linear`（既定）か `easeInOut` です。
   `progress` と `keys` を両方書いたときは `keys` を使います
-- 画像の欠け・範囲外の値・点の数・キーの順序は、書き出し前に lint が知らせます
+- `drape: true` は各点の x / z だけを使い、y をシーンが描く地形の表面（`exaggeration`・
+  `meters`・`baseline` を含む）の高さ + `lift`（ワールド単位・既定 `0.01`）にします。点の間は
+  地形の格子の細かさで分割するため、尾根を越える区間も地表に沿います。`terrain` が無い
+  シーンでは警告を出して宣言の y で描きます。`progress` / `keys` は分割後も全長に対する
+  割合で伸びます
+- 画像の欠け・範囲外の値・点の数・`drape` / `lift` の値・キーの順序・`terrain` の無い
+  `drape: true` は、書き出し前に lint が知らせます
 
 Three.js で表せない映像（被写界深度・レイトレースなど）や、使い回すクリップは
 [3D シーンをベイクする](bake-3d.ja.md)で映像に焼きます。

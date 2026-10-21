@@ -315,8 +315,142 @@ test("lines: points / color / width / progress の正例と負例", () => {
   assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], width: 65 }]), /width/u);
   assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], progress: 1.5 }]), /progress/u);
   assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], label: "a" }]), /未対応キー/u);
+  // drape は真偽値、lift は 0 以上の数値（task 2026-10-21-terrain-line-drape）。
+  const draped = runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], drape: true }])[0];
+  assert.equal(draped.drape, true);
+  assert.equal(draped.lift, 0.01);
+  assert.equal(runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], drape: true, lift: 0 }])[0].lift, 0);
+  assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], drape: 1 }]), /drape は真偽値/u);
+  assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], drape: true, lift: -1 }]), /lift は 0 以上/u);
+  assert.throws(() => runtime.validateLines([{ points: [[0, 0, 0], [1, 1, 1]], drape: true, lift: "1" }]), /lift は 0 以上/u);
 });
 
 test("lines: 折れ線の累積距離", () => {
   assert.deepEqual([...runtime.lineCumulativeLengths([[0, 0, 0], [3, 0, 0], [3, 4, 0]])], [0, 3, 7]);
+});
+
+// --- lines[].drape（task 2026-10-21-terrain-line-drape）---
+// 2x2 の既知の高さ: (x=-1,z=-1)=0、(x=+1,z=-1)=2、(x=-1,z=+1)=0、(x=+1,z=+1)=0。
+// 格子 1・size 2・exaggeration 2 なので、heights = [0, 2, 0, 0]。
+function drapeSurface() {
+  const data = new Uint8ClampedArray(2 * 2 * 4);
+  const set = (index, value) => {
+    data[index * 4] = value;
+    data[index * 4 + 1] = value;
+    data[index * 4 + 2] = value;
+    data[index * 4 + 3] = 255;
+  };
+  set(0, 0);
+  set(1, 255);
+  set(2, 0);
+  set(3, 0);
+  return runtime.buildTerrainGeometryData({
+    imageData: { width: 2, height: 2, data },
+    segments: 1,
+    size: [2, 2],
+    exaggeration: 2,
+    encoding: "grayscale",
+  });
+}
+
+test("drape: 高さは地形メッシュと同じ三角形（a-c-b / b-c-d）で補間する", () => {
+  const surface = drapeSurface();
+  assert.deepEqual([...surface.heights].map(value => Math.round(value * 1e9) / 1e9), [0, 2, 0, 0]);
+  const close = (actual, expected) => {
+    assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
+  };
+  // セル中央は対角線上。三角形 a-c-b の平面では a + s(b-a) + t(c-a)。
+  close(runtime.terrainHeightAt(surface, 0, 0), 1);
+  // 三角形 b-c-d の中（s=1, t=0.5）は d + (1-s)(c-d) + (1-t)(b-d) = 1。
+  close(runtime.terrainHeightAt(surface, 1, 0), 1);
+  close(runtime.terrainHeightAt(surface, 1, 1), 0);
+  close(runtime.terrainHeightAt(surface, -1, -1), 0);
+  // 地形の外は端へ丸める（NaN にしない）。
+  close(runtime.terrainHeightAt(surface, -99, -99), 0);
+  close(runtime.terrainHeightAt(surface, 99, 99), 0);
+});
+
+test("drape: 格子の細かさで分割し、途中の点も地表 + lift になる", () => {
+  const surface = drapeSurface();
+  const line = runtime.validateLines([{
+    points: [[-1, 5, -1], [1, 5, 1]], drape: true, lift: 0.25,
+  }])[0];
+  const draped = runtime.drapeLineForScene(line, 0, surface);
+  assert.equal(draped.warning, null);
+  // 1 格子ぶんの対角線を格子の細かさ（1 セル 4 分割）で刻むので、中央 (0, 0) も点として入る。
+  const points = JSON.parse(JSON.stringify(draped.line.points));
+  assert.equal(points.length, 5);
+  assert.deepEqual(points[2], [0, 1.25, 0]);
+  // progress は分割後の全長に対する割合のまま（中央 = 半分）。
+  const cumulative = runtime.lineCumulativeLengths(draped.line.points);
+  const total = cumulative[cumulative.length - 1];
+  assert.ok(Math.abs(cumulative[2] - total / 2) < 1e-9);
+  // keys / progress は drape で変わらない。
+  assert.equal(draped.line.progress, line.progress);
+  assert.equal(draped.line.keys, line.keys);
+  // drape でない線は同一の宣言をそのまま使う（既存の挙動を変えない）。
+  const plain = runtime.validateLines([{ points: [[-1, 5, -1], [1, 5, 1]] }])[0];
+  assert.equal(runtime.drapeLineForScene(plain, 0, surface).line, plain);
+});
+
+test("drape: terrain が無いシーンでは警告を 1 つ返し、宣言の y で描く", () => {
+  const line = runtime.validateLines([{
+    points: [[-1, 5, -1], [1, 6, 1]], drape: true,
+  }])[0];
+  const draped = runtime.drapeLineForScene(line, 0, null);
+  assert.match(draped.warning, /lines\[0\]\.drape は true.*terrain が無い/u);
+  assert.deepEqual(draped.line.points.map(point => [...point]), [[-1, 5, -1], [1, 6, 1]]);
+});
+
+test("drape: exaggeration / meters / baseline を変えても同じジオメトリの表面に載る", () => {
+  const variants = [
+    { exaggeration: 1, background: 0 },
+    { exaggeration: 2, background: 0 },
+    { exaggeration: 1, baseline: "sea" },
+    { exaggeration: 2, baseline: "sea" },
+  ];
+  for (const variant of variants) {
+    const surface = runtime.buildTerrainGeometryData({
+      imageData: GSI_FIXTURE,
+      segments: 1,
+      size: [2, 2],
+      encoding: "gsi-dem",
+      meters: [200, 200],
+      ...variant,
+    });
+    // 対角線上のセル中央は 0.5 * heights[b] + 0.5 * heights[c]（三角形 a-c-b の辺）。
+    const expected = 0.5 * surface.heights[1] + 0.5 * surface.heights[2];
+    assert.ok(Math.abs(runtime.terrainHeightAt(surface, 0, 0) - expected) < 1e-9, JSON.stringify(variant));
+    const line = runtime.validateLines([{
+      points: [[-1, 999, -1], [1, 999, 1]], drape: true, lift: 0.1,
+    }])[0];
+    for (const point of runtime.drapeLineForScene(line, 0, surface).line.points) {
+      const surfaceHeight = runtime.terrainHeightAt(surface, point[0], point[2]);
+      assert.ok(Math.abs(point[1] - (surfaceHeight + 0.1)) < 1e-9, JSON.stringify(variant));
+    }
+  }
+});
+
+// --- [akari-three] 警告の回収（task 2026-10-21-terrain-line-drape）---
+test("warnings: [akari-three] の console.warn を溜め、drainWarnings で取り出せる", () => {
+  const logged = [];
+  const sinkContext = { window: {}, console: { warn: (...values) => logged.push(values.join(" ")) } };
+  runInNewContext(SOURCE, sinkContext, { filename: "three-runtime.js" });
+  const sinkRuntime = sinkContext.window.akari.threeRuntime;
+  sinkRuntime.drainWarnings();
+  sinkContext.console.warn("[akari-three] terrain がカメラの視野外です");
+  sinkContext.console.warn("[akari-three] terrain がカメラの視野外です");
+  sinkContext.console.warn("[akari-gpu] 3D 以外の警告");
+  assert.deepEqual(Array.from(sinkRuntime.drainWarnings()), [
+    "[akari-three] terrain がカメラの視野外です",
+    "[akari-three] terrain がカメラの視野外です",
+  ]);
+  // 取り出した分は消える（同じ警告を二重に数えない）。
+  assert.equal(sinkRuntime.drainWarnings().length, 0);
+  // 元の console.warn の出力は変えない。
+  assert.deepEqual(logged, [
+    "[akari-three] terrain がカメラの視野外です",
+    "[akari-three] terrain がカメラの視野外です",
+    "[akari-gpu] 3D 以外の警告",
+  ]);
 });

@@ -59,10 +59,12 @@ test("capture v2 manifest records the resolved OSR renderer and one multi-frame 
     await copyFile(join(fixtureRoot, "overlay.html"), join(project, "overlay.html"));
     await generateCaptureFixture(project, { ffmpeg: "ffmpeg" });
     let launches = 0;
+    const stderrWarnings = [];
     const out = join(project, "capture-out");
     const result = await runCapture([
       "-p", project, "-t", "0", "3", "6", "--engine", "osr", "--full", "--out", out,
     ], {
+      warn: (line) => stderrWarnings.push(line),
       resolveOsrLauncher: async () => ({ tier: 2, executable: "/electron" }),
       osrLauncherRunner: async (_launcher, options) => {
         launches += 1;
@@ -87,6 +89,12 @@ test("capture v2 manifest records the resolved OSR renderer and one multi-frame 
             frames: frames.map((frameNumber) => ({ frameNumber, matched: true })),
           },
           page: { layers: ["engine-canvas", "dom-captions", "html-overlays", "three-canvas"] },
+          // 3D の警告は重複して返ることがある（run.json の重複除去だけに頼らない）。
+          warnings: [
+            "[akari-three] terrain がカメラの視野に入っていません。camera の position / lookAt を確認してください",
+            "[akari-three] terrain がカメラの視野に入っていません。camera の position / lookAt を確認してください",
+            "caption animator: existing warning",
+          ],
           elapsedMs: 10,
         }));
       },
@@ -98,6 +106,10 @@ test("capture v2 manifest records the resolved OSR renderer and one multi-frame 
     assert.match(manifest.renderer, /^osr-export@/u);
     assert.equal(manifest.verify.mode, "stamp");
     assert.equal(manifest.verify.frames.length, 3);
+    // 3D の警告だけを 1 回ずつ stderr と capture.json へ写す（3D 以外は変えない）。
+    const expectedWarning = "[akari-three] terrain がカメラの視野に入っていません。camera の position / lookAt を確認してください";
+    assert.deepEqual(stderrWarnings, [expectedWarning]);
+    assert.deepEqual(manifest.warnings, [expectedWarning]);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

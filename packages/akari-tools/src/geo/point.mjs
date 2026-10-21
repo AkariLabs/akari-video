@@ -1,7 +1,7 @@
 // `akari geo point` の本体。terrain.json の declaration と同じ縮尺・基準で、
 // 経緯度（と任意の標高 m）から 3D 座標 [x, y, z] を出す。
 // 画像の行 0 = 北（-z）・列 0 = 西（-x）という three-runtime.js の地形と同じ向き。
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { decodeRgbPng } from "./png.mjs";
@@ -97,10 +97,18 @@ function clamp01(value) {
 /**
  * 経緯度 → 3D 座標。
  * @param {{ terrain: object, image: {width:number,height:number,rgb:Buffer},
- *   lon: number, lat: number, height?: number }} options
+ *   lon: number, lat: number, height?: number, exaggeration?: number }} options
  */
-export function terrainPoint({ terrain, image, lon, lat, height }) {
+export function terrainPoint({ terrain, image, lon, lat, height, exaggeration }) {
   const declaration = terrainDeclaration(terrain);
+  if (exaggeration !== undefined) {
+    const override = Number(exaggeration);
+    if (!(override > 0) || !Number.isFinite(override)) {
+      throw new Error(`--exaggeration は正の数値で指定してください: ${exaggeration}`);
+    }
+    // シーンで terrain.exaggeration を変えたとき、同じ値を渡して y を合わせる。
+    declaration.exaggeration = override;
+  }
   const bbox = parseBbox(terrain.bbox);
   const zoom = parseZoom(terrain.zoom);
   const rect = cropRect(bbox, zoom);
@@ -140,14 +148,50 @@ export function terrainPoint({ terrain, image, lon, lat, height }) {
   return { x, y, z, elevation, declaration };
 }
 
-/** terrain.json と高さマップを読む。heightmap は terrain.json からの相対パス。 */
+async function isFile(file) {
+  try {
+    await access(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// terrain.json から親をたどって AKARI プロジェクトの根（edit.json がある）を返す。
+async function findProjectRoot(directory) {
+  let current = directory;
+  while (true) {
+    if (await isFile(path.join(current, "edit.json"))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+/**
+ * terrain.json と高さマップを読む。heightmap は次の順で探す:
+ * 1. terrain.json からの相対パス（ファイル名だけの従来の形）
+ * 2. AKARI プロジェクト基準のパス（geo terrain がプロジェクト内へ出した形）
+ * 3. terrain.json と同じディレクトリのファイル名（プロジェクト外へ移した形）
+ */
 export async function loadTerrainFiles(terrainPath) {
   const absolute = path.resolve(terrainPath);
   const terrain = JSON.parse(await readFile(absolute, "utf8"));
   const declaration = terrainDeclaration(terrain);
-  const heightmapPath = declaration.heightmap
-    ? path.resolve(path.dirname(absolute), declaration.heightmap)
-    : path.join(path.dirname(absolute), "heightmap.png");
+  const directory = path.dirname(absolute);
+  const declared = declaration.heightmap ?? "heightmap.png";
+  const candidates = [path.resolve(directory, declared)];
+  const projectRoot = await findProjectRoot(directory);
+  if (projectRoot) candidates.push(path.resolve(projectRoot, declared));
+  candidates.push(path.join(directory, path.basename(declared)));
+  const unique = [...new Set(candidates)];
+  let heightmapPath = unique[0];
+  for (const candidate of unique) {
+    if (await isFile(candidate)) {
+      heightmapPath = candidate;
+      break;
+    }
+  }
   const image = decodeRgbPng(await readFile(heightmapPath));
   return { terrain, image, declaration, heightmapPath };
 }
