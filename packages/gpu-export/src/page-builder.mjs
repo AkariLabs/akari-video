@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { prepareCaptionRenderInput, resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
+import { scopeFragmentCss } from "../../overlay-runtime/src/fragment-css-scope.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveDeclaredProjectInput, resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
@@ -65,7 +66,20 @@ export function buildGpuPage({
   const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
     ? captionTrackZ
     : Number.MAX_SAFE_INTEGER;
-  const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
+  // 同一ページ（DOM 層・overlay-sheet）に載る断片の衝突名を edit.json の順で退避する。
+  // プレビュー（preview-server）と OSR シート（render-cut）と同じ純関数を使う。
+  const enabledOverlays = (() => {
+    const enabled = overlays.filter((overlay) => overlay?.enabled !== false);
+    const scoped = scopeFragmentCss(enabled.map((overlay, index) => ({
+      id: String(overlay?.id ?? index),
+      html: typeof overlay?.html === "string" ? overlay.html : "",
+    })));
+    return enabled.map((overlay, index) => {
+      const next = scoped[index].html;
+      return typeof overlay?.html === "string" && next !== overlay.html
+        ? { ...overlay, html: next } : overlay;
+    });
+  })();
   const supportedOverlayBlend = overlay => overlay?.blend && overlay.blend !== "normal"
     && GPU_BLEND_MODES.includes(overlay.blend);
   const blendWarnings = enabledOverlays
@@ -225,7 +239,8 @@ export function buildGpuPage({
     dom,
   };
   const overlaySheetHtml = three.length + vgpu.length > 0
-    ? renderOverlaySheet({ overlays: [...three, ...vgpu].map(({ overlay }) => overlay), edit: projectedEdit, projectRoot, duration })
+    // enabledOverlays はこの関数の先頭で既にスコープ済み（二重接尾辞を避ける）。
+    ? renderOverlaySheet({ overlays: [...three, ...vgpu].map(({ overlay }) => overlay), edit: projectedEdit, projectRoot, duration, scopeCss: false })
     : null;
   const lookDeclaration = lutCubeText === null ? null : {
     cubeText: lutCubeText,

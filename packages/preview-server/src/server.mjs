@@ -124,6 +124,9 @@ const THREE_ROUTES = {
   // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
   '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
+  // 断片 CSS の衝突名を後の断片だけ接尾辞で退避する純関数。preview-server の Web UI と
+  // 書き出し（render-cut / gpu-export）が同じ実装を読む（2 実装にしない）。
+  '/fragment-css-scope.mjs': fileURLToPath(new URL('../../overlay-runtime/src/fragment-css-scope.mjs', import.meta.url)),
   '/item-motion.js': fileURLToPath(new URL('../../overlay-runtime/src/item-motion.js', import.meta.url)),
   // テキスト分割（data-akari-split）。断片は分割済みで出荷する規約なので
   // 書き出し（rasterize）は無改造で通るが、プレビューは打ち替え編集をするため

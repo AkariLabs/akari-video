@@ -36,6 +36,9 @@ import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 // layers[].keyframes（transform/crop/perspective のアニメーション。contract-2026-08-09-transform-keyframes-v0.md）。
 import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
 import { interpolateKeyframes as interpolateTransformKeyframes } from '/keyframes.mjs';
+// 同一ページに載る断片のクラス名・@keyframes 名の衝突を、後の断片だけ接尾辞で退避する
+// （書き出しの render-cut / gpu-export と同じ純関数。2 実装にしない）。
+import { scopeFragmentCss } from '/fragment-css-scope.mjs';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 // layers[] の再生元を宣言済み proxy へ解決する（不具合メモ 第15項。再生用コピーの src だけ
@@ -3623,97 +3626,101 @@ function createOverlayRuntime() {
     unmount();
     if (!Array.isArray(s?.overlays)) return;
     const generation = mountGeneration;
-    const frag = document.createDocumentFragment();
-    const fragmentLoads = [];
-    for (const o of s.overlays) {
-      const c = document.createElement('div');
-      c.dataset.overlayId = String(o.id);
-      c.dataset.start = String(o.start);
-      c.dataset.duration = String(o.duration);
-      if (o.role !== undefined && o.role !== null) c.dataset.role = String(o.role);
-      c.style.cssText = 'position:absolute;inset:0;pointer-events:none;visibility:hidden;touch-action:none;';
-      // 2026-08-07 オーナー裁定: role==="background" は
-      // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
-      // ロックする（transform も vars 経由の抜け道も無視する。overlay-runtime.js の mount・
-      // render-cut の rasterize.mjs の renderOverlayNode と同じロック）。
-      const isBackground = o.role === 'background';
-      const t = o.transform || {};
-      c.style.setProperty('--x', isBackground ? '0px' : `${t.x||0}px`);
-      c.style.setProperty('--y', isBackground ? '0px' : `${t.y||0}px`);
-      c.style.setProperty('--scale', isBackground ? '1' : String(t.scale||1));
-      for (const [key, css] of [['scaleX', '--scale-x'], ['scaleY', '--scale-y']]) {
-        if (t[key] !== undefined) c.style.setProperty(css, String(t[key]));
-        else c.style.removeProperty(css);
-      }
-      c.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate||0}deg`);
-      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1)))';
-      if (o.vars && typeof o.vars === 'object') {
-        for (const [k, v] of Object.entries(o.vars)) {
-          if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));
-        }
-      }
-      if (isBackground) {
-        c.style.setProperty('--x', '0px');
-        c.style.setProperty('--y', '0px');
-        c.style.setProperty('--scale', '1');
-        c.style.setProperty('--scale-x', '1');
-        c.style.setProperty('--scale-y', '1');
-        c.style.setProperty('--rotate', '0deg');
-      }
-      // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
+    // 断片の実体を先に全部そろえる。衝突名の退避は「同じページに載る断片」全体を
+    // edit.json の順で見ないと決まらない（ファイル参照の断片も同じ規則に揃える）。
+    const specs = s.overlays.map((o, index) => {
       const rawHtml = typeof o.html === 'string' ? o.html : '';
-      const rec = {
-        el: c,
-        start: o.start,
-        duration: o.duration,
-        visible: false,
-        runtimeIds: new Set(),
-        fragmentUrl: rawHtml && !rawHtml.trimStart().startsWith('<')
-          ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href
-          : o.htmlPath ? new URL(resolveMediaUrl(o.htmlPath), document.baseURI).href : null,
-        hitPolicyPending: false,
-        ...((Array.isArray(o.keyframes) || o.motion || o.motionSource) ? {
-          keyframes: o.keyframes,
-          motion: o.motion,
-          motionSource: o.motionSource,
-          motionParents: o.motionParents,
-          keyframeUnit: o.keyframeUnit,
-          fps: Number(s?.output?.fps) || fps || 30,
-          statics: {
-            x: isBackground ? 0 : Number(t.x ?? 0),
-            y: isBackground ? 0 : Number(t.y ?? 0),
-            scale: isBackground ? 1 : Number(t.scale ?? 1),
-            ...(!isBackground && t.scaleX !== undefined ? { scaleX: t.scaleX } : {}),
-            ...(!isBackground && t.scaleY !== undefined ? { scaleY: t.scaleY } : {}),
-            rotate: isBackground ? 0 : Number(t.rotate ?? 0),
-            opacity: Number(o.opacity ?? 1),
-          },
-          isBackground,
-        } : {}),
-      };
-      if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
-        c.innerHTML = '';
-        const load = fetch(resolveMediaUrl(rawHtml))
-          .then(r => (r.ok ? r.text() : ''))
-          .then(html => {
-            if (generation !== mountGeneration) return;
-            setOverlayFragmentHtml(c, html || '', o.params);
-            applyViewportUnits(c);
-            window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
-            rec.hitPolicyPending = rec.visible;
-          })
-          .catch(() => {});
-        fragmentLoads.push(load);
-      } else {
-        setOverlayFragmentHtml(c, rawHtml, o.params);
-        applyViewportUnits(c);
-      }
-      frag.appendChild(c);
-      overlays.push(rec);
-    }
-    stage.appendChild(frag);
-    Promise.all(fragmentLoads).then(async () => {
+      return { o, index, rawHtml, needsFetch: Boolean(rawHtml && !rawHtml.trimStart().startsWith('<')) };
+    });
+    const loads = specs.map(spec => spec.needsFetch
+      ? fetch(resolveMediaUrl(spec.rawHtml)).then(r => (r.ok ? r.text() : '')).catch(() => '')
+      : Promise.resolve(spec.rawHtml));
+    Promise.all(loads).then(async (sources) => {
       if (generation !== mountGeneration) return;
+      const scoped = scopeFragmentCss(specs.map((spec, index) => ({
+        id: String(spec.o.id),
+        html: sources[index] || '',
+      })));
+      const frag = document.createDocumentFragment();
+      for (let index = 0; index < specs.length; index += 1) {
+        const { o } = specs[index];
+        const rawHtml = specs[index].rawHtml;
+        const sourceHtml = sources[index] || '';
+        const scopedHtml = scoped[index]?.html ?? sourceHtml;
+        const c = document.createElement('div');
+        c.dataset.overlayId = String(o.id);
+        c.dataset.start = String(o.start);
+        c.dataset.duration = String(o.duration);
+        if (o.role !== undefined && o.role !== null) c.dataset.role = String(o.role);
+        c.style.cssText = 'position:absolute;inset:0;pointer-events:none;visibility:hidden;touch-action:none;';
+        // 2026-08-07 オーナー裁定: role==="background" は
+        // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
+        // ロックする（transform も vars 経由の抜け道も無視する。overlay-runtime.js の mount・
+        // render-cut の rasterize.mjs の renderOverlayNode と同じロック）。
+        const isBackground = o.role === 'background';
+        const t = o.transform || {};
+        c.style.setProperty('--x', isBackground ? '0px' : `${t.x||0}px`);
+        c.style.setProperty('--y', isBackground ? '0px' : `${t.y||0}px`);
+        c.style.setProperty('--scale', isBackground ? '1' : String(t.scale||1));
+        for (const [key, css] of [['scaleX', '--scale-x'], ['scaleY', '--scale-y']]) {
+          if (t[key] !== undefined) c.style.setProperty(css, String(t[key]));
+          else c.style.removeProperty(css);
+        }
+        c.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate||0}deg`);
+        c.style.transform = 'translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1)))';
+        if (o.vars && typeof o.vars === 'object') {
+          for (const [k, v] of Object.entries(o.vars)) {
+            if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));
+          }
+        }
+        if (isBackground) {
+          c.style.setProperty('--x', '0px');
+          c.style.setProperty('--y', '0px');
+          c.style.setProperty('--scale', '1');
+          c.style.setProperty('--scale-x', '1');
+          c.style.setProperty('--scale-y', '1');
+          c.style.setProperty('--rotate', '0deg');
+        }
+        // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
+        const rec = {
+          el: c,
+          start: o.start,
+          duration: o.duration,
+          visible: false,
+          runtimeIds: new Set(),
+          params: o.params,
+          sourceHtml,
+          scopedHtml,
+          fragmentUrl: rawHtml && !rawHtml.trimStart().startsWith('<')
+            ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href
+            : o.htmlPath ? new URL(resolveMediaUrl(o.htmlPath), document.baseURI).href : null,
+          hitPolicyPending: false,
+          ...((Array.isArray(o.keyframes) || o.motion || o.motionSource) ? {
+            keyframes: o.keyframes,
+            motion: o.motion,
+            motionSource: o.motionSource,
+            motionParents: o.motionParents,
+            keyframeUnit: o.keyframeUnit,
+            fps: Number(s?.output?.fps) || fps || 30,
+            statics: {
+              x: isBackground ? 0 : Number(t.x ?? 0),
+              y: isBackground ? 0 : Number(t.y ?? 0),
+              scale: isBackground ? 1 : Number(t.scale ?? 1),
+              ...(!isBackground && t.scaleX !== undefined ? { scaleX: t.scaleX } : {}),
+              ...(!isBackground && t.scaleY !== undefined ? { scaleY: t.scaleY } : {}),
+              rotate: isBackground ? 0 : Number(t.rotate ?? 0),
+              opacity: Number(o.opacity ?? 1),
+            },
+            isBackground,
+          } : {}),
+        };
+        setOverlayFragmentHtml(c, scopedHtml, o.params);
+        applyViewportUnits(c);
+        if (specs[index].needsFetch) window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
+        frag.appendChild(c);
+        overlays.push(rec);
+      }
+      stage.appendChild(frag);
       await ensureRuntimes([...overlays]);
       if (generation !== mountGeneration) return;
       updateOverlays();
@@ -3723,23 +3730,52 @@ function createOverlayRuntime() {
     if (!changedPaths?.some(p => p !== 'edit.json' && p !== 'captions.json')) return;
     const ids = new Set((overlayIds ?? []).map(String));
     const paths = new Set(changedPaths.map(p => String(p).replaceAll('\\', '/')));
+    const touched = [];
     for (const rec of overlays) {
       const fragmentPath = rec.fragmentUrl
         ? decodeURIComponent(new URL(rec.fragmentUrl).pathname).replace(/^\/+/, '') : null;
       if (!ids.has(rec.el.dataset.overlayId) && !paths.has(fragmentPath)) continue;
+      touched.push(rec);
+      // 断片ファイルだけでなく、断片が参照する 3D モデル等の変更でも、その断片の
+      // ランタイムは作り直す（ディスク上のアセットを取り直すため）。HTML の差し替えは
+      // 下のスコープ再計算で必要になったときだけ行う。
       for (const runtime of window.akari?.runtimes?.forContainer(rec.el) ?? []) runtime.dispose(rec.el);
+      rec.runtimeIds.clear();
+      const overlay = summary?.overlays?.find(o => String(o.id) === rec.el.dataset.overlayId);
+      if (typeof overlay?.html === 'string' && overlay.html.trimStart().startsWith('<')) {
+        rec.sourceHtml = overlay.html;
+        rec.params = overlay.params;
+      }
       if (fragmentPath && paths.has(fragmentPath)) {
         const url = new URL(rec.fragmentUrl);
         url.searchParams.set('akari_preview_rev', String(Date.now()));
         const response = await fetch(url);
         if (!response.ok) throw new Error(`fragment reload failed: ${fragmentPath}`);
-        const overlay = summary?.overlays?.find(o => String(o.id) === rec.el.dataset.overlayId);
-        setOverlayFragmentHtml(rec.el, await response.text(), overlay?.params);
-        applyViewportUnits(rec.el);
-        window.akari.interaction?.invalidateOverlayHitPolicy?.(rec.el);
-        rec.runtimeIds.clear();
-        await ensureRuntimes([rec]);
+        // サーバーが返すのは断片の生ソース。スコープは下で全断片に対して掛け直す。
+        rec.sourceHtml = await response.text();
+        rec.params = overlay?.params;
       }
+      rec._anims = null;
+    }
+    if (touched.length === 0) return;
+    // 断片が 1 つ変わると、衝突相手との関係で他の断片の接尾辞も変わりうる。
+    // 変わった断片だけを差し替え、ディスク上の生ソースは保持する。
+    const scoped = scopeFragmentCss(overlays.map(rec => ({
+      id: rec.el.dataset.overlayId,
+      html: rec.sourceHtml ?? '',
+    })));
+    for (let index = 0; index < overlays.length; index += 1) {
+      const rec = overlays[index];
+      const nextHtml = scoped[index]?.html ?? rec.sourceHtml ?? '';
+      if (nextHtml === rec.scopedHtml) continue;
+      setOverlayFragmentHtml(rec.el, nextHtml, rec.params);
+      applyViewportUnits(rec.el);
+      window.akari.interaction?.invalidateOverlayHitPolicy?.(rec.el);
+      rec.scopedHtml = nextHtml;
+    }
+    // 触れた断片はすべて作り直す（3D のモデル追加・差し替えを次の tick で読み直す）。
+    await ensureRuntimes(touched);
+    for (const rec of overlays) {
       rec.hitPolicyPending = rec.visible;
       rec._anims = null;
     }

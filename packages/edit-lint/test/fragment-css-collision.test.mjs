@@ -47,6 +47,7 @@ test("overlapping fragments warn once for a shared class and once for a shared k
     assert.match(finding.message, /overlays\/a\.html/u);
     assert.match(finding.message, /overlays\/b\.html/u);
     assert.match(finding.message, /prefix/u);
+    assert.match(finding.message, /renamed with a suffix/u);
   }
 });
 

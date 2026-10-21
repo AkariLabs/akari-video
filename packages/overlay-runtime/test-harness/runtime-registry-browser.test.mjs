@@ -99,8 +99,12 @@ test('preview ensureRuntimes loads only matching scripts and seeks three and gla
   const app=readFileSync(new URL('../../preview-server/public/app.js',import.meta.url),'utf8');
   const loader=app.slice(app.indexOf('// --- Declarative runtime loading ---'),app.indexOf('let itemKeyframesRuntimeReady'));
   const runtime=app.slice(app.indexOf('function createOverlayRuntime()'),app.indexOf('function updateOverlays()'));
+  // app.js は断片 CSS の自動スコープを ES モジュールとして import する。ここでは
+  // createOverlayRuntime() の断片だけを classic script として切り出すので、同じ唯一の
+  // 実装（export 行だけを外したもの）を先に評価して scopeFragmentCss を用意する。
+  const scopeSource=readFileSync(new URL('../src/fragment-css-scope.mjs',import.meta.url),'utf8').replace(/^export /gmu,'');
   await page.addScriptTag({content:'const previewVgpuScale = 0.5;'}); // 切り出した runtime に UI の既定倍率を与え、描画・シーク・破棄を検証する。
-  await page.addScriptTag({content:`window.akari={};const stage=document.querySelector('#stage');const fps=30;const editMode=false;const PREVIEW_3D_MAX_RENDER_SIZE=720;const resolveMediaUrl=x=>x;function updateOverlays(){window.akari.runtime.tick(1.5);}${loader}${runtime}window.akari.runtime=createOverlayRuntime();`});
+  await page.addScriptTag({content:`window.akari={};const stage=document.querySelector('#stage');const fps=30;const editMode=false;const PREVIEW_3D_MAX_RENDER_SIZE=720;const resolveMediaUrl=x=>x;function updateOverlays(){window.akari.runtime.tick(1.5);}${scopeSource}${loader}${runtime}window.akari.runtime=createOverlayRuntime();`});
   for(const [id,html]of [
     ['three','<div style="position:absolute;inset:0"><canvas data-akari-3d style="display:block;width:100%;height:100%"></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A","mode":"flat","color":"#ffd166"}]}</script></div>'],
     ['glass','<div><style>@keyframes slide{to{transform:translateX(80px)}}.g{position:absolute;left:100px;top:100px;width:300px;height:120px;border-radius:30px;animation:slide 4s linear both}</style><div class="g" data-akari-glass></div><script type="application/json" data-akari-glass-scene>{"backdrop":"bg.svg"}</script></div>'],
