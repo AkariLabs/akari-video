@@ -34,7 +34,7 @@ tells you which lower zoom fits. It never lowers the zoom silently.
 
 | File | Contents |
 |---|---|
-| `heightmap.png` | Elevation tiles stitched as-is in the `gsi-dem` encoding (8-bit RGB: `R*65536 + G*256 + B`, in 1/100 m). Invalid `(128,0,0)` pixels are filled from the nearest valid pixel. A missing (`404`) elevation tile is treated as all-invalid and filled the same way |
+| `heightmap.png` | Elevation tiles stitched as-is in the `gsi-dem` encoding. Take `x = R*65536 + G*256 + B`: `x < 2^23` is `x*0.01` m, `x = 2^23` (RGB `128,0,0`) is invalid, and `x > 2^23` is `(x - 2^24)*0.01` m (negative elevation). Invalid pixels are filled from the nearest valid pixel. A missing (`404`) elevation tile is treated as all-invalid and filled the same way |
 | `texture.png` | Photo tiles stitched and cropped to the same rectangle. A missing (`404`) photo tile is filled with a solid sea color (`#2a4d69`) |
 | `terrain.json` | Bounds, zoom, real-world size, elevation range, encoding, missing tile counts, and attribution |
 
@@ -45,6 +45,14 @@ tells you which lower zoom fits. It never lowers the zoom silently.
   "size_m": [1002.2, 1009.9],
   "elevation_m": [124.19, 170.33],
   "encoding": "gsi-dem",
+  "declaration": {
+    "heightmap": "heightmap.png",
+    "texture": "texture.png",
+    "encoding": "gsi-dem",
+    "size": [10.02, 10.1],
+    "meters": [1002.2, 1009.9],
+    "baseline": "min"
+  },
   "missing_tiles": { "dem": 0, "photo": 0 },
   "attribution": "出典: 国土地理院（地理院タイル）"
 }
@@ -54,6 +62,58 @@ tells you which lower zoom fits. It never lowers the zoom silently.
 the bbox center latitude, so it matches the image rather than the unrounded bbox. `elevation_m` is
 `[minimum, maximum]` over the valid elevation pixels inside the crop (filled pixels do not change
 the range).
+
+`declaration` is ready to paste into a 3D scene. Its `meters` is `size_m`, and its `size` is
+`meters / 100` (1 m = 0.01 world units), so the terrain keeps the map's real proportions. `baseline`
+is `"min"`: the lowest valid elevation becomes `y = 0`.
+
+## Use the output in a 3D scene
+
+Copy the `declaration` object into `terrain`. Put the files next to the fragment, or adjust the paths
+to the project-root paths you use:
+
+```json
+{
+  "terrain": {
+    "heightmap": "heightmap.png",
+    "texture": "texture.png",
+    "encoding": "gsi-dem",
+    "size": [10.02, 10.1],
+    "meters": [1002.2, 1009.9],
+    "baseline": "min",
+    "exaggeration": 1
+  }
+}
+```
+
+`meters` gives the real-world `[width, depth]` of the height map. When it is present the runtime
+scales elevation by `size[0] / meters[0]` before applying `exaggeration`, so a metre up and a metre
+across use the same scale. `baseline` picks what sits at `y = 0`: `"min"` (default) the lowest
+elevation, or `"sea"` elevation 0 m. Grayscale height maps keep their previous behaviour and ignore
+`meters` / `baseline`.
+
+`akari geo point` converts a longitude and latitude to the `[x, y, z]` those declarations produce:
+
+```sh
+akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000
+# [0, 13.42, -0.5]
+```
+
+Pass a third number to give the elevation in metres instead of sampling the height map:
+
+```sh
+akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
+```
+
+Use the result directly in `lines[].points` or `data-akari-3d-anchor`. The image's first row is
+north and its first column is west, matching the terrain mesh; x and z are the map extent, and y is
+the elevation after `baseline` and scaling.
+
+If a `gsi-dem` terrain omits `meters` while its height range is more than 10× `size`, lint emits a
+warning because elevations and map distances are on different scales. At render time the runtime
+warns (on stderr, so `akari capture` and export show it) when the height map cannot be read, when
+every elevation pixel is invalid, or when the terrain does not enter the camera view on the first
+frame.
 
 `missing_tiles` counts the tiles that returned `404`. GSI returns `404` for tiles that are ocean or
 out of range. A bbox that includes water still succeeds: the elevation is interpolated and the photo

@@ -314,11 +314,16 @@ bake is needed:
 ```
 
 - `heightmap` is a PNG path. Prefer the project-root path (for example `overlays/3d/height.png`) so preview and export resolve the same file; a path next to the fragment also works. Grayscale by default; `"encoding": "gsi-dem"`
-  reads the Geospatial Information Authority of Japan (GSI) elevation tiles (elevation encoded in
-  RGB). Unreadable or non-PNG files are lint errors
-- `size` is `[width, depth]` in world units (default `[10, 10]`). `exaggeration` (default 1)
-  multiplies the sampled height. `segments` (1–512) sets the grid resolution; the default follows
-  the image resolution, capped at 512
+  reads the Geospatial Information Authority of Japan (GSI) elevation tiles. For `x = R*65536 + G*256 + B`:
+  `x < 2^23` is `x*0.01` m, `x = 2^23` (RGB `128,0,0`) is invalid, and `x > 2^23` is
+  `(x - 2^24)*0.01` m. Unreadable or non-PNG files are lint errors
+- `size` is `[width, depth]` in world units (default `[10, 10]`). With `meters: [width_m, depth_m]`,
+  elevation is scaled by `size[0] / meters[0]` so real-world height and map distance match;
+  `baseline` picks what sits at `y = 0`: `"min"` (default, lowest elevation) or `"sea"` (0 m).
+  Grayscale maps ignore `meters` / `baseline`. `exaggeration` (default 1) multiplies the sampled
+  height after that scaling. `segments` (1–512) sets the grid resolution; the default follows the
+  image resolution, capped at 512. `akari geo terrain` writes a ready-to-paste `declaration`, and
+  `akari geo point` converts lon/lat to the matching `[x, y, z]`
 - `texture` pastes a still photo over the terrain. Without it, the terrain is a single color shaded
   by height. The runtime waits for the height map and texture to load before it reports ready, so
   `akari capture` and export never record a half-loaded terrain

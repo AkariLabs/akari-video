@@ -137,6 +137,8 @@ async function main() {
       "inspect().terrain が画像サイズと segments を返す", JSON.stringify(terrain));
     check(terrain && close(terrain.minHeight, 0) && close(terrain.maxHeight, 2 * (255 / 255)),
       "地形の高さの範囲が既知の PNG と exaggeration から期待どおり", JSON.stringify(terrain));
+    check(terrain && terrain.meters === null && terrain.baseline === "min" && terrain.validSamples === 16,
+      "inspect().terrain が meters / baseline / validSamples を返す", JSON.stringify(terrain));
     check(result.initial.lines?.length === 1 && result.initial.lines[0].vertexCount > 0,
       "lines が 1 本描かれている", JSON.stringify(result.initial.lines));
     check(result.initial.lines[0].progress === 0.15, "t=0 の progress は最初のキー", String(result.initial.lines[0].progress));

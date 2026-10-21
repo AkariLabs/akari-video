@@ -445,10 +445,45 @@ An element inside the 3D fragment with `data-akari-3d-anchor="x,y,z"` is project
 }
 ```
 
-- `heightmap` is a PNG path. Declare it from the project root (for example `overlays/3d/height.png`) so preview and export resolve the same file; lint also accepts a path next to the fragment. `encoding` is `"grayscale"` (default; luminance = height) or `"gsi-dem"` (GSI elevation tiles: RGB encodes elevation, `-10000 + raw * 0.01` metres; the `0x800000` no-data pixel becomes 0).
-- `size` is `[width, depth]` in world units (default `[10, 10]`). `exaggeration` (default 1, 0.01–100) multiplies the sampled height. `segments` (1–512) sets the grid; omitted, it follows the image resolution capped at 512.
-- `texture` pastes a still photo. Without it the terrain is a single color shaded by height. The runtime waits for both images before `status: "ready"`, so capture and export never see a partially loaded terrain. Check `inspect().terrain` (image size, `segments`, `minHeight`, `maxHeight`).
+- `heightmap` is a PNG path. Declare it from the project root (for example `overlays/3d/height.png`) so preview and export resolve the same file; lint also accepts a path next to the fragment. `encoding` is `"grayscale"` (default; luminance = height) or `"gsi-dem"` (GSI elevation tiles). For `x = R*65536 + G*256 + B`: `x < 2^23` is `x*0.01` metres, `x = 2^23` (RGB `128,0,0`) is invalid, and `x > 2^23` is `(x - 2^24)*0.01` metres. The runtime turns invalid pixels into 0 m and warns when every pixel is invalid.
+- `size` is `[width, depth]` in world units (default `[10, 10]`). `meters: [width_m, depth_m]` is the real-world extent: elevation is scaled by `size[0] / meters[0]` first, then by `exaggeration` (default 1, 0.01–100), so vertical and horizontal distances share one scale. `baseline` picks what sits at `y = 0`: `"min"` (default, lowest elevation) or `"sea"` (0 m). Grayscale maps ignore `meters` / `baseline` and keep their previous heights. `segments` (1–512) sets the grid; omitted, it follows the image resolution capped at 512.
+- `texture` pastes a still photo. Without it the terrain is a single color shaded by height. The runtime waits for both images before `status: "ready"`, so capture and export never see a partially loaded terrain. Check `inspect().terrain` (image size, `segments`, `minHeight`, `maxHeight`, `meters`, `baseline`, `validSamples`). The runtime warns on stderr when the height map cannot be read, when all elevation pixels are invalid, or when the terrain misses the camera view on the first draw.
 - Keep the height map inside the project. A `data:` PNG is also accepted when the file must travel with the declaration.
+
+### From `akari geo terrain` to lines and labels
+
+`akari geo terrain` writes `heightmap.png`, `texture.png`, and a ready-to-paste `declaration` in
+`terrain.json`. Add the paths you use (project-root or next to the fragment) and declare it directly:
+
+```sh
+akari geo terrain --bbox 139.3445,35.5960,139.3555,35.6050 --zoom 14 --out overlays/3d/sagamihara
+```
+
+```json
+{
+  "terrain": {
+    "heightmap": "overlays/3d/sagamihara/heightmap.png",
+    "texture": "overlays/3d/sagamihara/texture.png",
+    "encoding": "gsi-dem",
+    "size": [10.02, 10.1],
+    "meters": [1002.2, 1009.9],
+    "baseline": "min"
+  }
+}
+```
+
+Then convert each place with `akari geo point` and paste the array into `lines[].points` or
+`data-akari-3d-anchor`. A third number overrides the height sampled from the height map:
+
+```sh
+akari geo point --terrain overlays/3d/sagamihara/terrain.json --lonlat 139.3500,35.6000
+# [0, 13.42, -0.5]
+akari geo point --terrain overlays/3d/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
+```
+
+The image's first row is north and its first column is west, matching the mesh. If a `gsi-dem`
+terrain omits `meters` while its height range is more than 10× `size`, lint warns that elevations
+and map distances use different scales.
 
 ```json
 {
