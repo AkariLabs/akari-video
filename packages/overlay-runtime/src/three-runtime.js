@@ -670,8 +670,9 @@ window.akari.threeRuntime = (() => {
   const TERRAIN_MIN_EXAGGERATION = 0.01;
   const TERRAIN_MAX_EXAGGERATION = 100;
   const TERRAIN_ALLOWED_FIELDS = new Set([
-    "heightmap", "texture", "encoding", "exaggeration", "size", "segments",
+    "heightmap", "texture", "encoding", "exaggeration", "size", "meters", "baseline", "segments",
   ]);
+  const TERRAIN_BASELINES = new Set(["min", "sea"]);
   const LINE_ALLOWED_FIELDS = new Set(["points", "color", "width", "progress", "keys"]);
   const LINE_KEY_FIELDS = new Set(["t", "progress", "ease"]);
   const LINE_DEFAULT_COLOR = "#ffffff";
@@ -688,15 +689,17 @@ window.akari.threeRuntime = (() => {
     return [value[0], value[1]];
   }
 
-  // 国土地理院の dem_png（標高タイル）: 標高 = -10000 + (R*65536 + G*256 + B) * 0.01。
-  // 0x800000 は no-data。復号できない画素は 0（海面）として扱い、地形を欠けさせない。
+  // 国土地理院の dem_png（標高タイル）: x = R*65536 + G*256 + B。x < 2^23 なら
+  // h = x*0.01 m、x = 2^23（(128,0,0)）は無効値、x > 2^23 なら h = (x - 2^24)*0.01 m。
+  // 符号付き 24bit として読むと、無効値 (128,0,0) は 0x800000 で判別できる。
   function decodeGsiDem(red, green, blue) {
     const raw = (red << 16) | (green << 8) | blue;
     if (raw === 0x800000) return null;
-    return -10000 + raw * 0.01;
+    const signed = raw >= 0x800000 ? raw - 0x1000000 : raw;
+    return signed * 0.01;
   }
 
-  function terrainSampleHeight(imageData, x, y, encoding) {
+  function terrainSample(imageData, x, y, encoding) {
     const width = imageData.width;
     const index = (y * width + x) * 4;
     const data = imageData.data;
@@ -704,12 +707,42 @@ window.akari.threeRuntime = (() => {
     const green = data[index + 1] ?? 0;
     const blue = data[index + 2] ?? 0;
     const alpha = data[index + 3] ?? 255;
-    if (alpha === 0) return 0;
+    if (alpha === 0) return { value: 0, valid: false };
     if (encoding === "gsi-dem") {
       const elevation = decodeGsiDem(red, green, blue);
-      return elevation === null ? 0 : elevation;
+      return elevation === null ? { value: 0, valid: false } : { value: elevation, valid: true };
     }
-    return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+    return { value: (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255, valid: true };
+  }
+
+  // 実寸の縮尺: size（ワールド単位）と meters（実寸 m）の比だけ高さを縮める。
+  // grayscale は従来どおり 0〜1 の高さに exaggeration を掛ける（meters / baseline は使わない）。
+  function terrainVerticalScale(size, meters) {
+    if (!meters) return 1;
+    return size[0] / meters[0];
+  }
+
+  // 地形が黙って空になるのを避けるため、読み込み失敗・全画素無効・初回描画で視野外の
+  // 3 つを capture / 書き出しの警告（console.warn → stderr）へ 1 行ずつ流す。
+  function terrainWarningMessages({ error, validSamples, visible } = {}) {
+    const messages = [];
+    if (error !== undefined) {
+      messages.push(`terrain を読み込めません: ${error instanceof Error ? error.message : String(error)}`);
+      return messages;
+    }
+    if (validSamples === 0) {
+      messages.push("terrain.heightmap の標高がすべて無効値です。地形は平らに描かれます");
+    }
+    if (visible === false) {
+      messages.push("terrain がカメラの視野に入っていません。camera の position / lookAt を確認してください");
+    }
+    return messages;
+  }
+
+  function warnTerrainOnce(instance, key, message) {
+    if (instance.terrainWarned.has(key)) return;
+    instance.terrainWarned.add(key);
+    console.warn(`[akari-three] ${message}`);
   }
 
   function terrainSegmentsFor(segments, width, height) {
@@ -723,6 +756,7 @@ window.akari.threeRuntime = (() => {
   // テクスチャの向きが一致する。純関数にして node のテストから既知の画素で検算できる。
   function buildTerrainGeometryData({
     imageData, segments, size = TERRAIN_DEFAULT_SIZE, exaggeration = 1, encoding = "grayscale",
+    meters = null, baseline = "min",
   }) {
     if (!imageData || !Number.isInteger(imageData.width) || !Number.isInteger(imageData.height)
       || imageData.width < 1 || imageData.height < 1
@@ -733,18 +767,39 @@ window.akari.threeRuntime = (() => {
     const columns = grid + 1;
     const rows = grid + 1;
     const count = columns * rows;
-    const heights = new Float64Array(count);
-    let minHeight = Infinity;
-    let maxHeight = -Infinity;
+    const samples = new Float64Array(count);
+    // 最低標高と「全画素が無効」の判定は、間引いた格子ではなく画像全体で数える
+    // （baseline "min" が実際の最低標高とずれないようにする）。
+    let validSamples = 0;
+    let minimum = Infinity;
+    for (let row = 0; row < imageData.height; row += 1) {
+      for (let column = 0; column < imageData.width; column += 1) {
+        const sample = terrainSample(imageData, column, row, encoding);
+        if (!sample.valid) continue;
+        validSamples += 1;
+        if (sample.value < minimum) minimum = sample.value;
+      }
+    }
     for (let iz = 0; iz < rows; iz += 1) {
       const row = Math.round((iz / grid) * (imageData.height - 1));
       for (let ix = 0; ix < columns; ix += 1) {
         const column = Math.round((ix / grid) * (imageData.width - 1));
-        const height = terrainSampleHeight(imageData, column, row, encoding) * exaggeration;
-        heights[iz * columns + ix] = height;
-        if (height < minHeight) minHeight = height;
-        if (height > maxHeight) maxHeight = height;
+        samples[iz * columns + ix] = terrainSample(imageData, column, row, encoding).value;
       }
+    }
+    if (!Number.isFinite(minimum)) minimum = 0;
+    // baseline "min" は最低標高を y=0 に、"sea" は標高 0 m を y=0 にする。
+    // grayscale は従来の高さ（0〜1）をそのまま使う。
+    const baselineOffset = encoding === "gsi-dem" && baseline === "sea" ? 0 : (encoding === "gsi-dem" ? minimum : 0);
+    const verticalScale = encoding === "gsi-dem" ? terrainVerticalScale(size, meters) : 1;
+    const heights = new Float64Array(count);
+    let minHeight = Infinity;
+    let maxHeight = -Infinity;
+    for (let index = 0; index < count; index += 1) {
+      const height = (samples[index] - baselineOffset) * verticalScale * exaggeration;
+      heights[index] = height;
+      if (height < minHeight) minHeight = height;
+      if (height > maxHeight) maxHeight = height;
     }
     if (!Number.isFinite(minHeight)) { minHeight = 0; maxHeight = 0; }
     const span = maxHeight - minHeight;
@@ -785,7 +840,8 @@ window.akari.threeRuntime = (() => {
       }
     }
     return { positions, uvs, colors, indices, segments: grid, columns, heights,
-      minHeight, maxHeight };
+      minHeight, maxHeight, validSamples, elevationMin: minimum,
+      verticalScale, baselineOffset };
   }
 
   function validateTerrain(value) {
@@ -820,6 +876,11 @@ window.akari.threeRuntime = (() => {
       }
       exaggeration = value.exaggeration;
     }
+    const meters = value.meters === undefined ? null : terrainSize(value.meters, "terrain.meters");
+    const baseline = value.baseline ?? "min";
+    if (!TERRAIN_BASELINES.has(baseline)) {
+      throw new TypeError('terrain.baseline は "min" または "sea" である必要があります');
+    }
     let segments;
     if (value.segments !== undefined) {
       if (!Number.isInteger(value.segments)
@@ -837,6 +898,8 @@ window.akari.threeRuntime = (() => {
       encoding,
       exaggeration,
       size: value.size === undefined ? [...TERRAIN_DEFAULT_SIZE] : terrainSize(value.size, "terrain.size"),
+      meters,
+      baseline,
       segments,
     };
   }
@@ -1370,70 +1433,84 @@ window.akari.threeRuntime = (() => {
   async function loadTerrain(THREE, instance) {
     const terrain = instance.descriptor.terrain;
     if (!terrain) return;
-    const loaded = await loadTerrainImage(terrainAssetUrls(terrain.heightmap), "terrain.heightmap");
-    if (!instance.active || instances.get(instance.container) !== instance) return;
-    const { imageData, naturalWidth, naturalHeight } = readTerrainImageData(loaded, terrain.encoding);
-    const built = buildTerrainGeometryData({
-      imageData,
-      segments: terrain.segments,
-      size: terrain.size,
-      exaggeration: terrain.exaggeration,
-      encoding: terrain.encoding,
-    });
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(built.positions, 3));
-    geometry.setAttribute("uv", new THREE.BufferAttribute(built.uvs, 2));
-    geometry.setAttribute("color", new THREE.BufferAttribute(built.colors, 3));
-    geometry.setIndex(new THREE.BufferAttribute(built.indices, 1));
-    geometry.computeVertexNormals();
-    let material;
-    if (terrain.texture) {
-      let texture;
-      try {
-        texture = await loadStillTexture(
-          THREE, instance, terrainAssetUrls(terrain.texture), "terrain.texture",
-        );
-      } catch (error) {
-        geometry.dispose();
-        throw error;
+    try {
+      const loaded = await loadTerrainImage(terrainAssetUrls(terrain.heightmap), "terrain.heightmap");
+      if (!instance.active || instances.get(instance.container) !== instance) return;
+      const { imageData, naturalWidth, naturalHeight } = readTerrainImageData(loaded, terrain.encoding);
+      const built = buildTerrainGeometryData({
+        imageData,
+        segments: terrain.segments,
+        size: terrain.size,
+        exaggeration: terrain.exaggeration,
+        encoding: terrain.encoding,
+        meters: terrain.meters,
+        baseline: terrain.baseline,
+      });
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(built.positions, 3));
+      geometry.setAttribute("uv", new THREE.BufferAttribute(built.uvs, 2));
+      geometry.setAttribute("color", new THREE.BufferAttribute(built.colors, 3));
+      geometry.setIndex(new THREE.BufferAttribute(built.indices, 1));
+      geometry.computeVertexNormals();
+      let material;
+      if (terrain.texture) {
+        let texture;
+        try {
+          texture = await loadStillTexture(
+            THREE, instance, terrainAssetUrls(terrain.texture), "terrain.texture",
+          );
+        } catch (error) {
+          geometry.dispose();
+          throw error;
+        }
+        material = new THREE.MeshStandardMaterial({
+          map: texture, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
+        });
+      } else {
+        material = new THREE.MeshStandardMaterial({
+          vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
+        });
       }
-      material = new THREE.MeshStandardMaterial({
-        map: texture, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
-      });
-    } else {
-      material = new THREE.MeshStandardMaterial({
-        vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
-      });
+      if (!instance.active || instances.get(instance.container) !== instance) {
+        geometry.dispose();
+        material.dispose();
+        return;
+      }
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = "AkariTerrain";
+      if (instance.shadows.enabled) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+      const group = new THREE.Group();
+      group.name = "AkariTerrainGroup";
+      group.add(mesh);
+      instance.scene.add(group);
+      instance.terrainGroup = group;
+      instance.terrainInfo = {
+        encoding: terrain.encoding,
+        width: imageData.width,
+        height: imageData.height,
+        naturalWidth,
+        naturalHeight,
+        segments: built.segments,
+        minHeight: built.minHeight,
+        maxHeight: built.maxHeight,
+        textured: Boolean(terrain.texture),
+        exaggerated: terrain.exaggeration,
+        size: [...terrain.size],
+        meters: terrain.meters ? [...terrain.meters] : null,
+        baseline: terrain.baseline,
+        validSamples: built.validSamples,
+      };
+      for (const message of terrainWarningMessages({ validSamples: built.validSamples })) {
+        warnTerrainOnce(instance, `decode:${message}`, message);
+      }
+    } catch (error) {
+      for (const message of terrainWarningMessages({ error })) {
+        warnTerrainOnce(instance, "load", message);
+      }
     }
-    if (!instance.active || instances.get(instance.container) !== instance) {
-      geometry.dispose();
-      material.dispose();
-      return;
-    }
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = "AkariTerrain";
-    if (instance.shadows.enabled) {
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-    }
-    const group = new THREE.Group();
-    group.name = "AkariTerrainGroup";
-    group.add(mesh);
-    instance.scene.add(group);
-    instance.terrainGroup = group;
-    instance.terrainInfo = {
-      encoding: terrain.encoding,
-      width: imageData.width,
-      height: imageData.height,
-      naturalWidth,
-      naturalHeight,
-      segments: built.segments,
-      minHeight: built.minHeight,
-      maxHeight: built.maxHeight,
-      textured: Boolean(terrain.texture),
-      exaggerated: terrain.exaggeration,
-      size: [...terrain.size],
-    };
   }
 
   // --- 3D ポリライン（lines）。task 2026-10-21-scene3d-terrain-lines ---
@@ -3750,6 +3827,20 @@ window.akari.threeRuntime = (() => {
     } else {
       renderOnce();
     }
+    if (instance.terrainGroup && !instance.terrainViewChecked) {
+      // 最初の描画で地形が視野に入っているかを 1 度だけ測る。カメラの外に地形を置いたまま
+      // 線とラベルだけの絵で正常終了する事故を、capture / 書き出しの警告に残す。
+      instance.terrainViewChecked = true;
+      const { THREE } = window.AkariThree;
+      const frustum = new THREE.Frustum();
+      frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(
+        instance.camera.projectionMatrix, instance.camera.matrixWorldInverse));
+      const box = new THREE.Box3().setFromObject(instance.terrainGroup);
+      const visible = !box.isEmpty() && frustum.intersectsBox(box);
+      for (const message of terrainWarningMessages({ visible })) {
+        warnTerrainOnce(instance, "view", message);
+      }
+    }
     // renderer が更新したカメラ行列でアンカーを置く（プレビュー・capture・書き出しで同じ経路）。
     // 画面外・カメラの後ろは visibility: hidden。
     updateAnchorElements(instance);
@@ -4262,6 +4353,8 @@ window.akari.threeRuntime = (() => {
       // terrain / lines の状態（どちらも model・texts と独立）
       terrainGroup: null,
       terrainInfo: null,
+      terrainWarned: new Set(),
+      terrainViewChecked: false,
       linesGroup: new THREE.Group(),
       lineObjects: [],
       // extrude の per-char ExtrudeGeometry キャッシュ（font+char+size+depth+bevel キー）。
@@ -4842,6 +4935,8 @@ window.akari.threeRuntime = (() => {
     decodeGsiDem,
     buildTerrainGeometryData,
     terrainSegmentsFor,
+    terrainVerticalScale,
+    terrainWarningMessages,
     lineProgressAt: sampleLineProgress,
     lineCumulativeLengths,
   };

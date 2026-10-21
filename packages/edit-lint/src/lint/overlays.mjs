@@ -1,4 +1,5 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
+import { decodeRgbPng } from "../../../akari-tools/src/geo/png.mjs";
 import { lintText } from '../i18n.mjs';
 import { readFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -403,8 +404,10 @@ function validateThreeRenderer(html, path, findings) {
 // three-runtime.js の validateTerrain / validateLines と同じ規則を、書き出し前に読める形にする。
 const THREE_TERRAIN_ENCODINGS = new Set(["grayscale", "gsi-dem"]);
 const THREE_TERRAIN_FIELDS = new Set([
-  "heightmap", "texture", "encoding", "exaggeration", "size", "segments",
+  "heightmap", "texture", "encoding", "exaggeration", "size", "meters", "baseline", "segments",
 ]);
+const THREE_TERRAIN_BASELINES = new Set(["min", "sea"]);
+const THREE_TERRAIN_INVALID_DEM = [128, 0, 0];
 const THREE_TERRAIN_MIN_EXAGGERATION = 0.01;
 const THREE_TERRAIN_MAX_EXAGGERATION = 100;
 const THREE_TERRAIN_MAX_SEGMENTS = 512;
@@ -543,6 +546,18 @@ function threeTerrainProblems(terrain, context) {
       );
     }
   }
+  if (terrain.meters !== undefined) {
+    if (!Array.isArray(terrain.meters)
+      || terrain.meters.length !== 2
+      || !terrain.meters.every(value => isFiniteNumber(value) && value > 0)) {
+      problems.push(
+        "data-akari-3d-scene.terrain.meters must be an array of 2 positive finite numbers [width_m, depth_m]."
+      );
+    }
+  }
+  if (terrain.baseline !== undefined && !THREE_TERRAIN_BASELINES.has(terrain.baseline)) {
+    problems.push('data-akari-3d-scene.terrain.baseline must be "min" or "sea".');
+  }
   if (terrain.segments !== undefined) {
     if (!Number.isInteger(terrain.segments)
       || terrain.segments < 1
@@ -626,12 +641,61 @@ function threeLinesProblems(lines) {
   return problems;
 }
 
+function threeDemElevation(red, green, blue) {
+  const raw = (red << 16) | (green << 8) | blue;
+  const signed = raw >= 0x800000 ? raw - 0x1000000 : raw;
+  return signed * 0.01;
+}
+
+// gsi-dem は標高を m のまま使うため、size（ワールド単位）と桁が揃っていないと
+// 起伏だけが極端に大きくなる。meters が無いのに高低差が size の 10 倍を超えたら知らせる。
+function threeTerrainWarnings(terrain, context) {
+  if (!isRecord(terrain) || terrain.encoding !== "gsi-dem" || terrain.meters !== undefined) return [];
+  if (!Array.isArray(terrain.size) || terrain.size.length !== 2
+    || !terrain.size.every(value => isFiniteNumber(value) && value > 0)) return [];
+  if (typeof terrain.heightmap !== "string" || /^data:/iu.test(terrain.heightmap)) return [];
+  const file = threeReferenceFile(terrain.heightmap, context);
+  if (!file) return [];
+  let image;
+  try {
+    image = decodeRgbPng(readFileSync(file));
+  } catch {
+    return [];
+  }
+  let minimum = Infinity;
+  let maximum = -Infinity;
+  for (let index = 0; index < image.width * image.height; index += 1) {
+    const offset = index * 3;
+    if (image.rgb[offset] === THREE_TERRAIN_INVALID_DEM[0]
+      && image.rgb[offset + 1] === THREE_TERRAIN_INVALID_DEM[1]
+      && image.rgb[offset + 2] === THREE_TERRAIN_INVALID_DEM[2]) continue;
+    const elevation = threeDemElevation(image.rgb[offset], image.rgb[offset + 1], image.rgb[offset + 2]);
+    if (elevation < minimum) minimum = elevation;
+    if (elevation > maximum) maximum = elevation;
+  }
+  if (!Number.isFinite(minimum)) return [];
+  const range = maximum - minimum;
+  const horizontal = Math.max(terrain.size[0], terrain.size[1]);
+  if (range / horizontal <= 10) return [];
+  return [
+    `data-akari-3d-scene.terrain: the gsi-dem height range is ${formatNumber(range)} m,`
+    + ` more than 10x terrain.size (max ${formatNumber(horizontal)}).`
+    + " Add meters: [width_m, depth_m] (terrain.json declaration has it)"
+    + " so elevations use the same scale as the map.",
+  ];
+}
+
 function validateThreeTerrain(source, path, findings, context) {
   forEachThreeDescriptor(source, descriptor => {
     if (descriptor.terrain === undefined) return;
     for (const problem of threeTerrainProblems(descriptor.terrain, context)) {
       addFinding(findings, {
         severity: "error", check: "overlays.three-terrain", message: problem, path,
+      });
+    }
+    for (const warning of threeTerrainWarnings(descriptor.terrain, context)) {
+      addFinding(findings, {
+        severity: "warning", check: "overlays.three-terrain", message: warning, path,
       });
     }
   });

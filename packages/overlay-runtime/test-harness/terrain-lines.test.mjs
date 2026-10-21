@@ -83,6 +83,8 @@ function decodePng(path) {
 }
 
 const FIXTURE = decodePng(resolve(HERE, "fixtures/terrain-4x4.png"));
+// 地理院 dem_png と同じ 8bit RGB。2x2 の既知値: 539.47 m / 100 m / -50 m / 無効値。
+const GSI_FIXTURE = decodePng(resolve(HERE, "fixtures/terrain-gsi-dem-2x2.png"));
 
 test("terrain: 既知の 4x4 PNG から頂点の高さが期待値になる", () => {
   const built = runtime.buildTerrainGeometryData({
@@ -110,30 +112,105 @@ test("terrain: 既知の 4x4 PNG から頂点の高さが期待値になる", ()
   assert.deepEqual([built.uvs[8 * 2], built.uvs[8 * 2 + 1]], [1, 0]);
 });
 
-test("terrain: gsi-dem は RGB の符号化を標高へ復号し、no-data は 0 にする", () => {
-  const encode = (elevation) => {
-    const raw = Math.round((elevation + 10000) / 0.01);
-    return [(raw >> 16) & 0xff, (raw >> 8) & 0xff, raw & 0xff];
-  };
-  const sea = encode(0);
-  const mountain = encode(100);
-  assert.ok(Math.abs(runtime.decodeGsiDem(...sea) - 0) < 1e-9);
-  assert.ok(Math.abs(runtime.decodeGsiDem(...mountain) - 100) < 1e-9);
+test("terrain: gsi-dem は国土地理院の式（符号付き 24bit・100 分の 1 m）で復号する", () => {
+  const encodeRaw = (raw) => [(raw >> 16) & 0xff, (raw >> 8) & 0xff, raw & 0xff];
+  // 地理院の実タイルに現れる生値 53947 は 539.47 m（旧式の -9460 m ではない）。
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(53947)), 539.47);
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(0)), 0);
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(10000)), 100);
+  // x > 2^23 は (x - 2^24) * 0.01。負の標高も同じ式で読める。
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(0x1000000 - 5000)), -50);
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(0xffffff)), -0.01);
+  // x = 2^23（RGB 128,0,0）は無効値。
   assert.equal(runtime.decodeGsiDem(128, 0, 0), null);
-  const data = new Uint8ClampedArray([
-    ...sea, 255, ...mountain, 255,
-    ...encode(-50), 255, 128, 0, 0, 255,
-  ]);
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(0x800000)), null);
+  assert.equal(runtime.decodeGsiDem(...encodeRaw(0x800001)), -83886.07);
+
   const built = runtime.buildTerrainGeometryData({
-    imageData: { width: 2, height: 2, data },
+    imageData: GSI_FIXTURE,
     segments: 1,
     size: [2, 2],
     exaggeration: 1,
     encoding: "gsi-dem",
+    meters: [200, 200],
   });
-  assert.deepEqual([...built.heights], [0, 100, -50, 0]);
-  assert.ok(Math.abs(built.maxHeight - 100) < 1e-9);
-  assert.ok(Math.abs(built.minHeight + 50) < 1e-9);
+  // baseline の既定は "min": 最低標高 -50 m が y=0。実寸は size/meters = 1/100。
+  assert.equal(built.validSamples, 3);
+  const expected = [539.47, 100, -50].map((elevation) => (elevation + 50) * 0.01);
+  for (const [index, value] of expected.entries()) {
+    assert.ok(Math.abs(built.heights[index] - value) < 1e-9, `${index}: ${built.heights[index]} != ${value}`);
+  }
+  // 無効値の画素は 0 m として扱い、地形を欠けさせない（baseline min では -50 m が 0）。
+  assert.ok(Math.abs(built.heights[3] - 0.5) < 1e-9);
+  assert.ok(Math.abs(built.minHeight - 0) < 1e-9);
+  assert.ok(Math.abs(built.maxHeight - ((539.47 + 50) * 0.01)) < 1e-9);
+  assert.ok(Math.abs(built.verticalScale - 0.01) < 1e-12);
+});
+
+test("terrain: baseline sea は標高 0 m を y=0 にし、exaggeration はその上に掛かる", () => {
+  const encodeRaw = (raw) => [(raw >> 16) & 0xff, (raw >> 8) & 0xff, raw & 0xff];
+  const built = runtime.buildTerrainGeometryData({
+    imageData: GSI_FIXTURE,
+    segments: 1,
+    size: [2, 2],
+    exaggeration: 2,
+    encoding: "gsi-dem",
+    meters: [200, 200],
+    baseline: "sea",
+  });
+  assert.ok(Math.abs(built.heights[0] - 539.47 * 0.01 * 2) < 1e-9);
+  assert.ok(Math.abs(built.heights[1] - 100 * 0.01 * 2) < 1e-9);
+  assert.ok(Math.abs(built.heights[2] - -50 * 0.01 * 2) < 1e-9);
+  assert.ok(Math.abs(built.minHeight - -1) < 1e-9);
+});
+
+test("terrain: baseline min は間引いた格子ではなく画像全体の最低標高を使う", () => {
+  const encodeRaw = (raw) => [(raw >> 16) & 0xff, (raw >> 8) & 0xff, raw & 0xff];
+  const elevations = [100, 100, 100, 100, -50, 100, 100, 100, 100];
+  const data = new Uint8ClampedArray(elevations.flatMap((value) => [
+    ...encodeRaw(value < 0 ? 0x1000000 + Math.round(value * 100) : Math.round(value * 100)), 255,
+  ]));
+  const built = runtime.buildTerrainGeometryData({
+    imageData: { width: 3, height: 3, data },
+    segments: 1,
+    size: [2, 2],
+    meters: [200, 200],
+    encoding: "gsi-dem",
+  });
+  assert.equal(built.elevationMin, -50);
+  assert.equal(built.validSamples, 9);
+  // 格子は四隅（100 m）だけを標本するが、baseline は全体の -50 m。100 m は 1.5。
+  for (const height of built.heights) assert.ok(Math.abs(height - 1.5) < 1e-9);
+});
+
+test("terrain: grayscale は meters / baseline を足しても既存の高さのまま", () => {
+  const built = runtime.buildTerrainGeometryData({
+    imageData: FIXTURE,
+    segments: 2,
+    size: [4, 6],
+    exaggeration: 2,
+    encoding: "grayscale",
+    meters: [500, 500],
+    baseline: "sea",
+  });
+  const heightAt = (ix, iz) => built.positions[(iz * 3 + ix) * 3 + 1];
+  assert.equal(heightAt(0, 0), 0);
+  assert.ok(Math.abs(heightAt(1, 0) - (102 / 255) * 2) < 1e-6);
+  assert.ok(Math.abs(built.maxHeight - 2) < 1e-6);
+});
+
+test("terrain: 読み込み失敗・全画素無効・視野外の警告文を返す", () => {
+  assert.match(runtime.terrainWarningMessages({ error: new Error("404") })[0], /読み込めません.*404/u);
+  assert.equal(runtime.terrainWarningMessages({ validSamples: 3, visible: true }).length, 0);
+  assert.match(runtime.terrainWarningMessages({ validSamples: 0 })[0], /すべて無効値/u);
+  assert.match(runtime.terrainWarningMessages({ validSamples: 3, visible: false })[0], /視野に入っていません/u);
+  assert.equal(runtime.terrainWarningMessages({ validSamples: 0, visible: false }).length, 2);
+});
+
+test("terrain: 実寸の縮尺は size / meters の比", () => {
+  assert.equal(runtime.terrainVerticalScale([10, 10], null), 1);
+  assert.equal(runtime.terrainVerticalScale([7, 7], [700, 700]), 0.01);
+  assert.equal(runtime.terrainVerticalScale([20, 10], [2000, 1000]), 0.01);
 });
 
 test("terrain: 既定の segments は画像の解像度に合わせ、上限 512", () => {
@@ -150,13 +227,17 @@ test("terrain: 宣言の正例と既定値", () => {
   assert.equal(defaults.exaggeration, 1);
   assert.deepEqual([...defaults.size], [10, 10]);
   assert.equal(defaults.segments, undefined);
+  assert.equal(defaults.meters, null);
+  assert.equal(defaults.baseline, "min");
   const full = runtime.validateTerrain({
     heightmap: "h.png", texture: "photo.jpg", encoding: "gsi-dem",
-    exaggeration: 3, size: [20, 30], segments: 256,
+    exaggeration: 3, size: [20, 30], meters: [2000, 3000], baseline: "sea", segments: 256,
   });
   assert.equal(full.encoding, "gsi-dem");
   assert.equal(full.exaggeration, 3);
   assert.deepEqual([...full.size], [20, 30]);
+  assert.deepEqual([...full.meters], [2000, 3000]);
+  assert.equal(full.baseline, "sea");
   assert.equal(full.segments, 256);
 });
 
@@ -167,6 +248,9 @@ test("terrain: 宣言の負例は理由つきで拒否", () => {
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", exaggeration: 0 }), /exaggeration/u);
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", exaggeration: 101 }), /exaggeration/u);
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", size: [0, 10] }), /size/u);
+  assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", meters: [0, 10] }), /meters/u);
+  assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", meters: [1] }), /meters/u);
+  assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", baseline: "ground" }), /baseline/u);
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", segments: 0 }), /segments/u);
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", segments: 513 }), /segments/u);
   assert.throws(() => runtime.validateTerrain({ heightmap: "h.png", segments: 1.5 }), /segments/u);

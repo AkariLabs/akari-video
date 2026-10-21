@@ -106,12 +106,21 @@ test("geo terrain: 2x2 タイルを結合・切り出しし 3 ファイルを書
   assert.deepEqual(result.missing, { dem: 0, photo: 0 });
   assert.equal(result.filled, 2);
   assert.deepEqual(result.size, [2, 6]);
+  const size = sizeMeters({ bbox: { west: 139.768, south: 35.675, east: 139.7681, north: 35.6753 }, zoom: 14 });
   assert.deepEqual(result.terrain, {
     bbox: [139.768, 35.675, 139.7681, 35.6753],
     zoom: 14,
-    size_m: sizeMeters({ bbox: { west: 139.768, south: 35.675, east: 139.7681, north: 35.6753 }, zoom: 14 }),
+    size_m: size,
     elevation_m: [100, 111],
     encoding: "gsi-dem",
+    declaration: {
+      heightmap: "heightmap.png",
+      texture: "texture.png",
+      encoding: "gsi-dem",
+      size: [Math.round(size[0]) / 100, Math.round(size[1]) / 100],
+      meters: [Math.round(size[0] * 100) / 100, Math.round(size[1] * 100) / 100],
+      baseline: "min",
+    },
     missing_tiles: { dem: 0, photo: 0 },
     attribution: "出典: 国土地理院（地理院タイル）",
   });
@@ -123,6 +132,9 @@ test("geo terrain: 2x2 タイルを結合・切り出しし 3 ファイルを書
   const written = JSON.parse(await readFile(result.files.terrain, "utf8"));
   assert.equal(written.attribution, "出典: 国土地理院（地理院タイル）");
   assert.equal((await readFile(result.files.terrain, "utf8")).includes("国土地理院"), true);
+  // declaration は size = meters / 100。3D の terrain 宣言にそのまま貼れる。
+  assert.deepEqual(written.declaration, result.terrain.declaration);
+  assert.ok(Math.abs(written.declaration.meters[0] / written.declaration.size[0] - 100) < 10);
 
   const heightmap = decodeRgbPng(await readFile(result.files.heightmap));
   assert.equal(heightmap.width, 2);

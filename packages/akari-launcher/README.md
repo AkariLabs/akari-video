@@ -60,8 +60,10 @@ sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-com
 `akari clean [project-dir] [--dry-run] [--yes] [--json]`（使い捨ての中間ファイル、保持する
 正本、判断が必要なものを容量付きで一覧する。既定は一覧のみで、削除可能なものだけを承認後に削除）/
 `akari geo terrain --bbox <西,南,東,北> --out <dir> [--zoom 1-14] [--max-tiles 64]`（国土地理院の
-標高・写真タイルから 3D 地形の `heightmap.png`・`texture.png`・`terrain.json` を作る。
-出典「国土地理院（地理院タイル）」の表示が利用条件）。
+標高・写真タイルから 3D 地形の `heightmap.png`・`texture.png`・`terrain.json` を作る）/
+`akari geo point --terrain <terrain.json> --lonlat <経度,緯度>[,高さm]`（terrain.json の
+declaration と同じ縮尺で経緯度を 3D 座標 `[x, y, z]` に直す。出典「国土地理院（地理院タイル）」の
+表示が利用条件）。
 
 ## 拡張キット
 

@@ -58,7 +58,7 @@
   "cli.preview.error.spawnFailed": "プレビューサーバーを起動できません: {message}",
   "cli.preview.label.unknown": "不明",
   "cli.help.commands.world": "  world                    ワールド地図を検査・生成・プレビュー・停留所移動",
-  "cli.help.commands.geo": "  geo terrain              国土地理院の標高・写真タイルから 3D 地形の素材を作る",
+  "cli.help.commands.geo": "  geo terrain / point      国土地理院のタイルから 3D 地形を作り、経緯度を 3D 座標に直す",
   "cli.help.commands.skills": "  skills                   入口スキルを配置・削除・確認（install/remove --entry, status --json）",
   "cli.version.installed.cli": "CLI バージョン: v{version}",
   "cli.version.installed.invalid": "本体版を判定できません（`{path}` が壊れています）。",

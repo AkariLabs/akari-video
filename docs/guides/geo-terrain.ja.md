@@ -33,7 +33,7 @@ bbox に必要なタイル数が上限を超えるときは、**取得を始め�
 
 | ファイル | 内容 |
 |---|---|
-| `heightmap.png` | 標高タイルを `gsi-dem` の符号化のまま結合（8bit RGB: `R*65536 + G*256 + B`、100 分の 1 m）。無効値 `(128,0,0)` は最寄りの有効画素で埋める。404 の標高タイルは全体を無効値として扱い、同じように補間する |
+| `heightmap.png` | 標高タイルを `gsi-dem` の符号化のまま結合。`x = R*65536 + G*256 + B` として、`x < 2^23` は `x*0.01` m、`x = 2^23`（RGB `128,0,0`）は無効値、`x > 2^23` は `(x - 2^24)*0.01` m（負の標高）。無効値は最寄りの有効画素で埋める。404 の標高タイルは全体を無効値として扱い、同じように補間する |
 | `texture.png` | 写真タイルを同じ矩形に結合・切り出し。404 の写真タイルは海の色（`#2a4d69`）の単色で埋める |
 | `terrain.json` | 範囲・ズーム・実寸・標高の範囲・符号化・見つからなかったタイル数・出典 |
 
@@ -44,6 +44,14 @@ bbox に必要なタイル数が上限を超えるときは、**取得を始め�
   "size_m": [1002.2, 1009.9],
   "elevation_m": [124.19, 170.33],
   "encoding": "gsi-dem",
+  "declaration": {
+    "heightmap": "heightmap.png",
+    "texture": "texture.png",
+    "encoding": "gsi-dem",
+    "size": [10.02, 10.1],
+    "meters": [1002.2, 1009.9],
+    "baseline": "min"
+  },
   "missing_tiles": { "dem": 0, "photo": 0 },
   "attribution": "出典: 国土地理院（地理院タイル）"
 }
@@ -52,6 +60,56 @@ bbox に必要なタイル数が上限を超えるときは、**取得を始め�
 `size_m` は `[幅, 奥行]`（m）です。切り出した画素数と bbox 中心の緯度での地上解像度から出すため、
 丸めていない bbox ではなく画像の実寸に一致します。`elevation_m` は切り出し内の**有効な**標高画素の
 `[最小, 最大]` です（補間した画素は範囲を変えません）。
+
+`declaration` は 3D の宣言にそのまま貼れる形です。`meters` は `size_m`、`size` は
+`meters / 100`（1 m = 0.01 ワールド単位）なので、地図の実寸の比率を保ちます。`baseline` は
+`"min"` で、有効な最低標高が `y = 0` になります。
+
+## 出力を 3D シーンで使う
+
+`declaration` をそのまま `terrain` に貼ります。ファイルは断片の隣に置くか、使っている
+プロジェクト基準のパスに直してください。
+
+```json
+{
+  "terrain": {
+    "heightmap": "heightmap.png",
+    "texture": "texture.png",
+    "encoding": "gsi-dem",
+    "size": [10.02, 10.1],
+    "meters": [1002.2, 1009.9],
+    "baseline": "min",
+    "exaggeration": 1
+  }
+}
+```
+
+`meters` は高さマップの実寸 `[幅, 奥行]`（m）です。あるときランタイムは標高を
+`size[0] / meters[0]` で縮めてから `exaggeration` を掛けるため、上方向と横方向が同じ縮尺に
+なります。`baseline` は `y = 0` に置く基準で、`"min"`（既定）は最低標高、`"sea"` は標高 0 m
+です。グレースケールの高さマップは従来どおりで、`meters` / `baseline` を使いません。
+
+`akari geo point` は、その宣言が作る `[x, y, z]` へ経緯度を変換します。
+
+```sh
+akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000
+# [0, 13.42, -0.5]
+```
+
+3 つ目の数値で、高さマップから引く代わりに標高（m）を渡せます。
+
+```sh
+akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
+```
+
+結果は `lines[].points` と `data-akari-3d-anchor` にそのまま使えます。画像の 1 行目が北、
+1 列目が西で、地形メッシュと同じ向きです。x・z は地図の範囲、y は `baseline` と縮尺を
+適用したあとの標高です。
+
+`gsi-dem` で `meters` が無く、高低差が `size` の 10 倍を超えるときは、標高と地図の距離が
+別の縮尺になるため lint が警告します。描画時は、高さマップが読めない・標高がすべて無効値・
+最初の描画で地形がカメラの視野に入らない、のいずれかでランタイムが警告を出します
+（stderr に出るので `akari capture` と書き出しにも表示されます）。
 
 `missing_tiles` は 404 が返ったタイルの枚数です。地理院タイルは海や範囲外のタイルが 404 になります。
 海を含む bbox でも成功し、標高は補間、写真は海の色で埋めます。**bbox の標高タイルがすべて**

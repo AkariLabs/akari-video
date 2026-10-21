@@ -166,12 +166,22 @@ export async function buildTerrain(options) {
 
   const demStats = fillInvalidDem(composed.dem.rgb, composed.dem.width, composed.dem.height);
   const size = sizeMeters({ bbox, zoom });
+  // 3D の terrain 宣言にそのまま貼れる形。size は meters の 1/100（1 m = 0.01 ワールド単位）。
+  const declaration = {
+    heightmap: "heightmap.png",
+    texture: "texture.png",
+    encoding: "gsi-dem",
+    size: [round2(size[0] / 100), round2(size[1] / 100)],
+    meters: [round2(size[0]), round2(size[1])],
+    baseline: "min",
+  };
   const terrain = {
     bbox: [bbox.west, bbox.south, bbox.east, bbox.north],
     zoom,
     size_m: size,
     elevation_m: [round2(demStats.elevation[0]), round2(demStats.elevation[1])],
     encoding: "gsi-dem",
+    declaration,
     missing_tiles: { dem: missing.dem, photo: missing.photo },
     attribution: ATTRIBUTION,
   };

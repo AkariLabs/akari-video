@@ -10,6 +10,7 @@ import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const base = join(here, "fixtures", "overlay-motion-rules");
 const terrainPng = join(here, "fixtures", "terrain-4x4.png");
+const gsiDemPng = join(here, "fixtures", "terrain-gsi-dem-4x4.png");
 
 const scene = descriptor =>
   `<script type="application/json" data-akari-3d-scene>${JSON.stringify(descriptor)}</script>`;
@@ -26,6 +27,7 @@ async function lintCase(t, body, { inline = false, files = {} } = {}) {
   if (!inline) await writeFile(join(project, "overlays/three.html"), body);
   for (const [path, contents] of Object.entries(files)) {
     if (contents === "fixture") await copyFile(terrainPng, join(project, path));
+    else if (contents === "gsi-dem-fixture") await copyFile(gsiDemPng, join(project, path));
     else await writeFile(join(project, path), contents);
   }
   await writeFile(editPath, JSON.stringify(edit));
@@ -50,6 +52,8 @@ test("terrain / lines lint accepts a valid declaration and resolves the fragment
       encoding: "gsi-dem",
       exaggeration: 2,
       size: [4, 6],
+      meters: [400, 600],
+      baseline: "sea",
       segments: 2,
     },
     lines: [{
@@ -107,6 +111,9 @@ test("terrain lint rejects out-of-range values and unknown fields", async t => {
     { terrain: { heightmap: "terrain-4x4.png", exaggeration: 0 }, message: /exaggeration must be a number from/u },
     { terrain: { heightmap: "terrain-4x4.png", exaggeration: 101 }, message: /exaggeration must be a number from/u },
     { terrain: { heightmap: "terrain-4x4.png", size: [0, 10] }, message: /size must be an array of 2 positive/u },
+    { terrain: { heightmap: "terrain-4x4.png", meters: [0, 10] }, message: /meters must be an array of 2 positive/u },
+    { terrain: { heightmap: "terrain-4x4.png", meters: [100] }, message: /meters must be an array of 2 positive/u },
+    { terrain: { heightmap: "terrain-4x4.png", baseline: "ground" }, message: /baseline must be "min" or "sea"/u },
     { terrain: { heightmap: "terrain-4x4.png", segments: 0 }, message: /segments must be an integer from 1 to 512/u },
     { terrain: { heightmap: "terrain-4x4.png", segments: 513 }, message: /segments must be an integer from 1 to 512/u },
     { terrain: { heightmap: "terrain-4x4.png", segments: 1.5 }, message: /segments must be an integer/u },
@@ -146,6 +153,34 @@ test("lines lint rejects bad points, color, width, progress, and key order", asy
     assert.equal(findings.lines.length, 1, JSON.stringify(item));
     assert.match(findings.lines[0].message, item.message);
   }
+});
+
+test("terrain lint warns when gsi-dem heights dwarf size without meters", async t => {
+  const files = {
+    "overlays/terrain-gsi-dem-4x4.png": "gsi-dem-fixture",
+  };
+  const warning = await lintCase(t, `<div><canvas></canvas>${scene({
+    terrain: { heightmap: "terrain-gsi-dem-4x4.png", encoding: "gsi-dem", size: [10, 10] },
+  })}</div>`, { files });
+  assert.equal(warning.terrain.length, 1);
+  assert.equal(warning.terrain[0].severity, "warning");
+  assert.match(warning.terrain[0].message, /height range is 589\.47 m.*more than 10x terrain\.size/u);
+  assert.match(warning.terrain[0].message, /Add meters/u);
+
+  // meters を宣言すれば、同じ高さの範囲でも縮尺が決まるので警告しない。
+  const scaled = await lintCase(t, `<div><canvas></canvas>${scene({
+    terrain: {
+      heightmap: "terrain-gsi-dem-4x4.png", encoding: "gsi-dem",
+      size: [5.8947, 5.8947], meters: [589.47, 589.47],
+    },
+  })}</div>`, { files });
+  assert.deepEqual(scaled.terrain, []);
+
+  // grayscale は標高ではないので警告しない。
+  const grayscale = await lintCase(t, `<div><canvas></canvas>${scene({
+    terrain: { heightmap: "terrain-gsi-dem-4x4.png", size: [10, 10] },
+  })}</div>`, { files });
+  assert.deepEqual(grayscale.terrain, []);
 });
 
 test("terrain lint checks inline HTML items against the project root", async t => {
