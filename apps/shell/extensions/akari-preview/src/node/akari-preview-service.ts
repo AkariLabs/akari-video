@@ -505,11 +505,15 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 videoFx: read('video-fx.js'),
                 // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
                 // viewport-units.js は断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準で解決する
-                // 書き換え（overlay-runtime.js の mount が使う）。keyframes.mjs は export 行だけを
+                // 書き換え（overlay-runtime.js の mount が使う）。fragment-css-scope.mjs は断片 CSS の
+                // 衝突を実行時に解消する純関数（preview-server / render-cut / gpu-export と同じ実装）で、
+                // overlay-runtime.js の mount が browser global 経由で使う。keyframes.mjs も export 行だけを
                 // 除いて browser global を自己登録する。いずれも runtimeJavaScript の先頭へ
                 // 同梱し、公開プロトコルの資産フィールドは増やさない。
                 runtime: Buffer.from(`${readText('slot-params.js')}\n${
                     readText('viewport-units.js')
+                }\n${
+                    readText('fragment-css-scope.mjs').replace(/^export /gmu, '')
                 }\n${
                     readText('keyframes.mjs')
                         .replace(/\nexport \{ interpolateKeyframes \};\s*$/u, '\n')

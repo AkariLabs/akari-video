@@ -25,6 +25,13 @@ test('preview and both export surfaces import the same single implementation', (
   assert.match(preview, /scopeFragmentCss\(/u);
   const server = read('packages/preview-server/src/server.mjs');
   assert.match(server, /'\/fragment-css-scope\.mjs': fileURLToPath\(new URL\('\.\.\/\.\.\/overlay-runtime\/src\/fragment-css-scope\.mjs'/u);
+  // シェル（アプリ）のプレビューは runtimeJavaScript に同じファイルを同梱し、
+  // overlay-runtime.js の mount が browser global 経由で同じ純関数を呼ぶ。
+  const shell = read('apps/shell/extensions/akari-preview/src/node/akari-preview-service.ts');
+  assert.match(shell, /readText\('fragment-css-scope\.mjs'\)\.replace\(\/\^export \/gmu, ''\)/u);
+  const runtime = read('packages/overlay-runtime/src/overlay-runtime.js');
+  assert.match(runtime, /window\.akari\.fragmentCssScope\?\.scopeFragmentCss/u);
+  assert.match(runtime, /scopeOverlayCss\(overlays, options\)/u);
 });
 
 test('render-cut overlay sheet scopes the later fragment only', () => {

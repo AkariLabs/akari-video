@@ -370,6 +370,24 @@ function createOverlayRuntime(options = {}) {
     lastPlayingProgressAt = null;
   }
 
+  // 断片 CSS の衝突を実行時に解消する（packages/overlay-runtime/src/fragment-css-scope.mjs）。
+  // preview-server / render-cut / gpu-export は同じ純関数を断片の読み込み前に適用している。
+  // シェルのプレビューは runtime.mount(summary) が断片を載せるため、ここでも同じ関数を通す。
+  // 衝突の無い断片は純関数が入力文字列をそのまま返すので、DOM へ渡す HTML は不変。
+  // 事前にスコープ済みの HTML を渡すホストは options.scopeCss: false で二重適用を避ける。
+  function scopeOverlayCss(overlays, options) {
+    if (options && options.scopeCss === false) return overlays;
+    const scope = window.akari.fragmentCssScope?.scopeFragmentCss;
+    if (typeof scope !== "function") return overlays;
+    const scoped = scope(overlays.map((overlay, index) => ({
+      id: String(overlay?.id ?? index),
+      html: typeof overlay?.html === "string" ? overlay.html : "",
+    })));
+    return overlays.map((overlay, index) => scoped[index]?.changed
+      ? { ...overlay, html: scoped[index].html }
+      : overlay);
+  }
+
   async function mount(summary, options = {}) {
     unmount();
     // プレビューの 3D 描画バッファ上限（tick() の render 呼び出し参照）。キー未指定なら runtime に
@@ -389,6 +407,7 @@ function createOverlayRuntime(options = {}) {
     if (!Array.isArray(overlays)) {
       throw new TypeError("summary.overlays は配列である必要があります");
     }
+    const scopedOverlays = scopeOverlayCss(overlays, options);
 
     // ホストは非表示トラックの inline display も管理する。runtime 側は独立した属性で
     // 非可視断片を隠し、ホストの display 更新でアニメーションが復活しないようにする。
@@ -400,7 +419,7 @@ function createOverlayRuntime(options = {}) {
     }
     const fragment = document.createDocumentFragment();
 
-    for (const overlay of overlays) {
+    for (const overlay of scopedOverlays) {
       const start = finiteNumber(overlay.start, 0);
       const duration = finiteNumber(overlay.duration, 0);
       const transform = overlay.transform ?? {};

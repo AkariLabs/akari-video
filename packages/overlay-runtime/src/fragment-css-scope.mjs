@@ -646,3 +646,15 @@ export function scopeFragmentCss(fragments) {
     };
   });
 }
+
+// classic script として読み込むホスト（シェルの runtimeJavaScript）向けに、同じ 1 実装を
+// browser global へ登録する。preview-server のように ES モジュールとして import する
+// ホストは named export をそのまま使う。どちらも同じ関数を指す（2 実装にしない）。
+if (typeof window !== 'undefined') {
+  window.akari = window.akari || {};
+  window.akari.fragmentCssScope = Object.freeze({
+    scopeFragmentCss,
+    collectFragmentCssNames,
+    isGuardedFragmentCssName,
+  });
+}
