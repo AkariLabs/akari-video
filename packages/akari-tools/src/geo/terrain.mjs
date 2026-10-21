@@ -111,6 +111,22 @@ function limitMessage({ range, zoom, maxTiles, bbox }) {
   return `タイル数が上限（${maxTiles}）を超えます: zoom ${zoom} で ${range.columns}×${range.rows} = ${range.count} 枚。${advice}`;
 }
 
+// <dir> から親をたどり、edit.json があるディレクトリ（AKARI プロジェクトの根）を返す。
+async function findProjectRoot(directory) {
+  let current = directory;
+  while (true) {
+    try {
+      await fs.access(path.join(current, "edit.json"));
+      return current;
+    } catch {
+      // 無ければ親へ。
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
 /**
  * 地形素材を作る。
  * @param {{ bbox: string|number[], zoom?: number, outDir: string, maxTiles?: number,
@@ -166,10 +182,16 @@ export async function buildTerrain(options) {
 
   const demStats = fillInvalidDem(composed.dem.rgb, composed.dem.width, composed.dem.height);
   const size = sizeMeters({ bbox, zoom });
+  const outputDir = path.resolve(outDir);
+  // AKARI プロジェクトの中へ出すときは、declaration をプロジェクト基準のパスで書く。
+  // プレビューと書き出しはプロジェクト基準で解決するので、利用者が毎回書き換えなくて済む。
+  const projectRoot = await findProjectRoot(outputDir);
+  const relativeOut = projectRoot ? path.relative(projectRoot, outputDir).replaceAll("\\", "/") : "";
+  const declarationPath = (name) => (relativeOut && relativeOut !== "." ? `${relativeOut}/${name}` : name);
   // 3D の terrain 宣言にそのまま貼れる形。size は meters の 1/100（1 m = 0.01 ワールド単位）。
   const declaration = {
-    heightmap: "heightmap.png",
-    texture: "texture.png",
+    heightmap: declarationPath("heightmap.png"),
+    texture: declarationPath("texture.png"),
     encoding: "gsi-dem",
     size: [round2(size[0] / 100), round2(size[1] / 100)],
     meters: [round2(size[0]), round2(size[1])],
@@ -186,7 +208,6 @@ export async function buildTerrain(options) {
     attribution: ATTRIBUTION,
   };
 
-  const outputDir = path.resolve(outDir);
   await fs.mkdir(outputDir, { recursive: true });
   const files = {
     heightmap: path.join(outputDir, "heightmap.png"),

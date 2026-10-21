@@ -244,6 +244,23 @@
   const stampRow = document.getElementById("akari-stamp");
   let engineRuntime;
 
+  // 3D ランタイムは iframe の中で `[akari-three]` 付きの警告を出す。run.json の warnings へ
+  // 1 回ずつ載せるため、シートが溜めた警告を取り出す（ready より前の分もここで拾える）。
+  // 文言はそのまま（既存の警告の形を変えない）。
+  const threeWarningMessages = new Set();
+  function collectThreeWarnings() {
+    for (const frame of activeOverlayFrames) {
+      try {
+        const queued = frame.contentWindow?.akari?.threeRuntime?.drainWarnings?.();
+        for (const message of Array.isArray(queued) ? queued : []) {
+          if (threeWarningMessages.has(message)) continue;
+          threeWarningMessages.add(message);
+          warnings.push(message);
+        }
+      } catch { /* An inaccessible iframe must not stop the export. */ }
+    }
+  }
+
   function warnCaptionAnimatorOnce(code, message) {
     if (captionAnimatorWarnings.has(code)) return;
     captionAnimatorWarnings.add(code);
@@ -283,6 +300,8 @@
       else frame.addEventListener("load", resolve, { once: true });
     })));
     await Promise.all(activeOverlayFrames.map(frame => frame.contentWindow.__akariReady));
+    // シートの ready で最初の描画が終わっているので、そこまでの警告を回収する。
+    collectThreeWarnings();
     engineRuntime = new OsrFrameEngineRuntime();
     await engineRuntime.renderAt(0);
     await engineRuntime.renderAt(0);
@@ -298,6 +317,8 @@
     await window.__akariReady;
     await engineRuntime.renderAt(seconds);
     const results = await Promise.all(activeOverlayFrames.map(frame => frame.contentWindow.__akariSeek(seconds)));
+    // シークの描画で出た警告（地形の視野外など）を回収する。
+    collectThreeWarnings();
     applyCaptionAnimators(seconds);
     stampRow.style.backgroundColor = window.__akariEncodeStamp(frameNumber).css;
     await animationFrames(2);

@@ -159,6 +159,12 @@ export async function runCapture(argv, options = {}) {
     engine = execution.engine;
     const captured = execution.result.captured ?? execution.result;
     engineReceipt = captured.receipt;
+    // 3D ランタイム（[akari-three]）の警告は run.json に載る。capture でも気づけるよう
+    // stderr と capture.json の warnings へ 1 回ずつ写す（3D 以外の既存警告は変えない）。
+    const runtimeWarnings = threeRuntimeWarnings(captured.run?.warnings);
+    for (const warning of runtimeWarnings) {
+      (options.warn ?? ((line) => console.error(line)))(warning);
+    }
     const outputs = new Map(captured.run.outputs.map((entry) => [entry.frameNumber, entry.path]));
     for (const [index, frameNumber] of frameNumbers.entries()) {
       fullFrames.push({
@@ -255,6 +261,7 @@ export async function runCapture(argv, options = {}) {
       },
       renderer: `${rendererPackage.name.replace("@akari-video/", "")}@${rendererPackage.version}`,
       verify: engineReceipt.verify,
+      warnings: runtimeWarnings,
       generated_at: now.toISOString(),
     };
     const manifestPath = join(outputDirectory, "capture.json");
@@ -263,6 +270,21 @@ export async function runCapture(argv, options = {}) {
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+// run.json の warnings から 3D ランタイムの警告だけを取り出し、同じ文言は 1 回にする。
+// 先に見た順を保つ（OSR の run.json と同じ first-seen 順）。
+export function threeRuntimeWarnings(values) {
+  const seen = new Set();
+  const warnings = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const text = String(value);
+    if (!text.includes("[akari-three]")) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    warnings.push(text);
+  }
+  return warnings;
 }
 
 export async function resolveCaptureEngine({

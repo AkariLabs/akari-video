@@ -65,16 +65,22 @@ bbox に必要なタイル数が上限を超えるときは、**取得を始め�
 `meters / 100`（1 m = 0.01 ワールド単位）なので、地図の実寸の比率を保ちます。`baseline` は
 `"min"` で、有効な最低標高が `y = 0` になります。
 
+`--out` が AKARI プロジェクトの中（出力先から親をたどって `edit.json` がある）なら、
+`heightmap` / `texture` は `overlays/terrain/heightmap.png` のような**プロジェクト基準のパス**に
+なります。プレビューと書き出しはプロジェクト基準で解決するため、declaration を書き換えずに
+貼れます。プロジェクトの外では従来どおりファイル名だけです。
+
 ## 出力を 3D シーンで使う
 
-`declaration` をそのまま `terrain` に貼ります。ファイルは断片の隣に置くか、使っている
-プロジェクト基準のパスに直してください。
+`declaration` をそのまま `terrain` に貼ります。プロジェクト内へ出したときはパスがすでに
+プロジェクト基準なので、書き換える必要はありません。プロジェクトの外へ出したときは、断片の
+隣に置くか、使っているプロジェクト基準のパスに直してください。
 
 ```json
 {
   "terrain": {
-    "heightmap": "heightmap.png",
-    "texture": "texture.png",
+    "heightmap": "overlays/terrain/heightmap.png",
+    "texture": "overlays/terrain/texture.png",
     "encoding": "gsi-dem",
     "size": [10.02, 10.1],
     "meters": [1002.2, 1009.9],
@@ -102,14 +108,26 @@ akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.35
 akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
 ```
 
+シーンで `terrain.exaggeration` を変えたときは、`--exaggeration` に同じ値を渡すと y が
+描かれる地表と一致します。
+
+```sh
+akari geo point --terrain overlays/terrain/terrain.json --lonlat 139.3500,35.6000 --exaggeration 2
+```
+
+線に使うときは `lines[].drape: true` が楽です。宣言した y を使わず、`exaggeration`・`meters`・
+`baseline` を含む実際の地表の高さ + 小さな `lift` に各点を置くため、exaggeration を変えても
+線が地中に入りません。
+
 結果は `lines[].points` と `data-akari-3d-anchor` にそのまま使えます。画像の 1 行目が北、
 1 列目が西で、地形メッシュと同じ向きです。x・z は地図の範囲、y は `baseline` と縮尺を
 適用したあとの標高です。
 
 `gsi-dem` で `meters` が無く、高低差が `size` の 10 倍を超えるときは、標高と地図の距離が
 別の縮尺になるため lint が警告します。描画時は、高さマップが読めない・標高がすべて無効値・
-最初の描画で地形がカメラの視野に入らない、のいずれかでランタイムが警告を出します
-（stderr に出るので `akari capture` と書き出しにも表示されます）。
+最初の描画で地形がカメラの視野に入らない、のいずれかでランタイムが警告を出します。
+`akari capture` は各警告を stderr に出し、`capture.json` の `warnings` にも 1 回ずつ記録します。
+OSR / GPU 書き出しは run.json の `warnings` に 1 回ずつ記録します。
 
 `missing_tiles` は 404 が返ったタイルの枚数です。地理院タイルは海や範囲外のタイルが 404 になります。
 海を含む bbox でも成功し、標高は補間、写真は海の色で埋めます。**bbox の標高タイルがすべて**

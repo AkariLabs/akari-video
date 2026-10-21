@@ -304,6 +304,7 @@ bake is needed:
       "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
       "color": "#ff3366",
       "width": 4,
+      "drape": true,
       "keys": [
         { "t": 0, "progress": 0 },
         { "t": 2, "progress": 1, "ease": "easeInOut" }
@@ -323,17 +324,26 @@ bake is needed:
   Grayscale maps ignore `meters` / `baseline`. `exaggeration` (default 1) multiplies the sampled
   height after that scaling. `segments` (1–512) sets the grid resolution; the default follows the
   image resolution, capped at 512. `akari geo terrain` writes a ready-to-paste `declaration`, and
-  `akari geo point` converts lon/lat to the matching `[x, y, z]`
+  `akari geo point` converts lon/lat to the matching `[x, y, z]`. If the scene overrides
+  `exaggeration`, pass the same value to `akari geo point --exaggeration` so the labels match the
+  drawn surface; a draped line does not need it (see below)
 - `texture` pastes a still photo over the terrain. Without it, the terrain is a single color shaded
   by height. The runtime waits for the height map and texture to load before it reports ready, so
-  `akari capture` and export never record a half-loaded terrain
+  `akari capture` and export never record a half-loaded terrain. Warnings (unreadable height map,
+  all-invalid elevations, terrain outside the camera view) go to `akari capture` stderr and
+  `capture.json` `warnings`, and to export run.json `warnings`, once each
 - `lines[]` draws a polyline through 2 or more `[x, y, z]` points. `width` is in screen pixels and
   stays constant with distance. `progress` (0–1) draws from the first point; `keys`
   (`[{ t, progress, ease }]`, seconds from the start of the placed item) animates it over time.
   Keys hold before the first and after the last key and must be in ascending `t` order; `ease` is
   `linear` (default) or `easeInOut`. When both are declared, `keys` wins over `progress`
-- Later keys are not sorted automatically; lint reports bad images, ranges, point counts, and key
-  order before export
+- `drape: true` keeps only each point's x / z and takes y from the same terrain surface the scene
+  draws (including `exaggeration`, `meters`, and `baseline`), plus `lift` (world units, default
+  `0.01`). The runtime subdivides each segment at the terrain grid so the line follows the surface
+  between points instead of cutting through ridges. Without `terrain` the runtime warns and draws
+  the declared y. `progress` / `keys` still grow by fraction of the full length
+- Later keys are not sorted automatically; lint reports bad images, ranges, point counts, `drape` /
+  `lift` values, key order, and `drape: true` without `terrain` before export
 
 For images the declarative runtime cannot express (depth of field, ray tracing, and the like), or
 for a clip you will reuse, bake it into video with [Bake a 3D scene](bake-3d.md).

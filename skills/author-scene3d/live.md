@@ -447,13 +447,15 @@ An element inside the 3D fragment with `data-akari-3d-anchor="x,y,z"` is project
 
 - `heightmap` is a PNG path. Declare it from the project root (for example `overlays/3d/height.png`) so preview and export resolve the same file; lint also accepts a path next to the fragment. `encoding` is `"grayscale"` (default; luminance = height) or `"gsi-dem"` (GSI elevation tiles). For `x = R*65536 + G*256 + B`: `x < 2^23` is `x*0.01` metres, `x = 2^23` (RGB `128,0,0`) is invalid, and `x > 2^23` is `(x - 2^24)*0.01` metres. The runtime turns invalid pixels into 0 m and warns when every pixel is invalid.
 - `size` is `[width, depth]` in world units (default `[10, 10]`). `meters: [width_m, depth_m]` is the real-world extent: elevation is scaled by `size[0] / meters[0]` first, then by `exaggeration` (default 1, 0.01–100), so vertical and horizontal distances share one scale. `baseline` picks what sits at `y = 0`: `"min"` (default, lowest elevation) or `"sea"` (0 m). Grayscale maps ignore `meters` / `baseline` and keep their previous heights. `segments` (1–512) sets the grid; omitted, it follows the image resolution capped at 512.
-- `texture` pastes a still photo. Without it the terrain is a single color shaded by height. The runtime waits for both images before `status: "ready"`, so capture and export never see a partially loaded terrain. Check `inspect().terrain` (image size, `segments`, `minHeight`, `maxHeight`, `meters`, `baseline`, `validSamples`). The runtime warns on stderr when the height map cannot be read, when all elevation pixels are invalid, or when the terrain misses the camera view on the first draw.
+- `texture` pastes a still photo. Without it the terrain is a single color shaded by height. The runtime waits for both images before `status: "ready"`, so capture and export never see a partially loaded terrain. Check `inspect().terrain` (image size, `segments`, `minHeight`, `maxHeight`, `meters`, `baseline`, `validSamples`). The runtime warns when the height map cannot be read, when all elevation pixels are invalid, or when the terrain misses the camera view on the first draw. Those `[akari-three]` warnings reach `akari capture` stderr and `capture.json` `warnings`, and OSR / GPU export run.json `warnings`, once each.
 - Keep the height map inside the project. A `data:` PNG is also accepted when the file must travel with the declaration.
 
 ### From `akari geo terrain` to lines and labels
 
 `akari geo terrain` writes `heightmap.png`, `texture.png`, and a ready-to-paste `declaration` in
-`terrain.json`. Add the paths you use (project-root or next to the fragment) and declare it directly:
+`terrain.json`. When `--out` is inside an AKARI project (walking up finds `edit.json`), the
+declaration already uses project-root paths such as `overlays/3d/sagamihara/heightmap.png`; paste it
+unchanged. Outside a project it stays bare file names, so add the path you use:
 
 ```sh
 akari geo terrain --bbox 139.3445,35.5960,139.3555,35.6050 --zoom 14 --out overlays/3d/sagamihara
@@ -473,17 +475,22 @@ akari geo terrain --bbox 139.3445,35.5960,139.3555,35.6050 --zoom 14 --out overl
 ```
 
 Then convert each place with `akari geo point` and paste the array into `lines[].points` or
-`data-akari-3d-anchor`. A third number overrides the height sampled from the height map:
+`data-akari-3d-anchor`. A third number overrides the height sampled from the height map. If the
+scene overrides `exaggeration`, pass the same value with `--exaggeration` so the label y matches the
+surface:
 
 ```sh
 akari geo point --terrain overlays/3d/sagamihara/terrain.json --lonlat 139.3500,35.6000
 # [0, 13.42, -0.5]
 akari geo point --terrain overlays/3d/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
+akari geo point --terrain overlays/3d/sagamihara/terrain.json --lonlat 139.3500,35.6000 --exaggeration 2
 ```
 
 The image's first row is north and its first column is west, matching the mesh. If a `gsi-dem`
 terrain omits `meters` while its height range is more than 10× `size`, lint warns that elevations
-and map distances use different scales.
+and map distances use different scales. A line can skip the y calculation entirely with
+`drape: true`; the runtime then samples the drawn surface (including `exaggeration`, `meters`, and
+`baseline`) and adds `lift` (world units, default `0.01`).
 
 ```json
 {
@@ -491,6 +498,7 @@ and map distances use different scales.
     "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
     "color": "#ff3366",
     "width": 4,
+    "drape": true,
     "keys": [
       { "t": 0, "progress": 0 },
       { "t": 2, "progress": 1, "ease": "easeInOut" }
@@ -500,9 +508,10 @@ and map distances use different scales.
 ```
 
 - `points` needs 2 or more `[x, y, z]` finite numbers. `width` is in screen pixels and stays constant with distance (the runtime expands each segment in screen space; no `LineMaterial` dependency).
+- `drape: true` uses only each point's x / z and takes y from the terrain surface the scene draws, plus `lift` (world units, default `0.01`). Segments are subdivided at the terrain grid so the line follows the surface between points; `progress` / `keys` still grow by fraction of the full length. Without `terrain`, the runtime warns and uses the declared y. `lift` must be 0 or greater.
 - `progress` (0–1) draws from the first point. `keys` (`t` in seconds from the item start, `progress`, optional `ease: "linear" | "easeInOut"`) animates growth; before the first and after the last key the value holds. Keys must be ascending and are not sorted automatically. `keys` wins when both are declared.
 - The geometry is rebuilt inside `draw(localSeconds)` from the final camera, so preview, `akari capture`, and export share the same picture. Check `inspect().lines[]` (`progress`, `vertexCount`) without pixel comparison.
-- `akari lint` (`overlays.three-terrain` / `overlays.three-lines`) checks the image exists and is a PNG, the ranges, point count, colors, widths, progress, and key order before export.
+- `akari lint` (`overlays.three-terrain` / `overlays.three-lines`) checks the image exists and is a PNG, the ranges, point count, colors, widths, progress, `drape` / `lift`, key order, and `drape: true` without `terrain` before export.
 
 ## When export fails with `seeking frame N timeout`
 

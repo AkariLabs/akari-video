@@ -21,16 +21,18 @@ const terrainUsage = [
 ].join("\n");
 
 const pointUsage = [
-  "使い方: akari geo point --terrain <terrain.json> --lonlat <経度,緯度>[,高さm] [--json]",
+  "使い方: akari geo point --terrain <terrain.json> --lonlat <経度,緯度>[,高さm] [--exaggeration <n>] [--json]",
   "",
   "地形の declaration（size・meters・baseline・exaggeration）に合わせて、",
   "経緯度から 3D 座標 [x, y, z] を出力します。高さを省略すると高さマップから引きます。",
   "",
-  "  --terrain     akari geo terrain が出力した terrain.json",
-  "  --lonlat      経度,緯度（,高さm は任意）",
-  "  --json        結果を JSON で出力（既定も JSON 配列）",
+  "  --terrain       akari geo terrain が出力した terrain.json",
+  "  --lonlat        経度,緯度（,高さm は任意）",
+  "  --exaggeration  シーンの terrain.exaggeration を上書き（シーンで変えたら同じ値を渡す）",
+  "  --json          結果を JSON で出力（既定も JSON 配列）",
   "",
   "出力は lines[].points と data-akari-3d-anchor にそのまま使えます。",
+  "線は lines[].drape: true にすると y を気にせず地表に沿わせられます。",
 ].join("\n");
 
 const usage = [terrainUsage, "", pointUsage, "",
@@ -66,7 +68,7 @@ function parsePointArgs(args) {
     const arg = args[index];
     if (arg === "--json") parsed.json = true;
     else if (arg === "--help" || arg === "-h") parsed.help = true;
-    else if (["--terrain", "--lonlat"].includes(arg)) {
+    else if (["--terrain", "--lonlat", "--exaggeration"].includes(arg)) {
       const value = args[index + 1];
       if (value === undefined || value.startsWith("--")) return { ok: false, reason: `${arg} の値がありません` };
       parsed[arg.slice(2)] = value;
@@ -142,7 +144,9 @@ async function runPoint(args, options, log, logError) {
   try {
     const { lon, lat, height } = parseLonLat(parsed.parsed.lonlat);
     const { terrain, image } = await loadTerrainFiles(parsed.parsed.terrain);
-    const point = terrainPoint({ terrain, image, lon, lat, height });
+    const point = terrainPoint({
+      terrain, image, lon, lat, height, exaggeration: parsed.parsed.exaggeration,
+    });
     log(JSON.stringify(roundPoint(point)));
     return { exitCode: 0 };
   } catch (error) {

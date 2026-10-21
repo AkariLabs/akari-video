@@ -3353,7 +3353,23 @@
         if (registered.units <= 0) throw new Error(`caption batch registered no units: ${batch.index}`);
         await yieldMacrotask();
       }
+
       const overlayFrame = document.getElementById("akari-overlays");
+      // 3D ランタイムは overlay-sheet の iframe の中で `[akari-three]` 付きの警告を出す。
+      // run.json の warnings へ 1 回ずつ載せるため、シートが溜めた警告を取り出す
+      // （ready より前の分もここで拾える）。文言はそのまま（既存の警告の形を変えない）。
+      const threeWarningMessages = new Set();
+      function collectThreeWarnings() {
+        try {
+          const queued = overlayFrame?.contentWindow?.akari?.threeRuntime?.drainWarnings?.();
+          for (const message of Array.isArray(queued) ? queued : []) {
+            if (threeWarningMessages.has(message)) continue;
+            threeWarningMessages.add(message);
+            warnings.push(message);
+          }
+        } catch { /* An inaccessible iframe must not stop the export. */ }
+      }
+
       if (overlayFrame) {
         await new Promise((resolve) => {
           if (overlayFrame.contentDocument?.readyState === "complete") resolve();
@@ -3411,6 +3427,8 @@
           }
         }
       }
+      // 最初の 3D 描画（ready 待ち）で出た警告を回収する。
+      collectThreeWarnings();
       overlaySheetHasVideo = Boolean(overlayFrame)
         && typeof overlayFrame.contentWindow?.__akariSeekVideos === "function"
         && overlayFrame.contentDocument.querySelector("video") !== null;
@@ -3522,6 +3540,7 @@
               if (record.motionItem) applyThreeItemMotion(record.container.parentElement,
                 record.motionItem, seconds, config.fps);
               threeRuntime.render(record.container, seconds - value.start);
+              collectThreeWarnings();
               if (record.motionItem && value.entranceMode === "none") {
                 record.draw = threeCanvasPlacement(record.canvas, record.container, config.width, config.height);
               }

@@ -11,6 +11,27 @@ window.akari.threeRuntime = (() => {
     name: error instanceof Error ? error.name : typeof error,
     message: error instanceof Error ? error.message : String(error),
   });
+  // 3D の警告は `[akari-three]` 付きで console.warn に出る。capture / 書き出しは run.json の
+  // warnings で気づける必要があり、iframe の ready より前に出た警告も取りこぼさないよう、
+  // この realm の console.warn を包んで溜める。取り出しは drainWarnings()。
+  const runtimeWarnings = [];
+  try {
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+      const nativeWarn = console.warn.bind(console);
+      console.warn = (...values) => {
+        try {
+          const text = values
+            .map((value) => (typeof value === "string" ? value : String(value)))
+            .join(" ");
+          if (text.includes("[akari-three]")) runtimeWarnings.push(text);
+        } catch { /* 記録できない警告で描画を止めない */ }
+        return nativeWarn(...values);
+      };
+    }
+  } catch { /* console を包めない環境でも描画は続ける */ }
+  function drainWarnings() {
+    return runtimeWarnings.splice(0);
+  }
   let hostConfiguration = { defaultFontUrl: null, previewDiagnostics: false };
   let previewAssetRevision = 0;
   function previewAssetUrl(url) {
@@ -673,12 +694,17 @@ window.akari.threeRuntime = (() => {
     "heightmap", "texture", "encoding", "exaggeration", "size", "meters", "baseline", "segments",
   ]);
   const TERRAIN_BASELINES = new Set(["min", "sea"]);
-  const LINE_ALLOWED_FIELDS = new Set(["points", "color", "width", "progress", "keys"]);
+  const LINE_ALLOWED_FIELDS = new Set(["points", "color", "width", "progress", "keys", "drape", "lift"]);
   const LINE_KEY_FIELDS = new Set(["t", "progress", "ease"]);
   const LINE_DEFAULT_COLOR = "#ffffff";
   const LINE_DEFAULT_WIDTH = 2;
   const LINE_MAX_WIDTH = 64;
   const LINE_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+  // drape の既定の浮かせ幅（ワールド単位）。地表と同一の高さだと深度バッファでちらつくため、
+  // 地形の寸法に対して十分小さく、それでも 1 px 以上は浮く値を既定にする。
+  const LINE_DEFAULT_LIFT = 0.01;
+  // 1 格子ぶんの区間を何分割するか。格子の頂点の間でも地表の三角形に沿わせる。
+  const LINE_DRAPE_SAMPLES_PER_CELL = 4;
 
   function terrainSize(value, field) {
     if (!Array.isArray(value) || value.length !== 2
@@ -841,7 +867,92 @@ window.akari.threeRuntime = (() => {
     }
     return { positions, uvs, colors, indices, segments: grid, columns, heights,
       minHeight, maxHeight, validSamples, elevationMin: minimum,
-      verticalScale, baselineOffset };
+      verticalScale, baselineOffset, size: [...size] };
+  }
+
+  // --- 地表に沿う線（lines[].drape）。task 2026-10-21-terrain-line-drape ---
+  // 高さは地形メッシュと同じ三角形（a-c-b / b-c-d）で補間する。単なるバイリニアにすると
+  // 実際の面と最大で格子 1 個ぶんずれ、線が地中へ入る。
+  function terrainHeightAt(surface, x, z) {
+    if (!surface || !(surface.segments >= 1) || !surface.heights || !surface.size) return null;
+    const grid = surface.segments;
+    const columns = surface.columns ?? grid + 1;
+    const [width, depth] = surface.size;
+    if (!(width > 0) || !(depth > 0)) return null;
+    const u = Math.min(grid, Math.max(0, (x / width + 0.5) * grid));
+    const v = Math.min(grid, Math.max(0, (z / depth + 0.5) * grid));
+    const ix = Math.min(grid - 1, Math.floor(u));
+    const iz = Math.min(grid - 1, Math.floor(v));
+    const s = u - ix;
+    const t = v - iz;
+    const heights = surface.heights;
+    const a = heights[iz * columns + ix] ?? 0;
+    const b = heights[iz * columns + ix + 1] ?? a;
+    const c = heights[(iz + 1) * columns + ix] ?? a;
+    const d = heights[(iz + 1) * columns + ix + 1] ?? a;
+    const height = s + t <= 1
+      ? a + s * (b - a) + t * (c - a)
+      : d + (1 - s) * (c - d) + (1 - t) * (b - d);
+    return Number.isFinite(height) ? height : null;
+  }
+
+  // points の x / z だけを使い、y を地形の表面 + lift に置き直す。区間は格子の細かさで
+  // 分割するので、途中の点も地表に載る。分割後も progress は全長に対する割合のまま
+  // （lineCumulativeLengths が分割後の点列から距離を出す）。
+  function drapeLinePoints(points, heightAt, {
+    cellWidth = 1, cellHeight = 1, lift = LINE_DEFAULT_LIFT,
+    samplesPerCell = LINE_DRAPE_SAMPLES_PER_CELL,
+  } = {}) {
+    const result = [];
+    const push = (x, y, z) => {
+      const last = result[result.length - 1];
+      if (last && last[0] === x && last[1] === y && last[2] === z) return;
+      result.push([x, y, z]);
+    };
+    const column = Math.max(1e-9, Number(cellWidth) || 1);
+    const row = Math.max(1e-9, Number(cellHeight) || 1);
+    const perCell = Math.max(1, Number(samplesPerCell) || 1);
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      const dx = end[0] - start[0];
+      const dz = end[2] - start[2];
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx) / column, Math.abs(dz) / row) * perCell));
+      for (let step = 0; step < steps; step += 1) {
+        const ratio = step / steps;
+        const x = start[0] + dx * ratio;
+        const z = start[2] + dz * ratio;
+        const sampled = heightAt(x, z);
+        const y = Number.isFinite(sampled)
+          ? sampled + lift
+          : start[1] + (end[1] - start[1]) * ratio;
+        push(x, y, z);
+      }
+    }
+    const last = points[points.length - 1];
+    const sampled = heightAt(last[0], last[2]);
+    push(last[0], Number.isFinite(sampled) ? sampled + lift : last[1], last[2]);
+    return result;
+  }
+
+  // drape を宣言した線に、そのシーンの地形の表面を渡す。地形が無い（または読めなかった）
+  // ときは警告を返し、宣言どおりの点で描く（従来の線の挙動を変えない）。
+  function drapeLineForScene(line, index, surface) {
+    if (!line.drape) return { line, warning: null };
+    const sampled = surface && surface.heights && surface.size
+      ? drapeLinePoints(line.points, (x, z) => terrainHeightAt(surface, x, z), {
+        cellWidth: surface.size[0] / Math.max(1, surface.segments),
+        cellHeight: surface.size[1] / Math.max(1, surface.segments),
+        lift: line.lift,
+      })
+      : null;
+    if (!sampled || sampled.length < 2) {
+      return {
+        line,
+        warning: `lines[${index}].drape は true ですが、シーンに terrain が無い（または読み込めない）ため、宣言の y で描きます`,
+      };
+    }
+    return { line: { ...line, points: sampled }, warning: null };
   }
 
   function validateTerrain(value) {
@@ -998,12 +1109,25 @@ window.akari.threeRuntime = (() => {
       const keys = entry.keys === undefined
         ? null
         : validateLineKeys(entry.keys, `${field}.keys`);
+      const drape = entry.drape ?? false;
+      if (typeof drape !== "boolean") {
+        throw new TypeError(`${field}.drape は真偽値である必要があります`);
+      }
+      let lift = LINE_DEFAULT_LIFT;
+      if (entry.lift !== undefined) {
+        if (typeof entry.lift !== "number" || !Number.isFinite(entry.lift) || entry.lift < 0) {
+          throw new TypeError(`${field}.lift は 0 以上の数値である必要があります`);
+        }
+        lift = entry.lift;
+      }
       return {
         points: linePoints(entry.points, `${field}.points`),
         color,
         width,
         progress,
         keys,
+        drape,
+        lift,
       };
     });
   }
@@ -1487,6 +1611,8 @@ window.akari.threeRuntime = (() => {
       group.add(mesh);
       instance.scene.add(group);
       instance.terrainGroup = group;
+      // drape の線が読む、描画と同じ高さの格子（positions ではなく heights を使う）。
+      instance.terrainSurface = built;
       instance.terrainInfo = {
         encoding: terrain.encoding,
         width: imageData.width,
@@ -3909,6 +4035,7 @@ window.akari.threeRuntime = (() => {
     instance.textAnimEntries = [];
     instance.terrainGroup = null;
     instance.terrainInfo = null;
+    instance.terrainSurface = null;
     instance.lineObjects = [];
     instance.physicsBuffer = null;
     instance.physicsData = null;
@@ -4353,6 +4480,8 @@ window.akari.threeRuntime = (() => {
       // terrain / lines の状態（どちらも model・texts と独立）
       terrainGroup: null,
       terrainInfo: null,
+      // drape 用の高さ格子（buildTerrainGeometryData の戻り値）
+      terrainSurface: null,
       terrainWarned: new Set(),
       terrainViewChecked: false,
       linesGroup: new THREE.Group(),
@@ -4491,8 +4620,10 @@ window.akari.threeRuntime = (() => {
       if (instances.get(container) !== instance || !instance.active) return false;
       // lines は依存読み込みが無いので、地形の完了と同じタイミングで組み立てる。
       // 位置は draw(localSeconds) が毎回作り直す（時間の純関数）。
-      for (const line of descriptor.lines ?? []) {
-        const entry = createLineObject(THREE, line);
+      for (const [index, declaredLine] of (descriptor.lines ?? []).entries()) {
+        const draped = drapeLineForScene(declaredLine, index, instance.terrainSurface);
+        if (draped.warning) warnTerrainOnce(instance, `drape:${index}`, draped.warning);
+        const entry = createLineObject(THREE, draped.line);
         instance.linesGroup.add(entry.mesh);
         instance.lineObjects.push(entry);
       }
@@ -4530,6 +4661,7 @@ window.akari.threeRuntime = (() => {
         disposeObject(instance.terrainGroup);
         instance.terrainGroup = null;
         instance.terrainInfo = null;
+        instance.terrainSurface = null;
       }
       if (instance.linesGroup) {
         instance.scene.remove(instance.linesGroup);
@@ -4936,7 +5068,11 @@ window.akari.threeRuntime = (() => {
     buildTerrainGeometryData,
     terrainSegmentsFor,
     terrainVerticalScale,
+    terrainHeightAt,
+    drapeLinePoints,
+    drapeLineForScene,
     terrainWarningMessages,
+    drainWarnings,
     lineProgressAt: sampleLineProgress,
     lineCumulativeLengths,
   };

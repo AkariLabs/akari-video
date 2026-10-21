@@ -67,16 +67,22 @@ the range).
 `meters / 100` (1 m = 0.01 world units), so the terrain keeps the map's real proportions. `baseline`
 is `"min"`: the lowest valid elevation becomes `y = 0`.
 
+When `--out` is inside an AKARI project (walking up from the output directory finds `edit.json`),
+`heightmap` / `texture` are written as project-relative paths such as
+`overlays/terrain/heightmap.png`. Preview and export resolve those paths from the project root, so
+the declaration can be pasted without editing it. Outside a project the fields stay bare file names.
+
 ## Use the output in a 3D scene
 
-Copy the `declaration` object into `terrain`. Put the files next to the fragment, or adjust the paths
-to the project-root paths you use:
+Copy the `declaration` object into `terrain`. When the output lives inside the project, the paths
+are already project-relative and need no editing. Outside a project, put the files next to the
+fragment or use project-root paths:
 
 ```json
 {
   "terrain": {
-    "heightmap": "heightmap.png",
-    "texture": "texture.png",
+    "heightmap": "overlays/terrain/heightmap.png",
+    "texture": "overlays/terrain/texture.png",
     "encoding": "gsi-dem",
     "size": [10.02, 10.1],
     "meters": [1002.2, 1009.9],
@@ -105,15 +111,27 @@ Pass a third number to give the elevation in metres instead of sampling the heig
 akari geo point --terrain assets/terrain/sagamihara/terrain.json --lonlat 139.3500,35.6000,120
 ```
 
+If the scene overrides `terrain.exaggeration`, pass the same value with `--exaggeration` so the y
+matches the drawn surface:
+
+```sh
+akari geo point --terrain overlays/terrain/terrain.json --lonlat 139.3500,35.6000 --exaggeration 2
+```
+
+For a line, prefer `lines[].drape: true`: the runtime then ignores the declared y and places every
+point on the terrain surface (including `exaggeration`, `meters`, and `baseline`) plus a small
+`lift`, so changing the exaggeration never buries the line.
+
 Use the result directly in `lines[].points` or `data-akari-3d-anchor`. The image's first row is
 north and its first column is west, matching the terrain mesh; x and z are the map extent, and y is
 the elevation after `baseline` and scaling.
 
 If a `gsi-dem` terrain omits `meters` while its height range is more than 10× `size`, lint emits a
 warning because elevations and map distances are on different scales. At render time the runtime
-warns (on stderr, so `akari capture` and export show it) when the height map cannot be read, when
-every elevation pixel is invalid, or when the terrain does not enter the camera view on the first
-frame.
+warns when the height map cannot be read, when every elevation pixel is invalid, or when the
+terrain does not enter the camera view on the first frame. `akari capture` prints each warning to
+stderr and records it in `capture.json` `warnings`; OSR / GPU export records it in run.json
+`warnings` (each message once).
 
 `missing_tiles` counts the tiles that returned `404`. GSI returns `404` for tiles that are ocean or
 out of range. A bbox that includes water still succeeds: the elevation is interpolated and the photo

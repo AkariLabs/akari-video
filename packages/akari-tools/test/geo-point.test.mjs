@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -195,4 +195,60 @@ test("geo point CLI: terrain.json と --lonlat から [x,y,z] を出す", async 
     logError: (line) => errors.push(line),
   });
   assert.equal(badTerrain.exitCode, 1);
+});
+
+test("geo point: --exaggeration はシーンの値を上書きする（CLI も）", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "akari-geo-point-exaggeration-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, "heightmap.png"), encodeRgbPng(heightmap().rgb, RECT.width, RECT.height));
+  const terrainPath = path.join(root, "terrain.json");
+  await writeFile(terrainPath, JSON.stringify(TERRAIN));
+  const centerLon = pixelXToLon(RECT.left + RECT.width / 2);
+  const centerLat = pixelYToLat(RECT.top + RECT.height / 2);
+
+  const doubled = terrainPoint({
+    terrain: TERRAIN, image: heightmap(), lon: centerLon, lat: centerLat, exaggeration: 2,
+  });
+  assert.ok(Math.abs(doubled.y - 6) < 1e-9);
+  assert.throws(
+    () => terrainPoint({ terrain: TERRAIN, image: heightmap(), lon: centerLon, lat: centerLat, exaggeration: 0 }),
+    /exaggeration は正の数値/u,
+  );
+
+  const lines = [];
+  const errors = [];
+  const result = await runGeoCommand([
+    "point", "--terrain", terrainPath, "--lonlat", `${centerLon},${centerLat}`, "--exaggeration", "2",
+  ], { log: (line) => lines.push(line), logError: (line) => errors.push(line) });
+  assert.equal(result.exitCode, 0, errors.join("\n"));
+  assert.deepEqual(JSON.parse(lines.at(-1)), [0, 6, 0]);
+});
+
+test("geo point: プロジェクト基準の declaration から高さマップを見つける", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "akari-geo-point-project-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const project = path.join(root, "project");
+  const terrainDir = path.join(project, "overlays", "terrain");
+  await mkdir(terrainDir, { recursive: true });
+  await writeFile(path.join(project, "edit.json"), "{}\n");
+  await writeFile(path.join(terrainDir, "heightmap.png"), encodeRgbPng(heightmap().rgb, RECT.width, RECT.height));
+  const terrain = {
+    ...TERRAIN,
+    declaration: { ...TERRAIN.declaration, heightmap: "overlays/terrain/heightmap.png" },
+  };
+  const terrainPath = path.join(terrainDir, "terrain.json");
+  await writeFile(terrainPath, JSON.stringify(terrain));
+
+  const loaded = await loadTerrainFiles(terrainPath);
+  assert.equal(loaded.heightmapPath, path.join(terrainDir, "heightmap.png"));
+  assert.equal(loaded.image.width, RECT.width);
+
+  // プロジェクトの外へ移しても、terrain.json と同じ場所のファイル名で見つかる。
+  const movedDir = path.join(root, "moved");
+  await mkdir(movedDir, { recursive: true });
+  await writeFile(path.join(movedDir, "heightmap.png"), encodeRgbPng(heightmap().rgb, RECT.width, RECT.height));
+  const movedPath = path.join(movedDir, "terrain.json");
+  await writeFile(movedPath, JSON.stringify(terrain));
+  const moved = await loadTerrainFiles(movedPath);
+  assert.equal(moved.heightmapPath, path.join(movedDir, "heightmap.png"));
 });
