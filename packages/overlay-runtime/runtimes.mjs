@@ -276,13 +276,34 @@ function threeReferences(descriptor, overlayLabel = "overlay", htmlPath) {
     // rasterize.mjs と three-runtime.js は既にこの緩和を持っていたが、入力収集側の本関数だけが
     // model を無条件必須のままで、texts だけのシーンが render-cut を通らなかった。2026-08-14 修正）
     const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+    // terrain / lines だけでも 1 シーンとして成立する（three-runtime.js の readDescriptor と同じ緩和）。
+    // 入力収集がここで止まると、地形と線だけの断片が render-cut / capture を通らない
+    const hasTerrain = descriptor.terrain !== undefined;
+    const hasLines = Array.isArray(descriptor.lines) && descriptor.lines.length > 0;
     if (descriptor.model !== undefined) {
       if (!isRelativeReference(descriptor.model)) {
         throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
       }
       references.push({ role: "model", path: descriptor.model });
-    } else if (!hasTexts) {
+    } else if (!hasTexts && !hasTerrain && !hasLines) {
       throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
+    }
+    // 地形の高さマップと写真テクスチャも実ファイル依存（断片からの相対パス）。
+    // 収集しないと入力ハッシュが変わらず、画像を差し替えても再レンダーが走らない
+    if (hasTerrain) {
+      if (!isRecord(descriptor.terrain)) {
+        throw new RenderInputError(`${overlayLabel} terrain must be an object`);
+      }
+      if (!isRelativeReference(descriptor.terrain.heightmap)) {
+        throw new RenderInputError(`${overlayLabel} terrain.heightmap must be a relative path`);
+      }
+      references.push({ role: "terrain-heightmap", path: descriptor.terrain.heightmap });
+      if (descriptor.terrain.texture !== undefined) {
+        if (!isRelativeReference(descriptor.terrain.texture)) {
+          throw new RenderInputError(`${overlayLabel} terrain.texture must be a relative path`);
+        }
+        references.push({ role: "terrain-texture", path: descriptor.terrain.texture });
+      }
     }
     // texts[].font も実ファイル依存なので入力として数える（rasterize は data URI へ焼き込む）。
     // 収集しないと、フォントを差し替えても入力ハッシュが変わらず再レンダーが走らない
@@ -442,11 +463,14 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars, { htmlPath,
       // texts[] があれば model は任意（three-runtime.js readDescriptor と同じ緩和。
       // contract-2026-08-12-3d-text-rail.md §3.1）
       const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+      // terrain / lines だけでも 1 シーン（three-runtime.js readDescriptor と同じ緩和）
+      const hasTerrain = descriptor.terrain !== undefined;
+      const hasLines = Array.isArray(descriptor.lines) && descriptor.lines.length > 0;
       if (descriptor.model !== undefined
         && (typeof descriptor.model !== "string" || descriptor.model.length === 0)) {
         throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
       }
-      if (descriptor.model === undefined && !hasTexts) {
+      if (descriptor.model === undefined && !hasTexts && !hasTerrain && !hasLines) {
         throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
       }
       if (typeof descriptor.model === "string"
@@ -578,6 +602,47 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars, { htmlPath,
             }];
           }),
         );
+      }
+      if (hasTerrain) {
+        const terrain = descriptor.terrain;
+        if (!terrain || typeof terrain !== "object" || Array.isArray(terrain)) {
+          throw new TypeError(`3D overlay ${overlayId} terrain must be an object`);
+        }
+        const heightmap = terrain.heightmap;
+        if (typeof heightmap !== "string"
+          || heightmap.length === 0
+          || heightmap.startsWith("/")
+          || /^[a-z][a-z\d+.-]*:/i.test(heightmap)) {
+          throw new TypeError(`3D overlay ${overlayId} terrain.heightmap must be a relative path`);
+        }
+        const heightmapType = textureMimeType(heightmap);
+        if (heightmapType !== "image/png") {
+          throw new TypeError(
+            `3D overlay ${overlayId} terrain.heightmap must be a PNG image: ${heightmap}`,
+          );
+        }
+        const embeddedTerrain = {
+          ...terrain,
+          heightmap: `data:${heightmapType};base64,${readFileSync(locate(heightmap, "fragment")).toString("base64")}`,
+        };
+        if (terrain.texture !== undefined) {
+          const terrainTexture = terrain.texture;
+          if (typeof terrainTexture !== "string"
+            || terrainTexture.length === 0
+            || terrainTexture.startsWith("/")
+            || /^[a-z][a-z\d+.-]*:/i.test(terrainTexture)) {
+            throw new TypeError(`3D overlay ${overlayId} terrain.texture must be a relative path`);
+          }
+          const textureType = textureMimeType(terrainTexture);
+          if (!textureType.startsWith("image/")) {
+            throw new TypeError(
+              `3D overlay ${overlayId} terrain.texture must be an image: ${terrainTexture}`,
+            );
+          }
+          embeddedTerrain.texture =
+            `data:${textureType};base64,${readFileSync(locate(terrainTexture, "fragment")).toString("base64")}`;
+        }
+        embeddedDescriptor.terrain = embeddedTerrain;
       }
       return `${openingTag}${escapeScriptJson(JSON.stringify(embeddedDescriptor))}${closingTag}`;
     },

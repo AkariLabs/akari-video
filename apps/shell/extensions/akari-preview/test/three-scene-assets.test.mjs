@@ -158,3 +158,84 @@ test('断片に書かれたパスは fragment、source.vars から来た画面�
         ScreenMaterial: { texture: 'placeholder.png', textureVar: '--akari-screen-src' } } }, resolver, {});
     assert.deepEqual(calls, [['model.glb', 'fragment'], ['placeholder.png', 'fragment']]);
 });
+
+// terrain / lines は model も texts も無しで 1 シーンになる。シェルの事前検査がこの 2 key を
+// 知らないと、ランタイムが描ける断片だけがプレビューで { model: '' } に置換される
+// （task 2026-10-21-scene3d-terrain-lines の r1）。
+test('terrain-only scene resolves heightmap and texture through the asset stream', async () => {
+    const calls = [];
+    const resolver = async (relativePath, field, origin) => {
+        calls.push([relativePath, field, origin]);
+        return `asset:${relativePath}`;
+    };
+    const source = {
+        terrain: { heightmap: 'media/height.png', texture: 'media/photo.jpg', exaggeration: 2.5, size: [8, 8] }
+    };
+    const { descriptor, modelPath } = await resolveThreeSceneDescriptorAssets(source, resolver);
+    assert.equal(modelPath, undefined);
+    assert.deepEqual(calls, [
+        ['media/height.png', 'data-akari-3d-scene.terrain.heightmap', 'fragment'],
+        ['media/photo.jpg', 'data-akari-3d-scene.terrain.texture', 'fragment'],
+    ]);
+    assert.deepEqual(descriptor, {
+        terrain: {
+            heightmap: 'asset:media/height.png',
+            texture: 'asset:media/photo.jpg',
+            exaggeration: 2.5,
+            size: [8, 8],
+        }
+    });
+    assert.deepEqual(source, {
+        terrain: { heightmap: 'media/height.png', texture: 'media/photo.jpg', exaggeration: 2.5, size: [8, 8] }
+    });
+});
+
+test('lines-only scene passes the shell gate without resolving any asset', async () => {
+    const calls = [];
+    const resolver = async relativePath => {
+        calls.push(relativePath);
+        return `asset:${relativePath}`;
+    };
+    const source = { lines: [{ points: [[0, 0, 0], [1, 1, 1]], color: '#ff3366', width: 12 }] };
+    const { descriptor } = await resolveThreeSceneDescriptorAssets(source, resolver);
+    assert.deepEqual(calls, []);
+    assert.deepEqual(descriptor, source);
+});
+
+test('terrain + lines + model scene resolves all three kinds in one pass', async () => {
+    const calls = [];
+    const resolver = async (relativePath, field) => {
+        calls.push([relativePath, field]);
+        return `asset:${relativePath}`;
+    };
+    const { descriptor, modelPath } = await resolveThreeSceneDescriptorAssets({
+        model: 'models/world.glb',
+        terrain: { heightmap: 'media/height.png' },
+        lines: [{ points: [[0, 0, 0], [2, 0, 0]], progress: 0.5 }],
+    }, resolver);
+    assert.equal(modelPath, 'models/world.glb');
+    assert.deepEqual(calls, [
+        ['models/world.glb', 'data-akari-3d-scene.model'],
+        ['media/height.png', 'data-akari-3d-scene.terrain.heightmap'],
+    ]);
+    assert.equal(descriptor.model, 'asset:models/world.glb');
+    assert.deepEqual(descriptor.terrain, { heightmap: 'asset:media/height.png' });
+    assert.deepEqual(descriptor.lines, [{ points: [[0, 0, 0], [2, 0, 0]], progress: 0.5 }]);
+});
+
+test('terrain paths keep the same relative-asset boundary as model/font paths', async () => {
+    for (const heightmap of ['https://example.com/height.png', '/tmp/height.png', 'C:\\height.png']) {
+        await assert.rejects(
+            resolveThreeSceneDescriptorAssets({ terrain: { heightmap } }, streamResolver),
+            TypeError,
+            heightmap
+        );
+    }
+    await assert.rejects(
+        resolveThreeSceneDescriptorAssets(
+            { terrain: { heightmap: 'height.png', texture: 'https://example.com/photo.jpg' } },
+            streamResolver
+        ),
+        TypeError
+    );
+});

@@ -31,7 +31,9 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
     // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
     // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
     // 2026-10-20: OSR の 3D 初期化エラーを理由本文つきで fail closed にしたぶんを再測。
-    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '6a45b39c32fca28c7135297508f616eb4b3cfbdc3dae0ceee8c68d4a246154aa'],
+    // 2026-10-21: terrain / lines（task 2026-10-21-scene3d-terrain-lines）で three-runtime.js が
+    // 変わり、埋め込み bytes が変わったぶんを再測。
+    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '7061a30660192435dc67ec6ac7e7532303fecd9a6e0cf3c3c590830f049ffb1b'],
   ]) {
     const actual = sheet(html);
     assert.doesNotMatch(actual, /vgpuRuntime|AkariVgpu|pendingVgpu/);

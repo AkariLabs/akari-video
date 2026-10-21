@@ -54,6 +54,9 @@ window.akari.threeRuntime = (() => {
     "shadows",
     "texts",
     "physics",
+    // 宣言型の地形（高さマップ PNG）と 3D ポリライン（task 2026-10-21-scene3d-terrain-lines）
+    "terrain",
+    "lines",
     // 描画バックエンドの opt-in（2026-10-21-three-webgpu-backend）。省略 = "webgl"。
     // 宣言したシーンだけ WebGPURenderer を使い、既存シーンの経路は 1 バイトも変えない。
     "renderer",
@@ -658,6 +661,323 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  // --- 宣言型の地形（terrain）と 3D ポリライン（lines）。task 2026-10-21-scene3d-terrain-lines ---
+  // terrain.heightmap は断片からの相対パスの PNG。encoding は "grayscale"（既定・輝度を高さに）と
+  // "gsi-dem"（国土地理院の標高タイル: RGB に標高を符号化）の 2 語彙だけ。
+  const TERRAIN_ENCODINGS = new Set(["grayscale", "gsi-dem"]);
+  const TERRAIN_DEFAULT_SIZE = [10, 10];
+  const TERRAIN_MAX_SEGMENTS = 512;
+  const TERRAIN_MIN_EXAGGERATION = 0.01;
+  const TERRAIN_MAX_EXAGGERATION = 100;
+  const TERRAIN_ALLOWED_FIELDS = new Set([
+    "heightmap", "texture", "encoding", "exaggeration", "size", "segments",
+  ]);
+  const LINE_ALLOWED_FIELDS = new Set(["points", "color", "width", "progress", "keys"]);
+  const LINE_KEY_FIELDS = new Set(["t", "progress", "ease"]);
+  const LINE_DEFAULT_COLOR = "#ffffff";
+  const LINE_DEFAULT_WIDTH = 2;
+  const LINE_MAX_WIDTH = 64;
+  const LINE_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+  function terrainSize(value, field) {
+    if (!Array.isArray(value) || value.length !== 2
+      || !value.every((component) => typeof component === "number" && Number.isFinite(component))
+      || value[0] <= 0 || value[1] <= 0) {
+      throw new TypeError(`${field} は [幅, 奥行] の正の数値配列である必要があります`);
+    }
+    return [value[0], value[1]];
+  }
+
+  // 国土地理院の dem_png（標高タイル）: 標高 = -10000 + (R*65536 + G*256 + B) * 0.01。
+  // 0x800000 は no-data。復号できない画素は 0（海面）として扱い、地形を欠けさせない。
+  function decodeGsiDem(red, green, blue) {
+    const raw = (red << 16) | (green << 8) | blue;
+    if (raw === 0x800000) return null;
+    return -10000 + raw * 0.01;
+  }
+
+  function terrainSampleHeight(imageData, x, y, encoding) {
+    const width = imageData.width;
+    const index = (y * width + x) * 4;
+    const data = imageData.data;
+    const red = data[index] ?? 0;
+    const green = data[index + 1] ?? 0;
+    const blue = data[index + 2] ?? 0;
+    const alpha = data[index + 3] ?? 255;
+    if (alpha === 0) return 0;
+    if (encoding === "gsi-dem") {
+      const elevation = decodeGsiDem(red, green, blue);
+      return elevation === null ? 0 : elevation;
+    }
+    return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+  }
+
+  function terrainSegmentsFor(segments, width, height) {
+    return segments === undefined
+      ? Math.min(TERRAIN_MAX_SEGMENTS, Math.max(1, Math.max(width, height)))
+      : segments;
+  }
+
+  // PlaneGeometry を使わず、画像の行 0 = 奥（-z）・列 0 = 左（-x）になる格子を直接組む。
+  // UV は v=1 が画像の上端（three の TextureLoader は flipY=true）なので、高さの標本と
+  // テクスチャの向きが一致する。純関数にして node のテストから既知の画素で検算できる。
+  function buildTerrainGeometryData({
+    imageData, segments, size = TERRAIN_DEFAULT_SIZE, exaggeration = 1, encoding = "grayscale",
+  }) {
+    if (!imageData || !Number.isInteger(imageData.width) || !Number.isInteger(imageData.height)
+      || imageData.width < 1 || imageData.height < 1
+      || !imageData.data || imageData.data.length < imageData.width * imageData.height * 4) {
+      throw new TypeError("terrain の画像データが不正です");
+    }
+    const grid = terrainSegmentsFor(segments, imageData.width, imageData.height);
+    const columns = grid + 1;
+    const rows = grid + 1;
+    const count = columns * rows;
+    const heights = new Float64Array(count);
+    let minHeight = Infinity;
+    let maxHeight = -Infinity;
+    for (let iz = 0; iz < rows; iz += 1) {
+      const row = Math.round((iz / grid) * (imageData.height - 1));
+      for (let ix = 0; ix < columns; ix += 1) {
+        const column = Math.round((ix / grid) * (imageData.width - 1));
+        const height = terrainSampleHeight(imageData, column, row, encoding) * exaggeration;
+        heights[iz * columns + ix] = height;
+        if (height < minHeight) minHeight = height;
+        if (height > maxHeight) maxHeight = height;
+      }
+    }
+    if (!Number.isFinite(minHeight)) { minHeight = 0; maxHeight = 0; }
+    const span = maxHeight - minHeight;
+    const positions = new Float32Array(count * 3);
+    const uvs = new Float32Array(count * 2);
+    const colors = new Float32Array(count * 3);
+    for (let iz = 0; iz < rows; iz += 1) {
+      for (let ix = 0; ix < columns; ix += 1) {
+        const index = iz * columns + ix;
+        const height = heights[index];
+        const normalize = span > 0 ? (height - minHeight) / span : 1;
+        // 高さで陰影のついた単色（素材テクスチャが無いときの既定）。低地ほど暗い。
+        const shade = 0.28 + 0.72 * normalize;
+        positions[index * 3] = (ix / grid - 0.5) * size[0];
+        positions[index * 3 + 1] = height;
+        positions[index * 3 + 2] = (iz / grid - 0.5) * size[1];
+        uvs[index * 2] = ix / grid;
+        uvs[index * 2 + 1] = 1 - iz / grid;
+        colors[index * 3] = 0.78 * shade;
+        colors[index * 3 + 1] = 0.84 * shade;
+        colors[index * 3 + 2] = 0.90 * shade;
+      }
+    }
+    const indices = count > 65535 ? new Uint32Array(grid * grid * 6) : new Uint16Array(grid * grid * 6);
+    let offset = 0;
+    for (let iz = 0; iz < grid; iz += 1) {
+      for (let ix = 0; ix < grid; ix += 1) {
+        const a = iz * columns + ix;
+        const b = a + 1;
+        const c = a + columns;
+        const d = c + 1;
+        indices[offset++] = a;
+        indices[offset++] = c;
+        indices[offset++] = b;
+        indices[offset++] = b;
+        indices[offset++] = c;
+        indices[offset++] = d;
+      }
+    }
+    return { positions, uvs, colors, indices, segments: grid, columns, heights,
+      minHeight, maxHeight };
+  }
+
+  function validateTerrain(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError("data-akari-3d-scene.terrain は object である必要があります");
+    }
+    for (const key of Object.keys(value)) {
+      if (!TERRAIN_ALLOWED_FIELDS.has(key)) {
+        throw new TypeError(`data-akari-3d-scene.terrain の未対応キーです: ${key}`);
+      }
+    }
+    if (typeof value.heightmap !== "string" || value.heightmap.length === 0) {
+      throw new TypeError("terrain.heightmap は PNG のパスである必要があります");
+    }
+    const encoding = value.encoding ?? "grayscale";
+    if (!TERRAIN_ENCODINGS.has(encoding)) {
+      throw new TypeError('terrain.encoding は "grayscale" または "gsi-dem" である必要があります');
+    }
+    if (value.texture !== undefined
+      && (typeof value.texture !== "string" || value.texture.length === 0)) {
+      throw new TypeError("terrain.texture は画像のパスである必要があります");
+    }
+    let exaggeration = 1;
+    if (value.exaggeration !== undefined) {
+      if (typeof value.exaggeration !== "number"
+        || !Number.isFinite(value.exaggeration)
+        || value.exaggeration < TERRAIN_MIN_EXAGGERATION
+        || value.exaggeration > TERRAIN_MAX_EXAGGERATION) {
+        throw new TypeError(
+          `terrain.exaggeration は ${TERRAIN_MIN_EXAGGERATION}〜${TERRAIN_MAX_EXAGGERATION} の数値である必要があります`
+        );
+      }
+      exaggeration = value.exaggeration;
+    }
+    let segments;
+    if (value.segments !== undefined) {
+      if (!Number.isInteger(value.segments)
+        || value.segments < 1
+        || value.segments > TERRAIN_MAX_SEGMENTS) {
+        throw new TypeError(
+          `terrain.segments は 1〜${TERRAIN_MAX_SEGMENTS} の整数である必要があります`
+        );
+      }
+      segments = value.segments;
+    }
+    return {
+      heightmap: value.heightmap,
+      texture: value.texture ?? null,
+      encoding,
+      exaggeration,
+      size: value.size === undefined ? [...TERRAIN_DEFAULT_SIZE] : terrainSize(value.size, "terrain.size"),
+      segments,
+    };
+  }
+
+  // lines[].keys は camera.keys と同じ流儀（前後保持・昇順必須・自動ソートなし）。
+  function validateLineKeys(value, field = "lines[].keys") {
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new TypeError(`${field} は 1 個以上のキー配列である必要があります`);
+    }
+    let previous = null;
+    return value.map((entry, index) => {
+      const label = `${field}[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError(`${label} は object である必要があります`);
+      }
+      for (const name of Object.keys(entry)) {
+        if (!LINE_KEY_FIELDS.has(name)) {
+          throw new TypeError(`${label} の未対応キーです: ${name}`);
+        }
+      }
+      if (typeof entry.t !== "number" || !Number.isFinite(entry.t)) {
+        throw new TypeError(`${label}.t は有限数である必要があります`);
+      }
+      if (typeof entry.progress !== "number"
+        || !Number.isFinite(entry.progress)
+        || entry.progress < 0
+        || entry.progress > 1) {
+        throw new TypeError(`${label}.progress は 0〜1 の数値である必要があります`);
+      }
+      const ease = entry.ease ?? "linear";
+      if (ease !== "linear" && ease !== "easeInOut") {
+        throw new TypeError(`${label}.ease は linear または easeInOut である必要があります`);
+      }
+      if (previous !== null && entry.t <= previous.t) {
+        throw new TypeError(
+          `lines[].keys は t の昇順である必要があります（${label}.t=${entry.t} は`
+          + ` ${previous.label}.t=${previous.t} 以下。自動では並べ替えません）`
+        );
+      }
+      previous = { t: entry.t, label };
+      return { t: entry.t, progress: entry.progress, ease };
+    });
+  }
+
+  function linePoints(value, field) {
+    if (!Array.isArray(value) || value.length < 2) {
+      throw new TypeError(`${field} は 2 点以上の [x, y, z] 配列である必要があります`);
+    }
+    return value.map((point, index) => {
+      if (!Array.isArray(point) || point.length !== 3
+        || !point.every((component) => typeof component === "number" && Number.isFinite(component))) {
+        throw new TypeError(`${field}[${index}] は [x, y, z] の数値配列である必要があります`);
+      }
+      return [point[0], point[1], point[2]];
+    });
+  }
+
+  function validateLines(value) {
+    if (!Array.isArray(value)) {
+      throw new TypeError("data-akari-3d-scene.lines は配列である必要があります");
+    }
+    return value.map((entry, index) => {
+      const field = `lines[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError(`${field} は object である必要があります`);
+      }
+      for (const key of Object.keys(entry)) {
+        if (!LINE_ALLOWED_FIELDS.has(key)) {
+          throw new TypeError(`${field} の未対応キーです: ${key}`);
+        }
+      }
+      const color = entry.color ?? LINE_DEFAULT_COLOR;
+      if (typeof color !== "string" || !LINE_COLOR_PATTERN.test(color)) {
+        throw new TypeError(`${field}.color は 6 桁 hex 色である必要があります`);
+      }
+      let width = LINE_DEFAULT_WIDTH;
+      if (entry.width !== undefined) {
+        if (typeof entry.width !== "number"
+          || !Number.isFinite(entry.width)
+          || entry.width <= 0
+          || entry.width > LINE_MAX_WIDTH) {
+          throw new TypeError(`${field}.width は 0 より大きく ${LINE_MAX_WIDTH} 以下の数値である必要があります`);
+        }
+        width = entry.width;
+      }
+      let progress = 1;
+      if (entry.progress !== undefined) {
+        if (typeof entry.progress !== "number"
+          || !Number.isFinite(entry.progress)
+          || entry.progress < 0
+          || entry.progress > 1) {
+          throw new TypeError(`${field}.progress は 0〜1 の数値である必要があります`);
+        }
+        progress = entry.progress;
+      }
+      const keys = entry.keys === undefined
+        ? null
+        : validateLineKeys(entry.keys, `${field}.keys`);
+      return {
+        points: linePoints(entry.points, `${field}.points`),
+        color,
+        width,
+        progress,
+        keys,
+      };
+    });
+  }
+
+  function sampleLineProgress(line, seconds) {
+    if (!line.keys) return line.progress;
+    const keys = line.keys;
+    const first = keys[0];
+    if (seconds <= first.t) return first.progress;
+    const last = keys[keys.length - 1];
+    if (seconds >= last.t) return last.progress;
+    for (let index = 1; index < keys.length; index += 1) {
+      const end = keys[index];
+      if (seconds > end.t) continue;
+      const start = keys[index - 1];
+      const span = end.t - start.t;
+      const u = span > 0 ? cameraEase(end.ease, (seconds - start.t) / span) : 1;
+      return start.progress + (end.progress - start.progress) * u;
+    }
+    return last.progress;
+  }
+
+  // 折れ線の各点までの距離（最後 = 全長）。progress を距離へ写すために使う。
+  function lineCumulativeLengths(points) {
+    const cumulative = [0];
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      cumulative.push(cumulative[index - 1] + Math.hypot(
+        current[0] - previous[0],
+        current[1] - previous[1],
+        current[2] - previous[2],
+      ));
+    }
+    return cumulative;
+  }
+
   function readDescriptor(container) {
     // プレビューが失敗時に差し込む診断要素は authoring された断片ではない。
     // 破棄時の除去が遅れた場合でも単一ルート判定へ混ぜない。
@@ -710,11 +1030,20 @@ window.akari.threeRuntime = (() => {
       }
       validatePhysics(descriptor.physics, descriptor.texts);
     }
+    // terrain / lines は model 無しでも成立する（地形と線だけで 1 シーン）。
+    if (descriptor.terrain !== undefined) {
+      descriptor.terrain = validateTerrain(descriptor.terrain);
+    }
+    if (descriptor.lines !== undefined) {
+      descriptor.lines = validateLines(descriptor.lines);
+    }
+    const hasTerrain = descriptor.terrain !== undefined;
+    const hasLines = Array.isArray(descriptor.lines) && descriptor.lines.length > 0;
     if (descriptor.model !== undefined) {
       if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
         throw new TypeError("data-akari-3d-scene.model は配信 URL である必要があります");
       }
-    } else if (!hasNonEmptyTexts) {
+    } else if (!hasNonEmptyTexts && !hasTerrain && !hasLines) {
       throw new TypeError("data-akari-3d-scene.model は配信 URL である必要があります");
     }
     if (descriptor.animationClip !== undefined && !isAnimationClipSelector(descriptor.animationClip)) {
@@ -949,6 +1278,289 @@ window.akari.threeRuntime = (() => {
       copy.needsUpdate = true;
       return copy;
     });
+  }
+
+  // --- 地形（terrain）の画像読み込み。task 2026-10-21-scene3d-terrain-lines ---
+  // 断片からの相対パスを文書基準で解決する。書き出しのシートは /overlay-sheet.html に置かれ、
+  // 素材は /media/<プロジェクトからの相対パス> で配られるため、相対 URL が 404 のときだけ
+  // /media/ 経由を試す（プレビューの asset stream では 1 つ目がそのまま通る）。
+  function terrainAssetUrls(path) {
+    const raw = String(path);
+    if (/^(?:data:|blob:|https?:|file:)/i.test(raw)) return [raw];
+    const base = (typeof document !== "undefined" && document.baseURI) || "http://localhost/";
+    const urls = [];
+    try {
+      urls.push(new URL(raw, base).href);
+      const media = new URL(`/media/${raw.replace(/^\.?\//u, "")}`, base).href;
+      if (!urls.includes(media)) urls.push(media);
+    } catch {
+      urls.push(raw);
+    }
+    return urls;
+  }
+
+  function loadTerrainImage(urls, field) {
+    return new Promise((resolve, reject) => {
+      let index = 0;
+      const tryNext = () => {
+        if (index >= urls.length) {
+          reject(new Error(`${field} を読み込めません: ${urls[0]}`));
+          return;
+        }
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => resolve(image);
+        image.onerror = () => {
+          index += 1;
+          tryNext();
+        };
+        image.src = urls[index];
+      };
+      tryNext();
+    });
+  }
+
+  function readTerrainImageData(image, encoding) {
+    const naturalWidth = image.naturalWidth || image.width;
+    const naturalHeight = image.naturalHeight || image.height;
+    if (!(naturalWidth > 0) || !(naturalHeight > 0)) {
+      throw new Error("terrain.heightmap の画像サイズを取得できません");
+    }
+    // gsi-dem は RGB の符号化値をそのまま読む必要があるため縮小しない。grayscale は
+    // 既定の segments 上限（512）に合わせて縮小し、巨大 PNG のメモリ消費を抑える。
+    let width = naturalWidth;
+    let height = naturalHeight;
+    if (encoding !== "gsi-dem") {
+      const scale = Math.min(1, TERRAIN_MAX_SEGMENTS / Math.max(naturalWidth, naturalHeight));
+      width = Math.max(1, Math.round(naturalWidth * scale));
+      height = Math.max(1, Math.round(naturalHeight * scale));
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("terrain.heightmap を読む 2D コンテキストを作れません");
+    context.drawImage(image, 0, 0, width, height);
+    let pixels;
+    try {
+      pixels = context.getImageData(0, 0, width, height);
+    } catch (error) {
+      throw new Error(`terrain.heightmap の画素を読めません（CORS の可能性）: ${error.message}`);
+    }
+    return { imageData: { width, height, data: pixels.data }, naturalWidth, naturalHeight };
+  }
+
+  async function loadStillTexture(THREE, instance, urls, field) {
+    let lastError;
+    for (const url of urls) {
+      try {
+        const texture = await loadTexture(THREE, instance, new THREE.TextureLoader(), url);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        return texture;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw new Error(`${field} を読み込めません: ${urls[0]}${lastError ? `（${lastError.message}）` : ""}`);
+  }
+
+  async function loadTerrain(THREE, instance) {
+    const terrain = instance.descriptor.terrain;
+    if (!terrain) return;
+    const loaded = await loadTerrainImage(terrainAssetUrls(terrain.heightmap), "terrain.heightmap");
+    if (!instance.active || instances.get(instance.container) !== instance) return;
+    const { imageData, naturalWidth, naturalHeight } = readTerrainImageData(loaded, terrain.encoding);
+    const built = buildTerrainGeometryData({
+      imageData,
+      segments: terrain.segments,
+      size: terrain.size,
+      exaggeration: terrain.exaggeration,
+      encoding: terrain.encoding,
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(built.positions, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(built.uvs, 2));
+    geometry.setAttribute("color", new THREE.BufferAttribute(built.colors, 3));
+    geometry.setIndex(new THREE.BufferAttribute(built.indices, 1));
+    geometry.computeVertexNormals();
+    let material;
+    if (terrain.texture) {
+      let texture;
+      try {
+        texture = await loadStillTexture(
+          THREE, instance, terrainAssetUrls(terrain.texture), "terrain.texture",
+        );
+      } catch (error) {
+        geometry.dispose();
+        throw error;
+      }
+      material = new THREE.MeshStandardMaterial({
+        map: texture, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
+      });
+    } else {
+      material = new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
+      });
+    }
+    if (!instance.active || instances.get(instance.container) !== instance) {
+      geometry.dispose();
+      material.dispose();
+      return;
+    }
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = "AkariTerrain";
+    if (instance.shadows.enabled) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+    const group = new THREE.Group();
+    group.name = "AkariTerrainGroup";
+    group.add(mesh);
+    instance.scene.add(group);
+    instance.terrainGroup = group;
+    instance.terrainInfo = {
+      encoding: terrain.encoding,
+      width: imageData.width,
+      height: imageData.height,
+      naturalWidth,
+      naturalHeight,
+      segments: built.segments,
+      minHeight: built.minHeight,
+      maxHeight: built.maxHeight,
+      textured: Boolean(terrain.texture),
+      exaggerated: terrain.exaggeration,
+      size: [...terrain.size],
+    };
+  }
+
+  // --- 3D ポリライン（lines）。task 2026-10-21-scene3d-terrain-lines ---
+  // 太さを画面上の px で一定にするため、線分ごとに視空間で四角形を組み、カメラの投影から
+  // NDC の法線方向へ width/2 px ぶん広げた 4 頂点を作る。LineMaterial ではなく Mesh なので
+  // WebGL / WebGPU の両経路で同じ絵になる（新しい依存を足さない）。
+  function createLineObject(THREE, line) {
+    const maxVertices = Math.max(0, (line.points.length - 1) * 6);
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(Math.max(1, maxVertices * 3));
+    const attribute = new THREE.BufferAttribute(positions, 3);
+    attribute.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute("position", attribute);
+    geometry.setDrawRange(0, 0);
+    const material = new THREE.MeshBasicMaterial({
+      color: line.color, side: THREE.DoubleSide, toneMapped: false, depthWrite: true,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = "AkariLine";
+    // 頂点は draw ごとに作り直すため、古い bounding sphere で視錐台カリングされないようにする
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    return {
+      line,
+      mesh,
+      geometry,
+      material,
+      positions,
+      maxVertices,
+      cumulative: lineCumulativeLengths(line.points),
+      progress: 0,
+      vertexCount: 0,
+      scratch: {
+        aWorld: new THREE.Vector3(),
+        bWorld: new THREE.Vector3(),
+        aCam: new THREE.Vector3(),
+        bCam: new THREE.Vector3(),
+        aNdc: new THREE.Vector3(),
+        bNdc: new THREE.Vector3(),
+        corner: new THREE.Vector3(),
+      },
+    };
+  }
+
+  function updateLineObject(THREE, instance, entry, seconds, viewport) {
+    const progress = Math.min(1, Math.max(0, sampleLineProgress(entry.line, seconds)));
+    entry.progress = progress;
+    if (progress <= 0 || entry.cumulative[entry.cumulative.length - 1] <= 0) {
+      entry.vertexCount = 0;
+      entry.geometry.setDrawRange(0, 0);
+      entry.mesh.visible = false;
+      return;
+    }
+    const points = entry.line.points;
+    const total = entry.cumulative[entry.cumulative.length - 1];
+    const target = progress * total;
+    const camera = instance.camera;
+    const near = camera.near > 0 ? camera.near : 1e-4;
+    const cssWidth = Math.max(1, viewport?.cssWidth ?? 1);
+    const cssHeight = Math.max(1, viewport?.cssHeight ?? 1);
+    const { aWorld, bWorld, aCam, bCam, aNdc, bNdc, corner } = entry.scratch;
+    let offset = 0;
+    let vertexCount = 0;
+    const pushCorner = (ndc, deltaX, deltaY) => {
+      corner.set(ndc.x + deltaX, ndc.y + deltaY, ndc.z).unproject(camera);
+      entry.positions[offset++] = corner.x;
+      entry.positions[offset++] = corner.y;
+      entry.positions[offset++] = corner.z;
+    };
+    for (let index = 0; index < points.length - 1; index += 1) {
+      if (entry.cumulative[index] >= target) break;
+      const segmentLength = entry.cumulative[index + 1] - entry.cumulative[index];
+      const endT = segmentLength > 0
+        ? Math.min(1, (target - entry.cumulative[index]) / segmentLength)
+        : 1;
+      aWorld.fromArray(points[index]);
+      bWorld.fromArray(points[index + 1]);
+      if (endT < 1) bWorld.lerpVectors(aWorld, bWorld, endT);
+      aCam.copy(aWorld).applyMatrix4(camera.matrixWorldInverse);
+      bCam.copy(bWorld).applyMatrix4(camera.matrixWorldInverse);
+      if (aCam.z > -near && bCam.z > -near) continue;
+      if (aCam.z > -near) {
+        const t = (-near - aCam.z) / (bCam.z - aCam.z);
+        aCam.lerp(bCam, t);
+        aWorld.lerp(bWorld, t);
+      } else if (bCam.z > -near) {
+        const t = (-near - bCam.z) / (aCam.z - bCam.z);
+        bCam.lerp(aCam, t);
+        bWorld.lerp(aWorld, t);
+      }
+      aNdc.copy(aCam).applyMatrix4(camera.projectionMatrix);
+      bNdc.copy(bCam).applyMatrix4(camera.projectionMatrix);
+      if (![aNdc.x, aNdc.y, bNdc.x, bNdc.y].every(Number.isFinite)) continue;
+      const dx = (bNdc.x - aNdc.x) * cssWidth / 2;
+      const dy = (bNdc.y - aNdc.y) * cssHeight / 2;
+      const length = Math.hypot(dx, dy);
+      if (length < 1e-6) continue;
+      const perpendicularX = -dy / length;
+      const perpendicularY = dx / length;
+      const deltaX = perpendicularX * entry.line.width / cssWidth;
+      const deltaY = perpendicularY * entry.line.width / cssHeight;
+      // a+ / a- / b+ / b- の 4 隅を、2 三角形（6 頂点）として並べる。
+      pushCorner(aNdc, deltaX, deltaY);   // a+
+      pushCorner(aNdc, -deltaX, -deltaY); // a-
+      pushCorner(bNdc, deltaX, deltaY);   // b+
+      pushCorner(bNdc, deltaX, deltaY);   // b+
+      pushCorner(aNdc, -deltaX, -deltaY); // a-
+      pushCorner(bNdc, -deltaX, -deltaY); // b-
+      vertexCount += 6;
+    }
+    entry.vertexCount = vertexCount;
+    entry.mesh.visible = vertexCount > 0;
+    entry.geometry.setDrawRange(0, vertexCount);
+    const attribute = entry.geometry.getAttribute("position");
+    attribute.needsUpdate = true;
+    entry.geometry.computeBoundingSphere();
+  }
+
+  function updateLineObjects(instance, localSeconds) {
+    if (!instance.lineObjects?.length) return;
+    // カメラの姿勢は applyCameraKeys / applyPoseKnobs の後。pose 補正がある場合
+    // （syncPoseCamera）はその補正済み行列を使い、ここで上書きしない。
+    if (!instance.pose.cameraInTree) instance.camera.updateMatrixWorld(true);
+    const seconds = Math.max(0, finiteNumber(localSeconds, 0));
+    for (const entry of instance.lineObjects) {
+      updateLineObject(window.AkariThree.THREE, instance, entry, seconds, instance.viewport);
+    }
   }
 
   // --- target: "mask"（形の差し替え）---
@@ -3106,6 +3718,8 @@ window.akari.threeRuntime = (() => {
     const poseCameraSynced = syncPoseCamera(instance);
     // texts の姿勢・倍率はカメラ確定後（pose 補正後）に決める。宣言が無ければ何もしない
     if (instance.textAnimEntries.length > 0) updateTextBillboards(instance, poseCameraSynced);
+    // lines は確定したカメラで画面上の px 幅へ展開する（draw(localSeconds) の純関数）。
+    updateLineObjects(instance, localSeconds);
     // WebGPU の render() は r186 では同期（GPU への投入まで）だが、実装が Promise を返す
     // 場合も握り潰さず既存の失敗表示へ流す（契約 指示 3）。WebGL は従来どおり素通し。
     const renderOnce = () => {
@@ -3195,11 +3809,16 @@ window.akari.threeRuntime = (() => {
     instance.mixer?.stopAllAction();
     disposeObject(instance.model);
     disposeObject(instance.textsGroup);
+    disposeObject(instance.terrainGroup);
+    disposeObject(instance.linesGroup);
     // troika Text.dispose() は SDF atlas 等、generic disposeObject の geometry/material 走査だけでは
     // 解放されない troika 固有のキャッシュも片付ける
     for (const node of instance.textNodes) node.dispose?.();
     instance.textNodes = [];
     instance.textAnimEntries = [];
+    instance.terrainGroup = null;
+    instance.terrainInfo = null;
+    instance.lineObjects = [];
     instance.physicsBuffer = null;
     instance.physicsData = null;
     instance.physicsChars = [];
@@ -3640,6 +4259,11 @@ window.akari.threeRuntime = (() => {
       textsGroup: new THREE.Group(),
       textNodes: [],
       textAnimEntries: [],
+      // terrain / lines の状態（どちらも model・texts と独立）
+      terrainGroup: null,
+      terrainInfo: null,
+      linesGroup: new THREE.Group(),
+      lineObjects: [],
       // extrude の per-char ExtrudeGeometry キャッシュ（font+char+size+depth+bevel キー）。
       // instance スコープ（disposeInstance が textsGroup 経由で一括 dispose するため、instance を
       // またいで共有すると二重 dispose 事故になる。§extrudeGeometryFor）
@@ -3701,6 +4325,7 @@ window.akari.threeRuntime = (() => {
     instance.scene.add(instance.textsGroup);
     // ready 前のアンカーは authored 位置に残さず隠す（最初の draw で投影位置へ置く）
     for (const entry of instance.anchorEntries) setAnchorVisible(entry, false);
+    instance.scene.add(instance.linesGroup);
     setFallback(container, true);
 
     const hasModel = typeof descriptor.model === "string" && descriptor.model.length > 0;
@@ -3768,8 +4393,16 @@ window.akari.threeRuntime = (() => {
       await Promise.all([
         hasModel ? loadModel() : Promise.resolve(),
         hasTexts ? loadTexts(THREE, TroikaText, opentype, instance, descriptor.texts) : Promise.resolve(),
+        loadTerrain(THREE, instance),
       ]);
       if (instances.get(container) !== instance || !instance.active) return false;
+      // lines は依存読み込みが無いので、地形の完了と同じタイミングで組み立てる。
+      // 位置は draw(localSeconds) が毎回作り直す（時間の純関数）。
+      for (const line of descriptor.lines ?? []) {
+        const entry = createLineObject(THREE, line);
+        instance.linesGroup.add(entry.mesh);
+        instance.lineObjects.push(entry);
+      }
       // physics は全 texts sync() 完了後（char の bbox が確定してから）にだけ presim できる。
       // ここで例外が出れば .catch 側の後始末（textsGroup 破棄・fallback 表示）へ合流する
       if (hasPhysics) runPhysicsPresim(library.Matter, instance, descriptor.physics);
@@ -3799,6 +4432,18 @@ window.akari.threeRuntime = (() => {
       instance.textAnimEntries = [];
       instance.textsGroup = new THREE.Group();
       instance.scene.add(instance.textsGroup);
+      if (instance.terrainGroup) {
+        instance.scene.remove(instance.terrainGroup);
+        disposeObject(instance.terrainGroup);
+        instance.terrainGroup = null;
+        instance.terrainInfo = null;
+      }
+      if (instance.linesGroup) {
+        instance.scene.remove(instance.linesGroup);
+        disposeObject(instance.linesGroup);
+      }
+      instance.linesGroup = new THREE.Group();
+      instance.lineObjects = [];
       instance.physicsBuffer = null;
       instance.physicsData = null;
       instance.physicsChars = [];
@@ -4037,6 +4682,17 @@ window.akari.threeRuntime = (() => {
         translateX: entry.lastTranslateX,
         translateY: entry.lastTranslateY,
       })),
+      // terrain / lines の直近 draw の実測値（検証・証跡用）
+      terrain: instance.terrainInfo ? { ...instance.terrainInfo, size: [...instance.terrainInfo.size] } : null,
+      lines: instance.lineObjects.map((entry, index) => ({
+        index,
+        progress: entry.progress,
+        vertexCount: entry.vertexCount,
+        width: entry.line.width,
+        color: entry.line.color,
+        pointCount: entry.line.points.length,
+        animated: Boolean(entry.line.keys),
+      })),
       // billboard / screenSpace の直近 draw 適用値（検証・証跡用）。worldQuaternion は
       // layout.rotation を billboard が上書きした後の姿勢、normal はその +Z（= 文字の法線）
       texts: instance.textAnimEntries.map((entry) => {
@@ -4180,6 +4836,14 @@ window.akari.threeRuntime = (() => {
     anchorOriginOffset,
     projectAnchorPoint,
     anchorOccluded,
+    validateTerrain,
+    validateLines,
+    validateLineKeys,
+    decodeGsiDem,
+    buildTerrainGeometryData,
+    terrainSegmentsFor,
+    lineProgressAt: sampleLineProgress,
+    lineCumulativeLengths,
   };
 })();
 

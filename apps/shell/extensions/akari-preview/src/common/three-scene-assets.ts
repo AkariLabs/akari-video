@@ -30,15 +30,18 @@ export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
     'shadows',
     'texts',
     'physics',
+    // 宣言型の地形（高さマップ PNG）と 3D ポリライン（task 2026-10-21-scene3d-terrain-lines）
+    'terrain',
+    'lines',
     // 描画バックエンドの opt-in（2026-10-21-three-webgpu-backend）。ランタイムと同じく
     // 省略 = "webgl" で、値の検証は three-runtime.js が行う。
     'renderer'
 ]);
 
 /**
- * パスの出どころ。断片に書かれたパス（model・フォント・環境マップ・既定のテクスチャ）は断片のフォルダ基準、
- * item の source.vars から来たパス（ユーザーが入れた画面の動画など）はプロジェクト基準で探す
- * （内部契約 2026-10-11-3d-place §4）。
+ * パスの出どころ。断片に書かれたパス（model・フォント・環境マップ・既定のテクスチャ・
+ * terrain の画像）は断片のフォルダ基準、item の source.vars から来たパス（ユーザーが入れた
+ * 画面の動画など）はプロジェクト基準で探す（内部契約 2026-10-11-3d-place §4）。
  */
 export type ThreeSceneAssetOrigin = 'fragment' | 'vars';
 
@@ -48,6 +51,7 @@ export interface ThreeSceneDescriptor extends Record<string, unknown> {
     environment?: { map?: unknown };
     materialOverrides?: unknown;
     model?: unknown;
+    terrain?: { heightmap?: unknown; texture?: unknown };
     texts?: unknown;
 }
 
@@ -90,7 +94,10 @@ export async function resolveThreeSceneDescriptorAssets(
     }
     const texts = source.texts as unknown[] | undefined;
     const hasNonEmptyTexts = Boolean(texts?.length);
-    if (!hasModel && !hasNonEmptyTexts) {
+    // terrain / lines だけでも 1 シーン（three-runtime.js の readDescriptor と同じ緩和）
+    const hasTerrain = source.terrain !== undefined;
+    const hasLines = Array.isArray(source.lines) && source.lines.length > 0;
+    if (!hasModel && !hasNonEmptyTexts && !hasTerrain && !hasLines) {
         throw new TypeError(
             t('preview.threeScene.validation.sceneRequiresModelOrTextsError')
         );
@@ -120,6 +127,24 @@ export async function resolveThreeSceneDescriptorAssets(
             });
         }
         descriptor.texts = resolvedTexts;
+    }
+
+    if (hasTerrain) {
+        const terrain = source.terrain && typeof source.terrain === 'object' && !Array.isArray(source.terrain)
+            ? source.terrain
+            : {};
+        const heightmapField = 'data-akari-3d-scene.terrain.heightmap';
+        assertRelativeAssetPath(terrain.heightmap, heightmapField);
+        const resolvedTerrain: Record<string, unknown> = {
+            ...terrain,
+            heightmap: await resolveAsset(terrain.heightmap, heightmapField, 'fragment')
+        };
+        if (terrain.texture !== undefined) {
+            const textureField = 'data-akari-3d-scene.terrain.texture';
+            assertRelativeAssetPath(terrain.texture, textureField);
+            resolvedTerrain.texture = await resolveAsset(terrain.texture, textureField, 'fragment');
+        }
+        descriptor.terrain = resolvedTerrain as ThreeSceneDescriptor['terrain'];
     }
 
     if (source.environment?.map !== undefined) {

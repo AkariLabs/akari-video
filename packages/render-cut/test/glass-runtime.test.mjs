@@ -20,7 +20,9 @@ test('glass-free 2D and 3D sheets match pre-glass baseline bytes', () => {
     // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
     // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
     // 2026-10-20: OSR の 3D 初期化エラーを理由本文つきで fail closed にしたぶんを再測。
-    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', 'd0d180fb1c3b59b9feb44fcd22c0eb6497e144ac7e541715cf85ed057bdf0a3e'],
+    // 2026-10-21: terrain / lines（task 2026-10-21-scene3d-terrain-lines）で three-runtime.js が
+    // 変わり、埋め込み bytes が変わったぶんを再測。
+    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '0f4ce2747b330d653cd9599142fa027ce3fdca943c804b6e70bc9bf61ad4c79d'],
   ]) assert.equal(sha(renderOverlaySheet(input(html))), expected);
 });
 

@@ -286,6 +286,50 @@ Camera moves can be declared as keyframes, with no GLB or animation clip:
 - The preview, `akari capture`, and export share the same interpolation, so the same `t` gives the
   same camera
 
+Terrain can be built from a height-map PNG, and 3D polylines can grow over time — no GLB or Blender
+bake is needed:
+
+```json
+{
+  "terrain": {
+    "heightmap": "overlays/3d/height.png",
+    "texture": "overlays/3d/photo.jpg",
+    "encoding": "grayscale",
+    "exaggeration": 1.5,
+    "size": [12, 8],
+    "segments": 256
+  },
+  "lines": [
+    {
+      "points": [[-4, 1, 0], [0, 3, 0], [4, 1, 0]],
+      "color": "#ff3366",
+      "width": 4,
+      "keys": [
+        { "t": 0, "progress": 0 },
+        { "t": 2, "progress": 1, "ease": "easeInOut" }
+      ]
+    }
+  ]
+}
+```
+
+- `heightmap` is a PNG path. Prefer the project-root path (for example `overlays/3d/height.png`) so preview and export resolve the same file; a path next to the fragment also works. Grayscale by default; `"encoding": "gsi-dem"`
+  reads the Geospatial Information Authority of Japan (GSI) elevation tiles (elevation encoded in
+  RGB). Unreadable or non-PNG files are lint errors
+- `size` is `[width, depth]` in world units (default `[10, 10]`). `exaggeration` (default 1)
+  multiplies the sampled height. `segments` (1–512) sets the grid resolution; the default follows
+  the image resolution, capped at 512
+- `texture` pastes a still photo over the terrain. Without it, the terrain is a single color shaded
+  by height. The runtime waits for the height map and texture to load before it reports ready, so
+  `akari capture` and export never record a half-loaded terrain
+- `lines[]` draws a polyline through 2 or more `[x, y, z]` points. `width` is in screen pixels and
+  stays constant with distance. `progress` (0–1) draws from the first point; `keys`
+  (`[{ t, progress, ease }]`, seconds from the start of the placed item) animates it over time.
+  Keys hold before the first and after the last key and must be in ascending `t` order; `ease` is
+  `linear` (default) or `easeInOut`. When both are declared, `keys` wins over `progress`
+- Later keys are not sorted automatically; lint reports bad images, ranges, point counts, and key
+  order before export
+
 For images the declarative runtime cannot express (depth of field, ray tracing, and the like), or
 for a clip you will reuse, bake it into video with [Bake a 3D scene](bake-3d.md).
 
