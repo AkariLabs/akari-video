@@ -4,7 +4,11 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cliText } from './i18n.mjs';
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO_ROOT = resolve(PACKAGE_ROOT, '../..');
+// npm 配布・デスクトップ同梱では prepack がリポジトリの写し（skills/ と packages/）を vendor/ に焼く
+// （repo-assets.mjs と同じ規則）。install.sh 版もモノレポ checkout も無い環境では、ここが入口スキルの参照元になる。
+const VENDOR_ROOT = join(PACKAGE_ROOT, 'vendor');
 export const ENTRY_VERSION_FILE = '.akari-entry-version';
 const usage = () => cliText('cli.skills.help.usage');
 
@@ -28,9 +32,9 @@ export function entryTargets(env = process.env, extra = []) {
   ])];
 }
 
-export function resolveEntrySource({ env = process.env, repoRoot = REPO_ROOT } = {}) {
+export function resolveEntrySource({ env = process.env, repoRoot = REPO_ROOT, vendorRoot = VENDOR_ROOT } = {}) {
   const home = env.HOME || homedir();
-  for (const root of [join(env.AKARI_HOME || join(home, '.akari'), 'app'), repoRoot]) {
+  for (const root of [join(env.AKARI_HOME || join(home, '.akari'), 'app'), repoRoot, vendorRoot]) {
     const source = join(root, 'skills', 'akari');
     if (!stat(join(source, 'SKILL.md'))?.isFile()) continue;
     const version = JSON.parse(readFileSync(join(root, 'packages', 'akari-launcher', 'package.json'), 'utf8')).version;

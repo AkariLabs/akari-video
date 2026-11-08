@@ -192,3 +192,28 @@ test('entry lint rejects every forbidden term, other skill names and overlong de
   assert.equal(result.status, 1);
   assert.match(result.stderr, /BGM/);
 });
+
+test('resolves the entry skill from the launcher vendor mirror when neither ~/.akari/app nor a checkout exists', async t => {
+  const f = fixture(t);
+  const vendor = join(f.scratch, 'vendor');
+  mkdirSync(join(vendor, 'skills/akari'), { recursive: true });
+  writeFileSync(join(vendor, 'skills/akari/SKILL.md'), 'vendored entry');
+  mkdirSync(join(vendor, 'packages/akari-launcher'), { recursive: true });
+  writeFileSync(join(vendor, 'packages/akari-launcher/package.json'), '{"version":"1.2.3"}');
+  const options = { ...f.options, repoRoot: join(f.scratch, 'absent-checkout'), vendorRoot: vendor };
+  assert.deepEqual(resolveEntrySource(options), { source: join(vendor, 'skills/akari'), version: '1.2.3' });
+  assert.equal((await runSkillsCommand(['install', '--entry'], options)).exitCode, 0);
+  for (const target of f.targets) {
+    assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), 'vendored entry');
+    assert.equal(readFileSync(join(target, ENTRY_VERSION_FILE), 'utf8'), '1.2.3\n');
+  }
+  // 参照元の優先順は変えない: ~/.akari/app があればそちらが勝つ。
+  const app = join(f.env.AKARI_HOME, 'app');
+  mkdirSync(join(app, 'skills/akari'), { recursive: true });
+  writeFileSync(join(app, 'skills/akari/SKILL.md'), 'app entry');
+  mkdirSync(join(app, 'packages/akari-launcher'), { recursive: true });
+  writeFileSync(join(app, 'packages/akari-launcher/package.json'), '{"version":"9.9.9"}');
+  assert.equal(resolveEntrySource(options).version, '9.9.9');
+  // vendor も無ければ従来どおり「見つかりません」。
+  assert.throws(() => resolveEntrySource({ ...options, env: { ...f.env, AKARI_HOME: join(f.scratch, 'absent-state') }, vendorRoot: join(f.scratch, 'absent-vendor') }), /skills\/akari\/SKILL\.md/);
+});
