@@ -45,6 +45,7 @@ export const ELECTRON_CHILD_ENV_BLOCKLIST = Object.freeze(["ELECTRON_RUN_AS_NODE
 // 明示 allowDesktop は env より優先し、明示 allowInstalledDesktop は dev レイアウト自動判定より優先する。
 export const EXPORT_ALLOW_DESKTOP_ENV = "AKARI_EXPORT_ALLOW_DESKTOP";
 const GUI_SESSION_HINT = "書き出し用の Electron が起動直後に落ちました。ログイン中の画面（GUI セッション）に繋がらない環境（SSH・バックグラウンドのサービス・サンドボックス）から起動すると、macOS が Electron の登録を拒否して SIGABRT になります。ログイン中のターミナルか AKARI Video のアプリ内から書き出してください。";
+const GPU_SANDBOX_DLL_HINT = "Windows の保護機能（GPU サンドボックス）の中で、GPU プロセスがシステムの DLL を読み込めず起動できませんでした。セキュリティソフトや権限変更ツールが C:\\Windows\\System32 のアクセス権を変えている可能性があります。";
 const NON_AQUA_MANAGERS = new Set(["Background", "System", "LoginWindow", "StandardIO"]);
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_REPOSITORY_ROOT = resolve(PACKAGE_ROOT, "..", "..");
@@ -130,11 +131,19 @@ export function electronChildEnvironment(env = process.env) {
 
 export function describeElectronExit({ exit, code, signal, stderrTail, platform } = {}) {
   const label = exit === "gpu" ? "GPU Electron" : "OSR Electron";
-  const hint = electronExitHint({ code, signal, platform });
+  const hint = electronExitHint({ code, signal, stderrTail, platform });
   return `${label} が終了しました（終了コード: ${code ?? "null"}、シグナル: ${signal ?? "なし"}）${hint ? `: ${hint}` : ""}${stderrTail ? `\nElectron の標準エラー出力（末尾）:\n${stderrTail}` : ""}`;
 }
 
-function electronExitHint({ code, signal, platform }) {
+// The GPU child reports loader NTSTATUS values; the parent Electron exit code alone is ambiguous.
+export function shouldRetryGpuSandbox({ platform, stderrTail = "", args = [] } = {}) {
+  return platform === "win32"
+    && /GPU process exited unexpectedly: exit_code=-(?:1073741515|1073741790)(?=\s|$)/u.test(stderrTail)
+    && !args.some((arg) => arg.split("=")[0] === "--disable-gpu-sandbox");
+}
+
+function electronExitHint({ code, signal, stderrTail = "", platform }) {
+  if (platform === "win32" && /-(?:1073741515|1073741790)(?=\s|$)/u.test(stderrTail)) return GPU_SANDBOX_DLL_HINT;
   return platform === "darwin" && (signal === "SIGABRT" || code === 134) ? GUI_SESSION_HINT : null;
 }
 
@@ -202,15 +211,35 @@ export async function launchElectronExport(launcher, options, {
         else process.stderr.write(line);
       } catch { /* 警告の出力失敗で書き出し結果を変えない。 */ }
     };
-    // write（HKCU）→ spawn → 子の close → finally で restore。他 OS / soft / off は記録に理由だけ残して spawn する。
+    let gpuSandbox = null;
+    const run = (launchArgs) => spawnAndWait(launcher.executable, launchArgs, {
+      spawnImpl, env, onStdout, onStderr: options.onStderr, exit: options.exit, platform,
+      exitGraceMs: effectiveExitGraceMs,
+      warnOnExitTimeout,
+    });
+    // Keep both attempts inside one GPU preference override and one temporary userData lifetime.
     const { gpuPreference } = await withGpuPreference(
       launcher,
       options,
-      () => spawnAndWait(launcher.executable, args, {
-        spawnImpl, env, onStdout, onStderr: options.onStderr, exit: options.exit, platform,
-        exitGraceMs: effectiveExitGraceMs,
-        warnOnExitTimeout,
-      }),
+      async () => {
+        try {
+          await run(args);
+        } catch (error) {
+          if (error.cause || !shouldRetryGpuSandbox({ platform, stderrTail: error.electronExit?.stderrTail, args })) throw error;
+          gpuSandbox = { disabled: true, reason: "dll-load-failed" };
+          const line = "osr-export warning: GPU プロセスがサンドボックス内でシステム DLL を読み込めなかったため、GPU サンドボックスを外して再試行しました\n";
+          try {
+            if (stderr?.write) stderr.write(line);
+            else if (options.onStderr) options.onStderr(line);
+            else process.stderr.write(line);
+          } catch { /* Warning output must not prevent the retry. */ }
+          // tier 2 keeps its main script first; tier 1 puts switches before --akari-main.
+          const switchIndex = launcher.tier === 2 ? 1 : 0;
+          const retryArgs = [...args.slice(0, switchIndex), "--disable-gpu-sandbox", ...args.slice(switchIndex)];
+          try { await run(retryArgs); }
+          catch (retryError) { retryError.gpuSandbox = gpuSandbox; throw retryError; }
+        }
+      },
       { env, platform, registry, sidecar, executableExists, stderr },
     );
     if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
@@ -223,7 +252,7 @@ export async function launchElectronExport(launcher, options, {
       error.gpuPreference = gpuPreference;
       throw error;
     }
-    return { launcher, gpuPreference };
+    return { launcher, gpuPreference, ...(gpuSandbox ? { gpuSandbox } : {}) };
   } finally {
     if (temporaryUserData) {
       await rm(temporaryUserData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
@@ -362,7 +391,8 @@ function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr, exit,
       const tail = stderrTail.toString("utf8");
       const message = describeElectronExit({ exit, code, signal, stderrTail: tail, platform });
       const error = new Error(cause ? `${message}\nElectron の起動エラー: ${cause.message}` : message);
-      error.electronExit = { exit, code, signal, hint: electronExitHint({ code, signal, platform }) };
+      error.electronExit = { exit, code, signal, hint: electronExitHint({ code, signal, stderrTail: tail, platform }) };
+      if (platform === "win32") error.electronExit.stderrTail = tail;
       if (cause) error.cause = cause;
       return error;
     };
