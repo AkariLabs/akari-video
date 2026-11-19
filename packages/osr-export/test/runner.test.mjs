@@ -1143,13 +1143,22 @@ test("Windows retry failure stops after two children, restores once, and keeps t
         })(...args);
       },
     }), (error) => {
-      assert.match(error.message, /Windows の保護機能（GPU サンドボックス）/u);
+      assert.match(error.message, /GPU サンドボックスを外しても、GPU プロセスがシステムの DLL を読み込めませんでした/u);
+      assert.doesNotMatch(error.message, /サンドボックス）の中で/u);
       assert.match(error.message, /セキュリティソフトや権限変更ツール/u);
       assert.ok(error.message.includes("C:\\Windows\\System32"));
       assert.match(error.message, /attempt-2/);
       assert.doesNotMatch(error.message, /attempt-1/);
       assert.ok(Buffer.byteLength(error.electronExit.stderrTail) <= 4096);
       assert.equal(error.gpuPreference.restored, true);
+      assert.match(error.message, /GPU サンドボックスを外した再試行も失敗しました/u);
+      assert.deepEqual(error.gpuSandbox, {
+        disabled: true, reason: "dll-load-failed",
+        firstAttempt: {
+          code: 2147483651, signal: null,
+          stderrTail: Buffer.from("old log\r\n".repeat(1000) + gpuDllStderr(-1073741515, "attempt-1")).subarray(-4096).toString("utf8"),
+        },
+      });
       return true;
     });
     assert.equal(calls.length, 2);
@@ -1179,7 +1188,8 @@ for (const scenario of [
         ...gpuPreferenceMocks(), platform: scenario.platform, env: { AKARI_HOME: root }, guiSession: { probe: () => "Aqua" },
         spawnImpl: spawnMock({ calls, code: 2147483651, signal: scenario.signal, stderr: [scenario.stderrTail] }),
       }), (error) => {
-        assert.equal(error.message.includes("Windows の保護機能"), Boolean(scenario.disabled));
+        assert.equal(error.message.includes("GPU サンドボックスを外しても"), Boolean(scenario.disabled));
+        assert.equal(error.message.includes("Windows の保護機能"), false);
         return true;
       });
       assert.equal(calls.length, 1);
@@ -1206,3 +1216,117 @@ for (const code of [-1073741515, -1073741790]) {
     assert.match(message, /アクセス権/u);
   });
 }
+
+
+for (const [name, chunks] of [
+  ["more than 4KB after the GPU line", [gpuDllStderr(), "later log\r\n".repeat(1000)]],
+  ["GPU message split across chunks", ["[123:ERROR] GPU process exited unexp", "ectedly: exit_code=-1073741790\r\n"]],
+  ["NTSTATUS split across chunks", ["GPU process exited unexpectedly: exit_code=-10737", "41515\r\n"]],
+]) {
+  test(`Windows retry detection retains ${name}`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "osr-gpu-sandbox-"));
+    try {
+      const calls = [];
+      const out = join(root, "video.mp4");
+      const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, exportOptions(out), {
+        ...gpuPreferenceMocks(), platform: "win32", env: { AKARI_HOME: root },
+        spawnImpl: (...args) => spawnMock(calls.length === 0
+          ? { calls, code: 2147483651, stderr: chunks }
+          : { calls, beforeClose: () => writeFile(out, "video") })(...args),
+      });
+      assert.equal(calls.length, 2);
+      assert.deepEqual(result.gpuSandbox, { disabled: true, reason: "dll-load-failed" });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+}
+
+test("retry resets stdout fragments so the second completion starts the exit grace timer", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-gpu-sandbox-"));
+  try {
+    const calls = [];
+    const warnings = [];
+    const state = { kills: [] };
+    const out = join(root, "video.mp4");
+    const forwarded = [];
+    await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, {
+      ...exportOptions(out), onStdout: (text) => forwarded.push(text),
+    }, {
+      ...gpuPreferenceMocks(), stderr: { write: (text) => warnings.push(text) },
+      platform: "win32", env: { AKARI_HOME: root }, exitGraceMs: 20,
+      spawnImpl: (...args) => {
+        if (calls.length === 0) return spawnMock({ calls, code: 2147483651,
+          stdout: ["PROGRESS timing name=init ms="], stderr: [gpuDllStderr()],
+        })(...args);
+        calls.push({ args: args[1] });
+        return lingeringSpawn({ state, chunks: ["PROGRESS exit code=0\n"],
+          beforeOutput: () => writeFile(out, "video"), closeAfterMs: 100, closeCode: 0,
+        })(...args);
+      },
+    });
+    assert.equal(calls.length, 2);
+    assert.deepEqual(state.kills, [undefined]);
+    assert.equal(warnings.filter((text) => text.includes("終了しないため停止しました")).length, 1);
+    assert.deepEqual(forwarded, ["PROGRESS timing name=init ms=", "PROGRESS exit code=0\n"]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("retry resets progress counts used in the final missing-output diagnostic", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-gpu-sandbox-"));
+  try {
+    const calls = [];
+    await assert.rejects(launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, exportOptions(join(root, "video.mp4")), {
+      ...gpuPreferenceMocks(), platform: "win32", env: { AKARI_HOME: root },
+      spawnImpl: (...args) => spawnMock(calls.length === 0
+        ? { calls, code: 2147483651, stdout: ["PROGRESS frame=0\n"], stderr: [gpuDllStderr()] }
+        : { calls })(...args),
+    }), /出力がありません（PROGRESS 行 0）/u);
+    assert.equal(calls.length, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a retry with a different failure keeps its own error and the first DLL failure diagnostics", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-gpu-sandbox-"));
+  try {
+    const calls = [];
+    await assert.rejects(launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, exportOptions(join(root, "video.mp4")), {
+      ...gpuPreferenceMocks(), platform: "win32", env: { AKARI_HOME: root },
+      spawnImpl: (...args) => spawnMock(calls.length === 0
+        ? { calls, code: 2147483651, signal: "SIGTRAP", stderr: [gpuDllStderr()] }
+        : { calls, code: 7, stderr: ["VGPU-DEVICE-LOST\r\n"] })(...args),
+    }), (error) => {
+      assert.equal(error.electronExit.code, 7);
+      assert.equal(error.electronExit.hint, null);
+      assert.equal(error.electronExit.stderrTail, "VGPU-DEVICE-LOST\r\n");
+      assert.match(error.message, /VGPU-DEVICE-LOST/u);
+      assert.match(error.message, /GPU サンドボックスを外した再試行も失敗しました/u);
+      assert.deepEqual(error.gpuSandbox, {
+        disabled: true, reason: "dll-load-failed",
+        firstAttempt: { code: 2147483651, signal: "SIGTRAP", stderrTail: gpuDllStderr() },
+      });
+      return true;
+    });
+    assert.equal(calls.length, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+for (const stderrTail of ["ffmpeg exited: -1073741515\r\n", "ffmpeg exited: -1073741790\r\n"]) {
+  test(`non-GPU NTSTATUS does not produce a GPU sandbox hint: ${stderrTail.trim()}`, () => {
+    const message = describeElectronExit({ platform: "win32", code: 1, stderrTail });
+    assert.doesNotMatch(message, /GPU サンドボックス|システムの DLL|アクセス権/u);
+  });
+}
+
+test("a longer NTSTATUS split after the matching prefix does not trigger retry or hint", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-gpu-sandbox-"));
+  try {
+    const calls = [];
+    await assert.rejects(launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, exportOptions(join(root, "video.mp4")), {
+      ...gpuPreferenceMocks(), platform: "win32", env: { AKARI_HOME: root },
+      spawnImpl: spawnMock({ calls, code: 1, stderr: ["GPU process exited unexpectedly: exit_code=-1073741515", "0\r\n"] }),
+    }), (error) => {
+      assert.equal(error.electronExit.hint, null);
+      return true;
+    });
+    assert.equal(calls.length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
